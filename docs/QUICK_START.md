@@ -6,6 +6,26 @@ This is a quick reference guide for running your Next.js project inside Docker.
 
 ## Quick Commands
 
+### Using Docker Compose (Recommended)
+
+```bash
+# Start application (builds/updates image automatically)
+docker-compose up -d
+
+# Rebuild after code changes
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f
+
+# Stop application
+docker-compose down
+
+# Access: http://localhost:3000
+```
+
+### Using Docker Commands Directly
+
 ```bash
 # Build the image
 docker build -t pharma-aggregator-client:latest .
@@ -129,6 +149,130 @@ docker rm pharma-client 2>$null
 docker build -t pharma-aggregator-client:latest .
 docker run -d -p 3000:3000 --name pharma-client pharma-aggregator-client:latest
 ```
+
+---
+
+## Using Docker Compose (Recommended)
+
+Docker Compose simplifies managing your container. The project includes a `docker-compose.yml` file.
+
+### How Docker Compose Handles Images
+
+**Important:** When you run `docker-compose up`:
+- **If the image exists:** Docker Compose will **reuse/update** the existing image (it won't create a duplicate)
+- **If the image doesn't exist:** Docker Compose will **build** a new image
+- **If code changed:** Docker Compose will detect changes and rebuild only what's necessary
+
+### 1. Start the Application with Docker Compose
+
+**First time (builds image and starts container):**
+```bash
+docker-compose up -d
+```
+
+**Subsequent times (reuses/updates existing image):**
+```bash
+docker-compose up -d
+```
+
+The `-d` flag runs in detached mode (background).
+
+### 2. Rebuild the Image (After Code Changes)
+
+If you made code changes and want to rebuild:
+
+```bash
+docker-compose up -d --build
+```
+
+This will:
+- Rebuild the image with your latest code changes
+- Update the existing image (not create a duplicate)
+- Restart the container with the new image
+
+### 3. View Logs
+
+```bash
+# View logs
+docker-compose logs
+
+# Follow logs in real-time
+docker-compose logs -f
+
+# View logs for specific service
+docker-compose logs app
+```
+
+### 4. Stop the Application
+
+```bash
+docker-compose stop
+```
+
+This stops the container but keeps it (you can start it again).
+
+### 5. Stop and Remove Container
+
+```bash
+docker-compose down
+```
+
+This stops and removes the container, but **keeps the image**.
+
+### 6. Stop, Remove Container, and Remove Image
+
+```bash
+docker-compose down --rmi local
+```
+
+This removes everything including the image.
+
+### 7. Restart the Application
+
+```bash
+docker-compose restart
+```
+
+### 8. Check Status
+
+```bash
+docker-compose ps
+```
+
+### Docker Compose Commands Summary
+
+| Command | Description |
+|---------|-------------|
+| `docker-compose up -d` | Start (builds if needed, **updates** existing image) |
+| `docker-compose up -d --build` | Rebuild image and start |
+| `docker-compose down` | Stop and remove container (keeps image) |
+| `docker-compose down --rmi local` | Stop, remove container, and remove image |
+| `docker-compose logs -f` | View and follow logs |
+| `docker-compose ps` | View container status |
+| `docker-compose restart` | Restart the container |
+| `docker-compose stop` | Stop the container |
+| `docker-compose start` | Start stopped container |
+
+### Environment Variables with Docker Compose
+
+The `docker-compose.yml` file automatically loads variables from `.env` file. You can also:
+
+1. **Edit `docker-compose.yml`** and uncomment/modify the environment section:
+   ```yaml
+   environment:
+     - NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+   ```
+
+2. **Or use `.env` file** - Docker Compose automatically loads it.
+
+### Advantages of Docker Compose
+
+- ✅ **Simpler commands** - One command to start everything
+- ✅ **Smart image management** - Reuses/updates existing images automatically
+- ✅ **Automatic environment variable loading** - Reads from `.env` file
+- ✅ **Easy configuration** - All settings in one `docker-compose.yml` file
+- ✅ **Network management** - Automatically creates networks
+- ✅ **Restart policies** - Container restarts automatically if it crashes
 
 ---
 

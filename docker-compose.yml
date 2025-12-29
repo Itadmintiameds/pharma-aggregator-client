@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pharma-aggregator-client:latest
+    container_name: pharma-client
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      # Uncomment and set your backend URL if needed
+      # - NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - pharma-network
+
+networks:
+  pharma-network:
+    driver: bridge
+
