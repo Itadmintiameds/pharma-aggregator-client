@@ -4,6 +4,7 @@ import React, { useState, ChangeEvent, FormEvent } from 'react';
 import { BaseFormData, FormErrors } from './page';
 
 interface ConsumableFormData extends BaseFormData {
+  // Consumable specific fields
   molecule: string;
   dosageForm: string;
   strength: string;
@@ -56,27 +57,41 @@ function ConsumableProductForm() {
     if (type === 'file') {
       const fileInput = e.target as HTMLInputElement;
       const file = fileInput.files?.[0] || null;
-      setFormData(prev => ({ ...prev, [name]: file }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: file
+      }));
       
+      // Create image preview
       if (file) {
         const reader = new FileReader();
-        reader.onloadend = () => setImagePreview(reader.result as string);
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
         reader.readAsDataURL(file);
       } else {
         setImagePreview(null);
       }
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
     }
     
+    // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
     }
   };
 
   const validateForm = () => {
     const newErrors: FormErrors = {};
     
+    // Required fields
     const requiredFields: (keyof ConsumableFormData)[] = [
       'productCategory', 'productName', 'packagingUnit',
       'moq', 'stockQuantity', 'pricePerUnit', 'gstPercentage',
@@ -89,6 +104,7 @@ function ConsumableProductForm() {
       }
     });
     
+    // Date validation
     if (formData.manufacturingDate && formData.expiryDate) {
       const manufacturing = new Date(formData.manufacturingDate);
       const expiry = new Date(formData.expiryDate);
@@ -97,6 +113,7 @@ function ConsumableProductForm() {
       }
     }
     
+    // Quantity validation
     if (formData.moq && formData.maxOrderQuantity) {
       const moqNum = parseInt(formData.moq);
       const maxOrderNum = parseInt(formData.maxOrderQuantity);
@@ -111,9 +128,11 @@ function ConsumableProductForm() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    
     if (validateForm()) {
       console.log('Consumable form submitted:', formData);
       alert('Consumable product registered successfully!');
+      // API call here
     }
   };
 
@@ -244,13 +263,140 @@ function ConsumableProductForm() {
             </div>
           </div>
 
-          {/* ... Rest of the form structure remains similar but with po- classes ... */}
-          
+          <div className="po-row po-mb-3">
+            <div className="po-col-md-3">
+              <div className="po-form-group">
+                <label htmlFor="molecule" className="po-form-label">
+                  <i className="fas fa-atom po-label-icon"></i>
+                  Molecule / API
+                </label>
+                <input
+                  type="text"
+                  id="molecule"
+                  name="molecule"
+                  className="po-form-control"
+                  placeholder="e.g., Amoxicillin Trihydrate"
+                  value={formData.molecule}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+            
+            <div className="po-col-md-3">
+              <div className="po-form-group">
+                <label htmlFor="dosageForm" className="po-form-label">
+                  <i className="fas fa-prescription-bottle-alt po-label-icon"></i>
+                  Dosage Form
+                </label>
+                <input
+                  type="text"
+                  id="dosageForm"
+                  name="dosageForm"
+                  className="po-form-control"
+                  placeholder="e.g., Tablet, Capsule"
+                  value={formData.dosageForm}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+            
+            <div className="po-col-md-3">
+              <div className="po-form-group">
+                <label htmlFor="strength" className="po-form-label">
+                  <i className="fas fa-weight po-label-icon"></i>
+                  Strength
+                </label>
+                <input
+                  type="text"
+                  id="strength"
+                  name="strength"
+                  className="po-form-control"
+                  placeholder="e.g., 500mg"
+                  value={formData.strength}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+            
+            <div className="po-col-md-3">
+              <div className="po-form-group">
+                <label htmlFor="warnings" className="po-form-label">
+                  <i className="fas fa-exclamation-triangle po-label-icon"></i>
+                  Warnings / Side Effects
+                </label>
+                <input
+                  type="text"
+                  id="warnings"
+                  name="warnings"
+                  className="po-form-control"
+                  placeholder="e.g., Take with food, Drowsiness may occur"
+                  value={formData.warnings}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="po-row">
+            <div className="po-col-md-6">
+              <div className="po-form-group">
+                <label htmlFor="productDescription" className="po-form-label">
+                  <i className="fas fa-file-alt po-label-icon"></i>
+                  Drug Description
+                </label>
+                <textarea
+                  id="productDescription"
+                  name="productDescription"
+                  className="po-form-control"
+                  placeholder="Enter detailed drug description, indications, usage..."
+                  rows={3}
+                  value={formData.productDescription}
+                  onChange={handleChange}
+                />
+                <small className="po-form-text po-text-muted">Max 500 characters</small>
+              </div>
+            </div>
+            
+            <div className="po-col-md-6">
+              <div className="po-form-group">
+                <label htmlFor="productImage" className="po-form-label">
+                  <i className="fas fa-image po-label-icon"></i>
+                  Drug Image
+                </label>
+                <div className="po-image-upload-container">
+                  <div className="po-image-preview">
+                    {imagePreview ? (
+                      <img src={imagePreview} alt="Preview" className="po-preview-image" />
+                    ) : (
+                      <div className="po-preview-placeholder">
+                        <i className="fas fa-image"></i>
+                        <span>Image preview</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="po-upload-controls">
+                    <label htmlFor="productImage" className="po-upload-btn">
+                      <i className="fas fa-upload"></i> Choose Image
+                      <input
+                        type="file"
+                        id="productImage"
+                        name="productImage"
+                        className="po-d-none"
+                        accept=".jpg,.jpeg,.png,.webp"
+                        onChange={handleChange}
+                      />
+                    </label>
+                    <small className="po-form-text po-d-block po-mt-2">JPG, PNG or WebP. Max 5MB</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Packaging & Order Details Card */}
-      <div className="po-form-card po-card-secondary po-mt-4">
+      <div className="po-form-card po-card-secondary">
         <div className="po-card-header">
           <div className="po-card-icon">
             <i className="fas fa-box"></i>
@@ -329,7 +475,7 @@ function ConsumableProductForm() {
       </div>
 
       {/* Batch, Stock, Pricing & Tax Details Card */}
-      <div className="po-form-card po-card-accent po-mt-4">
+      <div className="po-form-card po-card-accent">
         <div className="po-card-header">
           <div className="po-card-icon">
             <i className="fas fa-chart-line"></i>
@@ -338,7 +484,6 @@ function ConsumableProductForm() {
         </div>
         
         <div className="po-card-body">
-          {/* Batch Details Row */}
           <div className="po-row po-mb-4">
             <div className="po-col-md-3">
               <div className="po-form-group">
@@ -425,7 +570,6 @@ function ConsumableProductForm() {
             </div>
           </div>
 
-          {/* Stock & Pricing Row */}
           <div className="po-row po-mb-4">
             <div className="po-col-md-3">
               <div className="po-form-group">
@@ -521,7 +665,6 @@ function ConsumableProductForm() {
             </div>
           </div>
 
-          {/* Tax Row */}
           <div className="po-row">
             <div className="po-col-md-3">
               <div className="po-form-group">

@@ -29,7 +29,7 @@
   max-width: 95vw;
   margin: 0 auto;
   padding: 30px 40px;
-  background-color: var(--po-background-light);
+  /* background-color: var(--po-background-light); */
   min-height: 100vh;
   width: 100%;
   box-sizing: border-box;
