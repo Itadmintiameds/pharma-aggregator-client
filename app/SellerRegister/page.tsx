@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import OtpVerification from "./OtpVerification";
+import Header from "../components/Header";
 
 
 export default function Design() {
@@ -144,6 +145,7 @@ export default function Design() {
 
   return (
     <div className="phsr-root">
+      <Header/>
       <div className="phsr-container my-5">
         <div className="phsr-onboarding-hero-sm phsr-mb-4">
           <div className="phsr-hero-glass-sm d-flex align-items-center justify-content-between px-4">

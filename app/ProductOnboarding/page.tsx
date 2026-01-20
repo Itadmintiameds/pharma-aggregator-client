@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import './product.css';
 import ConsumableProductForm from './ConsumableProductForm';
 import NonConsumableProductForm from './NonConsumableProductForm';
+import Header from '../components/Header';
 
 type ProductType = 'consumable' | 'non-consumable';
 
@@ -39,6 +40,7 @@ function ProductOnboarding() {
   const [productType, setProductType] = useState<ProductType>('consumable');
 
   return (
+    <><Header />
     <div className="po-seller-register-container">
       {/* Product Type Toggle */}
       <div className="po-product-type-toggle">
@@ -84,6 +86,7 @@ function ProductOnboarding() {
         <NonConsumableProductForm />
       )}
     </div>
+    </>
   );
 }
 
