@@ -7,19 +7,31 @@ interface Props {
   type: "email" | "phone";
   onClose: () => void;
   onVerified: () => void;
+  expectedOtp: string | null;
+  onResend: () => void;
 }
 
-export default function VerificationModal({ show, label, onClose, onVerified, type }: Props) {
+export default function VerificationModal({ 
+  show, 
+  label, 
+  onClose, 
+  onVerified, 
+  type, 
+  expectedOtp,
+  onResend 
+}: Props) {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
   const [canResend, setCanResend] = useState(true);
   const [resendCountdown, setResendCountdown] = useState(0);
+  const [error, setError] = useState<string>("");
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     if (show) {
       setOtp(["", "", "", "", "", ""]);
       setIsVerifying(false);
+      setError("");
       setTimeout(() => {
         inputs.current[0]?.focus();
       }, 50);
@@ -43,14 +55,38 @@ export default function VerificationModal({ show, label, onClose, onVerified, ty
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
+    setError(""); // Clear error when user types
+    
+    // Auto-advance to next input
     if (value && index < 5) {
       inputs.current[index + 1]?.focus();
+    }
+    
+    // Auto-submit if last digit is entered
+    if (value && index === 5) {
+      // Small delay to ensure state is updated
+      setTimeout(() => {
+        const enteredOtp = [...newOtp].join("");
+        if (enteredOtp.length === 6) {
+          verify();
+        }
+      }, 10);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       inputs.current[index - 1]?.focus();
+    }
+    
+    // Navigate with arrow keys
+    if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
+      inputs.current[index - 1]?.focus();
+    }
+    if (e.key === "ArrowRight" && index < 5) {
+      e.preventDefault();
+      inputs.current[index + 1]?.focus();
     }
   };
 
@@ -61,19 +97,50 @@ export default function VerificationModal({ show, label, onClose, onVerified, ty
     if (/^\d{6}$/.test(pasteData)) {
       const newOtp = pasteData.split('');
       setOtp(newOtp as string[]);
+      setError("");
       setTimeout(() => {
         inputs.current[5]?.focus();
       }, 10);
+    } else {
+      setError("Please paste a valid 6-digit code");
     }
   };
 
   const verify = () => {
     const enteredOtp = otp.join("");
+    
+    // Validate OTP length
     if (enteredOtp.length !== 6) {
-      alert("Please enter all 6 digits");
+      setError("Please enter all 6 digits");
       return;
     }
     
+    // Validate OTP format
+    if (!/^\d{6}$/.test(enteredOtp)) {
+      setError("Please enter a valid 6-digit code");
+      return;
+    }
+    
+    // Check if expected OTP is available
+    if (!expectedOtp) {
+      setError("OTP expired. Please request a new one.");
+      return;
+    }
+    
+    // Compare entered OTP with expected OTP
+    if (enteredOtp !== expectedOtp) {
+      setError("Invalid OTP. Please try again.");
+      
+      // Clear OTP fields and focus on first input
+      setOtp(["", "", "", "", "", ""]);
+      setTimeout(() => {
+        inputs.current[0]?.focus();
+      }, 50);
+      
+      return;
+    }
+    
+    // OTP is correct
     setIsVerifying(true);
     setTimeout(() => {
       onVerified();
@@ -84,11 +151,23 @@ export default function VerificationModal({ show, label, onClose, onVerified, ty
 
   const handleResendCode = () => {
     if (!canResend) return;
+    
     setCanResend(false);
     setResendCountdown(30);
+    setOtp(["", "", "", "", "", ""]);
+    setError("");
+    
+    // Call parent resend function
+    onResend();
+    
+    // Focus on first input
     setTimeout(() => {
-      alert(`A new verification code has been sent to your ${type}.`);
-    }, 300);
+      inputs.current[0]?.focus();
+    }, 50);
+  };
+
+  const clearError = () => {
+    setError("");
   };
 
   if (!show) return null;
@@ -135,14 +214,25 @@ export default function VerificationModal({ show, label, onClose, onVerified, ty
                   onChange={(e) => handleChange(e.target.value, index)}
                   onKeyDown={(e) => handleKeyDown(e, index)}
                   onPaste={handlePaste}
+                  onClick={clearError}
                   className="w-9 h-10 text-center text-sm font-bold rounded border bg-gray-50 focus:outline-none focus:border-blue-400 focus:bg-white focus:ring-1 focus:ring-blue-300 transition-all"
                   style={{
-                    borderColor: digit ? (type === "email" ? '#3b82f6' : '#10b981') : '#d1d5db',
-                    color: digit ? (type === "email" ? '#2563eb' : '#059669') : '#333',
+                    borderColor: error ? '#ef4444' : (digit ? (type === "email" ? '#3b82f6' : '#10b981') : '#d1d5db'),
+                    color: error ? '#ef4444' : (digit ? (type === "email" ? '#2563eb' : '#059669') : '#333'),
                   }}
                 />
               ))}
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-2 p-2 text-xs text-red-600 bg-red-50 rounded border border-red-100 flex items-center">
+                <svg className="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {error}
+              </div>
+            )}
 
             {/* Verify Button */}
             <button
@@ -186,7 +276,9 @@ export default function VerificationModal({ show, label, onClose, onVerified, ty
                 ) : `Resend in ${resendCountdown}s`}
               </button>
               
-              <span className="text-xs text-gray-500 italic">Demo: 6 digits</span>
+              <span className="text-xs text-gray-500 italic">
+                {expectedOtp ? `Demo: ${expectedOtp}` : "Demo: 6 digits"}
+              </span>
             </div>
 
             {/* Footer */}

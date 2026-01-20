@@ -65,7 +65,7 @@ export default function Section() {
 
       {/* CTA Button */}
       <div className="mt-12 flex justify-center">
-        <Link href="/register">
+        <Link href="/SellerRegister">
           <button className="
                       rounded-xl bg-[#2D0066] 
                       px-10 py-4 

@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import VerificationModal from "./OtpModalSixBox";
 
-
 interface Props {
   label: string;
   value: string;
@@ -31,7 +30,6 @@ export default function OtpVerification({ label, value, onChange, onVerified, ve
     }
     
     setShowModal(true);
-    // Generate a demo OTP for testing
     const demoOtp = Math.floor(100000 + Math.random() * 900000).toString();
     setLastSentOtp(demoOtp);
     
@@ -51,14 +49,14 @@ export default function OtpVerification({ label, value, onChange, onVerified, ve
 
   return (
     <>
-      <div className="mb-4 pharma-otp-field">
-        <label className="form-label fw-semibold">
+      <div className="phsr-otp-field">
+        <label className="phsr-form-label fw-semibold">
           <i className={`bi ${getIcon()} me-2`}></i>{label}
         </label>
         <div className="d-flex gap-2 align-items-start">
           <input
             type={label === "Email" ? "email" : "tel"}
-            className={`form-control pharma-input ${verified ? "otp-verified" : ""}`}
+            className={`phsr-input ${verified ? "phsr-otp-verified" : ""}`}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             disabled={verified}
@@ -66,7 +64,7 @@ export default function OtpVerification({ label, value, onChange, onVerified, ve
           />
           <button 
             type="button"
-            className={`btn ${verified ? 'btn-success' : 'btn-outline-primary'} pharma-otp-btn`}
+            className={`phsr-otp-btn ${verified ? 'btn-success' : ''}`}
             onClick={sendOtp}
             disabled={verified}
           >
@@ -82,7 +80,7 @@ export default function OtpVerification({ label, value, onChange, onVerified, ve
           </button>
         </div>
         {verified && (
-          <small className="pharma-verified-text mt-1 d-block">
+          <small className="phsr-verified-text phsr-mt-1 d-block">
             <i className="bi bi-check-circle-fill me-1"></i> {label} verified successfully
           </small>
         )}
@@ -96,6 +94,13 @@ export default function OtpVerification({ label, value, onChange, onVerified, ve
         onVerified={() => {
           onVerified();
           setShowModal(false);
+        }}
+        expectedOtp={lastSentOtp}
+        onResend={() => {
+          const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+          setLastSentOtp(newOtp);
+          console.log(`New OTP sent: ${newOtp}`);
+          alert(`New OTP sent: ${newOtp}`);
         }}
       />
     </>
