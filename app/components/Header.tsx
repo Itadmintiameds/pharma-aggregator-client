@@ -1,29 +1,35 @@
-import Link from 'next/link'
+import Link from 'next/link';
 
-export default function Header() {
+type HeaderProps = {
+    showLogout?: boolean;
+    onLogout?: () => void;
+};
+
+export default function Header({ showLogout = false, onLogout }: HeaderProps) {
     return (
         <div className="bg-[#F3ECF8] pb-6">
             <header
                 className="
-                    mx-auto w-full
-                    rounded-[10px]
+                    fixed top-0 left-0 z-50
+                    w-full
                     border border-[#eaeaea]
-                    bg-[rgba(250,250,250,0.64)]
+                    bg-[#f4f2f7]
                     shadow-[0_0_12px_rgba(0,0,0,0.10)]
-                    backdrop-blur-md
-                    "
+                "
             >
                 <div className="flex items-center justify-between px-6">
                     {/* Logo */}
-                    <div className="flex items-center">
-                        <img
-                            src="/assets/images/tiameds.logo.png"
-                            alt="Company logo"
-                            width={230}
-                            height={40}
-                            className="transition-transform duration-200 hover:scale-110"
-                        />
-                    </div>
+                    <Link href={"/"}>
+                        <div className="flex items-center">
+                            <img
+                                src="/assets/images/tiameds.logo.png"
+                                alt="Company logo"
+                                width={230}
+                                height={40}
+                                className="transition-transform duration-200 hover:scale-110"
+                            />
+                        </div>
+                    </Link>
 
                     {/* Actions */}
                     <nav className="flex items-center gap-20 font-sans text-base font-medium text-[#0A0A0B] pr-20">
@@ -66,6 +72,24 @@ export default function Header() {
                         >
                             Contact Info
                         </Link>
+
+                        {showLogout && (
+                            <button
+                                onClick={onLogout}
+                                className="
+                                    px-6 py-2
+                                    text-white font-semibold
+                                    rounded-lg
+                                    bg-[#4B0082]
+                                    transition-all duration-200
+                                    hover:bg-[#751bb5]
+                                    hover:scale-90
+                                    "
+                            >
+                                Logout
+                            </button>
+                            
+                        )}
 
                     </nav>
                 </div>
