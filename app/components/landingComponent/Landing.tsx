@@ -4,7 +4,7 @@ import ImageSlider from "../ImageSlider";
 
 const Landing = () => {
   return (
-    <div className="bg-[#F3ECF8]">
+    <div className="bg-[#F3ECF8] pt-18">
       <Header />
 
       <section className="mx-auto mt-10 w-4/5 space-y-12">
