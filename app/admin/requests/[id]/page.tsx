@@ -76,7 +76,7 @@ export default function SellerRequestDetails() {
 
   return (
     <>
-      <Header showLogout onLogout={() => router.push("/admin/login")} />
+      <Header admin onLogout={() => router.push("/admin/login")} />
 
       {/* Page Background */}
       <main className="pt-20 bg-[#F7F2FB] min-h-screen px-6">
