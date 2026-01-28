@@ -114,10 +114,10 @@ export default function SellerRequestDetails() {
             </Section>
 
             <Section title="Compliance Documents">
-              <Item label="GST Number" value="test" />
-              <FileItem label="GST Certificate" fileUrl="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" />
-              <Item label="Drug License No" value="test" />
-              <FileItem label="License File" fileUrl="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" />
+              <Item label="GST Number" value="29ABCDE1234F1Z5" />
+              <FileItem label="GST Certificate" fileUrl="/assets/docs/gst-certificate.png" />
+              <Item label="Drug License No" value="21B/KA/54321" />
+              <FileItem label="License File" fileUrl="/assets/docs/license-file.png" />
             </Section>
 
             <Section title="Bank Account Details">
