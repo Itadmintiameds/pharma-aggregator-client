@@ -175,7 +175,7 @@ function ConsumableProductForm() {
             <i className="fas fa-capsules"></i>
           </div>
           <h2>Drug Details</h2>
-          <span className="po-card-badge">Required</span>
+          {/* <span className="po-card-badge">Required</span> */}
           <span className="po-product-type-tag">
             <i className="fas fa-pills"></i>
             Consumable
@@ -375,16 +375,17 @@ function ConsumableProductForm() {
                     )}
                   </div>
                   <div className="po-upload-controls">
+                    <input
+                      type="file"
+                      id="productImage"
+                      name="productImage"
+                      className="po-file-input"
+                      accept=".jpg,.jpeg,.png,.webp"
+                      onChange={handleChange}
+                      style={{ display: 'none' }}
+                    />
                     <label htmlFor="productImage" className="po-upload-btn">
-                      <i className="fas fa-upload"></i> Choose Image
-                      <input
-                        type="file"
-                        id="productImage"
-                        name="productImage"
-                        className="po-d-none"
-                        accept=".jpg,.jpeg,.png,.webp"
-                        onChange={handleChange}
-                      />
+                      Choose Image
                     </label>
                     <small className="po-form-text po-d-block po-mt-2">JPG, PNG or WebP. Max 5MB</small>
                   </div>
@@ -729,7 +730,7 @@ function ConsumableProductForm() {
             <i className="fas fa-redo"></i> Reset Form
           </button>
           <button type="submit" className="po-btn po-btn-primary po-btn-lg po-submit-btn">
-            <i className="fas fa-check-circle"></i> Register Drug
+            <i className="fas fa-check-circle"></i> Add Product
           </button>
         </div>
       </div>
