@@ -53,18 +53,20 @@ export default function OtpVerification({ label, value, onChange, onVerified, ve
         <label className="phsr-form-label fw-semibold">
           <i className={`bi ${getIcon()} me-2`}></i>{label}
         </label>
-        <div className="d-flex gap-2 align-items-start">
+
+        <div className="d-flex gap-2 align-items-center phsr-otp-row">
           <input
             type={label === "Email" ? "email" : "tel"}
-            className={`phsr-input ${verified ? "phsr-otp-verified" : ""}`}
+            className={`phsr-input phsr-otp-input ${verified ? "phsr-otp-verified" : ""}`}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             disabled={verified}
             placeholder={getPlaceholder()}
           />
+
           <button 
             type="button"
-            className={`phsr-otp-btn ${verified ? 'btn-success' : ''}`}
+            className={`phsr-otp-btn ${verified ? 'btn-success' : 'btn-outline-primary'}`}
             onClick={sendOtp}
             disabled={verified}
           >
@@ -79,6 +81,7 @@ export default function OtpVerification({ label, value, onChange, onVerified, ve
             )}
           </button>
         </div>
+
         {verified && (
           <small className="phsr-verified-text phsr-mt-1 d-block">
             <i className="bi bi-check-circle-fill me-1"></i> {label} verified successfully

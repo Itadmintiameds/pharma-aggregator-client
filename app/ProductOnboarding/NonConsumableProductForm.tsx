@@ -33,12 +33,12 @@ function NonConsumableProductForm() {
     productDescription: '',
     warnings: '',
     productImage: null,
-    
+
     // Packaging & Order Details
     packagingUnit: '',
     moq: '',
     maxOrderQuantity: '',
-    
+
     // Stock, Pricing & Tax Details
     stockQuantity: '',
     dateOfEntry: '',
@@ -46,7 +46,7 @@ function NonConsumableProductForm() {
     discountPercentage: '',
     gstPercentage: '',
     hsnCode: '',
-    
+
     // Non-Consumable specific
     manufacturer: '',
     model: '',
@@ -72,12 +72,12 @@ function NonConsumableProductForm() {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    
+
     if (type === 'file') {
       const fileInput = e.target as HTMLInputElement;
       const file = fileInput.files?.[0] || null;
       setFormData(prev => ({ ...prev, [name]: file }));
-      
+
       if (file) {
         const reader = new FileReader();
         reader.onloadend = () => setImagePreview(reader.result as string);
@@ -88,7 +88,7 @@ function NonConsumableProductForm() {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-    
+
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -96,19 +96,19 @@ function NonConsumableProductForm() {
 
   const validateForm = () => {
     const newErrors: FormErrors = {};
-    
+
     const requiredFields: (keyof NonConsumableFormData)[] = [
       'productCategory', 'productName', 'packagingUnit',
       'moq', 'stockQuantity', 'pricePerUnit', 'gstPercentage',
       'manufacturingDate', 'expiryDate'
     ];
-    
+
     requiredFields.forEach(field => {
       if (!formData[field]) {
         newErrors[field] = 'This field is required';
       }
     });
-    
+
     if (formData.manufacturingDate && formData.expiryDate) {
       const manufacturing = new Date(formData.manufacturingDate);
       const expiry = new Date(formData.expiryDate);
@@ -116,7 +116,7 @@ function NonConsumableProductForm() {
         newErrors.expiryDate = 'Expiry date must be after manufacturing date';
       }
     }
-    
+
     if (formData.moq && formData.maxOrderQuantity) {
       const moqNum = parseInt(formData.moq);
       const maxOrderNum = parseInt(formData.maxOrderQuantity);
@@ -124,7 +124,7 @@ function NonConsumableProductForm() {
         newErrors.maxOrderQuantity = 'Maximum order must be greater than MOQ';
       }
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -186,13 +186,13 @@ function NonConsumableProductForm() {
             <i className="fas fa-toolbox"></i>
           </div>
           <h2>Equipment Details</h2>
-          <span className="po-card-badge">Required</span>
+          {/* <span className="po-card-badge">Required</span> */}
           <span className="po-product-type-tag">
             <i className="fas fa-stethoscope"></i>
             Non-Consumable
           </span>
         </div>
-        
+
         <div className="po-card-body">
           {/* Row 1: Basic Details */}
           <div className="po-row po-mb-3">
@@ -224,7 +224,7 @@ function NonConsumableProductForm() {
                 )}
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="therapeuticCategory" className="po-form-label">
@@ -250,7 +250,7 @@ function NonConsumableProductForm() {
                 </select>
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="subCategory" className="po-form-label">
@@ -268,7 +268,7 @@ function NonConsumableProductForm() {
                 />
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="productName" className="po-form-label">
@@ -310,7 +310,7 @@ function NonConsumableProductForm() {
                 />
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="model" className="po-form-label">
@@ -328,7 +328,7 @@ function NonConsumableProductForm() {
                 />
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="serialNumber" className="po-form-label">
@@ -346,7 +346,7 @@ function NonConsumableProductForm() {
                 />
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="intendedUse" className="po-form-label">
@@ -385,7 +385,7 @@ function NonConsumableProductForm() {
                 />
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="weight" className="po-form-label">
@@ -403,7 +403,7 @@ function NonConsumableProductForm() {
                 />
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="materialComposition" className="po-form-label">
@@ -421,7 +421,7 @@ function NonConsumableProductForm() {
                 />
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="powerRequirement" className="po-form-label">
@@ -460,7 +460,7 @@ function NonConsumableProductForm() {
                 />
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="deviceClass" className="po-form-label">
@@ -482,7 +482,7 @@ function NonConsumableProductForm() {
                 </select>
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="regulatoryApprovalNumber" className="po-form-label">
@@ -500,7 +500,7 @@ function NonConsumableProductForm() {
                 />
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="countryOfOrigin" className="po-form-label">
@@ -541,7 +541,7 @@ function NonConsumableProductForm() {
                 </select>
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="warrantyPeriod" className="po-form-label">
@@ -566,7 +566,7 @@ function NonConsumableProductForm() {
                 </select>
               </div>
             </div>
-            
+
             <div className="po-col-md-6">
               <div className="po-form-group">
                 <label htmlFor="warnings" className="po-form-label">
@@ -606,7 +606,7 @@ function NonConsumableProductForm() {
                 <small className="po-form-text po-text-muted">Max 500 characters</small>
               </div>
             </div>
-            
+
             <div className="po-col-md-6">
               <div className="po-form-group">
                 <label htmlFor="productImage" className="po-form-label">
@@ -625,16 +625,17 @@ function NonConsumableProductForm() {
                     )}
                   </div>
                   <div className="po-upload-controls">
+                    <input
+                      type="file"
+                      id="productImage"
+                      name="productImage"
+                      className="po-file-input"
+                      accept=".jpg,.jpeg,.png,.webp"
+                      onChange={handleChange}
+                      style={{ display: 'none' }}
+                    />
                     <label htmlFor="productImage" className="po-upload-btn">
-                      <i className="fas fa-upload"></i> Choose Image
-                      <input
-                        type="file"
-                        id="productImage"
-                        name="productImage"
-                        className="po-d-none"
-                        accept=".jpg,.jpeg,.png,.webp"
-                        onChange={handleChange}
-                      />
+                      Choose Image
                     </label>
                     <small className="po-form-text po-d-block po-mt-2">JPG, PNG or WebP. Max 5MB</small>
                   </div>
@@ -653,7 +654,7 @@ function NonConsumableProductForm() {
           </div>
           <h2>Packaging & Order Details</h2>
         </div>
-        
+
         <div className="po-card-body">
           <div className="po-row">
             <div className="po-col-md-4">
@@ -676,7 +677,7 @@ function NonConsumableProductForm() {
                 )}
               </div>
             </div>
-            
+
             <div className="po-col-md-4">
               <div className="po-form-group">
                 <label htmlFor="moq" className="po-form-label">
@@ -698,7 +699,7 @@ function NonConsumableProductForm() {
                 )}
               </div>
             </div>
-            
+
             <div className="po-col-md-4">
               <div className="po-form-group">
                 <label htmlFor="maxOrderQuantity" className="po-form-label">
@@ -732,7 +733,7 @@ function NonConsumableProductForm() {
           </div>
           <h2>Manufacturing, Stock, Pricing & Tax Details</h2>
         </div>
-        
+
         <div className="po-card-body">
           {/* Row 1: Manufacturing & Storage */}
           <div className="po-row po-mb-4">
@@ -755,7 +756,7 @@ function NonConsumableProductForm() {
                 )}
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="expiryDate" className="po-form-label">
@@ -775,7 +776,7 @@ function NonConsumableProductForm() {
                 )}
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="storageCondition" className="po-form-label">
@@ -797,7 +798,7 @@ function NonConsumableProductForm() {
                 </select>
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="stockQuantity" className="po-form-label">
@@ -839,7 +840,7 @@ function NonConsumableProductForm() {
                 />
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="pricePerUnit" className="po-form-label">
@@ -867,7 +868,7 @@ function NonConsumableProductForm() {
                 )}
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="discountPercentage" className="po-form-label">
@@ -893,7 +894,7 @@ function NonConsumableProductForm() {
                 </div>
               </div>
             </div>
-            
+
             <div className="po-col-md-3">
               <div className="po-form-group">
                 <label htmlFor="gstPercentage" className="po-form-label">

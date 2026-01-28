@@ -40,52 +40,50 @@ function ProductOnboarding() {
   const [productType, setProductType] = useState<ProductType>('consumable');
 
   return (
-    <><Header />
-    <div className="po-seller-register-container">
-      {/* Product Type Toggle */}
-      <div className="po-product-type-toggle">
-        <div className="po-toggle-header">
-          <h3>Product Type Selection</h3>
-          <p className="po-toggle-subtitle">Select the type of product you want to register</p>
-        </div>
-        <div className="po-toggle-buttons">
-          <button
-            type="button"
-            className={`po-toggle-btn ${productType === 'consumable' ? 'po-active' : ''}`}
-            onClick={() => setProductType('consumable')}
-          >
-            <i className="fas fa-pills"></i>
-            <span>Consumables</span>
-            {productType === 'consumable' && <span className="po-badge">Default</span>}
-          </button>
-          <button
-            type="button"
-            className={`po-toggle-btn ${productType === 'non-consumable' ? 'po-active' : ''}`}
-            onClick={() => setProductType('non-consumable')}
-          >
-            <i className="fas fa-stethoscope"></i>
-            <span>Non-Consumables</span>
-          </button>
-        </div>
-        <div className="po-type-indicator">
-          <i className="fas fa-info-circle"></i>
-          <span>Currently selected: <strong>{productType === 'consumable' ? 'Consumables (Pharmaceuticals, Drugs)' : 'Non-Consumables (Medical Equipment, Devices)'}</strong></span>
-        </div>
-      </div>
+    <>
+      <Header />
+      <div className="po-seller-register-container">
+        {/* Header Section with Title and Product Type Toggle in one row */}
+        <div className="po-header-row">
+          <div className="po-title-section ">
+            <h1 className="po-main-title ">
+              <i className={`fas fa-${productType === 'consumable' ? 'pills' : 'stethoscope'} po-title-icon`}></i>
+              {productType === 'consumable' ? 'Pharmaceutical Product Onboarding' : 'Medical Equipment Onboarding'}
+            </h1>
+          </div>
 
-      <div className="po-header-section">
-        <h1 className="po-main-title">
-          <i className={`fas fa-${productType === 'consumable' ? 'pills' : 'stethoscope'} po-title-icon`}></i>
-          {productType === 'consumable' ? 'Pharmaceutical Product Onboarding' : 'Medical Equipment Onboarding'}
-        </h1>
-      </div>
+          <div className="po-product-type-toggle-top">
+            <div className="po-toggle-label">
+              <i className="fas fa-boxes"></i>
+              <span>Product Type:</span>
+            </div>
+            <div className="po-toggle-buttons-top">
+              <button
+                type="button"
+                className={`po-toggle-btn-top ${productType === 'consumable' ? 'po-active' : ''}`}
+                onClick={() => setProductType('consumable')}
+              >
+                <i className="fas fa-pills"></i>
+                <span>Consumables</span>
+              </button>
+              <button
+                type="button"
+                className={`po-toggle-btn-top ${productType === 'non-consumable' ? 'po-active' : ''}`}
+                onClick={() => setProductType('non-consumable')}
+              >
+                <i className="fas fa-stethoscope"></i>
+                <span>Non-Consumables</span>
+              </button>
+            </div>
+          </div>
+        </div>
 
-      {productType === 'consumable' ? (
-        <ConsumableProductForm />
-      ) : (
-        <NonConsumableProductForm />
-      )}
-    </div>
+        {productType === 'consumable' ? (
+          <ConsumableProductForm />
+        ) : (
+          <NonConsumableProductForm />
+        )}
+      </div>
     </>
   );
 }
