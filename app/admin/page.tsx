@@ -47,7 +47,7 @@ export default function AdminPage() {
 
   return (
     <>
-      <Header showLogout onLogout={handleLogout} />
+      <Header admin onLogout={handleLogout} />
 
       {/* Page background */}
       <main className="pt-20 bg-[#F7F2FB] min-h-screen px-6">
