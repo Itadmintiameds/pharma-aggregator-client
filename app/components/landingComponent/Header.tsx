@@ -15,7 +15,6 @@ export default function Header() {
             >
                 <div className="flex items-center justify-between px-6">
                     {/* Logo */}
-                    <Link href={"/"}>
                         <div className="flex items-center">
                             <img
                                 src="/assets/images/tiameds.logo.png"
@@ -25,7 +24,6 @@ export default function Header() {
                                 className="transition-transform duration-200 hover:scale-110"
                             />
                         </div>
-                    </Link>
 
                     {/* Actions */}
                     <nav className="flex items-center gap-15 font-sans text-base font-medium text-[#0A0A0B] pr-20">
