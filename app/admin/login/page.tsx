@@ -24,8 +24,20 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F3ECF8]">
-      <div className="flex flex-col items-center gap-6">
+    <div
+      className="min-h-screen flex items-center justify-center bg-[#F3ECF8] relative overflow-hidden"
+    >
+      {/* Watermark Logo Background */}
+      <div
+        className="absolute inset-0 bg-center bg-no-repeat bg-contain opacity-5"
+        style={{
+          backgroundImage: "url('/assets/images/tiameds.logo.png')",
+        }}
+      />
+
+      {/* Content Layer */}
+      <div className="flex flex-col items-center gap-6 relative z-10">
+
 
         {/* Logo */}
         <Link
@@ -37,10 +49,15 @@ export default function AdminLogin() {
           /></Link>
 
         {/* Login Form */}
-        <form
+        {/* <form
           onSubmit={handleSubmit}
           className="bg-white p-8 rounded-xl shadow-lg w-[400px]"
+        > */}
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white/30 backdrop-blur-md p-8 rounded-xl shadow-xl w-[400px] border border-white/40"
         >
+
           <h2 className="text-2xl font-bold text-center text-[#4B0082] mb-6">
             Admin Login
           </h2>
