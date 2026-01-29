@@ -1,6 +1,6 @@
 "use client";
 
-import Header from "@/app/components/Header";
+import Header from "@/src/app/components/Header";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 

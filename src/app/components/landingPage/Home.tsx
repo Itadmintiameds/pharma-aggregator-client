@@ -1,11 +1,11 @@
 import React from "react";
-import Header from "../landingComponent/Header";
 import ImageSlider from "../ImageSlider";
+import LandingHeader from "./LandingHeader";
 
-const Landing = () => {
+const Home = () => {
   return (
     <div className="bg-[#F3ECF8] pt-18">
-      <Header />
+      <LandingHeader />
 
       <section className="mx-auto mt-10 w-4/5 space-y-12">
 
@@ -32,4 +32,4 @@ const Landing = () => {
   );
 };
 
-export default Landing;
+export default Home;
