@@ -55,7 +55,7 @@ export default function Header({ admin = false, onLogout }: HeaderProps) {
 
                                 {/* Admin Home */}
                                 <Link
-                                    href="/admin"
+                                    href="/admin_f6c29e3d"
                                     className="
                                         text-[18px] font-semibold text-[#2D0066]
                                         transition-all duration-200
@@ -83,7 +83,7 @@ export default function Header({ admin = false, onLogout }: HeaderProps) {
 
                                 {/* Admin Insights */}
                                 <Link
-                                    href="/admin"
+                                    href="/admin_f6c29e3d"
                                     className="
                                         text-[18px] font-semibold text-[#2D0066]
                                         transition-all duration-200
@@ -127,7 +127,7 @@ export default function Header({ admin = false, onLogout }: HeaderProps) {
                                 </Link>
 
                                 <Link
-                                    href="/seller"
+                                    href="/seller_7a3b9f2c"
                                     className="
                                         text-[18px] font-semibold text-[#2D0066]
                                         transition-all duration-200
@@ -140,7 +140,7 @@ export default function Header({ admin = false, onLogout }: HeaderProps) {
                                 </Link>
 
                                 <Link
-                                    href="/seller"
+                                    href="/seller_7a3b9f2c"
                                     className="
                                         text-[18px] font-semibold text-[#2D0066]
                                         transition-all duration-200

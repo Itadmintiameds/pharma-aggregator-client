@@ -1,16 +1,12 @@
 "use client";
 
 import Header from "@/src/app/components/Header";
-import { useParams, useRouter } from "next/navigation";
-
-/* ---------- Reusable UI helpers ---------- */
+import { useRouter } from "next/navigation";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h2 className="text-xl font-bold text-[#2D0066] mb-4">
-        {title}
-      </h2>
+      <h2 className="text-xl font-bold text-[#2D0066] mb-4">{title}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">
         {children}
       </div>
@@ -25,9 +21,7 @@ function Item({ label, value, verified = false }: any) {
       <p className="font-medium">
         {value}
         {verified && (
-          <span className="ml-2 text-green-600 text-sm font-semibold">
-            ✔ Verified
-          </span>
+          <span className="ml-2 text-green-600 text-sm font-semibold">✔ Verified</span>
         )}
       </p>
     </div>
@@ -43,7 +37,6 @@ function FileItem({ label, fileUrl }: { label: string; fileUrl?: string }) {
       </div>
     );
   }
-
   return (
     <div>
       <p className="text-sm text-gray-500">{label}</p>
@@ -70,22 +63,19 @@ function StatusItem({ label, status, highlight = false }: any) {
   );
 }
 
-export default function SellerRequestDetails() {
-  const { id } = useParams();
+interface RequestDetailsProps {
+  requestId: string;
+}
+
+export default function RequestDetails({ requestId }: RequestDetailsProps) {
   const router = useRouter();
 
   return (
     <>
-      <Header admin onLogout={() => router.push("/admin/login")} />
-
-      {/* Page Background */}
+      <Header admin onLogout={() => router.push("/admin_f6c29e3d/login")} />
       <main className="pt-20 bg-[#F7F2FB] min-h-screen px-6">
         <div className="max-w-7xl mx-auto">
-
-          {/* BIG WHITE CONTAINER (same as Admin page) */}
           <div className="bg-white rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] p-10 space-y-10">
-
-            {/* Page Title */}
             <div>
               <h1 className="text-3xl font-bold text-[#2D0066]">
                 Final Verification Summary
@@ -94,9 +84,7 @@ export default function SellerRequestDetails() {
                 Please review all details before final submission
               </p>
             </div>
-
-            <Item label="Request ID" value={id} />
-
+            <Item label="Request ID" value={requestId} />
             <Section title="Company Details">
               <Item label="Company Name" value="test" />
               <Item label="Company Type" value="White Labelling Company" />
@@ -105,21 +93,18 @@ export default function SellerRequestDetails() {
               <Item label="Email" value="test@gmail.com" />
               <Item label="Website" value="N/A" />
             </Section>
-
             <Section title="Coordinator Details">
               <Item label="Name" value="Test" />
               <Item label="Designation" value="Test" />
               <Item label="Email" value="test@gmail.com" verified />
               <Item label="Mobile" value="1234567890" verified />
             </Section>
-
             <Section title="Compliance Documents">
               <Item label="GST Number" value="29ABCDE1234F1Z5" />
               <FileItem label="GST Certificate" fileUrl="/assets/docs/gst-certificate.png" />
               <Item label="Drug License No" value="21B/KA/54321" />
               <FileItem label="License File" fileUrl="/assets/docs/license-file.png" />
             </Section>
-
             <Section title="Bank Account Details">
               <Item label="State" value="test" />
               <Item label="District" value="test" />
@@ -130,7 +115,6 @@ export default function SellerRequestDetails() {
               <Item label="Account Number" value="****7890" />
               <Item label="Account Holder Name" value="Test" />
             </Section>
-
             <Section title="Validation Summary">
               <StatusItem label="Company Info" status="Complete" />
               <StatusItem label="Verification" status="Complete" />
@@ -138,14 +122,11 @@ export default function SellerRequestDetails() {
               <StatusItem label="Bank Details" status="Complete" />
               <StatusItem label="Overall Status" status="Ready to Submit" highlight />
             </Section>
-
-            {/* Admin Actions */}
             <div className="pt-6 border-t">
               <textarea
                 placeholder="Add admin comments"
                 className="w-full border rounded-lg p-3 mb-6"
               />
-
               <div className="flex gap-4">
                 <button className="bg-green-600 text-white px-6 py-2 rounded-lg">
                   Accept
@@ -158,7 +139,6 @@ export default function SellerRequestDetails() {
                 </button>
               </div>
             </div>
-
           </div>
         </div>
       </main>

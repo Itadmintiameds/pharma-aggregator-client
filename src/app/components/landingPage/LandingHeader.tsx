@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import AdminLogin from "../AdminLogin";
 
 export default function LandingHeader() {
     const [menuOpen, setMenuOpen] = useState(false);
+    const [showAdminLogin, setShowAdminLogin] = useState(false);
 
     return (
         <div className="bg-[#F3ECF8] pb-6">
@@ -21,20 +23,22 @@ export default function LandingHeader() {
                 <div className="flex items-center justify-between px-6">
                     {/* Logo */}
                     <div className="flex items-center">
-                        <img
-                            src="/assets/images/tiameds.logo.png"
-                            alt="Company logo"
-                            width={230}
-                            height={40}
-                            className="transition-transform duration-200 hover:scale-110"
-                        />
+                        <Link href="/">
+                            <img
+                                src="/assets/images/tiameds.logo.png"
+                                alt="Company logo"
+                                width={230}
+                                height={40}
+                                className="transition-transform duration-200 hover:scale-110"
+                            />
+                        </Link>
                     </div>
 
                     {/* Seller & Buyer */}
                     <nav className="flex items-center gap-15 font-sans text-base font-medium text-[#0A0A0B] ml-auto mr-30">
                         {/* Text buttons */}
                         <Link
-                            href="/seller"
+                            href="/seller_7a3b9f2c"
                             className="
                                 text-[18px] font-semibold text-[#2D0066]
                                 transition-all duration-200
@@ -47,7 +51,7 @@ export default function LandingHeader() {
                         </Link>
 
                         <Link
-                            href="/buyer"
+                            href="/buyer_e8d45a1b"
                             className="
                                 text-[18px] font-semibold text-[#2D0066]
                                 transition-all duration-200
@@ -70,6 +74,11 @@ export default function LandingHeader() {
                 </div>
             </header>
 
+            {/* Admin Login Modal */}
+            {showAdminLogin && (
+                <AdminLogin onClose={() => setShowAdminLogin(false)} />
+            )}
+
             {/* Overlay */}
             {menuOpen && (
                 <div
@@ -80,8 +89,9 @@ export default function LandingHeader() {
 
             {/* Side Drawer */}
             <div
-                className={`fixed top-0 right-0 h-screen w-72 bg-[#f4f2f7] shadow-2xl z-50 transform transition-transform duration-300 ${menuOpen ? "translate-x-0" : "translate-x-full"
-                    }`}
+                className={`fixed top-0 right-0 h-screen w-72 bg-[#f4f2f7] shadow-2xl z-50 transform transition-transform duration-300 ${
+                    menuOpen ? "translate-x-0" : "translate-x-full"
+                }`}
             >
                 <div className="flex justify-end p-4 border-b">
                     <button
@@ -117,13 +127,21 @@ export default function LandingHeader() {
                         Login
                     </Link>
 
-                    <Link
-                        href="/admin/login"
-                        onClick={() => setMenuOpen(false)}
-                        className="px-8 py-4 border-b hover:bg-[#F3ECF8] hover:text-[#751bb5] hover:scale-97 transition"
+                    {/* Admin Login Button */}
+                    <button
+                        onClick={() => {
+                            setMenuOpen(false);
+                            setShowAdminLogin(true);
+                        }}
+                        className="
+                            px-8 py-4 border-b 
+                            text-left text-lg font-semibold text-[#2D0066]
+                            hover:bg-[#F3ECF8] hover:text-[#751bb5] 
+                            hover:scale-97 transition
+                        "
                     >
                         Login as Admin
-                    </Link>
+                    </button>
                 </nav>
             </div>
         </div>

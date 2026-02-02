@@ -92,7 +92,7 @@ export default function OtpVerification({ label, value, onChange, onVerified, ve
       <VerificationModal
         show={showModal}
         label={value}
-        type={label.toLowerCase() as "email" | "phone"}
+        type={label === "Email" ? "email" : "phone"}
         onClose={() => setShowModal(false)}
         onVerified={() => {
           onVerified();

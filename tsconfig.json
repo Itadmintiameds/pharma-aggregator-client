@@ -28,7 +28,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts",
-    "app/admin"  ],
+    "**/*.mts"
+  ],
   "exclude": ["node_modules"]
 }
