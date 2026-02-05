@@ -1,4 +1,5 @@
 import React from "react";
+import SellerJourney from "./SellerJourney";
 
 interface SectionProps {
   onRegisterClick: () => void;
@@ -67,6 +68,10 @@ export default function Section({ onRegisterClick, onProductOnboardingClick }: S
           </div>
         ))}
       </div>
+      <div>
+        <SellerJourney />
+      </div>
+
 
       <div className="mt-12 flex justify-center gap-4">
         <button
@@ -76,14 +81,13 @@ export default function Section({ onRegisterClick, onProductOnboardingClick }: S
             px-10 py-4 
             text-white text-lg font-semibold 
             hover:bg-[#751bb5] transition
-            hover:bg-[#751bb5]
             hover:scale-90
             hover:shadow-[0_8px_24px_rgba(117,27,181,0.35)]
           "
         >
           Register / Sign Up
         </button>
-        
+
         <button
           onClick={onProductOnboardingClick}
           className="
@@ -175,9 +179,9 @@ export default function Section({ onRegisterClick, onProductOnboardingClick }: S
 //       <div className="mt-12 flex justify-center">
 //         <Link href="/seller_7a3b9f2c/SellerRegister">
 //           <button className="
-//                       rounded-xl bg-[#2D0066] 
-//                       px-10 py-4 
-//                       text-white text-lg font-semibold 
+//                       rounded-xl bg-[#2D0066]
+//                       px-10 py-4
+//                       text-white text-lg font-semibold
 //                       hover:bg-[#751bb5] transition
 //                       hover:bg-[#751bb5]
 //                       hover:scale-90
@@ -186,7 +190,7 @@ export default function Section({ onRegisterClick, onProductOnboardingClick }: S
 //           >
 //             Register / Sign Up
 //           </button>
-//         </Link> 
+//         </Link>
 //       </div>
 //     </section>
 //   );

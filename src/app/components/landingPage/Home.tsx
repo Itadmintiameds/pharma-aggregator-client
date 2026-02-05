@@ -1,47 +1,36 @@
 import React from "react";
-import ImageSlider from "../ImageSlider";
 import LandingHeader from "./LandingHeader";
+import HeroSection from "./HeroSection";
+import Footer from "./Footer";
+import Journey from "./Journey";
+import FAQS from "./FAQS";
+import Deals from "./Deals";
 
 const Home = () => {
   return (
-    <div className="bg-primary-100 pt-18">
+    <div className="min-h-screen bg-primary-100">
       <LandingHeader />
 
-      <section className="mx-auto mt-10 w-4/5 space-y-12">
-        {/* Heading + paragraph stacked */}
-        <div className="space-y-1 bg-primary-1000">
-          <h1 className="text-base-black">
-            CONNECT VERIFIED PHARMA{" "}
-            <span className="text-primary-500">BUYERS </span>
-            &{" "}
-            <span className="text--secondary-500">SELLERS</span>
-          </h1>
+      <main className="pt-1">
+        <HeroSection />
+        <Deals />
+        <Journey />
+        <FAQS />
+      </main>
 
-          <p className="max-w-2xl text-neutral-700">
-            Streamline operations, boost visibility, and ensure timely,
-            safe medication delivery with our pharma supply chain platform
-          </p>
-        </div>
-
-        {/* Full-width image slider */}
-        <ImageSlider />
-        <br />
-        <br />
-      </section>
-      <div className="bg-red-500 text-white p-4">
-  Tailwind Test
-</div>
-
-<div className="flex gap-4">
-  <div className="h-16 w-16 bg-red-500">test</div>
-  <div className="h-16 w-16 bg-primary-100">test</div>
-  <div className="h-16 w-16 bg-[var(--primary-100)]">test</div>
-</div>
+      <Footer />
     </div>
   );
 };
 
 export default Home;
+
+
+
+
+
+
+
 
 
 
@@ -56,7 +45,7 @@ export default Home;
 
 // import React from "react";
 // import ImageSlider from "../ImageSlider";
-// import LandingHeader from "./LandingHeader"; 
+// import LandingHeader from "./LandingHeader";
 
 // const Home = () => {
 //   return (
@@ -68,7 +57,7 @@ export default Home;
 //         {/* Heading + paragraph stacked */}
 //         <div className="space-y-1">
 //           <h1 className="text-4xl font-bold leading-tight text-[#0A0A0B]">
-//             CONNECT VERIFIED 
+//             CONNECT VERIFIED
 //             PHARMA <span className="text-[#9A6AFF]">BUYERS </span>
 //             & <span className="text-[#F5B942]">SELLERS</span>
 //           </h1>
