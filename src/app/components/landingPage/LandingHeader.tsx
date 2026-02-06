@@ -88,7 +88,7 @@ export default function LandingHeader() {
                             </Link>
 
                             {/* Admin Login Button */}
-                            <button
+                            {/* <button
                                 onClick={() => setShowAdminLogin(true)}
                                 className="group relative px-4 py-2.5 rounded-lg border border-primary-600 bg-white hover:bg-primary-600 transition-all duration-300"
                             >
@@ -97,7 +97,7 @@ export default function LandingHeader() {
                                     Login As Admin
                                 </span>
                                 <div className="absolute inset-0 rounded-lg bg-primary-600 opacity-0 group-hover:opacity-5 transition-opacity duration-300"></div>
-                            </button>
+                            </button> */}
                         </div>
 
                         {/* Mobile Menu Button */}

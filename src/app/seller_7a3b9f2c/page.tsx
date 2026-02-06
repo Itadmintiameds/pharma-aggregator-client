@@ -1,5 +1,14 @@
-import SellerDashboard from "./components/SellerDashboard";
+"use client"
+import React from 'react';
+import SellerHome from './components/SellerHome';
 
-export default function SellerPage() {
-  return <SellerDashboard />;
+const page = () => {
+  return (
+    <div>
+
+      <SellerHome/>
+      </div>
+  )
 }
+
+export default page;

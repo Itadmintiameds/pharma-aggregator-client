@@ -1,53 +1,31 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
+import React, { useState } from 'react';
 import {
   FaUserPlus,
   FaBox,
   FaShoppingCart,
   FaShippingFast,
   FaRupeeSign,
-  FaChevronRight,
-  FaDownload,
-  FaStar,
-  FaHeadset,
-  FaMapMarkerAlt,
   FaShieldAlt,
   FaTachometerAlt,
   FaUsers,
-  FaHandsHelping
+  FaHandsHelping,
+  FaSignInAlt,
+  FaArrowRight
 } from 'react-icons/fa'
 
-const SellerJourney = () => {
-  const [activeStory, setActiveStory] = useState(0)
 
-  const successStories = [
-    {
-      name: "Dr. Ankit Verma",
-      business: "Verma Pharmaceuticals",
-      location: "Delhi",
-      quote: "As a new distributor, TiaMeds helped us connect with hospital chains we couldn't reach before. Our monthly orders increased from 50 to 500+ in just 6 months.",
-      achievement: "500+ Monthly Orders",
-      timeline: "6 Months"
-    },
-    {
-      name: "Ms. Priya Reddy",
-      business: "MediPlus Distributors",
-      location: "Hyderabad",
-      quote: "The AI-powered demand forecasting helped us optimize inventory. We reduced stockouts by 80% and increased profit margins by 35%.",
-      achievement: "35% Profit Increase",
-      timeline: "4 Months"
-    },
-    {
-      name: "Mr. Rajesh Iyer",
-      business: "Lifeline Medical Supplies",
-      location: "Mumbai",
-      quote: "Compliance was our biggest challenge. TiaMeds' automated documentation and regulatory support made government tenders accessible to us.",
-      achievement: "12 Govt Tenders Won",
-      timeline: "8 Months"
-    }
-  ]
+import SellerRegister from './SellerRegister';
+import ProductOnboarding from './ProductOnboarding';
+
+const SellerJourney = () => {
+  const [showRegister, setShowRegister] = useState(false);
+  const [showProductOnboarding, setShowProductOnboarding] = useState(false);
+
+  const handleSellerLogin = () => {
+    alert('Seller login is currently under maintenance. Please try again later.');
+  };
 
   const journeySteps = [
     {
@@ -116,20 +94,65 @@ const SellerJourney = () => {
     { value: "10K+", label: "Active Sellers" }
   ]
 
+  if (showRegister) {
+    return (
+      <div className="min-h-screen bg-primary-50 pt-4">
+        <SellerRegister  />
+      </div>
+    );
+  }
+
+  if (showProductOnboarding) {
+    return (
+      <div className="min-h-screen bg-primary-50 pt-4">
+        <ProductOnboarding />
+      </div>
+    );
+  }
+
   return (
-    <div className="relative py-16 lg:py-24 bg-white">
-      {/* Why Choose TiaMeds */}
+    <div className="relative py-4 lg:py-4 bg-primary-100">
+      {/* Why Choose TiaMeds with CTA Buttons */}
       <section className="mb-20">
         <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-neutral-900 mb-6">
-              Why Pharma Distributors Choose{" "}
-              <span className="text-primary-600">TiaMeds</span>
-            </h2>
-            <p className="text-xl text-neutral-600 max-w-4xl mx-auto">
-              Join India&apos;s fastest-growing B2B pharma marketplace designed specifically
-              for licensed distributors, manufacturers, and wholesalers.
-            </p>
+          <div className="flex flex-col lg:flex-row lg:items-start justify-between mb-16">
+            <div className="lg:w-2/3">
+              <h2 className="text-4xl md:text-5xl font-bold text-neutral-900 mb-6">
+                Why Pharma Distributors Choose{" "}
+                <span className="text-primary-600">TiaMeds</span>
+              </h2>
+              <p className="text-xl text-neutral-600 max-w-4xl">
+                Join India&apos;s fastest-growing B2B pharma marketplace designed specifically
+                for licensed distributors, manufacturers, and wholesalers.
+              </p>
+            </div>
+            
+            {/* CTA Buttons - Right side */}
+            <div className="mt-8 lg:mt-0 lg:ml-8 flex flex-col sm:flex-row lg:flex-col gap-4">
+              {/* Register/Sign Up Button */}
+              <button
+                onClick={() => setShowRegister(true)}
+                className="group relative px-8 py-3 rounded-lg border border-primary-600 bg-white hover:bg-primary-600 transition-all duration-300 flex items-center justify-center"
+              >
+                <span className="flex items-center text-primary-600 group-hover:text-white font-semibold text-lg">
+                  <FaUserPlus className="mr-3" />
+                  Register / Sign Up
+                </span>
+                <div className="absolute inset-0 rounded-lg bg-primary-600 opacity-0 group-hover:opacity-5 transition-opacity duration-300"></div>
+              </button>
+
+              {/* Login Button */}
+              <button
+                onClick={handleSellerLogin}
+                className="group relative px-8 py-3 rounded-lg border border-primary-600 bg-white hover:bg-primary-600 transition-all duration-300 flex items-center justify-center"
+              >
+                <span className="flex items-center text-primary-600 group-hover:text-white font-semibold text-lg">
+                  <FaSignInAlt className="mr-3" />
+                  Seller Login
+                </span>
+                <div className="absolute inset-0 rounded-lg bg-primary-600 opacity-0 group-hover:opacity-5 transition-opacity duration-300"></div>
+              </button>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -151,7 +174,7 @@ const SellerJourney = () => {
           </div>
 
           {/* Stats Banner */}
-          <div className="mt-16 bg-linear-to-r from-primary-600 to-primary-800 rounded-2xl p-8 text-white">
+          <div className="mt-16 bg-linear-to-r from-primary-600 to-primary-800 rounded-2xl p-6 text-white">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {growthStats.map((stat, index) => (
                 <div key={index} className="text-center">
@@ -164,75 +187,8 @@ const SellerJourney = () => {
         </div>
       </section>
 
-      {/* Success Stories */}
-      <section className="bg-neutral-50 py-16">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12">
-            <div>
-              <h2 className="text-4xl md:text-5xl font-bold text-neutral-900 mb-4">
-                Distributor Success Stories
-              </h2>
-              <p className="text-xl text-neutral-600">
-                See how licensed pharma distributors are scaling their business with TiaMeds
-              </p>
-            </div>
-            <Link
-              href="/seller-stories"
-              className="inline-flex items-center text-primary-600 hover:text-primary-700 font-semibold mt-4 lg:mt-0"
-            >
-              View All Case Studies
-              <FaChevronRight className="ml-2" />
-            </Link>
-          </div>
-
-          <div className="grid lg:grid-cols-3 gap-8">
-            {successStories.map((story, index) => (
-              <div
-                key={index}
-                className={`bg-white rounded-2xl p-6 shadow-lg border-2 transition-all duration-300 cursor-pointer ${activeStory === index ? 'border-primary-500' : 'border-transparent'
-                  }`}
-                onClick={() => setActiveStory(index)}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-2xl font-bold text-neutral-900">{story.name}</h3>
-                    <div className="flex items-center text-neutral-600 mt-1">
-                      <span>{story.business}</span>
-                      <span className="mx-2">•</span>
-                      <span>{story.location}</span>
-                    </div>
-                  </div>
-                  {activeStory === index && (
-                    <span className="flex items-center px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
-                      <FaStar className="mr-1" /> Featured
-                    </span>
-                  )}
-                </div>
-
-                <div className="mb-6">
-                  <p className="text-neutral-700 italic border-l-4 border-primary-500 pl-4 py-2">
-                    &ldquo;{story.quote}&rdquo;
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-neutral-100">
-                  <div>
-                    <div className="text-lg font-bold text-primary-700">{story.achievement}</div>
-                    <div className="text-sm text-neutral-500">Key Achievement</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-primary-700">{story.timeline}</div>
-                    <div className="text-sm text-neutral-500">Time to Result</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Your Selling Journey */}
-      <section className="py-20">
+      <section className="py-2">
         <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-neutral-900 mb-6">
@@ -269,75 +225,31 @@ const SellerJourney = () => {
             </div>
           </div>
 
-          {/* CTA Section */}
-          <div className="mt-20 bg-linear-to-r from-primary-50 to-white rounded-2xl p-8 lg:p-12 border border-primary-100">
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
-              <div className="lg:w-1/2">
-                <h3 className="text-3xl font-bold text-neutral-900 mb-4">
-                  Ready to Expand Your Pharma Distribution?
-                </h3>
-                <p className="text-neutral-600 mb-6">
-                  Join India&apos;s trusted B2B pharma marketplace. Get started with your existing inventory and reach buyers nationwide.
-                </p>
-                <div className="flex flex-wrap gap-4">
-                  <div className="bg-white px-4 py-2 rounded-lg border border-neutral-200">
-                    <div className="text-sm text-neutral-500">No Setup Fee</div>
-                  </div>
-                  <div className="bg-white px-4 py-2 rounded-lg border border-neutral-200">
-                    <div className="text-sm text-neutral-500">Commission Only</div>
-                  </div>
-                  <div className="bg-white px-4 py-2 rounded-lg border border-neutral-200">
-                    <div className="text-sm text-neutral-500">Free Onboarding</div>
-                  </div>
-                </div>
-              </div>
+          {/* Product Onboarding CTA */}
+          <div className="mt-20 text-center">
+            <div className="bg-linear-to-r from-primary-50 to-white rounded-2xl p-8 lg:p-12 border border-primary-100">
+              <h3 className="text-3xl font-bold text-neutral-900 mb-4">
+                Ready to List Your Products?
+              </h3>
+              <p className="text-xl text-neutral-600 mb-8 max-w-2xl mx-auto">
+                Start your product onboarding process and get your medicines listed on India&apos;s largest pharma marketplace.
+              </p>
+              
+              <button
+                onClick={() => setShowProductOnboarding(true)}
+                className="group relative px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 mx-auto"
+              >
+                <span className="flex items-center justify-center">
+                  Start Product Onboarding
+                  <FaArrowRight className="ml-3 w-5 h-5 group-hover:translate-x-2 transition-transform" />
+                </span>
+                <div className="absolute inset-0 rounded-xl bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+              </button>
 
-              <div className="flex flex-col sm:flex-row gap-4 lg:w-1/2 lg:justify-end">
-                <button className="px-6 py-3 border-2 border-primary-600 text-primary-600 hover:bg-primary-50 font-semibold rounded-lg transition-colors flex items-center justify-center">
-                  <FaHeadset className="mr-2" />
-                  Book a Demo
-                </button>
-                <Link
-                  href="/seller_7a3b9f2c"
-                  className="px-8 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors shadow-lg hover:shadow-xl flex items-center justify-center"
-                >
-                  <span className="flex items-center">
-                    Start Selling Now
-                    <FaChevronRight className="ml-2" />
-                  </span>
-                </Link>
-              </div>
+              <p className="text-neutral-500 mt-6">
+                Already registered? Access your seller dashboard to manage products and orders.
+              </p>
             </div>
-
-            {/* Resources */}
-            <div className="mt-12 pt-8 border-t border-primary-100">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mr-4">
-                    <FaDownload className="w-5 h-5 text-primary-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-neutral-900">Seller Resources</h4>
-                    <p className="text-sm text-neutral-600">Download our compliance checklist and pricing guide</p>
-                  </div>
-                </div>
-
-                <button className="px-6 py-2 border border-primary-600 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
-                  Download Resources
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Scroll to top */}
-          <div className="text-center mt-12">
-            <button
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="inline-flex items-center text-primary-600 hover:text-primary-700 font-medium"
-            >
-              <FaMapMarkerAlt className="mr-2" />
-              Back to Top
-            </button>
           </div>
         </div>
       </section>
