@@ -73,7 +73,7 @@ const Header =({ admin = false }: HeaderProps) => {
 
                                     {/* Admin Insights */}
                                     <Link
-                                        href="/admin_f6c29e3d"
+                                        href="/admin_f6c29e3d/components/AdminInsights"
                                         className="group relative px-4 py-2 text-neutral-700 hover:text-primary-600 font-medium text-sm transition-colors duration-200"
                                     >
                                         <span className="flex items-center">
