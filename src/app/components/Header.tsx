@@ -131,7 +131,7 @@ const Header =({ admin = false }: HeaderProps) => {
             </header>
 
             {/* Spacer for fixed header */}
-            <div className="h-20"></div>
+            <div className="h-10"></div>
 
             {/* Mobile Menu Overlay */}
             {menuOpen && (

@@ -2,11 +2,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import OtpVerification from "./OtpVerification";
 import Header from "@/src/app/components/Header";
+import { useRouter } from "next/navigation"; 
 
 const IFSC_API = "https://ifsc.razorpay.com";
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
-// Product type options with their corresponding license types
 const PRODUCT_TYPES = [
   {
     id: "drugs",
@@ -40,11 +40,14 @@ const PRODUCT_TYPES = [
   }
 ];
 
-interface SellerRegisterProps {
-  onBackToDashboard?: () => void;
-}
+// interface SellerRegisterProps {
+//   onBackToDashboard?: () => void;
+// }
 
-export default function SellerRegister({ onBackToDashboard }: SellerRegisterProps) {
+export default function SellerRegister(
+  // { onBackToDashboard }: SellerRegisterProps
+) 
+  {
   const [step, setStep] = useState(1);
   const [emailVerified, setEmailVerified] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -53,6 +56,7 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
   const [ifscError, setIfscError] = useState("");
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
   const productDropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -125,7 +129,7 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
     sellerName: "",
     companyType: "",
     sellerType: "",
-    productTypes: [] as string[], // Changed to array for multi-select
+    productTypes: [] as string[],
     state: "",
     district: "",
     taluka: "",
@@ -137,20 +141,16 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
     phone: "",
     email: "",
     website: "",
-    // Coordinator fields
     coordinatorName: "",
     coordinatorDesignation: "",
     coordinatorEmail: "",
     coordinatorMobile: "",
-    // Document fields
     gstNumber: "",
     gstFile: null as File | null,
-    // Dynamic license fields based on product types
     licenses: {} as Record<string, {
       number: string;
       file: File | null;
     }>,
-    // Bank fields
     bankState: "",
     bankDistrict: "",
     bankName: "",
@@ -158,13 +158,13 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
     ifscCode: "",
     accountNumber: "",
     accountHolderName: "",
+    cancelledChequeFile: null as File | null,
   });
 
   const handleChange = (e: any) => {
     const { id, value, files, type } = e.target;
     
     if (type === 'file' && files && files[0]) {
-      // Check if this is a dynamic license file upload
       if (id.startsWith('licenseFile-')) {
         const licenseId = id.replace('licenseFile-', '');
         setForm(prev => ({
@@ -181,7 +181,6 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
         setForm(prev => ({ ...prev, [id]: files[0] }));
       }
     } else if (id.startsWith('licenseNumber-')) {
-      // Handle dynamic license number input
       const licenseId = id.replace('licenseNumber-', '');
       setForm(prev => ({
         ...prev,
@@ -205,16 +204,12 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
       const newLicenses = { ...prev.licenses };
       
       if (prev.productTypes.includes(productValue)) {
-        // Remove if already selected
         newProductTypes = prev.productTypes.filter(type => type !== productValue);
-        // Remove the corresponding license entry if it exists
         if (newLicenses[productValue]) {
           delete newLicenses[productValue];
         }
       } else {
-        // Add if not selected
         newProductTypes = [...prev.productTypes, productValue];
-        // Add empty license entry for this product type
         newLicenses[productValue] = {
           number: "",
           file: null
@@ -284,7 +279,6 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
     e.preventDefault();
 
     if (step === 1) {
-      // Validation for Step 1
       if (!form.sellerName || !form.companyType || !form.sellerType || 
           form.productTypes.length === 0 ||
           !form.phone || !form.email || !form.state || !form.district || 
@@ -293,19 +287,16 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
         return;
       }
       
-      // Validate pincode format
       if (!/^\d{6}$/.test(form.pincode)) {
         alert("Please enter a valid 6-digit PIN code.");
         return;
       }
 
-      // Validate phone number
       if (!/^\d{10}$/.test(form.phone)) {
         alert("Please enter a valid 10-digit phone number.");
         return;
       }
 
-      // Validate email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(form.email)) {
         alert("Please enter a valid email address.");
@@ -327,13 +318,11 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
     }
 
     if (step === 3) {
-      // Validate GST fields
       if (!form.gstNumber || !form.gstFile) {
         alert("Please fill GST fields and upload required file.");
         return;
       }
       
-      // Validate dynamic license fields based on selected product types
       let allLicensesValid = true;
       const missingLicenses: string[] = [];
       
@@ -352,16 +341,16 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
     }
 
     if (step === 4) {
-      if (!form.accountNumber || !form.accountHolderName || !form.ifscCode) {
-        alert("Please fill all bank account details.");
-        return;
-      }
+  if (!form.accountNumber || !form.accountHolderName || !form.ifscCode || !form.cancelledChequeFile) {
+    alert("Please fill all bank account details and upload cancelled cheque.");
+    return;
+  }
 
-      if (ifscError) {
-        alert("Please fix IFSC code error before proceeding.");
-        return;
-      }
-    }
+  if (ifscError) {
+    alert("Please fix IFSC code error before proceeding.");
+    return;
+  }
+}
 
     if (step < 5) {
       setStep(step + 1);
@@ -377,15 +366,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
     if (step > 1) setStep(step - 1);
   };
 
-  const handleBackToDashboard = () => {
-    if (onBackToDashboard) {
-      onBackToDashboard();
-    }
-  };
+  // const handleBackToDashboard = () => {
+  //   if (onBackToDashboard) {
+  //     onBackToDashboard();
+  //   }
+  // };
 
   const handleCloseModal = () => {
     setShowSuccessModal(false);
-    handleBackToDashboard();
+    router.push("/");
   };
 
   const stepData = [
@@ -393,212 +382,200 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
       title: "Company",
       icon: "bi-building",
       activeIcon: "bi-building-fill",
-      description: "Basic Information"
+      description: "Provide Your Company Details"
     },
     {
       title: "Coordinator",
       icon: "bi-person-badge",
       activeIcon: "bi-person-badge-fill",
-      description: "Contact Details"
+      description: "Add Coordinator Information and Verify"
     },
     {
       title: "Documents",
       icon: "bi-file-earmark-lock",
       activeIcon: "bi-file-earmark-lock-fill",
-      description: "Upload Files"
+      description: "Upload Required Compliance Documents"
     },
     {
       title: "Bank",
       icon: "bi-bank",
       activeIcon: "bi-bank2",
-      description: "Account Details"
+      description: "Enter Bank Account Details"
     },
     {
       title: "Review",
       icon: "bi-shield-check",
       activeIcon: "bi-shield-check",
-      description: "Final Verification"
+      description: "Review Summary"
     }
   ];
 
   return (
-    <div className="phsr-root bg-[#F3ECF8]">
+    <div className="bg-primary-100 min-h-screen">
       <Header />
-      
-      <div className="container mt-3 ml-10">
-        <button 
-          onClick={handleBackToDashboard}
-          className="phsr-btn-back mb-3 px-4 py-2 bg-[#f3ecf8] border border-[#751bb5] text-[#751bb5] rounded-lg hover:bg-[#751bb5] hover:text-white transition"
-        >
-          <i className="bi bi-arrow-left me-2"></i> Back to Dashboard
-        </button>
-      </div>
 
       {showSuccessModal && (
-        <div className="phsr-modal-overlay">
-          <div className="phsr-modal-container">
-            <div className="phsr-modal-content">
-              <div className="phsr-modal-header">
-                <div className="phsr-modal-icon">
+        <div className="fixed inset-0 backdrop-blur bg-opacity-50 flex items-center justify-center z-50">
+          <div className="w-90% max-w-500 animate-fadeIn">
+            <div className="bg-primary-100 rounded-2xl shadow-xl overflow-hidden">
+              {/* <div className="bg-linear-to-r from-primary-700 to-primary-600 p-4 text-center text-white relative"> */}
+              <div className="bg-linear-to-r from-tertiary-600 to-tertiary-500 p-4 text-center text-white relative">
+                <div className="text-4xl mb-2 animate-bounce">
                   <i className="bi bi-check-circle-fill"></i>
                 </div>
-                <h3 className="phsr-modal-title">Application Submitted Successfully!</h3>
+                <h3 className="text-xl font-bold">Application Submitted Successfully!</h3>
               </div>
               
-              <div className="phsr-modal-body">
-                <p className="phsr-modal-message">
+              <div className="p-4">
+                <p className="text-neutral-700 text-center text-base leading-relaxed mb-6">
                   Your seller registration application has been submitted successfully. 
                   Our team will review your application and contact you within 3-5 business days.
                 </p>
                 
-                <div className="phsr-modal-details">
-                  <div className="phsr-modal-detail-item">
-                    <i className="bi bi-clock me-2"></i>
-                    <span>Application ID: <strong>{applicationId}</strong></span>
+                <div className=" rounded-xl p-6 mt-6">
+                  <div className="flex items-center mb-2">
+                    <i className="bi bi-clock text-primary-700 text-xl mr-3"></i>
+                    <span>Application ID: <strong className="text-neutral-900">{applicationId}</strong></span>
                   </div>
-                  <div className="phsr-modal-detail-item">
-                    <i className="bi bi-calendar-check me-2"></i>
-                    <span>Submitted on: <strong>{new Date().toLocaleDateString('en-IN')}</strong></span>
+                  <div className="flex items-center mb-3">
+                    <i className="bi bi-calendar-check text-primary-700 text-xl mr-3"></i>
+                    <span>Submitted on: <strong className="text-neutral-900">{new Date().toLocaleDateString('en-IN')}</strong></span>
                   </div>
-                  <div className="phsr-modal-detail-item">
-                    <i className="bi bi-envelope me-2"></i>
-                    <span>Confirmation sent to: <strong>{form.email}</strong></span>
+                  <div className="flex items-center">
+                    <i className="bi bi-envelope text-primary-700 text-xl mr-3"></i>
+                    <span>Confirmation sent to: <strong className="text-neutral-900">{form.email}</strong></span>
                   </div>
                 </div>
               </div>
               
-              <div className="phsr-modal-footer">
+              <div className="px-8 py-4 bg-neutral-100 border-t border-neutral-200 flex justify-center gap-4">
                 <button 
-                  className="phsr-modal-btn phsr-modal-btn-primary"
-                  onClick={handleCloseModal}
-                >
-                  <i className="bi bi-house me-2"></i> Go to Dashboard
-                </button>
-                <button 
-                  className="phsr-modal-btn phsr-modal-btn-secondary"
+                  className="px-6 py-3 bg-linear-to-r from-primary-600 to-primary-700 text-white rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 transition-all flex items-center shadow-md hover:shadow-lg"
                   onClick={handleCloseModal}
                 >
                   Close
                 </button>
+                {/* <button 
+                  className="px-6 py-3 bg-white text-primary-700 border-2 border-primary-700 rounded-xl font-semibold hover:bg-primary-50 transition-colors"
+                  onClick={handleCloseModal}
+                >
+                  Close
+                </button> */}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="phsr-container mt-2 mb-5 ml-10 mr-10">
-        <div className="phsr-onboarding-hero-sm phsr-mb-4">
-          <div className="phsr-hero-glass-sm d-flex align-items-center justify-content-between px-4">
-            <div className="text-center grow mt-3">
-              <h2 className="fw-bold phsr-gradient-text-sm mb-1 text-[#9A6AFF]">
-                Seller Registration
-              </h2>
+      {/* Sticky Hero and Stepper Section */}
+      <div className="sticky top-0 z-40 bg-primary-100 pt-2">
+        <div className="mb-1 mx-4 md:mx-10">
+          {/* Hero Section */}
+          <div className="mb-6 mt-2">
+            <div className="bg-linear-to-r from-primary-600 to-primary-800 rounded-xl p-4 text-white">
+              <div className="flex flex-col md:flex-row items-center justify-center">
+                <div className="flex items-center mb-2 md:mb-0">
+                  <div className="w-6 h-6 mr-3 flex items-center justify-center">
+                    <i className="bi bi-building text-white text-xl"></i>
+                  </div>
+                  <div className="text-center md:text-left">
+                    <h2 className="text-xl font-bold">Seller Registration</h2>
+                    <p className="text-primary-200 text-sm">Register Your Business Here!</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stepper */}
+          <div className="mb-2">
+            <div className="relative">
+              <div className="flex justify-between">
+                {stepData.map((stepInfo, index) => {
+                  const stepNumber = index + 1;
+                  const isActive = step === stepNumber;
+                  const isCompleted = step > stepNumber;
+                  const isClickable = isCompleted || stepNumber === 1;
+
+                  return (
+                    <div
+                      key={index}
+                      className={`flex flex-col items-center relative ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
+                      style={{ width: `${100 / stepData.length}%` }}
+                      onClick={() => isClickable && setStep(stepNumber)}
+                    >
+                      {/* Connector line */}
+                      {index < stepData.length - 1 && (
+                        <div className="absolute top-6 left-1/2 w-full h-1.5 bg-neutral-200">
+                          <div
+                            className={`h-full transition-all duration-300 ${isCompleted ? 'bg-linear-to-r from-success-300 to-primary-600' : 'bg-transparent'}`}
+                            style={{ width: isCompleted ? '100%' : '0%' }}
+                          ></div>
+                        </div>
+                      )}
+
+                      {/* Step indicator */}
+                      <div
+                        className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 z-10 transition-all duration-300 ${
+                          isActive
+                            ? 'bg-primary-600 text-white shadow-lg border-2 border-white'
+                            : isCompleted
+                            ? 'bg-success-300 text-white'
+                            : 'bg-white text-neutral-600 border-2 border-neutral-200'
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <i className="bi bi-check-circle-fill text-xl"></i>
+                        ) : (
+                          <i className={`bi ${isActive ? stepInfo.activeIcon : stepInfo.icon} text-lg`}></i>
+                        )}
+                      </div>
+
+                      {/* Step label */}
+                      <div className="text-center">
+                        <p className={`text-sm font-bold ${isActive ? 'text-primary-600 font-bold' : isCompleted ? 'text-success-300' : 'text-neutral-900'}`}>
+                          {stepInfo.title}
+                        </p>
+                        <p className="text-sm text-neutral-700">{stepInfo.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Updated Stepper with Icons */}
-        <div className="phsr-stepper-container phsr-mb-4" style={{ fontSize: '0.85rem' }}>
-          <div className="phsr-stepper-steps">
-            {stepData.map((stepInfo, index) => {
-              const stepNumber = index + 1;
-              const isActive = step === stepNumber;
-              const isCompleted = step > stepNumber;
-
-              return (
-                <div
-                  key={index}
-                  className={`phsr-stepper-step position-relative ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
-                  onClick={() => {
-                    if (isCompleted || stepNumber === 1) {
-                      setStep(stepNumber);
-                    }
-                  }}
-                  style={{ 
-                    cursor: isCompleted || stepNumber === 1 ? 'pointer' : 'default',
-                    padding: '0.5rem 0'
-                  }}
-                >
-                  {index < stepData.length - 1 && (
-                    <div className="phsr-step-connector">
-                      <div
-                        className={`phsr-connector-line ${step > stepNumber ? 'completed' : ''}`}
-                        style={{ height: '2px' }}
-                      ></div>
-                    </div>
-                  )}
-
-                  <div className="phsr-step-indicator" style={{ 
-                    width: '32px', 
-                    height: '32px',
-                    fontSize: '1rem'
-                  }}>
-                    {isCompleted ? (
-                      <div className="phsr-step-icon-completed">
-                        <i className="bi bi-check-circle-fill text-success"></i>
-                      </div>
-                    ) : (
-                      <div className={`phsr-step-icon ${isActive ? 'active' : ''}`}>
-                        <i className={`bi ${isActive ? stepInfo.activeIcon : stepInfo.icon}`}></i>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="phsr-step-content" style={{ marginLeft: '8px' }}>
-                    <h6 className={`phsr-step-title ${isActive ? 'text-primary fw-bold' : ''} ${isCompleted ? 'text-success' : ''}`}
-                      style={{ fontSize: '0.85rem', marginBottom: '2px', fontWeight: isActive ? '600' : '500' }}>
-                      {stepInfo.title}
-                    </h6>
-                    <small className="phsr-step-description" style={{ fontSize: '0.75rem' }}>
-                      {stepInfo.description}
-                    </small>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="phsr-current-step-status phsr-mt-3 text-center">
-            <span className="badge bg-primary rounded-pill px-2 py-1" style={{ fontSize: '0.8rem' }}>
-              <i className={`bi ${stepData[step - 1].activeIcon} me-1`}></i>
-              Step {step}: {stepData[step - 1].title}
-            </span>
-            <small className="d-block phsr-mt-1 phsr-text-muted" style={{ fontSize: '0.8rem' }}>
-              {step === 1 && "Provide your company details"}
-              {step === 2 && "Add coordinator information and verify"}
-              {step === 3 && "Upload required compliance documents"}
-              {step === 4 && "Enter bank account details"}
-              {step === 5 && "Review all information before submission"}
-            </small>
-          </div>
-        </div>
-
+      {/* Scrollable Form Content */}
+      <div className="mx-4 md:mx-10 pb-6">
         <form onSubmit={next}>
           {/* STEP 1: Company Information */}
           {step === 1 && (
-            <div className="phsr-card shadow-lg border-0 rounded-4 phsr-p-4">
-              <div className="phsr-card phsr-mb-4 shadow-sm">
-                <div className="phsr-card-header text-center" style={{ padding: '0.75rem 1rem' }}>
-                  <div className="phsr-header-icon" style={{ height: '28px', width: '28px' }}>
-                    <i className="bi bi-building"></i>
+            <div className="bg-white rounded-2xl shadow-md border border-neutral-200 p-6 md:p-6 mb-6">
+              <div className="mb-6">
+                {/* <div className="text-center mb-6">
+                  <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary-600 to-primary-700 flex items-center justify-center mx-auto mb-3 shadow-md">
+                    <i className="bi bi-building text-white text-xl"></i>
                   </div>
-                  <h4 className="phsr-mb-0 phsr-header-text" style={{ fontSize: '1.1rem', marginTop: '0.5rem' }}>
-                    Seller Company Information
+                  <h4 className="text-xl font-bold text-neutral-900 mb-2">
+                    Company Basic Information
                   </h4>
-                </div>
+                </div> */}
 
-                <div className="card-body phsr-p-4">
+                <div className="space-y-5">
                   {/* Company Name and Company Type */}
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="sellerName" className="phsr-form-label">
-                        <i className="bi bi-building me-2"></i>Seller Name/Company Name: <span className="phsr-required">*</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="sellerName" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-building"></i>
+                        Seller Name/Company Name: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="text"
                         id="sellerName"
                         name="sellerName"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter your company name"
                         required
                         value={form.sellerName}
@@ -606,14 +583,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                         onChange={(e) => handleAlphabetInput(e, 'sellerName')}
                       />
                     </div>
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="companyType" className="phsr-form-label">
-                        <i className="bi bi-diagram-3 me-2"></i>Company Type: <span className="phsr-required">*</span>
+                    <div>
+                      <label htmlFor="companyType" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-diagram-3"></i>
+                        Company Type: <span className="text-error-300">*</span>
                       </label>
                       <select
                         id="companyType"
                         name="companyType"
-                        className="phsr-form-select"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all appearance-none"
                         required
                         value={form.companyType}
                         onChange={handleChange}
@@ -638,15 +616,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                   </div>
 
                   {/* Seller Type and Product Types */}
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="sellerType" className="phsr-form-label">
-                        Seller Type <span className="phsr-required">*</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="sellerType" className="block mb-2 text-sm font-semibold text-primary-700">
+                        Seller Type <span className="text-error-300">*</span>
                       </label>
                       <select
                         id="sellerType"
                         name="sellerType"
-                        className="phsr-form-select"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all appearance-none"
                         value={form.sellerType}
                         onChange={handleChange}
                         required
@@ -659,111 +637,142 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                       </select>
                     </div>
 
-                    <div className="phsr-col-md-6">
-                      <label className="phsr-form-label">
-                        Product Type(s) <span className="phsr-required">*</span>
-                      </label>
-                      
-                      {/* Checkbox Dropdown Input */}
-                      <div className="position-relative" ref={productDropdownRef}>
-                        <div 
-                          className="phsr-input"
-                          onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
-                          style={{ 
-                            cursor: 'pointer',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            position: 'relative',
-                            zIndex: 1
-                          }}
-                        >
-                          <span className={form.productTypes.length === 0 ? "phsr-text-muted" : ""}>
-                            {form.productTypes.length > 0 
-                              ? `${form.productTypes.length} product type(s) selected`
-                              : "Select product types"}
-                          </span>
-                          <i className={`bi ${isProductDropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'}`}></i>
-                        </div>
-                        
-                        {/* Checkbox Dropdown */}
-                        {isProductDropdownOpen && (
-                          <div className="position-absolute w-100" style={{ 
-                            zIndex: 1050,
-                            top: '100%',
-                            left: 0,
-                            marginTop: '2px'
-                          }}>
-                            <div className="phsr-checkbox-dropdown">
-                              <div className="phsr-checkbox-dropdown-header">
-                                <small className="phsr-text-muted">Select product types:</small>
-                              </div>
-                              <div className="phsr-checkbox-options">
-                                {PRODUCT_TYPES.map((product, index) => (
-                                  <div 
-                                    key={index}
-                                    className="phsr-checkbox-option"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleProductTypeToggle(product.name);
-                                    }}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      id={`product-${index}`}
-                                      checked={form.productTypes.includes(product.name)}
-                                      onChange={() => {}} // Handled by parent div click
-                                      className="phsr-checkbox-input"
-                                    />
-                                    <label 
-                                      htmlFor={`product-${index}`}
-                                      className="phsr-checkbox-label"
-                                    >
-                                      {product.name}
-                                    </label>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="phsr-checkbox-dropdown-footer">
-                                <small className="phsr-text-muted">
-                                  {form.productTypes.length} of {PRODUCT_TYPES.length} selected
-                                </small>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Selected Product Types Display */}
-                      {form.productTypes.length > 0 && (
-                        <div className="phsr-mt-2">
-                          <small className="phsr-text-success">
-                            <i className="bi bi-check-circle-fill me-1"></i>
-                            Selected: {form.productTypes.join(", ")}
-                          </small>
-                        </div>
-                      )}
-                      
-                      {form.productTypes.length === 0 && (
-                        <small className="phsr-text-muted d-block phsr-mt-1">
-                          <i className="bi bi-info-circle me-1"></i>
-                          Click to select product types
-                        </small>
-                      )}
-                    </div>
+                    <div>
+  <label className="block mb-2 text-sm font-semibold text-primary-700">
+    Product Type(s) <span className="text-error-300">*</span>
+  </label>
+  
+  <div className="relative" ref={productDropdownRef}>
+    <div 
+      className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 cursor-pointer flex justify-between items-center hover:border-primary-300 transition-all"
+      onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
+    >
+      <span className={form.productTypes.length === 0 ? "text-neutral-500" : "text-neutral-900"}>
+        {form.productTypes.length > 0 
+          ? `${form.productTypes.length} product type(s) selected`
+          : "Select product types"}
+      </span>
+      <i className={`bi ${isProductDropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'} text-primary-600`}></i>
+    </div>
+    
+    {isProductDropdownOpen && (
+      <div className="absolute top-full mt-1 w-full bg-white border-2 border-primary-200 rounded-xl shadow-xl z-50">
+        <div className="p-2 border-b border-primary-100">
+          <p className="text-sm text-neutral-600 font-medium">Select product types:</p>
+        </div>
+        <div className="max-h-60 overflow-y-auto">
+          {/* Select All option */}
+          <div 
+            className="flex items-center px-4 py-2 hover:bg-primary-50 cursor-pointer border-b border-primary-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              const allProductNames = PRODUCT_TYPES.map(p => p.name);
+              const areAllSelected = allProductNames.length === form.productTypes.length;
+              
+              if (areAllSelected) {
+                // If all are selected, deselect all
+                setForm(prev => ({
+                  ...prev,
+                  productTypes: [],
+                  licenses: {}
+                }));
+              } else {
+                // If not all are selected, select all
+                const newLicenses: Record<string, { number: string; file: File | null }> = {};
+                allProductNames.forEach(productName => {
+                  newLicenses[productName] = {
+                    number: "",
+                    file: null
+                  };
+                });
+                
+                setForm(prev => ({
+                  ...prev,
+                  productTypes: allProductNames,
+                  licenses: newLicenses
+                }));
+              }
+            }}
+          >
+            <input
+              type="checkbox"
+              id="select-all"
+              checked={form.productTypes.length === PRODUCT_TYPES.length}
+              onChange={() => {}}
+              className="h-4 w-4 text-primary-600 rounded border-primary-300 focus:ring-primary-200"
+            />
+            <label 
+              htmlFor="select-all"
+              className="ml-3 text-sm font-medium text-primary-700 cursor-pointer"
+            >
+              Select All
+            </label>
+          </div>
+          
+          {/* Individual product options */}
+          {PRODUCT_TYPES.map((product, index) => (
+            <div 
+              key={index}
+              className="flex items-center px-4 py-2 hover:bg-primary-50 cursor-pointer border-b border-primary-100 last:border-b-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleProductTypeToggle(product.name);
+              }}
+            >
+              <input
+                type="checkbox"
+                id={`product-${index}`}
+                checked={form.productTypes.includes(product.name)}
+                onChange={() => {}}
+                className="h-4 w-4 text-primary-600 rounded border-primary-300 focus:ring-primary-200"
+              />
+              <label 
+                htmlFor={`product-${index}`}
+                className="ml-3 text-sm text-neutral-900 cursor-pointer"
+              >
+                {product.name}
+              </label>
+            </div>
+          ))}
+        </div>
+        <div className="p-2 border-t border-primary-100 bg-primary-50">
+          <p className="text-xs text-neutral-500">
+            {form.productTypes.length} of {PRODUCT_TYPES.length} selected
+          </p>
+        </div>
+      </div>
+    )}
+  </div>
+  
+  {form.productTypes.length > 0 && (
+    <div className="mt-2">
+      <p className="text-sm text-success-300">
+        <i className="bi bi-check-circle-fill mr-1"></i>
+        Selected: {form.productTypes.join(", ")}
+      </p>
+    </div>
+  )}
+  
+  {form.productTypes.length === 0 && (
+    <p className="mt-1 text-sm text-neutral-500">
+      <i className="bi bi-info-circle mr-1"></i>
+      Click to select product types
+    </p>
+  )}
+</div>
                   </div>
 
                   {/* Address Fields */}
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="state" className="phsr-form-label">
-                        <i className="bi bi-geo-alt me-2"></i>State: <span className="phsr-required">*</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="state" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-geo-alt"></i>State: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="text"
                         id="state"
                         name="state"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter state"
                         required
                         value={form.state}
@@ -771,15 +780,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                         onChange={(e) => handleAlphabetInput(e, 'state')}
                       />
                     </div>
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="district" className="phsr-form-label">
-                        <i className="bi bi-geo me-2"></i>District: <span className="phsr-required">*</span>
+                    <div>
+                      <label htmlFor="district" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-geo"></i>District: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="text"
                         id="district"
                         name="district"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter district"
                         required
                         value={form.district}
@@ -787,18 +796,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                         onChange={(e) => handleAlphabetInput(e, 'district')}
                       />
                     </div>
-                  </div>
-
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="taluka" className="phsr-form-label">
-                        <i className="bi bi-map me-2"></i>Taluka: <span className="phsr-required">*</span>
+                    <div>
+                      <label htmlFor="taluka" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-map"></i>Taluka: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="text"
                         id="taluka"
                         name="taluka"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter taluka"
                         required
                         value={form.taluka}
@@ -806,15 +812,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                         onChange={(e) => handleAlphabetInput(e, 'taluka')}
                       />
                     </div>
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="city" className="phsr-form-label">
-                        <i className="bi bi-geo-fill me-2"></i>City/Town/Village: <span className="phsr-required">*</span>
+                    <div>
+                      <label htmlFor="city" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-geo-fill"></i>City/Town/Village: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="text"
                         id="city"
                         name="city"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter city/town/village"
                         required
                         value={form.city}
@@ -822,18 +828,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                         onChange={(e) => handleAlphabetInput(e, 'city')}
                       />
                     </div>
-                  </div>
-
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="street" className="phsr-form-label">
-                        <i className="bi bi-signpost me-2"></i>Street/Road/Lane: <span className="phsr-required">*</span>
+                    <div>
+                      <label htmlFor="street" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-signpost"></i>Street/Road/Lane: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="text"
                         id="street"
                         name="street"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter street/road/lane"
                         required
                         value={form.street}
@@ -841,47 +844,44 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                         onChange={(e) => handleAlphabetInput(e, 'street')}
                       />
                     </div>
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="buildingNo" className="phsr-form-label">
-                        <i className="bi bi-house-door me-2"></i>Building/House No: <span className="phsr-required">*</span>
+                    <div>
+                      <label htmlFor="buildingNo" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-house-door"></i>Building/House No: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="text"
                         id="buildingNo"
                         name="buildingNo"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter building/house no"
                         required
                         value={form.buildingNo}
                         onChange={handleChange}
                       />
                     </div>
-                  </div>
-
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="landmark" className="phsr-form-label">
-                        <i className="bi bi-geo me-2"></i>Landmark:
+                    <div>
+                      <label htmlFor="landmark" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-geo"></i>Landmark:
                       </label>
                       <input
                         type="text"
                         id="landmark"
                         name="landmark"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter landmark (optional)"
                         value={form.landmark}
                         onChange={handleChange}
                       />
                     </div>
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="pincode" className="phsr-form-label">
-                        <i className="bi bi-pin-map me-2"></i>Pin Code: <span className="phsr-required">*</span>
+                    <div>
+                      <label htmlFor="pincode" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-pin-map"></i>Pin Code: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="text"
                         id="pincode"
                         name="pincode"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter 6-digit pin code"
                         required
                         maxLength={6}
@@ -892,16 +892,16 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                   </div>
 
                   {/* Contact Information */}
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="phone" className="phsr-form-label">
-                        <i className="bi bi-telephone me-2"></i>Company Phone: <span className="phsr-required">*</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="phone" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-telephone"></i>Company Phone: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="tel"
                         id="phone"
                         name="phone"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter company phone"
                         required
                         maxLength={10}
@@ -909,33 +909,30 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                         onChange={(e) => handleNumericInput(e, 'phone', 10)}
                       />
                     </div>
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="email" className="phsr-form-label">
-                        <i className="bi bi-envelope me-2"></i>Company Email ID: <span className="phsr-required">*</span>
+                    <div>
+                      <label htmlFor="email" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-envelope"></i>Company Email ID: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="email"
                         id="email"
                         name="email"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter company email"
                         required
                         value={form.email}
                         onChange={handleChange}
                       />
                     </div>
-                  </div>
-
-                  <div className="phsr-row">
-                    <div className="phsr-col-md-12">
-                      <label htmlFor="website" className="phsr-form-label">
-                        <i className="bi bi-globe me-2"></i>Company Website (Optional):
+                    <div className="md:col-span-2">
+                      <label htmlFor="website" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-globe"></i>Company Website (Optional):
                       </label>
                       <input
                         type="url"
                         id="website"
                         name="website"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter company website"
                         value={form.website}
                         onChange={handleChange}
@@ -949,33 +946,34 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 
           {/* STEP 2: Coordinator Details */}
           {step === 2 && (
-            <div className="phsr-card shadow-lg border-0 rounded-4 phsr-p-4">
-              <div className="phsr-card phsr-mb-4 shadow-sm">
-                <div className="phsr-card-header text-center" style={{ padding: '0.75rem 1rem' }}>
-                  <div className="phsr-header-icon" style={{ height: '28px', width: '28px' }}>
-                    <i className="bi bi-person-badge"></i>
+            <div className="bg-white rounded-2xl shadow-md border border-neutral-200 p-3 md:p-6 mb-6">
+              <div className="mb-6">
+                <div className="text-center mb-6">
+                  {/* <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary-600 to-primary-700 flex items-center justify-center mx-auto mb-3 shadow-md">
+                    <i className="bi bi-person-badge text-white text-xl"></i>
                   </div>
-                  <h4 className="phsr-mb-0 phsr-header-text" style={{ fontSize: '1.1rem', marginTop: '0.5rem' }}>
+                  <h4 className="text-xl font-bold text-neutral-900 mb-2">
                     Company Coordinator Details
-                  </h4>
+                  </h4> */}
                   {(!emailVerified || !phoneVerified) && (
-                    <small className="phsr-verification-warning d-block phsr-mt-2">
-                      <i className="bi bi-exclamation-triangle me-1"></i>
+                    <div className="mt-3 p-3 bg-warning-100 border border-warning-200 rounded-xl text-warning-800 text-sm inline-flex items-center">
+                      <i className="bi bi-exclamation-triangle mr-2"></i>
                       Please verify both Email and Mobile OTP to proceed
-                    </small>
+                    </div>
                   )}
                 </div>
-                <div className="card-body phsr-p-4">
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="coordinatorName" className="phsr-form-label">
-                        <i className="bi bi-person me-2"></i>Coordinator Name: <span className="phsr-required">*</span>
+
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="coordinatorName" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-person"></i>Coordinator Name: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="text"
                         id="coordinatorName"
                         name="coordinatorName"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter coordinator name"
                         required
                         value={form.coordinatorName}
@@ -983,15 +981,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                         onChange={(e) => handleAlphabetInput(e, 'coordinatorName')}
                       />
                     </div>
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="coordinatorDesignation" className="phsr-form-label">
-                        <i className="bi bi-briefcase me-2"></i>Coordinator Designation: <span className="phsr-required">*</span>
+                    <div>
+                      <label htmlFor="coordinatorDesignation" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-briefcase"></i>Coordinator Designation: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="text"
                         id="coordinatorDesignation"
                         name="coordinatorDesignation"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter designation"
                         required
                         value={form.coordinatorDesignation}
@@ -1001,8 +999,9 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                     </div>
                   </div>
 
-                  <div className="phsr-row">
-                    <div className="phsr-col-md-6">
+                  {/* Coordinator Email and Mobile Verification */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
                       <OtpVerification
                         label="Email"
                         value={form.coordinatorEmail}
@@ -1011,7 +1010,7 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                         verified={emailVerified}
                       />
                     </div>
-                    <div className="phsr-col-md-6">
+                    <div>
                       <OtpVerification
                         label="Mobile"
                         value={form.coordinatorMobile}
@@ -1026,126 +1025,127 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
             </div>
           )}
 
-          {/* STEP 3: Documents - Dynamic based on selected product types */}
+          {/* STEP 3: Documents */}
           {step === 3 && (
-            <div className="phsr-card shadow-lg border-0 rounded-4 phsr-p-4">
-              <div className="phsr-card phsr-mb-4 shadow-sm">
-                <div className="phsr-card-header text-center" style={{ padding: '0.75rem 1rem' }}>
-                  <div className="phsr-header-icon" style={{ height: '28px', width: '28px' }}>
-                    <i className="bi bi-file-earmark-lock"></i>
+            <div className="bg-white rounded-2xl shadow-md border border-neutral-200 p-3 md:p-6 mb-6">
+              <div className="mb-6">
+                {/* <div className="text-center mb-6">
+                  <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary-600 to-primary-700 flex items-center justify-center mx-auto mb-3 shadow-md">
+                    <i className="bi bi-file-earmark-lock text-white text-xl"></i>
                   </div>
-                  <h4 className="phsr-mb-0 phsr-header-text" style={{ fontSize: '1.1rem', marginTop: '0.5rem' }}>
+                  <h4 className="text-xl font-bold text-neutral-900 mb-2">
                     Document Upload
                   </h4>
-                  <small className="phsr-text-muted">
+                  <p className="text-neutral-600 text-sm">
                     Required documents based on your selected product types
-                  </small>
-                </div>
-                
+                  </p>
+                </div> */}
+
                 {/* GST Certificate Section */}
-                <div className="phsr-card-header text-dark bg-light text-center" style={{ padding: '0.75rem 1rem' }}>
-                  <h3 className="phsr-mb-0 phsr-section-title" style={{ fontSize: '1rem' }}>
-                    <i className="bi bi-file-earmark-text me-2"></i>GSTIN Certificate
-                  </h3>
-                </div>
-                <div className="card-body phsr-p-4">
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="gstNumber" className="phsr-form-label">
-                        <i className="bi bi-hash me-2"></i>GST Number: <span className="phsr-required">*</span>
+                <div className="mb-2">
+                  <div className="bg-primary-50 rounded-xl p-1 mb-2">
+                    <h3 className="text-lg font-semibold text-primary-700 flex items-center">
+                      <i className="bi bi-file-earmark-text mr-2"></i>GSTIN Certificate
+                    </h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="gstNumber" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-hash"></i>GST Number: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="text"
                         id="gstNumber"
                         name="gstNumber"
-                        className="phsr-input"
+                        className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                         placeholder="Enter GST number"
                         required
                         value={form.gstNumber}
                         onChange={handleChange}
                       />
                     </div>
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="gstFile" className="phsr-form-label">
-                        <i className="bi bi-upload me-2"></i>GST Certificate: <span className="phsr-required">*</span>
+                    <div>
+                      <label htmlFor="gstFile" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+                        <i className="bi bi-upload"></i>GST Certificate: <span className="text-error-300">*</span>
                       </label>
                       <input
                         type="file"
                         id="gstFile"
                         name="gstFile"
-                        className="phsr-file-input"
+                        className="w-full px-4 py-2 border-2 border-dashed border-primary-300 rounded-xl bg-primary-50 text-neutral-900 cursor-pointer hover:border-primary-400 hover:bg-primary-100 transition-all"
                         accept=".pdf,.jpg,.jpeg,.png"
                         required
                         onChange={handleChange}
                       />
                       {form.gstFile && (
-                        <small className="phsr-text-success phsr-mt-1 phsr-d-block">
-                          <i className="bi bi-check-circle-fill me-1"></i>
+                        <p className="mt-2 text-sm text-success-300">
+                          <i className="bi bi-check-circle-fill mr-1"></i>
                           File selected: {form.gstFile.name}
-                        </small>
+                        </p>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Dynamic License Sections based on selected product types */}
+                {/* Dynamic License Sections */}
                 {form.productTypes.map((productType, index) => {
                   const licenseInfo = getLicenseInfo(productType);
                   const licenseData = form.licenses[productType] || { number: "", file: null };
                   
                   return (
-                    <div key={productType}>
-                      <div className="phsr-card-header text-dark bg-light text-center phsr-mb-3" style={{ padding: '0.75rem 1rem' }}>
-                        <h3 className="phsr-mb-0 phsr-section-title" style={{ fontSize: '1rem' }}>
-                          <i className="bi bi-prescription2 me-2"></i>{licenseInfo.label}
-                          <small className="d-block phsr-mt-1 phsr-text-muted">
-                            Required for: {productType}
-                          </small>
+                    <div key={productType} className="mb-4">
+                      <div className="bg-primary-50 rounded-xl p-2 mb-2">
+                        <h3 className="text-lg font-semibold text-primary-700 flex items-center">
+                          <i className="bi bi-prescription2 mr-2"></i>{licenseInfo.label}
+                          <span className="ml-2 text-sm font-normal text-neutral-600">
+                            (Required for: {productType})
+                          </span>
                         </h3>
                       </div>
 
-                      <div className="phsr-row phsr-mb-3 phsr-p-4">
-                        <div className="phsr-col-md-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
                           <label 
                             htmlFor={`licenseNumber-${productType}`} 
-                            className="phsr-form-label"
+                            className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700"
                           >
-                            <i className="bi bi-hash me-2"></i>{licenseInfo.label} Number: 
-                            <span className="phsr-required">*</span>
+                            <i className="bi bi-hash"></i>{licenseInfo.label} Number: 
+                            <span className="text-error-300">*</span>
                           </label>
                           <input
                             type="text"
                             id={`licenseNumber-${productType}`}
                             name={`licenseNumber-${productType}`}
-                            className="phsr-input"
+                            className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
                             placeholder={licenseInfo.placeholder}
                             required
                             value={licenseData.number}
                             onChange={handleChange}
                           />
                         </div>
-                        <div className="phsr-col-md-6">
+                        <div>
                           <label 
                             htmlFor={`licenseFile-${productType}`} 
-                            className="phsr-form-label"
+                            className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700"
                           >
-                            <i className="bi bi-upload me-2"></i>{licenseInfo.label} File Upload: 
-                            <span className="phsr-required">*</span>
+                            <i className="bi bi-upload"></i>{licenseInfo.label} File Upload: 
+                            <span className="text-error-300">*</span>
                           </label>
                           <input
                             type="file"
                             id={`licenseFile-${productType}`}
                             name={`licenseFile-${productType}`}
-                            className="phsr-file-input"
+                            className="w-full px-4 py-2 border-2 border-dashed border-primary-300 rounded-xl bg-primary-50 text-neutral-900 cursor-pointer hover:border-primary-400 hover:bg-primary-100 transition-all"
                             accept=".pdf,.jpg,.jpeg,.png"
                             required
                             onChange={handleChange}
                           />
                           {licenseData.file && (
-                            <small className="phsr-text-success phsr-mt-1 phsr-d-block">
-                              <i className="bi bi-check-circle-fill me-1"></i>
+                            <p className="mt-2 text-sm text-success-300">
+                              <i className="bi bi-check-circle-fill mr-1"></i>
                               File selected: {licenseData.file.name}
-                            </small>
+                            </p>
                           )}
                         </div>
                       </div>
@@ -1155,325 +1155,291 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 
                 {/* Warning if no product types selected */}
                 {form.productTypes.length === 0 && (
-                  <div className="phsr-alert phsr-alert-warning phsr-mt-4 phsr-p-3">
-                    <i className="bi bi-exclamation-triangle me-2"></i>
-                    No product types selected. Please go back to Step 1 and select at least one product type.
+                  <div className="mt-6 p-4 bg-warning-100 border border-warning-200 rounded-xl">
+                    <div className="flex items-center">
+                      <i className="bi bi-exclamation-triangle text-warning-800 text-xl mr-3"></i>
+                      <div>
+                        <p className="text-warning-800 font-medium">No product types selected</p>
+                        <p className="text-warning-700 text-sm mt-1">
+                          Please go back to Step 1 and select at least one product type.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* STEP 4: Bank Details with IFSC auto-fill */}
-          {step === 4 && (
-            <div className="phsr-card shadow-lg border-0 rounded-4 phsr-p-4">
-              <div className="phsr-card shadow-sm">
-                <div className="phsr-card-header text-center" style={{ padding: '0.75rem 1rem' }}>
-                  <div className="phsr-header-icon" style={{ height: '28px', width: '28px' }}>
-                    <i className="bi bi-bank"></i>
-                  </div>
-                  <h4 className="phsr-mb-0 phsr-header-text" style={{ fontSize: '1.1rem', marginTop: '0.5rem' }}>
-                    Bank Account Details
-                  </h4>
-                  <small className="text-muted">
-                    IFSC based auto-verification
-                  </small>
-                </div>
+          {/* STEP 4: Bank Details */}
+         {/* STEP 4: Bank Details */}
+{step === 4 && (
+  <div className="bg-white rounded-2xl shadow-md border border-neutral-200 p-3 md:p-6 mb-6">
+    <div className="mb-6">
+      {/* <div className="text-center mb-6">
+        <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary-600 to-primary-700 flex items-center justify-center mx-auto mb-3 shadow-md">
+          <i className="bi bi-bank text-white text-xl"></i>
+        </div>
+        <h4 className="text-xl font-bold text-neutral-900 mb-2">
+          Bank Account Details
+        </h4>
+        <p className="text-neutral-600 text-sm">
+          IFSC based auto-verification
+        </p>
+      </div> */}
 
-                <div className="card-body phsr-p-4">
-                  {/* Account Number and Holder Name */}
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="accountNumber" className="phsr-form-label">
-                        Account Number <span className="phsr-required">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="accountNumber"
-                        className="phsr-input"
-                        value={form.accountNumber}
-                        onChange={handleChange}
-                        placeholder="Enter account number"
-                        required
-                      />
-                    </div>
+      <div className="space-y-6">
+        {/* Account Number and Holder Name */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label htmlFor="accountNumber" className="block mb-2 text-sm font-semibold text-primary-700">
+              Account Number <span className="text-error-300">*</span>
+            </label>
+            <input
+              type="text"
+              id="accountNumber"
+              className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
+              value={form.accountNumber}
+              onChange={handleChange}
+              placeholder="Enter account number"
+              required
+            />
+          </div>
 
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="accountHolderName" className="phsr-form-label">
-                        Account Holder Name <span className="phsr-required">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="accountHolderName"
-                        className="phsr-input"
-                        value={form.accountHolderName}
-                        onChange={(e) => handleAlphabetInput(e, "accountHolderName")}
-                        onKeyPress={handleAlphabetKeyPress}
-                        placeholder="As per bank records"
-                        required
-                      />
-                    </div>
-                  </div>
+          <div>
+            <label htmlFor="accountHolderName" className="block mb-2 text-sm font-semibold text-primary-700">
+              Account Holder Name <span className="text-error-300">*</span>
+            </label>
+            <input
+              type="text"
+              id="accountHolderName"
+              className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
+              value={form.accountHolderName}
+              onChange={(e) => handleAlphabetInput(e, "accountHolderName")}
+              onKeyPress={handleAlphabetKeyPress}
+              placeholder="As per bank records"
+              required
+            />
+          </div>
+        </div>
 
-                  {/* IFSC Code */}
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label htmlFor="ifscCode" className="phsr-form-label">
-                        IFSC Code <span className="phsr-required">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="ifscCode"
-                        className="phsr-input"
-                        maxLength={11}
-                        value={form.ifscCode}
-                        onChange={(e) => handleIfscChange(e.target.value)}
-                        placeholder="SBIN0005943"
-                        style={{ textTransform: "uppercase" }}
-                        required
-                      />
-                      {ifscError && (
-                        <small className="text-danger">{ifscError}</small>
-                      )}
-                    </div>
-                  </div>
+        {/* IFSC Code */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label htmlFor="ifscCode" className="block mb-2 text-sm font-semibold text-primary-700">
+              IFSC Code <span className="text-error-300">*</span>
+            </label>
+            <input
+              type="text"
+              id="ifscCode"
+              className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all uppercase"
+              maxLength={11}
+              value={form.ifscCode}
+              onChange={(e) => handleIfscChange(e.target.value)}
+              placeholder="SBIN0005943"
+              required
+            />
+            {ifscError && (
+              <p className="mt-1 text-sm text-error-300">{ifscError}</p>
+            )}
+          </div>
+          
+          {/* Cancelled Cheque Upload */}
+          <div>
+            <label htmlFor="cancelledChequeFile" className="block mb-2 text-sm font-semibold text-primary-700">
+              Cancelled Cheque / Bank Details Proof <span className="text-error-300">*</span>
+            </label>
+            <input
+              type="file"
+              id="cancelledChequeFile"
+              name="cancelledChequeFile"
+              className="w-full px-4 py-2 border-2 border-dashed border-primary-300 rounded-xl bg-primary-50 text-neutral-900 cursor-pointer hover:border-primary-400 hover:bg-primary-100 transition-all"
+              accept=".pdf,.jpg,.jpeg,.png"
+              required
+              onChange={handleChange}
+            />
+            {form.cancelledChequeFile && (
+              <p className="mt-2 text-sm text-success-300">
+                <i className="bi bi-check-circle-fill mr-1"></i>
+                File selected: {form.cancelledChequeFile.name}
+              </p>
+            )}
+          </div>
+        </div>
 
-                  {/* Auto-filled Bank Details */}
-                  <div className="phsr-row phsr-mb-3">
-                    <div className="phsr-col-md-6">
-                      <label className="phsr-form-label">Bank Name</label>
-                      <input
-                        type="text"
-                        className="phsr-input"
-                        value={form.bankName}
-                        disabled
-                        readOnly
-                      />
-                    </div>
+        {/* Auto-filled Bank Details */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block mb-2 text-sm font-semibold text-primary-700">Bank Name</label>
+            <input
+              type="text"
+              className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-neutral-50 text-neutral-700"
+              value={form.bankName}
+              disabled
+              readOnly
+            />
+          </div>
 
-                    <div className="phsr-col-md-6">
-                      <label className="phsr-form-label">Branch</label>
-                      <input
-                        type="text"
-                        className="phsr-input"
-                        value={form.branch}
-                        disabled
-                        readOnly
-                      />
-                    </div>
-                  </div>
+          <div>
+            <label className="block mb-2 text-sm font-semibold text-primary-700">Branch</label>
+            <input
+              type="text"
+              className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-neutral-50 text-neutral-700"
+              value={form.branch}
+              disabled
+              readOnly
+            />
+          </div>
 
-                  <div className="phsr-row">
-                    <div className="phsr-col-md-6">
-                      <label className="phsr-form-label">State</label>
-                      <input
-                        type="text"
-                        className="phsr-input"
-                        value={form.bankState}
-                        disabled
-                        readOnly
-                      />
-                    </div>
+          <div>
+            <label className="block mb-2 text-sm font-semibold text-primary-700">State</label>
+            <input
+              type="text"
+              className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-neutral-50 text-neutral-700"
+              value={form.bankState}
+              disabled
+              readOnly
+            />
+          </div>
 
-                    <div className="phsr-col-md-6">
-                      <label className="phsr-form-label">District</label>
-                      <input
-                        type="text"
-                        className="phsr-input"
-                        value={form.bankDistrict}
-                        disabled
-                        readOnly
-                      />
-                    </div>
-                  </div>
+          <div>
+            <label className="block mb-2 text-sm font-semibold text-primary-700">District</label>
+            <input
+              type="text"
+              className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-neutral-50 text-neutral-700"
+              value={form.bankDistrict}
+              disabled
+              readOnly
+            />
+          </div>
+        </div>
 
-                  <div className="alert alert-info phsr-mt-4">
-                    <div className="d-flex">
-                      <i className="bi bi-shield-check me-3 fs-4"></i>
-                      <div>
-                        <h6 className="alert-heading phsr-mb-1">Security Assurance</h6>
-                        <small className="phsr-mb-0">
-                          Your bank details are encrypted and stored securely.
-                          We follow PCI-DSS compliance standards for financial data protection.
-                        </small>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        {/* Security Notice */}
+        <div className="mt-8 p-4 bg-primary-50 border border-primary-200 rounded-xl">
+          <div className="flex">
+            <i className="bi bi-shield-check text-primary-700 text-2xl mr-4"></i>
+            <div>
+              <h6 className="font-bold text-primary-800 mb-1">Security Assurance</h6>
+              <p className="text-sm text-neutral-700">
+                Your bank details are encrypted and stored securely.
+                We follow PCI-DSS compliance standards for financial data protection.
+              </p>
             </div>
-          )}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
-          {/* STEP 5: Review - Updated with dynamic license fields */}
+          {/* STEP 5: Review */}
           {step === 5 && (
-            <div className="phsr-final-review-card">
-              <div className="text-center phsr-mb-4">
-                <div className="phsr-review-check-icon">
-                  <i className="bi bi-shield-check"></i>
+            <div className="bg-white rounded-2xl shadow-md border border-neutral-200 p-4 md:p-6 mb-6">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-primary-600 to-primary-700 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <i className="bi bi-shield-check text-white text-2xl"></i>
                 </div>
-                <h4 className="fw-bold phsr-gradient-text-sm">
-                  Final Verification Summary
+                <h4 className="text-2xl font-bold bg-linear-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent">
+                  Final Submission Summary
                 </h4>
-                <small className="phsr-text-muted">Please review all details before final submission</small>
+                <p className="text-neutral-600 mt-2">Please review all details before final submission</p>
               </div>
 
               {/* Company Section */}
-              <div className="phsr-review-section">
-                <h6 className="phsr-review-section-title">
-                  <i className="bi bi-building me-2"></i> Company Details
+              <div className="mb-8 p-6 bg-primary-50 rounded-2xl border-l-4 border-primary-600">
+                <h6 className="text-lg font-bold text-primary-700 mb-4 flex items-center">
+                  <i className="bi bi-building mr-2"></i> Company Details
                 </h6>
-                <div className="phsr-row">
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Company Name</span>
-                    <p className={`phsr-review-field-value ${!form.sellerName ? "phsr-text-danger" : ""}`}>
-                      {form.sellerName || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Company Type</span>
-                    <p className={`phsr-review-field-value ${!form.companyType ? "phsr-text-danger" : ""}`}>
-                      {form.companyType || "Not selected"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Seller Type</span>
-                    <p className={`phsr-review-field-value ${!form.sellerType ? "phsr-text-danger" : ""}`}>
-                      {form.sellerType || "Not selected"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Product Type(s)</span>
-                    <p className={`phsr-review-field-value ${form.productTypes.length === 0 ? "phsr-text-danger" : ""}`}>
-                      {form.productTypes.length > 0 
-                        ? form.productTypes.join(", ") 
-                        : "Not selected"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">State</span>
-                    <p className={`phsr-review-field-value ${!form.state ? "phsr-text-danger" : ""}`}>
-                      {form.state || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">District</span>
-                    <p className={`phsr-review-field-value ${!form.district ? "phsr-text-danger" : ""}`}>
-                      {form.district || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Taluka</span>
-                    <p className={`phsr-review-field-value ${!form.taluka ? "phsr-text-danger" : ""}`}>
-                      {form.taluka || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">City/Town/Village</span>
-                    <p className={`phsr-review-field-value ${!form.city ? "phsr-text-danger" : ""}`}>
-                      {form.city || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Street/Road/Lane</span>
-                    <p className={`phsr-review-field-value ${!form.street ? "phsr-text-danger" : ""}`}>
-                      {form.street || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Building/House No</span>
-                    <p className={`phsr-review-field-value ${!form.buildingNo ? "phsr-text-danger" : ""}`}>
-                      {form.buildingNo || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Landmark</span>
-                    <p className={`phsr-review-field-value ${!form.landmark ? "phsr-text-muted" : ""}`}>
-                      {form.landmark || "N/A"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Pin Code</span>
-                    <p className={`phsr-review-field-value ${!form.pincode ? "phsr-text-danger" : ""}`}>
-                      {form.pincode || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Phone</span>
-                    <p className={`phsr-review-field-value ${!form.phone ? "phsr-text-danger" : ""}`}>
-                      {form.phone || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Email</span>
-                    <p className={`phsr-review-field-value ${!form.email ? "phsr-text-danger" : ""}`}>
-                      {form.email || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Website</span>
-                    <p className={`phsr-review-field-value ${!form.website ? "phsr-text-muted" : ""}`}>
-                      {form.website || "N/A"}
-                    </p>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {[
+                    { label: "Company Name", value: form.sellerName },
+                    { label: "Company Type", value: form.companyType },
+                    { label: "Seller Type", value: form.sellerType },
+                    { label: "Product Type(s)", value: form.productTypes.join(", ") },
+                    { label: "State", value: form.state },
+                    { label: "District", value: form.district },
+                    { label: "Taluka", value: form.taluka },
+                    { label: "City/Town/Village", value: form.city },
+                    { label: "Street/Road/Lane", value: form.street },
+                    { label: "Building/House No", value: form.buildingNo },
+                    { label: "Landmark", value: form.landmark || "N/A" },
+                    { label: "Pin Code", value: form.pincode },
+                    { label: "Phone", value: form.phone },
+                    { label: "Email", value: form.email },
+                    { label: "Website", value: form.website || "N/A" }
+                  ].map((item, index) => (
+                    <div key={index}>
+                      <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+                        {item.label}
+                      </span>
+                      <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!item.value || (item.value === "N/A" && item.label === "Landmark") || (item.value === "N/A" && item.label === "Website") ? "text-neutral-500" : "text-neutral-900"}`}>
+                        {item.value || "Not provided"}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               {/* Coordinator Section */}
-              <div className="phsr-review-section">
-                <h6 className="phsr-review-section-title">
-                  <i className="bi bi-person-badge me-2"></i> Coordinator Details
+              <div className="mb-8 p-6 bg-primary-50 rounded-2xl border-l-4 border-primary-600">
+                <h6 className="text-lg font-bold text-primary-700 mb-4 flex items-center">
+                  <i className="bi bi-person-badge mr-2"></i> Coordinator Details
                 </h6>
-                <div className="phsr-row">
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Name</span>
-                    <p className={`phsr-review-field-value ${!form.coordinatorName ? "phsr-text-danger" : ""}`}>
-                      {form.coordinatorName || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Designation</span>
-                    <p className={`phsr-review-field-value ${!form.coordinatorDesignation ? "phsr-text-danger" : ""}`}>
-                      {form.coordinatorDesignation || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Email</span>
-                    <p className={`phsr-review-field-value ${!form.coordinatorEmail ? "phsr-text-danger" : ""}`}>
-                      {form.coordinatorEmail || "Not provided"}
-                      {emailVerified && <span className="phsr-verified-badge">✔ Verified</span>}
-                      {!emailVerified && form.coordinatorEmail && <span className="phsr-text-warning"> (Not verified)</span>}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Mobile</span>
-                    <p className={`phsr-review-field-value ${!form.coordinatorMobile ? "phsr-text-danger" : ""}`}>
-                      {form.coordinatorMobile || "Not provided"}
-                      {phoneVerified && <span className="phsr-verified-badge">✔ Verified</span>}
-                      {!phoneVerified && form.coordinatorMobile && <span className="phsr-text-warning"> (Not verified)</span>}
-                    </p>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {[
+                    { label: "Name", value: form.coordinatorName },
+                    { label: "Designation", value: form.coordinatorDesignation },
+                    { 
+                      label: "Email", 
+                      value: form.coordinatorEmail,
+                      verified: emailVerified
+                    },
+                    { 
+                      label: "Mobile", 
+                      value: form.coordinatorMobile,
+                      verified: phoneVerified
+                    }
+                  ].map((item, index) => (
+                    <div key={index}>
+                      <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+                        {item.label}
+                      </span>
+                      <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!item.value ? "text-error-300" : "text-neutral-900"}`}>
+                        {item.value || "Not provided"}
+                        {item.verified !== undefined && item.value && (
+                          <span className={`ml-2 px-2 py-1 text-xs rounded ${item.verified ? 'bg-success-100 text-success-300' : 'bg-warning-100 text-warning-300'}`}>
+                            {item.verified ? "✔ Verified" : "Not verified"}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Documents Section - Updated with dynamic licenses */}
-              <div className="phsr-review-section">
-                <h6 className="phsr-review-section-title">
-                  <i className="bi bi-file-earmark-lock me-2"></i> Compliance Documents
+              {/* Documents Section */}
+              <div className="mb-8 p-6 bg-primary-50 rounded-2xl border-l-4 border-primary-600">
+                <h6 className="text-lg font-bold text-primary-700 mb-4 flex items-center">
+                  <i className="bi bi-file-earmark-lock mr-2"></i> Compliance Documents
                 </h6>
-                <div className="phsr-row">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* GST Details */}
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">GST Number</span>
-                    <p className={`phsr-review-field-value ${!form.gstNumber ? "phsr-text-danger" : ""}`}>
+                  <div>
+                    <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+                      GST Number
+                    </span>
+                    <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!form.gstNumber ? "text-error-300" : "text-neutral-900"}`}>
                       {form.gstNumber || "Not provided"}
                     </p>
                   </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">GST Certificate</span>
-                    <p className={`phsr-review-field-value ${!form.gstFile ? "phsr-text-danger" : ""}`}>
+                  <div>
+                    <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+                      GST Certificate
+                    </span>
+                    <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!form.gstFile ? "text-error-300" : "text-neutral-900"}`}>
                       {form.gstFile ? (
-                        <span className="phsr-file-pill">
-                          <i className="bi bi-file-earmark-pdf me-1"></i>
+                        <span className="inline-flex items-center bg-linear-to-r from-primary-600 to-primary-700 text-white px-3 py-1 rounded-lg text-sm font-semibold">
+                          <i className="bi bi-file-earmark-pdf mr-2"></i>
                           {form.gstFile.name}
                         </span>
                       ) : "Not uploaded"}
@@ -1487,22 +1453,22 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
                     
                     return (
                       <React.Fragment key={productType}>
-                        <div className="phsr-col-md-6">
-                          <span className="phsr-review-field-label">
+                        <div>
+                          <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
                             {licenseInfo.label} for {productType}
                           </span>
-                          <p className={`phsr-review-field-value ${!licenseData?.number ? "phsr-text-danger" : ""}`}>
+                          <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!licenseData?.number ? "text-error-300" : "text-neutral-900"}`}>
                             {licenseData?.number || "Not provided"}
                           </p>
                         </div>
-                        <div className="phsr-col-md-6">
-                          <span className="phsr-review-field-label">
+                        <div>
+                          <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
                             {licenseInfo.label} File
                           </span>
-                          <p className={`phsr-review-field-value ${!licenseData?.file ? "phsr-text-danger" : ""}`}>
+                          <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!licenseData?.file ? "text-error-300" : "text-neutral-900"}`}>
                             {licenseData?.file ? (
-                              <span className="phsr-file-pill">
-                                <i className="bi bi-file-earmark-pdf me-1"></i>
+                              <span className="inline-flex items-center bg-linear-to-r from-primary-600 to-primary-700 text-white px-3 py-1 rounded-lg text-sm font-semibold">
+                                <i className="bi bi-file-earmark-pdf mr-2"></i>
                                 {licenseData.file.name}
                               </span>
                             ) : "Not uploaded"}
@@ -1515,117 +1481,117 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
               </div>
 
               {/* Bank Details Section */}
-              <div className="phsr-review-section">
-                <h6 className="phsr-review-section-title">
-                  <i className="bi bi-bank me-2"></i> Bank Account Details
-                </h6>
-                <div className="phsr-row">
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Bank Name</span>
-                    <p className={`phsr-review-field-value ${!form.bankName ? "phsr-text-danger" : ""}`}>
-                      {form.bankName || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Branch</span>
-                    <p className={`phsr-review-field-value ${!form.branch ? "phsr-text-danger" : ""}`}>
-                      {form.branch || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">State</span>
-                    <p className={`phsr-review-field-value ${!form.bankState ? "phsr-text-danger" : ""}`}>
-                      {form.bankState || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">District</span>
-                    <p className={`phsr-review-field-value ${!form.bankDistrict ? "phsr-text-danger" : ""}`}>
-                      {form.bankDistrict || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">IFSC Code</span>
-                    <p className={`phsr-review-field-value ${!form.ifscCode ? "phsr-text-danger" : ""}`}>
-                      {form.ifscCode || "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Account Number</span>
-                    <p className={`phsr-review-field-value ${!form.accountNumber ? "phsr-text-danger" : ""}`}>
-                      {form.accountNumber ? "****" + form.accountNumber.slice(-4) : "Not provided"}
-                    </p>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <span className="phsr-review-field-label">Account Holder Name</span>
-                    <p className={`phsr-review-field-value ${!form.accountHolderName ? "phsr-text-danger" : ""}`}>
-                      {form.accountHolderName || "Not provided"}
-                    </p>
-                  </div>
-                </div>
-              </div>
+<div className="mb-8 p-6 bg-primary-50 rounded-2xl border-l-4 border-primary-600">
+  <h6 className="text-lg font-bold text-primary-700 mb-4 flex items-center">
+    <i className="bi bi-bank mr-2"></i> Bank Account Details
+  </h6>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {[
+      { label: "Bank Name", value: form.bankName },
+      { label: "Branch", value: form.branch },
+      { label: "State", value: form.bankState },
+      { label: "District", value: form.bankDistrict },
+      { label: "IFSC Code", value: form.ifscCode },
+      { label: "Account Number", value: form.accountNumber ? "****" + form.accountNumber.slice(-4) : "" },
+      { label: "Account Holder Name", value: form.accountHolderName },
+      { 
+        label: "Cancelled Cheque", 
+        value: form.cancelledChequeFile ? (
+          <span className="inline-flex items-center bg-linear-to-r from-primary-600 to-primary-700 text-white px-3 py-1 rounded-lg text-sm font-semibold">
+            <i className="bi bi-file-earmark-pdf mr-2"></i>
+            {form.cancelledChequeFile.name}
+          </span>
+        ) : "Not uploaded"
+      }
+    ].map((item, index) => (
+      <div key={index}>
+        <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+          {item.label}
+        </span>
+        <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!item.value || item.value === "Not uploaded" ? "text-error-300" : "text-neutral-900"}`}>
+          {item.value || "Not provided"}
+        </p>
+      </div>
+    ))}
+  </div>
+</div>
 
-              {/* Validation Summary - Updated */}
-              <div className="phsr-validation-summary">
-                <h6 className="phsr-mb-2">
-                  <i className="bi bi-clipboard-check me-2"></i>Validation Summary
+              {/* Validation Summary */}
+              <div className="p-6 bg-primary-50 rounded-2xl border-l-4 border-primary-600">
+                <h6 className="text-lg font-bold text-primary-700 mb-4 flex items-center">
+                  <i className="bi bi-clipboard-check mr-2"></i> Validation Summary
                 </h6>
-                <div className="phsr-row">
-                  <div className="phsr-col-md-6">
-                    <small className="d-flex align-items-center phsr-mb-1">
-                      <i className={`bi ${form.sellerName && form.pincode && form.productTypes.length > 0 ? 'bi-check-circle-fill phsr-text-success' : 'bi-x-circle-fill phsr-text-danger'} me-2`}></i>
-                      Company Info: {form.sellerName && form.pincode && form.productTypes.length > 0 ? 'Complete' : 'Incomplete'}
-                    </small>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <small className="d-flex align-items-center phsr-mb-1">
-                      <i className={`bi ${emailVerified && phoneVerified ? 'bi-check-circle-fill phsr-text-success' : 'bi-x-circle-fill phsr-text-danger'} me-2`}></i>
-                      Verification: {emailVerified && phoneVerified ? 'Complete' : 'Pending'}
-                    </small>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <small className="d-flex align-items-center phsr-mb-1">
-                      <i className={`bi ${form.gstFile ? 'bi-check-circle-fill phsr-text-success' : 'bi-x-circle-fill phsr-text-danger'} me-2`}></i>
-                      GST Document: {form.gstFile ? 'Complete' : 'Incomplete'}
-                    </small>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <small className="d-flex align-items-center phsr-mb-1">
-                      <i className={`bi ${form.productTypes.length > 0 && form.productTypes.every(pt => form.licenses[pt]?.number && form.licenses[pt]?.file) ? 'bi-check-circle-fill phsr-text-success' : 'bi-x-circle-fill phsr-text-danger'} me-2`}></i>
-                      Product Licenses: {form.productTypes.length > 0 && form.productTypes.every(pt => form.licenses[pt]?.number && form.licenses[pt]?.file) ? 'Complete' : 'Incomplete'}
-                    </small>
-                  </div>
-                  <div className="phsr-col-md-6">
-                    <small className="d-flex align-items-center phsr-mb-1">
-                      <i className={`bi ${form.ifscCode && form.accountNumber ? 'bi-check-circle-fill phsr-text-success' : 'bi-x-circle-fill phsr-text-danger'} me-2`}></i>
-                      Bank Details: {form.ifscCode && form.accountNumber ? 'Complete' : 'Incomplete'}
-                    </small>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    {
+                      label: "Company Info",
+                      complete: form.sellerName && form.pincode && form.productTypes.length > 0
+                    },
+                    {
+                      label: "Verification",
+                      complete: emailVerified && phoneVerified
+                    },
+                    {
+                      label: "GST Document",
+                      complete: !!form.gstFile
+                    },
+                    {
+                      label: "Product Licenses",
+                      complete: form.productTypes.length > 0 && form.productTypes.every(pt => form.licenses[pt]?.number && form.licenses[pt]?.file)
+                    },
+                    {
+                      label: "Bank Details",
+                      complete: form.ifscCode && form.accountNumber && form.cancelledChequeFile
+                    }
+                  ].map((item, index) => (
+                    <div key={index} className="flex items-center">
+                      <i className={`bi ${item.complete ? 'bi-check-circle-fill text-success-300' : 'bi-x-circle-fill text-error-300'} text-lg mr-3`}></i>
+                      <span className="text-sm font-medium text-neutral-700">
+                        {item.label}: {item.complete ? 'Complete' : 'Incomplete'}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Navigation Buttons */}
-          <div className="phsr-button-group">
-            {step > 1 && (
-              <button type="button" className="phsr-btn-back" onClick={back}>
-                <i className="bi bi-arrow-left me-2"></i> Back
-              </button>
-            )}
-
-            <button type="submit" className="phsr-btn-next ms-auto">
-              {step < 5 ? (
-                <>
-                  Continue <i className="bi bi-arrow-right ms-2"></i>
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-check-circle me-2"></i> Submit Application
-                </>
-              )}
-            </button>
-          </div>
+{/* Navigation Buttons */}
+<div className="flex flex-col md:flex-row justify-between items-center mt-8 pt-6 border-t border-neutral-200 gap-4">
+  {step > 1 && (
+    <button
+      type="button"
+      onClick={back}
+      className="group relative px-8 py-3 rounded-lg border border-primary-600 bg-white hover:bg-primary-600 transition-all duration-300 flex items-center justify-center w-full md:w-auto"
+    >
+      <span className="flex items-center text-primary-600 group-hover:text-white font-semibold text-lg">
+        <i className="bi bi-arrow-left mr-2"></i> Back
+      </span>
+      <div className="absolute inset-0 rounded-lg bg-primary-600 opacity-0 group-hover:opacity-5 transition-opacity duration-300"></div>
+    </button>
+  )}
+  
+  {/* Using justify-end on the container */}
+  <div className="w-full md:w-auto md:ml-auto flex justify-end">
+    <button
+      type="submit"
+      className="group relative px-8 py-3 rounded-lg border border-primary-600 bg-white hover:bg-primary-600 transition-all duration-300 flex items-center justify-center w-full md:w-auto"
+    >
+      <span className="flex items-center text-primary-600 group-hover:text-white font-semibold text-lg">
+        {step < 5 ? (
+          <>
+            Continue <i className="bi bi-arrow-right ml-2"></i>
+          </>
+        ) : (
+          <>
+            <i className="bi bi-check-circle mr-2"></i> Submit Application
+          </>
+        )}
+      </span>
+      <div className="absolute inset-0 rounded-lg bg-primary-600 opacity-0 group-hover:opacity-5 transition-opacity duration-300"></div>
+    </button>
+  </div>
+</div>
         </form>
       </div>
     </div>
@@ -1645,42 +1611,139 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// original code .....................
 // "use client";
-// import React, { useState } from "react";
+// import React, { useState, useEffect, useRef } from "react";
 // import OtpVerification from "./OtpVerification";
 // import Header from "@/src/app/components/Header";
+// import { useRouter } from "next/navigation"; 
 
-// interface SellerRegisterProps {
-//   onBackToDashboard?: () => void;
-// }
+// const IFSC_API = "https://ifsc.razorpay.com";
+// const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
-// export default function SellerRegister({ onBackToDashboard }: SellerRegisterProps) {
+// const PRODUCT_TYPES = [
+//   {
+//     id: "drugs",
+//     name: "Drugs",
+//     licenseLabel: "Drug Manufacturing License",
+//     licensePlaceholder: "Enter drug manufacturing license number"
+//   },
+//   {
+//     id: "supplements",
+//     name: "Supplements/ Nutraceuticals",
+//     licenseLabel: "FSSAI License",
+//     licensePlaceholder: "Enter FSSAI license number"
+//   },
+//   {
+//     id: "food",
+//     name: "Food & Infant Nutrition",
+//     licenseLabel: "FSSAI License",
+//     licensePlaceholder: "Enter FSSAI license number"
+//   },
+//   {
+//     id: "cosmetic",
+//     name: "Cosmetic & Personal Care",
+//     licenseLabel: "CDSCO License",
+//     licensePlaceholder: "Enter CDSCO license number"
+//   },
+//   {
+//     id: "medical",
+//     name: "Medical Devices & Equipment",
+//     licenseLabel: "Medical Device License",
+//     licensePlaceholder: "Enter medical device license number"
+//   }
+// ];
+
+// // interface SellerRegisterProps {
+// //   onBackToDashboard?: () => void;
+// // }
+
+// export default function SellerRegister(
+//   // { onBackToDashboard }: SellerRegisterProps
+// ) 
+//   {
 //   const [step, setStep] = useState(1);
 //   const [emailVerified, setEmailVerified] = useState(false);
 //   const [phoneVerified, setPhoneVerified] = useState(false);
 //   const [showSuccessModal, setShowSuccessModal] = useState(false);
 //   const [applicationId, setApplicationId] = useState("");
+//   const [ifscError, setIfscError] = useState("");
+//   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
+//   const productDropdownRef = useRef<HTMLDivElement>(null);
+//   const router = useRouter();
+  
+//   // Close dropdown when clicking outside
+//   useEffect(() => {
+//     const handleClickOutside = (event: MouseEvent) => {
+//       if (productDropdownRef.current && !productDropdownRef.current.contains(event.target as Node)) {
+//         setIsProductDropdownOpen(false);
+//       }
+//     };
+    
+//     document.addEventListener("mousedown", handleClickOutside);
+//     return () => {
+//       document.removeEventListener("mousedown", handleClickOutside);
+//     };
+//   }, []);
+
+//   // Handle IFSC code change and auto-fill bank details
+//   const handleIfscChange = async (value: string) => {
+//     const ifsc = value.toUpperCase();
+
+//     setForm(prev => ({
+//       ...prev,
+//       ifscCode: ifsc
+//     }));
+
+//     setIfscError("");
+
+//     // Reset autofill if incomplete
+//     if (ifsc.length !== 11) {
+//       setForm(prev => ({
+//         ...prev,
+//         bankName: "",
+//         branch: "",
+//         bankState: "",
+//         bankDistrict: ""
+//       }));
+//       return;
+//     }
+
+//     if (!IFSC_REGEX.test(ifsc)) {
+//       setIfscError("Invalid IFSC format");
+//       return;
+//     }
+
+//     try {
+//       const res = await fetch(`${IFSC_API}/${ifsc}`);
+//       if (!res.ok) throw new Error();
+
+//       const data = await res.json();
+
+//       setForm(prev => ({
+//         ...prev,
+//         bankName: data.BANK || "",
+//         branch: data.BRANCH || "",
+//         bankState: data.STATE || "",
+//         bankDistrict: data.DISTRICT || data.CITY || ""
+//       }));
+//     } catch {
+//       setIfscError("Invalid IFSC Code");
+//       setForm(prev => ({
+//         ...prev,
+//         bankName: "",
+//         branch: "",
+//         bankState: "",
+//         bankDistrict: ""
+//       }));
+//     }
+//   };
 
 //   const [form, setForm] = useState({
 //     sellerName: "",
 //     companyType: "",
-//     phone: "",
-//     email: "",
-//     website: "",
+//     sellerType: "",
+//     productTypes: [] as string[],
 //     state: "",
 //     district: "",
 //     taluka: "",
@@ -1689,33 +1752,93 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //     buildingNo: "",
 //     landmark: "",
 //     pincode: "",
+//     phone: "",
+//     email: "",
+//     website: "",
 //     coordinatorName: "",
 //     coordinatorDesignation: "",
 //     coordinatorEmail: "",
 //     coordinatorMobile: "",
 //     gstNumber: "",
 //     gstFile: null as File | null,
-//     licenseNumber: "",
-//     licenseFile: null as File | null,
+//     licenses: {} as Record<string, {
+//       number: string;
+//       file: File | null;
+//     }>,
 //     bankState: "",
 //     bankDistrict: "",
-//     bankTaluka: "",
 //     bankName: "",
 //     branch: "",
 //     ifscCode: "",
 //     accountNumber: "",
 //     accountHolderName: "",
+//     cancelledChequeFile: null as File | null,
 //   });
 
 //   const handleChange = (e: any) => {
-//     const { id, value, files } = e.target;
-//     if (files && files[0]) {
-//       setForm(prev => ({ ...prev, [id]: files[0] }));
+//     const { id, value, files, type } = e.target;
+    
+//     if (type === 'file' && files && files[0]) {
+//       if (id.startsWith('licenseFile-')) {
+//         const licenseId = id.replace('licenseFile-', '');
+//         setForm(prev => ({
+//           ...prev,
+//           licenses: {
+//             ...prev.licenses,
+//             [licenseId]: {
+//               ...prev.licenses[licenseId],
+//               file: files[0]
+//             }
+//           }
+//         }));
+//       } else {
+//         setForm(prev => ({ ...prev, [id]: files[0] }));
+//       }
+//     } else if (id.startsWith('licenseNumber-')) {
+//       const licenseId = id.replace('licenseNumber-', '');
+//       setForm(prev => ({
+//         ...prev,
+//         licenses: {
+//           ...prev.licenses,
+//           [licenseId]: {
+//             ...prev.licenses[licenseId],
+//             number: value
+//           }
+//         }
+//       }));
 //     } else {
 //       setForm(prev => ({ ...prev, [id]: value }));
 //     }
 //   };
 
+//   // Handle product type selection with checkboxes
+//   const handleProductTypeToggle = (productValue: string) => {
+//     setForm(prev => {
+//       let newProductTypes;
+//       const newLicenses = { ...prev.licenses };
+      
+//       if (prev.productTypes.includes(productValue)) {
+//         newProductTypes = prev.productTypes.filter(type => type !== productValue);
+//         if (newLicenses[productValue]) {
+//           delete newLicenses[productValue];
+//         }
+//       } else {
+//         newProductTypes = [...prev.productTypes, productValue];
+//         newLicenses[productValue] = {
+//           number: "",
+//           file: null
+//         };
+//       }
+      
+//       return {
+//         ...prev,
+//         productTypes: newProductTypes,
+//         licenses: newLicenses
+//       };
+//     });
+//   };
+
+//   // Function to allow only alphabets and spaces
 //   const handleAlphabetInput = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
 //     const value = e.target.value;
 //     const filteredValue = value.replace(/[^a-zA-Z\s,'.-]/g, '');
@@ -1725,6 +1848,7 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //     }));
 //   };
 
+//   // Function to validate key press for alphabets only
 //   const handleAlphabetKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
 //     const key = e.key;
 //     const isValidKey = /^[a-zA-Z\s,'.-]$/.test(key);
@@ -1733,6 +1857,21 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //     }
 //   };
 
+//   // Function to allow only numbers
+//   const handleNumericInput = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string, maxLength?: number) => {
+//     let value = e.target.value.replace(/\D/g, '');
+    
+//     if (maxLength && value.length > maxLength) {
+//       value = value.substring(0, maxLength);
+//     }
+    
+//     setForm(prev => ({
+//       ...prev,
+//       [fieldName]: value
+//     }));
+//   };
+
+//   // Coordinator verification handlers
 //   const handleCoordinatorEmailChange = (value: string) => {
 //     setForm(prev => ({ ...prev, coordinatorEmail: value }));
 //   };
@@ -1741,13 +1880,23 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //     setForm(prev => ({ ...prev, coordinatorMobile: value }));
 //   };
 
+//   // Get license label and placeholder for a product type
+//   const getLicenseInfo = (productType: string) => {
+//     const product = PRODUCT_TYPES.find(p => p.name === productType);
+//     return {
+//       label: product?.licenseLabel || `${productType} License`,
+//       placeholder: product?.licensePlaceholder || `Enter ${productType} license number`
+//     };
+//   };
+
 //   const next = (e: any) => {
 //     e.preventDefault();
 
 //     if (step === 1) {
-//       if (!form.sellerName || !form.companyType || !form.phone || !form.email || 
-//           !form.state || !form.district || !form.taluka || !form.city || 
-//           !form.street || !form.buildingNo || !form.pincode) {
+//       if (!form.sellerName || !form.companyType || !form.sellerType || 
+//           form.productTypes.length === 0 ||
+//           !form.phone || !form.email || !form.state || !form.district || 
+//           !form.taluka || !form.city || !form.pincode) {
 //         alert("Please fill all required company information fields.");
 //         return;
 //       }
@@ -1756,11 +1905,23 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //         alert("Please enter a valid 6-digit PIN code.");
 //         return;
 //       }
+
+//       if (!/^\d{10}$/.test(form.phone)) {
+//         alert("Please enter a valid 10-digit phone number.");
+//         return;
+//       }
+
+//       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//       if (!emailRegex.test(form.email)) {
+//         alert("Please enter a valid email address.");
+//         return;
+//       }
 //     }
 
 //     if (step === 2) {
-//       if (!form.coordinatorName || !form.coordinatorDesignation) {
-//         alert("Please fill coordinator name and designation.");
+//       if (!form.coordinatorName || !form.coordinatorDesignation || 
+//           !form.coordinatorEmail || !form.coordinatorMobile) {
+//         alert("Please fill all coordinator details.");
 //         return;
 //       }
 
@@ -1771,29 +1932,39 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //     }
 
 //     if (step === 3) {
-//       if (!form.gstNumber || !form.gstFile || !form.licenseNumber || !form.licenseFile) {
-//         alert("Please fill all document fields and upload required files.");
+//       if (!form.gstNumber || !form.gstFile) {
+//         alert("Please fill GST fields and upload required file.");
+//         return;
+//       }
+      
+//       let allLicensesValid = true;
+//       const missingLicenses: string[] = [];
+      
+//       form.productTypes.forEach(productType => {
+//         const license = form.licenses[productType];
+//         if (!license || !license.number || !license.file) {
+//           allLicensesValid = false;
+//           missingLicenses.push(productType);
+//         }
+//       });
+      
+//       if (!allLicensesValid) {
+//         alert(`Please fill all license fields for: ${missingLicenses.join(', ')}`);
 //         return;
 //       }
 //     }
 
 //     if (step === 4) {
-//       if (!form.bankState || !form.bankDistrict || !form.bankTaluka || !form.bankName ||
-//         !form.branch || !form.ifscCode || !form.accountNumber || !form.accountHolderName) {
-//         alert("Please fill all required bank details fields.");
-//         return;
-//       }
+//   if (!form.accountNumber || !form.accountHolderName || !form.ifscCode || !form.cancelledChequeFile) {
+//     alert("Please fill all bank account details and upload cancelled cheque.");
+//     return;
+//   }
 
-//       if (form.ifscCode.length !== 11) {
-//         alert("IFSC Code must be 11 characters long.");
-//         return;
-//       }
-
-//       if (form.accountNumber.length < 9 || !/^\d+$/.test(form.accountNumber)) {
-//         alert("Please enter a valid account number (minimum 9 digits).");
-//         return;
-//       }
-//     }
+//   if (ifscError) {
+//     alert("Please fix IFSC code error before proceeding.");
+//     return;
+//   }
+// }
 
 //     if (step < 5) {
 //       setStep(step + 1);
@@ -1809,256 +1980,422 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //     if (step > 1) setStep(step - 1);
 //   };
 
-//   const handleBackToDashboard = () => {
-//     if (onBackToDashboard) {
-//       onBackToDashboard();
-//     }
-//   };
+//   // const handleBackToDashboard = () => {
+//   //   if (onBackToDashboard) {
+//   //     onBackToDashboard();
+//   //   }
+//   // };
 
 //   const handleCloseModal = () => {
 //     setShowSuccessModal(false);
-//     handleBackToDashboard();
+//     router.push("/");
 //   };
 
 //   const stepData = [
 //     {
 //       title: "Company",
 //       icon: "bi-building",
-//       description: "Basic Information"
+//       activeIcon: "bi-building-fill",
+//       description: "Provide Your Company Details"
 //     },
 //     {
 //       title: "Coordinator",
 //       icon: "bi-person-badge",
-//       description: "Contact Details"
+//       activeIcon: "bi-person-badge-fill",
+//       description: "Add Coordinator Information and Verify"
 //     },
 //     {
 //       title: "Documents",
 //       icon: "bi-file-earmark-lock",
-//       description: "Upload Files"
+//       activeIcon: "bi-file-earmark-lock-fill",
+//       description: "Upload Required Compliance Documents"
 //     },
 //     {
 //       title: "Bank",
 //       icon: "bi-bank",
-//       description: "Account Details"
+//       activeIcon: "bi-bank2",
+//       description: "Enter Bank Account Details"
 //     },
 //     {
 //       title: "Review",
 //       icon: "bi-shield-check",
-//       description: "Final Verification"
+//       activeIcon: "bi-shield-check",
+//       description: "Review Summary"
 //     }
 //   ];
 
 //   return (
-//     <div className="phsr-root bg-[#F3ECF8]">
+//     <div className="bg-primary-100 min-h-screen">
 //       <Header />
-      
-//       <div className="container mt-3 ml-10">
-//         <button 
-//           onClick={handleBackToDashboard}
-//           className="phsr-btn-back mb-3 px-4 py-2 bg-[#f3ecf8] border border-[#751bb5] text-[#751bb5] rounded-lg hover:bg-[#751bb5] hover:text-white transition"
-//         >
-//           <i className="bi bi-arrow-left me-2"></i> Back to Dashboard
-//         </button>
-//       </div>
 
 //       {showSuccessModal && (
-//         <div className="phsr-modal-overlay">
-//           <div className="phsr-modal-container">
-//             <div className="phsr-modal-content">
-//               <div className="phsr-modal-header">
-//                 <div className="phsr-modal-icon">
+//         <div className="fixed inset-0 backdrop-blur bg-opacity-50 flex items-center justify-center z-50">
+//           <div className="w-90% max-w-500 animate-fadeIn">
+//             <div className="bg-primary-100 rounded-2xl shadow-xl overflow-hidden">
+//               {/* <div className="bg-linear-to-r from-primary-700 to-primary-600 p-4 text-center text-white relative"> */}
+//               <div className="bg-linear-to-r from-tertiary-600 to-tertiary-500 p-4 text-center text-white relative">
+//                 <div className="text-4xl mb-2 animate-bounce">
 //                   <i className="bi bi-check-circle-fill"></i>
 //                 </div>
-//                 <h3 className="phsr-modal-title">Application Submitted Successfully!</h3>
+//                 <h3 className="text-xl font-bold">Application Submitted Successfully!</h3>
 //               </div>
               
-//               <div className="phsr-modal-body">
-//                 <p className="phsr-modal-message">
+//               <div className="p-4">
+//                 <p className="text-neutral-700 text-center text-base leading-relaxed mb-6">
 //                   Your seller registration application has been submitted successfully. 
 //                   Our team will review your application and contact you within 3-5 business days.
 //                 </p>
                 
-//                 <div className="phsr-modal-details">
-//                   <div className="phsr-modal-detail-item">
-//                     <i className="bi bi-clock me-2"></i>
-//                     <span>Application ID: <strong>{applicationId}</strong></span>
+//                 <div className=" rounded-xl p-6 mt-6">
+//                   <div className="flex items-center mb-2">
+//                     <i className="bi bi-clock text-primary-700 text-xl mr-3"></i>
+//                     <span>Application ID: <strong className="text-neutral-900">{applicationId}</strong></span>
 //                   </div>
-//                   <div className="phsr-modal-detail-item">
-//                     <i className="bi bi-calendar-check me-2"></i>
-//                     <span>Submitted on: <strong>{new Date().toLocaleDateString('en-IN')}</strong></span>
+//                   <div className="flex items-center mb-3">
+//                     <i className="bi bi-calendar-check text-primary-700 text-xl mr-3"></i>
+//                     <span>Submitted on: <strong className="text-neutral-900">{new Date().toLocaleDateString('en-IN')}</strong></span>
 //                   </div>
-//                   <div className="phsr-modal-detail-item">
-//                     <i className="bi bi-envelope me-2"></i>
-//                     <span>Confirmation sent to: <strong>{form.email}</strong></span>
+//                   <div className="flex items-center">
+//                     <i className="bi bi-envelope text-primary-700 text-xl mr-3"></i>
+//                     <span>Confirmation sent to: <strong className="text-neutral-900">{form.email}</strong></span>
 //                   </div>
 //                 </div>
 //               </div>
               
-//               <div className="phsr-modal-footer">
+//               <div className="px-8 py-4 bg-neutral-100 border-t border-neutral-200 flex justify-center gap-4">
 //                 <button 
-//                   className="phsr-modal-btn phsr-modal-btn-primary"
-//                   onClick={handleCloseModal}
-//                 >
-//                   <i className="bi bi-house me-2"></i> Go to Dashboard
-//                 </button>
-//                 <button 
-//                   className="phsr-modal-btn phsr-modal-btn-secondary"
+//                   className="px-6 py-3 bg-linear-to-r from-primary-600 to-primary-700 text-white rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 transition-all flex items-center shadow-md hover:shadow-lg"
 //                   onClick={handleCloseModal}
 //                 >
 //                   Close
 //                 </button>
+//                 {/* <button 
+//                   className="px-6 py-3 bg-white text-primary-700 border-2 border-primary-700 rounded-xl font-semibold hover:bg-primary-50 transition-colors"
+//                   onClick={handleCloseModal}
+//                 >
+//                   Close
+//                 </button> */}
 //               </div>
 //             </div>
 //           </div>
 //         </div>
 //       )}
 
-//       <div className="phsr-container mt-2 mb-5 ml-10 mr-10">
-//         <div className="phsr-onboarding-hero-sm phsr-mb-4">
-//           <div className="phsr-hero-glass-sm d-flex align-items-center justify-content-between px-4">
-//             <div className="text-center grow mt-3">
-//               <h2 className="fw-bold phsr-gradient-text-sm mb-1 text-[#9A6AFF]">
-//                 Seller Registration
-//               </h2>
+//       <div className="mb-1 mx-4 md:mx-10">
+// {/* Hero Section */}
+// <div className="mb-6 mt-2">
+//   <div className="bg-linear-to-r from-primary-600 to-primary-800 rounded-xl p-4 text-white">
+//     <div className="flex flex-col md:flex-row items-center justify-center">
+//       <div className="flex items-center mb-2 md:mb-0">
+//         <div className="w-6 h-6 mr-3 flex items-center justify-center">
+//           <i className="bi bi-building text-white text-xl"></i>
+//         </div>
+//         <div className="text-center md:text-left">
+//           <h2 className="text-xl font-bold">Seller Registration</h2>
+//           <p className="text-primary-200 text-sm">Register Your Business Here!</p>
+//         </div>
+//       </div>
+//     </div>
+//   </div>
+// </div>
+
+//         {/* Stepper  */}
+//         <div className="mb-2">
+//           <div className="relative">
+//             <div className="flex justify-between">
+//               {stepData.map((stepInfo, index) => {
+//                 const stepNumber = index + 1;
+//                 const isActive = step === stepNumber;
+//                 const isCompleted = step > stepNumber;
+//                 const isClickable = isCompleted || stepNumber === 1;
+
+//                 return (
+//                   <div
+//                     key={index}
+//                     className={`flex flex-col items-center relative ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
+//                     style={{ width: `${100 / stepData.length}%` }}
+//                     onClick={() => isClickable && setStep(stepNumber)}
+//                   >
+//                     {/* Connector line */}
+//                     {index < stepData.length - 1 && (
+//                       <div className="absolute top-6 left-1/2 w-full h-1.5 bg-neutral-200">
+//                         <div
+//                           className={`h-full transition-all duration-300 ${isCompleted ? 'bg-linear-to-r from-success-300 to-primary-600' : 'bg-transparent'}`}
+//                           style={{ width: isCompleted ? '100%' : '0%' }}
+//                         ></div>
+//                       </div>
+//                     )}
+
+//                     {/* Step indicator */}
+//                     <div
+//                       className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 z-10 transition-all duration-300 ${
+//                         isActive
+//                           ? 'bg-primary-600 text-white shadow-lg border-2 border-white'
+//                           : isCompleted
+//                           ? 'bg-success-300 text-white'
+//                           : 'bg-white text-neutral-600 border-2 border-neutral-200'
+//                       }`}
+//                     >
+//                       {isCompleted ? (
+//                         <i className="bi bi-check-circle-fill text-xl"></i>
+//                       ) : (
+//                         <i className={`bi ${isActive ? stepInfo.activeIcon : stepInfo.icon} text-lg`}></i>
+//                       )}
+//                     </div>
+
+//                     {/* Step label */}
+//                     <div className="text-center">
+//                       <p className={`text-sm font-bold ${isActive ? 'text-primary-600 font-bold' : isCompleted ? 'text-success-300' : 'text-neutral-900'}`}>
+//                         {stepInfo.title}
+//                       </p>
+//                       <p className="text-sm text-neutral-700 ">{stepInfo.description}</p>
+//                     </div>
+//                   </div>
+//                 );
+//               })}
 //             </div>
 //           </div>
-//         </div>
 
-//         <div className="phsr-stepper-container phsr-mb-4">
-//           <div className="phsr-stepper-steps">
-//             {stepData.map((stepInfo, index) => {
-//               const stepNumber = index + 1;
-//               const isActive = step === stepNumber;
-//               const isCompleted = step > stepNumber;
-
-//               return (
-//                 <div
-//                   key={index}
-//                   className={`phsr-stepper-step position-relative ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
-//                   onClick={() => {
-//                     if (isCompleted || stepNumber === 1) {
-//                       setStep(stepNumber);
-//                     }
-//                   }}
-//                   style={{ cursor: isCompleted || stepNumber === 1 ? 'pointer' : 'default' }}
-//                 >
-//                   {index < stepData.length - 1 && (
-//                     <div className="phsr-step-connector">
-//                       <div
-//                         className={`phsr-connector-line ${step > stepNumber ? 'completed' : ''}`}
-//                       ></div>
-//                     </div>
-//                   )}
-
-//                   <div className="phsr-step-indicator">
-//                     {isCompleted ? (
-//                       <div className="phsr-step-checkmark">
-//                         <i className="bi bi-check"></i>
-//                       </div>
-//                     ) : (
-//                       <div className="phsr-step-number">{stepNumber}</div>
-//                     )}
-//                   </div>
-
-//                   <div className="phsr-step-content">
-//                     <h6 className={`phsr-step-title ${isActive ? 'text-primary' : ''} ${isCompleted ? 'text-success' : ''}`}>
-//                       {stepInfo.title}
-//                     </h6>
-//                     <small className="phsr-step-description">
-//                       {stepInfo.description}
-//                     </small>
-//                   </div>
-//                 </div>
-//               );
-//             })}
-//           </div>
-
-//           <div className="phsr-current-step-status phsr-mt-4 text-center">
-//             <span className="badge bg-primary rounded-pill px-3 py-2">
-//               <i className={`bi ${stepData[step - 1].icon} me-2`}></i>
+//           {/* Current step status */}
+//           {/* <div className="mt-6 text-center">
+//             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800">
+//               <i className={`bi ${stepData[step - 1].activeIcon} mr-2`}></i>
 //               Step {step}: {stepData[step - 1].title}
 //             </span>
-//             <small className="d-block phsr-mt-1 phsr-text-muted">
+//             <p className="text-sm text-neutral-600 mt-2">
 //               {step === 1 && "Provide your company details"}
 //               {step === 2 && "Add coordinator information and verify"}
 //               {step === 3 && "Upload required compliance documents"}
 //               {step === 4 && "Enter bank account details"}
 //               {step === 5 && "Review all information before submission"}
-//             </small>
-//           </div>
+//             </p>
+//           </div> */}
 //         </div>
 
 //         <form onSubmit={next}>
+//           {/* STEP 1: Company Information */}
 //           {step === 1 && (
-//             <div className="phsr-card shadow-lg border-0 rounded-4 phsr-p-4">
-//               <div className="phsr-card phsr-mb-4 shadow-sm">
-//                 <div className="phsr-card-header text-center">
-//                   <div className="phsr-header-icon">
-//                     <i className="bi bi-building"></i>
+//             <div className="bg-white rounded-2xl shadow-md border border-neutral-200 p-6 md:p-6 mb-6">
+//               <div className="mb-6">
+//                 {/* <div className="text-center mb-6">
+//                   <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary-600 to-primary-700 flex items-center justify-center mx-auto mb-3 shadow-md">
+//                     <i className="bi bi-building text-white text-xl"></i>
 //                   </div>
-//                   <h4 className="phsr-mb-0 phsr-header-text">Seller Company Information</h4>
-//                 </div>
-//                 <div className="card-body phsr-p-4">
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="sellerName" className="phsr-form-label">
-//                         <i className="bi bi-building me-2"></i>Seller Name/Company Name: <span className="phsr-required">*</span>
+//                   <h4 className="text-xl font-bold text-neutral-900 mb-2">
+//                     Company Basic Information
+//                   </h4>
+//                 </div> */}
+
+//                 <div className="space-y-5">
+//                   {/* Company Name and Company Type */}
+//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//                     <div>
+//                       <label htmlFor="sellerName" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-building"></i>
+//                         Seller Name/Company Name: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="sellerName"
 //                         name="sellerName"
-//                         className="phsr-input"
-//                         placeholder="Enter your name"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
+//                         placeholder="Enter your company name"
 //                         required
 //                         value={form.sellerName}
-//                         onKeyPress={(e) => {
-//                           const key = e.key;
-//                           const isValidKey = /^[a-zA-Z\s'.-]$/.test(key);
-//                           if (!isValidKey) {
-//                             e.preventDefault();
-//                           }
-//                         }}
-//                         onChange={(e) => {
-//                           const value = e.target.value;
-//                           const filteredValue = value.replace(/[^a-zA-Z\s'.-]/g, '');
-//                           setForm(prev => ({
-//                             ...prev,
-//                             sellerName: filteredValue
-//                           }));
-//                         }}
+//                         onKeyPress={handleAlphabetKeyPress}
+//                         onChange={(e) => handleAlphabetInput(e, 'sellerName')}
 //                       />
 //                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="companyType" className="phsr-form-label">
-//                         <i className="bi bi-diagram-3 me-2"></i>Company Type: <span className="phsr-required">*</span>
+//                     <div>
+//                       <label htmlFor="companyType" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-diagram-3"></i>
+//                         Company Type: <span className="text-error-300">*</span>
 //                       </label>
 //                       <select
 //                         id="companyType"
 //                         name="companyType"
-//                         className="phsr-form-select"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all appearance-none"
 //                         required
 //                         value={form.companyType}
 //                         onChange={handleChange}
 //                       >
 //                         <option value="">-- Select Company Type --</option>
-//                         <option value="Drug Manufacturer">Drug Manufacturer</option>
-//                         <option value="White Labelling Company">White Labelling Company</option>
-//                         <option value="Distributors">Distributors</option>
+//                         <option value="Private Limited Company">Private Limited Company</option>
+//                         <option value="Public Limited Company">Public Limited Company</option>
+//                         <option value="Limited Liability Partnership (LLP)">Limited Liability Partnership (LLP)</option>
+//                         <option value="Proprietorship">Proprietorship</option>
+//                         <option value="One Person Company (OPC)">One Person Company (OPC)</option>
+//                         <option value="Section 8 Company">Section 8 Company</option>
+//                         <option value="Producer Company">Producer Company</option>
+//                         <option value="Nidhi Company">Nidhi Company</option>
+//                         <option value="Government Company">Government Company</option>
+//                         <option value="Foreign Company">Foreign Company</option>
+//                         <option value="Holding Company">Holding Company</option>
+//                         <option value="Subsidiary Company">Subsidiary Company</option>
+//                         <option value="Associate Company">Associate Company</option>
+//                         <option value="Dormant Company">Dormant Company</option>
 //                       </select>
 //                     </div>
 //                   </div>
 
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="state" className="phsr-form-label">
-//                         <i className="bi bi-geo-alt me-2"></i>State: <span className="phsr-required">*</span>
+//                   {/* Seller Type and Product Types */}
+//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//                     <div>
+//                       <label htmlFor="sellerType" className="block mb-2 text-sm font-semibold text-primary-700">
+//                         Seller Type <span className="text-error-300">*</span>
+//                       </label>
+//                       <select
+//                         id="sellerType"
+//                         name="sellerType"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all appearance-none"
+//                         value={form.sellerType}
+//                         onChange={handleChange}
+//                         required
+//                       >
+//                         <option value="">-- Select Seller Type --</option>
+//                         <option value="Manufacturer">Manufacturer</option>
+//                         <option value="White Labelling Company/ Marketer">White Labelling Company/ Marketer</option>
+//                         <option value="Distributor">Distributor</option>
+//                         <option value="PCD">PCD</option>
+//                       </select>
+//                     </div>
+
+//                     <div>
+//   <label className="block mb-2 text-sm font-semibold text-primary-700">
+//     Product Type(s) <span className="text-error-300">*</span>
+//   </label>
+  
+//   <div className="relative" ref={productDropdownRef}>
+//     <div 
+//       className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 cursor-pointer flex justify-between items-center hover:border-primary-300 transition-all"
+//       onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
+//     >
+//       <span className={form.productTypes.length === 0 ? "text-neutral-500" : "text-neutral-900"}>
+//         {form.productTypes.length > 0 
+//           ? `${form.productTypes.length} product type(s) selected`
+//           : "Select product types"}
+//       </span>
+//       <i className={`bi ${isProductDropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'} text-primary-600`}></i>
+//     </div>
+    
+//     {isProductDropdownOpen && (
+//       <div className="absolute top-full mt-1 w-full bg-white border-2 border-primary-200 rounded-xl shadow-xl z-50">
+//         <div className="p-2 border-b border-primary-100">
+//           <p className="text-sm text-neutral-600 font-medium">Select product types:</p>
+//         </div>
+//         <div className="max-h-60 overflow-y-auto">
+//           {/* Select All option */}
+//           <div 
+//             className="flex items-center px-4 py-2 hover:bg-primary-50 cursor-pointer border-b border-primary-100"
+//             onClick={(e) => {
+//               e.stopPropagation();
+//               const allProductNames = PRODUCT_TYPES.map(p => p.name);
+//               const areAllSelected = allProductNames.length === form.productTypes.length;
+              
+//               if (areAllSelected) {
+//                 // If all are selected, deselect all
+//                 setForm(prev => ({
+//                   ...prev,
+//                   productTypes: [],
+//                   licenses: {}
+//                 }));
+//               } else {
+//                 // If not all are selected, select all
+//                 const newLicenses: Record<string, { number: string; file: File | null }> = {};
+//                 allProductNames.forEach(productName => {
+//                   newLicenses[productName] = {
+//                     number: "",
+//                     file: null
+//                   };
+//                 });
+                
+//                 setForm(prev => ({
+//                   ...prev,
+//                   productTypes: allProductNames,
+//                   licenses: newLicenses
+//                 }));
+//               }
+//             }}
+//           >
+//             <input
+//               type="checkbox"
+//               id="select-all"
+//               checked={form.productTypes.length === PRODUCT_TYPES.length}
+//               onChange={() => {}}
+//               className="h-4 w-4 text-primary-600 rounded border-primary-300 focus:ring-primary-200"
+//             />
+//             <label 
+//               htmlFor="select-all"
+//               className="ml-3 text-sm font-medium text-primary-700 cursor-pointer"
+//             >
+//               Select All
+//             </label>
+//           </div>
+          
+//           {/* Individual product options */}
+//           {PRODUCT_TYPES.map((product, index) => (
+//             <div 
+//               key={index}
+//               className="flex items-center px-4 py-2 hover:bg-primary-50 cursor-pointer border-b border-primary-100 last:border-b-0"
+//               onClick={(e) => {
+//                 e.stopPropagation();
+//                 handleProductTypeToggle(product.name);
+//               }}
+//             >
+//               <input
+//                 type="checkbox"
+//                 id={`product-${index}`}
+//                 checked={form.productTypes.includes(product.name)}
+//                 onChange={() => {}}
+//                 className="h-4 w-4 text-primary-600 rounded border-primary-300 focus:ring-primary-200"
+//               />
+//               <label 
+//                 htmlFor={`product-${index}`}
+//                 className="ml-3 text-sm text-neutral-900 cursor-pointer"
+//               >
+//                 {product.name}
+//               </label>
+//             </div>
+//           ))}
+//         </div>
+//         <div className="p-2 border-t border-primary-100 bg-primary-50">
+//           <p className="text-xs text-neutral-500">
+//             {form.productTypes.length} of {PRODUCT_TYPES.length} selected
+//           </p>
+//         </div>
+//       </div>
+//     )}
+//   </div>
+  
+//   {form.productTypes.length > 0 && (
+//     <div className="mt-2">
+//       <p className="text-sm text-success-300">
+//         <i className="bi bi-check-circle-fill mr-1"></i>
+//         Selected: {form.productTypes.join(", ")}
+//       </p>
+//     </div>
+//   )}
+  
+//   {form.productTypes.length === 0 && (
+//     <p className="mt-1 text-sm text-neutral-500">
+//       <i className="bi bi-info-circle mr-1"></i>
+//       Click to select product types
+//     </p>
+//   )}
+// </div>
+//                   </div>
+
+//                   {/* Address Fields */}
+//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//                     <div>
+//                       <label htmlFor="state" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-geo-alt"></i>State: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="state"
 //                         name="state"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter state"
 //                         required
 //                         value={form.state}
@@ -2066,15 +2403,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //                         onChange={(e) => handleAlphabetInput(e, 'state')}
 //                       />
 //                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="district" className="phsr-form-label">
-//                         <i className="bi bi-geo me-2"></i>District: <span className="phsr-required">*</span>
+//                     <div>
+//                       <label htmlFor="district" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-geo"></i>District: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="district"
 //                         name="district"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter district"
 //                         required
 //                         value={form.district}
@@ -2082,18 +2419,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //                         onChange={(e) => handleAlphabetInput(e, 'district')}
 //                       />
 //                     </div>
-//                   </div>
-
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="taluka" className="phsr-form-label">
-//                         <i className="bi bi-map me-2"></i>Taluka: <span className="phsr-required">*</span>
+//                     <div>
+//                       <label htmlFor="taluka" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-map"></i>Taluka: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="taluka"
 //                         name="taluka"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter taluka"
 //                         required
 //                         value={form.taluka}
@@ -2101,15 +2435,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //                         onChange={(e) => handleAlphabetInput(e, 'taluka')}
 //                       />
 //                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="city" className="phsr-form-label">
-//                         <i className="bi bi-geo-fill me-2"></i>City/Town/Village: <span className="phsr-required">*</span>
+//                     <div>
+//                       <label htmlFor="city" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-geo-fill"></i>City/Town/Village: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="city"
 //                         name="city"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter city/town/village"
 //                         required
 //                         value={form.city}
@@ -2117,18 +2451,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //                         onChange={(e) => handleAlphabetInput(e, 'city')}
 //                       />
 //                     </div>
-//                   </div>
-
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="street" className="phsr-form-label">
-//                         <i className="bi bi-signpost me-2"></i>Street/Road/Lane: <span className="phsr-required">*</span>
+//                     <div>
+//                       <label htmlFor="street" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-signpost"></i>Street/Road/Lane: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="street"
 //                         name="street"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter street/road/lane"
 //                         required
 //                         value={form.street}
@@ -2136,114 +2467,95 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //                         onChange={(e) => handleAlphabetInput(e, 'street')}
 //                       />
 //                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="buildingNo" className="phsr-form-label">
-//                         <i className="bi bi-house-door me-2"></i>Building/House No: <span className="phsr-required">*</span>
+//                     <div>
+//                       <label htmlFor="buildingNo" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-house-door"></i>Building/House No: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="buildingNo"
 //                         name="buildingNo"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter building/house no"
 //                         required
 //                         value={form.buildingNo}
 //                         onChange={handleChange}
 //                       />
 //                     </div>
-//                   </div>
-
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="landmark" className="phsr-form-label">
-//                         <i className="bi bi-geo me-2"></i>Landmark:
+//                     <div>
+//                       <label htmlFor="landmark" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-geo"></i>Landmark:
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="landmark"
 //                         name="landmark"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter landmark (optional)"
 //                         value={form.landmark}
 //                         onChange={handleChange}
 //                       />
 //                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="pincode" className="phsr-form-label">
-//                         <i className="bi bi-pin-map me-2"></i>Pin Code: <span className="phsr-required">*</span>
+//                     <div>
+//                       <label htmlFor="pincode" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-pin-map"></i>Pin Code: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="pincode"
 //                         name="pincode"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter 6-digit pin code"
 //                         required
-//                         pattern="[0-9]{6}"
 //                         maxLength={6}
-//                         title="Please enter exactly 6 digits"
 //                         value={form.pincode}
-//                         onChange={handleChange}
-//                         onKeyPress={(e) => {
-//                           if (!/[0-9]/.test(e.key)) {
-//                             e.preventDefault();
-//                           }
-//                         }}
+//                         onChange={(e) => handleNumericInput(e, 'pincode', 6)}
 //                       />
 //                     </div>
 //                   </div>
 
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="phone" className="phsr-form-label">
-//                         <i className="bi bi-telephone me-2"></i>Company Phone: <span className="phsr-required">*</span>
+//                   {/* Contact Information */}
+//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//                     <div>
+//                       <label htmlFor="phone" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-telephone"></i>Company Phone: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="tel"
 //                         id="phone"
 //                         name="phone"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter company phone"
 //                         required
-//                         pattern="[0-9]{10}"
 //                         maxLength={10}
-//                         title="Please enter exactly 10 digits"
 //                         value={form.phone}
-//                         onChange={handleChange}
-//                         onKeyPress={(e) => {
-//                           if (!/[0-9]/.test(e.key)) {
-//                             e.preventDefault();
-//                           }
-//                         }}
+//                         onChange={(e) => handleNumericInput(e, 'phone', 10)}
 //                       />
 //                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="email" className="phsr-form-label">
-//                         <i className="bi bi-envelope me-2"></i>Company Email ID: <span className="phsr-required">*</span>
+//                     <div>
+//                       <label htmlFor="email" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-envelope"></i>Company Email ID: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="email"
 //                         id="email"
 //                         name="email"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter company email"
 //                         required
 //                         value={form.email}
 //                         onChange={handleChange}
 //                       />
 //                     </div>
-//                   </div>
-
-//                   <div className="phsr-row">
-//                     <div className="phsr-col-md-12">
-//                       <label htmlFor="website" className="phsr-form-label">
-//                         <i className="bi bi-globe me-2"></i>Company Website (Optional):
+//                     <div className="md:col-span-2">
+//                       <label htmlFor="website" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-globe"></i>Company Website (Optional):
 //                       </label>
 //                       <input
 //                         type="url"
 //                         id="website"
 //                         name="website"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter company website"
 //                         value={form.website}
 //                         onChange={handleChange}
@@ -2255,32 +2567,36 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //             </div>
 //           )}
 
+//           {/* STEP 2: Coordinator Details */}
 //           {step === 2 && (
-//             <div className="phsr-card shadow-lg border-0 rounded-4 phsr-p-4">
-//               <div className="phsr-card phsr-mb-4 shadow-sm">
-//                 <div className="phsr-card-header text-center">
-//                   <div className="phsr-header-icon">
-//                     <i className="bi bi-person-badge"></i>
+//             <div className="bg-white rounded-2xl shadow-md border border-neutral-200 p-3 md:p-6 mb-6">
+//               <div className="mb-6">
+//                 <div className="text-center mb-6">
+//                   {/* <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary-600 to-primary-700 flex items-center justify-center mx-auto mb-3 shadow-md">
+//                     <i className="bi bi-person-badge text-white text-xl"></i>
 //                   </div>
-//                   <h4 className="phsr-mb-0 phsr-header-text">Company Coordinator Details</h4>
+//                   <h4 className="text-xl font-bold text-neutral-900 mb-2">
+//                     Company Coordinator Details
+//                   </h4> */}
 //                   {(!emailVerified || !phoneVerified) && (
-//                     <small className="phsr-verification-warning d-block phsr-mt-2">
-//                       <i className="bi bi-exclamation-triangle me-1"></i>
+//                     <div className="mt-3 p-3 bg-warning-100 border border-warning-200 rounded-xl text-warning-800 text-sm inline-flex items-center">
+//                       <i className="bi bi-exclamation-triangle mr-2"></i>
 //                       Please verify both Email and Mobile OTP to proceed
-//                     </small>
+//                     </div>
 //                   )}
 //                 </div>
-//                 <div className="card-body phsr-p-4">
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="coordinatorName" className="phsr-form-label">
-//                         <i className="bi bi-person me-2"></i>Coordinator Name: <span className="phsr-required">*</span>
+
+//                 <div className="space-y-5">
+//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//                     <div>
+//                       <label htmlFor="coordinatorName" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-person"></i>Coordinator Name: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="coordinatorName"
 //                         name="coordinatorName"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter coordinator name"
 //                         required
 //                         value={form.coordinatorName}
@@ -2288,15 +2604,15 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //                         onChange={(e) => handleAlphabetInput(e, 'coordinatorName')}
 //                       />
 //                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="coordinatorDesignation" className="phsr-form-label">
-//                         <i className="bi bi-briefcase me-2"></i>Coordinator Designation: <span className="phsr-required">*</span>
+//                     <div>
+//                       <label htmlFor="coordinatorDesignation" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-briefcase"></i>Coordinator Designation: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="coordinatorDesignation"
 //                         name="coordinatorDesignation"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter designation"
 //                         required
 //                         value={form.coordinatorDesignation}
@@ -2306,8 +2622,9 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //                     </div>
 //                   </div>
 
-//                   <div className="phsr-row">
-//                     <div className="phsr-col-md-6">
+//                   {/* Coordinator Email and Mobile Verification */}
+//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//                     <div>
 //                       <OtpVerification
 //                         label="Email"
 //                         value={form.coordinatorEmail}
@@ -2316,7 +2633,7 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //                         verified={emailVerified}
 //                       />
 //                     </div>
-//                     <div className="phsr-col-md-6">
+//                     <div>
 //                       <OtpVerification
 //                         label="Mobile"
 //                         value={form.coordinatorMobile}
@@ -2331,589 +2648,574 @@ export default function SellerRegister({ onBackToDashboard }: SellerRegisterProp
 //             </div>
 //           )}
 
+//           {/* STEP 3: Documents */}
 //           {step === 3 && (
-//             <div className="phsr-card shadow-lg border-0 rounded-4 phsr-p-4">
-//               <div className="phsr-card phsr-mb-4 shadow-sm">
-//                 <div className="phsr-card-header text-center">
-//                   <div className="phsr-header-icon">
-//                     <i className="bi bi-file-earmark-lock"></i>
+//             <div className="bg-white rounded-2xl shadow-md border border-neutral-200 p-3 md:p-6 mb-6">
+//               <div className="mb-6">
+//                 {/* <div className="text-center mb-6">
+//                   <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary-600 to-primary-700 flex items-center justify-center mx-auto mb-3 shadow-md">
+//                     <i className="bi bi-file-earmark-lock text-white text-xl"></i>
 //                   </div>
-//                   <h4 className="phsr-mb-0 phsr-header-text">Document Upload</h4>
-//                 </div>
-//                 <div className="phsr-card-header text-dark bg-light text-center phsr-p-3">
-//                   <h3 className="phsr-mb-0 phsr-section-title">
-//                     <i className="bi bi-file-earmark-text me-2"></i>GSTIN Certificate
-//                   </h3>
-//                 </div>
-//                 <div className="card-body phsr-p-4">
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="gstNumber" className="phsr-form-label">
-//                         <i className="bi bi-hash me-2"></i>GST Number: <span className="phsr-required">*</span>
+//                   <h4 className="text-xl font-bold text-neutral-900 mb-2">
+//                     Document Upload
+//                   </h4>
+//                   <p className="text-neutral-600 text-sm">
+//                     Required documents based on your selected product types
+//                   </p>
+//                 </div> */}
+
+//                 {/* GST Certificate Section */}
+//                 <div className="mb-2">
+//                   <div className="bg-primary-50 rounded-xl p-1 mb-2">
+//                     <h3 className="text-lg font-semibold text-primary-700 flex items-center">
+//                       <i className="bi bi-file-earmark-text mr-2"></i>GSTIN Certificate
+//                     </h3>
+//                   </div>
+                  
+//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//                     <div>
+//                       <label htmlFor="gstNumber" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-hash"></i>GST Number: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="text"
 //                         id="gstNumber"
 //                         name="gstNumber"
-//                         className="phsr-input"
+//                         className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
 //                         placeholder="Enter GST number"
 //                         required
 //                         value={form.gstNumber}
 //                         onChange={handleChange}
 //                       />
 //                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="gstFile" className="phsr-form-label">
-//                         <i className="bi bi-upload me-2"></i>GST Certificate: <span className="phsr-required">*</span>
+//                     <div>
+//                       <label htmlFor="gstFile" className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700">
+//                         <i className="bi bi-upload"></i>GST Certificate: <span className="text-error-300">*</span>
 //                       </label>
 //                       <input
 //                         type="file"
 //                         id="gstFile"
 //                         name="gstFile"
-//                         className="phsr-file-input"
+//                         className="w-full px-4 py-2 border-2 border-dashed border-primary-300 rounded-xl bg-primary-50 text-neutral-900 cursor-pointer hover:border-primary-400 hover:bg-primary-100 transition-all"
 //                         accept=".pdf,.jpg,.jpeg,.png"
 //                         required
 //                         onChange={handleChange}
 //                       />
 //                       {form.gstFile && (
-//                         <small className="phsr-text-success phsr-mt-1 phsr-d-block">
-//                           <i className="bi bi-check-circle-fill me-1"></i>
+//                         <p className="mt-2 text-sm text-success-300">
+//                           <i className="bi bi-check-circle-fill mr-1"></i>
 //                           File selected: {form.gstFile.name}
-//                         </small>
-//                       )}
-//                     </div>
-//                   </div>
-
-//                   <div className="phsr-card-header text-dark bg-light text-center phsr-mt-4 phsr-mb-3 phsr-p-3">
-//                     <h3 className="phsr-mb-0 phsr-section-title">
-//                       <i className="bi bi-prescription2 me-2"></i>Drug Manufacturing License
-//                     </h3>
-//                   </div>
-
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="licenseNumber" className="phsr-form-label">
-//                         <i className="bi bi-hash me-2"></i>License Number: <span className="phsr-required">*</span>
-//                       </label>
-//                       <input
-//                         type="text"
-//                         id="licenseNumber"
-//                         name="licenseNumber"
-//                         className="phsr-input"
-//                         placeholder="Enter license number"
-//                         required
-//                         value={form.licenseNumber}
-//                         onChange={handleChange}
-//                       />
-//                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="licenseFile" className="phsr-form-label">
-//                         <i className="bi bi-upload me-2"></i>License File Upload: <span className="phsr-required">*</span>
-//                       </label>
-//                       <input
-//                         type="file"
-//                         id="licenseFile"
-//                         name="licenseFile"
-//                         className="phsr-file-input"
-//                         accept=".pdf,.jpg,.jpeg,.png"
-//                         required
-//                         onChange={handleChange}
-//                       />
-//                       {form.licenseFile && (
-//                         <small className="phsr-text-success phsr-mt-1 phsr-d-block">
-//                           <i className="bi bi-check-circle-fill me-1"></i>
-//                           File selected: {form.licenseFile.name}
-//                         </small>
+//                         </p>
 //                       )}
 //                     </div>
 //                   </div>
 //                 </div>
-//               </div>
-//             </div>
-//           )}
 
-//           {step === 4 && (
-//             <div className="phsr-card shadow-lg border-0 rounded-4 phsr-p-4">
-//               <div className="phsr-card phsr-mb-4 shadow-sm">
-//                 <div className="phsr-card-header text-center">
-//                   <div className="phsr-header-icon">
-//                     <i className="bi bi-bank"></i>
-//                   </div>
-//                   <h4 className="phsr-mb-0 phsr-header-text">Bank Account Details</h4>
-//                   <small className="phsr-text-muted d-block phsr-mt-2">
-//                     <i className="bi bi-info-circle me-1"></i>
-//                     Provide accurate bank details for payment processing
-//                   </small>
-//                 </div>
+//                 {/* Dynamic License Sections */}
+//                 {form.productTypes.map((productType, index) => {
+//                   const licenseInfo = getLicenseInfo(productType);
+//                   const licenseData = form.licenses[productType] || { number: "", file: null };
+                  
+//                   return (
+//                     <div key={productType} className="mb-4">
+//                       <div className="bg-primary-50 rounded-xl p-2 mb-2">
+//                         <h3 className="text-lg font-semibold text-primary-700 flex items-center">
+//                           <i className="bi bi-prescription2 mr-2"></i>{licenseInfo.label}
+//                           <span className="ml-2 text-sm font-normal text-neutral-600">
+//                             (Required for: {productType})
+//                           </span>
+//                         </h3>
+//                       </div>
 
-//                 <div className="card-body phsr-p-4">
-//                   <div className="phsr-card-header text-dark bg-light text-center phsr-mb-3 phsr-p-3">
-//                     <h5 className="phsr-mb-0 phsr-section-title">
-//                       <i className="bi bi-geo-alt me-2"></i>Bank Location Details
-//                     </h5>
-//                   </div>
-
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="bankState" className="phsr-form-label">
-//                         <i className="bi bi-geo me-2"></i>State: <span className="phsr-required">*</span>
-//                       </label>
-//                       <input
-//                         type="text"
-//                         id="bankState"
-//                         name="bankState"
-//                         className="phsr-input"
-//                         placeholder="Enter bank state"
-//                         required
-//                         value={form.bankState}
-//                         onKeyPress={handleAlphabetKeyPress}
-//                         onChange={(e) => handleAlphabetInput(e, 'bankState')}
-//                       />
+//                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//                         <div>
+//                           <label 
+//                             htmlFor={`licenseNumber-${productType}`} 
+//                             className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700"
+//                           >
+//                             <i className="bi bi-hash"></i>{licenseInfo.label} Number: 
+//                             <span className="text-error-300">*</span>
+//                           </label>
+//                           <input
+//                             type="text"
+//                             id={`licenseNumber-${productType}`}
+//                             name={`licenseNumber-${productType}`}
+//                             className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
+//                             placeholder={licenseInfo.placeholder}
+//                             required
+//                             value={licenseData.number}
+//                             onChange={handleChange}
+//                           />
+//                         </div>
+//                         <div>
+//                           <label 
+//                             htmlFor={`licenseFile-${productType}`} 
+//                             className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary-700"
+//                           >
+//                             <i className="bi bi-upload"></i>{licenseInfo.label} File Upload: 
+//                             <span className="text-error-300">*</span>
+//                           </label>
+//                           <input
+//                             type="file"
+//                             id={`licenseFile-${productType}`}
+//                             name={`licenseFile-${productType}`}
+//                             className="w-full px-4 py-2 border-2 border-dashed border-primary-300 rounded-xl bg-primary-50 text-neutral-900 cursor-pointer hover:border-primary-400 hover:bg-primary-100 transition-all"
+//                             accept=".pdf,.jpg,.jpeg,.png"
+//                             required
+//                             onChange={handleChange}
+//                           />
+//                           {licenseData.file && (
+//                             <p className="mt-2 text-sm text-success-300">
+//                               <i className="bi bi-check-circle-fill mr-1"></i>
+//                               File selected: {licenseData.file.name}
+//                             </p>
+//                           )}
+//                         </div>
+//                       </div>
 //                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="bankDistrict" className="phsr-form-label">
-//                         <i className="bi bi-geo me-2"></i>District: <span className="phsr-required">*</span>
-//                       </label>
-//                       <input
-//                         type="text"
-//                         id="bankDistrict"
-//                         name="bankDistrict"
-//                         className="phsr-input"
-//                         placeholder="Enter bank district"
-//                         required
-//                         value={form.bankDistrict}
-//                         onKeyPress={handleAlphabetKeyPress}
-//                         onChange={(e) => handleAlphabetInput(e, 'bankDistrict')}
-//                       />
-//                     </div>
-//                   </div>
+//                   );
+//                 })}
 
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="bankTaluka" className="phsr-form-label">
-//                         <i className="bi bi-map me-2"></i>Taluka: <span className="phsr-required">*</span>
-//                       </label>
-//                       <input
-//                         type="text"
-//                         id="bankTaluka"
-//                         name="bankTaluka"
-//                         className="phsr-input"
-//                         placeholder="Enter bank taluka"
-//                         required
-//                         value={form.bankTaluka}
-//                         onKeyPress={handleAlphabetKeyPress}
-//                         onChange={(e) => handleAlphabetInput(e, 'bankTaluka')}
-//                       />
-//                     </div>
-//                   </div>
-
-//                   <div className="phsr-card-header text-dark bg-light text-center phsr-mt-4 phsr-mb-3 phsr-p-3">
-//                     <h5 className="phsr-mb-0 phsr-section-title">
-//                       <i className="bi bi-credit-card me-2"></i>Bank Information
-//                     </h5>
-//                   </div>
-
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="bankName" className="phsr-form-label">
-//                         <i className="bi bi-bank me-2"></i>Bank Name: <span className="phsr-required">*</span>
-//                       </label>
-//                       <input
-//                         type="text"
-//                         id="bankName"
-//                         name="bankName"
-//                         className="phsr-input"
-//                         placeholder="Enter bank name"
-//                         required
-//                         value={form.bankName}
-//                         onKeyPress={handleAlphabetKeyPress}
-//                         onChange={(e) => handleAlphabetInput(e, 'bankName')}
-//                       />
-//                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="branch" className="phsr-form-label">
-//                         <i className="bi bi-geo-alt me-2"></i>Branch: <span className="phsr-required">*</span>
-//                       </label>
-//                       <input
-//                         type="text"
-//                         id="branch"
-//                         name="branch"
-//                         className="phsr-input"
-//                         placeholder="Enter branch name"
-//                         required
-//                         value={form.branch}
-//                         onKeyPress={handleAlphabetKeyPress}
-//                         onChange={(e) => handleAlphabetInput(e, 'branch')}
-//                       />
-//                     </div>
-//                   </div>
-
-//                   <div className="phsr-row phsr-mb-3">
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="ifscCode" className="phsr-form-label">
-//                         <i className="bi bi-hash me-2"></i>IFSC Code: <span className="phsr-required">*</span>
-//                         <small className="phsr-text-muted ms-1">(11 characters)</small>
-//                       </label>
-//                       <input
-//                         type="text"
-//                         id="ifscCode"
-//                         name="ifscCode"
-//                         className="phsr-input"
-//                         placeholder="e.g., SBIN0000123"
-//                         maxLength={11}
-//                         required
-//                         value={form.ifscCode}
-//                         onChange={handleChange}
-//                         style={{ textTransform: "uppercase" }}
-//                       />
-//                       <small className="phsr-text-muted">
-//                         Format: 4 letters (Bank) + 0 + 6 digits (Branch)
-//                       </small>
-//                     </div>
-//                     <div className="phsr-col-md-6">
-//                       <label htmlFor="accountNumber" className="phsr-form-label">
-//                         <i className="bi bi-123 me-2"></i>Account Number: <span className="phsr-required">*</span>
-//                       </label>
-//                       <input
-//                         type="text"
-//                         id="accountNumber"
-//                         name="accountNumber"
-//                         className="phsr-input"
-//                         placeholder="Enter account number"
-//                         required
-//                         value={form.accountNumber}
-//                         onChange={handleChange}
-//                       />
-//                       <small className="phsr-text-muted">
-//                         Enter numbers only (no spaces or special characters)
-//                       </small>
-//                     </div>
-//                   </div>
-
-//                   <div className="phsr-row">
-//                     <div className="phsr-col-md-12">
-//                       <label htmlFor="accountHolderName" className="phsr-form-label">
-//                         <i className="bi bi-person-vcard me-2"></i>Account Holder Name: <span className="phsr-required">*</span>
-//                       </label>
-//                       <input
-//                         type="text"
-//                         id="accountHolderName"
-//                         name="accountHolderName"
-//                         className="phsr-input"
-//                         placeholder="Enter account holder's name as per bank records"
-//                         required
-//                         value={form.accountHolderName}
-//                         onKeyPress={handleAlphabetKeyPress}
-//                         onChange={(e) => handleAlphabetInput(e, 'accountHolderName')}
-//                       />
-//                       <small className="phsr-text-muted">
-//                         Name should match exactly with bank records
-//                       </small>
-//                     </div>
-//                   </div>
-
-//                   <div className="alert alert-info phsr-mt-4">
-//                     <div className="d-flex">
-//                       <i className="bi bi-shield-check me-3 fs-4"></i>
+//                 {/* Warning if no product types selected */}
+//                 {form.productTypes.length === 0 && (
+//                   <div className="mt-6 p-4 bg-warning-100 border border-warning-200 rounded-xl">
+//                     <div className="flex items-center">
+//                       <i className="bi bi-exclamation-triangle text-warning-800 text-xl mr-3"></i>
 //                       <div>
-//                         <h6 className="alert-heading phsr-mb-1">Security Assurance</h6>
-//                         <small className="phsr-mb-0">
-//                           Your bank details are encrypted and stored securely.
-//                           We follow PCI-DSS compliance standards for financial data protection.
-//                         </small>
+//                         <p className="text-warning-800 font-medium">No product types selected</p>
+//                         <p className="text-warning-700 text-sm mt-1">
+//                           Please go back to Step 1 and select at least one product type.
+//                         </p>
 //                       </div>
 //                     </div>
 //                   </div>
-//                 </div>
+//                 )}
 //               </div>
 //             </div>
 //           )}
 
+//           {/* STEP 4: Bank Details */}
+//          {/* STEP 4: Bank Details */}
+// {step === 4 && (
+//   <div className="bg-white rounded-2xl shadow-md border border-neutral-200 p-3 md:p-6 mb-6">
+//     <div className="mb-6">
+//       {/* <div className="text-center mb-6">
+//         <div className="w-12 h-12 rounded-xl bg-linear-to-br from-primary-600 to-primary-700 flex items-center justify-center mx-auto mb-3 shadow-md">
+//           <i className="bi bi-bank text-white text-xl"></i>
+//         </div>
+//         <h4 className="text-xl font-bold text-neutral-900 mb-2">
+//           Bank Account Details
+//         </h4>
+//         <p className="text-neutral-600 text-sm">
+//           IFSC based auto-verification
+//         </p>
+//       </div> */}
+
+//       <div className="space-y-6">
+//         {/* Account Number and Holder Name */}
+//         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//           <div>
+//             <label htmlFor="accountNumber" className="block mb-2 text-sm font-semibold text-primary-700">
+//               Account Number <span className="text-error-300">*</span>
+//             </label>
+//             <input
+//               type="text"
+//               id="accountNumber"
+//               className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
+//               value={form.accountNumber}
+//               onChange={handleChange}
+//               placeholder="Enter account number"
+//               required
+//             />
+//           </div>
+
+//           <div>
+//             <label htmlFor="accountHolderName" className="block mb-2 text-sm font-semibold text-primary-700">
+//               Account Holder Name <span className="text-error-300">*</span>
+//             </label>
+//             <input
+//               type="text"
+//               id="accountHolderName"
+//               className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all"
+//               value={form.accountHolderName}
+//               onChange={(e) => handleAlphabetInput(e, "accountHolderName")}
+//               onKeyPress={handleAlphabetKeyPress}
+//               placeholder="As per bank records"
+//               required
+//             />
+//           </div>
+//         </div>
+
+//         {/* IFSC Code */}
+//         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//           <div>
+//             <label htmlFor="ifscCode" className="block mb-2 text-sm font-semibold text-primary-700">
+//               IFSC Code <span className="text-error-300">*</span>
+//             </label>
+//             <input
+//               type="text"
+//               id="ifscCode"
+//               className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all uppercase"
+//               maxLength={11}
+//               value={form.ifscCode}
+//               onChange={(e) => handleIfscChange(e.target.value)}
+//               placeholder="SBIN0005943"
+//               required
+//             />
+//             {ifscError && (
+//               <p className="mt-1 text-sm text-error-300">{ifscError}</p>
+//             )}
+//           </div>
+          
+//           {/* Cancelled Cheque Upload */}
+//           <div>
+//             <label htmlFor="cancelledChequeFile" className="block mb-2 text-sm font-semibold text-primary-700">
+//               Cancelled Cheque / Bank Details Proof <span className="text-error-300">*</span>
+//             </label>
+//             <input
+//               type="file"
+//               id="cancelledChequeFile"
+//               name="cancelledChequeFile"
+//               className="w-full px-4 py-2 border-2 border-dashed border-primary-300 rounded-xl bg-primary-50 text-neutral-900 cursor-pointer hover:border-primary-400 hover:bg-primary-100 transition-all"
+//               accept=".pdf,.jpg,.jpeg,.png"
+//               required
+//               onChange={handleChange}
+//             />
+//             {form.cancelledChequeFile && (
+//               <p className="mt-2 text-sm text-success-300">
+//                 <i className="bi bi-check-circle-fill mr-1"></i>
+//                 File selected: {form.cancelledChequeFile.name}
+//               </p>
+//             )}
+//           </div>
+//         </div>
+
+//         {/* Auto-filled Bank Details */}
+//         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//           <div>
+//             <label className="block mb-2 text-sm font-semibold text-primary-700">Bank Name</label>
+//             <input
+//               type="text"
+//               className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-neutral-50 text-neutral-700"
+//               value={form.bankName}
+//               disabled
+//               readOnly
+//             />
+//           </div>
+
+//           <div>
+//             <label className="block mb-2 text-sm font-semibold text-primary-700">Branch</label>
+//             <input
+//               type="text"
+//               className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-neutral-50 text-neutral-700"
+//               value={form.branch}
+//               disabled
+//               readOnly
+//             />
+//           </div>
+
+//           <div>
+//             <label className="block mb-2 text-sm font-semibold text-primary-700">State</label>
+//             <input
+//               type="text"
+//               className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-neutral-50 text-neutral-700"
+//               value={form.bankState}
+//               disabled
+//               readOnly
+//             />
+//           </div>
+
+//           <div>
+//             <label className="block mb-2 text-sm font-semibold text-primary-700">District</label>
+//             <input
+//               type="text"
+//               className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-neutral-50 text-neutral-700"
+//               value={form.bankDistrict}
+//               disabled
+//               readOnly
+//             />
+//           </div>
+//         </div>
+
+//         {/* Security Notice */}
+//         <div className="mt-8 p-4 bg-primary-50 border border-primary-200 rounded-xl">
+//           <div className="flex">
+//             <i className="bi bi-shield-check text-primary-700 text-2xl mr-4"></i>
+//             <div>
+//               <h6 className="font-bold text-primary-800 mb-1">Security Assurance</h6>
+//               <p className="text-sm text-neutral-700">
+//                 Your bank details are encrypted and stored securely.
+//                 We follow PCI-DSS compliance standards for financial data protection.
+//               </p>
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   </div>
+// )}
+
+//           {/* STEP 5: Review */}
 //           {step === 5 && (
-//             <div className="phsr-final-review-card">
-//               <div className="text-center phsr-mb-4">
-//                 <div className="phsr-review-check-icon">
-//                   <i className="bi bi-shield-check"></i>
+//             <div className="bg-white rounded-2xl shadow-md border border-neutral-200 p-4 md:p-6 mb-6">
+//               <div className="text-center mb-8">
+//                 <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-primary-600 to-primary-700 flex items-center justify-center mx-auto mb-4 shadow-lg">
+//                   <i className="bi bi-shield-check text-white text-2xl"></i>
 //                 </div>
-//                 <h4 className="fw-bold phsr-gradient-text-sm">
-//                   Final Verification Summary
+//                 <h4 className="text-2xl font-bold bg-linear-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent">
+//                   Final Submission Summary
 //                 </h4>
-//                 <small className="phsr-text-muted">Please review all details before final submission</small>
+//                 <p className="text-neutral-600 mt-2">Please review all details before final submission</p>
 //               </div>
 
-//               <div className="phsr-review-section">
-//                 <h6 className="phsr-review-section-title">
-//                   <i className="bi bi-building me-2"></i> Company Details
+//               {/* Company Section */}
+//               <div className="mb-8 p-6 bg-primary-50 rounded-2xl border-l-4 border-primary-600">
+//                 <h6 className="text-lg font-bold text-primary-700 mb-4 flex items-center">
+//                   <i className="bi bi-building mr-2"></i> Company Details
 //                 </h6>
-//                 <div className="phsr-row">
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Company Name</span>
-//                     <p className={`phsr-review-field-value ${!form.sellerName ? "phsr-text-danger" : ""}`}>
-//                       {form.sellerName || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Company Type</span>
-//                     <p className={`phsr-review-field-value ${!form.companyType ? "phsr-text-danger" : ""}`}>
-//                       {form.companyType || "Not selected"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">State</span>
-//                     <p className={`phsr-review-field-value ${!form.state ? "phsr-text-danger" : ""}`}>
-//                       {form.state || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">District</span>
-//                     <p className={`phsr-review-field-value ${!form.district ? "phsr-text-danger" : ""}`}>
-//                       {form.district || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Taluka</span>
-//                     <p className={`phsr-review-field-value ${!form.taluka ? "phsr-text-danger" : ""}`}>
-//                       {form.taluka || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">City/Town/Village</span>
-//                     <p className={`phsr-review-field-value ${!form.city ? "phsr-text-danger" : ""}`}>
-//                       {form.city || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Street/Road/Lane</span>
-//                     <p className={`phsr-review-field-value ${!form.street ? "phsr-text-danger" : ""}`}>
-//                       {form.street || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Building/House No</span>
-//                     <p className={`phsr-review-field-value ${!form.buildingNo ? "phsr-text-danger" : ""}`}>
-//                       {form.buildingNo || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Landmark</span>
-//                     <p className={`phsr-review-field-value ${!form.landmark ? "phsr-text-muted" : ""}`}>
-//                       {form.landmark || "N/A"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Pin Code</span>
-//                     <p className={`phsr-review-field-value ${!form.pincode ? "phsr-text-danger" : ""}`}>
-//                       {form.pincode || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Phone</span>
-//                     <p className={`phsr-review-field-value ${!form.phone ? "phsr-text-danger" : ""}`}>
-//                       {form.phone || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Email</span>
-//                     <p className={`phsr-review-field-value ${!form.email ? "phsr-text-danger" : ""}`}>
-//                       {form.email || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Website</span>
-//                     <p className={`phsr-review-field-value ${!form.website ? "phsr-text-muted" : ""}`}>
-//                       {form.website || "N/A"}
-//                     </p>
-//                   </div>
+//                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//                   {[
+//                     { label: "Company Name", value: form.sellerName },
+//                     { label: "Company Type", value: form.companyType },
+//                     { label: "Seller Type", value: form.sellerType },
+//                     { label: "Product Type(s)", value: form.productTypes.join(", ") },
+//                     { label: "State", value: form.state },
+//                     { label: "District", value: form.district },
+//                     { label: "Taluka", value: form.taluka },
+//                     { label: "City/Town/Village", value: form.city },
+//                     { label: "Street/Road/Lane", value: form.street },
+//                     { label: "Building/House No", value: form.buildingNo },
+//                     { label: "Landmark", value: form.landmark || "N/A" },
+//                     { label: "Pin Code", value: form.pincode },
+//                     { label: "Phone", value: form.phone },
+//                     { label: "Email", value: form.email },
+//                     { label: "Website", value: form.website || "N/A" }
+//                   ].map((item, index) => (
+//                     <div key={index}>
+//                       <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+//                         {item.label}
+//                       </span>
+//                       <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!item.value || (item.value === "N/A" && item.label === "Landmark") || (item.value === "N/A" && item.label === "Website") ? "text-neutral-500" : "text-neutral-900"}`}>
+//                         {item.value || "Not provided"}
+//                       </p>
+//                     </div>
+//                   ))}
 //                 </div>
 //               </div>
 
-//               <div className="phsr-review-section">
-//                 <h6 className="phsr-review-section-title">
-//                   <i className="bi bi-person-badge me-2"></i> Coordinator Details
+//               {/* Coordinator Section */}
+//               <div className="mb-8 p-6 bg-primary-50 rounded-2xl border-l-4 border-primary-600">
+//                 <h6 className="text-lg font-bold text-primary-700 mb-4 flex items-center">
+//                   <i className="bi bi-person-badge mr-2"></i> Coordinator Details
 //                 </h6>
-//                 <div className="phsr-row">
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Name</span>
-//                     <p className={`phsr-review-field-value ${!form.coordinatorName ? "phsr-text-danger" : ""}`}>
-//                       {form.coordinatorName || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Designation</span>
-//                     <p className={`phsr-review-field-value ${!form.coordinatorDesignation ? "phsr-text-danger" : ""}`}>
-//                       {form.coordinatorDesignation || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Email</span>
-//                     <p className={`phsr-review-field-value ${!form.coordinatorEmail ? "phsr-text-danger" : ""}`}>
-//                       {form.coordinatorEmail || "Not provided"}
-//                       {emailVerified && <span className="phsr-verified-badge">✔ Verified</span>}
-//                       {!emailVerified && form.coordinatorEmail && <span className="phsr-text-warning"> (Not verified)</span>}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Mobile</span>
-//                     <p className={`phsr-review-field-value ${!form.coordinatorMobile ? "phsr-text-danger" : ""}`}>
-//                       {form.coordinatorMobile || "Not provided"}
-//                       {phoneVerified && <span className="phsr-verified-badge">✔ Verified</span>}
-//                       {!phoneVerified && form.coordinatorMobile && <span className="phsr-text-warning"> (Not verified)</span>}
-//                     </p>
-//                   </div>
+//                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//                   {[
+//                     { label: "Name", value: form.coordinatorName },
+//                     { label: "Designation", value: form.coordinatorDesignation },
+//                     { 
+//                       label: "Email", 
+//                       value: form.coordinatorEmail,
+//                       verified: emailVerified
+//                     },
+//                     { 
+//                       label: "Mobile", 
+//                       value: form.coordinatorMobile,
+//                       verified: phoneVerified
+//                     }
+//                   ].map((item, index) => (
+//                     <div key={index}>
+//                       <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+//                         {item.label}
+//                       </span>
+//                       <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!item.value ? "text-error-300" : "text-neutral-900"}`}>
+//                         {item.value || "Not provided"}
+//                         {item.verified !== undefined && item.value && (
+//                           <span className={`ml-2 px-2 py-1 text-xs rounded ${item.verified ? 'bg-success-100 text-success-300' : 'bg-warning-100 text-warning-300'}`}>
+//                             {item.verified ? "✔ Verified" : "Not verified"}
+//                           </span>
+//                         )}
+//                       </p>
+//                     </div>
+//                   ))}
 //                 </div>
 //               </div>
 
-//               <div className="phsr-review-section">
-//                 <h6 className="phsr-review-section-title">
-//                   <i className="bi bi-file-earmark-lock me-2"></i> Compliance Documents
+//               {/* Documents Section */}
+//               <div className="mb-8 p-6 bg-primary-50 rounded-2xl border-l-4 border-primary-600">
+//                 <h6 className="text-lg font-bold text-primary-700 mb-4 flex items-center">
+//                   <i className="bi bi-file-earmark-lock mr-2"></i> Compliance Documents
 //                 </h6>
-//                 <div className="phsr-row">
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">GST Number</span>
-//                     <p className={`phsr-review-field-value ${!form.gstNumber ? "phsr-text-danger" : ""}`}>
+//                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//                   {/* GST Details */}
+//                   <div>
+//                     <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+//                       GST Number
+//                     </span>
+//                     <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!form.gstNumber ? "text-error-300" : "text-neutral-900"}`}>
 //                       {form.gstNumber || "Not provided"}
 //                     </p>
 //                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">GST Certificate</span>
-//                     <p className={`phsr-review-field-value ${!form.gstFile ? "phsr-text-danger" : ""}`}>
+//                   <div>
+//                     <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+//                       GST Certificate
+//                     </span>
+//                     <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!form.gstFile ? "text-error-300" : "text-neutral-900"}`}>
 //                       {form.gstFile ? (
-//                         <span className="phsr-file-pill">
-//                           <i className="bi bi-file-earmark-pdf me-1"></i>
+//                         <span className="inline-flex items-center bg-linear-to-r from-primary-600 to-primary-700 text-white px-3 py-1 rounded-lg text-sm font-semibold">
+//                           <i className="bi bi-file-earmark-pdf mr-2"></i>
 //                           {form.gstFile.name}
 //                         </span>
 //                       ) : "Not uploaded"}
 //                     </p>
 //                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Drug License No</span>
-//                     <p className={`phsr-review-field-value ${!form.licenseNumber ? "phsr-text-danger" : ""}`}>
-//                       {form.licenseNumber || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">License File</span>
-//                     <p className={`phsr-review-field-value ${!form.licenseFile ? "phsr-text-danger" : ""}`}>
-//                       {form.licenseFile ? (
-//                         <span className="phsr-file-pill">
-//                           <i className="bi bi-file-earmark-pdf me-1"></i>
-//                           {form.licenseFile.name}
-//                         </span>
-//                       ) : "Not uploaded"}
-//                     </p>
-//                   </div>
+                  
+//                   {/* Dynamic License Fields */}
+//                   {form.productTypes.map(productType => {
+//                     const licenseInfo = getLicenseInfo(productType);
+//                     const licenseData = form.licenses[productType];
+                    
+//                     return (
+//                       <React.Fragment key={productType}>
+//                         <div>
+//                           <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+//                             {licenseInfo.label} for {productType}
+//                           </span>
+//                           <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!licenseData?.number ? "text-error-300" : "text-neutral-900"}`}>
+//                             {licenseData?.number || "Not provided"}
+//                           </p>
+//                         </div>
+//                         <div>
+//                           <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+//                             {licenseInfo.label} File
+//                           </span>
+//                           <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!licenseData?.file ? "text-error-300" : "text-neutral-900"}`}>
+//                             {licenseData?.file ? (
+//                               <span className="inline-flex items-center bg-linear-to-r from-primary-600 to-primary-700 text-white px-3 py-1 rounded-lg text-sm font-semibold">
+//                                 <i className="bi bi-file-earmark-pdf mr-2"></i>
+//                                 {licenseData.file.name}
+//                               </span>
+//                             ) : "Not uploaded"}
+//                           </p>
+//                         </div>
+//                       </React.Fragment>
+//                     );
+//                   })}
 //                 </div>
 //               </div>
 
-//               <div className="phsr-review-section">
-//                 <h6 className="phsr-review-section-title">
-//                   <i className="bi bi-bank me-2"></i> Bank Account Details
-//                 </h6>
-//                 <div className="phsr-row">
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Bank State</span>
-//                     <p className={`phsr-review-field-value ${!form.bankState ? "phsr-text-danger" : ""}`}>
-//                       {form.bankState || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Bank District</span>
-//                     <p className={`phsr-review-field-value ${!form.bankDistrict ? "phsr-text-danger" : ""}`}>
-//                       {form.bankDistrict || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Bank Taluka</span>
-//                     <p className={`phsr-review-field-value ${!form.bankTaluka ? "phsr-text-danger" : ""}`}>
-//                       {form.bankTaluka || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Bank Name</span>
-//                     <p className={`phsr-review-field-value ${!form.bankName ? "phsr-text-danger" : ""}`}>
-//                       {form.bankName || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Branch</span>
-//                     <p className={`phsr-review-field-value ${!form.branch ? "phsr-text-danger" : ""}`}>
-//                       {form.branch || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">IFSC Code</span>
-//                     <p className={`phsr-review-field-value ${!form.ifscCode ? "phsr-text-danger" : ""}`}>
-//                       {form.ifscCode || "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Account Number</span>
-//                     <p className={`phsr-review-field-value ${!form.accountNumber ? "phsr-text-danger" : ""}`}>
-//                       {form.accountNumber ? "****" + form.accountNumber.slice(-4) : "Not provided"}
-//                     </p>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <span className="phsr-review-field-label">Account Holder Name</span>
-//                     <p className={`phsr-review-field-value ${!form.accountHolderName ? "phsr-text-danger" : ""}`}>
-//                       {form.accountHolderName || "Not provided"}
-//                     </p>
-//                   </div>
-//                 </div>
-//               </div>
+//               {/* Bank Details Section */}
+//               {/* Bank Details Section */}
+// <div className="mb-8 p-6 bg-primary-50 rounded-2xl border-l-4 border-primary-600">
+//   <h6 className="text-lg font-bold text-primary-700 mb-4 flex items-center">
+//     <i className="bi bi-bank mr-2"></i> Bank Account Details
+//   </h6>
+//   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//     {[
+//       { label: "Bank Name", value: form.bankName },
+//       { label: "Branch", value: form.branch },
+//       { label: "State", value: form.bankState },
+//       { label: "District", value: form.bankDistrict },
+//       { label: "IFSC Code", value: form.ifscCode },
+//       { label: "Account Number", value: form.accountNumber ? "****" + form.accountNumber.slice(-4) : "" },
+//       { label: "Account Holder Name", value: form.accountHolderName },
+//       { 
+//         label: "Cancelled Cheque", 
+//         value: form.cancelledChequeFile ? (
+//           <span className="inline-flex items-center bg-linear-to-r from-primary-600 to-primary-700 text-white px-3 py-1 rounded-lg text-sm font-semibold">
+//             <i className="bi bi-file-earmark-pdf mr-2"></i>
+//             {form.cancelledChequeFile.name}
+//           </span>
+//         ) : "Not uploaded"
+//       }
+//     ].map((item, index) => (
+//       <div key={index}>
+//         <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1">
+//           {item.label}
+//         </span>
+//         <p className={`text-sm font-medium p-3 bg-white rounded-lg min-h-12 flex items-center ${!item.value || item.value === "Not uploaded" ? "text-error-300" : "text-neutral-900"}`}>
+//           {item.value || "Not provided"}
+//         </p>
+//       </div>
+//     ))}
+//   </div>
+// </div>
 
-//               <div className="phsr-validation-summary">
-//                 <h6 className="phsr-mb-2">
-//                   <i className="bi bi-clipboard-check me-2"></i>Validation Summary
+//               {/* Validation Summary */}
+//               <div className="p-6 bg-primary-50 rounded-2xl border-l-4 border-primary-600">
+//                 <h6 className="text-lg font-bold text-primary-700 mb-4 flex items-center">
+//                   <i className="bi bi-clipboard-check mr-2"></i> Validation Summary
 //                 </h6>
-//                 <div className="phsr-row">
-//                   <div className="phsr-col-md-6">
-//                     <small className="d-flex align-items-center phsr-mb-1">
-//                       <i className={`bi ${form.sellerName && form.pincode ? 'bi-check-circle-fill phsr-text-success' : 'bi-x-circle-fill phsr-text-danger'} me-2`}></i>
-//                       Company Info: {form.sellerName && form.pincode ? 'Complete' : 'Incomplete'}
-//                     </small>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <small className="d-flex align-items-center phsr-mb-1">
-//                       <i className={`bi ${emailVerified && phoneVerified ? 'bi-check-circle-fill phsr-text-success' : 'bi-x-circle-fill phsr-text-danger'} me-2`}></i>
-//                       Verification: {emailVerified && phoneVerified ? 'Complete' : 'Pending'}
-//                     </small>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <small className="d-flex align-items-center phsr-mb-1">
-//                       <i className={`bi ${form.gstFile && form.licenseFile ? 'bi-check-circle-fill phsr-text-success' : 'bi-x-circle-fill phsr-text-danger'} me-2`}></i>
-//                       Documents: {form.gstFile && form.licenseFile ? 'Complete' : 'Incomplete'}
-//                     </small>
-//                   </div>
-//                   <div className="phsr-col-md-6">
-//                     <small className="d-flex align-items-center phsr-mb-1">
-//                       <i className={`bi ${form.ifscCode && form.accountNumber ? 'bi-check-circle-fill phsr-text-success' : 'bi-x-circle-fill phsr-text-danger'} me-2`}></i>
-//                       Bank Details: {form.ifscCode && form.accountNumber ? 'Complete' : 'Incomplete'}
-//                     </small>
-//                   </div>
+//                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+//                   {[
+//                     {
+//                       label: "Company Info",
+//                       complete: form.sellerName && form.pincode && form.productTypes.length > 0
+//                     },
+//                     {
+//                       label: "Verification",
+//                       complete: emailVerified && phoneVerified
+//                     },
+//                     {
+//                       label: "GST Document",
+//                       complete: !!form.gstFile
+//                     },
+//                     {
+//                       label: "Product Licenses",
+//                       complete: form.productTypes.length > 0 && form.productTypes.every(pt => form.licenses[pt]?.number && form.licenses[pt]?.file)
+//                     },
+//                     {
+//                       label: "Bank Details",
+//                       complete: form.ifscCode && form.accountNumber && form.cancelledChequeFile
+//                     }
+//                   ].map((item, index) => (
+//                     <div key={index} className="flex items-center">
+//                       <i className={`bi ${item.complete ? 'bi-check-circle-fill text-success-300' : 'bi-x-circle-fill text-error-300'} text-lg mr-3`}></i>
+//                       <span className="text-sm font-medium text-neutral-700">
+//                         {item.label}: {item.complete ? 'Complete' : 'Incomplete'}
+//                       </span>
+//                     </div>
+//                   ))}
 //                 </div>
 //               </div>
 //             </div>
 //           )}
 
-//           <div className="phsr-button-group">
-//             {step > 1 && (
-//               <button type="button" className="phsr-btn-back" onClick={back}>
-//                 <i className="bi bi-arrow-left me-2"></i> Back
-//               </button>
-//             )}
-
-//             <button type="submit" className="phsr-btn-next ms-auto">
-//               {step < 5 ? (
-//                 <>
-//                   Continue <i className="bi bi-arrow-right ms-2"></i>
-//                 </>
-//               ) : (
-//                 <>
-//                   <i className="bi bi-check-circle me-2"></i> Submit Application
-//                 </>
-//               )}
-//             </button>
-//           </div>
+// {/* Navigation Buttons */}
+// <div className="flex flex-col md:flex-row justify-between items-center mt-8 pt-6 border-t border-neutral-200 gap-4">
+//   {step > 1 && (
+//     <button
+//       type="button"
+//       onClick={back}
+//       className="group relative px-8 py-3 rounded-lg border border-primary-600 bg-white hover:bg-primary-600 transition-all duration-300 flex items-center justify-center w-full md:w-auto"
+//     >
+//       <span className="flex items-center text-primary-600 group-hover:text-white font-semibold text-lg">
+//         <i className="bi bi-arrow-left mr-2"></i> Back
+//       </span>
+//       <div className="absolute inset-0 rounded-lg bg-primary-600 opacity-0 group-hover:opacity-5 transition-opacity duration-300"></div>
+//     </button>
+//   )}
+  
+//   {/* Using justify-end on the container */}
+//   <div className="w-full md:w-auto md:ml-auto flex justify-end">
+//     <button
+//       type="submit"
+//       className="group relative px-8 py-3 rounded-lg border border-primary-600 bg-white hover:bg-primary-600 transition-all duration-300 flex items-center justify-center w-full md:w-auto"
+//     >
+//       <span className="flex items-center text-primary-600 group-hover:text-white font-semibold text-lg">
+//         {step < 5 ? (
+//           <>
+//             Continue <i className="bi bi-arrow-right ml-2"></i>
+//           </>
+//         ) : (
+//           <>
+//             <i className="bi bi-check-circle mr-2"></i> Submit Application
+//           </>
+//         )}
+//       </span>
+//       <div className="absolute inset-0 rounded-lg bg-primary-600 opacity-0 group-hover:opacity-5 transition-opacity duration-300"></div>
+//     </button>
+//   </div>
+// </div>
 //         </form>
 //       </div>
 //     </div>

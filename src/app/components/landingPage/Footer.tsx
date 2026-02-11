@@ -1,7 +1,7 @@
 'use client'
-import { motion } from 'framer-motion'
-import Image from "next/image"
-import Link from "next/link"
+import { motion } from 'framer-motion';
+// import Image from "next/image";
+import Link from "next/link";
 import {
   FaEnvelope,
   FaMapMarkerAlt,
@@ -16,7 +16,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
           {/* Company Info - Takes 4 columns */}
           <div className="md:col-span-4 space-y-8">
-            <Link href="/" className="flex items-center">
+            {/* <Link href="/" className="flex items-center">
               <Image
                 alt="TiaMeds Technologies Logo"
                 src="/assets/images/tiameds.logo.png"
@@ -25,7 +25,7 @@ const Footer = () => {
                 height={64}
                 priority
               />
-            </Link>
+            </Link> */}
             
             <p className="text-white text-lg leading-relaxed max-w-md">
               Transforming pharmaceutical B2B trading with AI-powered technology.

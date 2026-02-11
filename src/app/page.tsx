@@ -1,5 +1,6 @@
 
-import Home from "./components/landingPage/Home"
+"use client";
+import Home from "./components/landingPage/Home";
 
 
 const page = () => {
