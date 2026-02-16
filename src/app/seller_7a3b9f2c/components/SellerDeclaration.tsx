@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { FaArrowRight, FaTimes } from 'react-icons/fa';
@@ -200,7 +200,7 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
                 onClick={onClose}
             />
 
-            {/* Modal Container - Responsive sizing */}
+            {/* Modal Container*/}
             <div className="min-h-screen relative w-full max-w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl bg-white rounded-lg sm:rounded-2xl shadow-lg sm:shadow-2xl overflow-hidden h-[90vh] sm:h-[85vh] flex flex-col mx-2">
                 {/* Header */}
                 <div className="sticky top-0 z-20 bg-white border-b border-neutral-200 p-1 sm:p-2">
@@ -231,9 +231,6 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
                         <h1 className="text-base sm:text-xl md:text-2xl lg:text-lg font-bold text-neutral-900 text-center">
                             Seller Company Pre-Registration Mandatory Declarations & Acceptance
                         </h1>
-                        {/* <p className="text-neutral-900 text-xs sm:text-sm">
-              Please read through all declarations carefully before proceeding with registration
-            </p> */}
                     </div>
                 </div>
 
@@ -293,7 +290,6 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
                         </label>
                     </div>
 
-                    {/* Warning if not scrolled to bottom */}
                     {!hasSeenBottom && (
                         <p className="text-warning-300 text-xs mb-2 sm:mb-4">
                             Please scroll to the bottom of all declarations before you can accept them
