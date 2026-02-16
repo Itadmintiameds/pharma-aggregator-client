@@ -105,7 +105,7 @@ export default function SellerRegister() {
     cancelledChequeFile: null as File | null,
   });
 
-  // ========== Close dropdown when clicking outside ==========
+  // ========== Close dropdown when clicking outside ok ==========
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
