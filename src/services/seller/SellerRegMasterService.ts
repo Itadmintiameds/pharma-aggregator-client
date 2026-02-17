@@ -17,11 +17,11 @@ interface ApiResponse<T> {
 }
 
 class SellerRegMasterService {
-  // ==================== COMPANY TYPES ====================
+  // ==================== COMPANY TYPESs ====================
   async getCompanyTypes(): Promise<CompanyTypeResponse[]> {
     try {
       console.log("🔍 Service: Fetching company types...");
-      const response = await api.get<ApiResponse<CompanyTypeResponse[]>>('/master/company-types');
+      const response = await api.get<ApiResponse<CompanyTypeResponse[]>>('/company-types');
       console.log("🔍 Service: Company types response:", response.data);
       
       const companyTypes = response.data?.data || [];
@@ -39,7 +39,7 @@ class SellerRegMasterService {
   async getProductTypes(): Promise<ProductTypeResponse[]> {
     try {
       console.log("🔍 Service: Fetching product types...");
-      const response = await api.get<ApiResponse<ProductTypeResponse[]>>('/master/product-types');
+      const response = await api.get<ApiResponse<ProductTypeResponse[]>>('/product-types');
       console.log("🔍 Service: Product types response:", response.data);
       
       const productTypes = response.data?.data || [];
@@ -57,7 +57,7 @@ class SellerRegMasterService {
   async getSellerTypes(): Promise<SellerTypeResponse[]> {
     try {
       console.log("🔍 Service: Fetching seller types...");
-      const response = await api.get<ApiResponse<SellerTypeResponse[]>>('/master/seller-types');
+      const response = await api.get<ApiResponse<SellerTypeResponse[]>>('/seller-types');
       console.log("🔍 Service: Seller types response:", response.data);
       
       const sellerTypes = response.data?.data || [];
@@ -75,7 +75,7 @@ class SellerRegMasterService {
   async getStates(): Promise<StateResponse[]> {
     try {
       console.log("🔍 Service: Fetching states...");
-      const response = await api.get<ApiResponse<StateResponse[]>>('/master/states');
+      const response = await api.get<ApiResponse<StateResponse[]>>('/states');
       console.log("🔍 Service: States response:", response.data);
       
       const states = response.data?.data || [];
@@ -93,7 +93,7 @@ class SellerRegMasterService {
   async getDistricts(): Promise<DistrictResponse[]> {
     try {
       console.log("🔍 Service: Fetching districts...");
-      const response = await api.get<ApiResponse<DistrictResponse[]>>('/master/districts');
+      const response = await api.get<ApiResponse<DistrictResponse[]>>('/districts');
       console.log("🔍 Service: Districts response:", response.data);
       
       const districts = response.data?.data || [];
@@ -111,7 +111,7 @@ class SellerRegMasterService {
   async getTalukas(): Promise<TalukaResponse[]> {
     try {
       console.log("🔍 Service: Fetching talukas...");
-      const response = await api.get<ApiResponse<TalukaResponse[]>>('/master/talukas');
+      const response = await api.get<ApiResponse<TalukaResponse[]>>('/talukas');
       console.log("🔍 Service: Talukas response:", response.data);
       
       const talukas = response.data?.data || [];
