@@ -98,7 +98,7 @@ class SellerRegMasterService {
     try {
       console.log(`🔍 Service: Fetching districts for stateId: ${stateId}...`);
       // You need to confirm the exact endpoint - this is a common pattern
-      const response = await api.get<ApiResponse<DistrictResponse[]>>(`/districts?stateId=${stateId}`);
+      const response = await api.get<ApiResponse<DistrictResponse[]>>(`/districts/state/${stateId}`);
       console.log("🔍 Service: Districts response:", response.data);
       
       const districts = response.data?.data || [];
@@ -121,7 +121,7 @@ class SellerRegMasterService {
     try {
       console.log(`🔍 Service: Fetching talukas for districtId: ${districtId}...`);
       // You need to confirm the exact endpoint - this is a common pattern
-      const response = await api.get<ApiResponse<TalukaResponse[]>>(`/talukas?districtId=${districtId}`);
+      const response = await api.get<ApiResponse<TalukaResponse[]>>(`/talukas/district/${districtId}`);
       console.log("🔍 Service: Talukas response:", response.data);
       
       const talukas = response.data?.data || [];
