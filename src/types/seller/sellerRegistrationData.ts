@@ -71,16 +71,21 @@ export interface TempSellerCoordinator {
 // ==================== DOCUMENT ====================
 
 export interface TempSellerDocument {
-  gstNumber: string;
-  gstFileUrl: string;
+  gstNumber ?: string;
+  gstFileUrl ?: string;
   productTypeId: number;
   documentNumber: string;
   documentFileUrl: string;
+  licenseIssueDate?: string; 
+  licenseExpiryDate?: string;  
+  licenseIssuingAuthority?: string; 
 }
 
 // ==================== MAIN SELLER REGISTRATION ====================
 
 export interface TempSellerRequest {
+  gstNumber ?: string;        
+  gstFileUrl ?: string; 
   sellerName: string;
   productTypeId: number[];
   companyTypeId: number;
@@ -206,8 +211,7 @@ export const SELLER_VALIDATION = {
  * Extended document interface for UI state that includes File object
  * This is used only on the frontend before upload
  */
-export interface TempSellerDocumentWithFile extends Omit<TempSellerDocument, 'gstFileUrl' | 'documentFileUrl'> {
-  gstFile?: File | null;
+export interface TempSellerDocumentWithFile extends Omit<TempSellerDocument, 'documentFileUrl'> {
   documentFile?: File | null;
 }
 
@@ -260,6 +264,10 @@ export interface TempSellerFormState {
   licenses: Record<string, {
     number: string;
     file: File | null;
+    issueDate: Date | null;       
+    expiryDate: Date | null;      
+    issuingAuthority: string;      
+    status: 'Active' | 'Expired';
   }>;
   
   // Bank Details
