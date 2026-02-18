@@ -2,74 +2,98 @@
 
 import Header from "@/src/app/components/Header";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
+// ─── Types ────────────────────────────────────────────────────
 type RequestType = "seller" | "buyer" | "lab";
-type SortField = "requestId" | "name" | "email" | "date" | "status";
-type SortOrder = "asc" | "desc";
+type SortField   = "requestId" | "name" | "email" | "date" | "status";
+type SortOrder   = "asc" | "desc";
+type Request     = { id: number; requestId: string; name: string; email: string; date: string; status: string };
 
-type Request = {
-  id: number;        
-  requestId: string;
-  name: string;
-  email: string;
-  date: string;
-  status: string;
+// ─── Constants ────────────────────────────────────────────────
+const API_URL   = "https://api-test-aggreator.tiameds.ai/api/v1/temp-sellers";
+const API_KEY   = "YOUR_API_KEY";
+const PAGE_SIZE = 10;
+
+const STATUS_MAP: Record<string, string> = {
+  APPROVED: "Closed", CLOSED: "Closed",
+  IN_PROGRESS: "In Progress", INPROGRESS: "In Progress",
+  PENDING: "Open", OPEN: "Open",
+  REJECTED: "Rejected",
+  CORRECTION: "Corrections Needed", CORRECTION_REQUIRED: "Corrections Needed",
+  CORRECTIONS_NEEDED: "Corrections Needed", CORRECTIONREQUIRED: "Corrections Needed",
 };
 
-// ─── API ──────────────────────────────────────────────────────
-const SELLER_API_URL = "https://api-test-aggreator.tiameds.ai/api/v1/temp-sellers";
-const API_KEY        = "YOUR_API_KEY";
+const STATUS_STYLES: Record<string, { badge: string; dot: string }> = {
+  "Open":               { badge: "bg-yellow-50 text-yellow-700 ring-yellow-200", dot: "bg-yellow-500" },
+  "In Progress":        { badge: "bg-blue-50 text-blue-700 ring-blue-200",       dot: "bg-blue-500"   },
+  "Closed":             { badge: "bg-green-50 text-green-700 ring-green-200",    dot: "bg-green-500"  },
+  "Rejected":           { badge: "bg-red-50 text-red-700 ring-red-200",          dot: "bg-red-500"    },
+  "Corrections Needed": { badge: "bg-amber-50 text-amber-700 ring-amber-200",    dot: "bg-amber-500"  },
+};
+const DEFAULT_STYLE = { badge: "bg-gray-50 text-gray-600 ring-gray-200", dot: "bg-gray-400" };
 
-const normalizeStatus = (raw: string): string => {
-  const map: Record<string, string> = {
-    APPROVED:    "Closed",
-    IN_PROGRESS: "In Progress",
-    INPROGRESS:  "In Progress",
-    PENDING:     "Open",
-    OPEN:        "Open",
-    CLOSED:      "Closed",
-  };
-  return map[raw?.toUpperCase()] ?? raw;
+const TABS: { key: RequestType; label: string }[] = [
+  { key: "seller", label: "Seller" },
+  { key: "buyer",  label: "Buyer"  },
+  { key: "lab",    label: "Lab"    },
+];
+
+const COLUMNS: { field: SortField; label: string }[] = [
+  { field: "requestId", label: "Request ID"      },
+  { field: "name",      label: "Requestor Name"  },
+  { field: "email",     label: "Requestor Email" },
+  { field: "date",      label: "Date"             },
+  { field: "status",    label: "Status"           },
+];
+
+const DEMO_BUYERS: Request[] = [
+  { id: 11, requestId: "BUY-2001", name: "ABC Buyers", email: "abc@buyers.com", date: "2026-01-21", status: "Open"               },
+  { id: 12, requestId: "BUY-2002", name: "XYZ Buyers", email: "xyz@buyers.com", date: "2025-11-08", status: "In Progress"        },
+  { id: 13, requestId: "BUY-2003", name: "JKL Buyers", email: "jkl@buyers.com", date: "2025-12-12", status: "Closed"             },
+  { id: 14, requestId: "BUY-2004", name: "MNO Buyers", email: "mno@buyers.com", date: "2025-10-05", status: "Rejected"           },
+  { id: 15, requestId: "BUY-2005", name: "PQR Buyers", email: "pqr@buyers.com", date: "2026-02-01", status: "Corrections Needed" },
+];
+const DEMO_LABS: Request[] = [
+  { id: 21, requestId: "LAB-3001", name: "ABC Labs", email: "abc@lab.com", date: "2026-01-22", status: "Closed"             },
+  { id: 22, requestId: "LAB-3002", name: "XYZ Labs", email: "xyz@lab.com", date: "2025-12-12", status: "In Progress"        },
+  { id: 23, requestId: "LAB-3003", name: "JKL Labs", email: "jkl@lab.com", date: "2025-11-08", status: "Open"               },
+  { id: 24, requestId: "LAB-3004", name: "MNO Labs", email: "mno@lab.com", date: "2025-09-14", status: "Rejected"           },
+  { id: 25, requestId: "LAB-3005", name: "PQR Labs", email: "pqr@lab.com", date: "2026-02-10", status: "Corrections Needed" },
+];
+
+// ─── Helpers ──────────────────────────────────────────────────
+const normalizeStatus = (raw: string) => STATUS_MAP[raw?.toUpperCase()] ?? raw;
+
+const formatDate = (s: string): string => {
+  if (!s || s === "—") return "—";
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getFullYear()).slice(-2)}`;
 };
 
-// ─── Demo data ────────────────────────────────────────────────
-const buyerRequests: Request[] = [
-  { id: 11, requestId: "BUY-2001", name: "ABC Buyers", email: "abc@buyers.com", date: "2026-01-21", status: "Open"        },
-  { id: 12, requestId: "BUY-2002", name: "XYZ Buyers", email: "xyz@buyers.com", date: "2025-11-08", status: "In Progress" },
-  { id: 13, requestId: "BUY-2003", name: "JKL Buyers", email: "jkl@buyers.com", date: "2025-12-12", status: "Closed"      },
-];
-const labRequests: Request[] = [
-  { id: 21, requestId: "LAB-3001", name: "ABC Labs", email: "abc@lab.com", date: "2026-01-22", status: "Closed"      },
-  { id: 22, requestId: "LAB-3002", name: "XYZ Labs", email: "xyz@lab.com", date: "2025-12-12", status: "In Progress" },
-  { id: 23, requestId: "LAB-3003", name: "JKL Labs", email: "jkl@lab.com", date: "2025-11-08", status: "Open"        },
-];
+const getPageNumbers = (current: number, total: number): (number | "...")[] => {
+  const pages = Array.from({ length: total }, (_, i) => i + 1)
+    .filter(p => p === 1 || p === total || Math.abs(p - current) <= 1);
+  return pages.reduce<(number | "...")[]>((acc, p, i, arr) => {
+    if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("...");
+    acc.push(p);
+    return acc;
+  }, []);
+};
 
-// ─── Sort Icon ────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────
 const SortIcon = ({ field, sortField, sortOrder }: { field: SortField; sortField: SortField; sortOrder: SortOrder }) => {
   if (sortField !== field)
-    return (
-      <svg className="w-3.5 h-3.5 ml-1 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-      </svg>
-    );
-  return sortOrder === "asc" ? (
-    <svg className="w-3.5 h-3.5 ml-1 text-[#4B0082] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-    </svg>
-  ) : (
-    <svg className="w-3.5 h-3.5 ml-1 text-[#4B0082] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-    </svg>
-  );
+    return <svg className="w-3.5 h-3.5 ml-1 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>;
+  return <svg className="w-3.5 h-3.5 ml-1 text-[#4B0082] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sortOrder === "asc" ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} /></svg>;
 };
 
-// ─── Skeleton ─────────────────────────────────────────────────
 const TableSkeleton = () => (
   <>
-    {[...Array(5)].map((_, i) => (
+    {Array.from({ length: 5 }, (_, i) => (
       <tr key={i} className="border-b border-gray-100">
-        {[...Array(6)].map((_, j) => (
+        {Array.from({ length: 6 }, (_, j) => (
           <td key={j} className="px-6 py-4">
             <div className="h-4 bg-gray-200 rounded animate-pulse" style={{ width: `${50 + j * 10}%` }} />
           </td>
@@ -79,117 +103,85 @@ const TableSkeleton = () => (
   </>
 );
 
+const NAV_BTN = "px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-500 hover:bg-[#f0ebff] hover:border-[#4B0082] hover:text-[#4B0082] disabled:opacity-40 disabled:cursor-not-allowed transition-all";
+
 // ─── Main ─────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const router = useRouter();
 
   const [activeTab,    setActiveTab]    = useState<RequestType>("seller");
-  const [sortField,    setSortField]    = useState<SortField>("date");
+  const [sortField,    setSortField]    = useState<SortField>("requestId");
   const [sortOrder,    setSortOrder]    = useState<SortOrder>("desc");
   const [searchTerm,   setSearchTerm]   = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [currentPage,  setCurrentPage]  = useState(1);
 
-  const [sellerRequests, setSellerRequests] = useState<Request[]>([]);
+  const [sellers,        setSellers]        = useState<Request[]>([]);
   const [loadingSellers, setLoadingSellers] = useState(false);
   const [sellerError,    setSellerError]    = useState<string | null>(null);
-  const [fetchTick, setFetchTick] = useState(0);
+  const [fetchTick,      setFetchTick]      = useState(0);
 
-  // Re-fetch when window regains focus (user navigates back after Accept/Reject/Correction)
+  // Re-fetch on window focus (after navigating back)
   useEffect(() => {
     const onFocus = () => setFetchTick(t => t + 1);
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  // ── Fetch seller list ─────────────────────────────────────────
   useEffect(() => {
     if (activeTab !== "seller") return;
     let cancelled = false;
+    setLoadingSellers(true);
+    setSellerError(null);
 
-    const fetchSellers = async () => {
-      setLoadingSellers(true);
-      setSellerError(null);
-      try {
-        const res = await fetch(SELLER_API_URL, {
-          headers: { "X-API-Key": API_KEY },
-        });
-        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-
-        const json = await res.json();
-        const list: any[] = Array.isArray(json)
-          ? json
-          : Array.isArray(json.data)
-          ? json.data
-          : [];
-
+    fetch(API_URL, { headers: { "X-API-Key": API_KEY } })
+      .then(r => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.json(); })
+      .then(json => {
         if (cancelled) return;
+        const list: any[] = Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : [];
+        setSellers(list.map(item => ({
+          id:        item.tempSellerId,
+          requestId: item.tempSellerRequestId,
+          name:      item.tempSellerName,
+          email:     item.tempSellerEmail,
+          date:      item.createdAt ? item.createdAt.split("T")[0] : "—",
+          status:    normalizeStatus(item.status ?? ""),
+        })));
+      })
+      .catch(err => { if (!cancelled) setSellerError(err.message ?? "Failed to fetch sellers"); })
+      .finally(() => { if (!cancelled) setLoadingSellers(false); });
 
-        setSellerRequests(
-          list.map((item) => ({
-            id:        item.tempSellerId,
-            requestId: item.tempSellerRequestId,
-            name:      item.tempSellerName,
-            email:     item.tempSellerEmail,
-            date:      item.createdAt ? item.createdAt.split("T")[0] : "—",
-            status:    normalizeStatus(item.status ?? ""),
-          }))
-        );
-      } catch (err) {
-        if (!cancelled)
-          setSellerError(err instanceof Error ? err.message : "Failed to fetch sellers");
-      } finally {
-        if (!cancelled) setLoadingSellers(false);
-      }
-    };
-
-    fetchSellers();
     return () => { cancelled = true; };
   }, [activeTab, fetchTick]);
 
+  // Reset page on any filter/sort/tab change
+  useEffect(() => { setCurrentPage(1); }, [activeTab, searchTerm, statusFilter, sortField, sortOrder]);
+
   const handleSort = (field: SortField) => {
-    if (sortField === field) setSortOrder(o => o === "asc" ? "desc" : "asc");
-    else { setSortField(field); setSortOrder("asc"); }
+    setSortField(field);
+    setSortOrder(o => field === sortField ? (o === "asc" ? "desc" : "asc") : "asc");
   };
 
-  const getRequests = (): Request[] => {
-    let list =
-      activeTab === "seller" ? sellerRequests :
-      activeTab === "buyer"  ? buyerRequests  : labRequests;
+  const filtered = useMemo(() => {
+    const base = activeTab === "seller" ? sellers : activeTab === "buyer" ? DEMO_BUYERS : DEMO_LABS;
+    const term  = searchTerm.toLowerCase();
+    return base
+      .filter(r =>
+        (!term || r.requestId.toLowerCase().includes(term) || r.name.toLowerCase().includes(term) || r.email.toLowerCase().includes(term)) &&
+        (statusFilter === "All" || r.status === statusFilter)
+      )
+      .sort((a, b) => {
+        const av = sortField === "date" ? new Date(a.date).getTime() : a[sortField];
+        const bv = sortField === "date" ? new Date(b.date).getTime() : b[sortField];
+        return av < bv ? (sortOrder === "asc" ? -1 : 1) : av > bv ? (sortOrder === "asc" ? 1 : -1) : 0;
+      });
+  }, [activeTab, sellers, searchTerm, statusFilter, sortField, sortOrder]);
 
-    if (searchTerm) {
-      const t = searchTerm.toLowerCase();
-      list = list.filter(r =>
-        r.requestId.toLowerCase().includes(t) ||
-        r.name.toLowerCase().includes(t) ||
-        r.email.toLowerCase().includes(t)
-      );
-    }
-    if (statusFilter !== "All") list = list.filter(r => r.status === statusFilter);
-
-    return [...list].sort((a, b) => {
-      let av: string | number = a[sortField];
-      let bv: string | number = b[sortField];
-      if (sortField === "date") {
-        av = new Date(av as string).getTime();
-        bv = new Date(bv as string).getTime();
-      }
-      if (av < bv) return sortOrder === "asc" ? -1 : 1;
-      if (av > bv) return sortOrder === "asc" ?  1 : -1;
-      return 0;
-    });
-  };
-
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage   = Math.min(currentPage, totalPages);
+  const paginated  = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const isLoading  = activeTab === "seller" && loadingSellers;
   const hasError   = activeTab === "seller" && !!sellerError;
-  const filtered   = getRequests();
-
-  const columns: { field: SortField; label: string }[] = [
-    { field: "requestId", label: "Request ID"      },
-    { field: "name",      label: "Requestor Name"  },
-    { field: "email",     label: "Requestor Email" },
-    { field: "date",      label: "Date"             },
-    { field: "status",    label: "Status"           },
-  ];
 
   return (
     <>
@@ -202,13 +194,10 @@ export default function AdminDashboard() {
               {/* Tabs */}
               <div className="px-8 pt-5">
                 <div className="inline-flex bg-[#e9e2ff] p-1 rounded-xl shadow-sm">
-                  {[{ key: "seller", label: "Seller" }, { key: "buyer", label: "Buyer" }, { key: "lab", label: "Lab" }].map(tab => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key as RequestType)}
+                  {TABS.map(tab => (
+                    <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                       className={`px-10 py-2.5 rounded-lg text-base font-bold transition-all duration-200
-                        ${activeTab === tab.key ? "bg-[#4B0082] text-white shadow-md" : "text-[#4B0082] hover:bg-white/60"}`}
-                    >
+                        ${activeTab === tab.key ? "bg-[#4B0082] text-white shadow-md" : "text-[#4B0082] hover:bg-white/60"}`}>
                       {tab.label}
                     </button>
                   ))}
@@ -231,43 +220,28 @@ export default function AdminDashboard() {
                     <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <input
-                      type="text"
-                      placeholder="Search by Request ID, Name, or Email..."
-                      value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
-                      className="w-full pl-11 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#4B0082] focus:border-transparent transition-all bg-gray-50 focus:bg-white"
-                    />
+                    <input type="text" placeholder="Search by Request ID, Name, or Email..."
+                      value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                      className="w-full pl-11 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#4B0082] focus:border-transparent transition-all bg-gray-50 focus:bg-white" />
                     {searchTerm && (
                       <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
                   </div>
 
                   <div className="relative">
-                    <select
-                      value={statusFilter}
-                      onChange={e => setStatusFilter(e.target.value)}
-                      className="appearance-none pl-4 pr-9 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#4B0082] bg-gray-50 focus:bg-white cursor-pointer font-medium text-gray-700 transition-all"
-                    >
+                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                      className="appearance-none pl-4 pr-9 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#4B0082] bg-gray-50 focus:bg-white cursor-pointer font-medium text-gray-700 transition-all">
                       <option value="All">All Status</option>
-                      <option value="Open">Open</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Closed">Closed</option>
+                      {["Open","In Progress","Closed","Rejected","Corrections Needed"].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                    <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </div>
 
                   {(searchTerm || statusFilter !== "All") && (
-                    <button
-                      onClick={() => { setSearchTerm(""); setStatusFilter("All"); }}
-                      className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-medium transition-all"
-                    >
+                    <button onClick={() => { setSearchTerm(""); setStatusFilter("All"); }}
+                      className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-medium transition-all">
                       Clear Filters
                     </button>
                   )}
@@ -276,9 +250,7 @@ export default function AdminDashboard() {
                 {/* Error */}
                 {hasError && (
                   <div className="mb-4 flex items-start gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
-                    <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                    </svg>
+                    <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
                     <span><strong>Failed to load sellers:</strong> {sellerError}</span>
                   </div>
                 )}
@@ -290,12 +262,9 @@ export default function AdminDashboard() {
                       <thead>
                         <tr className="bg-[#faf7ff] border-b border-gray-100">
                           <th className="px-6 py-4 text-left font-semibold text-gray-500 w-16 whitespace-nowrap">Sl. No</th>
-                          {columns.map(({ field, label }) => (
-                            <th
-                              key={field}
-                              onClick={() => handleSort(field)}
-                              className="px-6 py-4 text-left font-semibold text-gray-500 cursor-pointer hover:bg-[#f0ebff] transition-colors select-none whitespace-nowrap"
-                            >
+                          {COLUMNS.map(({ field, label }) => (
+                            <th key={field} onClick={() => handleSort(field)}
+                              className="px-6 py-4 text-left font-semibold text-gray-500 cursor-pointer hover:bg-[#f0ebff] transition-colors select-none whitespace-nowrap">
                               <div className="flex items-center">
                                 {label}
                                 <SortIcon field={field} sortField={sortField} sortOrder={sortOrder} />
@@ -305,64 +274,38 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-50">
-                        {isLoading ? (
-                          <TableSkeleton />
-                        ) : filtered.length > 0 ? (
-                          filtered.map((item, idx) => (
-                            <tr key={item.id} className="hover:bg-[#faf7ff] transition-colors">
-                              <td className="px-6 py-4 text-gray-400 font-medium">{idx + 1}</td>
-
-                              {/* ↓ passes both requestId (display) and sellerId (API) in the URL */}
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className="text-[#4B0082] font-semibold cursor-pointer hover:text-[#751bb5] hover:underline transition-all"
-                                  onClick={() =>
-                                    router.push(
-                                      `/admin_f6c29e3d/requests/${item.requestId}?sellerId=${item.id}`
-                                    )
-                                  }
-                                >
-                                  {item.requestId}
-                                </span>
-                              </td>
-
-                              <td className="px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{item.name}</td>
-
-                              <td className="px-6 py-4">
-                                <a
-                                  href={`mailto:${item.email}`}
-                                  className="text-gray-600 hover:text-[#4B0082] transition-colors"
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  {item.email}
-                                </a>
-                              </td>
-
-                              <td className="px-6 py-4 text-gray-600 whitespace-nowrap">{item.date}</td>
-
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ring-1
-                                  ${item.status === "Open"        ? "bg-yellow-50 text-yellow-700 ring-yellow-200"
-                                  : item.status === "In Progress" ? "bg-blue-50   text-blue-700   ring-blue-200"
-                                  :                                 "bg-green-50  text-green-700  ring-green-200"}`}
-                                >
-                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0
-                                    ${item.status === "Open" ? "bg-yellow-500"
-                                    : item.status === "In Progress" ? "bg-blue-500"
-                                    : "bg-green-500"}`}
-                                  />
-                                  {item.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
+                        {isLoading ? <TableSkeleton /> : paginated.length > 0 ? (
+                          paginated.map((item, idx) => {
+                            const { badge, dot } = STATUS_STYLES[item.status] ?? DEFAULT_STYLE;
+                            return (
+                              <tr key={item.id} className="hover:bg-[#faf7ff] transition-colors">
+                                <td className="px-6 py-4 text-gray-400 font-medium">{(safePage - 1) * PAGE_SIZE + idx + 1}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span onClick={() => router.push(`/admin_f6c29e3d/requests/${item.requestId}?sellerId=${item.id}`)}
+                                    className="text-[#4B0082] font-semibold cursor-pointer hover:text-[#751bb5] hover:underline transition-all">
+                                    {item.requestId}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{item.name}</td>
+                                <td className="px-6 py-4">
+                                  <a href={`mailto:${item.email}`} onClick={e => e.stopPropagation()}
+                                    className="text-gray-600 hover:text-[#4B0082] transition-colors">{item.email}</a>
+                                </td>
+                                <td className="px-6 py-4 text-gray-600 whitespace-nowrap">{formatDate(item.date)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ring-1 ${badge}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
+                                    {item.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
                         ) : (
                           <tr>
                             <td colSpan={6} className="px-6 py-16 text-center">
                               <div className="flex flex-col items-center gap-2 text-gray-400">
-                                <svg className="w-10 h-10 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                <svg className="w-10 h-10 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 <p className="text-sm font-medium">
                                   {hasError ? "Could not load data. Please refresh." : "No requests found matching your criteria."}
                                 </p>
@@ -375,20 +318,38 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* Footer */}
-                {!isLoading && (
-                  <div className="mt-3 flex justify-between items-center text-xs text-gray-400 px-1">
-                    <span>
-                      {activeTab === "seller" && !hasError && sellerRequests.length > 0
-                        ? `${sellerRequests.length} record${sellerRequests.length !== 1 ? "s" : ""} fetched`
-                        : ""}
+                {/* Footer + Pagination */}
+                {!isLoading && filtered.length > 0 && (
+                  <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 px-1">
+                    <span className="text-xs text-gray-400">
+                      Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} record{filtered.length !== 1 ? "s" : ""}
+                      {activeTab === "seller" && !hasError && (searchTerm || statusFilter !== "All") && sellers.length > 0
+                        ? ` (filtered from ${sellers.length} total)` : ""}
                     </span>
-                    <span>
-                      Showing {filtered.length} record{filtered.length !== 1 ? "s" : ""}
-                      {(searchTerm || statusFilter !== "All") && activeTab === "seller" && !hasError
-                        ? ` of ${sellerRequests.length} total` : ""}
-                    </span>
+                    {totalPages > 1 && (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setCurrentPage(1)}                                 disabled={safePage === 1}          className={NAV_BTN}>«</button>
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))}          disabled={safePage === 1}          className={NAV_BTN}>‹</button>
+                        {getPageNumbers(safePage, totalPages).map((p, i) =>
+                          p === "..." ? (
+                            <span key={`e${i}`} className="px-2 py-1.5 text-xs text-gray-400">…</span>
+                          ) : (
+                            <button key={p} onClick={() => setCurrentPage(p as number)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
+                                ${safePage === p ? "bg-[#4B0082] text-white border-[#4B0082] shadow-sm" : "border-gray-200 text-gray-600 hover:bg-[#f0ebff] hover:border-[#4B0082] hover:text-[#4B0082]"}`}>
+                              {p}
+                            </button>
+                          )
+                        )}
+                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} className={NAV_BTN}>›</button>
+                        <button onClick={() => setCurrentPage(totalPages)}                        disabled={safePage === totalPages} className={NAV_BTN}>»</button>
+                      </div>
+                    )}
                   </div>
+                )}
+
+                {!isLoading && filtered.length === 0 && !hasError && activeTab === "seller" && sellers.length > 0 && (
+                  <p className="mt-3 text-xs text-gray-400 px-1 text-right">0 of {sellers.length} records match</p>
                 )}
 
               </div>
