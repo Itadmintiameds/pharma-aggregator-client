@@ -14,6 +14,13 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
     const [hasSeenBottom, setHasSeenBottom] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
 
+     useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, []);
+
     const declarations = [
         {
             title: "Authorized Representation & Legal Binding",
