@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from  "react";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -41,7 +41,7 @@ export default function SellerRegister() {
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
   const productDropdownRef = useRef<HTMLDivElement>(null);
 
-  // ========== Email Validation State ==========
+  // ========== Email Validation Stat e ==========
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [emailExistsError, setEmailExistsError] = useState("");
 
