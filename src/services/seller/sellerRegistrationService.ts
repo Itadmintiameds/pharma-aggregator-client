@@ -206,6 +206,43 @@ async verifySMSOtp(data: SMSVerifyOtpRequest): Promise<SMSOtpResponse> {
   }
 }
 
+/**
+ * Check if coordinator phone already exists in the system
+ */
+async checkCoordinatorPhone(phone: string): Promise<boolean> {
+  try {
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    console.log(`📡 Checking if coordinator phone exists: ${cleanPhone}`);
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await api.get<any>('/temp-sellers/coordinator/check-phone', {
+      params: { mobile: cleanPhone }
+    });
+    
+    console.log("✅ Phone check response:", response.data);
+    
+    return response.data?.data === true;
+  } catch (error) {
+    console.error('❌ Error checking coordinator phone:', error);
+    
+    // Handle different error scenarios
+    if (axios.isAxiosError(error)) {
+      const statusCode = error.response?.status;
+      
+      if (statusCode === 400) {
+        throw new Error("Invalid phone number format");
+      } else if (statusCode === 429) {
+        throw new Error("Too many requests. Please try again later.");
+      } else if (statusCode && statusCode >= 500) {
+        throw new Error("Server error. Please try again later.");
+      }
+    }
+    
+    throw new Error("Failed to check phone availability");
+  }
+}
+
   // ==================== SELLER APPROVAL ====================
 
   /**

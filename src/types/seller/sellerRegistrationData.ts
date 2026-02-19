@@ -19,6 +19,14 @@ export interface EmailOtpVerifyRequest {
   otp: string;
 }
 
+// ==================== COORDINATOR EMAIL CHECK ====================
+
+export interface CoordinatorEmailCheckResponse {
+  exists: boolean;
+}
+
+
+
 // ==================== SMS OTP ====================
 
 export interface SMSOtpRequest {
@@ -34,6 +42,13 @@ export interface SMSOtpResponse {
   status: string;
   message: string;
 }
+
+// ==================== COORDINATOR PHONE CHECK ====================
+
+export interface CoordinatorPhoneCheckResponse {
+  exists: boolean;
+}
+
 
 // ==================== OTP RESPONSE ====================
 
@@ -312,11 +327,9 @@ export interface TempSellerCoordinator {
 }
 
 
-// ==================== COORDINATOR EMAIL CHECK ====================
 
-export interface CoordinatorEmailCheckResponse {
-  exists: boolean;
-}
+
+
 // ==================== SELLER REGISTRATION STATE ====================
 
 export interface SellerRegistrationState {
