@@ -1,3 +1,12 @@
+// ==================== API RESPONSE ====================
+
+export interface ApiResponse<T> {
+  statusCode: string;
+  message: string;
+  data: T;
+  total?: number;
+}
+
 
 // ==================== EMAIL OTP ====================
 
@@ -55,17 +64,6 @@ export interface TempSellerBankDetails {
   accountNumber: string;
   accountHolderName: string;
   bankDocumentFileUrl: string;
-}
-
-// ==================== COORDINATOR ====================
-
-export interface TempSellerCoordinator {
-  name: string;
-  designation: string;
-  email: string;
-  mobile: string;
-  emailVerified?: boolean;
-  phoneVerified?: boolean;
 }
 
 // ==================== DOCUMENT ====================
@@ -131,14 +129,7 @@ export interface SellerApprovalRequest {
   comments: string;
 }
 
-// ==================== API RESPONSE ====================
 
-export interface ApiResponse<T> {
-  statusCode: string;
-  message: string;
-  data: T;
-  total?: number;
-}
 
 // ==================== MASTER DATA TYPES ====================
 
@@ -303,6 +294,29 @@ export interface TempSellerDetailsResponse extends TempSellerResponse {
   updatedBy?: string;
 }
 
+
+
+export interface TempSellerCoordinator {
+  tempSellerCoordinatorId?: number;
+  name: string;
+  designation: string;
+  email: string;
+  isEmailVerified?: boolean;
+  mobile: string;
+  isPhoneVerified?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isActive?: boolean;
+}
+
+
+// ==================== COORDINATOR EMAIL CHECK ====================
+
+export interface CoordinatorEmailCheckResponse {
+  exists: boolean;
+}
 // ==================== SELLER REGISTRATION STATE ====================
 
 export interface SellerRegistrationState {
