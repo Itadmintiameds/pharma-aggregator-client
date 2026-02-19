@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   FaUserPlus,
   FaBox,
@@ -12,20 +12,24 @@ import {
   FaUsers,
   FaHandsHelping,
   FaSignInAlt,
-  FaArrowRight
-} from 'react-icons/fa'
+  FaArrowRight,
+} from "react-icons/fa";
 
-import SellerRegister from './SellerRegister';
-import ProductOnboarding from './ProductOnboarding';
-import SellerDeclaration from './SellerDeclaration';
+import SellerRegister from "./SellerRegister";
+import ProductOnboarding from "./ProductOnboarding";
+import SellerDeclaration from "./SellerDeclaration";
+import ProductList from "./ProductList";
 
 const SellerJourney = () => {
   const [showRegister, setShowRegister] = useState(false);
   const [showProductOnboarding, setShowProductOnboarding] = useState(false);
   const [showDeclaration, setShowDeclaration] = useState(false);
+  const [showProductList, setShowProductList] = useState(false);
 
   const handleSellerLogin = () => {
-    alert('Seller login is currently under maintenance. Please try again later.');
+    alert(
+      "Seller login is currently under maintenance. Please try again later.",
+    );
   };
 
   const handleAcceptDeclaration = () => {
@@ -40,74 +44,83 @@ const SellerJourney = () => {
   const journeySteps = [
     {
       title: "Register",
-      description: "Complete KYC with GSTIN and pharma license. Get verified in 24 hours.",
+      description:
+        "Complete KYC with GSTIN and pharma license. Get verified in 24 hours.",
       icon: <FaUserPlus className="w-6 h-6" />,
-      time: "24 Hours"
+      time: "24 Hours",
     },
     {
       title: "List Products",
-      description: "Upload your catalog with batch numbers, expiry dates, and certifications.",
+      description:
+        "Upload your catalog with batch numbers, expiry dates, and certifications.",
       icon: <FaBox className="w-6 h-6" />,
-      time: "1-2 Days"
+      time: "1-2 Days",
     },
     {
       title: "Receive Orders",
-      description: "Get orders from hospitals, clinics, and pharmacies across India.",
+      description:
+        "Get orders from hospitals, clinics, and pharmacies across India.",
       icon: <FaShoppingCart className="w-6 h-6" />,
-      time: "Immediate"
+      time: "Immediate",
     },
     {
       title: "Dispatch",
-      description: "Use our logistics network or your own. Track shipments in real-time.",
+      description:
+        "Use our logistics network or your own. Track shipments in real-time.",
       icon: <FaShippingFast className="w-6 h-6" />,
-      time: "Same Day"
+      time: "Same Day",
     },
     {
       title: "Get Paid",
-      description: "Secure payments released within 7 days of delivery confirmation.",
+      description:
+        "Secure payments released within 7 days of delivery confirmation.",
       icon: <FaRupeeSign className="w-6 h-6" />,
-      time: "7 Days"
-    }
-  ]
+      time: "7 Days",
+    },
+  ];
 
   const platformBenefits = [
     {
       title: "Verified Buyer Network",
-      description: "Access 50,000+ verified hospitals, clinics, and pharmacies with pre-vetted credentials.",
+      description:
+        "Access 50,000+ verified hospitals, clinics, and pharmacies with pre-vetted credentials.",
       icon: <FaUsers className="w-8 h-8" />,
-      metric: "50K+ Buyers"
+      metric: "50K+ Buyers",
     },
     {
       title: "Regulatory Compliance",
-      description: "Automated documentation for GST, FDA, and state regulations. Stay audit-ready always.",
+      description:
+        "Automated documentation for GST, FDA, and state regulations. Stay audit-ready always.",
       icon: <FaShieldAlt className="w-8 h-8" />,
-      metric: "100% Compliant"
+      metric: "100% Compliant",
     },
     {
       title: "AI-Powered Insights",
-      description: "Predict demand, optimize pricing, and identify high-margin opportunities with our AI tools.",
+      description:
+        "Predict demand, optimize pricing, and identify high-margin opportunities with our AI tools.",
       icon: <FaTachometerAlt className="w-8 h-8" />,
-      metric: "40% Smarter Decisions"
+      metric: "40% Smarter Decisions",
     },
     {
       title: "Dedicated Support",
-      description: "Get a dedicated account manager and 24/7 support for order management and queries.",
+      description:
+        "Get a dedicated account manager and 24/7 support for order management and queries.",
       icon: <FaHandsHelping className="w-8 h-8" />,
-      metric: "24/7 Support"
-    }
-  ]
+      metric: "24/7 Support",
+    },
+  ];
 
   const growthStats = [
     { value: "3.2X", label: "Average Seller Growth" },
     { value: "₹500Cr+", label: "Monthly GMV" },
     { value: "29", label: "States Covered" },
-    { value: "10K+", label: "Active Sellers" }
-  ]
+    { value: "10K+", label: "Active Sellers" },
+  ];
 
   if (showRegister) {
     return (
       <div className="min-h-screen bg-primary-50 pt-4">
-        <SellerRegister  />
+        <SellerRegister />
       </div>
     );
   }
@@ -115,13 +128,27 @@ const SellerJourney = () => {
   if (showProductOnboarding) {
     return (
       <div className="min-h-screen bg-primary-50 pt-4">
-        <ProductOnboarding />
+        <ProductOnboarding
+          onSuccess={() => {
+            setShowProductOnboarding(false);
+            setShowProductList(true);
+          }}
+        />
       </div>
     );
   }
 
+  if (showProductList) {
+  return (
+    <div className="min-h-screen bg-primary-50 pt-4">
+      <ProductList />
+    </div>
+  );
+}
+
   return (
     <>
+    
       {/* Declaration Modal */}
       {showDeclaration && (
         <SellerDeclaration
@@ -141,11 +168,12 @@ const SellerJourney = () => {
                   <span className="text-primary-600">TiaMeds</span>
                 </h2>
                 <p className="text-xl text-neutral-600 max-w-4xl">
-                  Join India&apos;s fastest-growing B2B pharma marketplace designed specifically
-                  for licensed distributors, manufacturers, and wholesalers.
+                  Join India&apos;s fastest-growing B2B pharma marketplace
+                  designed specifically for licensed distributors,
+                  manufacturers, and wholesalers.
                 </p>
               </div>
-              
+
               {/* CTA Buttons */}
               <div className="mt-4 lg:mt-0 lg:ml-8 flex flex-col gap-3 sm:flex-row w-full sm:w-auto lg:w-auto">
                 {/* Register/Sign Up Button*/}
@@ -181,13 +209,17 @@ const SellerJourney = () => {
                   className="bg-primary-50 rounded-2xl p-6 border border-primary-100 hover:border-primary-300 transition-all duration-300 group hover:-translate-y-1"
                 >
                   <div className="w-14 h-14 rounded-xl bg-primary-100 flex items-center justify-center mb-6 group-hover:bg-primary-200 transition-colors">
-                    <div className="text-primary-600">
-                      {benefit.icon}
-                    </div>
+                    <div className="text-primary-600">{benefit.icon}</div>
                   </div>
-                  <h3 className="text-xl font-bold text-neutral-900 mb-3">{benefit.title}</h3>
-                  <p className="text-neutral-600 mb-4 text-sm">{benefit.description}</p>
-                  <div className="text-primary-700 font-bold">{benefit.metric}</div>
+                  <h3 className="text-xl font-bold text-neutral-900 mb-3">
+                    {benefit.title}
+                  </h3>
+                  <p className="text-neutral-600 mb-4 text-sm">
+                    {benefit.description}
+                  </p>
+                  <div className="text-primary-700 font-bold">
+                    {benefit.metric}
+                  </div>
                 </div>
               ))}
             </div>
@@ -197,7 +229,9 @@ const SellerJourney = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 {growthStats.map((stat, index) => (
                   <div key={index} className="text-center">
-                    <div className="text-3xl md:text-4xl font-bold mb-2">{stat.value}</div>
+                    <div className="text-3xl md:text-4xl font-bold mb-2">
+                      {stat.value}
+                    </div>
                     <div className="text-primary-200">{stat.label}</div>
                   </div>
                 ))}
@@ -214,7 +248,8 @@ const SellerJourney = () => {
                 Start Selling in 5 Simple Steps
               </h2>
               <p className="text-xl text-neutral-600 max-w-3xl mx-auto">
-                From registration to revenue - our streamlined process gets your pharma business online quickly and securely.
+                From registration to revenue - our streamlined process gets your
+                pharma business online quickly and securely.
               </p>
             </div>
 
@@ -235,9 +270,15 @@ const SellerJourney = () => {
                     </div>
 
                     <div className="bg-white rounded-xl p-5 border border-neutral-200 hover:border-primary-300 transition-colors">
-                      <h3 className="text-lg font-bold text-neutral-900 mb-2">{step.title}</h3>
-                      <p className="text-sm text-neutral-600 mb-3">{step.description}</p>
-                      <div className="text-primary-700 font-medium text-sm">{step.time}</div>
+                      <h3 className="text-lg font-bold text-neutral-900 mb-2">
+                        {step.title}
+                      </h3>
+                      <p className="text-sm text-neutral-600 mb-3">
+                        {step.description}
+                      </p>
+                      <div className="text-primary-700 font-medium text-sm">
+                        {step.time}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -251,9 +292,10 @@ const SellerJourney = () => {
                   Ready to List Your Products?
                 </h3>
                 <p className="text-xl text-neutral-600 mb-8 max-w-2xl mx-auto">
-                  Start your product onboarding process and get your medicines listed on India&apos;s largest pharma marketplace.
+                  Start your product onboarding process and get your medicines
+                  listed on India&apos;s largest pharma marketplace.
                 </p>
-                
+
                 <button
                   onClick={() => setShowProductOnboarding(true)}
                   className="group relative px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 mx-auto"
@@ -266,7 +308,8 @@ const SellerJourney = () => {
                 </button>
 
                 <p className="text-neutral-500 mt-4">
-                  Already registered? Access your seller dashboard to manage products and orders.
+                  Already registered? Access your seller dashboard to manage
+                  products and orders.
                 </p>
               </div>
             </div>
@@ -274,24 +317,10 @@ const SellerJourney = () => {
         </section>
       </div>
     </>
-  )
-}
+  );
+};
 
 export default SellerJourney;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // original code withoiut declaration modal
 // 'use client'
@@ -421,7 +450,7 @@ export default SellerJourney;
 //                 for licensed distributors, manufacturers, and wholesalers.
 //               </p>
 //             </div>
-            
+
 //             {/* CTA Buttons - Right side - Horizontal layout */}
 //             <div className="mt-4 lg:mt-0 lg:ml-8 flex flex-row gap-3 w-full lg:w-auto">
 //               {/* Register/Sign Up Button */}
@@ -432,10 +461,10 @@ export default SellerJourney;
 //                 <span className="flex items-center justify-center">
 //                   <FaUserPlus className="mr-2" />
 //                   Register / Sign Up
-//                   <svg 
-//                     className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" 
-//                     fill="none" 
-//                     stroke="currentColor" 
+//                   <svg
+//                     className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform"
+//                     fill="none"
+//                     stroke="currentColor"
 //                     viewBox="0 0 24 24"
 //                   >
 //                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -452,10 +481,10 @@ export default SellerJourney;
 //                 <span className="flex items-center justify-center">
 //                   <FaSignInAlt className="mr-2" />
 //                   Seller Login
-//                   <svg 
-//                     className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" 
-//                     fill="none" 
-//                     stroke="currentColor" 
+//                   <svg
+//                     className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform"
+//                     fill="none"
+//                     stroke="currentColor"
 //                     viewBox="0 0 24 24"
 //                   >
 //                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -545,7 +574,7 @@ export default SellerJourney;
 //               <p className="text-xl text-neutral-600 mb-8 max-w-2xl mx-auto">
 //                 Start your product onboarding process and get your medicines listed on India&apos;s largest pharma marketplace.
 //               </p>
-              
+
 //               <button
 //                 onClick={() => setShowProductOnboarding(true)}
 //                 className="group relative px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 mx-auto"
@@ -569,5 +598,3 @@ export default SellerJourney;
 // }
 
 // export default SellerJourney;
-
-
