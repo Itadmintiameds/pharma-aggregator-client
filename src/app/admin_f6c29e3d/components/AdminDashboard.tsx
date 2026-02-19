@@ -15,6 +15,13 @@ const API_URL   = "https://api-test-aggreator.tiameds.ai/api/v1/temp-sellers";
 const API_KEY   = "YOUR_API_KEY";
 const PAGE_SIZE = 10;
 
+// DELETE API endpoints
+const DELETE_API: Record<RequestType, (id: number) => string> = {
+  seller: (id) => `https://api-test-aggreator.tiameds.ai/api/v1/temp-sellers/both/${id}`,
+  buyer:  (id) => `https://api-test-aggreator.tiameds.ai/api/v1/temp-buyers/${id}`,   // 🔧 update when ready
+  lab:    (id) => `https://api-test-aggreator.tiameds.ai/api/v1/temp-labs/${id}`,     // 🔧 update when ready
+};
+
 const STATUS_MAP: Record<string, string> = {
   APPROVED: "Closed", CLOSED: "Closed",
   IN_PROGRESS: "In Progress", INPROGRESS: "In Progress",
@@ -82,6 +89,66 @@ const getPageNumbers = (current: number, total: number): (number | "...")[] => {
   }, []);
 };
 
+// ─── Delete Confirmation Modal ─────────────────────────────────
+type DeleteModalProps = {
+  item: Request | null;
+  tabLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isDeleting: boolean;
+};
+
+const DeleteModal = ({ item, tabLabel, onConfirm, onCancel, isDeleting }: DeleteModalProps) => {
+  if (!item) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={!isDeleting ? onCancel : undefined} />
+      {/* Modal */}
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in">
+        {/* Icon */}
+        <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-4">
+          <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </div>
+        <h2 className="text-lg font-bold text-gray-900 text-center mb-1">Delete {tabLabel} Request</h2>
+        <p className="text-sm text-gray-500 text-center mb-1">
+          Are you sure you want to delete
+        </p>
+        <p className="text-sm font-semibold text-[#4B0082] text-center mb-4">
+          {item.requestId} — {item.name}?
+        </p>
+        <p className="text-xs text-red-500 text-center mb-6">This action cannot be undone.</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {isDeleting ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Deleting…
+              </>
+            ) : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Sub-components ───────────────────────────────────────────
 const SortIcon = ({ field, sortField, sortOrder }: { field: SortField; sortField: SortField; sortOrder: SortOrder }) => {
   if (sortField !== field)
@@ -93,7 +160,7 @@ const TableSkeleton = () => (
   <>
     {Array.from({ length: 5 }, (_, i) => (
       <tr key={i} className="border-b border-gray-100">
-        {Array.from({ length: 6 }, (_, j) => (
+        {Array.from({ length: 7 }, (_, j) => (
           <td key={j} className="px-6 py-4">
             <div className="h-4 bg-gray-200 rounded animate-pulse" style={{ width: `${50 + j * 10}%` }} />
           </td>
@@ -121,7 +188,24 @@ export default function AdminDashboard() {
   const [sellerError,    setSellerError]    = useState<string | null>(null);
   const [fetchTick,      setFetchTick]      = useState(0);
 
-  // Re-fetch on window focus (after navigating back)
+  // Demo data with local state so deletes are reflected immediately
+  const [buyers, setBuyers] = useState<Request[]>(DEMO_BUYERS);
+  const [labs,   setLabs]   = useState<Request[]>(DEMO_LABS);
+
+  // Delete modal state
+  const [deleteTarget,  setDeleteTarget]  = useState<Request | null>(null);
+  const [isDeleting,    setIsDeleting]    = useState(false);
+  const [deleteError,   setDeleteError]   = useState<string | null>(null);
+
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  // Re-fetch on window focus
   useEffect(() => {
     const onFocus = () => setFetchTick(t => t + 1);
     window.addEventListener("focus", onFocus);
@@ -154,7 +238,6 @@ export default function AdminDashboard() {
     return () => { cancelled = true; };
   }, [activeTab, fetchTick]);
 
-  // Reset page on any filter/sort/tab change
   useEffect(() => { setCurrentPage(1); }, [activeTab, searchTerm, statusFilter, sortField, sortOrder]);
 
   const handleSort = (field: SortField) => {
@@ -162,8 +245,40 @@ export default function AdminDashboard() {
     setSortOrder(o => field === sortField ? (o === "asc" ? "desc" : "asc") : "asc");
   };
 
+  // ─── Delete handler ────────────────────────────────────────
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const url = DELETE_API[activeTab](deleteTarget.id);
+      const res = await fetch(url, {
+        method: "DELETE",
+        headers: { "X-API-Key": API_KEY },
+      });
+
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+
+      // Remove from local state
+      if (activeTab === "seller") setSellers(prev => prev.filter(r => r.id !== deleteTarget.id));
+      if (activeTab === "buyer")  setBuyers(prev  => prev.filter(r => r.id !== deleteTarget.id));
+      if (activeTab === "lab")    setLabs(prev    => prev.filter(r => r.id !== deleteTarget.id));
+
+      setDeleteTarget(null);
+      showToast(`${deleteTarget.requestId} deleted successfully.`, "success");
+    } catch (err: any) {
+      setDeleteError(err.message ?? "Delete failed");
+      showToast(`Failed to delete: ${err.message ?? "unknown error"}`, "error");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const activeTabLabel = activeTab === "seller" ? "Seller" : activeTab === "buyer" ? "Buyer" : "Lab";
+
   const filtered = useMemo(() => {
-    const base = activeTab === "seller" ? sellers : activeTab === "buyer" ? DEMO_BUYERS : DEMO_LABS;
+    const base = activeTab === "seller" ? sellers : activeTab === "buyer" ? buyers : labs;
     const term  = searchTerm.toLowerCase();
     return base
       .filter(r =>
@@ -175,7 +290,7 @@ export default function AdminDashboard() {
         const bv = sortField === "date" ? new Date(b.date).getTime() : b[sortField];
         return av < bv ? (sortOrder === "asc" ? -1 : 1) : av > bv ? (sortOrder === "asc" ? 1 : -1) : 0;
       });
-  }, [activeTab, sellers, searchTerm, statusFilter, sortField, sortOrder]);
+  }, [activeTab, sellers, buyers, labs, searchTerm, statusFilter, sortField, sortOrder]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage   = Math.min(currentPage, totalPages);
@@ -186,6 +301,28 @@ export default function AdminDashboard() {
   return (
     <>
       <Header admin onLogout={() => router.push("/admin_f6c29e3d/login")} />
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium transition-all
+          ${toast.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+          {toast.type === "success"
+            ? <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            : <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          }
+          {toast.message}
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      <DeleteModal
+        item={deleteTarget}
+        tabLabel={activeTabLabel}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => { setDeleteTarget(null); setDeleteError(null); }}
+        isDeleting={isDeleting}
+      />
+
       <main className="pt-10 bg-[#F7F2FB] min-h-screen px-5 pb-10">
         <div className="max-w-7xl mx-auto">
           <div className="bg-white rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] overflow-hidden">
@@ -271,6 +408,8 @@ export default function AdminDashboard() {
                               </div>
                             </th>
                           ))}
+                          {/* Actions column header */}
+                          <th className="px-6 py-4 text-left font-semibold text-gray-500 whitespace-nowrap">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-50">
@@ -278,7 +417,7 @@ export default function AdminDashboard() {
                           paginated.map((item, idx) => {
                             const { badge, dot } = STATUS_STYLES[item.status] ?? DEFAULT_STYLE;
                             return (
-                              <tr key={item.id} className="hover:bg-[#faf7ff] transition-colors">
+                              <tr key={item.id} className="hover:bg-[#faf7ff] transition-colors group">
                                 <td className="px-6 py-4 text-gray-400 font-medium">{(safePage - 1) * PAGE_SIZE + idx + 1}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <span onClick={() => router.push(`/admin_f6c29e3d/requests/${item.requestId}?sellerId=${item.id}`)}
@@ -298,12 +437,29 @@ export default function AdminDashboard() {
                                     {item.status}
                                   </span>
                                 </td>
+                                {/* Delete button */}
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <button
+                                    onClick={() => setDeleteTarget(item)}
+                                    title="Delete request"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+                                      text-red-500 border border-red-200 bg-red-50
+                                      hover:bg-red-600 hover:text-white hover:border-red-600
+                                      transition-all duration-150 group/del"
+                                  >
+                                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Delete
+                                  </button>
+                                </td>
                               </tr>
                             );
                           })
                         ) : (
                           <tr>
-                            <td colSpan={6} className="px-6 py-16 text-center">
+                            <td colSpan={7} className="px-6 py-16 text-center">
                               <div className="flex flex-col items-center gap-2 text-gray-400">
                                 <svg className="w-10 h-10 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 <p className="text-sm font-medium">
