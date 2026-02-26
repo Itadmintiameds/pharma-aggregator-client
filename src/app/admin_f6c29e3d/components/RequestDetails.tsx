@@ -49,22 +49,7 @@ interface SellerDetail {
   documents: Doc[];
 }
 
-// ─── Dummy data ───────────────────────────────────────────────
-const DUMMY: SellerDetail = {
-  tempSellerId: 0, tempSellerRequestId: "REQ-DEMO", sellerName: "Demo Pharma Pvt. Ltd.",
-  email: "demo@pharmademo.com", emailVerified: true, phone: "+91 98765 43210", phoneVerified: true,
-  website: "www.pharmademo.com", gstNumber: "27AABCU9603R1ZX", gstFileUrl: "", gstVerified: false,
-  status: "open", termsAccepted: true,
-  companyType: { companyTypeName: "Private Limited" }, sellerType: { sellerTypeName: "Buyer / Lab" },
-  productTypes: [{ productTypeId: 1, productTypeName: "Drugs" }],
-  address: { buildingNo: "42", street: "MG Road", city: "Pune", landmark: "Near City Mall", pinCode: "411001",
-    state: { stateName: "Maharashtra" }, district: { districtName: "Pune" }, taluka: { talukaName: "Haveli" } },
-  coordinator: { name: "Rahul Sharma", designation: "Manager", email: "rahul@pharmademo.com", emailVerified: true, mobile: "+91 91234 56789", phoneVerified: true },
-  bankDetails: { bankName: "State Bank of India", branch: "MG Road Branch", ifscCode: "SBIN0001234", accountNumber: "00112233445566", accountHolderName: "Demo Pharma Pvt. Ltd.", bankDocumentFileUrl: "" },
-  documents: [{ DocumentsId: 1, documentNumber: "DL-MH-2024-001", documentFileUrl: "", documentVerified: false,
-    licenseIssueDate: "2024-01-15", licenseExpiryDate: "2026-01-14", licenseIssuingAuthority: "FDA Maharashtra",
-    licenseStatus: "Active", productTypes: { productTypeName: "Drugs" } }],
-};
+
 
 // ─── Helpers ──────────────────────────────────────────────────
 const normalizeStatus = (raw: string) => STATUS_MAP[raw?.toUpperCase()] ?? raw;
@@ -265,14 +250,14 @@ export default function RequestDetails({ requestId }: { requestId: string }) {
   };
 
   useEffect(() => {
-    if (!sellerId) { loadDetail(DUMMY, null); setLoading(false); return; }
+    if (!sellerId) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
 
     fetch(`${BASE_URL}/temp-sellers/${sellerId}`, { headers: { "X-API-Key": API_KEY } })
       .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
       .then(json => { if (!cancelled) loadDetail((json.data ?? json) as SellerDetail, decisionFromStatus((json.data ?? json).status ?? "")); })
-      .catch(() => { if (!cancelled) loadDetail(DUMMY, null); })
+      .catch(() => { if (!cancelled) showToast("Failed to load seller details. Please try again.", "error"); })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
@@ -293,9 +278,19 @@ export default function RequestDetails({ requestId }: { requestId: string }) {
     return s.verified ? { status: "Complete", error: false } : { status: "Rejected", error: true };
   }, [activeStates, isLocked]);
 
-  const canAccept = useMemo(() =>
-    Object.keys(activeStates).length > 0 && Object.values(activeStates).every(v => v.verified === true),
+  const allViewed = useMemo(() =>
+    Object.keys(activeStates).length > 0 && Object.values(activeStates).every(v => v.viewed === true),
     [activeStates]
+  );
+
+  const canAccept = useMemo(() =>
+    allViewed && Object.keys(activeStates).length > 0 && Object.values(activeStates).every(v => v.verified === true),
+    [activeStates, allViewed]
+  );
+
+  const hasAnyRejected = useMemo(() =>
+    allViewed && Object.values(activeStates).some(v => v.verified === false),
+    [activeStates, allViewed]
   );
 
   // ── Handlers ──────────────────────────────────────────────
@@ -315,7 +310,9 @@ export default function RequestDetails({ requestId }: { requestId: string }) {
 
   const handleAction = async (action: "Accept" | "Reject" | "Correction") => {
     if (!adminComment.trim()) { setShowCommentError(true); return; }
-    if (action === "Accept" && !canAccept) { showToast("Verify all documents before accepting.", "error"); return; }
+    if (action === "Accept" && !canAccept)     { showToast("Verify all documents before accepting.", "error"); return; }
+    if (action === "Reject" && !hasAnyRejected){ showToast("Reject at least one document before rejecting the request.", "error"); return; }
+    if (!allViewed)                            { showToast("View all documents before taking action.", "error"); return; }
     setShowCommentError(false);
     setSubmittingAction(action);
     try {
@@ -520,12 +517,28 @@ export default function RequestDetails({ requestId }: { requestId: string }) {
                     </div>
                   )}
 
-                  {!canAccept && !isLocked && (
+                  {/* Warning: not all files viewed yet */}
+                  {!allViewed && !isLocked && (
                     <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-                      <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <p className="font-semibold text-amber-800 text-sm">View All Documents First</p>
+                        <p className="text-amber-700 text-sm mt-0.5">You must view and verify all documents before any action can be taken.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Warning: all viewed but verification still pending */}
+                  {allViewed && !canAccept && !hasAnyRejected && !isLocked && (
+                    <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                      <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
                       <div>
                         <p className="font-semibold text-amber-800 text-sm">Verification Incomplete</p>
-                        <p className="text-amber-700 text-sm mt-0.5">View and verify all documents before accepting.</p>
+                        <p className="text-amber-700 text-sm mt-0.5">Verify or reject each document to enable actions. Only Request Correction is available until verification is complete.</p>
                       </div>
                     </div>
                   )}
@@ -553,24 +566,41 @@ export default function RequestDetails({ requestId }: { requestId: string }) {
                     <div>
                       <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Select Action</p>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                        {/* Accept — enabled only when ALL files viewed + ALL verified */}
                         <ActionButton action="Accept" label="Accept Request" submittingAction={submittingAction}
                           disabled={!canAccept || submittingAction !== null || isLocked}
                           onClick={() => handleAction("Accept")}
                           icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>} />
+
+                        {/* Reject — enabled only when ALL files viewed + at least one rejected */}
                         <ActionButton action="Reject" label="Reject Request" submittingAction={submittingAction}
-                          disabled={submittingAction !== null || isLocked}
+                          disabled={!hasAnyRejected || submittingAction !== null || isLocked}
                           onClick={() => handleAction("Reject")}
                           icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>} />
+
+                        {/* Request Correction — enabled only when ALL files viewed */}
                         <ActionButton action="Correction" label="Request Correction" submittingAction={submittingAction}
-                          disabled={submittingAction !== null || isLocked}
+                          disabled={!allViewed || submittingAction !== null || isLocked}
                           onClick={() => handleAction("Correction")}
                           icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>} />
+
                       </div>
                     </div>
                   </div>
                 </div>
               </>
-            ) : null}
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <svg className="w-14 h-14 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-gray-500 font-medium text-sm">
+                  {!sellerId ? "No seller ID provided." : "Could not load seller details."}
+                </p>
+                <p className="text-gray-400 text-xs mt-1">Please go back and try again.</p>
+              </div>
+            )}
           </div>
         </div>
       </main>
