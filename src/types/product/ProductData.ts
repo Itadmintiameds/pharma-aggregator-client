@@ -22,6 +22,7 @@ export interface PackagingData {
 
 
 export interface PricingData {
+  pricingId?: string; 
   batchLotNumber: string;
   manufacturerName: string;
    manufacturingDate: string | null; 

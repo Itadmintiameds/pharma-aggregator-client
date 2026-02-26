@@ -18,7 +18,8 @@ import {
 import SellerRegister from "./SellerRegister";
 import ProductOnboarding from "./ProductOnboarding";
 import SellerDeclaration from "./SellerDeclaration";
-import ProductList from "./ProductList";
+import ProductList from "./DrugProductList";
+import DrugProductList from "./DrugProductList";
 
 const SellerJourney = () => {
   const [showRegister, setShowRegister] = useState(false);
@@ -141,7 +142,11 @@ const SellerJourney = () => {
   if (showProductList) {
   return (
     <div className="min-h-screen bg-primary-50 pt-4">
-      <ProductList />
+      <DrugProductList onDelete={function (productId: string): void {
+        throw new Error("Function not implemented.");
+      } } onEdit={function (productId: string): void {
+        throw new Error("Function not implemented.");
+      } } />
     </div>
   );
 }
