@@ -9,17 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
-<<<<<<< HEAD
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@mui/material": "^7.3.8",
-    "@mui/system": "^7.3.8",
-    "@mui/x-date-pickers": "^8.27.0",
-    "axios": "^1.13.5",
-=======
     "@hookform/resolvers": "^5.2.2",
     "axios": "^1.13.2",
->>>>>>> feature/product
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "framer-motion": "^12.31.0",
@@ -28,16 +19,10 @@
     "react": "19.2.3",
     "react-datepicker": "^9.1.0",
     "react-dom": "19.2.3",
-<<<<<<< HEAD
-    "react-hot-toast": "^2.6.0",
-    "react-icons": "^5.5.0",
-    "react-toastify": "^11.0.5"
-=======
     "react-hook-form": "^7.71.2",
     "react-icons": "^5.5.0",
     "react-select": "^5.10.2",
     "zod": "^4.3.6"
->>>>>>> feature/product
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
