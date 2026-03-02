@@ -1,4 +1,5 @@
-"use client"
+"use client";
+
 import React from 'react';
 import Header from "@/src/app/components/Header";
 import SellerJourney from './SellerJourney';

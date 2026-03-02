@@ -1,468 +1,670 @@
 "use client";
 
 import Header from "@/src/app/components/Header";
-import { useRouter } from "next/navigation";
-import { useState, useMemo } from "react";
-import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useMemo } from "react";
 
+// ─── Constants ────────────────────────────────────────────────
+const BASE_URL        = "https://api-test-aggreator.tiameds.ai/api/v1";
+const API_KEY         = "YOUR_API_KEY";
+const LOCAL_GST_DOC   = "/assets/docs/gst-certificate.png";
+const LOCAL_CHEQUE    = "/assets/docs/cheque.jpg";
+const LOCAL_LICENSE   = "/assets/docs/license-file.png";
+
+const STATUS_MAP: Record<string, string> = {
+  APPROVED: "Closed", CLOSED: "Closed", REJECTED: "Rejected",
+  IN_PROGRESS: "In Progress", INPROGRESS: "In Progress",
+  PENDING: "Open", OPEN: "Open",
+  CORRECTION: "Corrections Needed", CORRECTION_REQUIRED: "Corrections Needed",
+  CORRECTIONS_NEEDED: "Corrections Needed", CORRECTIONREQUIRED: "Corrections Needed",
+};
+
+const DECISION_CONFIG = {
+  Accept:     { label: "Closed",             badgeClass: "bg-green-50 text-green-700 ring-green-200", dotClass: "bg-green-500" },
+  Reject:     { label: "Rejected",           badgeClass: "bg-red-50 text-red-700 ring-red-200",       dotClass: "bg-red-500"   },
+  Correction: { label: "Corrections Needed", badgeClass: "bg-amber-50 text-amber-700 ring-amber-200", dotClass: "bg-amber-500" },
+} as const;
+
+// ─── Types ────────────────────────────────────────────────────
+type Decision = "Accept" | "Reject" | "Correction" | null;
+type FileStateMap = Record<string, { viewed: boolean; verified: boolean | null }>;
+
+interface Doc {
+  DocumentsId: number; documentNumber: string; documentFileUrl: string;
+  documentVerified: boolean; licenseIssueDate: string; licenseExpiryDate: string;
+  licenseIssuingAuthority: string; licenseStatus: string;
+  productTypes: { productTypeName: string };
+}
+interface SellerDetail {
+  tempSellerId: number; tempSellerRequestId: string; sellerName: string;
+  email: string; emailVerified: boolean; phone: string; phoneVerified: boolean;
+  website: string; gstNumber: string; gstFileUrl: string; gstVerified: boolean;
+  status: string; termsAccepted: boolean;
+  companyType: { companyTypeName: string }; sellerType: { sellerTypeName: string };
+  productTypes: { productTypeId: number; productTypeName: string }[];
+  address: { buildingNo: string; street: string; city: string; landmark: string; pinCode: string;
+    state: { stateName: string }; district: { districtName: string }; taluka: { talukaName: string } };
+  coordinator: { name: string; designation: string; email: string; emailVerified: boolean; mobile: string; phoneVerified: boolean };
+  bankDetails: { bankName: string; branch: string; ifscCode: string; accountNumber: string; accountHolderName: string; bankDocumentFileUrl: string };
+  documents: Doc[];
+}
+
+
+
+// ─── Helpers ──────────────────────────────────────────────────
+const normalizeStatus = (raw: string) => STATUS_MAP[raw?.toUpperCase()] ?? raw;
+
+const formatDate = (s: string): string => {
+  if (!s || s === "—") return "—";
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getFullYear()).slice(-2)}`;
+};
+
+const decisionFromStatus = (status: string): Decision => {
+  const n = normalizeStatus(status);
+  if (n === "Closed")             return "Accept";
+  if (n === "Rejected")           return "Reject";
+  if (n === "Corrections Needed") return "Correction";
+  return null;
+};
+
+const buildFileStates = (detail: SellerDetail, decision: Decision): FileStateMap => {
+  const accepted = decision === "Accept";
+  const locked   = accepted || decision === "Reject";
+  const init: FileStateMap = {
+    gstFile:    { viewed: locked, verified: accepted ? true : (detail.gstVerified === true ? true : null) },
+    chequeFile: { viewed: locked, verified: accepted ? true : null },
+  };
+  detail.documents?.forEach(doc => {
+    init[`doc_${doc.DocumentsId}`] = {
+      viewed: locked,
+      verified: accepted ? true : (doc.documentVerified === true ? true : null),
+    };
+  });
+  return init;
+};
+
+// ─── Sub-components ───────────────────────────────────────────
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border border-purple-300 rounded-xl p-4">
-      <h2 className="text-2xl font-bold text-[#2D0066] mb-3">{title}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
-        {children}
-      </div>
+    <div className="border border-purple-200 rounded-xl p-5">
+      <h2 className="text-lg font-bold text-[#2D0066] mb-4 pb-2 border-b border-purple-100">{title}</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">{children}</div>
     </div>
   );
 }
 
-interface ItemProps {
-  label: string;
-  value: string;
-  verified?: boolean;
-}
-
-function Item({ label, value, verified = false }: ItemProps) {
+function Item({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <p className="text-base text-gray-500 mb-1">{label}</p>
-      <p className="font-medium text-base">
-        {value}
-        {verified && (
-          <span className="ml-2 text-green-600 text-base font-semibold">✔ Verified</span>
-        )}
-      </p>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+      <p className="font-medium text-sm text-gray-800">{value || "—"}</p>
     </div>
   );
 }
 
-function FileItem({ 
-  label, 
-  fileUrl, 
-  onView,
-  isViewed,
-  isVerified 
-}: { 
-  label: string; 
-  fileUrl?: string;
-  onView: () => void;
-  isViewed: boolean;
-  isVerified: boolean | null;
+function FileItem({ label, fileUrl, onView, isViewed, isVerified, isLocked }: {
+  label: string; fileUrl?: string; onView: () => void;
+  isViewed: boolean; isVerified: boolean | null; isLocked: boolean;
 }) {
-  if (!fileUrl) {
-    return (
-      <div>
-        <p className="text-base text-gray-500 mb-1">{label}</p>
-        <p className="text-gray-400 italic text-base">Not uploaded</p>
-      </div>
-    );
-  }
-  
+  if (!fileUrl) return (
+    <div>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+      <p className="text-gray-400 italic text-sm">Not uploaded</p>
+    </div>
+  );
   return (
     <div>
-      <p className="text-base text-gray-500 mb-1">{label}</p>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onView}
-          className="text-[#4B0082] font-medium hover:underline text-base"
-        >
-          {isViewed ? "Viewed" : "View file"}
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+      <div className="flex items-center gap-3 flex-wrap">
+        <button onClick={onView} className="inline-flex items-center gap-1.5 text-[#4B0082] font-semibold hover:underline text-sm">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          {isViewed ? "Re-view" : "View file"}
         </button>
-        {isViewed && (
-          <>
-            {isVerified === true && (
-              <span className="text-green-600 text-base font-semibold flex items-center gap-1">
-                ✔ Verified
-              </span>
-            )}
-            {isVerified === false && (
-              <span className="text-red-600 text-base font-semibold flex items-center gap-1">
-                ✗ Not Verified
-              </span>
-            )}
-          </>
+        {isVerified === true  && <span className="text-green-600 text-xs font-semibold">✔ Verified</span>}
+        {isVerified === false && <span className="text-red-500 text-xs font-semibold">✗ Rejected</span>}
+        {isLocked && (
+          <span className="inline-flex items-center gap-1 text-gray-400 text-xs italic">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+            </svg>
+            Locked
+          </span>
         )}
       </div>
     </div>
   );
 }
 
-interface StatusItemProps {
-  label: string;
-  status: string;
-  highlight?: boolean;
-  error?: boolean;
-}
-
-function StatusItem({ label, status, highlight = false, error = false }: StatusItemProps) {
+function StatusItem({ label, status, highlight = false, error = false }: { label: string; status: string; highlight?: boolean; error?: boolean }) {
   return (
     <div>
-      <p className="text-base text-gray-500 mb-1">{label}</p>
-      <p className={`font-semibold text-base ${
-        error ? "text-red-600" : highlight ? "text-green-700" : "text-gray-700"
-      }`}>
-        {status}
-      </p>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+      <p className={`font-semibold text-sm ${error ? "text-red-600" : highlight ? "text-green-700" : "text-gray-700"}`}>{status}</p>
     </div>
   );
 }
 
-interface RequestDetailsProps {
-  requestId: string;
+function PageSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={i} className="border border-purple-100 rounded-xl p-5">
+          <div className="h-5 w-40 bg-gray-200 rounded mb-4" />
+          <div className="grid grid-cols-2 gap-x-10 gap-y-4">
+            {Array.from({ length: 6 }, (_, j) => (
+              <div key={j}>
+                <div className="h-3 w-24 bg-gray-200 rounded mb-2" />
+                <div className="h-4 w-44 bg-gray-200 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-export default function RequestDetails({ requestId }: RequestDetailsProps) {
-  const router = useRouter();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentFile, setCurrentFile] = useState<{ url: string; label: string } | null>(null);
-  const [adminComment, setAdminComment] = useState("");
-  const [showCommentError, setShowCommentError] = useState(false);
-  
-  // Track verification status for each file
-  const [fileStates, setFileStates] = useState<{
-    [key: string]: { viewed: boolean; verified: boolean | null };
-  }>({
-    gstCertificate: { viewed: false, verified: null },
-    licenseFile: { viewed: false, verified: null },
-    chequeFile: { viewed: false, verified: null },
-  });
+function Toast({ message, type }: { message: string; type: "success" | "error" }) {
+  return (
+    <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-xl text-white text-sm font-medium ${type === "success" ? "bg-green-600" : "bg-red-600"}`}>
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={type === "success" ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+      </svg>
+      {message}
+    </div>
+  );
+}
 
-  // Calculate verification status for compliance documents (GST + License)
+function ActionButton({ action, label, icon, submittingAction, disabled, onClick }: {
+  action: string; label: string; icon: React.ReactNode; submittingAction: Decision;
+  disabled: boolean; onClick: () => void;
+}) {
+  const isSubmitting = submittingAction === action;
+  const colorClass =
+    action === "Accept"     ? "from-green-600 to-green-700 hover:from-green-700 hover:to-green-800" :
+    action === "Reject"     ? "from-red-600 to-red-700 hover:from-red-700 hover:to-red-800" :
+                              "from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700";
+  return (
+    <button onClick={onClick} disabled={disabled || isSubmitting}
+      className={`px-6 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200
+        ${disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : `bg-gradient-to-r ${colorClass} text-white shadow-md hover:shadow-lg hover:-translate-y-0.5`}`}>
+      {isSubmitting
+        ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
+        : icon}
+      {isSubmitting ? "Submitting…" : label}
+    </button>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────
+export default function RequestDetails({ requestId }: { requestId: string }) {
+  const router      = useRouter();
+  const sellerId    = Number(useSearchParams().get("sellerId") ?? 0);
+
+  const [data,              setData]              = useState<SellerDetail | null>(null);
+  const [loading,           setLoading]           = useState(true);
+  const [fileStates,        setFileStates]        = useState<FileStateMap>({});
+  const [lockedFileStates,  setLockedFileStates]  = useState<FileStateMap | null>(null);
+  const [submittedDecision, setSubmittedDecision] = useState<Decision>(null);
+  const [modalOpen,         setModalOpen]         = useState(false);
+  const [currentFile,       setCurrentFile]       = useState<{ url: string; label: string; fileKey: string } | null>(null);
+  const [adminComment,      setAdminComment]      = useState("");
+  const [showCommentError,  setShowCommentError]  = useState(false);
+  const [submittingAction,  setSubmittingAction]  = useState<Decision>(null);
+  const [toast,             setToast]             = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const isLocked        = submittedDecision === "Accept" || submittedDecision === "Reject";
+  const isCorrectionMode = submittedDecision === "Correction";
+  const activeStates     = isLocked && lockedFileStates ? lockedFileStates : fileStates;
+  const displayedStates  = activeStates;
+
+  const showToast = (message: string, type: "success" | "error") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const loadDetail = (detail: SellerDetail, decision: Decision) => {
+    const sessionKey = `fileStates_${detail.tempSellerId}`;
+    const locked = decision === "Accept" || decision === "Reject";
+    let states = buildFileStates(detail, decision);
+
+    if (locked) {
+      try {
+        const persisted = sessionStorage.getItem(sessionKey);
+        if (persisted) {
+          const restored: FileStateMap = JSON.parse(persisted);
+          states = Object.fromEntries(Object.entries(restored).map(([k, v]) => [k, { ...v, viewed: true }]));
+        }
+      } catch {}
+    }
+
+    setData(detail);
+    setFileStates(states);
+    if (locked) setLockedFileStates(states);
+    setSubmittedDecision(decision);
+  };
+
+  useEffect(() => {
+    if (!sellerId) { setLoading(false); return; }
+    let cancelled = false;
+    setLoading(true);
+
+    fetch(`${BASE_URL}/temp-sellers/${sellerId}`, { headers: { "X-API-Key": API_KEY } })
+      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
+      .then(json => { if (!cancelled) loadDetail((json.data ?? json) as SellerDetail, decisionFromStatus((json.data ?? json).status ?? "")); })
+      .catch(() => { if (!cancelled) showToast("Failed to load seller details. Please try again.", "error"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [sellerId]);
+
+  // ── Memos ─────────────────────────────────────────────────
   const documentsVerified = useMemo(() => {
-    const complianceDocs = [fileStates.gstCertificate, fileStates.licenseFile];
-    const allVerified = complianceDocs.every((state) => state.verified === true);
-    const anyRejected = complianceDocs.some((state) => state.verified === false);
-    const anyPending = complianceDocs.some((state) => state.verified === null);
+    const keys = Object.keys(activeStates).filter(k => k === "gstFile" || k.startsWith("doc_"));
+    if (!keys.length) return { status: "No Documents", error: true };
+    if (keys.every(k => activeStates[k]?.verified === true))  return { status: "Complete", error: false };
+    if (keys.some(k  => activeStates[k]?.verified === false)) return { status: "Rejected",  error: true  };
+    return { status: isLocked ? "Not Verified" : "Pending Verification", error: true };
+  }, [activeStates, isLocked]);
 
-    if (allVerified) return { status: "Complete", error: false };
-    if (anyRejected) return { status: "Rejected", error: true };
-    if (anyPending) return { status: "Pending Verification", error: true };
-    return { status: "Incomplete", error: true };
-  }, [fileStates]);
+  const bankVerified = useMemo(() => {
+    const s = activeStates["chequeFile"];
+    if (!s || s.verified === null) return { status: isLocked ? "Not Verified" : "Pending Verification", error: true };
+    return s.verified ? { status: "Complete", error: false } : { status: "Rejected", error: true };
+  }, [activeStates, isLocked]);
 
-  // Calculate verification status for bank details (Cheque)
-  const bankDetailsVerified = useMemo(() => {
-    const chequeState = fileStates.chequeFile;
-    
-    if (chequeState.verified === true) return { status: "Complete", error: false };
-    if (chequeState.verified === false) return { status: "Rejected", error: true };
-    if (chequeState.verified === null) return { status: "Pending Verification", error: true };
-    return { status: "Incomplete", error: true };
-  }, [fileStates]);
+  const allViewed = useMemo(() =>
+    Object.keys(activeStates).length > 0 && Object.values(activeStates).every(v => v.viewed === true),
+    [activeStates]
+  );
 
-  
-  // Check if accept button should be enabled
-  const canAccept = useMemo(() => {
-    return Object.values(fileStates).every(
-      (state) => state.verified === true
-    );
-  }, [fileStates]);
+  const canAccept = useMemo(() =>
+    allViewed && Object.keys(activeStates).length > 0 && Object.values(activeStates).every(v => v.verified === true),
+    [activeStates, allViewed]
+  );
 
-  const handleViewFile = (fileUrl: string, label: string, fileKey: string) => {
-    setCurrentFile({ url: fileUrl, label });
-    setIsModalOpen(true);
-    // Mark as viewed
-    setFileStates(prev => ({
-      ...prev,
-      [fileKey]: { ...prev[fileKey], viewed: true }
-    }));
+  const hasAnyRejected = useMemo(() =>
+    allViewed && Object.values(activeStates).some(v => v.verified === false),
+    [activeStates, allViewed]
+  );
+
+  // ── Handlers ──────────────────────────────────────────────
+  const handleViewFile = (url: string, label: string, fileKey: string) => {
+    setCurrentFile({ url, label, fileKey });
+    setModalOpen(true);
+    const update = (prev: FileStateMap) => ({ ...prev, [fileKey]: { ...(prev[fileKey] ?? { verified: null }), viewed: true } });
+    setFileStates(update);
+    if (isLocked) setLockedFileStates(prev => prev ? update(prev) : prev);
   };
 
-  const handleVerify = (verified: boolean) => {
-    if (currentFile) {
-      const fileKey = currentFile.label === "GST Certificate" ? "gstCertificate" : currentFile.label === "License File" ? "licenseFile" : currentFile.label === "Cancelled Cheque" ? "chequeFile" : "";
-      setFileStates(prev => ({
-        ...prev,
-        [fileKey]: { ...prev[fileKey], verified }
-      }));
-      setIsModalOpen(false);
-    }
+  const handleVerifyInModal = (verified: boolean) => {
+    if (!currentFile || isLocked) return;
+    setFileStates(prev => ({ ...prev, [currentFile.fileKey]: { ...prev[currentFile.fileKey], verified } }));
+    setModalOpen(false);
   };
 
-  const handleCancel = () => {
-    setIsModalOpen(false);
-  };
-
-  const handleAction = (action: string) => {
-    if (!adminComment.trim()) {
-      setShowCommentError(true);
-      return;
-    }
-
-    if (action === "Accept" && !canAccept) {
-      alert("Cannot accept: All documents must be verified first!");
-      return;
-    }
-
+  const handleAction = async (action: "Accept" | "Reject" | "Correction") => {
+    if (!adminComment.trim()) { setShowCommentError(true); return; }
+    if (action === "Accept" && !canAccept)     { showToast("Verify all documents before accepting.", "error"); return; }
+    if (action === "Reject" && !hasAnyRejected){ showToast("Reject at least one document before rejecting the request.", "error"); return; }
+    if (!allViewed)                            { showToast("View all documents before taking action.", "error"); return; }
     setShowCommentError(false);
-    // Proceed with action
-    console.log(`Action: ${action}, Comment: ${adminComment}`);
-    alert(`Request ${action}ed successfully!`);
+    setSubmittingAction(action);
+    try {
+      const res  = await fetch(`${BASE_URL}/admin/sellers/review`, {
+        method: "POST",
+        headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ id: sellerId, status: action, comments: adminComment }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? `${res.status}`);
+
+      if (action === "Accept" || action === "Reject") {
+        const frozen = Object.fromEntries(Object.entries(fileStates).map(([k, v]) => [k, { verified: v.verified, viewed: true }]));
+        if (sellerId) sessionStorage.setItem(`fileStates_${sellerId}`, JSON.stringify(frozen));
+        setLockedFileStates(frozen);
+        setFileStates(frozen);
+      } else {
+        sessionStorage.removeItem(`fileStates_${sellerId}`);
+        setLockedFileStates(null);
+      }
+      setSubmittedDecision(action);
+      showToast(
+        action === "Accept" ? "Request accepted — status set to Closed!"  :
+        action === "Reject" ? "Request rejected — status set to Rejected!" :
+        "Correction requested — seller notified!", "success"
+      );
+      setTimeout(() => router.back(), 1800);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Action failed.", "error");
+    } finally {
+      setSubmittingAction(null);
+    }
   };
 
-  
+  // ── Status badge ──────────────────────────────────────────
+  const statusBadge = () => {
+    if (submittedDecision && submittedDecision in DECISION_CONFIG) {
+      const cfg = DECISION_CONFIG[submittedDecision as keyof typeof DECISION_CONFIG];
+      return (
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ring-1 ${cfg.badgeClass}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotClass}`} /> {cfg.label}
+        </span>
+      );
+    }
+    if (!data) return null;
+    const s = data.status?.toLowerCase();
+    const badgeClass = s === "open" ? "bg-yellow-50 text-yellow-700 ring-yellow-200" : s?.includes("progress") ? "bg-blue-50 text-blue-700 ring-blue-200" : "bg-green-50 text-green-700 ring-green-200";
+    const dotClass   = s === "open" ? "bg-yellow-500" : s?.includes("progress") ? "bg-blue-500" : "bg-green-500";
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ring-1 ${badgeClass}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
+        {data.status?.charAt(0).toUpperCase() + data.status?.slice(1)}
+      </span>
+    );
+  };
+
+  const LOCK_ICON = <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />;
 
   return (
     <>
       <Header admin onLogout={() => router.push("/admin_f6c29e3d/login")} />
-      <main className="pt-12 bg-[#F7F2FB] min-h-screen px-6 pb-10">
-        <div className="max-w-7xl mx-auto">
-          <button
-            onClick={() => router.back()}
-            className="fixed left-6 top-32 z-10 bg-white hover:bg-gray-50 border border-gray-300 rounded-full p-3 shadow-lg transition-all duration-200"
-            aria-label="Go back"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 text-[#2D0066]"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
+      <main className="pt-12 bg-[#F7F2FB] min-h-screen px-4 sm:px-6 pb-10">
+        <div className="max-w-5xl mx-auto">
+
+          {/* Back — mobile */}
+          <div className="block lg:hidden py-4">
+            <button onClick={() => router.back()} className="inline-flex items-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-full px-4 py-2 shadow text-[#2D0066] font-medium text-sm transition-all">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              Back
+            </button>
+          </div>
+
+          {/* Back — desktop */}
+          <button onClick={() => router.back()} aria-label="Go back"
+            className="hidden lg:flex fixed left-6 top-32 z-10 bg-white hover:bg-gray-50 border border-gray-200 rounded-full p-3 shadow-lg transition-all items-center justify-center">
+            <svg className="h-5 w-5 text-[#2D0066]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </button>
-          <div className="bg-white rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] p-8 space-y-4">
-            <div>
-              <h1 className="text-3xl font-bold text-[#2D0066]">
-                Final Verification Summary
-              </h1>
-              <p className="text-gray-600 mt-1 text-base">
-                Please review all details before final submission
-              </p>
+
+          <div className="bg-white rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] p-5 sm:p-8 space-y-5">
+
+            <div className="flex items-start justify-between flex-wrap gap-3">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-[#2D0066]">Final Verification Summary</h1>
+                <p className="text-gray-500 mt-1 text-sm">Review all details before taking action</p>
+              </div>
+              {statusBadge()}
             </div>
-            <Item label="Request ID" value={requestId} />
-            <Section title="Company Details">
-              <Item label="Company Name" value="test" />
-              <Item label="Company Type" value="White Labelling Company" />
-              <Item label="Address" value="test" />
-              <Item label="Phone" value="1234567890" verified />
-              <Item label="Email" value="test@gmail.com" verified />
-              <Item label="Website" value="N/A" />
-            </Section>
-            <Section title="Coordinator Details">
-              <Item label="Name" value="Test" />
-              <Item label="Designation" value="Test" />
-              <Item label="Email" value="test@gmail.com" verified />
-              <Item label="Mobile" value="1234567890" verified />
-            </Section>
-            <Section title="Compliance Documents">
-              <Item label="GST Number" value="29ABCDE1234F1Z5" />
-              <FileItem 
-                label="GST Certificate" 
-                fileUrl="/assets/docs/gst-certificate.png" 
-                onView={() => handleViewFile("/assets/docs/gst-certificate.png", "GST Certificate", "gstCertificate")}
-                isViewed={fileStates.gstCertificate.viewed}
-                isVerified={fileStates.gstCertificate.verified}
-              />
-              <Item label="Drug License No" value="21B/KA/54321" />
-              <FileItem 
-                label="License File" 
-                fileUrl="/assets/docs/license-file.png" 
-                onView={() => handleViewFile("/assets/docs/license-file.png", "License File", "licenseFile")}
-                isViewed={fileStates.licenseFile.viewed}
-                isVerified={fileStates.licenseFile.verified}
-              />
-            </Section>
-            <Section title="Bank Account Details">
-              <Item label="State" value="test" />
-              <Item label="District" value="test" />
-              <Item label="Taluka" value="test" />
-              <Item label="Bank Name" value="test" />
-              <Item label="Branch" value="test" />
-              <Item label="IFSC Code" value="test1234567" />
-              <Item label="Account Number" value="****7890" />
-              <Item label="Account Holder Name" value="Test" />
-              <Item label="Cancelled Cheque" value="Available"/>
-              <FileItem 
-                label="Cancelled Cheque" 
-                fileUrl="/assets/docs/cheque.jpg" 
-                onView={() => handleViewFile("/assets/docs/cheque.jpg", "Cancelled Cheque", "chequeFile")}
-                isViewed={fileStates.chequeFile.viewed}
-                isVerified={fileStates.chequeFile.verified}
-              />
 
-            </Section>
-            <Section title="Validation Summary">
-              <StatusItem label="Company Info" status="Complete" />
-              <StatusItem label="Verification" status="Complete" />
-              <StatusItem 
-                label="Documents" 
-                status={documentsVerified.status} 
-                error={documentsVerified.error}
-                highlight={!documentsVerified.error}
-              />
-              <StatusItem 
-                label="Bank Details" 
-                status={bankDetailsVerified.status} 
-                error={bankDetailsVerified.error}
-                highlight={!bankDetailsVerified.error}
-              />
-              <StatusItem 
-                label="Overall Status" 
-                status={canAccept ? "Ready to Submit" : "Pending Verification"} 
-                highlight={canAccept}
-                error={!canAccept}
-              />
-            </Section>
+            <div className="inline-flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-4 py-2">
+              <span className="text-xs font-semibold text-purple-400 uppercase tracking-wide">Request ID</span>
+              <span className="text-sm font-bold text-[#2D0066]">{requestId}</span>
+            </div>
 
-            {/* Admin Decision Section - Redesigned */}
-            <div className="border border-purple-300 rounded-xl p-4">
-              <h2 className="text-2xl font-bold text-[#2D0066] mb-3">Admin Decision</h2>
-              
-              {/* Warning if not all verified */}
-              {!canAccept && (
-                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-                  <svg className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  <div>
-                    <p className="font-semibold text-amber-800 text-base">Verification Incomplete</p>
-                    <p className="text-amber-700 text-sm mt-1">All documents must be verified before the request can be accepted. Please review and verify all documents.</p>
-                  </div>
-                </div>
-              )}
-              
-              <div className="space-y-4">
-                {/* Comments Textarea */}
-                <div>
-                  <label className="block text-base text-gray-500 mb-2">
-                    Comments <span className="text-red-500 ml-1">*</span>
-                  </label>
-                  <textarea
-                    value={adminComment}
-                    onChange={(e) => {
-                      setAdminComment(e.target.value);
-                      setShowCommentError(false);
-                    }}
-                    placeholder="Enter your comments here..."
-                    className={`w-full border ${
-                      showCommentError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#4B0082]'
-                    } rounded-lg p-3 text-base focus:outline-none focus:ring-2 transition-all min-h-[120px] resize-none`}
-                    rows={4}
-                  />
-                  {showCommentError && (
-                    <div className="flex items-center gap-2 mt-2 text-red-500 text-sm">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                      <span>Please add a comment before taking action</span>
+            {/* Banners */}
+            {submittedDecision === "Accept" && (
+              <div className="flex items-start gap-3 px-5 py-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <div><p className="font-semibold">Request Accepted — Status: Closed</p><p className="text-green-600 mt-0.5">The seller has been approved. All documents are now view-only.</p></div>
+              </div>
+            )}
+            {submittedDecision === "Reject" && (
+              <div className="flex items-start gap-3 px-5 py-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <div><p className="font-semibold">Request Rejected — Status: Rejected</p><p className="text-red-600 mt-0.5">This request has been declined. All documents are now view-only.</p></div>
+              </div>
+            )}
+            {isLocked && (
+              <div className="flex items-start gap-3 px-5 py-4 bg-blue-50 border border-blue-200 rounded-xl text-blue-700 text-sm">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">{LOCK_ICON}</svg>
+                <p className="font-semibold">Verification locked — documents are view-only</p>
+              </div>
+            )}
+            {isCorrectionMode && (
+              <div className="flex items-start gap-3 px-5 py-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-sm">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
+                <div><p className="font-semibold">Corrections Needed — Status: Corrections Needed</p><p className="text-amber-600 mt-0.5">Seller has been notified. You can re-view and update document verification statuses.</p></div>
+              </div>
+            )}
+
+            {loading ? <PageSkeleton /> : data ? (
+              <>
+                <Section title="Company Details">
+                  <Item label="Name"    value={data.sellerName} />
+                  <Item label="Type"    value={data.companyType?.companyTypeName} />
+                  <Item label="Address" value={`${data.address?.buildingNo}, ${data.address?.street}, ${data.address?.city} - ${data.address?.pinCode}`} />
+                  <Item label="Website" value={data.website} />
+                  <Item label="Phone"   value={data.phone} />
+                  <Item label="Email"   value={data.email} />
+                </Section>
+
+                <Section title="Coordinator Details">
+                  <Item label="Name"        value={data.coordinator?.name} />
+                  <Item label="Designation" value={data.coordinator?.designation} />
+                  <Item label="Email"       value={data.coordinator?.email} />
+                  <Item label="Mobile"      value={data.coordinator?.mobile} />
+                </Section>
+
+                <Section title="Compliance Documents">
+                  <Item label="GST Number" value={data.gstNumber} />
+                  <FileItem label="GST Certificate" fileUrl={LOCAL_GST_DOC} isLocked={isLocked}
+                    onView={() => handleViewFile(LOCAL_GST_DOC, "GST Certificate", "gstFile")}
+                    isViewed={displayedStates["gstFile"]?.viewed ?? false}
+                    isVerified={displayedStates["gstFile"]?.verified ?? null} />
+                  {data.documents?.map(doc => (
+                    <div key={doc.DocumentsId} className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4 pt-4 mt-1 border-t border-purple-50">
+                      <Item label="Document Type"     value={doc.productTypes?.productTypeName} />
+                      <Item label="Document Number"   value={doc.documentNumber} />
+                      <Item label="Issuing Authority" value={doc.licenseIssuingAuthority} />
+                      <Item label="Issue Date"        value={formatDate(doc.licenseIssueDate)} />
+                      <Item label="Expiry Date"       value={formatDate(doc.licenseExpiryDate)} />
+                      <Item label="License Status"    value={doc.licenseStatus} />
+                      <FileItem label="License File" fileUrl={LOCAL_LICENSE} isLocked={isLocked}
+                        onView={() => handleViewFile(LOCAL_LICENSE, `License — ${doc.productTypes?.productTypeName}`, `doc_${doc.DocumentsId}`)}
+                        isViewed={displayedStates[`doc_${doc.DocumentsId}`]?.viewed ?? false}
+                        isVerified={displayedStates[`doc_${doc.DocumentsId}`]?.verified ?? null} />
+                    </div>
+                  ))}
+                </Section>
+
+                <Section title="Bank Account Details">
+                  <Item label="Bank Name"           value={data.bankDetails?.bankName} />
+                  <Item label="Branch"              value={data.bankDetails?.branch} />
+                  <Item label="IFSC Code"           value={data.bankDetails?.ifscCode} />
+                  <Item label="Account Number"      value={data.bankDetails?.accountNumber ? `****${data.bankDetails.accountNumber.slice(-4)}` : "—"} />
+                  <Item label="Account Holder Name" value={data.bankDetails?.accountHolderName} />
+                  <Item label="State"               value={data.address?.state?.stateName} />
+                  <Item label="District"            value={data.address?.district?.districtName} />
+                  <Item label="Taluka"              value={data.address?.taluka?.talukaName} />
+                  <FileItem label="Cancelled Cheque" fileUrl={LOCAL_CHEQUE} isLocked={isLocked}
+                    onView={() => handleViewFile(LOCAL_CHEQUE, "Cancelled Cheque", "chequeFile")}
+                    isViewed={displayedStates["chequeFile"]?.viewed ?? false}
+                    isVerified={displayedStates["chequeFile"]?.verified ?? null} />
+                </Section>
+
+                <Section title="Validation Summary">
+                  <StatusItem label="Company Info" status="Complete" highlight />
+                  <StatusItem label="Verification" status="Complete" highlight />
+                  <StatusItem label="Documents"    status={documentsVerified.status} error={documentsVerified.error} highlight={!documentsVerified.error} />
+                  <StatusItem label="Bank Details" status={bankVerified.status}      error={bankVerified.error}      highlight={!bankVerified.error} />
+                  <StatusItem label="Overall Status"
+                    status={
+                      isLocked && submittedDecision === "Accept" ? "Closed" :
+                      isLocked && submittedDecision === "Reject" ? "Rejected" :
+                      isCorrectionMode ? "Corrections Needed" :
+                      canAccept ? "Ready to Submit" : "Pending Verification"
+                    }
+                    highlight={canAccept || (isLocked && submittedDecision === "Accept")}
+                    error={!canAccept && !(isLocked && submittedDecision === "Accept")} />
+                </Section>
+
+                {/* Admin Decision */}
+                <div className="border border-purple-200 rounded-xl p-5">
+                  <h2 className="text-lg font-bold text-[#2D0066] mb-4 pb-2 border-b border-purple-100">Admin Decision</h2>
+
+                  {isLocked && (
+                    <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg flex items-start gap-3">
+                      <svg className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">{LOCK_ICON}</svg>
+                      <div>
+                        <p className="font-semibold text-gray-600 text-sm">Decision submitted — no further changes allowed</p>
+                        <p className="text-gray-500 text-sm mt-0.5">All actions and document verification are locked. You may only view files.</p>
+                      </div>
                     </div>
                   )}
-                </div>
 
-                {/* Action Buttons */}
-                <div>
-                  <p className="text-base text-gray-500 mb-3">Select Action</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <button 
-                      onClick={() => handleAction("Accept")}
-                      disabled={!canAccept}
-                      className={`group px-6 py-4 rounded-xl transition-all duration-300 font-semibold text-base shadow-md flex items-center justify-center gap-2 ${
-                        canAccept
-                          ? 'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800 hover:shadow-lg transform hover:-translate-y-0.5 cursor-pointer'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
-                      }`}
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  {/* Warning: not all files viewed yet */}
+                  {!allViewed && !isLocked && (
+                    <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                      <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                       </svg>
-                      <span>Accept Request</span>
-                    </button>
-                    
-                    <button 
-                      onClick={() => handleAction("Reject")}
-                      className="group bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-300 font-semibold text-base shadow-md hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <div>
+                        <p className="font-semibold text-amber-800 text-sm">View All Documents First</p>
+                        <p className="text-amber-700 text-sm mt-0.5">You must view and verify all documents before any action can be taken.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Warning: all viewed but verification still pending */}
+                  {allViewed && !canAccept && !hasAnyRejected && !isLocked && (
+                    <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                      <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                       </svg>
-                      <span>Reject Request</span>
-                    </button>
-                    
-                    <button 
-                      onClick={() => handleAction("Correction")}
-                      className="group bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-6 py-4 rounded-xl hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 font-semibold text-base shadow-md hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      <span>Request Correction</span>
-                    </button>
+                      <div>
+                        <p className="font-semibold text-amber-800 text-sm">Verification Incomplete</p>
+                        <p className="text-amber-700 text-sm mt-0.5">Verify or reject each document to enable actions. Only Request Correction is available until verification is complete.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        Comments <span className="text-red-500">*</span>
+                      </label>
+                      <textarea value={adminComment} rows={4} readOnly={isLocked}
+                        onChange={e => { if (isLocked) return; setAdminComment(e.target.value); setShowCommentError(false); }}
+                        placeholder={isLocked ? "Decision has been submitted — no further changes allowed." : "Enter your comments here..."}
+                        className={`w-full border rounded-xl p-3 text-sm focus:outline-none focus:ring-2 transition-all resize-none
+                          ${isLocked ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200 focus:ring-0"
+                            : showCommentError ? "border-red-400 focus:ring-red-400 bg-gray-50 focus:bg-white"
+                            : "border-gray-200 focus:ring-[#4B0082] bg-gray-50 focus:bg-white"}`} />
+                      {showCommentError && (
+                        <p className="flex items-center gap-1.5 mt-1.5 text-red-500 text-xs">
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                          Please add a comment before taking action
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Select Action</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                        {/* Accept — enabled only when ALL files viewed + ALL verified */}
+                        <ActionButton action="Accept" label="Accept Request" submittingAction={submittingAction}
+                          disabled={!canAccept || submittingAction !== null || isLocked}
+                          onClick={() => handleAction("Accept")}
+                          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>} />
+
+                        {/* Reject — enabled only when ALL files viewed + at least one rejected */}
+                        <ActionButton action="Reject" label="Reject Request" submittingAction={submittingAction}
+                          disabled={!hasAnyRejected || submittingAction !== null || isLocked}
+                          onClick={() => handleAction("Reject")}
+                          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>} />
+
+                        {/* Request Correction — enabled only when ALL files viewed */}
+                        <ActionButton action="Correction" label="Request Correction" submittingAction={submittingAction}
+                          disabled={!allViewed || submittingAction !== null || isLocked}
+                          onClick={() => handleAction("Correction")}
+                          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>} />
+
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <svg className="w-14 h-14 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-gray-500 font-medium text-sm">
+                  {!sellerId ? "No seller ID provided." : "Could not load seller details."}
+                </p>
+                <p className="text-gray-400 text-xs mt-1">Please go back and try again.</p>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </main>
 
       {/* File Viewer Modal */}
-      {isModalOpen && currentFile && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {modalOpen && currentFile && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-[#2D0066]">{currentFile.label}</h3>
-              <button
-                onClick={handleCancel}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-base font-bold text-[#2D0066]">{currentFile.label}</h3>
+              <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
-            {/* Modal Body - File Display */}
-            <div className="flex-1 overflow-auto p-6 bg-gray-50">
-              <div className="flex items-center justify-center min-h-full relative">
-                <Image 
-                  src={currentFile.url} 
-                  alt={currentFile.label}
-                  width={800}
-                  height={600}
-                  className="max-w-full h-auto object-contain rounded-lg shadow-lg"
-                  unoptimized
-                />
+            <div className="flex-1 overflow-auto p-6 bg-gray-50 flex items-center justify-center min-h-[300px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={currentFile.url} alt={currentFile.label} className="max-w-full max-h-[60vh] object-contain rounded-lg shadow" />
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {isLocked && submittedDecision === "Accept" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-green-700 text-xs font-semibold">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    Closed
+                  </span>
+                )}
+                {isLocked && submittedDecision === "Reject" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-semibold">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    Rejected
+                  </span>
+                )}
+                {isLocked && <span className="text-xs text-gray-400 italic">View only</span>}
+                {isCorrectionMode && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs font-semibold">
+                    Corrections Needed — verification enabled
+                  </span>
+                )}
               </div>
-            </div>
-
-            {/* Modal Footer - Action Buttons */}
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-4">
-              <button
-                onClick={handleCancel}
-                className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-base"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleVerify(true)}
-                className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-base flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Verify
-              </button>
-              <button
-                onClick={() => handleVerify(false)}
-                className="px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-base flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Reject
-              </button>
+              <div className="flex gap-3">
+                <button onClick={() => setModalOpen(false)} className="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                  {isLocked ? "Close" : "Cancel"}
+                </button>
+                {!isLocked && (
+                  <>
+                    <button onClick={() => handleVerifyInModal(true)} className="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      Verify
+                    </button>
+                    <button onClick={() => handleVerifyInModal(false)} className="px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      Reject
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {toast && <Toast message={toast.message} type={toast.type} />}
     </>
   );
 }
