@@ -18,15 +18,17 @@ import {
 import SellerRegister from './SellerRegister';
 import ProductOnboarding from './ProductOnboarding';
 import SellerDeclaration from './SellerDeclaration';
+import { useRouter } from "next/navigation";
 
 const SellerJourney = () => {
+  const router = useRouter();
   const [showRegister, setShowRegister] = useState(false);
   const [showProductOnboarding, setShowProductOnboarding] = useState(false);
   const [showDeclaration, setShowDeclaration] = useState(false);
 
   const handleSellerLogin = () => {
-    alert('Seller login is currently under maintenance. Please try again later.');
-  };
+  router.push("/seller_7a3b9f2c/login");
+};
 
   const handleAcceptDeclaration = () => {
     setShowDeclaration(false);
@@ -106,7 +108,7 @@ const SellerJourney = () => {
 
   if (showRegister) {
     return (
-      <div className="min-h-screen bg-primary-50 pt-4">
+      <div className="min-h-screen pt-4">
         <SellerRegister  />
       </div>
     );
@@ -114,7 +116,7 @@ const SellerJourney = () => {
 
   if (showProductOnboarding) {
     return (
-      <div className="min-h-screen bg-primary-50 pt-4">
+      <div className="min-h-screen pt-4">
         <ProductOnboarding />
       </div>
     );
@@ -130,7 +132,7 @@ const SellerJourney = () => {
         />
       )}
 
-      <div className="relative py-12 lg:py-14 bg-primary-100">
+      <div className="relative py-12 lg:py-14">
         {/* Why Choose TiaMeds with CTA Buttons */}
         <section className="mb-16">
           <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
@@ -163,7 +165,7 @@ const SellerJourney = () => {
                 {/* Login Button */}
                 <button
                   onClick={handleSellerLogin}
-                  className="group relative px-4 py-3 bg-secondary-500 hover:bg-secondary-600 text-white font-bold text-base rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 whitespace-nowrap"
+                  className="group relative px-4 py-3 bg-tertiary-600 hover:bg-tertiary-800 text-white font-bold text-base rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 whitespace-nowrap"
                 >
                   <span className="flex items-center justify-center">
                     <FaSignInAlt className="mr-1" />
@@ -178,7 +180,7 @@ const SellerJourney = () => {
               {platformBenefits.map((benefit, index) => (
                 <div
                   key={index}
-                  className="bg-primary-50 rounded-2xl p-6 border border-primary-100 hover:border-primary-300 transition-all duration-300 group hover:-translate-y-1"
+                  className="bg-bg-secondary-50 rounded-2xl p-6 border border-secondary-100 hover:border-primary-300 transition-all duration-300 group hover:-translate-y-1"
                 >
                   <div className="w-14 h-14 rounded-xl bg-primary-100 flex items-center justify-center mb-6 group-hover:bg-primary-200 transition-colors">
                     <div className="text-primary-600">
@@ -220,7 +222,7 @@ const SellerJourney = () => {
 
             <div className="relative">
               {/* Timeline for desktop */}
-              <div className="hidden lg:block absolute left-0 right-0 top-12 h-0.5 bg-linear-to-r from-primary-100 via-primary-300 to-primary-100 -translate-y-1/2 z-0"></div>
+              <div className="hidden lg:block absolute left-0 right-0 top-12 h-0.5 bg-linear-to-r from-primary-50 via-primary-300 to-primary-100 -translate-y-1/2 z-0"></div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 relative z-10">
                 {journeySteps.map((step, index) => (
@@ -229,7 +231,7 @@ const SellerJourney = () => {
                       <div className="w-16 h-16 rounded-full bg-white border-4 border-primary-100 flex items-center justify-center mx-auto text-primary-600 shadow-lg">
                         {step.icon}
                       </div>
-                      <div className="absolute -top-2 -right-2 bg-primary-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      <div className="absolute -top-2 -right-2 bg-primary-50 text-white text-xs font-bold px-2 py-1 rounded-full">
                         Step {index + 1}
                       </div>
                     </div>
