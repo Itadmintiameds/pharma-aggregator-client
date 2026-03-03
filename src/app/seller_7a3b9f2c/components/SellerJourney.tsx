@@ -144,21 +144,21 @@ const SellerJourney = () => {
     );
   }
 
-  if (showProductOnboarding) {
-    return (
-      <div className="min-h-screen bg-primary-50 pt-4">
-        <ProductOnboarding
-          onSuccess={() => {
-            setShowProductOnboarding(false);
-            setShowProductList(true);
-          }}
-        />
-      {/* <div className="min-h-screen pt-4">
-        <ProductOnboarding />*/}
+  // if (showProductOnboarding) {
+  //   return (
+  //     <div className="min-h-screen bg-primary-50 pt-4">
+  //       <ProductOnboarding
+  //         onSuccess={() => {
+  //           setShowProductOnboarding(false);
+  //           setShowProductList(true);
+  //         }}
+  //       />
+  //     {/* <div className="min-h-screen pt-4">
+  //       <ProductOnboarding />*/}
 
-      </div> 
-    );
-  }
+  //     </div> 
+  //   );
+  // }
 
   if (showProductList) {
   return (

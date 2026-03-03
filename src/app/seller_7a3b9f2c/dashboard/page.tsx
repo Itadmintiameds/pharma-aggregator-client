@@ -18,7 +18,7 @@ const SellerDashboard = () => {
   const [welcomeMessage, setWelcomeMessage] = useState("Welcome back, Seller!");
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen">
       {/* Top Navigation */}
       <SellerHeader 
         currentView={currentView}
@@ -35,9 +35,9 @@ const SellerDashboard = () => {
         {/* Main Content Area */}
         <main className="flex-1 p-6 ml-64 mt-16">
           {/* Welcome Message */}
-          <div className="mb-6 bg-primary-05 p-4 rounded-lg">
+          {/* <div className="mb-6 bg-primary-05 p-4 rounded-lg">
             <h1 className="text-h5 font-semibold text-primary-900">{welcomeMessage}</h1>
-          </div>
+          </div> */}
 
           {/* Render different views based on selection */}
           {currentView === "overview" && <DashboardOverview />}
