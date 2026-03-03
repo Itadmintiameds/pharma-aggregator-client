@@ -970,7 +970,7 @@ const checkCoordinatorPhoneExists = async (phone: string) => {
         bankDocumentFileUrl,
       };
 
-      // Create the request according to your API structure
+      // Create the request according to API structure
       const request: TempSellerRequest = {
         sellerName: form.sellerName,
         productTypeId: form.productTypeIds,
@@ -1052,7 +1052,7 @@ const checkCoordinatorPhoneExists = async (phone: string) => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <div className="bg-primary-100 min-h-screen">
+      <div className="min-h-screen">
         <Header />
 
         {/* Success Modal */}
@@ -1118,7 +1118,7 @@ const checkCoordinatorPhoneExists = async (phone: string) => {
         )}
 
         {/* Sticky Header & Stepper */}
-        <div className="sticky top-0 z-40 bg-primary-100 pt-2">
+        <div className="sticky top-0 z-40 bg-secondary-50 pt-2">
           <div className="mb-1 mx-4 md:mx-10">
             <div className="mb-6 mt-2">
               <div className="bg-linear-to-r from-primary-600 to-primary-800 rounded-xl p-4 text-white">
@@ -1129,7 +1129,7 @@ const checkCoordinatorPhoneExists = async (phone: string) => {
                     </div>
                     <div className="text-center md:text-left">
                       <h2 className="text-xl font-bold">Seller Registration</h2>
-                      <p className="text-primary-200 text-sm">
+                      <p className="text-sm">
                         Register Your Business Here!
                       </p>
                     </div>
@@ -1884,7 +1884,7 @@ const checkCoordinatorPhoneExists = async (phone: string) => {
                           type="text"
                           id="gstNumber"
                           className="w-full px-4 py-2 border-2 border-primary-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:border-primary-600 focus:ring-2 focus:ring-primary-100 transition-all uppercase"
-                          placeholder="Enter 15-character GST number"
+                          placeholder="Enter GST number"
                           value={form.gstNumber}
                           onChange={handleGSTChange}
                           maxLength={15}

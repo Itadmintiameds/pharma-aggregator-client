@@ -1,24 +1,50 @@
-import React from "react";
+"use client";
+
+import React, { useState, useEffect  } from "react";
 import LandingHeader from "./LandingHeader";
 import HeroSection from "./HeroSection";
 import Footer from "./Footer";
-import Journey from "./Journey";
-import FAQS from "./FAQS";
+import TrendingProducts from "./TrendingProducts";
+import TopRated from "./TopRated";
 import Deals from "./Deals";
+import FeatureBrands from "./FeatureBrands";
+import LoginModal from "../../modals/LoginModals/LoginModals";
 
 const Home = () => {
-  return (
-    <div className="min-h-screen bg-primary-100">
-      <LandingHeader />
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  
+   useEffect(() => {
+    if (isLoginOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
 
-      <main className="pt-1">
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isLoginOpen]);
+
+
+  return (
+    <div className="min-h-screen ">
+      <LandingHeader onLoginClick={() => setIsLoginOpen(true)} />
+
+      <main className="pt-38">
         <HeroSection />
         <Deals />
-        <Journey />
-        <FAQS />
+        <FeatureBrands />
+        <TrendingProducts />
+        <TopRated />
       </main>
 
       <Footer />
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+      />
     </div>
   );
 };
@@ -31,48 +57,28 @@ export default Home;
 
 
 
-
-
-
-
-
-
-
-
-// original code , do not make chanegs here /...............
-
-
-
+// Original code withouit new global css...........
 // import React from "react";
-// import ImageSlider from "../ImageSlider";
 // import LandingHeader from "./LandingHeader";
+// import HeroSection from "./HeroSection";
+// import Footer from "./Footer";
+// import Journey from "./Journey";
+// import FAQS from "./FAQS";
+// import Deals from "./Deals";
 
 // const Home = () => {
 //   return (
-//     <div className="bg-[#F3ECF8] pt-18">
+//     <div className="min-h-screen bg-primary-100">
 //       <LandingHeader />
 
-//       <section className="mx-auto mt-10 w-4/5 space-y-12">
+//       <main className="pt-1">
+//         <HeroSection />
+//         <Deals />
+//         <Journey />
+//         <FAQS />
+//       </main>
 
-//         {/* Heading + paragraph stacked */}
-//         <div className="space-y-1">
-//           <h1 className="text-4xl font-bold leading-tight text-[#0A0A0B]">
-//             CONNECT VERIFIED
-//             PHARMA <span className="text-[#9A6AFF]">BUYERS </span>
-//             & <span className="text-[#F5B942]">SELLERS</span>
-//           </h1>
-
-//           <p className="max-w-2xl text-lg leading-relaxed text-gray-700">
-//             Streamline operations, boost visibility, and ensure timely, safe
-//             medication delivery with our pharma supply chain platform
-//           </p>
-//         </div>
-
-//         {/* Full-width image slider */}
-//         <ImageSlider />
-//         <br /><br />
-
-//       </section>
+//       <Footer />
 //     </div>
 //   );
 // };

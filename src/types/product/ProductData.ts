@@ -1,6 +1,6 @@
 export interface ProductData {
   productId: string;
-  productCategoryId: string;
+  productCategoryId?: string;
   productName: string;
   therapeuticCategory: string;
   therapeuticSubcategory: string;
@@ -25,15 +25,20 @@ export interface PricingData {
   pricingId?: string; 
   batchLotNumber: string;
   manufacturerName: string;
-   manufacturingDate: string | null; 
+  manufacturingDate: string | null; 
   expiryDate: string | null;    
   storageCondition: string;
   stockQuantity: number;
   pricePerUnit: number;
   mrp: number;
-  discountPercentage: number;
+  createdDate: Date | null;
   gstPercentage: number;
+  minimumPurchaseQuantity: number;
+  discountPercentage: number;
+  finalPrice: number;  
   hsnCode: number;
+ 
+
 }
 
 export interface CreateDrugProductRequest {
