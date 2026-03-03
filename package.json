@@ -9,19 +9,35 @@
     "lint": "eslint"
   },
   "dependencies": {
+<<<<<<< HEAD
     "@hookform/resolvers": "^5.2.2",
     "axios": "^1.13.2",
+=======
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^7.3.8",
+    "@mui/system": "^7.3.8",
+    "@mui/x-date-pickers": "^8.27.0",
+    "axios": "^1.13.5",
+>>>>>>> 2ff96149103145682919e328740f2958bf8cef16
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "framer-motion": "^12.31.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.1",
     "react": "19.2.3",
+    "react-datepicker": "^9.1.0",
     "react-dom": "19.2.3",
+<<<<<<< HEAD
     "react-hook-form": "^7.71.2",
     "react-icons": "^5.5.0",
     "react-select": "^5.10.2",
     "zod": "^4.3.6"
+=======
+    "react-hot-toast": "^2.6.0",
+    "react-icons": "^5.5.0",
+    "react-toastify": "^11.0.5"
+>>>>>>> 2ff96149103145682919e328740f2958bf8cef16
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
