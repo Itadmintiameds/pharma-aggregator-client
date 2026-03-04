@@ -5,7 +5,7 @@ export const drugProductSchema = z.object({
 
   productCategoryId: z.string().min(1, "Category is required"),
 
-  therapeuticCategory: z.string().min(1, "Therapeutic Category is required"),
+  // therapeuticCategory: z.string().min(1, "Therapeutic Category is required"),
 
   therapeuticSubcategory: z
     .string()
@@ -20,6 +20,19 @@ export const drugProductSchema = z.object({
       message: "Strength must be a number",
     }),
 
+  // molecules: z
+  //   .array(
+  //     z.object({
+  //       moleculeId: z.number().nullable(),
+  //       moleculeName: z
+  //         .string()
+  //         .min(1, "Molecule name is required"),
+  //       mechanismOfAction: z.string().optional(),
+  //       primaryUse: z.string().optional(),
+  //     })
+  //   )
+  //   .min(1, "At least one molecule is required"),
+
   warningsPrecautions: z
     .string()
     .min(1, "Warnings & Precautions are required"),
@@ -28,8 +41,7 @@ export const drugProductSchema = z.object({
 
   productMarketingUrl: z
     .string()
-    .min(1, "Marketing URL is required")
-    .url("Enter valid URL"),
+    .min(1, "Marketing URL is required"),
 
   // Packaging
   packagingUnit: z.string().min(1, "Packaging Unit is required"),
@@ -90,12 +102,12 @@ export const drugProductSchema = z.object({
       message: "Must be a number",
     }),
 
-  discountPercentage: z
-    .string()
-    .min(1, "Discount % is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
-    }),
+  // finalPrice: z
+  //   .string()
+  //   .min(1, "Final Price is required")
+  //   .refine((val) => !isNaN(Number(val)), {
+  //     message: "Must be a number",
+  //   }),
 
   gstPercentage: z
     .string()
@@ -109,5 +121,18 @@ export const drugProductSchema = z.object({
     .min(1, "HSN Code is required")
     .refine((val) => !isNaN(Number(val)), {
       message: "Must be a number",
+    }),
+  manufacturingDate: z
+    .date()
+    .nullable()
+    .refine((val) => val !== null, {
+      message: "Manufacturing date is required",
+    }),
+
+  expiryDate: z
+    .date()
+    .nullable()
+    .refine((val) => val !== null, {
+      message: "Expiry date is required",
     }),
 });

@@ -119,3 +119,19 @@ export const editDrugProduct = async (
   );
   return response.data;
 };
+
+
+export const getTherapeuticSubcategory = async (categoryId: string) => {
+    try {
+        if (!categoryId) throw new Error("Category ID is required");
+        const response = await api.get(`v1/products/subcategories/${categoryId}`);
+         return response.data?.data ?? response.data;
+    } catch (error: unknown) {
+        console.error('Error fetching Category:', error);
+        if (error instanceof Error) {
+            throw new Error(`Error fetching Category: ${error.message}`);
+        } else {
+            throw new Error('An unknown error occurred while Category.');
+        }
+    }
+};
