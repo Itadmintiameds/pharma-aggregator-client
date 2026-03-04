@@ -3,7 +3,7 @@ import { api } from "@/src/utils/api";
 export const getMoleculeDesc = async (moleculeName: string) => {
     try {
         
-        const response = await api.get('v1/molecules/by-name', {
+        const response = await api.get('molecules/by-name', {
             params: { name: moleculeName },
         });
         return response.data.data;

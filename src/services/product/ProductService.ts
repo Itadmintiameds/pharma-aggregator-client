@@ -5,7 +5,7 @@ import { AxiosError } from "axios";
 export const getDrugCategory = async () => {
     try {
         
-        const response = await api.get('v1/drugCategory/getAll');
+        const response = await api.get('drugCategory/getAll');
         return response.data.data;
     } catch (error: unknown) {
         console.error('Error fetching Drug Category:', error);
@@ -23,7 +23,7 @@ export const createDrugProduct = async (
 ) => {
   try {
     const response = await api.post(
-      "v1/products/create",
+      "products/create",
       payload
     );
     return response.data.data;
@@ -40,7 +40,7 @@ export const createDrugProduct = async (
 export const getDrugProductList= async () => {
     try {
         
-        const response = await api.get('v1/products/getAll');
+        const response = await api.get('products/getAll');
         // return response.data;
          return (
     response.data?.data?.content || // paginated
@@ -62,7 +62,7 @@ export const getDrugProductList= async () => {
 export const getDrugProductById = async (productId: string) => {
     try {
         if (!productId) throw new Error("Product ID is required");
-        const response = await api.get(`v1/products/getById/${productId}`);
+        const response = await api.get(`products/getById/${productId}`);
          return response.data?.data ?? response.data;
     } catch (error: unknown) {
         console.error('Error fetching Product:', error);
@@ -78,7 +78,7 @@ export const drugProductDelete = async (productId: string) => {
     try {
         if (!productId) throw new Error("Product ID is required");
         
-        const response = await api.delete(`v1/products/delete/${productId}`);
+        const response = await api.delete(`products/delete/${productId}`);
         return response.data;
     } catch (error: unknown) {
         if (error instanceof AxiosError) {
@@ -114,7 +114,7 @@ export const editDrugProduct = async (
   payload: CreateDrugProductRequest
 ) => {
   const response = await api.put(
-    `v1/products/update/${productId}`,
+    `products/update/${productId}`,
     payload
   );
   return response.data;
@@ -124,7 +124,7 @@ export const editDrugProduct = async (
 export const getTherapeuticSubcategory = async (categoryId: string) => {
     try {
         if (!categoryId) throw new Error("Category ID is required");
-        const response = await api.get(`v1/products/subcategories/${categoryId}`);
+        const response = await api.get(`products/subcategories/${categoryId}`);
          return response.data?.data ?? response.data;
     } catch (error: unknown) {
         console.error('Error fetching Category:', error);
