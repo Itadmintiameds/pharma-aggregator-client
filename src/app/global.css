@@ -92,6 +92,7 @@
   --success-700: #47A400;
   --success-800: #409600;
   --success-900: #378200;
+  --success-1000: #35813C;
 
   --warning-50: #FDEBEB;
   --warning-100: #FBD7D7;
@@ -195,6 +196,7 @@
   --color-success-700: var(--success-700);
   --color-success-800: var(--success-800);
   --color-success-900: var(--success-900);
+  --color-success-1000: var(--success-1000);
 
   --color-warning-50: var(--warning-50);
   --color-warning-100: var(--warning-100);
