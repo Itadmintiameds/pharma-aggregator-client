@@ -68,7 +68,7 @@ const SellerHeader = ({ currentView, setCurrentView }: SellerHeaderProps) => {
         </div>
 
         {/* Add Product Button */}
-        <div className="flex items-center gap-4 mr-4">
+        {/* <div className="flex items-center gap-4 mr-4">
           <button
             onClick={() => setCurrentView("addProduct")}
             className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
@@ -79,7 +79,7 @@ const SellerHeader = ({ currentView, setCurrentView }: SellerHeaderProps) => {
           >
             + Add New Product
           </button>
-        </div>
+        </div> */}
 
         {/* View Product and Delete Product - Commented out for future use */}
         {/* 

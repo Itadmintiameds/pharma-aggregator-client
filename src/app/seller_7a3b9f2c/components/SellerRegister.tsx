@@ -1052,7 +1052,7 @@ const checkCoordinatorPhoneExists = async (phone: string) => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-white">
         <Header />
 
         {/* Success Modal */}
