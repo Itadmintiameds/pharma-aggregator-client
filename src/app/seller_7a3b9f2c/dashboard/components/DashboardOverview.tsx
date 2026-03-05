@@ -12,6 +12,7 @@ import TopSellingCard from "./TopSellingCard";
 import WeeklySummaryCard from "./WeeklySummaryCard";
 import ProductTable from "./ProductTable";
 import { DashboardView } from "@/src/types/seller/dashboard";
+import ProductList from "./ProductList";
 
 
 interface DashboardOverviewProps {
@@ -110,7 +111,8 @@ const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
   bgColor="bg-tertiary-50"
 />
 </div>
-<ProductTable />
+{/* <ProductTable /> */}
+<ProductList />
 
     </div>
   );
