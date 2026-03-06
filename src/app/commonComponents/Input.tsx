@@ -11,7 +11,7 @@ interface InputProps {
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   disabled?: boolean;
-  error?: string; // ✅ ADD THIS
+  error?: string;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -25,7 +25,7 @@ const Input: React.FC<InputProps> = ({
   value,
   onChange,
   disabled = false,
-  error, // ✅ ADD THIS
+  error, 
 }) => {
   return (
     <div className="flex flex-col gap-1">
@@ -57,7 +57,7 @@ const Input: React.FC<InputProps> = ({
           transition-colors duration-200 ${className}`}
       />
 
-      {/* ✅ Error Message */}
+      
       {error && (
         <p className="text-[#FF3B3B] text-sm px-1">
           {error}

@@ -12,20 +12,10 @@ import {
 import React, { useEffect, useState } from "react";
 import Select from "react-select";
 
-
-
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
-
 interface SelectOption {
   value: string;
   label: string;
 }
-
-// ─────────────────────────────────────────────
-// Main AddProduct Component
-// ─────────────────────────────────────────────
 
 const AddProduct = () => {
   const [form, setForm] = useState({
@@ -75,10 +65,14 @@ const AddProduct = () => {
 
   const [categoryOptions, setCategoryOptions] = useState<SelectOption[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    null,
+  );
   const [mode, setMode] = useState<"create" | "edit" | "delete">("create");
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [subcategoryOptions, setSubcategoryOptions] = useState<SelectOption[]>([]);
+  const [subcategoryOptions, setSubcategoryOptions] = useState<SelectOption[]>(
+    [],
+  );
   const [loadingSubcategories, setLoadingSubcategories] = useState(false);
 
   useEffect(() => {
@@ -301,7 +295,14 @@ const AddProduct = () => {
                 mechanismOfAction: m.mechanismOfAction ?? "",
                 primaryUse: m.primaryUse ?? "",
               }))
-            : [{ moleculeId: null, moleculeName: "", mechanismOfAction: "", primaryUse: "" }],
+            : [
+                {
+                  moleculeId: null,
+                  moleculeName: "",
+                  mechanismOfAction: "",
+                  primaryUse: "",
+                },
+              ],
         packagingUnit: packaging.packagingUnit || "",
         numberOfUnits: String(packaging.numberOfUnits ?? ""),
         packSize: String(packaging.packSize ?? ""),
@@ -311,7 +312,9 @@ const AddProduct = () => {
         pricingId: pricing.pricingId || "",
         batchLotNumber: pricing.batchLotNumber || "",
         manufacturerName: pricing.manufacturerName || "",
-        manufacturingDate: pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null,
+        manufacturingDate: pricing.manufacturingDate
+          ? new Date(pricing.manufacturingDate)
+          : null,
         expiryDate: pricing.expiryDate ? new Date(pricing.expiryDate) : null,
         storageCondition: pricing.storageCondition || "",
         stockQuantity: String(pricing.stockQuantity ?? ""),
@@ -413,14 +416,22 @@ const AddProduct = () => {
       borderColor: errors[errorKey]
         ? "#FF3B3B"
         : state.isFocused
-        ? "#4B0082"
-        : "#737373",
+          ? "#4B0082"
+          : "#737373",
       boxShadow: "none",
       cursor: "pointer",
       "&:hover": { borderColor: errors[errorKey] ? "#FF3B3B" : "#4B0082" },
     }),
-    valueContainer: (base: any) => ({ ...base, padding: "0 16px", cursor: "pointer" }),
-    indicatorsContainer: (base: any) => ({ ...base, height: "56px", cursor: "pointer" }),
+    valueContainer: (base: any) => ({
+      ...base,
+      padding: "0 16px",
+      cursor: "pointer",
+    }),
+    indicatorsContainer: (base: any) => ({
+      ...base,
+      height: "56px",
+      cursor: "pointer",
+    }),
     dropdownIndicator: (base: any, state: any) => ({
       ...base,
       color: state.isFocused ? "#4B0082" : "#737373",
@@ -429,7 +440,11 @@ const AddProduct = () => {
     }),
     option: (base: any, state: any) => ({
       ...base,
-      backgroundColor: state.isSelected ? "#4B0082" : state.isFocused ? "#F3E8FF" : "white",
+      backgroundColor: state.isSelected
+        ? "#4B0082"
+        : state.isFocused
+          ? "#F3E8FF"
+          : "white",
       color: state.isSelected ? "white" : "#1E1E1E",
       cursor: "pointer",
       "&:active": { backgroundColor: "#4B0082", color: "white" },
@@ -475,7 +490,6 @@ const AddProduct = () => {
         </div>
       </div>
 
-      {/* Product Details */}
       <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
         <div className="absolute -top-5 left-4 bg-white px-2 text-h3 font-semibold">
           Product Details
@@ -490,7 +504,11 @@ const AddProduct = () => {
             <Select
               options={categoryOptions}
               isLoading={loadingCategories}
-              value={categoryOptions.find((o) => o.value === form.productCategoryId) || null}
+              value={
+                categoryOptions.find(
+                  (o) => o.value === form.productCategoryId,
+                ) || null
+              }
               onChange={handleCategoryChange}
               placeholder="Select category"
               isDisabled={mode === "delete"}
@@ -498,7 +516,9 @@ const AddProduct = () => {
               styles={selectStyles("productCategoryId")}
             />
             {errors.productCategoryId && (
-              <p className="text-red-500 text-sm mt-1">{errors.productCategoryId}</p>
+              <p className="text-red-500 text-sm mt-1">
+                {errors.productCategoryId}
+              </p>
             )}
           </div>
 
@@ -510,7 +530,11 @@ const AddProduct = () => {
             <Select
               options={subcategoryOptions}
               isLoading={loadingSubcategories}
-              value={subcategoryOptions.find((o) => o.value === form.therapeuticSubcategory) || null}
+              value={
+                subcategoryOptions.find(
+                  (o) => o.value === form.therapeuticSubcategory,
+                ) || null
+              }
               onChange={handleSubcategoryChange}
               placeholder="Select subcategory"
               isDisabled={!form.productCategoryId || mode === "delete"}
@@ -518,30 +542,46 @@ const AddProduct = () => {
               styles={selectStyles("therapeuticSubcategory")}
             />
             {errors.therapeuticSubcategory && (
-              <p className="text-red-500 text-sm mt-1">{errors.therapeuticSubcategory}</p>
+              <p className="text-red-500 text-sm mt-1">
+                {errors.therapeuticSubcategory}
+              </p>
             )}
           </div>
 
           <div className="col-span-2">
             <Input
-              label="Product Name" name="productName" id="productName"
-              placeholder="e.g., Paracetamol" onChange={handleChange}
-              value={form.productName} disabled={mode === "delete"}
-              error={errors.productName} required
+              label="Product Name"
+              name="productName"
+              id="productName"
+              placeholder="e.g., Paracetamol"
+              onChange={handleChange}
+              value={form.productName}
+              disabled={mode === "delete"}
+              error={errors.productName}
+              required
             />
           </div>
 
           <Input
-            label="Dosage Form (Tablet, Syrup)" name="dosageForm"
+            label="Dosage Form (Tablet, Syrup)"
+            name="dosageForm"
             placeholder="e.g., Tablet / Capsule / Syrup / Injection"
-            value={form.dosageForm} onChange={handleChange}
-            disabled={mode === "delete"} error={errors.dosageForm} required
+            value={form.dosageForm}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.dosageForm}
+            required
           />
 
           <Input
-            label="Strength" name="strength" placeholder="e.g., 650 mg"
-            value={form.strength} onChange={handleChange}
-            disabled={mode === "delete"} error={errors.strength} required
+            label="Strength"
+            name="strength"
+            placeholder="e.g., 650 mg"
+            value={form.strength}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.strength}
+            required
           />
 
           <div className="col-span-2">
@@ -555,7 +595,9 @@ const AddProduct = () => {
                       placeholder="e.g., Paracetamol"
                       required
                       value={molecule.moleculeName}
-                      onChange={(e) => handleMoleculeChange(index, e.target.value)}
+                      onChange={(e) =>
+                        handleMoleculeChange(index, e.target.value)
+                      }
                       disabled={mode === "delete"}
                     />
                   </div>
@@ -565,28 +607,44 @@ const AddProduct = () => {
                       onClick={addMoleculeField}
                       className="h-14 w-14 bg-[#4B0082] rounded-lg flex items-center justify-center cursor-pointer"
                     >
-                      <img src="/icons/PlusIcon.svg" alt="Add" className="w-3 h-3" />
+                      <img
+                        src="/icons/PlusIcon.svg"
+                        alt="Add"
+                        className="w-3 h-3"
+                      />
                     </button>
                   )}
                 </div>
               ))}
             </div>
 
-            {form.molecules.some((m) => m.mechanismOfAction || m.primaryUse) && (
+            {form.molecules.some(
+              (m) => m.mechanismOfAction || m.primaryUse,
+            ) && (
               <div className="col-span-2 bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm space-y-4 mt-4">
                 {form.molecules.some((m) => m.mechanismOfAction) && (
                   <div>
-                    <div className="font-semibold text-purple-900">Mechanism of Action</div>
+                    <div className="font-semibold text-purple-900">
+                      Mechanism of Action
+                    </div>
                     <div className="text-neutral-700 mt-1">
-                      {form.molecules.filter((m) => m.mechanismOfAction).map((m) => m.mechanismOfAction).join(" & ")}
+                      {form.molecules
+                        .filter((m) => m.mechanismOfAction)
+                        .map((m) => m.mechanismOfAction)
+                        .join(" & ")}
                     </div>
                   </div>
                 )}
                 {form.molecules.some((m) => m.primaryUse) && (
                   <div>
-                    <div className="font-semibold text-purple-900">Primary Use</div>
+                    <div className="font-semibold text-purple-900">
+                      Primary Use
+                    </div>
                     <div className="text-neutral-700 mt-1">
-                      {form.molecules.filter((m) => m.primaryUse).map((m) => m.primaryUse).join(" & ")}
+                      {form.molecules
+                        .filter((m) => m.primaryUse)
+                        .map((m) => m.primaryUse)
+                        .join(" & ")}
                     </div>
                   </div>
                 )}
@@ -600,10 +658,13 @@ const AddProduct = () => {
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
             <textarea
-              name="warningsPrecautions" id="warningsPrecautions"
+              name="warningsPrecautions"
+              id="warningsPrecautions"
               placeholder="Enter contraindications, side effects, storage conditions"
-              value={form.warningsPrecautions} onChange={handleChange}
-              disabled={mode === "delete"} rows={4}
+              value={form.warningsPrecautions}
+              onChange={handleChange}
+              disabled={mode === "delete"}
+              rows={4}
               className={`w-full h-36 rounded-2xl p-3 resize-none overflow-y-auto border ${
                 errors.warningsPrecautions
                   ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
@@ -611,7 +672,9 @@ const AddProduct = () => {
               } focus:outline-none focus:ring-0`}
             />
             {errors.warningsPrecautions && (
-              <p className="text-red-500 text-sm mt-1">{errors.warningsPrecautions}</p>
+              <p className="text-red-500 text-sm mt-1">
+                {errors.warningsPrecautions}
+              </p>
             )}
           </div>
 
@@ -621,10 +684,13 @@ const AddProduct = () => {
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
             <textarea
-              name="productDescription" id="productDescription"
+              name="productDescription"
+              id="productDescription"
               placeholder="Brief product overview, indications, pack details"
-              value={form.productDescription} onChange={handleChange}
-              disabled={mode === "delete"} rows={4}
+              value={form.productDescription}
+              onChange={handleChange}
+              disabled={mode === "delete"}
+              rows={4}
               className={`w-full h-36 rounded-2xl p-3 resize-none overflow-y-auto border ${
                 errors.productDescription
                   ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
@@ -632,16 +698,23 @@ const AddProduct = () => {
               } focus:outline-none focus:ring-0`}
             />
             {errors.productDescription && (
-              <p className="text-red-500 text-sm mt-1">{errors.productDescription}</p>
+              <p className="text-red-500 text-sm mt-1">
+                {errors.productDescription}
+              </p>
             )}
           </div>
 
           <div className="col-span-2">
             <Input
-              label="Marketing URL" name="productMarketingUrl" id="productMarketingUrl"
-              placeholder="https://" value={form.productMarketingUrl}
-              onChange={handleChange} disabled={mode === "delete"}
-              error={errors.productMarketingUrl} required
+              label="Marketing URL"
+              name="productMarketingUrl"
+              id="productMarketingUrl"
+              placeholder="https://"
+              value={form.productMarketingUrl}
+              onChange={handleChange}
+              disabled={mode === "delete"}
+              error={errors.productMarketingUrl}
+              required
             />
           </div>
         </div>
@@ -653,16 +726,61 @@ const AddProduct = () => {
           Packaging & Order Details
         </div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-          <Input label="Packaging Unit" name="packagingUnit" id="packagingUnit" placeholder=""
-            value={form.packagingUnit} onChange={handleChange} disabled={mode === "delete"} error={errors.packagingUnit} required />
-          <Input label="Number of Units" name="numberOfUnits" id="numberOfUnits" placeholder=""
-            value={form.numberOfUnits} onChange={handleChange} disabled={mode === "delete"} error={errors.numberOfUnits} required />
-          <Input label="Pack Size" name="packSize" id="packSize" placeholder=""
-            value={form.packSize} onChange={handleChange} disabled={mode === "delete"} error={errors.packSize} required />
-          <Input label="Min Order Qty" name="minimumOrderQuantity" id="minimumOrderQuantity" placeholder=""
-            value={form.minimumOrderQuantity} onChange={handleChange} disabled={mode === "delete"} error={errors.minimumOrderQuantity} required />
-          <Input label="Max Order Qty" name="maximumOrderQuantity" id="maximumOrderQuantity" placeholder=""
-            value={form.maximumOrderQuantity} onChange={handleChange} disabled={mode === "delete"} error={errors.maximumOrderQuantity} required />
+          <Input
+            label="Packaging Unit"
+            name="packagingUnit"
+            id="packagingUnit"
+            placeholder=""
+            value={form.packagingUnit}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.packagingUnit}
+            required
+          />
+          <Input
+            label="Number of Units"
+            name="numberOfUnits"
+            id="numberOfUnits"
+            placeholder=""
+            value={form.numberOfUnits}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.numberOfUnits}
+            required
+          />
+          <Input
+            label="Pack Size"
+            name="packSize"
+            id="packSize"
+            placeholder=""
+            value={form.packSize}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.packSize}
+            required
+          />
+          <Input
+            label="Min Order Qty"
+            name="minimumOrderQuantity"
+            id="minimumOrderQuantity"
+            placeholder=""
+            value={form.minimumOrderQuantity}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.minimumOrderQuantity}
+            required
+          />
+          <Input
+            label="Max Order Qty"
+            name="maximumOrderQuantity"
+            id="maximumOrderQuantity"
+            placeholder=""
+            value={form.maximumOrderQuantity}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.maximumOrderQuantity}
+            required
+          />
         </div>
       </div>
 
@@ -672,89 +790,222 @@ const AddProduct = () => {
           Batch, Stock Entry, Pricing & Tax Details
         </div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-          <Input label="Batch/Lot Number" name="batchLotNumber" id="batchLotNumber" placeholder=""
-            value={form.batchLotNumber} onChange={handleChange} disabled={mode === "delete"} error={errors.batchLotNumber} required />
-          <Input label="Manufacturer Name" name="manufacturerName" id="manufacturerName" placeholder=""
-            value={form.manufacturerName} onChange={handleChange} disabled={mode === "delete"} error={errors.manufacturerName} required />
           <Input
-            label="Manufacturing Date" type="date" name="manufacturingDate" id="manufacturingDate" placeholder=""
-            onChange={(e) => setForm({ ...form, manufacturingDate: new Date(e.target.value) })}
-            value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""}
-            disabled={mode === "delete"} error={errors.manufacturingDate} required
+            label="Batch/Lot Number"
+            name="batchLotNumber"
+            id="batchLotNumber"
+            placeholder=""
+            value={form.batchLotNumber}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.batchLotNumber}
+            required
           />
           <Input
-            label="Expiry Date" type="date" name="expiryDate" id="expiryDate" placeholder=""
-            onChange={(e) => setForm({ ...form, expiryDate: new Date(e.target.value) })}
-            value={form.expiryDate ? form.expiryDate.toISOString().split("T")[0] : ""}
-            disabled={mode === "delete"} error={errors.expiryDate} required
+            label="Manufacturer Name"
+            name="manufacturerName"
+            id="manufacturerName"
+            placeholder=""
+            value={form.manufacturerName}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.manufacturerName}
+            required
           />
-          <Input label="Storage Condition" name="storageCondition" id="storageCondition" placeholder=""
-            value={form.storageCondition} onChange={handleChange} disabled={mode === "delete"} error={errors.storageCondition} required />
-          <Input label="Stock Quantity" name="stockQuantity" id="stockQuantity" placeholder=""
-            value={form.stockQuantity} onChange={handleChange} disabled={mode === "delete"} error={errors.stockQuantity} required />
-          <Input label="Price Per Unit" name="pricePerUnit" id="pricePerUnit" placeholder=""
-            value={form.pricePerUnit} onChange={handleChange} disabled={mode === "delete"} error={errors.pricePerUnit} required />
           <Input
-            label="MRP" name="mrp" id="mrp" value={form.mrp}
+            label="Manufacturing Date"
+            type="date"
+            name="manufacturingDate"
+            id="manufacturingDate"
+            placeholder=""
+            onChange={(e) =>
+              setForm({ ...form, manufacturingDate: new Date(e.target.value) })
+            }
+            value={
+              form.manufacturingDate
+                ? form.manufacturingDate.toISOString().split("T")[0]
+                : ""
+            }
+            disabled={mode === "delete"}
+            error={errors.manufacturingDate}
+            required
+          />
+          <Input
+            label="Expiry Date"
+            type="date"
+            name="expiryDate"
+            id="expiryDate"
+            placeholder=""
+            onChange={(e) =>
+              setForm({ ...form, expiryDate: new Date(e.target.value) })
+            }
+            value={
+              form.expiryDate ? form.expiryDate.toISOString().split("T")[0] : ""
+            }
+            disabled={mode === "delete"}
+            error={errors.expiryDate}
+            required
+          />
+          <Input
+            label="Storage Condition"
+            name="storageCondition"
+            id="storageCondition"
+            placeholder=""
+            value={form.storageCondition}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.storageCondition}
+            required
+          />
+          <Input
+            label="Stock Quantity"
+            name="stockQuantity"
+            id="stockQuantity"
+            placeholder=""
+            value={form.stockQuantity}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.stockQuantity}
+            required
+          />
+          <Input
+            label="Price Per Unit"
+            name="pricePerUnit"
+            id="pricePerUnit"
+            placeholder=""
+            value={form.pricePerUnit}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.pricePerUnit}
+            required
+          />
+          <Input
+            label="MRP"
+            name="mrp"
+            id="mrp"
+            value={form.mrp}
             onChange={(e) => {
               const value = e.target.value;
-              setForm((prev) => ({ ...prev, mrp: value, finalPrice: calculateFinalPrice(value, prev.discountPercentage) }));
+              setForm((prev) => ({
+                ...prev,
+                mrp: value,
+                finalPrice: calculateFinalPrice(value, prev.discountPercentage),
+              }));
             }}
-            disabled={mode === "delete"} error={errors.mrp} required
+            disabled={mode === "delete"}
+            error={errors.mrp}
+            required
           />
           <Input
-            label="Date of Entry" type="date" name="createdDate" id="createdDate" required
-            value={form.createdDate ? form.createdDate.toISOString().split("T")[0] : ""}
-            onChange={(e) => setForm({ ...form, createdDate: new Date(e.target.value) })}
-            disabled={mode === "delete"} error={errors.createdDate}
+            label="Date of Entry"
+            type="date"
+            name="createdDate"
+            id="createdDate"
+            required
+            value={
+              form.createdDate
+                ? form.createdDate.toISOString().split("T")[0]
+                : ""
+            }
+            onChange={(e) =>
+              setForm({ ...form, createdDate: new Date(e.target.value) })
+            }
+            disabled={mode === "delete"}
+            error={errors.createdDate}
           />
-          <Input label="GST %" name="gstPercentage" id="gstPercentage" placeholder=""
-            value={form.gstPercentage} onChange={handleChange} disabled={mode === "delete"} error={errors.gstPercentage} required />
+          <Input
+            label="GST %"
+            name="gstPercentage"
+            id="gstPercentage"
+            placeholder=""
+            value={form.gstPercentage}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.gstPercentage}
+            required
+          />
 
           <div className="py-2 text-label-l4 font-semibold col-span-2">
             Additional Discount (Quantity-based)
           </div>
 
-          <Input label="Minimum Purchase Quantity" name="minimumPurchaseQuantity" id="minimumPurchaseQuantity" placeholder="" />
           <Input
-            label="Discount %" name="discountPercentage" id="discountPercentage"
+            label="Minimum Purchase Quantity"
+            name="minimumPurchaseQuantity"
+            id="minimumPurchaseQuantity"
+            placeholder=""
+          />
+          <Input
+            label="Discount %"
+            name="discountPercentage"
+            id="discountPercentage"
             value={form.discountPercentage}
             onChange={(e) => {
               const value = e.target.value;
-              setForm((prev) => ({ ...prev, discountPercentage: value, finalPrice: calculateFinalPrice(prev.mrp, value) }));
+              setForm((prev) => ({
+                ...prev,
+                discountPercentage: value,
+                finalPrice: calculateFinalPrice(prev.mrp, value),
+              }));
             }}
             disabled={mode === "delete"}
           />
-          <Input label="Final Price" name="finalPrice" id="finalPrice" value={form.finalPrice} disabled={true} required />
-          <Input label="HSN Code" name="hsnCode" id="hsnCode" placeholder=""
-            value={form.hsnCode} onChange={handleChange} disabled={mode === "delete"} error={errors.hsnCode} required />
+          <Input
+            label="Final Price"
+            name="finalPrice"
+            id="finalPrice"
+            value={form.finalPrice}
+            disabled={true}
+            required
+          />
+          <Input
+            label="HSN Code"
+            name="hsnCode"
+            id="hsnCode"
+            placeholder=""
+            value={form.hsnCode}
+            onChange={handleChange}
+            disabled={mode === "delete"}
+            error={errors.hsnCode}
+            required
+          />
 
-          <div className="col-span-2 flex justify-end mt-6">
-            {mode === "delete" ? (
+          <div className="flex justify-between mt-6 col-span-2">
+            <div>
               <button
-                type="button"
-                onClick={handleDelete}
-                className="bg-red-600 text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
+                onClick={() => window.location.reload()}
+                className="w-21 h-12 border-2 border-[#FF3B3B] rounded-lg text-label-l3 font-semibold text-[#FF3B3B] cursor-pointer"
               >
-                Delete
+                Cancel
               </button>
-            ) : mode === "edit" ? (
-              <button
-                type="button"
-                onClick={handleUpdate}
-                className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
-              >
-                Update
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
-              >
-                Submit
-              </button>
-            )}
+            </div>
+            <div>
+              {mode === "delete" ? (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="bg-red-600 text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
+                >
+                  Delete
+                </button>
+              ) : mode === "edit" ? (
+                <button
+                  type="button"
+                  onClick={handleUpdate}
+                  className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
+                >
+                  Update
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
+                >
+                  Submit
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

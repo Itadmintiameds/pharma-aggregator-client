@@ -85,14 +85,13 @@ const ProductList = () => {
             name="search"
             id="search"
             placeholder="Search"
-            className="border border-neutral-200 text-p4 text-neutral-500 font-semibold w-full h-12 rounded-lg px-5 pr-12"
+            className="border border-neutral-200 text-p4 text-neutral-500 font-semibold w-full h-12 rounded-lg px-5 pr-14 focus:outline-none focus:ring-0 "
           />
 
-          <Search
-            size={18}
-            className="absolute right-4 top-1/2 -translate-y-1/2  text-[#4C0080]"
-          />
-        </div>
+          <div className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center bg-purple-200 rounded-r-lg">
+            <img src="/icons/SearchIcon.svg" alt="search" className="w-6 h-6" />
+          </div>
+        </div> 
 
         <button className="w-36 h-12 bg-neutral-50 border border-neutral-200 rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2">
           Sort By
@@ -103,7 +102,6 @@ const ProductList = () => {
           />
         </button>
       </div>
-
 
       <div>
         <Table<CreateDrugProductRequest & ProductData>
