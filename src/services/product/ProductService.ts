@@ -3,18 +3,18 @@ import { api } from "@/src/utils/api";
 import { AxiosError } from "axios";
 
 export const getDrugCategory = async () => {
-    try {
-        
-        const response = await api.get('drugCategory/getAll');
-        return response.data.data;
-    } catch (error: unknown) {
-        console.error('Error fetching Drug Category:', error);
-        if (error instanceof Error) {
-            throw new Error(`Error fetching Drug Category: ${error.message}`);
-        } else {
-            throw new Error('An unknown error occurred while fetching Drug Category.');
-        }
+  try {
+
+    const response = await api.get('drugCategory/getAll');
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Drug Category:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Drug Category: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Drug Category.');
     }
+  }
 };
 
 
@@ -37,51 +37,50 @@ export const createDrugProduct = async (
   }
 };
 
-export const getDrugProductList= async () => {
-    try {
-        
-        const response = await api.get('products/getAll');
-        // return response.data;
-         return (
-    response.data?.data?.content || // paginated
-    response.data?.data ||           // wrapped
-    response.data ||                 // raw array
-    []
-  );
-    } catch (error: unknown) {
-        console.error('Error fetching Drug Product List:', error);
-        if (error instanceof Error) {
-            throw new Error(`Error fetching Drug Product List: ${error.message}`);
-        } else {
-            throw new Error('An unknown error occurred while fetching Drug Product List.');
-        }
+export const getDrugProductList = async () => {
+  try {
+
+    const response = await api.get('products/getAll');
+    return (
+      response.data?.data?.content ||
+      response.data?.data ||
+      response.data ||
+      []
+    );
+  } catch (error: unknown) {
+    console.error('Error fetching Drug Product List:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Drug Product List: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Drug Product List.');
     }
+  }
 };
 
 
 export const getDrugProductById = async (productId: string) => {
-    try {
-        if (!productId) throw new Error("Product ID is required");
-        const response = await api.get(`products/getById/${productId}`);
-         return response.data?.data ?? response.data;
-    } catch (error: unknown) {
-        console.error('Error fetching Product:', error);
-        if (error instanceof Error) {
-            throw new Error(`Error fetching Product: ${error.message}`);
-        } else {
-            throw new Error('An unknown error occurred while Product.');
-        }
+  try {
+    if (!productId) throw new Error("Product ID is required");
+    const response = await api.get(`products/getById/${productId}`);
+    return response.data?.data ?? response.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Product:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Product: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while Product.');
     }
+  }
 };
 
 export const drugProductDelete = async (productId: string) => {
-    try {
-        if (!productId) throw new Error("Product ID is required");
-        
-        const response = await api.delete(`products/delete/${productId}`);
-        return response.data;
-    } catch (error: unknown) {
-        if (error instanceof AxiosError) {
+  try {
+    if (!productId) throw new Error("Product ID is required");
+
+    const response = await api.delete(`products/delete/${productId}`);
+    return response.data;
+  } catch (error: unknown) {
+    if (error instanceof AxiosError) {
       if (error.response?.status === 403) {
         throw new Error("Access denied: You don't have permission");
       }
@@ -122,16 +121,16 @@ export const editDrugProduct = async (
 
 
 export const getTherapeuticSubcategory = async (categoryId: string) => {
-    try {
-        if (!categoryId) throw new Error("Category ID is required");
-        const response = await api.get(`products/subcategories/${categoryId}`);
-         return response.data?.data ?? response.data;
-    } catch (error: unknown) {
-        console.error('Error fetching Category:', error);
-        if (error instanceof Error) {
-            throw new Error(`Error fetching Category: ${error.message}`);
-        } else {
-            throw new Error('An unknown error occurred while Category.');
-        }
+  try {
+    if (!categoryId) throw new Error("Category ID is required");
+    const response = await api.get(`products/subcategories/${categoryId}`);
+    return response.data?.data ?? response.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Category:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Category: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while Category.');
     }
+  }
 };

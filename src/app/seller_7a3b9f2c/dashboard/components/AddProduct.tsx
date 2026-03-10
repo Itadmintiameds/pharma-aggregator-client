@@ -465,7 +465,6 @@ const AddProduct = () => {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Page header */}
       <div>
         <div className="text-h2 font-normal">Add Product</div>
         <div className="text-label-l4 text-[#1E1E1ECC] mt-1">
@@ -969,43 +968,71 @@ const AddProduct = () => {
             error={errors.hsnCode}
             required
           />
+        </div>
 
-          <div className="flex justify-between mt-6 col-span-2">
-            <div>
+        <div className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg">
+          <div className="w-285 h-34.5 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center ">
+            <div className="flex flex-col items-center justify-center">
+              <img
+                src="/icons/FolderIcon.svg"
+                alt="drug"
+                className="w-10 h-10 rounded-md object-cover"
+              />
+
+              <div className="text-label-l2 font-normal mt-4">
+                Choose a file or drag & drop it here
+              </div>
+              <div className="text-label-l1 font-normal text-neutral-400">
+                or click to browse JPEG, PNG, and Pdf{" "}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-between mt-6 col-span-2">
+          <div className="space-x-6 flex">
+            <button
+              onClick={() => window.location.reload()}
+              className="w-21 h-12 border-2 border-[#FF3B3B] rounded-lg text-label-l3 font-semibold text-[#FF3B3B] cursor-pointer"
+            >
+              Cancel
+            </button>
+
+            <button className="w-35.25 h-12 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5">
+              <img
+                src="/icons/SaveDraftIcon.svg"
+                alt="drug"
+                className="w-5 h-5 rounded-md object-cover"
+              />
+              Save Draft
+            </button>
+          </div>
+          <div>
+            {mode === "delete" ? (
               <button
-                onClick={() => window.location.reload()}
-                className="w-21 h-12 border-2 border-[#FF3B3B] rounded-lg text-label-l3 font-semibold text-[#FF3B3B] cursor-pointer"
+                type="button"
+                onClick={handleDelete}
+                className="bg-red-600 text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
               >
-                Cancel
+                Delete
               </button>
-            </div>
-            <div>
-              {mode === "delete" ? (
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  className="bg-red-600 text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
-                >
-                  Delete
-                </button>
-              ) : mode === "edit" ? (
-                <button
-                  type="button"
-                  onClick={handleUpdate}
-                  className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
-                >
-                  Update
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
-                >
-                  Submit
-                </button>
-              )}
-            </div>
+            ) : mode === "edit" ? (
+              <button
+                type="button"
+                onClick={handleUpdate}
+                className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
+              >
+                Update
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
+              >
+                Submit
+              </button>
+            )}
           </div>
         </div>
       </div>
