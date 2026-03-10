@@ -21,7 +21,7 @@ const SellerDashboard = () => {
   useEffect(() => {
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setShowWelcomePopup(true);
+    setShowWelcomePopup(false);
   }, []);
 
   const handleCloseWelcome = () => {
@@ -29,7 +29,7 @@ const SellerDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen ">
       {/* Welcome Popup */}
       {showWelcomePopup && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
