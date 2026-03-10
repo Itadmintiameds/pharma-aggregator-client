@@ -80,7 +80,7 @@ const PROGRESS_STEPS = [10, 25, 40, 55, 70, 85, 100];
 const TEMPLATES: Record<ProductType, { name: string; path: string }> = {
   drugs: {
     name: "drug_products_template.xlsx",
-    path: "/templates/drug_products_template.xlsx",
+    path: "/templates/Drugs_Pharma_Product_Upload_Template_v0.1 1.xlsx",
   },
   food: {
     name: "food_products_template.xlsx",
