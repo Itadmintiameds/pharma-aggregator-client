@@ -1,14 +1,28 @@
-
-"use client";
+import { Suspense } from "react";
 import Home from "./components/landingPage/Home";
 
-
-const page = () => {
+export default function Page() {
   return (
-    <div>
-      < Home />
-    </div>
-  )
+    <Suspense fallback={<div>Loading...</div>}>
+      <Home />
+    </Suspense>
+  );
 }
 
-export default page
+
+
+
+
+// "use client";
+// import Home from "./components/landingPage/Home";
+
+
+// const page = () => {
+//   return (
+//     <div>
+//       < Home />
+//     </div>
+//   )
+// }
+
+// export default page

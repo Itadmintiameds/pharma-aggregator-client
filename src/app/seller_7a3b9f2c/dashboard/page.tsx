@@ -58,48 +58,6 @@ const SellerDashboard = () => {
               <p className="text-neutral-600 mb-6 text-lg">
                 We&apos;re excited to have you on you own Dashboard! Click on Get Started !
               </p>
-              
-              {/* Commented out for future use */}
-              {/* <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="bg-primary-05 p-4 rounded-xl flex flex-col items-center text-center hover:shadow-md transition-shadow">
-                  <div className="bg-primary-100 p-2 rounded-lg mb-2">
-                    <Package size={24} className="text-primary-900" />
-                  </div>
-                  <h3 className="font-semibold text-primary-900 text-sm">Manage Products</h3>
-                  <p className="text-xs text-neutral-600 mt-1">Add, edit, or remove products</p>
-                </div>
-                
-                <div className="bg-secondary-50 p-4 rounded-xl flex flex-col items-center text-center hover:shadow-md transition-shadow">
-                  <div className="bg-secondary-200 p-2 rounded-lg mb-2">
-                    <ShoppingBag size={24} className="text-secondary-800" />
-                  </div>
-                  <h3 className="font-semibold text-secondary-800 text-sm">Track Orders</h3>
-                  <p className="text-xs text-neutral-600 mt-1">Monitor and fulfill orders</p>
-                </div>
-                
-                <div className="bg-tertiary-50 p-4 rounded-xl flex flex-col items-center text-center hover:shadow-md transition-shadow">
-                  <div className="bg-tertiary-200 p-2 rounded-lg mb-2">
-                    <BarChart3 size={24} className="text-tertiary-800" />
-                  </div>
-                  <h3 className="font-semibold text-tertiary-800 text-sm">View Reports</h3>
-                  <p className="text-xs text-neutral-600 mt-1">Track sales performance</p>
-                </div>
-                
-                <div className="bg-success-50 p-4 rounded-xl flex flex-col items-center text-center hover:shadow-md transition-shadow">
-                  <div className="bg-success-200 p-2 rounded-lg mb-2">
-                    <UserCheck size={24} className="text-success-700" />
-                  </div>
-                  <h3 className="font-semibold text-success-700 text-sm">Profile Setup</h3>
-                  <p className="text-xs text-neutral-600 mt-1">Update business details</p>
-                </div>
-              </div>
-
-              <div className="bg-neutral-50 p-4 rounded-xl mb-6">
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary-900 text-white text-xs font-bold px-2 py-1 rounded-full">TIP</div>
-                  <p className="text-sm text-neutral-600">Start by adding your first product to showcase your inventory to potential buyers!</p>
-                </div>
-              </div> */}
 
               <button
                 onClick={handleCloseWelcome}
@@ -127,11 +85,6 @@ const SellerDashboard = () => {
 
         {/* Main Content Area */}
         <main className="flex-1 p-6 ml-64 mt-16">
-          {/* Welcome Message - Commented out for future use */}
-          {/* <div className="mb-6 bg-primary-05 p-4 rounded-lg">
-            <h1 className="text-h5 font-semibold text-primary-900">Welcome back, Seller!</h1>
-          </div> */}
-
           {/* Render different views based on selection */}
           {currentView === "overview" && <DashboardOverview setCurrentView={setCurrentView} />}
           {currentView === "addProduct" && <AddProduct />}

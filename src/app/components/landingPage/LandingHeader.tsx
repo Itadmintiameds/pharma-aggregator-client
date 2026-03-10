@@ -15,7 +15,7 @@ const LandingHeader = ({ onLoginClick }: LandingHeaderProps) => {
 
             {/* ================= ROW 1 ================= */}
             <div className="w-full h-16 px-[40px] py-[8px] flex items-center gap-4 bg-base-white">
-                <div className="max-w-[1200px] w-full h-12 mx-auto flex items-center justify-between">
+                <div className="max-w-full w-full h-12 mx-auto flex items-center justify-between">
 
                     {/* Logo */}
                     <Link href="/" className="relative w-[121px] h-[56px]">
@@ -55,7 +55,7 @@ const LandingHeader = ({ onLoginClick }: LandingHeaderProps) => {
 
             {/* ================= ROW 2 ================= */}
             <div className="w-full h-16 px-[40px] py-[8px] flex items-center gap-6 border-b border-neutral-100 bg-base-white">
-                <div className="max-w-[1200px] w-full mx-auto flex items-center justify-between">
+                <div className="max-w-full w-full mx-auto flex items-center justify-between">
 
                     {/* Search */}
                     <div className="relative w-[662px] h-12">
