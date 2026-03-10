@@ -508,7 +508,7 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
         className={`w-full h-12 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] mb-6 ${
           isLoginValid && !isLoading
             ? "bg-primary-900 text-white hover:bg-primary-800"
-            : "bg-neutral-300 text-neutral-500 cursor-not-allowed"
+            : "bg-primary-900 text-white cursor-not-allowed"
         }`}
       >
         {isLoading ? 'Processing...' : 'Login'}
