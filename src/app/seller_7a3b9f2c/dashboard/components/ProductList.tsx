@@ -36,14 +36,14 @@ const columns: Column<CreateDrugProductRequest & ProductData>[] = [
     header: "Stock",
     accessor: (row) => row.pricingDetails?.[0]?.stockQuantity ?? "-",
   },
-  {
-    header: "Status",
-    accessor: () => (
-      <span className="p-2 w-14 h-8 bg-success-50 text-p3 text-success-900 font-semibold rounded-lg">
-        Active
-      </span>
-    ),
-  },
+  // {
+  //   header: "Status",
+  //   accessor: () => (
+  //     <span className="p-2 w-14 h-8 bg-success-50 text-p3 text-success-900 font-semibold rounded-lg">
+  //       Active
+  //     </span>
+  //   ),
+  // },
 ];
 const ProductList = () => {
   const [data, setData] = useState<(CreateDrugProductRequest & ProductData)[]>(

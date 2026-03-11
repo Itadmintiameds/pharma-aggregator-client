@@ -116,6 +116,13 @@ export const drugProductSchema = z.object({
       message: "Must be a number",
     }),
 
+  discountPercentage: z
+    .string()
+    .min(1, "GST % is required")
+    .refine((val) => !isNaN(Number(val)), {
+      message: "Must be a number",
+    }),
+
   hsnCode: z
     .string()
     .min(1, "HSN Code is required")
