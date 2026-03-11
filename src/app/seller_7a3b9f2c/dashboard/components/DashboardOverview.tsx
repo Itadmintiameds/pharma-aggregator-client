@@ -12,7 +12,7 @@ import TopSellingCard from "./TopSellingCard";
 import WeeklySummaryCard from "./WeeklySummaryCard";
 import ProductTable from "./ProductTable";
 import { DashboardView } from "@/src/types/seller/dashboard";
-import ProductList from "./ProductList";
+import ProductList from "./ProductList"; 
 
 
 interface DashboardOverviewProps {
