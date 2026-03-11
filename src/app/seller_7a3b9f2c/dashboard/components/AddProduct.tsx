@@ -264,6 +264,7 @@ const AddProduct = () => {
         ],
         moleculeIds,
       };
+      console.log("Payload:", payload);
       await createDrugProduct(payload);
       alert("Product created successfully!");
       window.location.reload();
@@ -392,6 +393,9 @@ const AddProduct = () => {
             mrp: Number(form.mrp),
             discountPercentage: Number(form.discountPercentage),
             gstPercentage: Number(form.gstPercentage),
+            additionalDiscount: Number(form.additionalDiscount),
+            minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
+            finalPrice: Number(form.finalPrice),
             hsnCode: Number(form.hsnCode),
           },
         ],
@@ -494,27 +498,7 @@ const AddProduct = () => {
         <div className="text-label-l4 text-[#1E1E1ECC] mt-1">
           Here's Your Current Sales Overview
         </div>
-        {/* <div className="space-x-4 mt-6">
-          <button className="rounded-lg text-label-l2 font-semibold border-2 border-[#9F75FC] text-[#9F75FC] w-16 h-10">
-            Drugs
-          </button>
-          
-          <button className="rounded-lg text-label-l2 font-semibold bg-[#9F75FC] text-white w-16 h-10">
-            Drugs
-          </button>
-          <button className="rounded-lg text-label-l2 font-semibold bg-neutral-200 text-neutral-500 w-52 h-10">
-            Supplements / Nutraceuticals
-          </button>
-          <button className="rounded-lg text-label-l2 font-semibold bg-neutral-200 text-neutral-500 w-44 h-10">
-            Food & Infant Nutrition
-          </button>
-          <button className="rounded-lg text-label-l2 font-semibold bg-neutral-200 text-neutral-500 w-44 h-10">
-            Cosmetic & Personal Use
-          </button>
-          <button className="rounded-lg text-label-l2 font-semibold bg-neutral-200 text-neutral-500 w-52 h-10">
-            Medical Devices & Equipment
-          </button>
-        </div> */}
+
         <CategoryButtons onSelect={handleCategorySelect} />
 
         {!showForm && (
@@ -1005,6 +989,10 @@ const AddProduct = () => {
                 name="minimumPurchaseQuantity"
                 id="minimumPurchaseQuantity"
                 placeholder=""
+                value={form.minimumPurchaseQuantity}
+                onChange={handleChange}
+                disabled={mode === "delete"}
+                error={errors.minimumPurchaseQuantity}
               />
 
               <Input
