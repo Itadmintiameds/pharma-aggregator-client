@@ -33,8 +33,9 @@ export interface PricingData {
   mrp: number;
   createdDate: Date | null;
   gstPercentage: number;
-  minimumPurchaseQuantity: number;
   discountPercentage: number;
+  minimumPurchaseQuantity: number;
+  additionalDiscount: number;
   finalPrice: number;  
   hsnCode: number;
  
