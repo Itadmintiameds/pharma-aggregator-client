@@ -6,7 +6,7 @@ interface KpiCardProps {
   value: number | string;
   growth?: string;
   icon: React.ReactNode;
-  
+  className?: string;
 }
 
 const KpiCard: React.FC<KpiCardProps> = ({
@@ -14,11 +14,15 @@ const KpiCard: React.FC<KpiCardProps> = ({
   value,
   growth,
   icon,
+  className = "",
 }) => {
   return (
     <div
-      className="p-6 rounded-2xl shadow-sm border bg-white border-neutral-100 transition-all duration-300 cursor-pointer hover:bg-primary-05 hover:shadow-md"
+      className={`p-6 rounded-2xl shadow-sm border  border-neutral-100 transition-all duration-300 ${className}`}
     >
+     {/* <div 
+       className="p-6 rounded-2xl shadow-sm border bg-white border-neutral-100 transition-all duration-300 cursor-pointer hover:bg-primary-05 hover:shadow-md"
+     > */}
       <div className="flex justify-between items-start mb-4">
         <h4 className="text-lg font-semibold text-black">{title}</h4>
         <div className="p-2 bg-yellow-50 rounded-sm">
