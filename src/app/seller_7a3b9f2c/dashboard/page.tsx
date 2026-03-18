@@ -8,6 +8,7 @@ import SellerProfile from "@/src/app/seller_7a3b9f2c/dashboard/components/Seller
 import DeleteProduct from "@/src/app/seller_7a3b9f2c/dashboard/components/DeleteProduct";
 import DashboardOverview from "@/src/app/seller_7a3b9f2c/dashboard/components/DashboardOverview";
 import AddProduct from "@/src/app/seller_7a3b9f2c/dashboard/components/AddProduct";
+import ProductView1 from "@/src/app/seller_7a3b9f2c/dashboard/components/ProductView1";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import Reports from "./components/Reports";
 import Products from "./components/Products"; 
@@ -17,6 +18,7 @@ import { X, Sparkles } from "lucide-react";
 const SellerDashboard = () => {
   const [currentView, setCurrentView] = useState<DashboardView>("overview");
   const [showWelcomePopup, setShowWelcomePopup] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   useEffect(() => {
 
@@ -86,13 +88,31 @@ const SellerDashboard = () => {
         {/* Main Content Area */}
         <main className="flex-1 p-6 ml-64 mt-16">
           {/* Render different views based on selection */}
-          {currentView === "overview" && <DashboardOverview setCurrentView={setCurrentView} />}
+          {/* {currentView === "overview" && <DashboardOverview setCurrentView={setCurrentView} />} */}
+          {currentView === "overview" && (
+  <DashboardOverview
+    setCurrentView={setCurrentView}
+    setSelectedProductId={setSelectedProductId}
+  />
+)}
+          {currentView === "product" && (
+  <Products
+    setCurrentView={setCurrentView}
+    setSelectedProductId={setSelectedProductId}
+  />
+)}
           {currentView === "addProduct" && <AddProduct />}
           {currentView === "viewProducts" && <ViewProducts />}
           {currentView === "deleteProduct" && <DeleteProduct />}
           {currentView === "profile" && <SellerProfile />}
           {currentView === "reports" && <Reports />}
-          {currentView === "product" && <Products />}
+          {/* {currentView === "product" && <Products />} */}
+{currentView === "productView" && (
+  <ProductView1
+    productId={selectedProductId}
+    setCurrentView={setCurrentView}
+  />
+)}
         </main>
       </div>
     </div>

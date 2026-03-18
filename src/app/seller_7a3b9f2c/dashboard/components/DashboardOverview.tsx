@@ -15,11 +15,20 @@ import { DashboardView } from "@/src/types/seller/dashboard";
 import ProductList from "./ProductList"; 
 
 
+// interface DashboardOverviewProps {
+//   setCurrentView: (view: DashboardView) => void;
+// }
+
 interface DashboardOverviewProps {
   setCurrentView: (view: DashboardView) => void;
+  setSelectedProductId: (id: string) => void;
 }
 
-const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
+// const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
+const DashboardOverview = ({
+  setCurrentView,
+  setSelectedProductId
+}: DashboardOverviewProps) => {
   return (
     <div className="space-y-8">
 
@@ -109,17 +118,43 @@ const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
   valueRight="445"
   pendingCount="5"
   isThreeColumn
-  bgColor="bg-tertiary-50"
+  // bgColor="bg-tertiary-50"
 />
 </div>
 {/* <ProductTable /> */}
-<ProductList />
+{/* <ProductList /> */}
+<ProductList
+  setCurrentView={setCurrentView}
+  setSelectedProductId={setSelectedProductId}
+/>
 
     </div>
   );
 };
 
 export default DashboardOverview;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
