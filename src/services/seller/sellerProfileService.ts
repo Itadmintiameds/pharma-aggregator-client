@@ -96,6 +96,18 @@ class SellerProfileService {
       throw error;
     }
   }
+
+  async refreshProfile(): Promise<SellerProfile> {
+  console.log('🔄 Refreshing seller profile');
+  
+  // Clear any cached data if you have caching
+  const profile = await this.getCurrentSellerProfile();
+  
+  // You could also emit an event that profile was refreshed
+  // eventEmitter.emit('profileRefreshed', profile);
+  
+  return profile;
+}
   
   /**
    * Get current seller profile using the logged-in user's ID

@@ -117,6 +117,10 @@ export interface SellerDocument {
   createdBy: string;
   updatedAt: string;
   updatedBy: string;
+  licenseIssueDate?: string; 
+  licenseExpiryDate?: string;     
+  licenseIssuingAuthority?: string; 
+  licenseStatus?: 'Active' | 'InActive';
 }
 
 // ========== COMPANY TYPE ==========
