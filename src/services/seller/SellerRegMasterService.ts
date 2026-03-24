@@ -90,10 +90,7 @@ class SellerRegMasterService {
   }
 
   // ==================== DISTRICTS BY STATE ID ====================
-  /**
-   * Fetch districts for a specific state
-   * GET /districts?stateId={stateId}
-   */
+ 
   async getDistrictsByStateId(stateId: number): Promise<DistrictResponse[]> {
     try {
       console.log(`🔍 Service: Fetching districts for stateId: ${stateId}...`);
@@ -113,10 +110,7 @@ class SellerRegMasterService {
   }
 
   // ==================== TALUKAS BY DISTRICT ID ====================
-  /**
-   * Fetch talukas for a specific district
-   * GET /talukas?districtId={districtId}
-   */
+
   async getTalukasByDistrictId(districtId: number): Promise<TalukaResponse[]> {
     try {
       console.log(`🔍 Service: Fetching talukas for districtId: ${districtId}...`);
@@ -135,8 +129,6 @@ class SellerRegMasterService {
     }
   }
 
-  // ==================== LEGACY METHODS (Optional - keep if needed) ====================
-  // These are inefficient but kept for backward compatibility
   
   async getDistricts(): Promise<DistrictResponse[]> {
     console.warn("⚠️ Warning: Using inefficient getAllDistricts() - consider using getDistrictsByStateId() instead");
@@ -161,5 +153,4 @@ class SellerRegMasterService {
   }
 }
 
-// Export singleton instance
 export const sellerRegMasterService = new SellerRegMasterService();

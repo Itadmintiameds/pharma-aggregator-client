@@ -150,7 +150,7 @@ export default function ReviewForm({
             Cancel
           </button>
 
-          <button className="flex h-12 px-6 py-3 justify-center items-center gap-2 rounded-md bg-[#9F75FC] text-white font-semibold hover:bg-[#B08DFC] transition">
+          {/* <button className="flex h-12 px-6 py-3 justify-center items-center gap-2 rounded-md bg-[#9F75FC] text-white font-semibold hover:bg-[#B08DFC] transition">
             <Image
               src="/icons/savedrafticon.png"
               alt="Save Draft"
@@ -158,7 +158,7 @@ export default function ReviewForm({
               height={18}
             />
             Save Draft
-          </button>
+          </button> */}
         </div>
 
         <div className="flex gap-4">
@@ -169,8 +169,8 @@ export default function ReviewForm({
             <Image
               src="/icons/backbuttonicon.png"
               alt="Back"
-              width={18}
-              height={18}
+              width={20}
+              height={20}
             />
             Back
           </button>
@@ -185,8 +185,8 @@ export default function ReviewForm({
               <Image
                 src="/icons/continueicon.png"
                 alt="Continue"
-                width={18}
-                height={18}
+                width={20}
+                height={20}
               />
             )}
           </button>
@@ -353,7 +353,7 @@ function FileRow({
         <FileText className="w-5 h-5 shrink-0 text-neutral-700" />
         <div className="flex items-center gap-2 flex-wrap">
           {label && <span className="font-medium text-neutral-900">{label}:</span>}
-          <span className="truncate max-w-50 text-sm line-through text-neutral-700">{name}</span>
+          <span className="truncate max-w-50 text-sm text-neutral-700">{name}</span>
         </div>
       </div>
 

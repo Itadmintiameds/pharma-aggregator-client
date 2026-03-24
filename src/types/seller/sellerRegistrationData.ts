@@ -238,8 +238,8 @@ export interface TempSellerFormState {
   sellerName: string;
   companyType: string;
   sellerType: string;
-  productTypes: string[]; // Product type names for display
-  productTypeIds: number[]; // Product type IDs for submission
+  productTypes: string[]; 
+  productTypeIds: number[]; 
   
   // Address
   state: string;

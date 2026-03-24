@@ -495,13 +495,13 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
         <Image
           src="/assets/images/tiameds.logo.png"
           alt="TiaMeds"
-          width={234}
+          width={233}
           height={108}
           priority
         />
       </div>
 
-      <h2 className="text-4xl text-center font-bold text-primary-900 mb-6">
+      <h2 className="text-h5 text-center font-bold text-neutral-900 mb-6">
         Login
       </h2>
 
@@ -514,15 +514,20 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
             {...registerLogin("email")}
             type="text"
             placeholder="Enter your email/Username"
-            className="w-full h-12 pl-12 pr-4 leading-none rounded-lg border border-neutral-300 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-purple-600"
+            className="w-full h-12 pl-12 pr-4 leading-none rounded-xl border border-neutral-300 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-purple-600"
             disabled={isLoading}
           />
         </div>
-        {loginErrors.email ? (
+        {loginErrors.email && (
+  <p className="text-warning-500 text-xs mt-1">
+    {loginErrors.email.message}
+  </p>
+)}
+        {/* {loginErrors.email ? (
           <p className="text-warning-500 text-xs mt-1">{loginErrors.email.message}</p>
         ) : (
           <p className="text-warning-500 text-xs mt-1">Enter your registered email or username</p>
-        )}
+        )} */}
       </div>
 
       <div className="mb-6">
@@ -540,7 +545,7 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
             {...registerLogin("password")}
             type={showPassword ? "text" : "password"}
             placeholder="Password"
-            className="w-full h-12 pl-12 pr-12 leading-none rounded-lg border border-neutral-300 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-purple-600"
+            className="w-full h-12 pl-12 pr-12 leading-none rounded-xl border border-neutral-300 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-purple-600"
             disabled={isLoading}
           />
           <button
@@ -551,11 +556,16 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
-        {loginErrors.password ? (
+        {/* {loginErrors.password ? (
           <p className="text-warning-500 text-xs mt-1">{loginErrors.password.message}</p>
         ) : (
           <p className="text-warning-500 text-xs mt-1">Enter your password</p>
-        )}
+        )} */}
+        {loginErrors.password && (
+  <p className="text-warning-500 text-xs mt-1">
+    {loginErrors.password.message}
+  </p>
+)}
       </div>
 
       <button
@@ -631,11 +641,11 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
               inputRefs.current[index] = el;
             }}
             type="text"
-            maxLength={6} // Allow more for paste
+            maxLength={6} 
             value={digit}
             onChange={(e) => handleOtpChange(e, index)}
             onKeyDown={(e) => handleKeyDown(e, index)}
-            className="w-12 h-12 text-center text-lg font-semibold rounded-md border border-neutral-300 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-800"
+            className="w-12 h-12 text-center text-lg font-semibold rounded-xl border border-neutral-300 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-800"
             disabled={isLoading}
           />
         ))}
@@ -713,9 +723,9 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
             disabled={isLoading}
           />
         </div>
-        <p className="text-xs text-neutral-400 mt-1">
+        {/* <p className="text-xs text-neutral-400 mt-1">
           Enter the email associated with your account
-        </p>
+        </p> */}
       </div>
 
       {/* New Password Field */}
@@ -1002,6 +1012,12 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
 };
 
 export default LoginModal;
+
+
+
+
+
+
 
 
 
