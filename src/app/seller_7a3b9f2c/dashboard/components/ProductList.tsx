@@ -3,11 +3,16 @@
 import React, { useEffect, useState } from "react";
 import Table, { Column } from "@/src/app/commonComponents/Table";
 import { getDrugProductList } from "@/src/services/product/ProductService";
+import { DashboardView } from "@/src/types/seller/dashboard";
 import {
   CreateDrugProductRequest,
   ProductData,
 } from "@/src/types/product/ProductData";
-import { Eye, Pencil, Search, Trash2 } from "lucide-react";
+
+interface ProductListProps {
+  setCurrentView: (view: DashboardView) => void;
+  setSelectedProductId: (id: string) => void;
+}
 
 const columns: Column<CreateDrugProductRequest & ProductData>[] = [
   {
@@ -45,7 +50,8 @@ const columns: Column<CreateDrugProductRequest & ProductData>[] = [
   //   ),
   // },
 ];
-const ProductList = () => {
+// const ProductList = () => {
+const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps) => {
   const [data, setData] = useState<(CreateDrugProductRequest & ProductData)[]>(
     [],
   );
@@ -116,10 +122,13 @@ const ProductList = () => {
                 className="w-5 h-5 rounded-md object-cover text-[#7D00D3]"
               />
               <img
-                src="/icons/ViewIcon.svg"
-                alt="drug"
-                className="w-5 h-5 rounded-md object-cover"
-              />
+  src="/icons/ViewIcon.svg"
+  className="w-5 h-5 cursor-pointer"
+  onClick={() => {
+    setSelectedProductId(row.productId ?? "");
+    setCurrentView("productView");
+  }}
+/>
               <img
                 src="/icons/DeleteIcon.svg"
                 alt="drug"

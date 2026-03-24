@@ -34,7 +34,14 @@ export const licenseSchema = z.object({
   file: z.instanceof(File, { message: "License file is required" }),
   issueDate: z.string().min(1, "Issue date is required"),
   expiryDate: z.string().min(1, "Expiry date is required"),
-  issuingAuthority: z.string().min(1, "Issuing authority is required"),
+  issuingAuthority: z
+    .string()
+    .min(1, "Issuing authority is required")
+    .regex(
+      /^[a-zA-Z\s.,'-]+$/,
+      "Issuing authority should only contain letters, spaces, dots, commas, apostrophes, and hyphens"
+    ),
+  // issuingAuthority: z.string().min(1, "Issuing authority is required"),
   status: z.string(), // Auto-calculated, not validated
 }).refine(
   (data) => {

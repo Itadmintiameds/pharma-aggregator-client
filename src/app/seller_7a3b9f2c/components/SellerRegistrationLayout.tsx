@@ -1,6 +1,7 @@
-"use client"
+"use client";
 
-import SellerSidebar from "./SellerSidebar"
+import React, { useEffect, useRef } from "react";
+import SellerSidebar from "./SellerSidebar";
 
 export default function SellerRegistrationLayout({
   step,
@@ -9,13 +10,24 @@ export default function SellerRegistrationLayout({
   step: number
   children: React.ReactNode
 }) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to top when step changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0
+    }
+  }, [step])
 
   return (
     <div className="flex h-screen overflow-hidden">
       <SellerSidebar step={step} />
       
       {/* Scrollable content area */}
-      <div className="flex-1 bg-white overflow-y-auto">
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 bg-white overflow-y-auto"
+      >
         <div className="p-4 sm:p-6 lg:p-10">
           {children}
         </div>
@@ -23,8 +35,6 @@ export default function SellerRegistrationLayout({
     </div>
   )
 }
-
-
 
 
 
@@ -46,17 +56,15 @@ export default function SellerRegistrationLayout({
 // }) {
 
 //   return (
-
-//     <div className="flex">
-
+//     <div className="flex h-screen overflow-hidden">
 //       <SellerSidebar step={step} />
-
-//       <div className="flex-1 bg-gray-50 p-10">
-//         {children}
+      
+//       {/* Scrollable content area */}
+//       <div className="flex-1 bg-white overflow-y-auto">
+//         <div className="p-4 sm:p-6 lg:p-10">
+//           {children}
+//         </div>
 //       </div>
-
 //     </div>
-
 //   )
-
 // }

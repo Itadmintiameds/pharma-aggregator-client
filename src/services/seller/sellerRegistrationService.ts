@@ -16,7 +16,7 @@ import {
   SellerApprovalRequest,
 } from "@/src/types/seller/sellerRegistrationData";
 
-// Define the API response wrapper interface
+
 interface ApiResponseWrapper<T> {
   status: string;
   message: string;
@@ -27,10 +27,6 @@ interface ApiResponseWrapper<T> {
 class SellerRegService {
   // ==================== SELLER REGISTRATION ====================
 
-  /**
-   * Create a new temporary seller registration
-   * POST /api/v1/temp-sellers
-   */
   async createTempSeller(data: TempSellerRequest): Promise<TempSellerResponse> {
     try {
       console.log("📡 Creating temp seller with data:", data);
@@ -39,8 +35,6 @@ class SellerRegService {
       
       console.log("✅ Raw response:", response);
       console.log("✅ Response data:", response.data);
-      
-      // Extract the actual seller data from the wrapped response
       const sellerData = response.data?.data;
       
       if (!sellerData) {
@@ -57,10 +51,6 @@ class SellerRegService {
     }
   }
 
-  /**
-   * Get all temporary sellers (Admin only)
-   * GET /api/v1/temp-sellers
-   */
   async getAllTempSellers(): Promise<ApiResponse<TempSellerAdminResponse[]>> {
     try {
       const response = await api.get<ApiResponseWrapper<TempSellerAdminResponse[]>>('/temp-sellers');
@@ -77,14 +67,8 @@ class SellerRegService {
     }
   }
 
-  /**
-   * Get temporary seller by ID
-   * GET /api/v1/temp-sellers/{id}
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getTempSellerById(id: number): Promise<any> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const response = await api.get<ApiResponseWrapper<any>>(`/temp-sellers/${id}`);
       return response.data.data; // Return the unwrapped data
     } catch (error) {
@@ -95,10 +79,6 @@ class SellerRegService {
 
   // ==================== EMAIL OTP SERVICES ====================
 
-  /**
-   * Send OTP to email for verification
-   * POST /api/v1/temp-seller/email-otp/send
-   */
   async sendEmailOtp(data: EmailOtpSendRequest): Promise<OtpResponse> {
     try {
       const response = await api.post<OtpResponse>('/temp-seller/email-otp/send', data);
@@ -109,10 +89,6 @@ class SellerRegService {
     }
   }
 
-  /**
-   * Verify email OTP
-   * POST /api/v1/temp-seller/email-otp/verify
-   */
   async verifyEmailOtp(data: EmailOtpVerifyRequest): Promise<OtpResponse> {
     try {
       const response = await api.post<OtpResponse>('/temp-seller/email-otp/verify', data);
@@ -127,26 +103,20 @@ class SellerRegService {
 
 /**
  * Check if coordinator email already exists in the system
- * GET /api/v1/temp-sellers/coordinator/check-email?email={email}
  */
 async checkCoordinatorEmail(email: string): Promise<boolean> {
   try {
     console.log(`📡 Checking if coordinator email exists: ${email}`);
     
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response = await api.get<any>('/temp-sellers/coordinator/check-email', {
       params: { email }
     });
     
     console.log("✅ Email check response:", response.data);
-    
-    // The response structure is: { status, message, count, data }
-    // The actual boolean value is in response.data.data
     return response.data?.data === true;
   } catch (error) {
     console.error('❌ Error checking coordinator email:', error);
     
-    // Handle different error scenarios
      if (axios.isAxiosError(error)) {
       const statusCode = error.response?.status;
       
@@ -165,27 +135,20 @@ async checkCoordinatorEmail(email: string): Promise<boolean> {
 
   // ==================== SMS OTP SERVICES ====================
 
-//   /**
-//    * Send OTP to phone via SMS
-//    */
-
 
 async sendSMSOtp(data: SMSOtpRequest): Promise<SMSOtpResponse> {
   try {
     const response = await api.post<ApiResponseWrapper<SMSOtpResponse>>('/otp/send', data);
-    // If successful, return the inner data
     return response.data.data;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error('❌ Error sending SMS OTP:', error);
     
-    // Extract nested error message if available
     if (error.response?.data?.data?.message) {
       throw new Error(error.response.data.data.message);
     } else if (error.response?.data?.message) {
       throw new Error(error.response.data.message);
     }
-    throw error; // fallback
+    throw error; 
   }
 }
 
@@ -193,7 +156,6 @@ async verifySMSOtp(data: SMSVerifyOtpRequest): Promise<SMSOtpResponse> {
   try {
     const response = await api.post<ApiResponseWrapper<SMSOtpResponse>>('/otp/verify', data);
     return response.data.data;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error('❌ Error verifying SMS OTP:', error);
     
@@ -206,16 +168,11 @@ async verifySMSOtp(data: SMSVerifyOtpRequest): Promise<SMSOtpResponse> {
   }
 }
 
-/**
- * Check if coordinator phone already exists in the system
- */
 async checkCoordinatorPhone(phone: string): Promise<boolean> {
   try {
     const cleanPhone = phone.replace(/\D/g, '');
     
     console.log(`📡 Checking if coordinator phone exists: ${cleanPhone}`);
-    
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response = await api.get<any>('/temp-sellers/coordinator/check-phone', {
       params: { mobile: cleanPhone }
     });
@@ -226,7 +183,6 @@ async checkCoordinatorPhone(phone: string): Promise<boolean> {
   } catch (error) {
     console.error('❌ Error checking coordinator phone:', error);
     
-    // Handle different error scenarios
     if (axios.isAxiosError(error)) {
       const statusCode = error.response?.status;
       
@@ -245,13 +201,8 @@ async checkCoordinatorPhone(phone: string): Promise<boolean> {
 
   // ==================== SELLER APPROVAL ====================
 
-  /**
-   * Approve/Reject/Request correction for seller
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async approveSeller(data: SellerApprovalRequest): Promise<ApiResponse<any>> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const response = await api.post<ApiResponseWrapper<any>>('/admin/seller-approval', data);
       return {
         statusCode: response.data.status,
@@ -265,5 +216,4 @@ async checkCoordinatorPhone(phone: string): Promise<boolean> {
   }
 }
 
-// Export singleton instance
 export const sellerRegService = new SellerRegService();

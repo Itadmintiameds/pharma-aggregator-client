@@ -9,7 +9,7 @@ interface DashboardFiltersProps {
   setCurrentView: (view: DashboardView) => void;
 }
 
-type ModalView   = "methods" | "excel" | "success";
+type ModalView   = "methods" | "excel" | "api" | "success";
 type ProductType = "drugs" | "food";
 
 interface UploadedFile {
@@ -77,14 +77,18 @@ const METHODS = [
 
 const PROGRESS_STEPS = [10, 25, 40, 55, 70, 85, 100];
 
-const TEMPLATES: Record<ProductType, { name: string; path: string }> = {
+const TEMPLATES: Record<ProductType, { name: string; xlsx: string; csv: string, xls: string }> = {
   drugs: {
-    name: "drug_products_template.xlsx",
-    path: "/templates/Drugs_Pharma_Product_Upload_Template_v0.1.xlsx",
+    name: "drug_products_template",
+    xlsx: "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.xlsx",
+    csv:  "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.csv",
+    xls: "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.xls"
   },
   food: {
-    name: "food_products_template.xlsx",
-    path: "/templates/Suppliments or Nutraceuticals _Product_Upload_Template_v0.1.xlsx",
+    name: "food_products_template",
+    xlsx: "/templates/food/Suppliments or Nutraceuticals _Product_Upload_Template_v0.1.xlsx",
+    csv:  "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.csv",
+    xls: "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.xls"
   },
 };
 
@@ -259,7 +263,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
     e.preventDefault();
     setDragging(false);
     const dropped = Array.from(e.dataTransfer.files).filter((f) =>
-      [".xlsx", ".xls", ".csv"].some((ext) => f.name.toLowerCase().endsWith(ext))
+      [".xlsx", ".csv", ".xls"].some((ext) => f.name.toLowerCase().endsWith(ext))
     );
     if (dropped.length) addFiles(dropped);
   };
@@ -299,6 +303,14 @@ function ExcelUploadView({ onBack, onSuccess }: {
 
   const allReady = files.length > 0 && files.every((f) => f.status === "done" || f.status === "error");
   const template = TEMPLATES[productType];
+
+  // Download icon SVG
+  const DownloadIcon = ({ color }: { color: string }) => (
+    <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+      <path d="M12 16l-4-4h3V4h2v8h3l-4 4z" fill={color}/>
+      <path d="M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
 
   return (
     <div style={{ ...flex("col", 16) }}>
@@ -344,15 +356,37 @@ function ExcelUploadView({ onBack, onSuccess }: {
       <div style={{ ...flex("row", 0, "center", "space-between"), padding: "8px 12px", background: "#FAF5FF", outline: "1px solid #E5E7EB", outlineOffset: "-1px", borderRadius: 12 }}>
         <div style={{ ...flex("col", 4) }}>
           <div style={{ fontWeight: 600, color: "#5B21B6", fontSize: 14, ...fontBase, lineHeight: "20px" }}>{template.name}</div>
-          <div style={{ color: "#4B5563", fontSize: 12, ...fontBase, lineHeight: "16px" }}>Download and fill before uploading</div>
+          <div style={{ color: "#4B5563", fontSize: 12, ...fontBase, lineHeight: "16px" }}>Download your required format and fill before uploading</div>
         </div>
-        <a
-          href={template.path}
-          download
-          style={{ background: "#9F75FC", color: "white", borderRadius: 8, padding: "0 12px", height: 40, minHeight: 40, ...flex("row", 0, "center", "center"), fontSize: 14, fontWeight: 600, textDecoration: "none", flexShrink: 0, ...fontBase }}
-        >
-          Download
-        </a>
+        <div style={{ ...flex("row", 8, "center") }}>
+          <a
+            href={template.csv}
+            download={`${template.name}.csv`}
+            className="df-dl-btn"
+            style={{ background: "#9F75FC", color: "white", borderRadius: 8, padding: "0 10px", height: 34, ...flex("row", 4, "center", "center"), fontSize: 12, fontWeight: 700, textDecoration: "none", flexShrink: 0, border: "none", ...fontBase, letterSpacing: 0.2, gap: 4, transition: "background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease" }}
+          >
+            <DownloadIcon color="white" />
+            .csv
+          </a>
+          <a
+            href={template.xlsx}
+            download={`${template.name}.xlsx`}
+            className="df-dl-btn"
+            style={{ background: "#9F75FC", color: "white", borderRadius: 8, padding: "0 10px", height: 34, ...flex("row", 4, "center", "center"), fontSize: 12, fontWeight: 700, textDecoration: "none", flexShrink: 0, border: "none", ...fontBase, letterSpacing: 0.2, gap: 4, transition: "background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease" }}
+          >
+            <DownloadIcon color="white" />
+            .xlsx
+          </a>
+          <a
+            href={template.xls}
+            download={`${template.name}.xls`}
+            className="df-dl-btn"
+            style={{ background: "#9F75FC", color: "white", borderRadius: 8, padding: "0 10px", height: 34, ...flex("row", 4, "center", "center"), fontSize: 12, fontWeight: 700, textDecoration: "none", flexShrink: 0, border: "none", ...fontBase, letterSpacing: 0.2, gap: 4, transition: "background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease" }}
+          >
+            <DownloadIcon color="white" />
+            .xls
+          </a>
+        </div>
       </div>
 
       {/* Drop zone */}
@@ -364,7 +398,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
           onClick={() => inputRef.current?.click()}
           style={{ background: dragging ? "#F5F3FF" : "#F9FAFB", border: "1.5px dashed #6D28D9", borderRadius: 8, padding: "20px 10px", cursor: "pointer", ...flex("col", 16, "center", "center"), transition: "background 0.18s ease", minHeight: files.length ? 100 : 160 }}
         >
-          <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" multiple style={{ display: "none" }} onChange={handleFileInput}/>
+          <input ref={inputRef} type="file" accept=".xlsx,.csv,.xls" multiple style={{ display: "none" }} onChange={handleFileInput}/>
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
             <path d="M32.5075 15.6583L9.43565 16.5154C8.67212 16.5154 8.22691 16.8012 8.0166 17.5353L3.2273 33.9198C3.02929 34.6161 2.08003 34.9419 1.41968 34.9419C0.759773 34.9419 0.219727 34.4019 0.219727 33.742V29.1503V10.3386V9.43986V6.68562C0.219727 5.76227 0.968328 5.01367 1.89168 5.01367H13.771C14.2144 5.01367 14.6394 5.18974 14.9529 5.50323L18.3995 8.94987C18.713 9.26336 19.1385 9.43942 19.5815 9.43942H30.8356C31.7589 9.43942 32.5075 10.188 32.5075 11.1114V11.6826V15.6583Z" fill="#E0AD31"/>
             <path d="M1.41968 34.9419C2.07959 34.9419 2.42162 34.4383 2.61964 33.7419L7.44757 16.8986C7.65788 16.1645 8.3292 15.6587 9.09317 15.6587H38.6768C39.3832 15.6587 39.8908 16.3375 39.6914 17.0154L34.9074 33.2721C34.6914 34.0409 34.2176 34.9485 33.2377 34.9419H1.41968Z" fill="#FFC843"/>
@@ -373,7 +407,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
             <div style={{ fontSize: 14, fontWeight: 700, color: C.primary, marginBottom: 4, ...fontBase }}>
               {dragging ? "Drop it here!" : "Drag & drop your file"}
             </div>
-            <div style={{ fontSize: 12, color: "#9CA3AF", ...fontBase }}>or click to browse — .xlsx, .xls, .csv</div>
+            <div style={{ fontSize: 12, color: "#9CA3AF", ...fontBase }}>or click to browse — .xlsx, .csv, .xls</div>
           </div>
         </div>
 
@@ -438,6 +472,232 @@ function SuccessView({ files, onClose }: {
   );
 }
 
+// ─── ApiIntegrationView ───────────────────────────────────────────────────────
+function ApiIntegrationView({ onBack, onSuccess }: {
+  onBack: () => void;
+  onSuccess: () => void;
+}) {
+  const [productType, setProductType] = useState<ProductType>("drugs");
+  const [apiKey, setApiKey]           = useState("");
+  const [endpoint, setEndpoint]       = useState("");
+  const [authType, setAuthType]       = useState<"bearer" | "basic" | "apikey">("bearer");
+  const [testing, setTesting]         = useState(false);
+  const [testStatus, setTestStatus]   = useState<"idle" | "success" | "error">("idle");
+  const [showKey, setShowKey]         = useState(false);
+  const [copied, setCopied]           = useState(false);
+
+  const sampleEndpoint = productType === "drugs"
+    ? "https://your-system.com/api/v1/drugs"
+    : "https://your-system.com/api/v1/food-products";
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); });
+  };
+
+  const handleTest = async () => {
+    if (!endpoint || !apiKey || testing) return;
+    setTesting(true); setTestStatus("idle");
+    await new Promise((r) => setTimeout(r, 1600));
+    setTesting(false);
+    setTestStatus("success");
+  };
+
+  const allFilled = !!endpoint.trim() && !!apiKey.trim();
+
+  const AUTH_TYPES: { id: "bearer" | "basic" | "apikey"; label: string }[] = [
+    { id: "bearer",  label: "Bearer Token" },
+    { id: "basic",   label: "Basic Auth"   },
+    { id: "apikey",  label: "API Key"      },
+  ];
+
+  const InputLabel = ({ children }: { children: React.ReactNode }) => (
+    <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6, ...fontBase }}>{children}</div>
+  );
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", height: 40, borderRadius: 8, border: "1.5px solid #E5E7EB",
+    padding: "0 12px", fontSize: 13, color: "#111827", background: "#FAFAFA",
+    outline: "none", boxSizing: "border-box", ...fontBase,
+    transition: "border-color 0.15s",
+  };
+
+  return (
+    <div style={{ ...flex("col", 16) }}>
+      {/* Back */}
+      <button onClick={onBack} style={{ ...flex("row", 6, "center"), background: "none", border: "none", cursor: "pointer", color: C.primary, fontSize: 14, fontWeight: 600, padding: 0, ...fontBase, alignSelf: "flex-start" }}>
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+          <path d="M19 12H5M12 5l-7 7 7 7" stroke={C.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Back
+      </button>
+
+      {/* Title */}
+      <div style={{ ...flex("col", 5) }}>
+        <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", ...fontBase, lineHeight: 1.2 }}>API Integration</div>
+        <div style={{ fontSize: 14, color: "#6B7280", ...fontBase }}>Connect your system via REST API to sync products automatically</div>
+      </div>
+
+      {/* Product type */}
+      <div style={{ ...flex("col", 10) }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#111827", ...fontBase }}>Select the type of product</div>
+        <div style={{ ...flex("row", 8) }}>
+          {(["drugs", "food"] as ProductType[]).map((tab) => {
+            const active = productType === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setProductType(tab)}
+                style={{ height: 34, padding: "0 12px", borderRadius: 8, border: `1.5px solid ${active ? C.primary : "#D1D5DB"}`, background: active ? C.primaryLight : "white", color: active ? C.primary : "#374151", fontWeight: 600, fontSize: 13, cursor: "pointer", ...flex("row", 6, "center"), ...fontBase, transition: "all 0.15s" }}
+              >
+                {active && (
+                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                    <path d="M5 13l4 4L19 7" stroke={C.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+                {tab === "drugs" ? "Drugs" : "Food & Infant Nutrition"}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Sample endpoint info box */}
+      <div style={{ background: "#FFFBEB", outline: "1px solid #FCD34D", outlineOffset: "-1px", borderRadius: 12, padding: "10px 14px", ...flex("row", 10, "flex-start") }}>
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: 1 }}>
+          <circle cx="12" cy="12" r="9" stroke="#9F75FC" strokeWidth="1.8"/>
+          <path d="M12 8v4M12 16h.01" stroke="#9F75FC" strokeWidth="1.8" strokeLinecap="round"/>
+        </svg>
+        <div style={{ ...flex("col", 4), flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#9F75FC", ...fontBase }}>Expected endpoint format</div>
+          <div style={{ ...flex("row", 6, "center"), minWidth: 0 }}>
+            <code style={{ fontSize: 11, color: "#78350F", background: "#FEF3C7", padding: "2px 6px", borderRadius: 4, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "monospace" }}>
+              {sampleEndpoint}
+            </code>
+            <button
+              onClick={() => handleCopy(sampleEndpoint)}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", flexShrink: 0, ...flex("row", 0, "center", "center"), color: "#D97706" }}
+            >
+              {copied ? (
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              ) : (
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" stroke="#D97706" strokeWidth="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="#D97706" strokeWidth="1.8"/></svg>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Form fields */}
+      <div style={{ ...flex("col", 14) }}>
+
+        {/* Auth type */}
+        <div>
+          <InputLabel>Authentication Type</InputLabel>
+          <div style={{ ...flex("row", 8) }}>
+            {AUTH_TYPES.map((a) => {
+              const active = authType === a.id;
+              return (
+                <button
+                  key={a.id}
+                  onClick={() => setAuthType(a.id)}
+                  style={{ flex: 1, height: 34, borderRadius: 8, border: `1.5px solid ${active ? "#D97706" : "#E5E7EB"}`, background: active ? "#FFFBEB" : "white", color: active ? "#92400E" : "#6B7280", fontWeight: active ? 700 : 500, fontSize: 12, cursor: "pointer", ...fontBase, transition: "all 0.15s" }}
+                >
+                  {a.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Endpoint URL */}
+        <div>
+          <InputLabel>API Endpoint URL</InputLabel>
+          <input
+            value={endpoint}
+            onChange={(e) => { setEndpoint(e.target.value); setTestStatus("idle"); }}
+            placeholder="https://your-system.com/api/v1/products"
+            className="df-api-input"
+            style={inputStyle}
+          />
+        </div>
+
+        {/* API Key / Token */}
+        <div>
+          <InputLabel>{authType === "bearer" ? "Bearer Token" : authType === "basic" ? "Password / Secret" : "API Key"}</InputLabel>
+          <div style={{ position: "relative" }}>
+            <input
+              value={apiKey}
+              onChange={(e) => { setApiKey(e.target.value); setTestStatus("idle"); }}
+              type={showKey ? "text" : "password"}
+              placeholder={authType === "bearer" ? "eyJhbGciOiJIUzI1NiIs..." : authType === "basic" ? "your-secret-password" : "sk-xxxxxxxxxxxxxxxx"}
+              className="df-api-input"
+              style={{ ...inputStyle, paddingRight: 40 }}
+            />
+            <button
+              onClick={() => setShowKey((v) => !v)}
+              style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: "#9CA3AF", ...flex("row", 0, "center", "center") }}
+            >
+              {showKey ? (
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22" stroke="#9CA3AF" strokeWidth="1.8" strokeLinecap="round"/></svg>
+              ) : (
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#9CA3AF" strokeWidth="1.8"/><circle cx="12" cy="12" r="3" stroke="#9CA3AF" strokeWidth="1.8"/></svg>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Test connection result */}
+        {testStatus === "success" && (
+          <div style={{ ...flex("row", 8, "center"), padding: "10px 12px", background: "#DCFCE7", borderRadius: 8, outline: "1px solid #4EB300", outlineOffset: "-1px" }}>
+            <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#16A34A", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#166534", ...fontBase }}>Connection successful! API is reachable.</span>
+          </div>
+        )}
+        {testStatus === "error" && (
+          <div style={{ ...flex("row", 8, "center"), padding: "10px 12px", background: "#FEF2F2", borderRadius: 8, outline: "1px solid #FCA5A5", outlineOffset: "-1px" }}>
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round"/></svg>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#991B1B", ...fontBase }}>Could not reach endpoint. Check URL and credentials.</span>
+          </div>
+        )}
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ ...flex("row", 10) }}>
+        {/* Test connection */}
+        <button
+          onClick={handleTest}
+          disabled={!allFilled || testing}
+          style={{ flex: 1, height: 46, borderRadius: 10, border: `1.5px solid ${allFilled ? "#9F75FC" : "#E5E7EB"}`, background: "white", cursor: allFilled && !testing ? "pointer" : "not-allowed", ...flex("row", 8, "center", "center"), ...fontBase, transition: "all 0.2s", opacity: allFilled ? 1 : 0.5 }}
+        >
+          {testing ? (
+            <>
+              <span style={{ width: 14, height: 14, border: "2px solid #9F75FC", borderTopColor: "#9F75FC", borderRadius: "50%", animation: "dfSpin 0.7s linear infinite", display: "inline-block" }}/>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#9F75FC", ...fontBase }}>Testing...</span>
+            </>
+          ) : (
+            <>
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#9F75FC", ...fontBase }}>Test Connection</span>
+            </>
+          )}
+        </button>
+
+        {/* Connect */}
+        <button
+          onClick={() => allFilled && testStatus === "success" && onSuccess()}
+          disabled={!allFilled || testStatus !== "success"}
+          style={{ flex: 1, height: 46, borderRadius: 10, border: "none", background: allFilled && testStatus === "success" ? "linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%)" : "#F3F4F6", cursor: allFilled && testStatus === "success" ? "pointer" : "not-allowed", ...flex("row", 8, "center", "center"), ...fontBase, transition: "all 0.2s", boxShadow: allFilled && testStatus === "success" ? "0 4px 14px rgba(76,29,149,0.35)" : "none" }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 700, color: allFilled && testStatus === "success" ? "white" : "#9CA3AF", ...fontBase }}>Connect API</span>
+          <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" stroke={allFilled && testStatus === "success" ? "white" : "#9CA3AF"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── OnboardingModal ──────────────────────────────────────────────────────────
 function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onManualEntry: () => void }) {
   const [successData, setSuccessData]       = useState<{ type: ProductType; files: UploadedFile[] } | null>(null);
@@ -487,6 +747,9 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
         .df-card { transition: box-shadow 0.14s, transform 0.14s, border-color 0.14s !important; }
         .df-card:hover { transform: translateY(-1px) !important; box-shadow: 0 6px 18px rgba(0,0,0,0.09) !important; }
         .df-modal-root, .df-modal-root * { font-family: 'Open Sans', sans-serif !important; -webkit-font-smoothing: antialiased; }
+        .df-dl-btn { transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease !important; }
+        .df-dl-btn:hover { background: #C4A4FD !important; transform: translateY(-1px) !important; box-shadow: 0 4px 12px rgba(159,117,252,0.45) !important; font-weight: 800 !important; }
+        .df-api-input:focus { border-color: #7C3AED !important; background: #fff !important; outline: none !important; box-shadow: 0 0 0 3px rgba(124,58,237,0.1) !important; }
       `}</style>
 
       {/* Backdrop */}
@@ -531,6 +794,7 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
                       if (!m.ready) return;
                       if (m.id === "manual") { onManualEntry(); return; }
                       if (m.id === "excel") changeView("excel", "left");
+                      if (m.id === "api") changeView("api", "left");
                     }}
                     style={{ ...flex("row", 12, "center"), padding: "14px 16px", borderRadius: 14, border: `1px solid ${hovered === m.id ? "#D1D5DB" : "#E5E7EB"}`, background: hovered === m.id ? "#FAFAFA" : "white", cursor: m.ready ? "pointer" : "default", textAlign: "left", width: "100%", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
                   >
@@ -556,8 +820,15 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
                   </button>
                 ))}
               </div>
-              <div style={{ marginTop: 18, textAlign: "center", fontSize: 12, color: "#9CA3AF", ...fontBase }}>API &amp; Database sync coming soon</div>
+              <div style={{ marginTop: 18, textAlign: "center", fontSize: 12, color: "#9CA3AF", ...fontBase }}>Database sync coming soon</div>
             </>
+          )}
+
+          {displayView === "api" && (
+            <ApiIntegrationView
+              onBack={() => changeView("methods", "right")}
+              onSuccess={() => changeView("methods", "right")}
+            />
           )}
 
           {displayView === "excel" && (

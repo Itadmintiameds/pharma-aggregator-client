@@ -15,11 +15,20 @@ import { DashboardView } from "@/src/types/seller/dashboard";
 import ProductList from "./ProductList"; 
 
 
+// interface DashboardOverviewProps {
+//   setCurrentView: (view: DashboardView) => void;
+// }
+
 interface DashboardOverviewProps {
   setCurrentView: (view: DashboardView) => void;
+  setSelectedProductId: (id: string) => void;
 }
 
-const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
+// const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
+const DashboardOverview = ({
+  setCurrentView,
+  setSelectedProductId
+}: DashboardOverviewProps) => {
   return (
     <div className="space-y-8">
 
@@ -33,10 +42,8 @@ const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
     value={6531}
     growth="+2.24%"
     icon={
-      <HiOutlineCircleStack 
-        size={22}
-      />
-    }
+      <HiOutlineCircleStack size={22}/>}
+    className="bg-primary-05"
   />
 
   <KpiCard
@@ -48,6 +55,7 @@ const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
         size={20} 
       />
     }
+    className="bg-white"
   />
 
   <KpiCard
@@ -59,6 +67,7 @@ const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
         size={20} 
       />
     }
+    className="bg-white"
   />
 
   <KpiCard
@@ -70,6 +79,7 @@ const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
         size={20} 
       />
     }
+    className="bg-white"
   />
       </div>
       {/* Chart + Top Selling Section */}
@@ -83,7 +93,7 @@ const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
   <WeeklySummaryCard
     icon={<AiOutlinePieChart size={36} />}
     titleLeft="Sales"
-    valueLeft="$4,000,000.00"
+    valueLeft="Rs.4,00,000.00"
     titleRight="Volume"
     valueRight="450"
     growthRight="+20.00%"
@@ -108,17 +118,43 @@ const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
   valueRight="445"
   pendingCount="5"
   isThreeColumn
-  bgColor="bg-tertiary-50"
+  // bgColor="bg-tertiary-50"
 />
 </div>
 {/* <ProductTable /> */}
-<ProductList />
+{/* <ProductList /> */}
+<ProductList
+  setCurrentView={setCurrentView}
+  setSelectedProductId={setSelectedProductId}
+/>
 
     </div>
   );
 };
 
 export default DashboardOverview;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

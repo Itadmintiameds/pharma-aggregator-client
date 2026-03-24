@@ -1,1 +1,1 @@
-export type DashboardView = "overview" | "addProduct" | "viewProducts" | "deleteProduct" | "profile" | "reports" | "product";
+export type DashboardView = "overview" | "addProduct" | "viewProducts" | "deleteProduct" | "profile" | "reports" | "product" |"productView";

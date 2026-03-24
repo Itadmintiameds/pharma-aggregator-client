@@ -14,8 +14,6 @@ interface Props {
 export default function SuccessModal({
   open,
   onClose,
-  // applicationId,
-  // email
 }: Props) {
   const [showTick, setShowTick] = useState(false);
   const router = useRouter();
@@ -75,44 +73,13 @@ export default function SuccessModal({
           </p>
         </div>
 
-        {/* Application Details */}
-        {/* {showTick && (
-          <div className="mt-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
-            <div className="flex items-center mb-3">
-              <Clock className="text-[#4B0082] w-5 h-5 mr-3" />
-              <span className="text-sm">
-                Application ID: <strong className="text-neutral-900">{applicationId}</strong>
-              </span>
-            </div>
-            <div className="flex items-center mb-3">
-              <CheckCircle className="text-[#4B0082] w-5 h-5 mr-3" />
-              <span className="text-sm">
-                Submitted on: <strong className="text-neutral-900">
-                  {new Date().toLocaleDateString('en-IN', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric'
-                  })}
-                </strong>
-              </span>
-            </div>
-            <div className="flex items-center">
-              <Mail className="text-[#4B0082] w-5 h-5 mr-3" />
-              <span className="text-sm">
-                Confirmation sent to: <strong className="text-neutral-900">{email}</strong>
-              </span>
-            </div>
-          </div>
-        )} */}
-
-        {/* Message about review process */}
         {showTick && (
           <p className="text-label-l3 text-neutral-500 mt-4 text-center">
             Our compliance team is reviewing your details. You&apos;ll be notified once your account is approved.
           </p>
         )}
 
-        {/* Dynamic Content - Changes based on state */}
+        {/* Dynamic Content */}
         <div className="flex flex-col items-center mt-6">
           {!showTick ? (
             /* LOADING STATE */
