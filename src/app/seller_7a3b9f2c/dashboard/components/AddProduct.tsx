@@ -80,7 +80,7 @@ const AddProduct = () => {
 
   const handleCategorySelect = () => {
     setShowForm(true);
-  };
+  }; 
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -596,7 +596,7 @@ const AddProduct = () => {
               />
 
               <Input
-                label="Strength"
+                label="Strength (mg/ml)"
                 name="strength"
                 placeholder="e.g., 650 mg"
                 value={form.strength}
