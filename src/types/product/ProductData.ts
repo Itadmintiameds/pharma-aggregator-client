@@ -4,7 +4,7 @@ export interface CreateDrugProductRequest {
   productMarketingUrl: string;
   warningsPrecautions: string;
 
-  categoryId: number;
+  categoryId: string;
 
   molecules: MoleculeData[];
 
@@ -52,7 +52,7 @@ export interface PricingData {
 
 
 export interface MoleculeData {
-  moleculeId: number;
+  moleculeId: string;
 }
 
 export interface ProductListData {

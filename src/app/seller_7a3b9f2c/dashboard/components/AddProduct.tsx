@@ -294,10 +294,12 @@ const AddProduct = () => {
     setErrors({});
 
     try {
-      const categoryId = 1;
-      const molecules = [{ moleculeId: 5 }];
+      // ✅ TEMP HARD CODE (replace later with dynamic values)
+      const categoryId = "1";
+      const molecules = [{ moleculeId: "5" }];
 
       const payload = {
+        // ✅ FLAT STRUCTURE (IMPORTANT)
         productName: form.productName,
         productDescription: form.productDescription,
         productMarketingUrl: form.productMarketingUrl,
@@ -338,7 +340,7 @@ const AddProduct = () => {
           {
             dosageForm: form.dosageForm,
             strength: String(form.strength),
-            therapeuticCategoryId: String(categoryId),
+            therapeuticCategoryId: categoryId,
             therapeuticSubcategoryId: form.therapeuticSubcategory,
           },
         ],
@@ -698,15 +700,14 @@ const AddProduct = () => {
 
               <div className="flex flex-col gap-1">
                 <label className="text-label-l3 text-neutral-700 font-semibold">
-                  Dosage Form (Tablet, Syrup)
+                 Dosage Form (Tablet, Syrup)
                   <span className="text-warning-500 font-semibold ml-1">*</span>
                 </label>
                 <Select
                   options={dosageOptions}
                   isLoading={loadingDosage}
                   value={
-                    dosageOptions.find((o) => o.value === form.dosageForm) ||
-                    null
+                    dosageOptions.find((o) => o.value === form.dosageForm) || null
                   }
                   onChange={handleDosageChange}
                   placeholder="Select dosage"
