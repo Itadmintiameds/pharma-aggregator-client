@@ -6,6 +6,7 @@ import {
   createDrugProduct,
   drugProductDelete,
   editDrugProduct,
+  getDosage,
   getDrugCategory,
   getDrugProductById,
   getTherapeuticSubcategory,
@@ -77,10 +78,12 @@ const AddProduct = () => {
   );
   const [loadingSubcategories, setLoadingSubcategories] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [dosageOptions, setDosageOptions] = useState<any[]>([]);
+  const [loadingDosage, setLoadingDosage] = useState(false);
 
   const handleCategorySelect = () => {
     setShowForm(true);
-  }; 
+  };
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -208,34 +211,104 @@ const AddProduct = () => {
     return combined.toISOString().slice(0, 19);
   };
 
+  // const handleSubmit = async () => {
+  //   const validation = drugProductSchema.safeParse(form);
+  //   if (!validation.success) {
+  //     const fieldErrors: Record<string, string> = {};
+  //     validation.error.issues.forEach((err) => {
+  //       const fieldName = err.path.join(".");
+  //       fieldErrors[fieldName] = err.message;
+  //     });
+  //     setErrors(fieldErrors);
+  //     return;
+  //   }
+  //   setErrors({});
+  //   try {
+  //     const moleculeIds = form.molecules
+  //       .map((m) => m.moleculeId)
+  //       .filter((id): id is number => id !== null);
+  //     const payload = {
+  //       product: {
+  //         productId: form.productId,
+  //         productName: form.productName,
+  //         therapeuticCategory: form.productCategoryId,
+  //         therapeuticSubcategory: form.therapeuticSubcategory,
+  //         dosageForm: form.dosageForm,
+  //         strength: Number(form.strength),
+  //         warningsPrecautions: form.warningsPrecautions,
+  //         productDescription: form.productDescription,
+  //         productMarketingUrl: form.productMarketingUrl,
+  //       },
+  //       packagingDetails: {
+  //         packagingUnit: form.packagingUnit,
+  //         numberOfUnits: Number(form.numberOfUnits),
+  //         packSize: Number(form.packSize),
+  //         minimumOrderQuantity: Number(form.minimumOrderQuantity),
+  //         maximumOrderQuantity: Number(form.maximumOrderQuantity),
+  //       },
+  //       pricingDetails: [
+  //         {
+  //           batchLotNumber: form.batchLotNumber,
+  //           manufacturerName: form.manufacturerName,
+  //           manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
+  //           expiryDate: toLocalDateTimeString(form.expiryDate),
+  //           storageCondition: form.storageCondition,
+  //           stockQuantity: Number(form.stockQuantity),
+  //           pricePerUnit: Number(form.pricePerUnit),
+  //           mrp: Number(form.mrp),
+  //           createdDate: form.createdDate,
+  //           gstPercentage: Number(form.gstPercentage),
+  //           discountPercentage: Number(form.discountPercentage),
+  //           minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
+  //           additionalDiscount: Number(form.additionalDiscount),
+  //           finalPrice: Number(form.finalPrice),
+  //           hsnCode: Number(form.hsnCode),
+  //         },
+  //       ],
+  //       moleculeIds,
+  //     };
+  //     console.log("Payload:", payload);
+  //     await createDrugProduct(payload);
+  //     alert("Product created successfully!");
+  //     window.location.reload();
+  //   } catch (err) {
+  //     alert("Failed to create product");
+  //   }
+  // };
+
   const handleSubmit = async () => {
     const validation = drugProductSchema.safeParse(form);
+
     if (!validation.success) {
       const fieldErrors: Record<string, string> = {};
+
       validation.error.issues.forEach((err) => {
         const fieldName = err.path.join(".");
         fieldErrors[fieldName] = err.message;
       });
+
       setErrors(fieldErrors);
       return;
     }
+
     setErrors({});
+
     try {
-      const moleculeIds = form.molecules
-        .map((m) => m.moleculeId)
-        .filter((id): id is number => id !== null);
+      // ✅ TEMP HARD CODE (replace later with dynamic values)
+      const categoryId = "1";
+      const molecules = [{ moleculeId: "5" }];
+
       const payload = {
-        product: {
-          productId: form.productId,
-          productName: form.productName,
-          therapeuticCategory: form.productCategoryId,
-          therapeuticSubcategory: form.therapeuticSubcategory,
-          dosageForm: form.dosageForm,
-          strength: Number(form.strength),
-          warningsPrecautions: form.warningsPrecautions,
-          productDescription: form.productDescription,
-          productMarketingUrl: form.productMarketingUrl,
-        },
+        // ✅ FLAT STRUCTURE (IMPORTANT)
+        productName: form.productName,
+        productDescription: form.productDescription,
+        productMarketingUrl: form.productMarketingUrl,
+        warningsPrecautions: form.warningsPrecautions,
+
+        categoryId,
+
+        molecules,
+
         packagingDetails: {
           packagingUnit: form.packagingUnit,
           numberOfUnits: Number(form.numberOfUnits),
@@ -243,6 +316,7 @@ const AddProduct = () => {
           minimumOrderQuantity: Number(form.minimumOrderQuantity),
           maximumOrderQuantity: Number(form.maximumOrderQuantity),
         },
+
         pricingDetails: [
           {
             batchLotNumber: form.batchLotNumber,
@@ -253,7 +327,6 @@ const AddProduct = () => {
             stockQuantity: Number(form.stockQuantity),
             pricePerUnit: Number(form.pricePerUnit),
             mrp: Number(form.mrp),
-            createdDate: form.createdDate,
             gstPercentage: Number(form.gstPercentage),
             discountPercentage: Number(form.discountPercentage),
             minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
@@ -262,14 +335,26 @@ const AddProduct = () => {
             hsnCode: Number(form.hsnCode),
           },
         ],
-        moleculeIds,
+
+        productAttributeDrugs: [
+          {
+            dosageForm: form.dosageForm,
+            strength: String(form.strength),
+            therapeuticCategoryId: categoryId,
+            therapeuticSubcategoryId: form.therapeuticSubcategory,
+          },
+        ],
       };
-      console.log("Payload:", payload);
+
+      console.log("✅ FINAL PAYLOAD:", payload);
+
       await createDrugProduct(payload);
-      alert("Product created successfully!");
+
+      alert("✅ Product created successfully!");
       window.location.reload();
     } catch (err) {
-      alert("Failed to create product");
+      console.error("❌ Submit Error:", err);
+      alert("❌ Failed to create product");
     }
   };
 
@@ -491,13 +576,42 @@ const AddProduct = () => {
     },
   });
 
+  useEffect(() => {
+    const fetchDosage = async () => {
+      try {
+        setLoadingDosage(true);
+
+        const data = await getDosage();
+
+        const options = data.map((d: any) => ({
+          value: d.dosageName,
+          label: d.dosageName,
+        }));
+
+        setDosageOptions(options);
+
+        setForm((prev) => ({ ...prev, dosage: "" }));
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingDosage(false);
+      }
+    };
+
+    fetchDosage();
+  }, []);
+
+  const handleDosageChange = (selected: any) => {
+    setForm((prev) => ({
+      ...prev,
+      dosageForm: selected ? selected.value : "",
+    }));
+  };
+
   return (
     <div className="flex flex-col gap-5">
       <div>
         <div className="text-h2 font-normal">Add Product</div>
-        <div className="text-label-l4 text-[#1E1E1ECC] mt-1">
-          Here's Your Current Sales Overview
-        </div>
 
         <CategoryButtons onSelect={handleCategorySelect} />
 
@@ -584,7 +698,25 @@ const AddProduct = () => {
                 required
               />
 
-              <Input
+              <div className="flex flex-col gap-1">
+                <label className="text-label-l3 text-neutral-700 font-semibold">
+                 Dosage Form (Tablet, Syrup)
+                  <span className="text-warning-500 font-semibold ml-1">*</span>
+                </label>
+                <Select
+                  options={dosageOptions}
+                  isLoading={loadingDosage}
+                  value={
+                    dosageOptions.find((o) => o.value === form.dosageForm) || null
+                  }
+                  onChange={handleDosageChange}
+                  placeholder="Select dosage"
+                  isDisabled={mode === "delete"}
+                  theme={selectTheme}
+                  styles={selectStyles("dosage")}
+                />
+              </div>
+              {/* <Input
                 label="Dosage Form (Tablet, Syrup)"
                 name="dosageForm"
                 placeholder="e.g., Tablet / Capsule / Syrup / Injection"
@@ -593,7 +725,7 @@ const AddProduct = () => {
                 disabled={mode === "delete"}
                 error={errors.dosageForm}
                 required
-              />
+              /> */}
 
               <Input
                 label="Strength (mg/ml)"

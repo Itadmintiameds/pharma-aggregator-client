@@ -2,11 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import Table, { Column } from "@/src/app/commonComponents/Table";
-import { getDrugProductList } from "@/src/services/product/ProductService";
+import { getProductList } from "@/src/services/product/ProductService";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import {
-  CreateDrugProductRequest,
-  ProductData,
+  ProductListData,
 } from "@/src/types/product/ProductData";
 
 interface ProductListProps {
@@ -14,7 +13,7 @@ interface ProductListProps {
   setSelectedProductId: (id: string) => void;
 }
 
-const columns: Column<CreateDrugProductRequest & ProductData>[] = [
+const columns: Column<ProductListData >[] = [
   {
     header: "Thumbnail",
     accessor: () => (
@@ -51,16 +50,18 @@ const columns: Column<CreateDrugProductRequest & ProductData>[] = [
   // },
 ];
 // const ProductList = () => {
-const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps) => {
-  const [data, setData] = useState<(CreateDrugProductRequest & ProductData)[]>(
-    [],
-  );
+const ProductList = ({
+  setCurrentView,
+  setSelectedProductId,
+}: ProductListProps) => {
+
+  const [data, setData] = useState<ProductListData[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await getDrugProductList();
+      const response = await getProductList();
       setData(response || []);
       console.log("API DATA:", response);
     } catch (error) {
@@ -97,7 +98,7 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
           <div className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center bg-purple-200 rounded-r-lg">
             <img src="/icons/SearchIcon.svg" alt="search" className="w-6 h-6" />
           </div>
-        </div> 
+        </div>
 
         <button className="w-36 h-12 bg-neutral-50 border border-neutral-200 rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2">
           Sort By
@@ -110,7 +111,7 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
       </div>
 
       <div>
-        <Table<CreateDrugProductRequest & ProductData>
+        <Table<ProductListData>
           columns={columns}
           data={data}
           loading={loading}
@@ -122,13 +123,13 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
                 className="w-5 h-5 rounded-md object-cover text-[#7D00D3]"
               />
               <img
-  src="/icons/ViewIcon.svg"
-  className="w-5 h-5 cursor-pointer"
-  onClick={() => {
-    setSelectedProductId(row.productId ?? "");
-    setCurrentView("productView");
-  }}
-/>
+                src="/icons/ViewIcon.svg"
+                className="w-5 h-5 cursor-pointer"
+                onClick={() => {
+                  setSelectedProductId(row.productId ?? "");
+                  setCurrentView("productView");
+                }}
+              />
               <img
                 src="/icons/DeleteIcon.svg"
                 alt="drug"

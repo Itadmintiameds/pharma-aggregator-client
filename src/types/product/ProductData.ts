@@ -1,16 +1,27 @@
-export interface ProductData {
-  productId: string;
-  productCategoryId?: string;
+export interface CreateDrugProductRequest {
   productName: string;
-  therapeuticCategory: string;
-  therapeuticSubcategory: string;
-  dosageForm: string;
-  strength: number;
-  warningsPrecautions: string;
   productDescription: string;
   productMarketingUrl: string;
+  warningsPrecautions: string;
+
+  categoryId: string;
+
+  molecules: MoleculeData[];
+
+  packagingDetails: PackagingData;
+
+  pricingDetails: PricingData[];
+
+  productAttributeDrugs: ProductAttributeDrugData[];
 }
 
+
+export interface ProductAttributeDrugData {
+  dosageForm: string;
+  strength: string;
+  therapeuticCategoryId: string;
+  therapeuticSubcategoryId: string;
+}
 
 export interface PackagingData {
   packagingUnit: string;
@@ -22,29 +33,34 @@ export interface PackagingData {
 
 
 export interface PricingData {
-  pricingId?: string; 
+  pricingId?: string;
   batchLotNumber: string;
   manufacturerName: string;
-  manufacturingDate: string | null; 
-  expiryDate: string | null;    
+  manufacturingDate: string | null;
+  expiryDate: string | null;
   storageCondition: string;
   stockQuantity: number;
   pricePerUnit: number;
   mrp: number;
-  createdDate: Date | null;
   gstPercentage: number;
   discountPercentage: number;
   minimumPurchaseQuantity: number;
   additionalDiscount: number;
-  finalPrice: number;  
+  finalPrice: number;
   hsnCode: number;
- 
-
 }
 
-export interface CreateDrugProductRequest {
-  product: ProductData;
-  packagingDetails: PackagingData;
+
+export interface MoleculeData {
+  moleculeId: string;
+}
+
+export interface ProductListData {
+  productId: string;
+  productName: string;
+  categoryName?: string;
   pricingDetails: PricingData[];
-  moleculeIds: number[];
+
 }
+
+

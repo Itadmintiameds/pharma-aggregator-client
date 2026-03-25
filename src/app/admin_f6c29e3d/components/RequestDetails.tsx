@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
 
 // ─── Constants ────────────────────────────────────────────────
-const BASE_URL        = "https://api-test-aggreator.tiameds.ai/api/v1";
+const BASE_URL        = "http://localhost:8080/api/v1";
 const API_KEY         = "YOUR_API_KEY";
 const LOCAL_GST_DOC   = "/assets/docs/gst-certificate.png";
 const LOCAL_CHEQUE    = "/assets/docs/cheque.jpg";

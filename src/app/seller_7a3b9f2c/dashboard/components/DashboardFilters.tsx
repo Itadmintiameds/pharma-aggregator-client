@@ -20,7 +20,7 @@ interface UploadedFile {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const IMPORT_API_URL = "https://api-test-aggreator.tiameds.ai/api/v1/products/import";
+const IMPORT_API_URL = "http://localhost:8080/api/v1/products/import";
 
 const C = {
   primary:     "#4C1D95",
