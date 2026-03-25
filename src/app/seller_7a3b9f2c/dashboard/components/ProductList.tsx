@@ -2,15 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import Table, { Column } from "@/src/app/commonComponents/Table";
-import {
-  getDrugProductList,
-  drugProductDelete,
-  getDrugProductById,
-} from "@/src/services/product/ProductService";
+import { getProductList } from "@/src/services/product/ProductService";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import {
-  CreateDrugProductRequest,
-  ProductData,
+  ProductListData,
 } from "@/src/types/product/ProductData";
 import Image from "next/image";
 import {HiOutlineExclamationCircle, HiExclamation} from "react-icons/hi";
@@ -21,7 +16,7 @@ interface ProductListProps {
   setSelectedProductId: (id: string) => void;
 }
 
-const columns: Column<CreateDrugProductRequest & ProductData>[] = [
+const columns: Column<ProductListData >[] = [
   {
     header: "Thumbnail",
     accessor: () => (
@@ -59,14 +54,13 @@ const columns: Column<CreateDrugProductRequest & ProductData>[] = [
   //   ),
   // },
 ];
-
+// const ProductList = () => {
 const ProductList = ({
   setCurrentView,
   setSelectedProductId,
 }: ProductListProps) => {
-  const [data, setData] = useState<
-    (CreateDrugProductRequest & ProductData)[]
-  >([]);
+
+  const [data, setData] = useState<ProductListData[]>([]);
   const [loading, setLoading] = useState(false);
 
   // ✅ Delete Modal State
@@ -82,7 +76,7 @@ const ProductList = ({
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await getDrugProductList();
+      const response = await getProductList();
       setData(response || []);
       console.log("API DATA:", response);
     } catch (error) {
@@ -187,7 +181,7 @@ const ProductList = ({
       </div>
 
       <div>
-        <Table<CreateDrugProductRequest & ProductData>
+        <Table<ProductListData>
           columns={columns}
           data={data}
           loading={loading}
@@ -200,20 +194,15 @@ const ProductList = ({
                 height={20}
                 className="rounded-md object-cover text-[#7D00D3]"
               />
-
-              <Image
+              <img
                 src="/icons/ViewIcon.svg"
-                alt="view"
-                width={20}
-                height={20}
-                className="cursor-pointer"
+                className="w-5 h-5 cursor-pointer"
                 onClick={() => {
                   setSelectedProductId(row.productId ?? "");
                   setCurrentView("productView");
                 }}
               />
-
-              <Image
+              <img
                 src="/icons/DeleteIcon.svg"
                 alt="delete"
                 width={20}
@@ -326,6 +315,44 @@ export default ProductList;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Old code ...................
 
 // "use client";
 

@@ -23,32 +23,47 @@ export const createDrugProduct = async (
 ) => {
   try {
     const response = await api.post(
-      "products/create",
-      payload
+      '/products/create',
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
     );
-    return response.data.data;
-  } catch (error: unknown) {
-    console.error("Error creating Product", error);
-    if (error instanceof Error) {
-      throw new Error(`Error creating Product: ${error.message}`);
-    } else {
-      throw new Error("An unknown error occurred while creating Product.");
-    }
+
+    return response.data;
+
+  } catch (error: any) {
+    console.error('Error creating Product', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+
+    throw new Error(
+      error.response?.data?.message ||
+      error.message ||
+      'Error creating Product'
+    );
   }
 };
 
-export const getDrugProductList = async () => {
-  try {
 
-    const response = await api.get('products/getAll');
+export const getProductList = async () => {
+  try {
+    const response = await api.get('/products/getAll');
     return (
       response.data?.data?.content ||
       response.data?.data ||
+      response.data?.content ||
       response.data ||
       []
     );
+
   } catch (error: unknown) {
     console.error('Error fetching Drug Product List:', error);
+
     if (error instanceof Error) {
       throw new Error(`Error fetching Drug Product List: ${error.message}`);
     } else {
@@ -58,6 +73,51 @@ export const getDrugProductList = async () => {
 };
 
 
+export const getProductById = async (productId: string) => {
+  try {
+    const response = await api.get(`/products/getById/${productId}`);
+
+    return (
+      response.data?.data ||  
+      response.data            
+    );
+
+  } catch (error: unknown) {
+    console.error('Error fetching Product by ID:', error);
+
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Product: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Product.');
+    }
+  }
+};
+
+
+export const deleteProduct = async (productId: string) => {
+  try {
+    const response = await api.delete(`/products/delete/${productId}`);
+
+    return (
+      response.data?.data ||   
+      response.data ||         
+      null
+    );
+
+  } catch (error: unknown) {
+    console.error('Error deleting Product:', error);
+
+    if (error instanceof Error) {
+      throw new Error(`Error deleting Product: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while deleting Product.');
+    }
+  }
+};
+
+
+
+//Old 
 export const getDrugProductById = async (productId: string) => {
   try {
     if (!productId) throw new Error("Product ID is required");
@@ -73,6 +133,7 @@ export const getDrugProductById = async (productId: string) => {
   }
 };
 
+//Old
 export const drugProductDelete = async (productId: string) => {
   try {
     if (!productId) throw new Error("Product ID is required");
@@ -91,23 +152,7 @@ export const drugProductDelete = async (productId: string) => {
 
 }
 
-
-// export const editDrugProduct = async (productId: string) => {
-//     try {
-//         if (!productId) throw new Error("Product ID is required");
-//         const response = await api.put(`v1/products/update/${productId}`);
-//         return response.data;
-//     } catch (error: unknown) {
-//         if (error instanceof AxiosError) {
-//       if (error.response?.status === 403) {
-//         throw new Error("Access denied: You don't have permission");
-//       }
-//       throw new Error(error.response?.data?.message || "Failed");
-//     }
-//     throw new Error("Unknown error");
-//   }
-// };
-
+//Old
 export const editDrugProduct = async (
   productId: string,
   payload: CreateDrugProductRequest
@@ -134,3 +179,10 @@ export const getTherapeuticSubcategory = async (categoryId: string) => {
     }
   }
 };
+
+
+export const getDosage = async () => {
+  const response = await api.get("/products/dosage");
+  return response.data.data; 
+};
+

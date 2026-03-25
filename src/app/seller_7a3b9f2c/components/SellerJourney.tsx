@@ -160,17 +160,17 @@ const SellerJourney = () => {
   //   );
   // }
 
-  if (showProductList) {
-  return (
-    <div className="min-h-screen bg-primary-50 pt-4">
-      <DrugProductList onDelete={function (productId: string): void {
-        throw new Error("Function not implemented.");
-      } } onEdit={function (productId: string): void {
-        throw new Error("Function not implemented.");
-      } } />
-    </div>
-  );
-}
+//   if (showProductList) {
+//   return (
+//     <div className="min-h-screen bg-primary-50 pt-4">
+//       <DrugProductList onDelete={function (productId: string): void {
+//         throw new Error("Function not implemented.");
+//       } } onEdit={function (productId: string): void {
+//         throw new Error("Function not implemented.");
+//       } } />
+//     </div>
+//   );
+// }
 
   return (
     <>

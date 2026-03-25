@@ -11,15 +11,15 @@ type SortOrder   = "asc" | "desc";
 type Request     = { id: number; requestId: string; name: string; email: string; date: string; status: string };
 
 // ─── Constants ────────────────────────────────────────────────
-const API_URL   = "https://api-test-aggreator.tiameds.ai/api/v1/temp-sellers";
+const API_URL   = "http://localhost:8080/api/v1/temp-sellers";
 const API_KEY   = "YOUR_API_KEY";
 const PAGE_SIZE = 10;
 
 // DELETE API endpoints
 const DELETE_API: Record<RequestType, (id: number) => string> = {
-  seller: (id) => `https://api-test-aggreator.tiameds.ai/api/v1/temp-sellers/both/${id}`,
-  buyer:  (id) => `https://api-test-aggreator.tiameds.ai/api/v1/temp-buyers/${id}`,   // 🔧 update when ready
-  lab:    (id) => `https://api-test-aggreator.tiameds.ai/api/v1/temp-labs/${id}`,     // 🔧 update when ready
+  seller: (id) => `http://localhost:8080/api/v1/temp-sellers/both/${id}`,
+  buyer:  (id) => `http://localhost:8080/api/v1/temp-buyers/${id}`,   // 🔧 update when ready
+  lab:    (id) => `http://localhost:8080/api/v1/temp-labs/${id}`,     // 🔧 update when ready
 };
 
 const STATUS_MAP: Record<string, string> = {
