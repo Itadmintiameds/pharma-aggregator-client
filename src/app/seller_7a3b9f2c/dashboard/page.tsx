@@ -5,7 +5,7 @@ import SellerHeader from "@/src/app/seller_7a3b9f2c/dashboard/components/SellerH
 import ViewProducts from "@/src/app/seller_7a3b9f2c/dashboard/components/ViewProducts";
 import SellerSidebar from "@/src/app/seller_7a3b9f2c/dashboard/components/SellerSidebar";
 import SellerProfile from "@/src/app/seller_7a3b9f2c/dashboard/components/SellerProfile";
-import DeleteProduct from "@/src/app/seller_7a3b9f2c/dashboard/components/DeleteProduct";
+// import DeleteProduct from "@/src/app/seller_7a3b9f2c/dashboard/components/DeleteProduct";
 import DashboardOverview from "@/src/app/seller_7a3b9f2c/dashboard/components/DashboardOverview";
 import AddProduct from "@/src/app/seller_7a3b9f2c/dashboard/components/AddProduct";
 import ProductView1 from "@/src/app/seller_7a3b9f2c/dashboard/components/ProductView1";
@@ -103,7 +103,7 @@ const SellerDashboard = () => {
 )}
           {currentView === "addProduct" && <AddProduct />}
           {currentView === "viewProducts" && <ViewProducts />}
-          {currentView === "deleteProduct" && <DeleteProduct />}
+          {/* {currentView === "deleteProduct" && <DeleteProduct />} */}
           {currentView === "profile" && <SellerProfile />}
           {currentView === "reports" && <Reports />}
           {/* {currentView === "product" && <Products />} */}
