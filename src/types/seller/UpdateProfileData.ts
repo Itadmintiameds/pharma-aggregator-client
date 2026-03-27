@@ -22,18 +22,19 @@ export interface UpdateBankDetailsRequest {
   ifscCode: string;
   accountNumber: string;
   accountHolderName: string;
-  bankDocumentFileUrl: string;
+  // bankDocumentFileUrl: string;
+   bankDocumentFileUrl: string | 'PENDING';
 }
 
 export interface UpdateDocumentRequest {
   documentId?: number; 
   productTypeId: number;
   documentNumber: string;
-  documentFileUrl: string;
+  documentFileUrl: string | 'PENDING';
   licenseIssueDate: string;
   licenseExpiryDate: string;
   licenseIssuingAuthority: string;
-  licenseStatus?: 'Active' | 'InActive';
+  licenseStatus: 'Active' | 'InActive';
 }
 
 export interface UpdateSellerProfileRequest {
@@ -49,7 +50,8 @@ export interface UpdateSellerProfileRequest {
   coordinator: UpdateCoordinatorRequest;
   bankDetails: UpdateBankDetailsRequest;
   gstNumber: string;
-  gstFileUrl: string;
+  // gstFileUrl: string;
+  gstFileUrl: string | 'PENDING';
   documents: UpdateDocumentRequest[];
 }
 
@@ -57,15 +59,59 @@ export interface UpdateSellerProfileRequest {
 
 export interface UpdateRequestResponse {
   status: string;
-  message: string;
-  data: {
-    requestId: number;
-    sellerId: string;
-    status: 'PENDING' | 'APPROVED' | 'REJECTED';
-    requestedAt: string;
-    requestedBy: string;
-  };
+  pendingSellerId: number;
+  sellerId: string;
+  sellerName?: string;
+  phone?: string;
+  email?: string;
+  productTypeId?: number[];
+  companyTypeId?: number;
+  sellerTypeId?: number;
+  termsAccepted?: boolean;
+  website?: string;
+  address?: UpdateAddressRequest;
+  coordinator?: UpdateCoordinatorRequest;
+  bankDetails?: UpdateBankDetailsRequest;
+  gstNumber?: string;
+  gstFileUrl?: string;
+  documents?: Array<{
+    pendingSellerDocumentId: number;
+    productTypeId: number;
+    productTypeName: string;
+    documentNumber: string;
+    documentFileUrl: string;
+    licenseIssueDate?: string;
+    licenseExpiryDate?: string;
+    licenseIssuingAuthority?: string;
+  }>;
+  message?: string;
 }
+
+
+// this interface is require , dont delete it.........
+
+// export interface UpdateRequestResponse {
+//   status: string;
+//   message: string;
+//   data: {
+//     pendingSellerId: number;  
+//     sellerId: string;
+//     sellerName?: string;
+//     phone?: string;
+//     email?: string;
+//     productTypeId?: number[];
+//     companyTypeId?: number;
+//     sellerTypeId?: number;
+//     termsAccepted?: boolean;
+//     website?: string;
+//     address?: UpdateAddressRequest;
+//     coordinator?: UpdateCoordinatorRequest;
+//     bankDetails?: UpdateBankDetailsRequest;
+//     gstNumber?: string;
+//     gstFileUrl?: string;
+//     documents?: any[];
+//   };
+// }
 
 // ========== SECTION UPDATE TYPES ==========
 
@@ -97,7 +143,7 @@ export interface LicenseSectionUpdate {
 
 export interface GSTSectionUpdate {
   gstNumber?: string;
-  gstFileUrl?: string;
+ gstFileUrl?: string | 'PENDING';
 }
 
 export interface BankSectionUpdate {
@@ -106,5 +152,6 @@ export interface BankSectionUpdate {
   ifscCode?: string;
   accountNumber?: string;
   accountHolderName?: string;
-  bankDocumentFileUrl?: string;
+  // bankDocumentFileUrl?: string;
+  bankDocumentFileUrl?: string | 'PENDING';
 }
