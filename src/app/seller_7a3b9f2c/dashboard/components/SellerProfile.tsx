@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-
 import {
   Building2,
   Phone,
   MapPin,
   Landmark,
-  Upload,
   Download,
   ExternalLink,
   Pencil,
@@ -26,15 +24,13 @@ import Image from "next/image";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-
 import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
 import { updateProfileService } from "@/src/services/seller/updateProfileService";
 import { sellerRegMasterService } from "@/src/services/seller/SellerRegMasterService";
 import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
 import { fetchBankDetails } from "@/src/services/seller/IFSCService";
 import { type SellerProfile, type SellerDocument } from "@/src/types/seller/SellerProfileData";
-
-// import { SellerProfile, SellerDocument } from "@/src/types/seller/SellerProfileData";
+import { uploadSellerDocuments, deleteUpdateRequest } from "@/src/services/seller/UpdateSellerProfileDoc";
 import { 
   CompanyTypeResponse,
   SellerTypeResponse,
@@ -87,6 +83,21 @@ export default function SellerProfile() {
   const [states, setStates] = useState<StateResponse[]>([]);
   const [districts, setDistricts] = useState<DistrictResponse[]>([]);
   const [talukas, setTalukas] = useState<TalukaResponse[]>([]);
+  // Track changed files for upload
+const [changedFiles, setChangedFiles] = useState<{
+  gstFile: File | null;
+  bankFile: File | null;
+  licenses: Array<{
+    productName: string;
+    productTypeId: number;
+    file: File;
+    // documentId?: number;
+  }>;
+}>({
+  gstFile: null,
+  bankFile: null,
+  licenses: []
+});
 
   // Loading States for master data
   const [loadingStates, setLoadingStates] = useState({
@@ -275,10 +286,21 @@ export default function SellerProfile() {
   };
 
   // Update the handleCancel function
+
   const handleCancel = () => {
-    resetFormData();
-    setEditingSection(null);
-  };
+  resetFormData();
+  setEditingSection(null);
+  // ✅ Clear changed files tracking
+  setChangedFiles({
+    gstFile: null,
+    bankFile: null,
+    licenses: []
+  });
+};
+  // const handleCancel = () => {
+  //   resetFormData();
+  //   setEditingSection(null);
+  // };
 
   // Master data fetch functions
   const fetchCompanyTypes = async () => {
@@ -473,6 +495,42 @@ export default function SellerProfile() {
     loadProfileData();
   }, []);
 
+
+  // Update GST file handler
+const handleGSTFileChange = (file: File) => {
+  setFormData(prev => ({ ...prev, gstFile: file }));
+  setChangedFiles(prev => ({ ...prev, gstFile: file }));
+};
+
+// Update Bank file handler  
+const handleBankFileChange = (file: File) => {
+  setFormData(prev => ({ ...prev, cancelledChequeFile: file }));
+  setChangedFiles(prev => ({ ...prev, bankFile: file }));
+};
+
+// Update License file handler
+const handleLicenseFileChange = (file: File, productName: string, productTypeId: number, documentId?: number) => {
+  setFormData(prev => ({
+    ...prev,
+    licenses: {
+      ...prev.licenses,
+      [productName]: {
+        ...prev.licenses[productName],
+        file: file,
+      },
+    },
+  }));
+  
+  setChangedFiles(prev => ({
+    ...prev,
+    licenses: [
+      ...prev.licenses.filter(l => l.productName !== productName),
+      { productName, productTypeId, file,
+        //  documentId 
+        }
+    ]
+  }));
+};
   // License status calculator
   const calculateLicenseStatus = (issueDate: Date | null, expiryDate: Date | null, apiStatus?: string): 'Active' | 'InActive' => {
     if (apiStatus === 'Active' || apiStatus === 'InActive') {
@@ -951,6 +1009,27 @@ const handleSaveAll = async () => {
       return `${year}-${month}-${day}`;
     };
 
+    // Track changed files for upload
+    const filesToUpload = {
+      gstFile: null as File | null,
+      bankFile: null as File | null,
+      licenses: [] as Array<{
+        productName: string;
+        productTypeId: number;
+        file: File;
+      }>
+    };
+
+    // Check if GST file changed
+    if (formData.gstFile) {
+      filesToUpload.gstFile = formData.gstFile;
+    }
+
+    // Check if Bank file changed
+    if (formData.cancelledChequeFile) {
+      filesToUpload.bankFile = formData.cancelledChequeFile;
+    }
+
     // Get current profile documents
     const currentDocs = profileData?.documents || [];
     
@@ -979,11 +1058,20 @@ const handleSaveAll = async () => {
         // Get the license data from form (may contain updates)
         const licenseData = formData.licenses[productName] || {};
         
+        // Check if this license has a new file
+        if (licenseData.file) {
+          filesToUpload.licenses.push({
+            productName: productName,
+            productTypeId: productTypeId,
+            file: licenseData.file
+          });
+        }
+        
         documentsToSend.push({
           documentId: existingDoc.sellerDocumentsId,
           productTypeId: productTypeId,
           documentNumber: licenseData.number || existingDoc.documentNumber || '',
-          documentFileUrl: licenseData.fileUrl || existingDoc.documentFileUrl || '',
+          documentFileUrl: existingDoc.documentFileUrl || '', // Send existing URL (will be replaced if new file uploaded)
           licenseIssueDate: licenseData.issueDate 
             ? formatDate(licenseData.issueDate) 
             : existingDoc.licenseIssueDate || '',
@@ -991,7 +1079,6 @@ const handleSaveAll = async () => {
             ? formatDate(licenseData.expiryDate) 
             : existingDoc.licenseExpiryDate || '',
           licenseIssuingAuthority: licenseData.issuingAuthority || existingDoc.licenseIssuingAuthority || '',
-          // licenseStatus: licenseData.status || existingDoc.licenseStatus || 'InActive'
           licenseStatus: licenseData.status === '----' ? 'InActive' : (licenseData.status || existingDoc.licenseStatus || 'InActive')
         });
         
@@ -1004,13 +1091,22 @@ const handleSaveAll = async () => {
     }
 
     // 2. Add NEW documents (for selected product types that don't have documents yet)
-    Object.entries(formData.licenses).forEach(([productName, licenseData]) => {
+    Object.entries(formData.licenses).forEach(([productName, licenseData]: [string, any]) => {
       const productType = productTypes.find(pt => pt.productTypeName === productName);
       if (!productType) return;
       
       // Only add if this product type is selected AND not already processed
       if (selectedProductTypeIds.has(productType.productTypeId) && 
           !processedProductTypeIds.has(productType.productTypeId)) {
+        
+        // Check if this new license has a file
+        if (licenseData.file) {
+          filesToUpload.licenses.push({
+            productName: productName,
+            productTypeId: productType.productTypeId,
+            file: licenseData.file
+          });
+        }
         
         // Only add if it has some data
         const hasData = licenseData.number || 
@@ -1022,11 +1118,10 @@ const handleSaveAll = async () => {
           documentsToSend.push({
             productTypeId: productType.productTypeId,
             documentNumber: licenseData.number || '',
-            documentFileUrl: licenseData.fileUrl || '',
+            documentFileUrl: 'PENDING', // ✅ Send "PENDING" for new documents
             licenseIssueDate: licenseData.issueDate ? formatDate(licenseData.issueDate) : '',
             licenseExpiryDate: licenseData.expiryDate ? formatDate(licenseData.expiryDate) : '',
             licenseIssuingAuthority: licenseData.issuingAuthority || '',
-            // licenseStatus: licenseData.status || 'InActive'
             licenseStatus: licenseData.status === '----' ? 'InActive' : (licenseData.status || 'InActive')
           });
           
@@ -1044,6 +1139,12 @@ const handleSaveAll = async () => {
       productId: d.productTypeId,
       number: d.documentNumber
     })));
+    
+    console.log('📦 Files to upload:', {
+      gst: filesToUpload.gstFile?.name,
+      bank: filesToUpload.bankFile?.name,
+      licenses: filesToUpload.licenses.map(l => ({ name: l.productName, file: l.file.name }))
+    });
 
     // 4. Build complete profile data
     const completeData: UpdateSellerProfileRequest = {
@@ -1080,11 +1181,11 @@ const handleSaveAll = async () => {
         ifscCode: formData.ifscCode,
         accountNumber: formData.accountNumber,
         accountHolderName: formData.accountHolderName,
-        bankDocumentFileUrl: formData.cancelledChequeFileUrl
+        bankDocumentFileUrl: profileData?.bankDetails?.bankDocumentFileUrl || '' // Send existing URL
       },
       
       gstNumber: formData.gstNumber,
-      gstFileUrl: formData.gstFileUrl,
+      gstFileUrl: profileData?.sellerGST?.gstFileUrl || '', // Send existing URL
       
       documents: documentsToSend
     };
@@ -1125,16 +1226,17 @@ const handleSaveAll = async () => {
         }
       }
 
+      // Store files with pending data for OTP flow
       setPendingEmail(needsEmailVerification ? newEmail : undefined);
       setPendingPhone(needsPhoneVerification ? newPhone : undefined);
-      setPendingSectionData(completeData);
+      setPendingSectionData({ completeData, filesToUpload });
       setPendingSection('all');
       setShowOtpModal(true);
       return;
     }
 
-    // 8. Save all sections
-    console.log('💾 Saving with data:', completeData);
+    // 8. Two-step submission: JSON first, then files
+    console.log('💾 Step 1: Sending JSON data...');
     
     const requestedBy = updateProfileService.getCurrentUserEmail();
     if (!requestedBy) {
@@ -1144,11 +1246,68 @@ const handleSaveAll = async () => {
 
     const response = await updateProfileService.updateFullProfile(completeData, requestedBy);
     
-    if (response) {
-      console.log('✅ Update successful:', response);
+    // Debug the response structure
+    console.log('🔍 Full response:', response);
+    console.log('🔍 response.pendingSellerId:', response?.pendingSellerId);
+    
+    // ✅ Correct access pattern - pendingSellerId is at the top level of response
+    const pendingSellerId = response?.pendingSellerId;
+    
+    if (pendingSellerId) {
+      console.log('✅ Step 1 complete. Pending Seller ID:', pendingSellerId);
       
-      toast.success('Changes submitted for admin review.');
+      // ✅ Build mapping from product type to pending document ID
+      const pendingDocumentIdMap = new Map<number, number>();
       
+      if (response.documents && Array.isArray(response.documents)) {
+        response.documents.forEach((pendingDoc: any) => {
+          if (pendingDoc.productTypeId && pendingDoc.pendingSellerDocumentId) {
+            pendingDocumentIdMap.set(pendingDoc.productTypeId, pendingDoc.pendingSellerDocumentId);
+            console.log(`📋 Product Type ${pendingDoc.productTypeId} → Pending Document ID: ${pendingDoc.pendingSellerDocumentId}`);
+          }
+        });
+      }
+      
+      // Step 2: Upload files if any
+      const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.licenses.length > 0;
+      
+      if (hasFilesToUpload) {
+        console.log('📤 Step 2: Uploading documents...');
+        
+        try {
+          // ✅ Map licenses to include the correct pending document IDs
+          const licensesWithIds = filesToUpload.licenses.map(license => {
+            const pendingDocumentId = pendingDocumentIdMap.get(license.productTypeId);
+            console.log(`🔄 License "${license.productName}" (Product Type ID: ${license.productTypeId}) → Pending Document ID: ${pendingDocumentId}`);
+            
+            return {
+              file: license.file,
+              licenseName: license.productName,
+              documentId: pendingDocumentId  // ← Send the pending document ID
+            };
+          });
+          
+          await uploadSellerDocuments(pendingSellerId, {
+            gstFile: filesToUpload.gstFile || undefined,
+            bankFile: filesToUpload.bankFile || undefined,
+            licenses: licensesWithIds
+          });
+          console.log('✅ Step 2 complete. Document upload successful');
+          toast.success('Changes submitted for admin review.');
+          
+        } catch (uploadError: any) {
+          console.error('❌ Upload failed, rolling back...', uploadError);
+          // Rollback: Delete the pending request
+          await deleteUpdateRequest(pendingSellerId);
+          toast.error(uploadError.message || 'File upload failed. Changes have been rolled back. Please try again.');
+          return;
+        }
+      } else {
+        console.log('✅ No files to upload. Update complete.');
+        toast.success('Changes submitted for admin review.');
+      }
+      
+      // Update UI
       setEditingSection(null);
       
       // Update review sections
@@ -1169,6 +1328,27 @@ const handleSaveAll = async () => {
       
       setSavedSection('all');
       setShowSuccess(true);
+      
+      // Clear file states after successful submission
+      setFormData(prev => ({
+        ...prev,
+        gstFile: null,
+        cancelledChequeFile: null,
+        licenses: Object.fromEntries(
+          Object.entries(prev.licenses).map(([key, value]: [string, any]) => [key, { ...value, file: null }])
+        )
+      }));
+      
+      // Clear changed files state
+      setChangedFiles({
+        gstFile: null,
+        bankFile: null,
+        licenses: []
+      });
+      
+    } else {
+      console.error('❌ No pendingSellerId found in response:', response);
+      throw new Error('No pendingSellerId received from server');
     }
 
   } catch (error: any) {
@@ -1196,6 +1376,7 @@ const handleSaveAll = async () => {
     }, 10000);
   }
 };
+
 
 
   const performSave = async (section: string, sectionData: any) => {
@@ -1287,19 +1468,126 @@ const handleSaveAll = async () => {
       setSavedSection(null);
     }, 21000);
   };
-
-  const handleOtpVerified = async (verified: { email: boolean; phone: boolean }) => {
-    setShowOtpModal(false);
-    
-    if (pendingSection && pendingSectionData) {
+const handleOtpVerified = async (verified: { email: boolean; phone: boolean }) => {
+  setShowOtpModal(false);
+  
+  if (pendingSection && pendingSectionData) {
+    // Check if this is the full update with files
+    if (pendingSection === 'all' && pendingSectionData.completeData && pendingSectionData.filesToUpload) {
+      try {
+        const requestedBy = updateProfileService.getCurrentUserEmail();
+        if (!requestedBy) {
+          toast.error('User email not found');
+          return;
+        }
+        
+        // Step 1: Send JSON data
+        const response = await updateProfileService.updateFullProfile(
+          pendingSectionData.completeData, 
+          requestedBy
+        );
+        
+        const pendingSellerId = response?.pendingSellerId;
+        
+        if (pendingSellerId) {
+          console.log('✅ OTP Flow - Step 1 complete. Pending Seller ID:', pendingSellerId);
+          
+          // ✅ Build mapping from product type to pending document ID
+          const pendingDocumentIdMap = new Map<number, number>();
+          
+          if (response.documents && Array.isArray(response.documents)) {
+            response.documents.forEach((pendingDoc: any) => {
+              if (pendingDoc.productTypeId && pendingDoc.pendingSellerDocumentId) {
+                pendingDocumentIdMap.set(pendingDoc.productTypeId, pendingDoc.pendingSellerDocumentId);
+                console.log(`📋 Product Type ${pendingDoc.productTypeId} → Pending Document ID: ${pendingDoc.pendingSellerDocumentId}`);
+              }
+            });
+          }
+          
+          const filesToUpload = pendingSectionData.filesToUpload;
+          const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.licenses.length > 0;
+          
+          if (hasFilesToUpload) {
+            console.log('📤 OTP Flow - Step 2: Uploading documents...');
+            
+            // ✅ Map licenses with pending document IDs
+            const licensesWithIds = filesToUpload.licenses.map((license: any) => {
+              const pendingDocumentId = pendingDocumentIdMap.get(license.productTypeId);
+              console.log(`🔄 License "${license.productName}" (Product Type ID: ${license.productTypeId}) → Pending Document ID: ${pendingDocumentId}`);
+              
+              return {
+                file: license.file,
+                licenseName: license.productName,
+                documentId: pendingDocumentId
+              };
+            });
+            
+            await uploadSellerDocuments(pendingSellerId, {
+              gstFile: filesToUpload.gstFile || undefined,
+              bankFile: filesToUpload.bankFile || undefined,
+              licenses: licensesWithIds
+            });
+            console.log('✅ OTP Flow - Step 2 complete. Document upload successful');
+          }
+          
+          toast.success('Changes submitted for admin review.');
+          setEditingSection(null);
+          
+          // Update review sections
+          const sectionsToMark = ['company', 'coordinator', 'gst', 'bank'];
+          formData.productTypes.forEach((_, index) => {
+            sectionsToMark.push(`license-${index}`);
+          });
+          
+          setReviewSections((prev) => {
+            const newSections = [...prev];
+            sectionsToMark.forEach(section => {
+              if (!newSections.includes(section)) {
+                newSections.push(section);
+              }
+            });
+            return newSections;
+          });
+          
+          setSavedSection('all');
+          setShowSuccess(true);
+          
+          // Clear file states
+          setFormData(prev => ({
+            ...prev,
+            gstFile: null,
+            cancelledChequeFile: null,
+            licenses: Object.fromEntries(
+              Object.entries(prev.licenses).map(([key, value]: [string, any]) => [key, { ...value, file: null }])
+            )
+          }));
+          
+          setChangedFiles({
+            gstFile: null,
+            bankFile: null,
+            licenses: []
+          });
+          
+        } else {
+          throw new Error('No pendingSellerId received from server');
+        }
+        
+      } catch (error: any) {
+        console.error('❌ Error in OTP flow:', error);
+        toast.error(error.message || 'Failed to submit changes');
+      }
+    } else {
+      // Handle other sections (if any)
       await performSave(pendingSection, pendingSectionData);
     }
-    
-    setPendingEmail(undefined);
-    setPendingPhone(undefined);
-    setPendingSectionData(null);
-    setPendingSection(null);
-  };
+  }
+  
+  setPendingEmail(undefined);
+  setPendingPhone(undefined);
+  setPendingSectionData(null);
+  setPendingSection(null);
+};
+
 
 const handleDownload = async (fileUrl: string, fileName: string) => {
   try {
@@ -1325,7 +1613,7 @@ const handleDownload = async (fileUrl: string, fileName: string) => {
     // Create download link
     const link = document.createElement('a');
     link.href = blobUrl;
-    link.download = fileName; // This will now work for images too
+    link.download = fileName; 
     
     // Append to body, click, and remove
     document.body.appendChild(link);
@@ -1930,26 +2218,25 @@ const handleDownload = async (fileUrl: string, fileName: string) => {
 
           {/* License Copy FileField - works in both edit and view mode */}
           <FileField
-          key={licenseData.fileUrl}
-            label="License Copy"
-            file={licenseData.fileUrl?.split('/').pop() || 'Upload Document'}
-            fileUrl={licenseData.fileUrl}
-            editable={!!editingSection}
-            onDownload={() => handleDownload(licenseData.fileUrl || '#', licenseData.fileUrl?.split('/').pop() || 'license.pdf')}
-            onView={() => handleViewInNewTab(licenseData.fileUrl || '#')}
-            onFileSelect={(file: File) => {
-              setFormData(prev => ({
-                ...prev,
-                licenses: {
-                  ...prev.licenses,
-                  [productName]: {
-                    ...prev.licenses[productName],
-                    file: file,
-                  },
-                },
-              }));
-            }}
-          />
+  key={licenseData.fileUrl}
+  label="License Copy"
+  file={licenseData.fileUrl?.split('/').pop() || 'Upload Document'}
+  fileUrl={licenseData.fileUrl}
+  editable={!!editingSection}
+  onDownload={() => handleDownload(licenseData.fileUrl || '#', licenseData.fileUrl?.split('/').pop() || 'license.pdf')}
+  onView={() => handleViewInNewTab(licenseData.fileUrl || '#')}
+  onFileSelect={(file: File) => {
+    const existingDoc = profileData?.documents.find(
+      doc => doc.productTypes?.productTypeId === licenseData.productTypeId
+    );
+    handleLicenseFileChange(
+      file, 
+      productName, 
+      licenseData.productTypeId, 
+      // existingDoc?.sellerDocumentsId
+    );
+  }}
+/>
 
           <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-neutral-700">
@@ -2082,15 +2369,15 @@ const handleDownload = async (fileUrl: string, fileName: string) => {
 
     {/* Use FileField for GST Certificate */}
     <FileField
-    key={formData.gstFileUrl} 
-      label="GST Certificate"
-      file={formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf'}
-      fileUrl={formData.gstFileUrl}
-      editable={!!editingSection}
-      onDownload={() => handleDownload(formData.gstFileUrl || '#', formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf')}
-      onView={() => handleViewInNewTab(formData.gstFileUrl || '#')}
-      onFileSelect={(file: File) => setFormData(prev => ({ ...prev, gstFile: file }))}
-    />
+  key={formData.gstFileUrl} 
+  label="GST Certificate"
+  file={formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf'}
+  fileUrl={formData.gstFileUrl}
+  editable={!!editingSection}
+  onDownload={() => handleDownload(formData.gstFileUrl || '#', formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf')}
+  onView={() => handleViewInNewTab(formData.gstFileUrl || '#')}
+  onFileSelect={(file: File) => handleGSTFileChange(file)}
+/>
   </div>
 </SectionCard>
 
@@ -2146,15 +2433,15 @@ const handleDownload = async (fileUrl: string, fileName: string) => {
 
         {/* Cancelled Cheque FileField */}
         <FileField
-        key={formData.cancelledChequeFileUrl}
-          label="Cancelled Cheque / Bank Passbook"
-          file={formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf'}
-          fileUrl={formData.cancelledChequeFileUrl}
-          editable={!!editingSection}
-          onDownload={() => handleDownload(formData.cancelledChequeFileUrl || '#', formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf')}
-          onView={() => handleViewInNewTab(formData.cancelledChequeFileUrl || '#')}
-          onFileSelect={(file: File) => setFormData(prev => ({ ...prev, cancelledChequeFile: file }))}
-        />
+  key={formData.cancelledChequeFileUrl}
+  label="Cancelled Cheque / Bank Passbook"
+  file={formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf'}
+  fileUrl={formData.cancelledChequeFileUrl}
+  editable={!!editingSection}
+  onDownload={() => handleDownload(formData.cancelledChequeFileUrl || '#', formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf')}
+  onView={() => handleViewInNewTab(formData.cancelledChequeFileUrl || '#')}
+  onFileSelect={(file: File) => handleBankFileChange(file)}
+/>
       </div>
     </div>
   </SectionCard>
@@ -2541,11 +2828,12 @@ function FileField({
 
 
 
-// this code is without bug fixed...........
+
+// this code is without document edit functionality....................
 
 // "use client";
 
-// import { useState, useEffect, useRef } from "react";
+// import React, { useState, useEffect, useRef } from "react";
 
 // import {
 //   Building2,
@@ -2698,7 +2986,7 @@ function FileField({
 //       issueDate: Date | null;
 //       expiryDate: Date | null;
 //       issuingAuthority: string;
-//       status: 'Active' | 'InActive';
+//       status: 'Active' | 'InActive' | '----';
 //       productTypeId: number;
 //       documentId?: number;
 //     }>,
@@ -3070,7 +3358,6 @@ function FileField({
 //           productTypeId: product.productTypeId
 //         };
 //       } else {
-//         // ✅ If it's truly new, create empty license with correct status format
 //         newLicenses[product.productTypeName] = { 
 //           number: "", 
 //           file: null,
@@ -3078,7 +3365,7 @@ function FileField({
 //           issueDate: null,
 //           expiryDate: null,
 //           issuingAuthority: "",
-//           status: 'InActive',
+//           status: '----',
 //           productTypeId: product.productTypeId
 //         };
 //       }
@@ -3130,11 +3417,10 @@ function FileField({
 //           issueDate: existingDoc.licenseIssueDate ? new Date(existingDoc.licenseIssueDate) : null,
 //           expiryDate: existingDoc.licenseExpiryDate ? new Date(existingDoc.licenseExpiryDate) : null,
 //           issuingAuthority: existingDoc.licenseIssuingAuthority || "",
-//           status: (existingDoc.licenseStatus as 'Active' | 'InActive') || 'InActive',
+//           status: (existingDoc.licenseStatus as 'Active' | 'InActive') || '----',
 //           productTypeId: product.productTypeId
 //         };
 //       } else {
-//         // New product - empty license with correct status
 //         newLicenses[name] = { 
 //           number: "", 
 //           file: null,
@@ -3142,7 +3428,7 @@ function FileField({
 //           issueDate: null,
 //           expiryDate: null,
 //           issuingAuthority: "",
-//           status: 'InActive', 
+//           status: '----', 
 //           productTypeId: product.productTypeId
 //         };
 //       }
@@ -3538,7 +3824,8 @@ function FileField({
 //             ? formatDate(licenseData.expiryDate) 
 //             : existingDoc.licenseExpiryDate || '',
 //           licenseIssuingAuthority: licenseData.issuingAuthority || existingDoc.licenseIssuingAuthority || '',
-//           licenseStatus: licenseData.status || existingDoc.licenseStatus || 'InActive'
+//           // licenseStatus: licenseData.status || existingDoc.licenseStatus || 'InActive'
+//           licenseStatus: licenseData.status === '----' ? 'InActive' : (licenseData.status || existingDoc.licenseStatus || 'InActive')
 //         });
         
 //         processedProductTypeIds.add(productTypeId);
@@ -3572,7 +3859,8 @@ function FileField({
 //             licenseIssueDate: licenseData.issueDate ? formatDate(licenseData.issueDate) : '',
 //             licenseExpiryDate: licenseData.expiryDate ? formatDate(licenseData.expiryDate) : '',
 //             licenseIssuingAuthority: licenseData.issuingAuthority || '',
-//             licenseStatus: licenseData.status || 'InActive'
+//             // licenseStatus: licenseData.status || 'InActive'
+//             licenseStatus: licenseData.status === '----' ? 'InActive' : (licenseData.status || 'InActive')
 //           });
           
 //           processedProductTypeIds.add(productType.productTypeId);
@@ -3742,165 +4030,6 @@ function FileField({
 //   }
 // };
 
-// //  const handleSaveAll = async () => {
-// //   try {
-// //     let needsEmailVerification = false;
-// //     let needsPhoneVerification = false;
-// //     let newEmail = '';
-// //     let newPhone = '';
-
-// //     // Log all form data to see what's being captured
-// //     console.log('🔍 Form Data State:', {
-// //       coordinator: {
-// //         name: formData.coordinatorName,
-// //         designation: formData.coordinatorDesignation,
-// //         email: formData.coordinatorEmail,
-// //         mobile: formData.coordinatorMobile
-// //       },
-// //       bank: {
-// //         bankName: formData.bankName,
-// //         branch: formData.branch,
-// //         ifscCode: formData.ifscCode,
-// //         accountNumber: formData.accountNumber,
-// //         accountHolderName: formData.accountHolderName,
-// //         cancelledChequeFileUrl: formData.cancelledChequeFileUrl
-// //       },
-// //       gst: {
-// //         gstNumber: formData.gstNumber,
-// //         gstFileUrl: formData.gstFileUrl
-// //       },
-// //       licenses: formData.licenses
-// //     });
-
-// //     // Build complete profile data from ALL form sections
-// //     const completeData = {
-// //       // Company details
-// //       sellerName: formData.sellerName,
-// //       companyTypeId: formData.companyTypeId,
-// //       sellerTypeId: formData.sellerTypeId,
-// //       productTypeId: formData.productTypeIds,
-// //       phone: formData.phone,
-// //       email: formData.email,
-// //       website: formData.website || '',
-// //       termsAccepted: profileData?.termsAccepted || true,
-      
-// //       // Address
-// //       address: {
-// //         stateId: formData.stateId,
-// //         districtId: formData.districtId,
-// //         talukaId: formData.talukaId,
-// //         city: formData.city,
-// //         street: formData.street,
-// //         buildingNo: formData.buildingNo,
-// //         landmark: formData.landmark || '',
-// //         pinCode: formData.pincode,
-// //       },
-      
-// //       // Coordinator - Use formData values directly
-// //       coordinator: {
-// //         name: formData.coordinatorName,
-// //         designation: formData.coordinatorDesignation,
-// //         email: formData.coordinatorEmail,
-// //         mobile: formData.coordinatorMobile
-// //       },
-      
-// //       // Bank Details - Use formData values
-// //       bankDetails: {
-// //         bankName: formData.bankName,
-// //         branch: formData.branch,
-// //         ifscCode: formData.ifscCode,
-// //         accountNumber: formData.accountNumber,
-// //         accountHolderName: formData.accountHolderName,
-// //         bankDocumentFileUrl: formData.cancelledChequeFileUrl
-// //       },
-      
-// //       // GST - Use formData values
-// //       gstNumber: formData.gstNumber,
-// //       gstFileUrl: formData.gstFileUrl,
-      
-// //       // Documents - Build from licenses in formData
-// //       documents: profileData?.documents.map(doc => {
-// //         const productName = doc.productTypes?.productTypeName || '';
-// //         const licenseData = formData.licenses[productName];
-        
-// //         console.log(`📄 Processing license for ${productName}:`, licenseData);
-        
-// //         return {
-// //           documentId: doc.sellerDocumentsId,
-// //           productTypeId: doc.productTypes?.productTypeId || 0,
-// //           documentNumber: licenseData?.number || doc.documentNumber || '',
-// //           documentFileUrl: licenseData?.fileUrl || doc.documentFileUrl || '',
-// //           licenseIssueDate: licenseData?.issueDate ? licenseData.issueDate.toISOString().split('T')[0] : doc.licenseIssueDate || '',
-// //           licenseExpiryDate: licenseData?.expiryDate ? licenseData.expiryDate.toISOString().split('T')[0] : doc.licenseExpiryDate || '',
-// //           licenseIssuingAuthority: licenseData?.issuingAuthority || doc.licenseIssuingAuthority || ''
-// //         };
-// //       }) || []
-// //     };
-
-// //     console.log('📦 Complete Data being sent:', JSON.stringify(completeData, null, 2));
-
-// //     // Check ONLY for coordinator email/phone changes that need verification
-// //     if (profileData?.coordinator) {
-// //       // Check coordinator email
-// //       if (formData.coordinatorEmail !== profileData.coordinator.email) {
-// //         needsEmailVerification = true;
-// //         newEmail = formData.coordinatorEmail;
-// //         console.log('📧 Coordinator email changed:', { old: profileData.coordinator.email, new: newEmail });
-// //       }
-      
-// //       // Check coordinator phone
-// //       if (formData.coordinatorMobile !== profileData.coordinator.mobile) {
-// //         needsPhoneVerification = true;
-// //         newPhone = formData.coordinatorMobile;
-// //         console.log('📱 Coordinator phone changed:', { old: profileData.coordinator.mobile, new: newPhone });
-// //       }
-// //     }
-
-// //     // Validate the complete data
-// //     const validationResult = validateSection('company', completeData);
-// //     if (!validationResult.success) {
-// //       toast.error(validationResult.error || 'Validation failed');
-// //       return;
-// //     }
-
-// //     // Handle OTP if needed (only for coordinator changes)
-// //     if (needsEmailVerification || needsPhoneVerification) {
-// //       // Only check email existence if email changed
-// //       if (needsEmailVerification && newEmail) {
-// //         const emailExists = await checkCoordinatorEmailExists(newEmail);
-// //         if (emailExists) {
-// //           toast.error("This email is already registered. Please use a different email address.");
-// //           return;
-// //         }
-// //       }
-
-// //       // Only check phone existence if phone changed
-// //       if (needsPhoneVerification && newPhone) {
-// //         const phoneExists = await checkCoordinatorPhoneExists(newPhone);
-// //         if (phoneExists) {
-// //           toast.error("This phone number is already registered. Please use a different number.");
-// //           return;
-// //         }
-// //       }
-
-// //       // Set ONLY the pending fields that need verification
-// //       setPendingEmail(needsEmailVerification ? newEmail : undefined);
-// //       setPendingPhone(needsPhoneVerification ? newPhone : undefined);
-// //       setPendingSectionData(completeData);
-// //       setPendingSection('all');
-// //       setShowOtpModal(true);
-// //       return;
-// //     }
-
-// //     // Save all sections at once (no OTP needed)
-// //     console.log('💾 Saving all sections with data:', completeData);
-// //     await performSave('all', completeData);
-
-// //   } catch (error: any) {
-// //     console.error('❌ Error preparing save:', error);
-// //     toast.error(error.message || 'Failed to save changes');
-// //   }
-// // };
 
 //   const performSave = async (section: string, sectionData: any) => {
 //     try {
@@ -4282,8 +4411,8 @@ function FileField({
 //                   onChange={handleCompanyTypeChange}
 //                   placeholder="Select Company Type"
 //                   isLoading={loadingStates.companyTypes}
-//                   portalTarget={portalTarget}
-//                   styles={selectWithIconStyles}
+//                  // portalTarget={portalTarget}
+//                  // styles={selectWithIconStyles}
 //                 />
 
 //                 <div className="col-span-2">
@@ -4379,17 +4508,21 @@ function FileField({
 //                   onChange={handleSellerTypeChange}
 //                   placeholder="Select Seller Type"
 //                   isLoading={loadingStates.sellerTypes}
-//                   portalTarget={portalTarget}
-//                   styles={selectWithIconStyles}
+//                  // portalTarget={portalTarget}
+//                  // styles={selectWithIconStyles}
 //                 />
 
 //                 <FileField
-//                   label="Company Type Certificate"
-//                   file="company_registration_cert.pdf"
-//                   editable={!!editingSection}
-//                   onDownload={() => handleDownload('/assets/docs/company-cert.pdf', 'company_registration_cert.pdf')}
-//                   onView={() => handleViewInNewTab('/assets/docs/company-cert.pdf')}
-//                 />
+//   label="Company Type Certificate"
+//   file="company_registration_cert.pdf"
+//   fileUrl="/assets/docs/company-cert.pdf"
+//   editable={!!editingSection}
+//   onDownload={() => handleDownload('/assets/docs/company-cert.pdf', 'company_registration_cert.pdf')}
+//   onView={() => handleViewInNewTab('/assets/docs/company-cert.pdf')}
+//   onFileSelect={(file: File) => {
+//     setFormData(prev => ({ ...prev, companyCertFile: file }));
+//   }}
+// />
 //               </div>
 
 //               <hr />
@@ -4410,8 +4543,8 @@ function FileField({
 //                     onChange={handleStateChange}
 //                     placeholder="Select State"
 //                     isLoading={loadingStates.states}
-//                     portalTarget={portalTarget}
-//                     styles={selectWithIconStyles}
+//                   //  portalTarget={portalTarget}
+//                    // styles={selectWithIconStyles}
 //                   />
 
 //                   <SelectField
@@ -4423,8 +4556,8 @@ function FileField({
 //                     placeholder={loadingStates.districts ? "Loading..." : formData.stateId ? "Select District" : "Select State first"}
 //                     isLoading={loadingStates.districts}
 //                     isDisabled={!formData.stateId}
-//                     portalTarget={portalTarget}
-//                     styles={selectWithIconStyles}
+//                    // portalTarget={portalTarget}
+//                    // styles={selectWithIconStyles}
 //                   />
 
 //                   <SelectField
@@ -4436,8 +4569,8 @@ function FileField({
 //                     placeholder={loadingStates.talukas ? "Loading..." : formData.districtId ? "Select Taluka" : "Select District first"}
 //                     isLoading={loadingStates.talukas}
 //                     isDisabled={!formData.districtId}
-//                     portalTarget={portalTarget}
-//                     styles={selectWithIconStyles}
+//                    // portalTarget={portalTarget}
+//                    // styles={selectWithIconStyles}
 //                   />
 
 //                   <Input 
@@ -4599,326 +4732,284 @@ function FileField({
 //           </div>
 //         </SectionCard>
 
-//         {/* LICENSE Sections */}
-//         {formData.productTypes.map((productName: string, index: number) => {
-//           const licenseData = formData.licenses[productName] || {
-//             number: "",
-//             file: null,
-//             fileUrl: "",
-//             issueDate: null,
-//             expiryDate: null,
-//             issuingAuthority: "",
-//             status: 'Expired'
-//           };
+//        {/* LICENSE Sections */}
+// {formData.productTypes.map((productName: string, index: number) => {
+//   const licenseData = formData.licenses[productName] || {
+//     number: "",
+//     file: null,
+//     fileUrl: "",
+//     issueDate: null,
+//     expiryDate: null,
+//     issuingAuthority: "",
+//     status: 'Expired'
+//   };
 
-//           return (
-//             <div key={productName}>
-//               <SectionCard
-//                 title={`${productName} License Details`}
-//                 icon={<HiOutlineDocumentCheck size={20} />}
-//                 iconBg="bg-[#F3E8FF]"
-//                 iconColor="text-secondary-800"
-//                 underReview={reviewSections.includes(`license-${index}`)}
-//               >
-//                 <div className="grid grid-cols-2 gap-6">
-//                   <Input 
-//                     label="License Number" 
-//                     value={licenseData.number} 
-//                     editable={!!editingSection}
-//                     onChange={(e) => handleLicenseNumberChange(e, productName)}
-//                   />
+//   return (
+//     <div key={productName}>
+//       <SectionCard
+//         title={`${productName} License Details`}
+//         icon={<HiOutlineDocumentCheck size={20} />}
+//         iconBg="bg-[#F3E8FF]"
+//         iconColor="text-secondary-800"
+//         underReview={reviewSections.includes(`license-${index}`)}
+//       >
+//         <div className="grid grid-cols-2 gap-6">
+//           <Input 
+//             label="License Number" 
+//             value={licenseData.number} 
+//             editable={!!editingSection}
+//             onChange={(e) => handleLicenseNumberChange(e, productName)}
+//           />
 
-//                   <div className="flex flex-col gap-2">
-//                     <label className="text-sm font-semibold text-neutral-700">
-//                       License Copy <span className="text-warning-500">*</span>
-//                     </label>
-//                     {editingSection ? (
-//                       <div className="flex items-center border-2 border-dashed border-primary-50 bg-primary-05 rounded-xl h-14 px-3">
-//                         <div className="flex items-center gap-3 flex-1">
-//                           <div className="bg-white rounded-lg w-10 h-10 flex items-center justify-center">
-//                             <Upload size={20} className="text-primary-900" />
-//                           </div>
-//                           <input
-//                             type="file"
-//                             accept=".pdf,.jpg,.jpeg,.png"
-//                             onChange={(e) => handleFileChange(e, 'license', productName)}
-//                             className="flex-1 text-sm"
-//                           />
-//                         </div>
-//                       </div>
-//                     ) : (
-//                       <FileField
-//                         label=""
-//                         file={licenseData.fileUrl?.split('/').pop() || 'license_document.pdf'}
-//                         editable={false}
-//                         onDownload={() => handleDownload(licenseData.fileUrl || '#', licenseData.fileUrl?.split('/').pop() || 'license.pdf')}
-//                         onView={() => handleViewInNewTab(licenseData.fileUrl || '#')}
-//                       />
-//                     )}
-//                   </div>
+//           {/* License Copy FileField - works in both edit and view mode */}
+//           <FileField
+//           key={licenseData.fileUrl}
+//             label="License Copy"
+//             file={licenseData.fileUrl?.split('/').pop() || 'Upload Document'}
+//             fileUrl={licenseData.fileUrl}
+//             editable={!!editingSection}
+//             onDownload={() => handleDownload(licenseData.fileUrl || '#', licenseData.fileUrl?.split('/').pop() || 'license.pdf')}
+//             onView={() => handleViewInNewTab(licenseData.fileUrl || '#')}
+//             onFileSelect={(file: File) => {
+//               setFormData(prev => ({
+//                 ...prev,
+//                 licenses: {
+//                   ...prev.licenses,
+//                   [productName]: {
+//                     ...prev.licenses[productName],
+//                     file: file,
+//                   },
+//                 },
+//               }));
+//             }}
+//           />
 
-//                   <div className="flex flex-col gap-2">
-//                     <label className="text-sm font-semibold text-neutral-700">
-//                       License Issue Date <span className="text-warning-500">*</span>
-//                     </label>
-//                     {editingSection ? (
-//                       <DatePicker
-//                         value={licenseData.issueDate}
-//                         onChange={(date) => handleIssueDateChange(date, productName)}
-//                         maxDate={new Date()}
-//                         format="dd/MM/yyyy"
-//                         slotProps={{
-//                           textField: {
-//                             fullWidth: true,
-//                             size: "small",
-//                             placeholder: "DD/MM/YYYY",
-//                             sx: {
-//                               '& .MuiOutlinedInput-root': {
-//                                 height: '56px',
-//                                 borderRadius: '12px',
-//                                 backgroundColor: '#FFFFFF',
-//                                 '& .MuiOutlinedInput-notchedOutline': {
-//                                   borderColor: '#d1d5db',
-//                                 },
-//                                 '&:hover .MuiOutlinedInput-notchedOutline': {
-//                                   borderColor: '#4B0082',
-//                                 },
-//                                 '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-//                                   borderColor: '#4B0082',
-//                                 },
-//                               },
-//                             },
-//                           },
-//                         }}
-//                       />
-//                     ) : (
-//                       <div className="h-14 px-4 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center">
-//                         <IoCalendarOutline className="mr-2 text-neutral-600" />
-//                         <span>{licenseData.issueDate ? licenseData.issueDate.toLocaleDateString('en-GB') : '-'}</span>
-//                       </div>
-//                     )}
-//                   </div>
+//           <div className="flex flex-col gap-2">
+//             <label className="text-sm font-semibold text-neutral-700">
+//               License Issue Date <span className="text-warning-500">*</span>
+//             </label>
+//             {editingSection ? (
+//               <DatePicker
+//                 value={licenseData.issueDate}
+//                 onChange={(date) => handleIssueDateChange(date, productName)}
+//                 maxDate={new Date()}
+//                 format="dd/MM/yyyy"
+//                 slotProps={{
+//                   textField: {
+//                     fullWidth: true,
+//                     size: "small",
+//                     placeholder: "DD/MM/YYYY",
+//                     sx: {
+//                       '& .MuiOutlinedInput-root': {
+//                         height: '56px',
+//                         borderRadius: '12px',
+//                         backgroundColor: '#FFFFFF',
+//                         '& .MuiOutlinedInput-notchedOutline': {
+//                           borderColor: '#d1d5db',
+//                         },
+//                         '&:hover .MuiOutlinedInput-notchedOutline': {
+//                           borderColor: '#4B0082',
+//                         },
+//                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+//                           borderColor: '#4B0082',
+//                         },
+//                       },
+//                     },
+//                   },
+//                 }}
+//               />
+//             ) : (
+//               <div className="h-14 px-4 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center">
+//                 <IoCalendarOutline className="mr-2 text-neutral-600" />
+//                 <span>{licenseData.issueDate ? licenseData.issueDate.toLocaleDateString('en-GB') : '-'}</span>
+//               </div>
+//             )}
+//           </div>
 
-//                   <div className="flex flex-col gap-2">
-//                     <label className="text-sm font-semibold text-neutral-700">
-//                       License Expiry Date <span className="text-warning-500">*</span>
-//                     </label>
-//                     {editingSection ? (
-//                       <DatePicker
-//                         value={licenseData.expiryDate}
-//                         onChange={(date) => handleExpiryDateChange(date, productName)}
-//                         minDate={licenseData.issueDate || undefined}
-//                         format="dd/MM/yyyy"
-//                         slotProps={{
-//                           textField: {
-//                             fullWidth: true,
-//                             size: "small",
-//                             placeholder: "DD/MM/YYYY",
-//                             sx: {
-//                               '& .MuiOutlinedInput-root': {
-//                                 height: '56px',
-//                                 borderRadius: '12px',
-//                                 backgroundColor: '#FFFFFF',
-//                                 '& .MuiOutlinedInput-notchedOutline': {
-//                                   borderColor: '#d1d5db',
-//                                 },
-//                                 '&:hover .MuiOutlinedInput-notchedOutline': {
-//                                   borderColor: '#4B0082',
-//                                 },
-//                                 '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-//                                   borderColor: '#4B0082',
-//                                 },
-//                               },
-//                             },
-//                           },
-//                         }}
-//                       />
-//                     ) : (
-//                       <div className="h-14 px-4 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center">
-//                         <IoCalendarOutline className="mr-2 text-neutral-600" />
-//                         <span>{licenseData.expiryDate ? licenseData.expiryDate.toLocaleDateString('en-GB') : '-'}</span>
-//                       </div>
-//                     )}
-//                   </div>
+//           <div className="flex flex-col gap-2">
+//             <label className="text-sm font-semibold text-neutral-700">
+//               License Expiry Date <span className="text-warning-500">*</span>
+//             </label>
+//             {editingSection ? (
+//               <DatePicker
+//                 value={licenseData.expiryDate}
+//                 onChange={(date) => handleExpiryDateChange(date, productName)}
+//                 minDate={licenseData.issueDate || undefined}
+//                 format="dd/MM/yyyy"
+//                 slotProps={{
+//                   textField: {
+//                     fullWidth: true,
+//                     size: "small",
+//                     placeholder: "DD/MM/YYYY",
+//                     sx: {
+//                       '& .MuiOutlinedInput-root': {
+//                         height: '56px',
+//                         borderRadius: '12px',
+//                         backgroundColor: '#FFFFFF',
+//                         '& .MuiOutlinedInput-notchedOutline': {
+//                           borderColor: '#d1d5db',
+//                         },
+//                         '&:hover .MuiOutlinedInput-notchedOutline': {
+//                           borderColor: '#4B0082',
+//                         },
+//                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+//                           borderColor: '#4B0082',
+//                         },
+//                       },
+//                     },
+//                   },
+//                 }}
+//               />
+//             ) : (
+//               <div className="h-14 px-4 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center">
+//                 <IoCalendarOutline className="mr-2 text-neutral-600" />
+//                 <span>{licenseData.expiryDate ? licenseData.expiryDate.toLocaleDateString('en-GB') : '-'}</span>
+//               </div>
+//             )}
+//           </div>
 
-//                   <Input
-//                     label="License Issuing Authority"
-//                     value={licenseData.issuingAuthority}
-//                     editable={!!editingSection}
-//                     icon={<Building2 size={18} />}
-//                     onChange={(e) => handleIssuingAuthorityChange(e, productName)}
-//                   />
+//           <Input
+//             label="License Issuing Authority"
+//             value={licenseData.issuingAuthority}
+//             editable={!!editingSection}
+//             icon={<Building2 size={18} />}
+//             onChange={(e) => handleIssuingAuthorityChange(e, productName)}
+//           />
 
-//                   <div className="flex flex-col gap-2">
-//                     <label className="text-sm font-semibold text-neutral-700">
-//                       License Status
-//                     </label>
-//                     <div className="flex items-center h-14 px-4 rounded-xl bg-neutral-50 border border-neutral-100">
-//                       <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${
-//                         licenseData.status === 'Active' ? 'bg-success-50 text-success-700' : 'bg-orange-50 text-orange-700'
-//                       }`}>
-//                         <GoCheckCircle size={16} />
-//                         <span className="text-sm font-medium">{licenseData.status}</span>
-//                       </div>
-//                     </div>
-//                   </div>
-//                 </div>
-//               </SectionCard>
-//             </div>
-//           );
-//         })}
-
-//         {/* GST */}
-//         <SectionCard
-//           title="GSTIN Details"
-//           icon={<FileText size={20} />}
-//           iconBg="bg-orange-100"
-//           iconColor="text-orange-600"
-//           underReview={reviewSections.includes("gst")}
-//         >
-//           <div className="grid grid-cols-2 gap-6">
-//             <Input
-//               label="GSTIN Number"
-//               value={formData.gstNumber}
-//               editable={!!editingSection}
-//               onChange={handleGSTChange}
-//               maxLength={15}
-//               className="uppercase"
-//             />
-
-//             <div className="flex flex-col gap-2">
-//               <label className="text-sm font-semibold text-neutral-700">
-//                 GST Certificate <span className="text-warning-500">*</span>
-//               </label>
-//               {editingSection ? (
-//                 <div className="flex items-center border-2 border-dashed border-primary-50 bg-primary-05 rounded-xl h-14 px-3">
-//                   <div className="flex items-center gap-3 flex-1">
-//                     <div className="bg-white rounded-lg w-10 h-10 flex items-center justify-center">
-//                       <Upload size={20} className="text-primary-900" />
-//                     </div>
-//                     <input
-//                       type="file"
-//                       accept=".pdf,.jpg,.jpeg,.png"
-//                       onChange={(e) => handleFileChange(e, 'gstFile')}
-//                       className="flex-1 text-sm"
-//                     />
-//                   </div>
-//                 </div>
-//               ) : (
-//                 <FileField
-//                   label=""
-//                   file={formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf'}
-//                   editable={false}
-//                   onDownload={() => handleDownload(formData.gstFileUrl || '#', formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf')}
-//                   onView={() => handleViewInNewTab(formData.gstFileUrl || '#')}
-//                 />
-//               )}
+//           <div className="flex flex-col gap-2">
+//             <label className="text-sm font-semibold text-neutral-700">
+//               License Status
+//             </label>
+//             <div className="flex items-center h-14 px-4 rounded-xl bg-neutral-50 border border-neutral-100">
+//               <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${
+//                 licenseData.status === 'Active' ? 'bg-success-50 text-success-700' : 'bg-orange-50 text-orange-700'
+//               }`}>
+//                 <GoCheckCircle size={16} />
+//                 <span className="text-sm font-medium">{licenseData.status}</span>
+//               </div>
 //             </div>
 //           </div>
-//         </SectionCard>
+//         </div>
+//       </SectionCard>
+//     </div>
+//   );
+// })}
+
+//         {/* GST Section */}
+// <SectionCard
+//   title="GSTIN Details"
+//   icon={<FileText size={20} />}
+//   iconBg="bg-orange-100"
+//   iconColor="text-orange-600"
+//   underReview={reviewSections.includes("gst")}
+// >
+//   <div className="grid grid-cols-2 gap-6">
+//     <Input
+//       label="GSTIN Number"
+//       value={formData.gstNumber}
+//       editable={!!editingSection}
+//       onChange={handleGSTChange}
+//       maxLength={15}
+//       className="uppercase"
+//     />
+
+//     {/* Use FileField for GST Certificate */}
+//     <FileField
+//     key={formData.gstFileUrl} 
+//       label="GST Certificate"
+//       file={formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf'}
+//       fileUrl={formData.gstFileUrl}
+//       editable={!!editingSection}
+//       onDownload={() => handleDownload(formData.gstFileUrl || '#', formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf')}
+//       onView={() => handleViewInNewTab(formData.gstFileUrl || '#')}
+//       onFileSelect={(file: File) => setFormData(prev => ({ ...prev, gstFile: file }))}
+//     />
+//   </div>
+// </SectionCard>
 
 //         {/* BANK */}
-//         <div>
-//           <SectionCard
-//             title="Bank Details"
-//             icon={<Landmark size={20} />}
-//             iconBg="bg-[#E0E7FF]"
-//             iconColor="text-secondary-800"
-//             underReview={reviewSections.includes("bank")}
-//           >
-//             <div className="grid grid-cols-2 gap-6">
-//               <div className="space-y-6">
-//                 <Input 
-//                   label="Bank Name" 
-//                   value={formData.bankName} 
-//                   editable={false}
-//                 />
+// <div>
+//   <SectionCard
+//     title="Bank Details"
+//     icon={<Landmark size={20} />}
+//     iconBg="bg-[#E0E7FF]"
+//     iconColor="text-secondary-800"
+//     underReview={reviewSections.includes("bank")}
+//   >
+//     <div className="grid grid-cols-2 gap-6">
+//       <div className="space-y-6">
+//         <Input 
+//           label="Bank Name" 
+//           value={formData.bankName} 
+//           editable={false}
+//         />
 
-//                 <Input 
-//                   label="Branch" 
-//                   value={formData.branch} 
-//                   editable={false}
-//                 />
+//         <Input 
+//           label="Branch" 
+//           value={formData.branch} 
+//           editable={false}
+//         />
 
-//                 <Input 
-//                   label="Account Number" 
-//                   value={formData.accountNumber} 
-//                   editable={!!editingSection}
-//                   onChange={(e) => handleNumericInput(e, 'accountNumber', 18)}
-//                   maxLength={18}
-//                 />
-//               </div>
+//         <Input 
+//           label="Account Number" 
+//           value={formData.accountNumber} 
+//           editable={!!editingSection}
+//           onChange={(e) => handleNumericInput(e, 'accountNumber', 18)}
+//           maxLength={18}
+//         />
+//       </div>
 
-//               <div className="space-y-6">
-//                 <Input 
-//                   label="IFSC Code" 
-//                   value={formData.ifscCode} 
-//                   editable={!!editingSection}
-//                   onChange={(e) => handleIfscChange(e.target.value)}
-//                   maxLength={11}
-//                   className="uppercase"
-//                   error={ifscError}
-//                 />
+//       <div className="space-y-6">
+//         <Input 
+//           label="IFSC Code" 
+//           value={formData.ifscCode} 
+//           editable={!!editingSection}
+//           onChange={(e) => handleIfscChange(e.target.value)}
+//           maxLength={11}
+//           className="uppercase"
+//           error={ifscError}
+//         />
 
-//                 <Input
-//                   label="Beneficiary Name"
-//                   value={formData.accountHolderName}
-//                   editable={!!editingSection}
-//                   onChange={(e) => handleAlphabetInput(e, 'accountHolderName')}
-//                 />
+//         <Input
+//           label="Beneficiary Name"
+//           value={formData.accountHolderName}
+//           editable={!!editingSection}
+//           onChange={(e) => handleAlphabetInput(e, 'accountHolderName')}
+//         />
 
-//                 <div className="col-span-2 mt-4">
-//                   <div className="flex flex-col gap-2">
-//                     <label className="text-sm font-semibold text-neutral-700">
-//                       Cancelled Cheque / Bank Passbook <span className="text-warning-500">*</span>
-//                     </label>
-//                     {editingSection ? (
-//                       <div className="flex items-center border-2 border-dashed border-primary-50 bg-primary-05 rounded-xl h-14 px-3">
-//                         <div className="flex items-center gap-3 flex-1">
-//                           <div className="bg-white rounded-lg w-10 h-10 flex items-center justify-center">
-//                             <Upload size={20} className="text-primary-900" />
-//                           </div>
-//                           <input
-//                             type="file"
-//                             accept=".pdf,.jpg,.jpeg,.png"
-//                             onChange={(e) => handleFileChange(e, 'cancelledChequeFile')}
-//                             className="flex-1 text-sm"
-//                           />
-//                         </div>
-//                       </div>
-//                     ) : (
-//                       <FileField
-//                         label=""
-//                         file={formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf'}
-//                         editable={false}
-//                         onDownload={() => handleDownload(formData.cancelledChequeFileUrl || '#', formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf')}
-//                         onView={() => handleViewInNewTab(formData.cancelledChequeFileUrl || '#')}
-//                       />
-//                     )}
-//                   </div>
-//                 </div>
-//               </div>
-//             </div>
-//           </SectionCard>
+//         {/* Cancelled Cheque FileField */}
+//         <FileField
+//         key={formData.cancelledChequeFileUrl}
+//           label="Cancelled Cheque / Bank Passbook"
+//           file={formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf'}
+//           fileUrl={formData.cancelledChequeFileUrl}
+//           editable={!!editingSection}
+//           onDownload={() => handleDownload(formData.cancelledChequeFileUrl || '#', formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf')}
+//           onView={() => handleViewInNewTab(formData.cancelledChequeFileUrl || '#')}
+//           onFileSelect={(file: File) => setFormData(prev => ({ ...prev, cancelledChequeFile: file }))}
+//         />
+//       </div>
+//     </div>
+//   </SectionCard>
 
-//           {/* Save/Cancel buttons - only show when editing */}
-//           {editingSection && (
-//             <div className="flex justify-between gap-4 mt-6">
-//               <button
-//                 onClick={handleCancel}
-//                 className="flex items-center gap-2 border-2 border-warning-500 text-warning-500 text-md font-semibold px-6 py-3 rounded-lg"
-//               >
-//                 Cancel
-//               </button>
-//               <button
-//                 onClick={handleSaveAll}
-//                 className="flex items-center gap-2 bg-primary-900 font-semibold text-white text-md px-6 py-3 rounded-lg"
-//               >
-//                 Submit
-//               </button>
-//             </div>
-//           )}
-//         </div>
+//   {/* Save/Cancel buttons - only show when editing */}
+//   {editingSection && (
+//     <div className="flex justify-between gap-4 mt-6">
+//       <button
+//         onClick={handleCancel}
+//         className="flex items-center gap-2 border-2 border-warning-500 text-warning-500 text-md font-semibold px-6 py-3 rounded-lg"
+//       >
+//         Cancel
+//       </button>
+//       <button
+//         onClick={handleSaveAll}
+//         className="flex items-center gap-2 bg-primary-900 font-semibold text-white text-md px-6 py-3 rounded-lg"
+//       >
+//         Submit
+//       </button>
+//     </div>
+//   )}
+// </div>
 
 //         {/* OTP Modal */}
 //         <OtpVerificationModal
@@ -5038,6 +5129,7 @@ function FileField({
 //   );
 // }
 
+
 // function SelectField({
 //   label,
 //   value,
@@ -5047,10 +5139,31 @@ function FileField({
 //   onChange,
 //   placeholder,
 //   isLoading,
-//   isDisabled,
-//   portalTarget,
-//   styles
+//   isDisabled
 // }: any) {
+//   const [isOpen, setIsOpen] = useState(false);
+//   const dropdownRef = useRef<HTMLDivElement>(null);
+
+//   // Close dropdown when clicking outside
+//   useEffect(() => {
+//     const handleClickOutside = (event: MouseEvent) => {
+//       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+//         setIsOpen(false);
+//       }
+//     };
+//     document.addEventListener("mousedown", handleClickOutside);
+//     return () => document.removeEventListener("mousedown", handleClickOutside);
+//   }, []);
+
+//   // Get selected option label
+//   const selectedOption = options.find((opt: any) => opt.value === value);
+//   const displayValue = selectedOption?.label || placeholder || "Select option";
+
+//   const handleSelect = (selectedValue: string, selectedLabel: string) => {
+//     onChange({ value: selectedValue, label: selectedLabel });
+//     setIsOpen(false);
+//   };
+
 //   return (
 //     <div className="flex flex-col gap-2">
 //       <label className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
@@ -5062,46 +5175,121 @@ function FileField({
 //         {label}
 //         <span className="text-warning-500">*</span>
 //       </label>
-//       <div className="relative">
-//         {icon && (
-//           <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
-//             {icon}
+//       <div className="relative" ref={dropdownRef}>
+//         {/* Main select button */}
+//         <div
+//           className={`w-full h-14 px-4 rounded-xl border flex items-center justify-between cursor-pointer overflow-hidden
+//             ${editable && !isDisabled
+//               ? "bg-white border-secondary-200 hover:border-primary-900" 
+//               : "bg-neutral-50 border-neutral-100 cursor-not-allowed"
+//           }`}
+//           onClick={() => {
+//             if (editable && !isDisabled && !isLoading) {
+//               setIsOpen(!isOpen);
+//             }
+//           }}
+//         >
+//           <div className="flex items-center gap-2 flex-1">
+//             {icon && <span className="text-neutral-500 shrink-0">{icon}</span>}
+//             <span className={`${!selectedOption ? "text-neutral-500" : "text-neutral-900"} truncate`}>
+//               {isLoading ? "Loading..." : displayValue}
+//             </span>
+//           </div>
+//           <ChevronDown 
+//             className={`w-5 h-5 text-neutral-500 transition-transform shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`} 
+//           />
+//         </div>
+
+//         {/* Dropdown menu */}
+//         {isOpen && editable && !isDisabled && !isLoading && (
+//           <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-300 rounded-xl shadow-xl z-50 overflow-hidden">
+//             <div className="max-h-60 overflow-y-auto">
+//               {options.length > 0 ? (
+//                 options.map((opt: any) => (
+//                   <div
+//                     key={opt.value}
+//                     className={`px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0
+//                       ${value === opt.value ? "bg-purple-50 text-primary-900 font-medium" : "text-neutral-900"}`}
+//                     onClick={() => handleSelect(opt.value, opt.label)}
+//                   >
+//                     <span className="text-sm">{opt.label}</span>
+//                   </div>
+//                 ))
+//               ) : (
+//                 <div className="px-4 py-3 text-sm text-neutral-500 text-center">
+//                   No options available
+//                 </div>
+//               )}
+//             </div>
 //           </div>
 //         )}
-//         <select
-//           value={value}
-//           onChange={(e) => {
-//             const selected = options.find((opt: any) => opt.value === e.target.value);
-//             onChange(selected);
-//           }}
-//           disabled={!editable || isLoading || isDisabled}
-//           className={`w-full h-14 px-4 rounded-xl text-[16px] appearance-none
-//             ${icon ? "pl-10" : "pl-4"} pr-10
-//             ${editable && !isDisabled
-//               ? "bg-white border border-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-//               : "bg-neutral-50 border border-neutral-100 cursor-not-allowed"
-//             }`}
-//         >
-//           <option value="">{isLoading ? "Loading..." : placeholder}</option>
-//           {options.map((opt: any) => (
-//             <option key={opt.value} value={opt.value}>
-//               {opt.label}
-//             </option>
-//           ))}
-//         </select>
-//         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500 pointer-events-none" />
 //       </div>
 //     </div>
 //   );
 // }
+
 
 // function FileField({
 //   label,
 //   file,
 //   editable,
 //   onDownload,
-//   onView
+//   onView,
+//   onFileSelect,
+//   fileUrl
 // }: any) {
+//   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+//   const fileInputRef = useRef<HTMLInputElement>(null);
+
+//   // Reset selected file when editable changes from true to false (when cancel is clicked)
+//   const prevEditableRef = useRef(editable);
+//   useEffect(() => {
+//     // If we're going from edit mode to view mode (cancel clicked)
+//     if (prevEditableRef.current === true && editable === false) {
+//       // eslint-disable-next-line react-hooks/set-state-in-effect
+//       setSelectedFile(null);
+//     }
+//     prevEditableRef.current = editable;
+//   }, [editable]);
+
+//   // Also reset when fileUrl changes (for license sections)
+//   useEffect(() => {
+//     // eslint-disable-next-line react-hooks/set-state-in-effect
+//     setSelectedFile(null);
+//   }, [fileUrl]);
+
+//   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+//     const { files } = e.target;
+//     if (!files || !files[0]) return;
+
+//     const file = files[0];
+    
+//     if (file.size > 5 * 1024 * 1024) {
+//       toast.error("File size should be less than 5MB");
+//       return;
+//     }
+    
+//     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+//     if (!allowedTypes.includes(file.type)) {
+//       toast.error("Only PDF, JPG, JPEG, and PNG files are allowed");
+//       return;
+//     }
+
+//     setSelectedFile(file);
+//     if (onFileSelect) {
+//       onFileSelect(file);
+//     }
+//   };
+
+//   const handleReplaceClick = () => {
+//     fileInputRef.current?.click();
+//   };
+
+//   // Determine which filename to show
+//   const displayFileName = selectedFile 
+//     ? selectedFile.name 
+//     : (file || (fileUrl ? fileUrl.split('/').pop() : 'No file chosen'));
+
 //   return (
 //     <div className="flex flex-col gap-2">
 //       {label && (
@@ -5109,45 +5297,65 @@ function FileField({
 //           {label} <span className="text-warning-500">*</span>
 //         </label>
 //       )}
-//       <div className={`flex items-center justify-between h-14 px-3 rounded-xl
-//       ${editable
-//           ? "border-2 border-dashed border-primary-50 bg-primary-05 cursor-pointer hover:bg-primary-10 transition-colors"
-//           : "border-2 border-dashed border-primary-50 bg-primary-05"
-//         }`}>
-//         <div className="flex items-center gap-3">
-//           <div className="bg-white rounded-lg w-10 h-10 flex items-center justify-center">
-//             <Upload size={20} className="text-primary-900" />
-//           </div>
-//           <span className="text-[16px] text-neutral-800 truncate max-w-[200px]">
-//             {file}
-//           </span>
-//         </div>
-
-//         <div className="flex items-center gap-3 text-gray-600">
-//           {editable ? (
-//             <span className="text-primary-900 text-md font-semibold">
-//               Click to replace
+      
+//       {editable ? (
+//         // Edit mode - show file name and replace option
+//         <div className="flex items-center justify-between h-14 px-3 rounded-xl border-2 border-dashed border-primary-50 bg-primary-05">
+//           <div className="flex items-center gap-3 flex-1 min-w-0">
+//             <div className="bg-white rounded-lg w-10 h-10 flex items-center justify-center shrink-0">
+//               <FileText size={20} className="text-primary-900" />
+//             </div>
+//             <span className="text-[16px] text-neutral-800 truncate flex-1">
+//               {displayFileName}
 //             </span>
-//           ) : (
-//             <>
-//               <button 
-//                 onClick={onDownload} 
-//                 className="text-primary-900 hover:text-primary-700 transition-colors"
-//                 title="Download file"
-//               >
-//                 <Download size={20} />
-//               </button>
-//               <button 
-//                 onClick={onView} 
-//                 className="text-neutral-900 hover:text-neutral-700 transition-colors"
-//                 title="Open in new tab"
-//               >
-//                 <ExternalLink size={20} />
-//               </button>
-//             </>
-//           )}
+//           </div>
+
+//           <button
+//             type="button"
+//             onClick={handleReplaceClick}
+//             className="text-primary-900 text-md font-semibold hover:text-primary-700 transition-colors ml-3 shrink-0"
+//           >
+//             Click to replace
+//           </button>
+          
+//           <input
+//             ref={fileInputRef}
+//             type="file"
+//             accept=".pdf,.jpg,.jpeg,.png"
+//             onChange={handleFileChange}
+//             className="hidden"
+//           />
 //         </div>
-//       </div>
+//       ) : (
+//         // View mode - show file with download/view options
+//         <div className="flex items-center justify-between h-14 px-3 rounded-xl border-2 border-dashed border-primary-50 bg-primary-05">
+//           <div className="flex items-center gap-3 flex-1 min-w-0">
+//             <div className="bg-white rounded-lg w-10 h-10 flex items-center justify-center shrink-0">
+//               <FileText size={20} className="text-primary-900" />
+//             </div>
+//             <span className="text-[16px] text-neutral-800 truncate flex-1">
+//               {file || (fileUrl ? fileUrl.split('/').pop() : 'No file uploaded')}
+//             </span>
+//           </div>
+
+//           <div className="flex items-center gap-3 shrink-0 ml-3">
+//             <button 
+//               onClick={onDownload} 
+//               className="text-primary-900 hover:text-primary-700 transition-colors"
+//               title="Download file"
+//             >
+//               <Download size={20} />
+//             </button>
+//             <button 
+//               onClick={onView} 
+//               className="text-neutral-900 hover:text-neutral-700 transition-colors"
+//               title="Open in new tab"
+//             >
+//               <ExternalLink size={20} />
+//             </button>
+//           </div>
+//         </div>
+//       )}
 //     </div>
 //   );
 // }
