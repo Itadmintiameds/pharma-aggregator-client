@@ -116,6 +116,38 @@ export const deleteProduct = async (productId: string) => {
 };
 
 
+export const uploadProductImages = async (
+  productId: string,
+  files: File[]
+) => {
+  try {
+    const formData = new FormData();
+
+    files.forEach((file) => {
+      formData.append("images", file); // 🔥 must match backend
+    });
+
+    const response = await api.post(
+      `/product-images/${productId}`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    return response.data; // returns array of URLs
+  } catch (error: any) {
+    console.error("Error uploading images", error);
+
+    throw new Error(
+      error.response?.data?.message ||
+      error.message ||
+      "Error uploading images"
+    );
+  }
+};
 
 //Old 
 export const getDrugProductById = async (productId: string) => {

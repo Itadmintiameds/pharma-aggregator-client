@@ -10,6 +10,7 @@ import {
   getDrugCategory,
   getDrugProductById,
   getTherapeuticSubcategory,
+  uploadProductImages,
 } from "@/src/services/product/ProductService";
 import React, { useEffect, useState } from "react";
 import Select from "react-select";
@@ -80,6 +81,7 @@ const AddProduct = () => {
   const [showForm, setShowForm] = useState(false);
   const [dosageOptions, setDosageOptions] = useState<any[]>([]);
   const [loadingDosage, setLoadingDosage] = useState(false);
+  const [images, setImages] = useState<File[]>([]);
 
   const handleCategorySelect = () => {
     setShowForm(true);
@@ -213,32 +215,33 @@ const AddProduct = () => {
 
   // const handleSubmit = async () => {
   //   const validation = drugProductSchema.safeParse(form);
+
   //   if (!validation.success) {
   //     const fieldErrors: Record<string, string> = {};
+
   //     validation.error.issues.forEach((err) => {
   //       const fieldName = err.path.join(".");
   //       fieldErrors[fieldName] = err.message;
   //     });
+
   //     setErrors(fieldErrors);
   //     return;
   //   }
+
   //   setErrors({});
+
   //   try {
-  //     const moleculeIds = form.molecules
-  //       .map((m) => m.moleculeId)
-  //       .filter((id): id is number => id !== null);
+  //     const categoryId = "1";
+  //     const molecules = [{ moleculeId: "5" }];
+
   //     const payload = {
-  //       product: {
-  //         productId: form.productId,
-  //         productName: form.productName,
-  //         therapeuticCategory: form.productCategoryId,
-  //         therapeuticSubcategory: form.therapeuticSubcategory,
-  //         dosageForm: form.dosageForm,
-  //         strength: Number(form.strength),
-  //         warningsPrecautions: form.warningsPrecautions,
-  //         productDescription: form.productDescription,
-  //         productMarketingUrl: form.productMarketingUrl,
-  //       },
+  //       productName: form.productName,
+  //       productDescription: form.productDescription,
+  //       productMarketingUrl: form.productMarketingUrl,
+  //       warningsPrecautions: form.warningsPrecautions,
+  //       categoryId,
+  //       molecules,
+
   //       packagingDetails: {
   //         packagingUnit: form.packagingUnit,
   //         numberOfUnits: Number(form.numberOfUnits),
@@ -246,6 +249,7 @@ const AddProduct = () => {
   //         minimumOrderQuantity: Number(form.minimumOrderQuantity),
   //         maximumOrderQuantity: Number(form.maximumOrderQuantity),
   //       },
+
   //       pricingDetails: [
   //         {
   //           batchLotNumber: form.batchLotNumber,
@@ -256,7 +260,6 @@ const AddProduct = () => {
   //           stockQuantity: Number(form.stockQuantity),
   //           pricePerUnit: Number(form.pricePerUnit),
   //           mrp: Number(form.mrp),
-  //           createdDate: form.createdDate,
   //           gstPercentage: Number(form.gstPercentage),
   //           discountPercentage: Number(form.discountPercentage),
   //           minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
@@ -265,16 +268,29 @@ const AddProduct = () => {
   //           hsnCode: Number(form.hsnCode),
   //         },
   //       ],
-  //       moleculeIds,
+
+  //       productAttributeDrugs: [
+  //         {
+  //           dosageForm: form.dosageForm,
+  //           strength: String(form.strength),
+  //           therapeuticCategoryId: categoryId,
+  //           therapeuticSubcategoryId: form.therapeuticSubcategory,
+  //         },
+  //       ],
   //     };
-  //     console.log("Payload:", payload);
+
+  //     //   console.log("✅ FINAL PAYLOAD:", payload);
+
   //     await createDrugProduct(payload);
+
   //     alert("Product created successfully!");
   //     window.location.reload();
   //   } catch (err) {
-  //     alert("Failed to create product");
+  //     console.error("❌ Submit Error:", err);
+  //     alert("❌ Failed to create product");
   //   }
   // };
+
 
   const handleSubmit = async () => {
     const validation = drugProductSchema.safeParse(form);
@@ -294,21 +310,16 @@ const AddProduct = () => {
     setErrors({});
 
     try {
-      // ✅ TEMP HARD CODE (replace later with dynamic values)
       const categoryId = "1";
       const molecules = [{ moleculeId: "5" }];
 
       const payload = {
-        // ✅ FLAT STRUCTURE (IMPORTANT)
         productName: form.productName,
         productDescription: form.productDescription,
         productMarketingUrl: form.productMarketingUrl,
         warningsPrecautions: form.warningsPrecautions,
-
         categoryId,
-
         molecules,
-
         packagingDetails: {
           packagingUnit: form.packagingUnit,
           numberOfUnits: Number(form.numberOfUnits),
@@ -316,7 +327,6 @@ const AddProduct = () => {
           minimumOrderQuantity: Number(form.minimumOrderQuantity),
           maximumOrderQuantity: Number(form.maximumOrderQuantity),
         },
-
         pricingDetails: [
           {
             batchLotNumber: form.batchLotNumber,
@@ -335,7 +345,6 @@ const AddProduct = () => {
             hsnCode: Number(form.hsnCode),
           },
         ],
-
         productAttributeDrugs: [
           {
             dosageForm: form.dosageForm,
@@ -346,11 +355,24 @@ const AddProduct = () => {
         ],
       };
 
-      console.log("✅ FINAL PAYLOAD:", payload);
+      // ✅ STEP 1: Create Product
+      const productResponse = await createDrugProduct(payload);
 
-      await createDrugProduct(payload);
+      console.log("Product Response:", productResponse); 
 
-      alert("✅ Product created successfully!");
+      const productId = productResponse.data.productId; // 🔥 MUST come from backend
+
+      // ✅ STEP 2: Upload Images (if any)
+      if (images.length > 0) {
+        await uploadProductImages(productId, images);
+      }
+
+
+if (!productId) {
+  throw new Error("Product ID not returned from backend");
+}
+
+      alert("✅ Product + Images uploaded successfully!");
       window.location.reload();
     } catch (err) {
       console.error("❌ Submit Error:", err);
@@ -700,14 +722,15 @@ const AddProduct = () => {
 
               <div className="flex flex-col gap-1">
                 <label className="text-label-l3 text-neutral-700 font-semibold">
-                 Dosage Form (Tablet, Syrup)
+                  Dosage Form (Tablet, Syrup)
                   <span className="text-warning-500 font-semibold ml-1">*</span>
                 </label>
                 <Select
                   options={dosageOptions}
                   isLoading={loadingDosage}
                   value={
-                    dosageOptions.find((o) => o.value === form.dosageForm) || null
+                    dosageOptions.find((o) => o.value === form.dosageForm) ||
+                    null
                   }
                   onChange={handleDosageChange}
                   placeholder="Select dosage"
@@ -1168,24 +1191,71 @@ const AddProduct = () => {
               />
             </div>
 
-            <div className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg">
-              <div className="w-285 h-34.5 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center ">
-                <div className="flex flex-col items-center justify-center">
-                  <img
-                    src="/icons/FolderIcon.svg"
-                    alt="drug"
-                    className="w-10 h-10 rounded-md object-cover"
-                  />
+            <div
+              className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg cursor-pointer"
+              onClick={() => document.getElementById("fileInput")?.click()}
+            >
+              <input
+                id="fileInput"
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) {
+                    setImages(Array.from(e.target.files));
+                  }
+                }}
+              />
+              <div className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg">
+                <div className="w-285 h-34.5 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center ">
+                  <div className="flex flex-col items-center justify-center">
+                    <img
+                      src="/icons/FolderIcon.svg"
+                      alt="drug"
+                      className="w-10 h-10 rounded-md object-cover"
+                    />
 
-                  <div className="text-label-l2 font-normal mt-4">
-                    Choose a file or drag & drop it here
-                  </div>
-                  <div className="text-label-l1 font-normal text-neutral-400">
-                    or click to browse JPEG, PNG, and Pdf{" "}
+                    <div className="text-label-l2 font-normal mt-4">
+                      Choose a file or drag & drop it here
+                    </div>
+                    <div className="text-label-l1 font-normal text-neutral-400">
+                      or click to browse JPEG, PNG, and Pdf{" "}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {images.length > 0 && (
+              <div className="mt-2 text-green-600 text-sm">
+                ✅ {images.length} image(s) added successfully
+              </div>
+            )}
+
+            {images.length > 0 && (
+              <div className="grid grid-cols-4 gap-3 mt-4">
+                {images.map((file, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt="preview"
+                      className="w-full h-24 object-cover rounded-md border"
+                    />
+
+                    {/* Remove button */}
+                    <button
+                      onClick={() =>
+                        setImages(images.filter((_, i) => i !== index))
+                      }
+                      className="absolute top-1 right-1 bg-black text-white text-xs px-1 rounded"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex justify-between mt-6 col-span-2">
               <div className="space-x-6 flex">
