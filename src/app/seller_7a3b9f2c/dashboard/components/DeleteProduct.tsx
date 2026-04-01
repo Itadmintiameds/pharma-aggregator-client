@@ -83,7 +83,7 @@ useEffect(() => {
 
         <p className="text-p5 font-semibold text-neutral-900 mt-1">
           {product?.productName || "-"}{" "}
-          {product?.productAttributeDrugs?.[0]?.strength}mg{" "}
+          {product?.productAttributeDrugs?.[0]?.strength}{" "}
           {product?.productAttributeDrugs?.[0]?.dosageForm}
         </p>
 

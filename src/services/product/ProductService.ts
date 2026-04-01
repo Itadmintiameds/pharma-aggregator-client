@@ -149,6 +149,23 @@ export const uploadProductImages = async (
   }
 };
 
+export const updateProduct = async (
+  productId: string,
+  payload: CreateDrugProductRequest
+) => {
+  try {
+    const response = await api.put(`/products/update/${productId}`, payload);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error updating product:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+    throw error;
+  }
+};
+
 //Old 
 export const getDrugProductById = async (productId: string) => {
   try {

@@ -11,6 +11,7 @@ export interface LicenseFileItem {
 export interface UploadDocPayload {
   gstFile?: File;
   bankFile?: File;
+   companyRegistrationCertificate?: File;
   licenses?: LicenseFileItem[];
 }
 
@@ -31,6 +32,12 @@ export const uploadSellerDocuments = async (
       formData.append("gstFile", payload.gstFile);
       hasFile = true;
     }
+
+    /* ================= COMPANY REGISTRATION CERTIFICATE ================= */
+if (payload.companyRegistrationCertificate) {
+  formData.append("companyRegistrationCertificate", payload.companyRegistrationCertificate);
+  hasFile = true;
+}
 
     /* ================= BANK ================= */
     if (payload.bankFile) {

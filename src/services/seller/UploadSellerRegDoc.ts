@@ -11,6 +11,7 @@ export interface DocumentUploadRequest {
   sellerImage?: File;
   gstFile?: File;
   bankFile?: File;
+  companyRegistrationCertificate?: File;
   licenses?: LicenseFileItem[];
 }
  
@@ -57,6 +58,9 @@ class UploadSellerRegDocService {
       if (request.bankFile) {
         formData.append("bankFile", request.bankFile);
       }
+      if (request.companyRegistrationCertificate) {
+  formData.append("companyRegistrationCertificate", request.companyRegistrationCertificate);
+}
  
       if (request.licenses?.length) {
         request.licenses.forEach((license) => {

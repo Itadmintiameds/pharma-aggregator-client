@@ -86,6 +86,7 @@ export default function SellerProfile() {
   // Track changed files for upload
 const [changedFiles, setChangedFiles] = useState<{
   gstFile: File | null;
+  companyCertFile: File | null;
   bankFile: File | null;
   licenses: Array<{
     productName: string;
@@ -95,6 +96,7 @@ const [changedFiles, setChangedFiles] = useState<{
   }>;
 }>({
   gstFile: null,
+  companyCertFile: null,
   bankFile: null,
   licenses: []
 });
@@ -155,6 +157,9 @@ const [changedFiles, setChangedFiles] = useState<{
     gstNumber: "",
     gstFile: null as File | null,
     gstFileUrl: "",
+
+     companyRegistrationCertificateFile: null as File | null,
+  companyRegistrationCertificateUrl: "",
     
     // Licenses per product
     licenses: {} as Record<string, { 
@@ -266,6 +271,9 @@ const [changedFiles, setChangedFiles] = useState<{
         gstNumber: profileData.sellerGST?.gstNumber || '',
         gstFile: null,
         gstFileUrl: profileData.sellerGST?.gstFileUrl || '',
+
+        companyRegistrationCertificateFile: null,
+      companyRegistrationCertificateUrl: profileData.companyRegistrationCertificateUrl || "",
         
         // Licenses
         licenses,
@@ -293,6 +301,7 @@ const [changedFiles, setChangedFiles] = useState<{
   // ✅ Clear changed files tracking
   setChangedFiles({
     gstFile: null,
+    companyCertFile: null,
     bankFile: null,
     licenses: []
   });
@@ -456,6 +465,9 @@ const [changedFiles, setChangedFiles] = useState<{
             gstNumber: data.sellerGST?.gstNumber || '',
             gstFile: null,
             gstFileUrl: data.sellerGST?.gstFileUrl || '',
+
+            companyRegistrationCertificateFile: null,
+  companyRegistrationCertificateUrl: data.companyRegistrationCertificateUrl || "",
             
             // Licenses
             licenses,
@@ -500,6 +512,13 @@ const [changedFiles, setChangedFiles] = useState<{
 const handleGSTFileChange = (file: File) => {
   setFormData(prev => ({ ...prev, gstFile: file }));
   setChangedFiles(prev => ({ ...prev, gstFile: file }));
+};
+
+// registration certificate file handler
+
+const handleCompanyCertFileChange = (file: File) => {
+  setFormData(prev => ({ ...prev, companyRegistrationCertificateFile: file }));
+  setChangedFiles(prev => ({ ...prev, companyCertFile: file }));
 };
 
 // Update Bank file handler  
@@ -1013,6 +1032,7 @@ const handleSaveAll = async () => {
     const filesToUpload = {
       gstFile: null as File | null,
       bankFile: null as File | null,
+      companyCertFile: null as File | null,
       licenses: [] as Array<{
         productName: string;
         productTypeId: number;
@@ -1024,6 +1044,12 @@ const handleSaveAll = async () => {
     if (formData.gstFile) {
       filesToUpload.gstFile = formData.gstFile;
     }
+
+    // Check if Company Certificate file changed
+if (formData.companyRegistrationCertificateFile) {
+  filesToUpload.companyCertFile = formData.companyRegistrationCertificateFile;
+}
+
 
     // Check if Bank file changed
     if (formData.cancelledChequeFile) {
@@ -1186,6 +1212,8 @@ const handleSaveAll = async () => {
       
       gstNumber: formData.gstNumber,
       gstFileUrl: profileData?.sellerGST?.gstFileUrl || '', // Send existing URL
+
+      companyRegistrationCertificateUrl: profileData?.companyRegistrationCertificateUrl || '',
       
       documents: documentsToSend
     };
@@ -1269,7 +1297,8 @@ const handleSaveAll = async () => {
       }
       
       // Step 2: Upload files if any
-      const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.licenses.length > 0;
+      // const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.licenses.length > 0;
+      const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.licenses.length > 0;
       
       if (hasFilesToUpload) {
         console.log('📤 Step 2: Uploading documents...');
@@ -1290,6 +1319,7 @@ const handleSaveAll = async () => {
           await uploadSellerDocuments(pendingSellerId, {
             gstFile: filesToUpload.gstFile || undefined,
             bankFile: filesToUpload.bankFile || undefined,
+            companyRegistrationCertificate: filesToUpload.companyCertFile || undefined,
             licenses: licensesWithIds
           });
           console.log('✅ Step 2 complete. Document upload successful');
@@ -1333,6 +1363,7 @@ const handleSaveAll = async () => {
       setFormData(prev => ({
         ...prev,
         gstFile: null,
+        companyRegistrationCertificateFile: null,
         cancelledChequeFile: null,
         licenses: Object.fromEntries(
           Object.entries(prev.licenses).map(([key, value]: [string, any]) => [key, { ...value, file: null }])
@@ -1342,6 +1373,7 @@ const handleSaveAll = async () => {
       // Clear changed files state
       setChangedFiles({
         gstFile: null,
+        companyCertFile: null,
         bankFile: null,
         licenses: []
       });
@@ -1505,7 +1537,8 @@ const handleOtpVerified = async (verified: { email: boolean; phone: boolean }) =
           }
           
           const filesToUpload = pendingSectionData.filesToUpload;
-          const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.licenses.length > 0;
+          // const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.licenses.length > 0;
+          const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.licenses.length > 0;
           
           if (hasFilesToUpload) {
             console.log('📤 OTP Flow - Step 2: Uploading documents...');
@@ -1525,6 +1558,7 @@ const handleOtpVerified = async (verified: { email: boolean; phone: boolean }) =
             await uploadSellerDocuments(pendingSellerId, {
               gstFile: filesToUpload.gstFile || undefined,
               bankFile: filesToUpload.bankFile || undefined,
+             companyRegistrationCertificate: filesToUpload.companyCertFile || undefined,
               licenses: licensesWithIds
             });
             console.log('✅ OTP Flow - Step 2 complete. Document upload successful');
@@ -1564,6 +1598,7 @@ const handleOtpVerified = async (verified: { email: boolean; phone: boolean }) =
           
           setChangedFiles({
             gstFile: null,
+            companyCertFile: null,
             bankFile: null,
             licenses: []
           });
@@ -1967,16 +2002,18 @@ const handleDownload = async (fileUrl: string, fileName: string) => {
                  // styles={selectWithIconStyles}
                 />
 
-                <FileField
-  label="Company Type Certificate"
-  file="company_registration_cert.pdf"
-  fileUrl="/assets/docs/company-cert.pdf"
+               <FileField
+  key={formData.companyRegistrationCertificateUrl || 'company-cert'}
+  label="Company Registration Certificate"
+  file={formData.companyRegistrationCertificateUrl?.split('/').pop() || 'company_registration_certificate.pdf'}
+  fileUrl={formData.companyRegistrationCertificateUrl}
   editable={!!editingSection}
-  onDownload={() => handleDownload('/assets/docs/company-cert.pdf', 'company_registration_cert.pdf')}
-  onView={() => handleViewInNewTab('/assets/docs/company-cert.pdf')}
-  onFileSelect={(file: File) => {
-    setFormData(prev => ({ ...prev, companyCertFile: file }));
-  }}
+  onDownload={() => handleDownload(
+    formData.companyRegistrationCertificateUrl || '#', 
+    formData.companyRegistrationCertificateUrl?.split('/').pop() || 'company_registration_certificate.pdf'
+  )}
+  onView={() => handleViewInNewTab(formData.companyRegistrationCertificateUrl || '#')}
+  onFileSelect={(file: File) => handleCompanyCertFileChange(file)}
 />
               </div>
 
@@ -2152,13 +2189,13 @@ const handleDownload = async (fileUrl: string, fileName: string) => {
               maxLength={10}
             />
 
-            <FileField
+            {/* <FileField
               label="Authorization Letter"
               file="authorization_letter.pdf"
               editable={!!editingSection}
               onDownload={() => handleDownload('/assets/docs/auth-letter.pdf', 'authorization_letter.pdf')}
               onView={() => handleViewInNewTab('/assets/docs/auth-letter.pdf')}
-            />
+            /> */}
 
             {(isCheckingEmail || isCheckingPhone) && (
               <div className="col-span-2">
@@ -2829,18 +2866,19 @@ function FileField({
 
 
 
-// this code is without document edit functionality....................
+
+
+
+// this code is without the seller registartion certificate addition...............
 
 // "use client";
 
 // import React, { useState, useEffect, useRef } from "react";
-
 // import {
 //   Building2,
 //   Phone,
 //   MapPin,
 //   Landmark,
-//   Upload,
 //   Download,
 //   ExternalLink,
 //   Pencil,
@@ -2859,15 +2897,13 @@ function FileField({
 // import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 // import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 // import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-
 // import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
 // import { updateProfileService } from "@/src/services/seller/updateProfileService";
 // import { sellerRegMasterService } from "@/src/services/seller/SellerRegMasterService";
 // import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
 // import { fetchBankDetails } from "@/src/services/seller/IFSCService";
 // import { type SellerProfile, type SellerDocument } from "@/src/types/seller/SellerProfileData";
-
-// // import { SellerProfile, SellerDocument } from "@/src/types/seller/SellerProfileData";
+// import { uploadSellerDocuments, deleteUpdateRequest } from "@/src/services/seller/UpdateSellerProfileDoc";
 // import { 
 //   CompanyTypeResponse,
 //   SellerTypeResponse,
@@ -2920,6 +2956,21 @@ function FileField({
 //   const [states, setStates] = useState<StateResponse[]>([]);
 //   const [districts, setDistricts] = useState<DistrictResponse[]>([]);
 //   const [talukas, setTalukas] = useState<TalukaResponse[]>([]);
+//   // Track changed files for upload
+// const [changedFiles, setChangedFiles] = useState<{
+//   gstFile: File | null;
+//   bankFile: File | null;
+//   licenses: Array<{
+//     productName: string;
+//     productTypeId: number;
+//     file: File;
+//     // documentId?: number;
+//   }>;
+// }>({
+//   gstFile: null,
+//   bankFile: null,
+//   licenses: []
+// });
 
 //   // Loading States for master data
 //   const [loadingStates, setLoadingStates] = useState({
@@ -3108,10 +3159,21 @@ function FileField({
 //   };
 
 //   // Update the handleCancel function
+
 //   const handleCancel = () => {
-//     resetFormData();
-//     setEditingSection(null);
-//   };
+//   resetFormData();
+//   setEditingSection(null);
+//   // ✅ Clear changed files tracking
+//   setChangedFiles({
+//     gstFile: null,
+//     bankFile: null,
+//     licenses: []
+//   });
+// };
+//   // const handleCancel = () => {
+//   //   resetFormData();
+//   //   setEditingSection(null);
+//   // };
 
 //   // Master data fetch functions
 //   const fetchCompanyTypes = async () => {
@@ -3306,6 +3368,42 @@ function FileField({
 //     loadProfileData();
 //   }, []);
 
+
+//   // Update GST file handler
+// const handleGSTFileChange = (file: File) => {
+//   setFormData(prev => ({ ...prev, gstFile: file }));
+//   setChangedFiles(prev => ({ ...prev, gstFile: file }));
+// };
+
+// // Update Bank file handler  
+// const handleBankFileChange = (file: File) => {
+//   setFormData(prev => ({ ...prev, cancelledChequeFile: file }));
+//   setChangedFiles(prev => ({ ...prev, bankFile: file }));
+// };
+
+// // Update License file handler
+// const handleLicenseFileChange = (file: File, productName: string, productTypeId: number, documentId?: number) => {
+//   setFormData(prev => ({
+//     ...prev,
+//     licenses: {
+//       ...prev.licenses,
+//       [productName]: {
+//         ...prev.licenses[productName],
+//         file: file,
+//       },
+//     },
+//   }));
+  
+//   setChangedFiles(prev => ({
+//     ...prev,
+//     licenses: [
+//       ...prev.licenses.filter(l => l.productName !== productName),
+//       { productName, productTypeId, file,
+//         //  documentId 
+//         }
+//     ]
+//   }));
+// };
 //   // License status calculator
 //   const calculateLicenseStatus = (issueDate: Date | null, expiryDate: Date | null, apiStatus?: string): 'Active' | 'InActive' => {
 //     if (apiStatus === 'Active' || apiStatus === 'InActive') {
@@ -3784,6 +3882,27 @@ function FileField({
 //       return `${year}-${month}-${day}`;
 //     };
 
+//     // Track changed files for upload
+//     const filesToUpload = {
+//       gstFile: null as File | null,
+//       bankFile: null as File | null,
+//       licenses: [] as Array<{
+//         productName: string;
+//         productTypeId: number;
+//         file: File;
+//       }>
+//     };
+
+//     // Check if GST file changed
+//     if (formData.gstFile) {
+//       filesToUpload.gstFile = formData.gstFile;
+//     }
+
+//     // Check if Bank file changed
+//     if (formData.cancelledChequeFile) {
+//       filesToUpload.bankFile = formData.cancelledChequeFile;
+//     }
+
 //     // Get current profile documents
 //     const currentDocs = profileData?.documents || [];
     
@@ -3812,11 +3931,20 @@ function FileField({
 //         // Get the license data from form (may contain updates)
 //         const licenseData = formData.licenses[productName] || {};
         
+//         // Check if this license has a new file
+//         if (licenseData.file) {
+//           filesToUpload.licenses.push({
+//             productName: productName,
+//             productTypeId: productTypeId,
+//             file: licenseData.file
+//           });
+//         }
+        
 //         documentsToSend.push({
 //           documentId: existingDoc.sellerDocumentsId,
 //           productTypeId: productTypeId,
 //           documentNumber: licenseData.number || existingDoc.documentNumber || '',
-//           documentFileUrl: licenseData.fileUrl || existingDoc.documentFileUrl || '',
+//           documentFileUrl: existingDoc.documentFileUrl || '', // Send existing URL (will be replaced if new file uploaded)
 //           licenseIssueDate: licenseData.issueDate 
 //             ? formatDate(licenseData.issueDate) 
 //             : existingDoc.licenseIssueDate || '',
@@ -3824,7 +3952,6 @@ function FileField({
 //             ? formatDate(licenseData.expiryDate) 
 //             : existingDoc.licenseExpiryDate || '',
 //           licenseIssuingAuthority: licenseData.issuingAuthority || existingDoc.licenseIssuingAuthority || '',
-//           // licenseStatus: licenseData.status || existingDoc.licenseStatus || 'InActive'
 //           licenseStatus: licenseData.status === '----' ? 'InActive' : (licenseData.status || existingDoc.licenseStatus || 'InActive')
 //         });
         
@@ -3837,13 +3964,22 @@ function FileField({
 //     }
 
 //     // 2. Add NEW documents (for selected product types that don't have documents yet)
-//     Object.entries(formData.licenses).forEach(([productName, licenseData]) => {
+//     Object.entries(formData.licenses).forEach(([productName, licenseData]: [string, any]) => {
 //       const productType = productTypes.find(pt => pt.productTypeName === productName);
 //       if (!productType) return;
       
 //       // Only add if this product type is selected AND not already processed
 //       if (selectedProductTypeIds.has(productType.productTypeId) && 
 //           !processedProductTypeIds.has(productType.productTypeId)) {
+        
+//         // Check if this new license has a file
+//         if (licenseData.file) {
+//           filesToUpload.licenses.push({
+//             productName: productName,
+//             productTypeId: productType.productTypeId,
+//             file: licenseData.file
+//           });
+//         }
         
 //         // Only add if it has some data
 //         const hasData = licenseData.number || 
@@ -3855,11 +3991,10 @@ function FileField({
 //           documentsToSend.push({
 //             productTypeId: productType.productTypeId,
 //             documentNumber: licenseData.number || '',
-//             documentFileUrl: licenseData.fileUrl || '',
+//             documentFileUrl: 'PENDING', // ✅ Send "PENDING" for new documents
 //             licenseIssueDate: licenseData.issueDate ? formatDate(licenseData.issueDate) : '',
 //             licenseExpiryDate: licenseData.expiryDate ? formatDate(licenseData.expiryDate) : '',
 //             licenseIssuingAuthority: licenseData.issuingAuthority || '',
-//             // licenseStatus: licenseData.status || 'InActive'
 //             licenseStatus: licenseData.status === '----' ? 'InActive' : (licenseData.status || 'InActive')
 //           });
           
@@ -3877,6 +4012,12 @@ function FileField({
 //       productId: d.productTypeId,
 //       number: d.documentNumber
 //     })));
+    
+//     console.log('📦 Files to upload:', {
+//       gst: filesToUpload.gstFile?.name,
+//       bank: filesToUpload.bankFile?.name,
+//       licenses: filesToUpload.licenses.map(l => ({ name: l.productName, file: l.file.name }))
+//     });
 
 //     // 4. Build complete profile data
 //     const completeData: UpdateSellerProfileRequest = {
@@ -3913,11 +4054,11 @@ function FileField({
 //         ifscCode: formData.ifscCode,
 //         accountNumber: formData.accountNumber,
 //         accountHolderName: formData.accountHolderName,
-//         bankDocumentFileUrl: formData.cancelledChequeFileUrl
+//         bankDocumentFileUrl: profileData?.bankDetails?.bankDocumentFileUrl || '' // Send existing URL
 //       },
       
 //       gstNumber: formData.gstNumber,
-//       gstFileUrl: formData.gstFileUrl,
+//       gstFileUrl: profileData?.sellerGST?.gstFileUrl || '', // Send existing URL
       
 //       documents: documentsToSend
 //     };
@@ -3958,16 +4099,17 @@ function FileField({
 //         }
 //       }
 
+//       // Store files with pending data for OTP flow
 //       setPendingEmail(needsEmailVerification ? newEmail : undefined);
 //       setPendingPhone(needsPhoneVerification ? newPhone : undefined);
-//       setPendingSectionData(completeData);
+//       setPendingSectionData({ completeData, filesToUpload });
 //       setPendingSection('all');
 //       setShowOtpModal(true);
 //       return;
 //     }
 
-//     // 8. Save all sections
-//     console.log('💾 Saving with data:', completeData);
+//     // 8. Two-step submission: JSON first, then files
+//     console.log('💾 Step 1: Sending JSON data...');
     
 //     const requestedBy = updateProfileService.getCurrentUserEmail();
 //     if (!requestedBy) {
@@ -3977,11 +4119,68 @@ function FileField({
 
 //     const response = await updateProfileService.updateFullProfile(completeData, requestedBy);
     
-//     if (response) {
-//       console.log('✅ Update successful:', response);
+//     // Debug the response structure
+//     console.log('🔍 Full response:', response);
+//     console.log('🔍 response.pendingSellerId:', response?.pendingSellerId);
+    
+//     // ✅ Correct access pattern - pendingSellerId is at the top level of response
+//     const pendingSellerId = response?.pendingSellerId;
+    
+//     if (pendingSellerId) {
+//       console.log('✅ Step 1 complete. Pending Seller ID:', pendingSellerId);
       
-//       toast.success('Changes submitted for admin review.');
+//       // ✅ Build mapping from product type to pending document ID
+//       const pendingDocumentIdMap = new Map<number, number>();
       
+//       if (response.documents && Array.isArray(response.documents)) {
+//         response.documents.forEach((pendingDoc: any) => {
+//           if (pendingDoc.productTypeId && pendingDoc.pendingSellerDocumentId) {
+//             pendingDocumentIdMap.set(pendingDoc.productTypeId, pendingDoc.pendingSellerDocumentId);
+//             console.log(`📋 Product Type ${pendingDoc.productTypeId} → Pending Document ID: ${pendingDoc.pendingSellerDocumentId}`);
+//           }
+//         });
+//       }
+      
+//       // Step 2: Upload files if any
+//       const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.licenses.length > 0;
+      
+//       if (hasFilesToUpload) {
+//         console.log('📤 Step 2: Uploading documents...');
+        
+//         try {
+//           // ✅ Map licenses to include the correct pending document IDs
+//           const licensesWithIds = filesToUpload.licenses.map(license => {
+//             const pendingDocumentId = pendingDocumentIdMap.get(license.productTypeId);
+//             console.log(`🔄 License "${license.productName}" (Product Type ID: ${license.productTypeId}) → Pending Document ID: ${pendingDocumentId}`);
+            
+//             return {
+//               file: license.file,
+//               licenseName: license.productName,
+//               documentId: pendingDocumentId  // ← Send the pending document ID
+//             };
+//           });
+          
+//           await uploadSellerDocuments(pendingSellerId, {
+//             gstFile: filesToUpload.gstFile || undefined,
+//             bankFile: filesToUpload.bankFile || undefined,
+//             licenses: licensesWithIds
+//           });
+//           console.log('✅ Step 2 complete. Document upload successful');
+//           toast.success('Changes submitted for admin review.');
+          
+//         } catch (uploadError: any) {
+//           console.error('❌ Upload failed, rolling back...', uploadError);
+//           // Rollback: Delete the pending request
+//           await deleteUpdateRequest(pendingSellerId);
+//           toast.error(uploadError.message || 'File upload failed. Changes have been rolled back. Please try again.');
+//           return;
+//         }
+//       } else {
+//         console.log('✅ No files to upload. Update complete.');
+//         toast.success('Changes submitted for admin review.');
+//       }
+      
+//       // Update UI
 //       setEditingSection(null);
       
 //       // Update review sections
@@ -4002,6 +4201,27 @@ function FileField({
       
 //       setSavedSection('all');
 //       setShowSuccess(true);
+      
+//       // Clear file states after successful submission
+//       setFormData(prev => ({
+//         ...prev,
+//         gstFile: null,
+//         cancelledChequeFile: null,
+//         licenses: Object.fromEntries(
+//           Object.entries(prev.licenses).map(([key, value]: [string, any]) => [key, { ...value, file: null }])
+//         )
+//       }));
+      
+//       // Clear changed files state
+//       setChangedFiles({
+//         gstFile: null,
+//         bankFile: null,
+//         licenses: []
+//       });
+      
+//     } else {
+//       console.error('❌ No pendingSellerId found in response:', response);
+//       throw new Error('No pendingSellerId received from server');
 //     }
 
 //   } catch (error: any) {
@@ -4029,6 +4249,7 @@ function FileField({
 //     }, 10000);
 //   }
 // };
+
 
 
 //   const performSave = async (section: string, sectionData: any) => {
@@ -4120,19 +4341,126 @@ function FileField({
 //       setSavedSection(null);
 //     }, 21000);
 //   };
-
-//   const handleOtpVerified = async (verified: { email: boolean; phone: boolean }) => {
-//     setShowOtpModal(false);
-    
-//     if (pendingSection && pendingSectionData) {
+// const handleOtpVerified = async (verified: { email: boolean; phone: boolean }) => {
+//   setShowOtpModal(false);
+  
+//   if (pendingSection && pendingSectionData) {
+//     // Check if this is the full update with files
+//     if (pendingSection === 'all' && pendingSectionData.completeData && pendingSectionData.filesToUpload) {
+//       try {
+//         const requestedBy = updateProfileService.getCurrentUserEmail();
+//         if (!requestedBy) {
+//           toast.error('User email not found');
+//           return;
+//         }
+        
+//         // Step 1: Send JSON data
+//         const response = await updateProfileService.updateFullProfile(
+//           pendingSectionData.completeData, 
+//           requestedBy
+//         );
+        
+//         const pendingSellerId = response?.pendingSellerId;
+        
+//         if (pendingSellerId) {
+//           console.log('✅ OTP Flow - Step 1 complete. Pending Seller ID:', pendingSellerId);
+          
+//           // ✅ Build mapping from product type to pending document ID
+//           const pendingDocumentIdMap = new Map<number, number>();
+          
+//           if (response.documents && Array.isArray(response.documents)) {
+//             response.documents.forEach((pendingDoc: any) => {
+//               if (pendingDoc.productTypeId && pendingDoc.pendingSellerDocumentId) {
+//                 pendingDocumentIdMap.set(pendingDoc.productTypeId, pendingDoc.pendingSellerDocumentId);
+//                 console.log(`📋 Product Type ${pendingDoc.productTypeId} → Pending Document ID: ${pendingDoc.pendingSellerDocumentId}`);
+//               }
+//             });
+//           }
+          
+//           const filesToUpload = pendingSectionData.filesToUpload;
+//           const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.licenses.length > 0;
+          
+//           if (hasFilesToUpload) {
+//             console.log('📤 OTP Flow - Step 2: Uploading documents...');
+            
+//             // ✅ Map licenses with pending document IDs
+//             const licensesWithIds = filesToUpload.licenses.map((license: any) => {
+//               const pendingDocumentId = pendingDocumentIdMap.get(license.productTypeId);
+//               console.log(`🔄 License "${license.productName}" (Product Type ID: ${license.productTypeId}) → Pending Document ID: ${pendingDocumentId}`);
+              
+//               return {
+//                 file: license.file,
+//                 licenseName: license.productName,
+//                 documentId: pendingDocumentId
+//               };
+//             });
+            
+//             await uploadSellerDocuments(pendingSellerId, {
+//               gstFile: filesToUpload.gstFile || undefined,
+//               bankFile: filesToUpload.bankFile || undefined,
+//               licenses: licensesWithIds
+//             });
+//             console.log('✅ OTP Flow - Step 2 complete. Document upload successful');
+//           }
+          
+//           toast.success('Changes submitted for admin review.');
+//           setEditingSection(null);
+          
+//           // Update review sections
+//           const sectionsToMark = ['company', 'coordinator', 'gst', 'bank'];
+//           formData.productTypes.forEach((_, index) => {
+//             sectionsToMark.push(`license-${index}`);
+//           });
+          
+//           setReviewSections((prev) => {
+//             const newSections = [...prev];
+//             sectionsToMark.forEach(section => {
+//               if (!newSections.includes(section)) {
+//                 newSections.push(section);
+//               }
+//             });
+//             return newSections;
+//           });
+          
+//           setSavedSection('all');
+//           setShowSuccess(true);
+          
+//           // Clear file states
+//           setFormData(prev => ({
+//             ...prev,
+//             gstFile: null,
+//             cancelledChequeFile: null,
+//             licenses: Object.fromEntries(
+//               Object.entries(prev.licenses).map(([key, value]: [string, any]) => [key, { ...value, file: null }])
+//             )
+//           }));
+          
+//           setChangedFiles({
+//             gstFile: null,
+//             bankFile: null,
+//             licenses: []
+//           });
+          
+//         } else {
+//           throw new Error('No pendingSellerId received from server');
+//         }
+        
+//       } catch (error: any) {
+//         console.error('❌ Error in OTP flow:', error);
+//         toast.error(error.message || 'Failed to submit changes');
+//       }
+//     } else {
+//       // Handle other sections (if any)
 //       await performSave(pendingSection, pendingSectionData);
 //     }
-    
-//     setPendingEmail(undefined);
-//     setPendingPhone(undefined);
-//     setPendingSectionData(null);
-//     setPendingSection(null);
-//   };
+//   }
+  
+//   setPendingEmail(undefined);
+//   setPendingPhone(undefined);
+//   setPendingSectionData(null);
+//   setPendingSection(null);
+// };
+
 
 // const handleDownload = async (fileUrl: string, fileName: string) => {
 //   try {
@@ -4158,7 +4486,7 @@ function FileField({
 //     // Create download link
 //     const link = document.createElement('a');
 //     link.href = blobUrl;
-//     link.download = fileName; // This will now work for images too
+//     link.download = fileName; 
     
 //     // Append to body, click, and remove
 //     document.body.appendChild(link);
@@ -4763,26 +5091,25 @@ function FileField({
 
 //           {/* License Copy FileField - works in both edit and view mode */}
 //           <FileField
-//           key={licenseData.fileUrl}
-//             label="License Copy"
-//             file={licenseData.fileUrl?.split('/').pop() || 'Upload Document'}
-//             fileUrl={licenseData.fileUrl}
-//             editable={!!editingSection}
-//             onDownload={() => handleDownload(licenseData.fileUrl || '#', licenseData.fileUrl?.split('/').pop() || 'license.pdf')}
-//             onView={() => handleViewInNewTab(licenseData.fileUrl || '#')}
-//             onFileSelect={(file: File) => {
-//               setFormData(prev => ({
-//                 ...prev,
-//                 licenses: {
-//                   ...prev.licenses,
-//                   [productName]: {
-//                     ...prev.licenses[productName],
-//                     file: file,
-//                   },
-//                 },
-//               }));
-//             }}
-//           />
+//   key={licenseData.fileUrl}
+//   label="License Copy"
+//   file={licenseData.fileUrl?.split('/').pop() || 'Upload Document'}
+//   fileUrl={licenseData.fileUrl}
+//   editable={!!editingSection}
+//   onDownload={() => handleDownload(licenseData.fileUrl || '#', licenseData.fileUrl?.split('/').pop() || 'license.pdf')}
+//   onView={() => handleViewInNewTab(licenseData.fileUrl || '#')}
+//   onFileSelect={(file: File) => {
+//     const existingDoc = profileData?.documents.find(
+//       doc => doc.productTypes?.productTypeId === licenseData.productTypeId
+//     );
+//     handleLicenseFileChange(
+//       file, 
+//       productName, 
+//       licenseData.productTypeId, 
+//       // existingDoc?.sellerDocumentsId
+//     );
+//   }}
+// />
 
 //           <div className="flex flex-col gap-2">
 //             <label className="text-sm font-semibold text-neutral-700">
@@ -4915,15 +5242,15 @@ function FileField({
 
 //     {/* Use FileField for GST Certificate */}
 //     <FileField
-//     key={formData.gstFileUrl} 
-//       label="GST Certificate"
-//       file={formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf'}
-//       fileUrl={formData.gstFileUrl}
-//       editable={!!editingSection}
-//       onDownload={() => handleDownload(formData.gstFileUrl || '#', formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf')}
-//       onView={() => handleViewInNewTab(formData.gstFileUrl || '#')}
-//       onFileSelect={(file: File) => setFormData(prev => ({ ...prev, gstFile: file }))}
-//     />
+//   key={formData.gstFileUrl} 
+//   label="GST Certificate"
+//   file={formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf'}
+//   fileUrl={formData.gstFileUrl}
+//   editable={!!editingSection}
+//   onDownload={() => handleDownload(formData.gstFileUrl || '#', formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf')}
+//   onView={() => handleViewInNewTab(formData.gstFileUrl || '#')}
+//   onFileSelect={(file: File) => handleGSTFileChange(file)}
+// />
 //   </div>
 // </SectionCard>
 
@@ -4979,15 +5306,15 @@ function FileField({
 
 //         {/* Cancelled Cheque FileField */}
 //         <FileField
-//         key={formData.cancelledChequeFileUrl}
-//           label="Cancelled Cheque / Bank Passbook"
-//           file={formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf'}
-//           fileUrl={formData.cancelledChequeFileUrl}
-//           editable={!!editingSection}
-//           onDownload={() => handleDownload(formData.cancelledChequeFileUrl || '#', formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf')}
-//           onView={() => handleViewInNewTab(formData.cancelledChequeFileUrl || '#')}
-//           onFileSelect={(file: File) => setFormData(prev => ({ ...prev, cancelledChequeFile: file }))}
-//         />
+//   key={formData.cancelledChequeFileUrl}
+//   label="Cancelled Cheque / Bank Passbook"
+//   file={formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf'}
+//   fileUrl={formData.cancelledChequeFileUrl}
+//   editable={!!editingSection}
+//   onDownload={() => handleDownload(formData.cancelledChequeFileUrl || '#', formData.cancelledChequeFileUrl?.split('/').pop() || 'cancelled_cheque.pdf')}
+//   onView={() => handleViewInNewTab(formData.cancelledChequeFileUrl || '#')}
+//   onFileSelect={(file: File) => handleBankFileChange(file)}
+// />
 //       </div>
 //     </div>
 //   </SectionCard>
