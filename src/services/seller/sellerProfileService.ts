@@ -244,3 +244,19 @@ class SellerProfileService {
 
 // Create and export a singleton instance
 export const sellerProfileService = new SellerProfileService();
+
+
+export const getSellerProductTypes = async () => {
+  try {
+    const response = await api.get("/sellers/product-types"); 
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error("Error fetching Product Types:", error);
+
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Product Types: ${error.message}`);
+    } else {
+      throw new Error("An unknown error occurred while fetching Product Types.");
+    }
+  }
+};
