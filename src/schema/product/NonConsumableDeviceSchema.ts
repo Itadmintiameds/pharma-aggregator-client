@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const consumableDeviceSchema = z.object({
+export const nonconsumableDeviceSchema = z.object({
   // Product Details
   productName: z.string().min(1, "Product Name is required"),
   deviceCategoryId: z.string().min(1, "Device Category is required"),
@@ -119,5 +119,3 @@ export const consumableDeviceSchema = z.object({
       message: "Must be a number",
     }),
 });
-
-export { consumableDeviceSchema as ConsumableDeviceSchema };

@@ -1,1 +1,0 @@
-export const TEST_API_BASE_URL = '/test';

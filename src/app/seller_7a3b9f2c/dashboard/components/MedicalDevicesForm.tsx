@@ -11,18 +11,14 @@ const MedicalDevicesForm = () => {
 
   return (
     <div className="mt-10">
-      
       {/* CARD */}
       <div className="border border-neutral-200 rounded-2xl p-4 sm:p-6 bg-white">
-        
         {/* HEADER */}
         <h2 className="text-h4 font-semibold mb-2">Product Details</h2>
         <div className="border-b border-neutral-200 mb-4"></div>
 
         {/* RADIO GROUP */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 sm:gap-10 mt-8">
-          
-          {/* Consumable */}
           <label className="flex items-start sm:items-center gap-3 cursor-pointer">
             <input
               type="radio"
@@ -37,7 +33,6 @@ const MedicalDevicesForm = () => {
             </span>
           </label>
 
-          {/* Non-Consumable */}
           <label className="flex items-start sm:items-center gap-3 cursor-pointer">
             <input
               type="radio"
@@ -56,8 +51,8 @@ const MedicalDevicesForm = () => {
 
       {/* FORMS OUTSIDE */}
       <div className="mt-6">
-        {selectedType === "consumable" && <ConsumableForm />}
-        {selectedType === "non-consumable" && <NonConsumableForm />}
+        {selectedType === "consumable" && <ConsumableForm deviceType="consumable" />}
+        {selectedType === "non-consumable" && <NonConsumableForm deviceType="non-consumable" />}
       </div>
     </div>
   );
