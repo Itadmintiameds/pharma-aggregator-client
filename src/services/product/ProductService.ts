@@ -2,6 +2,7 @@ import { CreateDrugProductRequest } from "@/src/types/product/ProductData";
 import { api } from "@/src/utils/api";
 import { AxiosError } from "axios";
 
+//Old
 export const getDrugCategory = async () => {
   try {
 
@@ -78,8 +79,8 @@ export const getProductById = async (productId: string) => {
     const response = await api.get(`/products/getById/${productId}`);
 
     return (
-      response.data?.data ||  
-      response.data            
+      response.data?.data ||
+      response.data
     );
 
   } catch (error: unknown) {
@@ -99,8 +100,8 @@ export const deleteProduct = async (productId: string) => {
     const response = await api.delete(`/products/delete/${productId}`);
 
     return (
-      response.data?.data ||   
-      response.data ||         
+      response.data?.data ||
+      response.data ||
       null
     );
 
@@ -196,11 +197,26 @@ export const editDrugProduct = async (
   return response.data;
 };
 
-
-export const getTherapeuticSubcategory = async (categoryId: string) => {
+export const getTherapeuticCategory = async () => {
   try {
-    if (!categoryId) throw new Error("Category ID is required");
-    const response = await api.get(`products/subcategories/${categoryId}`);
+
+    const response = await api.get('therapeutic/therapeuticCategories');
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Drug Category:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Drug Category: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Drug Category.');
+    }
+  }
+};
+
+
+export const getTherapeuticSubcategory = async (therapeuticCategoryId: string) => {
+  try {
+    if (!therapeuticCategoryId) throw new Error("Category ID is required");
+    const response = await api.get(`therapeutic/therapeuticSubcategories/${therapeuticCategoryId}`);
     return response.data?.data ?? response.data;
   } catch (error: unknown) {
     console.error('Error fetching Category:', error);
@@ -212,9 +228,51 @@ export const getTherapeuticSubcategory = async (categoryId: string) => {
   }
 };
 
-
 export const getDosage = async () => {
-  const response = await api.get("/products/dosage");
-  return response.data.data; 
+  try {
+
+    const response = await api.get('dosage/allDosage');
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Dosage:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Dosage: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Dosage.');
+    }
+  }
 };
 
+
+export const getPackTypesByDosageId = async (dosageId: number) => {
+  try {
+    const response = await api.get(`dosage/packType/${dosageId}`);
+    return response.data.data;
+
+  } catch (error: unknown) {
+    console.error('Error fetching Pack Types:', error);
+
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Pack Types: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Pack Types.');
+    }
+  }
+};
+
+
+export const getMoleculeStrengthByDosage = async (dosageId: number) => {
+  try {
+    const response = await api.get(`dosageMolecule/strengthFormat/${dosageId}`);
+    return response.data.data;
+
+  } catch (error: unknown) {
+    console.error('Error fetching Molecule Strength Format:', error);
+
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Molecule Strength Format: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Molecule Strength Format.');
+    }
+  }
+};

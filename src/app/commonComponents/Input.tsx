@@ -12,6 +12,8 @@ interface InputProps {
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   disabled?: boolean;
   error?: string;
+  readOnly?: boolean;
+  labelClassName?: string;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -25,13 +27,15 @@ const Input: React.FC<InputProps> = ({
   value,
   onChange,
   disabled = false,
-  error, 
+  error,
+  readOnly,
+  labelClassName,
 }) => {
   return (
     <div className="flex flex-col gap-1">
       <label
         htmlFor={id || name}
-        className="text-label-l3 text-neutral-700 font-semibold"
+        className={`text-label-l3 font-semibold ${labelClassName || "text-neutral-700"}`}
       >
         {label}
         {required && (
@@ -47,6 +51,7 @@ const Input: React.FC<InputProps> = ({
         value={value}
         onChange={onChange}
         disabled={disabled}
+        readOnly={readOnly}
         className={`px-4 w-full h-14 rounded-2xl
           border ${
             error
@@ -57,12 +62,7 @@ const Input: React.FC<InputProps> = ({
           transition-colors duration-200 ${className}`}
       />
 
-      
-      {error && (
-        <p className="text-[#FF3B3B] text-sm px-1">
-          {error}
-        </p>
-      )}
+      {error && <p className="text-[#FF3B3B] text-sm px-1">{error}</p>}
     </div>
   );
 };

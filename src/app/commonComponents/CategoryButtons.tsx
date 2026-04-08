@@ -40,9 +40,6 @@ export default function CategoryButtons({ onSelect }: Props) {
         const res = await getSellerProductTypes();
 
         const backendTypes: string[] = res?.productTypeNames || [];
-
-        console.log("Types-----", backendTypes);
-
         setAllowedCategories(backendTypes);
 
         const matched = categories.find((cat) =>
@@ -86,15 +83,12 @@ export default function CategoryButtons({ onSelect }: Props) {
         if (isDisabled) {
           style = "bg-neutral-200 text-neutral-400 cursor-not-allowed";
         }
-        // ✅ DEFAULT (before click → BORDER ONLY)
         else if (isActive && !isClicked) {
           style = "border-2 border-[#9F75FC] text-[#9F75FC] bg-white";
         }
-        // ✅ AFTER CLICK → FILLED
         else if (isActive && isClicked) {
-          style = "bg-[#9F75FC] text-white";
+          style = "bg-[#9659FD] text-white";
         }
-        // ✅ OTHER ENABLED
         else {
           style = "bg-neutral-200 text-neutral-700";
         }

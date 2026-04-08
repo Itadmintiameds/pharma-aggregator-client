@@ -6,8 +6,6 @@ export interface CreateDrugProductRequest {
 
   categoryId: string;
 
-  molecules: MoleculeData[];
-
   packagingDetails: PackagingData;
 
   pricingDetails: PricingData[];
@@ -17,15 +15,21 @@ export interface CreateDrugProductRequest {
 
 
 export interface ProductAttributeDrugData {
-  dosageForm: string;
+  dosageId: number;
   strength: string;
   therapeuticCategoryId: string;
+  therapeuticCategory: string;
   therapeuticSubcategoryId: string;
+  therapeuticSubcategory: string;
+  manufacturerName: string;
+  molecules: MoleculeData[];
 }
 
 export interface PackagingData {
-  packagingUnit: string;
-  numberOfUnits: number;
+  packId?: number;
+  packType: string;
+  unitPerPack: number;
+  numberOfPacks: number;
   packSize: number;
   minimumOrderQuantity: number;
   maximumOrderQuantity: number;
@@ -35,12 +39,12 @@ export interface PackagingData {
 export interface PricingData {
   pricingId?: string;
   batchLotNumber: string;
-  manufacturerName: string;
   manufacturingDate: string | null;
   expiryDate: string | null;
+  dateOfStockEntry: string | null;
   storageCondition: string;
   stockQuantity: number;
-  pricePerUnit: number;
+  sellingPrice: number;
   mrp: number;
   gstPercentage: number;
   discountPercentage: number;
@@ -53,6 +57,11 @@ export interface PricingData {
 
 export interface MoleculeData {
   moleculeId: string;
+  moleculeName: string;
+  drugSchedule: string;
+  mechanismOfAction: string;
+  primaryUse: string;
+  strength: string;
 }
 
 export interface ProductListData {
