@@ -95,6 +95,9 @@ export default function SellerRegistration() {
     gstNumber: "",
     gstFile: null as File | null,
 
+    // company registration certificate
+    companyRegistrationCertificateFile: null as File | null,
+
     // Licenses per product
     licenses: {} as Record<string, {
       number: string;
@@ -386,6 +389,10 @@ export default function SellerRegistration() {
     })
   }
 
+  const handleCompanyRegFileChange = (file: File | null) => {
+  setFormData(prev => ({ ...prev, companyRegistrationCertificateFile: file }));
+};
+
   const handleSelectAllProductTypes = () => {
     if (!productTypes.length) return
 
@@ -642,7 +649,6 @@ export default function SellerRegistration() {
 
   // Upload file function
   const uploadFile = async (file: File, folder: string): Promise<string> => {
-    // TODO: Replace with actual file upload API call
     return new Promise((resolve) => {
       setTimeout(() => {
         const mockUrl = `https://storage.example.com/${folder}/${Date.now()}_${file.name}`
@@ -656,7 +662,12 @@ export default function SellerRegistration() {
     // Step 1 Validation
     if (step === 1) {
       try {
-        step1Schema.parse(formData)
+        step1Schema.parse(formData);
+        // Check if company registration certificate is uploaded
+      if (!formData.companyRegistrationCertificateFile) {
+        toast.error("Please upload Company Registration Certificate");
+        return;
+      }
       } catch (error) {
         if (error instanceof z.ZodError) {
           error.issues.forEach(issue => toast.error(issue.message))
@@ -700,12 +711,6 @@ export default function SellerRegistration() {
           }
         }
       }
-
-      // if (!emailVerified || !phoneVerified) {
-      //   toast.warning("Please verify both Email and Mobile OTP before proceeding.")
-      //   return
-      // }
-
       return
     }
 
@@ -769,7 +774,7 @@ const handleSubmit = async () => {
   
   try {
     // Generate placeholder URLs that will be replaced
-    const placeholderUrl = "PENDING_UPLOAD";
+    const placeholderUrl = "PENDING";
     
     // Build address object
     const address: TempSellerAddress = {
@@ -831,6 +836,7 @@ const handleSubmit = async () => {
       bankDetails,
       gstNumber: formData.gstNumber,
       gstFileUrl: placeholderUrl,
+      companyRegistrationCertificateUrl: placeholderUrl,
       documents,
     };
 
@@ -863,6 +869,7 @@ const handleSubmit = async () => {
         gstFile: formData.gstFile || undefined,
         bankFile: formData.cancelledChequeFile || undefined,
         licenses: licensesPayload.length > 0 ? licensesPayload : undefined,
+        companyRegistrationCertificate: formData.companyRegistrationCertificateFile || undefined,
       });
 
       console.log("✅ Documents uploaded successfully:", uploadResponse);
@@ -912,7 +919,6 @@ const handleSubmit = async () => {
       toast.error("Submission failed. Please try again.");
     }
     
-    // If we have a tempSellerId but it wasn't deleted yet, clean it up
     if (tempSellerId && !showSuccessModal) {
       try {
         await uploadSellerRegDocService.deleteTempSeller(tempSellerId);
@@ -925,122 +931,6 @@ const handleSubmit = async () => {
     setSubmitting(false);
   }
 };
-
-// const handleSubmit = async () => {
-//   setSubmitting(true);
-  
-//   try {
-//     // Generate placeholder URLs that will be replaced
-//     const placeholderUrl = "PENDING_UPLOAD";
-    
-//     // Build address object
-//     const address: TempSellerAddress = {
-//       stateId: formData.stateId,
-//       districtId: formData.districtId,
-//       talukaId: formData.talukaId,
-//       city: formData.city,
-//       street: formData.street,
-//       buildingNo: formData.buildingNo,
-//       landmark: formData.landmark || "",
-//       pinCode: formData.pincode,
-//     };
-
-//     // Build coordinator object
-//     const coordinator: TempSellerCoordinator = {
-//       name: formData.coordinatorName,
-//       designation: formData.coordinatorDesignation,
-//       email: formData.coordinatorEmail,
-//       mobile: formData.coordinatorMobile,
-//     };
-
-//     // Build bank details WITH placeholder
-//     const bankDetails: TempSellerBankDetails = {
-//       bankName: formData.bankName,
-//       branch: formData.branch,
-//       ifscCode: formData.ifscCode,
-//       accountNumber: formData.accountNumber,
-//       accountHolderName: formData.accountHolderName,
-//       bankDocumentFileUrl: placeholderUrl,
-//     };
-
-//     // Prepare documents array WITH placeholder and store for later reference
-//     const documents: TempSellerDocument[] = formData.productTypes.map((productName: string) => {
-//       const product = productTypes.find(p => p.productTypeName === productName);
-//       const license = formData.licenses[productName];
-      
-//       return {
-//         productTypeId: product?.productTypeId || 0,
-//         documentNumber: license?.number || "",
-//         documentFileUrl: placeholderUrl,
-//         licenseIssueDate: license?.issueDate ? license.issueDate.toISOString().split('T')[0] : undefined,
-//         licenseExpiryDate: license?.expiryDate ? license.expiryDate.toISOString().split('T')[0] : undefined,
-//         licenseIssuingAuthority: license?.issuingAuthority || "",
-//       };
-//     });
-
-//     // Create the request WITH placeholders
-//     const request: TempSellerRequest = {
-//       sellerName: formData.sellerName,
-//       productTypeId: formData.productTypeIds,
-//       companyTypeId: formData.companyTypeId,
-//       sellerTypeId: formData.sellerTypeId,
-//       phone: formData.phone,
-//       email: formData.email,
-//       termsAccepted: true,
-//       website: formData.website || undefined,
-//       address,
-//       coordinator,
-//       bankDetails,
-//       gstNumber: formData.gstNumber,
-//       gstFileUrl: placeholderUrl,
-//       documents,
-//     };
-
-//     // STEP 1: Create temp seller with placeholder URLs
-//     console.log("📡 Step 1: Creating temp seller...");
-//     const response = await sellerRegService.createTempSeller(request);
-//     console.log("✅ Temp seller created:", response);
-    
-//     const tempSellerId = response.tempSellerId;
-//     const tempSellerRequestId = response.sellerRequestId;
-    
-//     // STEP 2: Fetch the created temp seller details to get document IDs
-//     console.log(`📡 Step 2: Fetching temp seller details to get document IDs...`);
-//     const tempSellerDetails = await sellerRegService.getTempSellerById(tempSellerId);
-//     console.log("✅ Temp seller details:", tempSellerDetails);
-    
-//    // STEP 3: Upload actual documents using the tempSellerId and document IDs
-// console.log(`📡 Step 3: Uploading documents for temp seller ID: ${tempSellerId}`);
-
-// // Prepare license files in correct order
-// const licensesPayload = uploadSellerRegDocService.prepareLicenseFiles(
-//   formData.licenses,
-//   tempSellerDetails.documents || []
-// );
-
-// // 🔥 IMPORTANT: maintain order exactly like Postman
-// const uploadResponse = await uploadSellerRegDocService.uploadDocuments(tempSellerId, {
-//   sellerImage: undefined, // add later if you have it
-//   gstFile: formData.gstFile || undefined,
-//   bankFile: formData.cancelledChequeFile || undefined,
-//   licenses: licensesPayload.length > 0 ? licensesPayload : undefined,
-// });
-
-// console.log("✅ Documents uploaded successfully:", uploadResponse);
-    
-//     // Set application ID and show success modal
-//     setApplicationId(tempSellerRequestId);
-//     setShowSuccessModal(true);
-//     toast.success("Application submitted successfully!");
-    
-//   } catch (error) {
-//     console.error("Registration failed:", error);
-//     toast.error("Submission failed. Please try again.");
-//   } finally {
-//     setSubmitting(false);
-//   }
-// };
-
   const handleEdit = (section: string) => {
     switch (section) {
       case 'company': setStep(1); break
@@ -1056,6 +946,7 @@ const handleSubmit = async () => {
         {step === 1 && (
           <CompanyForm
             formData={formData}
+            onCompanyRegFileChange={handleCompanyRegFileChange}
             companyTypes={companyTypes}
             sellerTypes={sellerTypes}
             productTypes={productTypes}
@@ -1081,47 +972,45 @@ const handleSubmit = async () => {
           />
         )}
 
-        {step === 2 && (
-          <CoordinatorForm
-            formData={formData}
-            isCheckingEmail={isCheckingEmail}
-            isCheckingPhone={isCheckingPhone}
-            emailExistsError={emailExistsError}
-            phoneExistsError={phoneExistsError}
-            emailVerified={emailVerified}
-            phoneVerified={phoneVerified}
-            onEmailChange={async (email) => {
-              setFormData(prev => ({ ...prev, coordinatorEmail: email }))
-              if (email && email.includes('@') && email.includes('.')) {
-                await checkCoordinatorEmailExists(email)
-              } else {
-                setEmailExistsError("")
-              }
-              if (emailVerified) {
+{step === 2 && (
+  <CoordinatorForm
+    formData={formData}
+    isCheckingEmail={isCheckingEmail}
+    isCheckingPhone={isCheckingPhone}
+    emailExistsError={emailExistsError}
+    phoneExistsError={phoneExistsError}
+    emailVerified={emailVerified}
+    phoneVerified={phoneVerified}
+    onEmailChange={async (email) => {
+      setFormData(prev => ({ ...prev, coordinatorEmail: email }))
+      if (email && email.includes('@') && email.includes('.')) {
+        await checkCoordinatorEmailExists(email)
+      } else {
+        setEmailExistsError("")
+      }
+      if (emailVerified) {
         setEmailVerified(false)
       }
-            }}
-            onPhoneChange={async (phone) => {
-              setFormData(prev => ({ ...prev, coordinatorMobile: phone }))
-              const cleanPhone = phone.replace(/\D/g, '')
-              if (cleanPhone.length === 10) {
-                await checkCoordinatorPhoneExists(phone)
-              } else {
-                setPhoneExistsError("")
-              }
-              if (phoneVerified) {
+    }}
+    onPhoneChange={async (phone) => {
+      setFormData(prev => ({ ...prev, coordinatorMobile: phone }))
+      const cleanPhone = phone.replace(/\D/g, '')
+      if (cleanPhone.length === 10) {
+        await checkCoordinatorPhoneExists(phone)
+      } else {
+        setPhoneExistsError("")
+      }
+      if (phoneVerified) {
         setPhoneVerified(false)
       }
-            }}
-            onAlphabetInput={handleAlphabetInput}
-            prevStep={prevStep}
-            onOTPSuccess={() => {
-      setEmailVerified(true)
-      setPhoneVerified(true)
-      setStep(3)
     }}
-          />
-        )}
+    onEmailVerified={() => setEmailVerified(true)}
+    onPhoneVerified={() => setPhoneVerified(true)}
+    onAlphabetInput={handleAlphabetInput}
+    prevStep={prevStep}
+    nextStep={() => setStep(3)}
+  />
+)}
 
         {step === 3 && (
           <DocumentForm
@@ -1191,23 +1080,29 @@ const handleSubmit = async () => {
 
 
 
-// codes before bug sheet fixed.................
 
 
-// "use client"
 
-// import React, { useState, useEffect, useRef } from "react"
-// import { useRouter } from "next/navigation"
-// import { toast } from "react-toastify"
-// import { z } from "zod"
-// import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider"
-// import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns"
-// import CompanyForm from "./CompanyForm"
-// import CoordinatorForm from "./CoordinatorForm"
-// import DocumentForm from "./DocumentForm"
-// import BankForm from "./BankForm"
-// import ReviewForm from "./ReviewForm"
-// import SuccessModal from "./SuccessModal"
+
+
+
+
+// old code without new otp modal.........
+
+// "use client";
+
+// import React, { useState, useEffect, useRef } from "react";
+// import { useRouter } from "next/navigation";
+// import { toast } from "react-toastify";
+// import { z } from "zod";
+// import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+// import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+// import CompanyForm from "./CompanyForm";
+// import CoordinatorForm from "./CoordinatorForm";
+// import DocumentForm from "./DocumentForm";
+// import BankForm from "./BankForm";
+// import ReviewForm from "./ReviewForm";
+// import SuccessModal from "./SuccessModal";
 // import { uploadSellerRegDocService } from "@/src/services/seller/UploadSellerRegDoc";
 // import SellerRegistrationLayout from "./SellerRegistrationLayout"
 // import { sellerRegMasterService } from "@/src/services/seller/SellerRegMasterService"
@@ -1958,12 +1853,15 @@ const handleSubmit = async () => {
 //   const prevStep = () => {
 //     if (step > 1) setStep(step - 1)
 //   }
-
-
 // const handleSubmit = async () => {
 //   setSubmitting(true);
+//   let tempSellerId: number | null = null;
+//   let tempSellerRequestId: string | null = null;
+  
 //   try {
-//     // STEP 1: Create temp seller WITHOUT file URLs first
+//     // Generate placeholder URLs that will be replaced
+//     const placeholderUrl = "PENDING_UPLOAD";
+    
 //     // Build address object
 //     const address: TempSellerAddress = {
 //       stateId: formData.stateId,
@@ -1984,17 +1882,17 @@ const handleSubmit = async () => {
 //       mobile: formData.coordinatorMobile,
 //     };
 
-//     // Build bank details WITHOUT file URL initially
+//     // Build bank details WITH placeholder
 //     const bankDetails: TempSellerBankDetails = {
 //       bankName: formData.bankName,
 //       branch: formData.branch,
 //       ifscCode: formData.ifscCode,
 //       accountNumber: formData.accountNumber,
 //       accountHolderName: formData.accountHolderName,
-//       bankDocumentFileUrl: "", // Will be updated after upload
+//       bankDocumentFileUrl: placeholderUrl,
 //     };
 
-//     // Prepare documents array WITHOUT file URLs initially
+//     // Prepare documents array WITH placeholder
 //     const documents: TempSellerDocument[] = formData.productTypes.map((productName: string) => {
 //       const product = productTypes.find(p => p.productTypeName === productName);
 //       const license = formData.licenses[productName];
@@ -2002,14 +1900,14 @@ const handleSubmit = async () => {
 //       return {
 //         productTypeId: product?.productTypeId || 0,
 //         documentNumber: license?.number || "",
-//         documentFileUrl: "", // Will be updated after upload
+//         documentFileUrl: placeholderUrl,
 //         licenseIssueDate: license?.issueDate ? license.issueDate.toISOString().split('T')[0] : undefined,
 //         licenseExpiryDate: license?.expiryDate ? license.expiryDate.toISOString().split('T')[0] : undefined,
 //         licenseIssuingAuthority: license?.issuingAuthority || "",
 //       };
 //     });
 
-//     // Create the request WITHOUT file URLs
+//     // Create the request WITH placeholders
 //     const request: TempSellerRequest = {
 //       sellerName: formData.sellerName,
 //       productTypeId: formData.productTypeIds,
@@ -2023,45 +1921,216 @@ const handleSubmit = async () => {
 //       coordinator,
 //       bankDetails,
 //       gstNumber: formData.gstNumber,
-//       gstFileUrl: "", // Will be updated after upload
+//       gstFileUrl: placeholderUrl,
 //       documents,
 //     };
 
-//     // Submit the initial registration WITHOUT files
+//     // STEP 1: Create temp seller with placeholder URLs
 //     console.log("📡 Step 1: Creating temp seller...");
 //     const response = await sellerRegService.createTempSeller(request);
 //     console.log("✅ Temp seller created:", response);
     
-//     const tempSellerId = response.tempSellerId;
-//     const tempSellerRequestId = response.sellerRequestId;
+//     tempSellerId = response.tempSellerId;
+//     tempSellerRequestId = response.sellerRequestId;
     
-//     // STEP 2: Upload all documents using the tempSellerId
-//     console.log(`📡 Step 2: Uploading documents for temp seller ID: ${tempSellerId}`);
+//     // STEP 2: Fetch the created temp seller details to get document IDs
+//     console.log(`📡 Step 2: Fetching temp seller details to get document IDs...`);
+//     const tempSellerDetails = await sellerRegService.getTempSellerById(tempSellerId);
+//     console.log("✅ Temp seller details:", tempSellerDetails);
     
-//     // Prepare license files
-//     const licenseFiles = uploadSellerRegDocService.prepareLicenseFiles(formData.licenses);
-    
-//     // Upload documents
-//     const uploadResponse = await uploadSellerRegDocService.uploadDocuments(tempSellerId, {
-//       gstFile: formData.gstFile || undefined,
-//       bankDocumentFile: formData.cancelledChequeFile || undefined,
-//       licenseFiles: licenseFiles.length > 0 ? licenseFiles : undefined,
-//       // sellerImageFile: undefined // Add if you have seller image upload
-//     });
-    
-//     console.log("✅ Documents uploaded successfully:", uploadResponse);
-    
-//     setApplicationId(tempSellerRequestId);
-//     setShowSuccessModal(true);
-//     toast.success("Application submitted successfully!");
+//     // STEP 3: Upload actual documents using the tempSellerId and document IDs
+//     console.log(`📡 Step 3: Uploading documents for temp seller ID: ${tempSellerId}`);
+
+//     // Prepare license files in correct order
+//     const licensesPayload = uploadSellerRegDocService.prepareLicenseFiles(
+//       formData.licenses,
+//       tempSellerDetails.documents || []
+//     );
+
+//     try {
+//       // Attempt document upload
+//       const uploadResponse = await uploadSellerRegDocService.uploadDocuments(tempSellerId, {
+//         sellerImage: undefined,
+//         gstFile: formData.gstFile || undefined,
+//         bankFile: formData.cancelledChequeFile || undefined,
+//         licenses: licensesPayload.length > 0 ? licensesPayload : undefined,
+//       });
+
+//       console.log("✅ Documents uploaded successfully:", uploadResponse);
+      
+//       // Set application ID and show success modal
+//       setApplicationId(tempSellerRequestId);
+//       setShowSuccessModal(true);
+//       toast.success("Application submitted successfully!");
+      
+//     } catch (uploadError) {
+//       // Document upload failed - clean up by deleting the temp seller
+//       console.error("❌ Document upload failed:", uploadError);
+      
+//       // Show specific error message to user
+//       let errorMessage = "Document upload failed. ";
+      
+//       if (uploadError instanceof Error) {
+//         if (uploadError.message.includes("file size")) {
+//           errorMessage = "File size exceeds limit (max 5MB). ";
+//         } else if (uploadError.message.includes("file type")) {
+//           errorMessage = "Invalid file type. Please upload PDF, JPG, JPEG, or PNG files. ";
+//         } else {
+//           errorMessage += uploadError.message;
+//         }
+//       }
+      
+//       toast.error(errorMessage + "Your application could not be completed. Please try again.");
+      
+//       // Delete the incomplete temp seller record
+//       if (tempSellerId) {
+//         toast.info("Please Try Again");
+//         await uploadSellerRegDocService.deleteTempSeller(tempSellerId);
+//         toast.info("Please Try Again");
+//       }
+      
+//       // Re-throw to be caught by outer catch
+//       throw new Error(errorMessage + "Please try again.");
+//     }
     
 //   } catch (error) {
 //     console.error("Registration failed:", error);
-//     toast.error("Submission failed. Please try again.");
+    
+//     // If error occurred before document upload or during cleanup
+//     if (error instanceof Error) {
+//       toast.error(error.message);
+//     } else {
+//       toast.error("Submission failed. Please try again.");
+//     }
+    
+//     // If we have a tempSellerId but it wasn't deleted yet, clean it up
+//     if (tempSellerId && !showSuccessModal) {
+//       try {
+//         await uploadSellerRegDocService.deleteTempSeller(tempSellerId);
+//         console.log("✅ Cleaned up incomplete registration");
+//       } catch (cleanupError) {
+//         console.error("Cleanup failed:", cleanupError);
+//       }
+//     }
 //   } finally {
 //     setSubmitting(false);
 //   }
 // };
+
+// // const handleSubmit = async () => {
+// //   setSubmitting(true);
+  
+// //   try {
+// //     // Generate placeholder URLs that will be replaced
+// //     const placeholderUrl = "PENDING_UPLOAD";
+    
+// //     // Build address object
+// //     const address: TempSellerAddress = {
+// //       stateId: formData.stateId,
+// //       districtId: formData.districtId,
+// //       talukaId: formData.talukaId,
+// //       city: formData.city,
+// //       street: formData.street,
+// //       buildingNo: formData.buildingNo,
+// //       landmark: formData.landmark || "",
+// //       pinCode: formData.pincode,
+// //     };
+
+// //     // Build coordinator object
+// //     const coordinator: TempSellerCoordinator = {
+// //       name: formData.coordinatorName,
+// //       designation: formData.coordinatorDesignation,
+// //       email: formData.coordinatorEmail,
+// //       mobile: formData.coordinatorMobile,
+// //     };
+
+// //     // Build bank details WITH placeholder
+// //     const bankDetails: TempSellerBankDetails = {
+// //       bankName: formData.bankName,
+// //       branch: formData.branch,
+// //       ifscCode: formData.ifscCode,
+// //       accountNumber: formData.accountNumber,
+// //       accountHolderName: formData.accountHolderName,
+// //       bankDocumentFileUrl: placeholderUrl,
+// //     };
+
+// //     // Prepare documents array WITH placeholder and store for later reference
+// //     const documents: TempSellerDocument[] = formData.productTypes.map((productName: string) => {
+// //       const product = productTypes.find(p => p.productTypeName === productName);
+// //       const license = formData.licenses[productName];
+      
+// //       return {
+// //         productTypeId: product?.productTypeId || 0,
+// //         documentNumber: license?.number || "",
+// //         documentFileUrl: placeholderUrl,
+// //         licenseIssueDate: license?.issueDate ? license.issueDate.toISOString().split('T')[0] : undefined,
+// //         licenseExpiryDate: license?.expiryDate ? license.expiryDate.toISOString().split('T')[0] : undefined,
+// //         licenseIssuingAuthority: license?.issuingAuthority || "",
+// //       };
+// //     });
+
+// //     // Create the request WITH placeholders
+// //     const request: TempSellerRequest = {
+// //       sellerName: formData.sellerName,
+// //       productTypeId: formData.productTypeIds,
+// //       companyTypeId: formData.companyTypeId,
+// //       sellerTypeId: formData.sellerTypeId,
+// //       phone: formData.phone,
+// //       email: formData.email,
+// //       termsAccepted: true,
+// //       website: formData.website || undefined,
+// //       address,
+// //       coordinator,
+// //       bankDetails,
+// //       gstNumber: formData.gstNumber,
+// //       gstFileUrl: placeholderUrl,
+// //       documents,
+// //     };
+
+// //     // STEP 1: Create temp seller with placeholder URLs
+// //     console.log("📡 Step 1: Creating temp seller...");
+// //     const response = await sellerRegService.createTempSeller(request);
+// //     console.log("✅ Temp seller created:", response);
+    
+// //     const tempSellerId = response.tempSellerId;
+// //     const tempSellerRequestId = response.sellerRequestId;
+    
+// //     // STEP 2: Fetch the created temp seller details to get document IDs
+// //     console.log(`📡 Step 2: Fetching temp seller details to get document IDs...`);
+// //     const tempSellerDetails = await sellerRegService.getTempSellerById(tempSellerId);
+// //     console.log("✅ Temp seller details:", tempSellerDetails);
+    
+// //    // STEP 3: Upload actual documents using the tempSellerId and document IDs
+// // console.log(`📡 Step 3: Uploading documents for temp seller ID: ${tempSellerId}`);
+
+// // // Prepare license files in correct order
+// // const licensesPayload = uploadSellerRegDocService.prepareLicenseFiles(
+// //   formData.licenses,
+// //   tempSellerDetails.documents || []
+// // );
+
+// // // 🔥 IMPORTANT: maintain order exactly like Postman
+// // const uploadResponse = await uploadSellerRegDocService.uploadDocuments(tempSellerId, {
+// //   sellerImage: undefined, // add later if you have it
+// //   gstFile: formData.gstFile || undefined,
+// //   bankFile: formData.cancelledChequeFile || undefined,
+// //   licenses: licensesPayload.length > 0 ? licensesPayload : undefined,
+// // });
+
+// // console.log("✅ Documents uploaded successfully:", uploadResponse);
+    
+// //     // Set application ID and show success modal
+// //     setApplicationId(tempSellerRequestId);
+// //     setShowSuccessModal(true);
+// //     toast.success("Application submitted successfully!");
+    
+// //   } catch (error) {
+// //     console.error("Registration failed:", error);
+// //     toast.error("Submission failed. Please try again.");
+// //   } finally {
+// //     setSubmitting(false);
+// //   }
+// // };
 
 //   const handleEdit = (section: string) => {
 //     switch (section) {
@@ -2110,6 +2179,8 @@ const handleSubmit = async () => {
 //             isCheckingPhone={isCheckingPhone}
 //             emailExistsError={emailExistsError}
 //             phoneExistsError={phoneExistsError}
+//             emailVerified={emailVerified}
+//             phoneVerified={phoneVerified}
 //             onEmailChange={async (email) => {
 //               setFormData(prev => ({ ...prev, coordinatorEmail: email }))
 //               if (email && email.includes('@') && email.includes('.')) {
@@ -2117,6 +2188,9 @@ const handleSubmit = async () => {
 //               } else {
 //                 setEmailExistsError("")
 //               }
+//               if (emailVerified) {
+//         setEmailVerified(false)
+//       }
 //             }}
 //             onPhoneChange={async (phone) => {
 //               setFormData(prev => ({ ...prev, coordinatorMobile: phone }))
@@ -2126,10 +2200,17 @@ const handleSubmit = async () => {
 //               } else {
 //                 setPhoneExistsError("")
 //               }
+//               if (phoneVerified) {
+//         setPhoneVerified(false)
+//       }
 //             }}
 //             onAlphabetInput={handleAlphabetInput}
 //             prevStep={prevStep}
-//             onOTPSuccess={() => setStep(3)}
+//             onOTPSuccess={() => {
+//       setEmailVerified(true)
+//       setPhoneVerified(true)
+//       setStep(3)
+//     }}
 //           />
 //         )}
 
@@ -2157,6 +2238,7 @@ const handleSubmit = async () => {
 //             onAlphabetInput={handleAlphabetInput}
 //             onNumericInput={handleNumericInput}
 //             onChange={handleChange}
+//             onCheckAccountMatch={() => formData.accountNumber === formData.confirmAccountNumber}
 //             prevStep={prevStep}
 //             nextStep={nextStep}
 //           />

@@ -52,6 +52,7 @@ export interface UpdateSellerProfileRequest {
   gstNumber: string;
   // gstFileUrl: string;
   gstFileUrl: string | 'PENDING';
+  companyRegistrationCertificateUrl: string | 'PENDING';
   documents: UpdateDocumentRequest[];
 }
 

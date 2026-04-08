@@ -25,7 +25,6 @@ export default function VerificationModal({
   const [canResend, setCanResend] = useState(true);
   const [resendCountdown, setResendCountdown] = useState(0);
   const [error, setError] = useState<string>("");
-  const [animateType, setAnimateType] = useState<"enter" | "switch">("enter");
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const modalRef = useRef<HTMLDivElement>(null); 
 
@@ -40,11 +39,11 @@ export default function VerificationModal({
     }
   }, [show]);
 
-  //  click outside handler
+  // click outside handler
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (show && modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        onClose(); // Call onClose when clicking outside
+        onClose();
       }
     };
 
@@ -54,7 +53,7 @@ export default function VerificationModal({
     };
   }, [show, onClose]);
 
-  //escape key handler
+  // escape key handler
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (show && event.key === 'Escape') {
@@ -129,7 +128,6 @@ export default function VerificationModal({
               console.log('✅ OTP verified:', response);
             }
             onVerified();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } catch (error: any) {
             console.error('❌ Verification failed:', error);
             
@@ -190,7 +188,6 @@ export default function VerificationModal({
             });
           }
           onVerified();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
           setError(error.message || "Invalid OTP. Please try again.");
           setOtp(["", "", "", "", "", ""]);
@@ -237,7 +234,6 @@ export default function VerificationModal({
       }
       
       onVerified();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('❌ Verification failed:', error);
       
@@ -267,7 +263,6 @@ export default function VerificationModal({
       console.log(`🔄 Resending ${type} OTP to:`, label);
       await onResend();
       console.log(`✅ ${type} OTP resent successfully`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error(`❌ Failed to resend ${type} OTP:`, error);
       
@@ -288,170 +283,109 @@ export default function VerificationModal({
     }, 50);
   };
 
-  const prevType = useRef(type);
-
-useEffect(() => {
-  if (prevType.current !== type) {
-    setAnimateType("switch");
-  } else {
-    setAnimateType("enter");
-  }
-
-  prevType.current = type;
-}, [type]);
-
-useEffect(() => {
-  setOtp(["", "", "", "", "", ""]);
-
-  setTimeout(() => {
-    inputs.current[0]?.focus();
-  }, 50);
-}, [type]);
-
   if (!show) return null;
 
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onClose} // Add onClick to backdrop
+      onClick={onClose}
     >
-      {/* Modal content - stop propagation to prevent closing when clicking inside */}
+      {/* Modal content */}
       <div 
         ref={modalRef}
         className="w-90 bg-white rounded-xl shadow-lg p-8 text-center"
-        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className={`${
-            animateType === "switch" ? "animate-contentSwitch" : "animate-contentEnter"
-          }`}
-        >
-          {/* Icon */}
-          <div className="flex justify-center mb-4">
-            <div
-              className={`w-20 h-20 rounded-full flex items-center justify-center shadow-md
+        {/* Icon */}
+        <div className="flex justify-center mb-4">
+          <div
+            className={`w-20 h-20 rounded-full flex items-center justify-center shadow-md
               ${type === "email" ? "bg-purple-200" : "bg-red-200"}`}
-            >
-              {type === "email" ? (
-                <Image
-                  src="/icons/emailVerIcon.png"
-                  alt="Email Icon"
-                  width={85}
-                  height={40}
-                  className="object-contain"
-                />
-              ) : (
-                <Image
-                  src="/icons/mobVerIcon.png"
-                  alt="Mobile Icon"
-                  width={85}
-                  height={40}
-                  className="object-contain"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Title */}
-          <h2 className="text-2xl font-semibold text-neutral-900 mb-1">
-            {type === "email" ? "Verify your email" : "Verify your mobile number"}
-          </h2>
-
-          {/* Subtitle */}
-          <p className="text-sm text-neutral-600 mb-4">
-            We just sent you a verification code to your{" "}
-            {type === "email" ? "email id" : "phone number"}
-          </p>
-
-          {/* OTP Label */}
-          <p className="text-xl font-medium text-neutral-800 mb-4">
-            Enter your OTP code here
-          </p>
-
-          {/* OTP Inputs */}
-          <div className="flex justify-center gap-2 mb-6">
-            {otp.map((digit, index) => (
-              <input
-                key={index}
-                ref={(el) => {
-                  inputs.current[index] = el;
-                }}
-                type="text"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleChange(e.target.value, index)}
-                onKeyDown={(e) => handleKeyDown(e, index)}
-                onPaste={handlePaste}
-                className="w-12 h-12 bg-neutral-100 text-center text-lg font-semibold border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600"
-              />
-            ))}
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <p className="text-sm text-red-500 mb-4">
-              {error}
-            </p>
-          )}
-
-          {/* Verify Button */}
-          <button
-            onClick={verify}
-            disabled={isVerifying || otp.join("").length !== 6}
-            className="w-37.5 h-12 py-3 rounded-md bg-primary-900 text-white font-medium transition"
           >
-            {isVerifying ? "Verifying..." : "Verify"}
-          </button>
-
-          {/* Resend */}
-          <div className="mt-5 text-xl">
-            <p className="text-neutral-800">Didn&apos;t receive the OTP?</p>
-
-            <button
-              onClick={handleResendCode}
-              disabled={!canResend}
-              className="text-warning-500 font-large mt-1 hover:underline disabled:text-neutral-400"
-            >
-              {canResend ? "Resend OTP" : `Resend in ${resendCountdown}s`}
-            </button>
+            {type === "email" ? (
+              <Image
+                src="/icons/emailVerIcon.png"
+                alt="Email Icon"
+                width={85}
+                height={40}
+                className="object-contain"
+              />
+            ) : (
+              <Image
+                src="/icons/mobVerIcon.png"
+                alt="Mobile Icon"
+                width={85}
+                height={40}
+                className="object-contain"
+              />
+            )}
           </div>
         </div>
+
+        {/* Title */}
+        <h2 className="text-2xl font-semibold text-neutral-900 mb-1">
+          {type === "email" ? "Verify your email" : "Verify your mobile number"}
+        </h2>
+
+        {/* Subtitle */}
+        <p className="text-sm text-neutral-600 mb-4">
+          We just sent you a verification code to your{" "}
+          {type === "email" ? "email id" : "phone number"}
+        </p>
+
+        {/* OTP Label */}
+        <p className="text-xl font-medium text-neutral-800 mb-4">
+          Enter your OTP code here
+        </p>
+
+        {/* OTP Inputs */}
+        <div className="flex justify-center gap-2 mb-6">
+          {otp.map((digit, index) => (
+            <input
+              key={index}
+              ref={(el) => {
+                inputs.current[index] = el;
+              }}
+              type="text"
+              maxLength={1}
+              value={digit}
+              onChange={(e) => handleChange(e.target.value, index)}
+              onKeyDown={(e) => handleKeyDown(e, index)}
+              onPaste={handlePaste}
+              className="w-12 h-12 bg-neutral-100 text-center text-lg font-semibold border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600"
+            />
+          ))}
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <p className="text-sm text-red-500 mb-4">
+            {error}
+          </p>
+        )}
+
+        {/* Verify Button */}
+        <button
+          onClick={verify}
+          disabled={isVerifying || otp.join("").length !== 6}
+          className="w-37.5 h-12 py-3 rounded-md bg-primary-900 text-white font-medium transition"
+        >
+          {isVerifying ? "Verifying..." : "Verify"}
+        </button>
+
+        {/* Resend */}
+        <div className="mt-5 text-xl">
+          <p className="text-neutral-800">Didn&apos;t receive the OTP?</p>
+
+          <button
+            onClick={handleResendCode}
+            disabled={!canResend}
+            className="text-warning-500 font-large mt-1 hover:underline disabled:text-neutral-400"
+          >
+            {canResend ? "Resend OTP" : `Resend in ${resendCountdown}s`}
+          </button>
+        </div>
       </div>
-      <style jsx>{`
-        @keyframes contentEnter {
-          0% {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes contentSwitch {
-          0% {
-            opacity: 0;
-            transform: translateY(50px);
-          }
-          60% {
-            opacity: 0.8;
-            transform: translateY(-6px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .animate-contentEnter {
-          animation: contentEnter 0.35s ease-out;
-        }
-
-        .animate-contentSwitch {
-          animation: contentSwitch 0.9s cubic-bezier(0.22, 1, 0.36, 1);
-        }
-      `}</style>
     </div>
   );
 }
@@ -463,18 +397,7 @@ useEffect(() => {
 
 
 
-
-
-
-
-
-
-
-
-
-// codes before bug sheet fixed.................
-
-
+// old codes without send otp button and with the single flow for otp verification.........................
 
 // "use client";
 // import React, { useRef, useState, useEffect } from "react";
@@ -933,7 +856,3 @@ useEffect(() => {
 //     </div>
 //   );
 // }
-
-
-
-

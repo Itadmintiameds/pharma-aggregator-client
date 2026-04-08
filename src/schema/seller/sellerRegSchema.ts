@@ -18,6 +18,7 @@ export const step1Schema = z.object({
   // Optional fields
   landmark: z.string().optional(),
   website: z.string().url("Invalid website URL").optional().or(z.literal("")),
+  companyRegistrationCertificateFile: z.instanceof(File, { message: "Company Registration Certificate is required" }),
 });
 
 // Step 2: Coordinator Information (partial - verification flags handled separately)

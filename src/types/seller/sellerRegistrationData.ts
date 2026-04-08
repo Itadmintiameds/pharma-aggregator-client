@@ -100,6 +100,7 @@ export interface TempSellerRequest {
   gstNumber ?: string;        
   gstFileUrl ?: string; 
   sellerName: string;
+  companyRegistrationCertificateUrl: string;
   productTypeId: number[];
   companyTypeId: number;
   sellerTypeId: number;

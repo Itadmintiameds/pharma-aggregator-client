@@ -13,12 +13,16 @@ export const drugProductSchema = z.object({
 
   dosageForm: z.string().min(1, "Dosage Form is required"),
 
-  strength: z
-    .string()
-    .min(1, "Strength is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Strength must be a number",
-    }),
+  // strength: z
+  //   .string()
+  //   .min(1, "Strength is required")
+  //   .refine((val) => !isNaN(Number(val)), {
+  //     message: "Strength must be a number",
+  //   }),
+
+strength: z
+  .string()
+  .min(1, "Strength is required"),
 
   // molecules: z
   //   .array(

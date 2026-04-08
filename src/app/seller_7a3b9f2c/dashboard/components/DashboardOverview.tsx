@@ -15,6 +15,7 @@ import { DashboardView } from "@/src/types/seller/dashboard";
 import ProductList from "./ProductList"; 
 
 
+
 // interface DashboardOverviewProps {
 //   setCurrentView: (view: DashboardView) => void;
 // }
@@ -162,7 +163,7 @@ export default DashboardOverview;
 
 
 
-// this code is included with product delete and edit functionality...........
+// this code is included with product edit functionality...........
 
 // "use client";
 
@@ -178,23 +179,23 @@ export default DashboardOverview;
 // import WeeklySummaryCard from "./WeeklySummaryCard";
 // import ProductTable from "./ProductTable";
 // import { DashboardView } from "@/src/types/seller/dashboard";
+// import ProductList from "./ProductList"; 
+
+
+// // interface DashboardOverviewProps {
+// //   setCurrentView: (view: DashboardView) => void;
+// // }
 
 // interface DashboardOverviewProps {
 //   setCurrentView: (view: DashboardView) => void;
+//   setSelectedProductId: (id: string) => void;
 // }
 
-// const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
-
-//   const handleEditProduct = (productId: string) => {
-//   // This will navigate to the add product page in edit mode
-//   // You'll need to pass this up to SellerDashboard
-//   console.log("Edit product:", productId);
-// };
-
-// const handleDeleteProduct = (productId: string) => {
-//   console.log("Delete product:", productId);
-// };
-
+// // const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
+// const DashboardOverview = ({
+//   setCurrentView,
+//   setSelectedProductId
+// }: DashboardOverviewProps) => {
 //   return (
 //     <div className="space-y-8">
 
@@ -208,10 +209,8 @@ export default DashboardOverview;
 //     value={6531}
 //     growth="+2.24%"
 //     icon={
-//       <HiOutlineCircleStack 
-//         size={22}
-//       />
-//     }
+//       <HiOutlineCircleStack size={22}/>}
+//     className="bg-primary-05"
 //   />
 
 //   <KpiCard
@@ -223,6 +222,7 @@ export default DashboardOverview;
 //         size={20} 
 //       />
 //     }
+//     className="bg-white"
 //   />
 
 //   <KpiCard
@@ -234,6 +234,7 @@ export default DashboardOverview;
 //         size={20} 
 //       />
 //     }
+//     className="bg-white"
 //   />
 
 //   <KpiCard
@@ -245,6 +246,7 @@ export default DashboardOverview;
 //         size={20} 
 //       />
 //     }
+//     className="bg-white"
 //   />
 //       </div>
 //       {/* Chart + Top Selling Section */}
@@ -258,7 +260,7 @@ export default DashboardOverview;
 //   <WeeklySummaryCard
 //     icon={<AiOutlinePieChart size={36} />}
 //     titleLeft="Sales"
-//     valueLeft="$4,000,000.00"
+//     valueLeft="Rs.4,00,000.00"
 //     titleRight="Volume"
 //     valueRight="450"
 //     growthRight="+20.00%"
@@ -283,12 +285,14 @@ export default DashboardOverview;
 //   valueRight="445"
 //   pendingCount="5"
 //   isThreeColumn
-//   bgColor="bg-tertiary-50"
+//   // bgColor="bg-tertiary-50"
 // />
 // </div>
-// <ProductTable 
-//   onEdit={handleEditProduct}
-//   onDelete={handleDeleteProduct}
+// {/* <ProductTable /> */}
+// {/* <ProductList /> */}
+// <ProductList
+//   setCurrentView={setCurrentView}
+//   setSelectedProductId={setSelectedProductId}
 // />
 
 //     </div>
@@ -296,14 +300,3 @@ export default DashboardOverview;
 // };
 
 // export default DashboardOverview;
-
-
-
-
-
-
-
-
-
-
-

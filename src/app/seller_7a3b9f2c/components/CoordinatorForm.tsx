@@ -1,4 +1,4 @@
-"use client";
+"use client"; 
 
 import React, { useState } from "react";
 import { Briefcase, Phone, Mail } from "lucide-react";
@@ -19,9 +19,11 @@ interface Props {
   phoneVerified: boolean;
   onEmailChange: (email: string) => void;
   onPhoneChange: (phone: string) => void;
+  onEmailVerified: () => void;
+  onPhoneVerified: () => void;
   onAlphabetInput: (e: React.ChangeEvent<HTMLInputElement>, field: string) => void;
   prevStep: () => void;
-  onOTPSuccess: () => void;
+  nextStep: () => void;
 }
 
 export default function CoordinatorForm({
@@ -34,16 +36,17 @@ export default function CoordinatorForm({
   phoneVerified,
   onEmailChange,
   onPhoneChange,
+  onEmailVerified,
+  onPhoneVerified,
   onAlphabetInput,
   prevStep,
-  onOTPSuccess,
+  nextStep,
 }: Props) {
 
   const router = useRouter();
 
-  const [showModal, setShowModal] = useState(false)
-  const [verificationType, setVerificationType] = useState<"email" | "phone">("email")
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [verificationType, setVerificationType] = useState<"email" | "phone">("email");
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onEmailChange(e.target.value);
@@ -53,49 +56,37 @@ export default function CoordinatorForm({
     onPhoneChange(e.target.value);
   };
 
-  const handleContinue = async () => {
-    // Check if both email and phone are already verified
-    if (emailVerified && phoneVerified) {
-      // If already verified, just proceed to next step
-      onOTPSuccess();
+  // Send OTP for Email
+  const handleSendEmailOTP = async () => {
+    if (!formData.coordinatorEmail) {
+      toast.error("Please enter email address");
       return;
     }
 
-    // Check mandatory fields with toast errors
-    if (!formData.coordinatorName?.trim()) {
-      toast.error("Coordinator name is required");
-      return;
-    }
-
-    if (!formData.coordinatorDesignation?.trim()) {
-      toast.error("Coordinator designation is required");
-      return;
-    }
-
-    // Check if email has error or is being checked
     if (emailExistsError) {
       toast.error(emailExistsError);
       return;
     }
 
-    if (phoneExistsError) {
-      toast.error(phoneExistsError);
+    if (isCheckingEmail) {
+      toast.info("Please wait while we check email availability");
       return;
     }
 
-    if (isCheckingEmail || isCheckingPhone) {
-      toast.info("Please wait while we check availability");
-      return;
+    try {
+      await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
+      setVerificationType("email");
+      setShowModal(true);
+    } catch (err: any) {
+      console.error('❌ Failed to send email OTP:', err);
+      toast.error(err.message || "Failed to send OTP. Please try again.");
     }
+  };
 
-    // Validate email and phone are filled
-    if (!formData.coordinatorEmail) {
-      toast.error("Coordinator email is required");
-      return;
-    }
-
+  // Send OTP for Phone
+  const handleSendPhoneOTP = async () => {
     if (!formData.coordinatorMobile) {
-      toast.error("Coordinator mobile number is required");
+      toast.error("Please enter mobile number");
       return;
     }
 
@@ -104,49 +95,38 @@ export default function CoordinatorForm({
       return;
     }
 
+    if (phoneExistsError) {
+      toast.error(phoneExistsError);
+      return;
+    }
+
+    if (isCheckingPhone) {
+      toast.info("Please wait while we check phone availability");
+      return;
+    }
+
     try {
-      // Determine which verification is needed
-      if (!emailVerified && !phoneVerified) {
-        // Neither is verified, start with email
-        await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
-        setVerificationType("email");
-        setShowModal(true);
-      } else if (!emailVerified && phoneVerified) {
-        // Only phone is verified, verify email
-        await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
-        setVerificationType("email");
-        setShowModal(true);
-      } else if (emailVerified && !phoneVerified) {
-        // Only email is verified, verify phone
-        const phoneWithPrefix = `+91${formData.coordinatorMobile}`;
-        await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
-        setVerificationType("phone");
-        setShowModal(true);
-      }
+      const phoneWithPrefix = `+91${formData.coordinatorMobile}`;
+      await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
+      setVerificationType("phone");
+      setShowModal(true);
     } catch (err: any) {
-      console.error('❌ Failed to send OTP:', err);
-      toast.error("Failed to send OTP. Please try again.");
+      console.error('❌ Failed to send phone OTP:', err);
+      toast.error(err.message || "Failed to send OTP. Please try again.");
     }
   };
 
-  const handleEmailVerified = async () => {
-    setIsTransitioning(true)
-
-    const phoneWithPrefix = `+91${formData.coordinatorMobile}`
-    await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix })
-
-    // change modal content instead of closing
-    setVerificationType("phone")
-
-    setTimeout(() => {
-      setIsTransitioning(false)
-    }, 400)
-  }
+  const handleEmailVerified = () => {
+    setShowModal(false);
+    onEmailVerified();
+    toast.success("Email verified successfully!");
+  };
 
   const handlePhoneVerified = () => {
-    setShowModal(false)
-    onOTPSuccess()
-  }
+    setShowModal(false);
+    onPhoneVerified();
+    toast.success("Phone number verified successfully!");
+  };
 
   const handleResendEmail = async () => {
     try {
@@ -165,6 +145,53 @@ export default function CoordinatorForm({
     } catch (err) {
       toast.error("Failed to resend OTP");
     }
+  };
+
+  const handleContinue = () => {
+    // Check mandatory fields with toast errors
+    if (!formData.coordinatorName?.trim()) {
+      toast.error("Coordinator name is required");
+      return;
+    }
+
+    if (!formData.coordinatorDesignation?.trim()) {
+      toast.error("Coordinator designation is required");
+      return;
+    }
+
+    if (!formData.coordinatorEmail) {
+      toast.error("Coordinator email is required");
+      return;
+    }
+
+    if (!formData.coordinatorMobile) {
+      toast.error("Coordinator mobile number is required");
+      return;
+    }
+
+    if (formData.coordinatorMobile.length !== 10) {
+      toast.error("Please enter a valid 10-digit mobile number");
+      return;
+    }
+
+    if (emailExistsError) {
+      toast.error(emailExistsError);
+      return;
+    }
+
+    if (phoneExistsError) {
+      toast.error(phoneExistsError);
+      return;
+    }
+
+    // Check if both email and phone are verified
+    if (!emailVerified || !phoneVerified) {
+      toast.error("Please verify both Mobile & Email ID.");
+      return;
+    }
+
+    // All good, proceed to next step
+    nextStep();
   };
 
   return (
@@ -224,17 +251,25 @@ export default function CoordinatorForm({
               Coordinator Mobile Number
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-              <input
-                type="tel"
-                name="coordinatorMobile"
-                value={formData.coordinatorMobile}
-                onChange={handlePhoneChange}
-                placeholder="Enter 10-digit mobile number"
-                maxLength={10}
-                className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+                <input
+                  type="tel"
+                  name="coordinatorMobile"
+                  value={formData.coordinatorMobile}
+                  onChange={handlePhoneChange}
+                  placeholder="Enter 10-digit mobile number"
+                  maxLength={10}
+                  className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
+                />
+              </div>
+              <button
+                onClick={handleSendPhoneOTP}
+                className="h-12 px-4 rounded-lg border text-white font-semibold whitespace-nowrap bg-[#9F75FC]"
+              >
+                {phoneVerified ? "OTP Verified" : "Send OTP"}
+              </button>
             </div>
             {isCheckingPhone && (
               <p className="mt-1 text-xs text-[#4B0082] flex items-center">
@@ -256,16 +291,24 @@ export default function CoordinatorForm({
               Coordinator Email ID
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-              <input
-                type="email"
-                name="coordinatorEmail"
-                value={formData.coordinatorEmail}
-                onChange={handleEmailChange}
-                placeholder="Enter email address"
-                className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+                <input
+                  type="email"
+                  name="coordinatorEmail"
+                  value={formData.coordinatorEmail}
+                  onChange={handleEmailChange}
+                  placeholder="Enter email address"
+                  className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
+                />
+              </div>
+              <button
+                onClick={handleSendEmailOTP}
+                className="h-12 px-4 rounded-lg border text-white font-semibold whitespace-nowrap bg-[#9F75FC]"
+              >
+                {emailVerified ? "OTP Verified" : "Send OTP"}
+              </button>
             </div>
             {isCheckingEmail && (
               <p className="mt-1 text-xs text-[#4B0082] flex items-center">
@@ -292,16 +335,6 @@ export default function CoordinatorForm({
           >
             Cancel
           </button>
-
-          {/* <button className="flex h-12 px-6 py-3 justify-center items-center gap-2 rounded-md bg-[#9F75FC] text-white font-semibold">
-            <Image
-              src="/icons/savedrafticon.png"
-              alt="Save Draft"
-              width={18}
-              height={18}
-            />
-            Save Draft
-          </button> */}
         </div>
 
         <div className="flex gap-4">
@@ -320,12 +353,7 @@ export default function CoordinatorForm({
 
           <button
             onClick={handleContinue}
-            disabled={!!emailExistsError || !!phoneExistsError || isCheckingEmail || isCheckingPhone}
-            className={`flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 transition ${
-              emailExistsError || phoneExistsError || isCheckingEmail || isCheckingPhone
-                ? 'border-gray-300 text-gray-400 cursor-not-allowed bg-gray-50'
-                : 'border-primary-900 text-primary-900 font-semibold'
-            }`}
+            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-900 text-primary-900 font-semibold"
           >
             Continue
             <Image
@@ -372,9 +400,11 @@ export default function CoordinatorForm({
 
 
 
-// codes without bug fixed..............
 
-// "use client";
+
+// old code without send otp button ..............
+
+// "use client"; 
 
 // import React, { useState } from "react";
 // import { Briefcase, Phone, Mail } from "lucide-react";
@@ -391,6 +421,8 @@ export default function CoordinatorForm({
 //   isCheckingPhone: boolean;
 //   emailExistsError: string;
 //   phoneExistsError: string;
+//   emailVerified: boolean;
+//   phoneVerified: boolean;
 //   onEmailChange: (email: string) => void;
 //   onPhoneChange: (phone: string) => void;
 //   onAlphabetInput: (e: React.ChangeEvent<HTMLInputElement>, field: string) => void;
@@ -404,6 +436,8 @@ export default function CoordinatorForm({
 //   isCheckingPhone,
 //   emailExistsError,
 //   phoneExistsError,
+//   emailVerified,
+//   phoneVerified,
 //   onEmailChange,
 //   onPhoneChange,
 //   onAlphabetInput,
@@ -426,6 +460,13 @@ export default function CoordinatorForm({
 //   };
 
 //   const handleContinue = async () => {
+//     // Check if both email and phone are already verified
+//     if (emailVerified && phoneVerified) {
+//       // If already verified, just proceed to next step
+//       onOTPSuccess();
+//       return;
+//     }
+
 //     // Check mandatory fields with toast errors
 //     if (!formData.coordinatorName?.trim()) {
 //       toast.error("Coordinator name is required");
@@ -470,12 +511,26 @@ export default function CoordinatorForm({
 //     }
 
 //     try {
-//       // Send email OTP
-//       await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
-//       setVerificationType("email")
-//       setShowModal(true)
+//       // Determine which verification is needed
+//       if (!emailVerified && !phoneVerified) {
+//         // Neither is verified, start with email
+//         await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
+//         setVerificationType("email");
+//         setShowModal(true);
+//       } else if (!emailVerified && phoneVerified) {
+//         // Only phone is verified, verify email
+//         await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
+//         setVerificationType("email");
+//         setShowModal(true);
+//       } else if (emailVerified && !phoneVerified) {
+//         // Only email is verified, verify phone
+//         const phoneWithPrefix = `+91${formData.coordinatorMobile}`;
+//         await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
+//         setVerificationType("phone");
+//         setShowModal(true);
+//       }
 //     } catch (err: any) {
-//       console.error('❌ Failed to send email OTP:', err);
+//       console.error('❌ Failed to send OTP:', err);
 //       toast.error("Failed to send OTP. Please try again.");
 //     }
 //   };
@@ -644,15 +699,6 @@ export default function CoordinatorForm({
 //             Cancel
 //           </button>
 
-//           {/* <button className="flex h-12 px-6 py-3 justify-center items-center gap-2 rounded-md bg-[#9F75FC] text-white font-semibold">
-//             <Image
-//               src="/icons/savedrafticon.png"
-//               alt="Save Draft"
-//               width={18}
-//               height={18}
-//             />
-//             Save Draft
-//           </button> */}
 //         </div>
 
 //         <div className="flex gap-4">
@@ -689,7 +735,7 @@ export default function CoordinatorForm({
 //         </div>
 //       </div>
 
-//       {/* Email Verification Modal */}
+//       {/* Verification Modal */}
 //       <VerificationModal
 //         show={showModal}
 //         label={
@@ -709,7 +755,6 @@ export default function CoordinatorForm({
 //             ? handleResendEmail
 //             : handleResendPhone
 //         }
-//         // isTransitioning={isTransitioning}
 //       />
 //     </div>
 //   );
