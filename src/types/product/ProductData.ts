@@ -4,7 +4,7 @@ export interface CreateDrugProductRequest {
   productMarketingUrl: string;
   warningsPrecautions: string;
 
-  categoryId: string;
+  categoryId: number;
 
   packagingDetails: PackagingData;
 
@@ -13,17 +13,27 @@ export interface CreateDrugProductRequest {
   productAttributeDrugs: ProductAttributeDrugData[];
 }
 
-
 export interface ProductAttributeDrugData {
-  dosageId: number;
-  strength: string;
+  dosageForm: string; // ✅ instead of dosageId
   therapeuticCategoryId: string;
-  therapeuticCategory: string;
   therapeuticSubcategoryId: string;
-  therapeuticSubcategory: string;
-  manufacturerName: string;
-  molecules: MoleculeData[];
+
+  molecules: {
+    moleculeId: number;
+    strength: string;
+  }[];
 }
+
+// export interface ProductAttributeDrugData {
+//   dosageId?: number;
+//   strength: string;
+//   therapeuticCategoryId: string;
+//   therapeuticCategory: string;
+//   therapeuticSubcategoryId: string;
+//   therapeuticSubcategory: string;
+//   manufacturerName: string;
+//   molecules: MoleculeData[];
+// }
 
 export interface PackagingData {
   packId?: number;
@@ -48,10 +58,22 @@ export interface PricingData {
   mrp: number;
   gstPercentage: number;
   discountPercentage: number;
-  minimumPurchaseQuantity: number;
-  additionalDiscount: number;
   finalPrice: number;
   hsnCode: number;
+  shelfLifeMonths?: number;
+
+  additionalDiscounts: AdditionalDiscountData[];
+}
+
+export interface AdditionalDiscountData {
+  additionalDiscountId?: string;
+  minimumPurchaseQuantity: number;
+  additionalDiscountPercentage: number;
+  effectiveStartDate: string | null;
+  effectiveStartTime: string | null;
+  effectiveEndDate: string | null;
+  effectiveEndTime: string | null;
+  
 }
 
 

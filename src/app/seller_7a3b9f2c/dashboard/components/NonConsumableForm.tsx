@@ -1859,7 +1859,7 @@ const NonConsumableForm = ({ deviceType: _deviceType }: NonConsumableFormProps) 
       </div>
 
       {/* Additional Discount Drawer — FIX 2: onSave passed correctly */}
-      {showDiscountDrawer && (
+      {/* {showDiscountDrawer && (
         <Drawer setShowDrawer={setShowDiscountDrawer} title="Additional Discount">
           <AdditionalDiscount
             onSave={(slabs?: AdditionalDiscountSlab[]) => {
@@ -1868,7 +1868,7 @@ const NonConsumableForm = ({ deviceType: _deviceType }: NonConsumableFormProps) 
             }}
           />
         </Drawer>
-      )}
+      )} */}
     </div>
   );
 };

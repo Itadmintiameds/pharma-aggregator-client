@@ -26,7 +26,9 @@ const CommonModal = ({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    // <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
 
       <div
         className={`bg-white rounded-2xl p-6 shadow-xl ${width} relative`}

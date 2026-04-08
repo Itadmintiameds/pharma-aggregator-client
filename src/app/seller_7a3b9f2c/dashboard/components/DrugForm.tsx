@@ -15,17 +15,78 @@ import {
   getTherapeuticSubcategory,
   uploadProductImages,
 } from "@/src/services/product/ProductService";
-import { CreateDrugProductRequest } from "@/src/types/product/ProductData";
+import {
+  AdditionalDiscountData,
+  CreateDrugProductRequest,
+} from "@/src/types/product/ProductData";
 import React, { useEffect, useState } from "react";
 import Select from "react-select";
+import CommonModal from "../commonComponent/CommonModal";
+import AdditionalDiscount from "./AdditionalDiscount";
 
 interface SelectOption {
   value: string;
   label: string;
 }
 
-export const DrugForm = () => {
-  const [form, setForm] = useState({
+interface DrugFormProps {
+  categoryId: number;
+}
+
+export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
+  type FormState = {
+    productId: string;
+    categoryId: string;
+    productName: string;
+    productDescription: string;
+    productMarketingUrl: string;
+    warningsPrecautions: string;
+
+    therapeuticCategoryId: string;
+    therapeuticCategory: string;
+    therapeuticSubcategoryId: string;
+    therapeuticSubcategory: string;
+    manufacturerName: string;
+
+    dosageId: number | "";
+    strength: string;
+
+    molecules: {
+      moleculeId: string;
+      moleculeName: string;
+      drugSchedule: string;
+      mechanismOfAction: string;
+      primaryUse: string;
+      strength: string;
+    }[];
+
+    packId: string;
+    packType: string;
+    unitPerPack: string;
+    numberOfPacks: string;
+    packSize: string;
+    minimumOrderQuantity: string;
+    maximumOrderQuantity: string;
+
+    pricingId: string;
+    batchLotNumber: string;
+    manufacturingDate: Date | null;
+    expiryDate: Date | null;
+    dateOfStockEntry: Date;
+    storageCondition: string;
+    stockQuantity: string;
+    sellingPrice: string;
+    mrp: string;
+    gstPercentage: string;
+    discountPercentage: string;
+    finalPrice: string;
+    hsnCode: string;
+
+    // ✅ IMPORTANT FIX
+    additionalDiscount: AdditionalDiscountData[];
+  };
+
+  const [form, setForm] = useState<FormState>({
     productId: "",
     categoryId: "",
     productName: "",
@@ -73,10 +134,9 @@ export const DrugForm = () => {
     mrp: "",
     gstPercentage: "",
     discountPercentage: "",
-    minimumPurchaseQuantity: "",
-    additionalDiscount: "",
     finalPrice: "",
     hsnCode: "",
+    additionalDiscount: [],
   });
 
   const [therapeuticCategories, setTherapeuticCategories] = useState<
@@ -101,6 +161,18 @@ export const DrugForm = () => {
   const [loadingMolecules, setLoadingMolecules] = useState(false);
   const [packTypeOptions, setPackTypeOptions] = useState([]);
   const [strengthFormats, setStrengthFormats] = useState<string[]>([]);
+  const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
+  const [additionalDiscounts, setAdditionalDiscounts] = useState([]);
+  const [openDrawer, setOpenDrawer] = useState(false);
+
+  useEffect(() => {
+    if (categoryId) {
+      setForm((prev) => ({
+        ...prev,
+        categoryId: String(categoryId),
+      }));
+    }
+  }, [categoryId]);
 
   useEffect(() => {
     const fetchTherapeuticCategories = async () => {
@@ -124,10 +196,30 @@ export const DrugForm = () => {
     fetchTherapeuticCategories();
   }, []);
 
+  // const handleChange = (
+  //   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  // ) => {
+  //   setForm({ ...form, [e.target.name]: e.target.value });
+  // };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    setForm((prev) => {
+      const updatedForm = {
+        ...prev,
+        [name]: value,
+      };
+
+      const unitPerPack = Number(updatedForm.unitPerPack) || 0;
+      const numberOfPacks = Number(updatedForm.numberOfPacks) || 0;
+
+      updatedForm.packSize = String(unitPerPack * numberOfPacks);
+
+      return updatedForm;
+    });
   };
 
   const handleTherapeuticCategoriesChange = (selected: SelectOption | null) => {
@@ -271,38 +363,38 @@ export const DrugForm = () => {
   };
 
   const handleSubmit = async () => {
-    const validation = drugProductSchema.safeParse(form);
+    alert("Helllooooo");
+    // const validation = drugProductSchema.safeParse(form);
 
-    if (!validation.success) {
-      const fieldErrors: Record<string, string> = {};
+    // if (!validation.success) {
+    //   const fieldErrors: Record<string, string> = {};
 
-      validation.error.issues.forEach((err) => {
-        const fieldName = err.path.join(".");
-        fieldErrors[fieldName] = err.message;
-      });
+    //   validation.error.issues.forEach((err) => {
+    //     const fieldName = err.path.join(".");
+    //     fieldErrors[fieldName] = err.message;
+    //   });
 
-      setErrors(fieldErrors);
-      return;
-    }
+    //   setErrors(fieldErrors);
+    //   return;
+    // }
 
-    setErrors({});
+    // setErrors({});
 
     try {
-      const categoryId = "1";
-      const molecules = [{ moleculeId: "5" }];
-
-      const payload: CreateDrugProductRequest = {
+      const payload = {
         productName: form.productName,
         productDescription: form.productDescription,
         productMarketingUrl: form.productMarketingUrl,
         warningsPrecautions: form.warningsPrecautions,
 
-        categoryId: form.categoryId,
+        manufacturerName: form.manufacturerName, // ✅ MOVED TO ROOT
+
+        categoryId: Number(form.categoryId), // ✅ FIX
 
         packagingDetails: {
           packId: Number(form.packId),
           packType: form.packType,
-          unitPerPack: Number(form.unitPerPack),
+          unitPerPack: Number(form.unitPerPack), // ✅ STRING
           numberOfPacks: Number(form.numberOfPacks),
           packSize: Number(form.packSize),
           minimumOrderQuantity: Number(form.minimumOrderQuantity),
@@ -314,41 +406,47 @@ export const DrugForm = () => {
             batchLotNumber: form.batchLotNumber,
             manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
             expiryDate: toLocalDateTimeString(form.expiryDate),
-            dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
             storageCondition: form.storageCondition,
             stockQuantity: Number(form.stockQuantity),
+            dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
             sellingPrice: Number(form.sellingPrice),
             mrp: Number(form.mrp),
-            gstPercentage: Number(form.gstPercentage),
             discountPercentage: Number(form.discountPercentage),
-            minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
-            additionalDiscount: Number(form.additionalDiscount),
+            gstPercentage: Number(form.gstPercentage),
             finalPrice: Number(form.finalPrice),
             hsnCode: Number(form.hsnCode),
+            shelfLifeMonths: 24, // optional
+
+            // 🔥 IMPORTANT FIX
+            additionalDiscounts: form.additionalDiscount.map((d) => ({
+              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
+              additionalDiscountPercentage: d.additionalDiscountPercentage,
+              effectiveStartDate: d.effectiveStartDate,
+              effectiveStartTime: d.effectiveStartTime,
+              effectiveEndDate: d.effectiveEndDate,
+              effectiveEndTime: d.effectiveEndTime,
+            })),
           },
         ],
 
         productAttributeDrugs: [
           {
-            dosageId: Number(form.dosageId),
-            strength: form.strength,
+            therapeuticCategoryId: form.therapeuticCategory,
+            therapeuticSubcategoryId: form.therapeuticSubcategory,
 
-            therapeuticCategoryId: form.therapeuticCategoryId,
-            therapeuticSubcategoryId: form.therapeuticSubcategoryId,
-            therapeuticCategory: form.therapeuticCategory,
-            therapeuticSubcategory: form.therapeuticSubcategory,
-            manufacturerName: form.manufacturerName,
+            dosageForm:
+              dosageOptions.find((d) => d.value === form.dosageId)?.label || "", // ✅ FIX
 
             molecules: form.molecules.map((m) => ({
-              moleculeId: m.moleculeId,
-              moleculeName: m.moleculeName,
-              drugSchedule: m.drugSchedule,
-              mechanismOfAction: m.mechanismOfAction,
-              primaryUse: m.primaryUse,
+              moleculeId: Number(m.moleculeId),
               strength: m.strength,
             })),
           },
         ],
+
+        productImages: images.map((img) => ({
+          productImage: img.name,
+        })),
       };
 
       const productResponse = await createDrugProduct(payload);
@@ -513,28 +611,43 @@ export const DrugForm = () => {
 
   const calculateFinalPrice = (
     mrp: string,
-    discount: string,
-    additionalDiscount: string,
+    standardDiscount: string,
+    gst: string,
+    quantity: number,
+    additionalDiscounts: AdditionalDiscountData[],
   ) => {
     const mrpValue = parseFloat(mrp);
-    const discountValue = parseFloat(discount);
-    const additionalDiscountValue = parseFloat(additionalDiscount);
+    const stdDiscount = parseFloat(standardDiscount);
+    const gstValue = parseFloat(gst);
 
-    if (isNaN(mrpValue)) return "";
-
-    let price = mrpValue;
-
-    if (!isNaN(discountValue)) {
-      price = price - (price * discountValue) / 100;
+    // ✅ ALWAYS RETURN OBJECT
+    if (isNaN(mrpValue)) {
+      return {
+        finalPerUnit: "",
+        total: "",
+        appliedDiscount: 0,
+      };
     }
 
-    if (!isNaN(additionalDiscountValue)) {
-      price = price - (price * additionalDiscountValue) / 100;
+    let appliedDiscount = stdDiscount;
+
+    const applicableSlab = additionalDiscounts
+      .filter((d) => quantity >= d.minimumPurchaseQuantity)
+      .sort((a, b) => b.minimumPurchaseQuantity - a.minimumPurchaseQuantity)[0];
+
+    if (applicableSlab) {
+      appliedDiscount = applicableSlab.additionalDiscountPercentage;
     }
 
-    return price.toFixed(2);
+    const discountedPrice = mrpValue - (mrpValue * appliedDiscount) / 100;
+    const finalPerUnit = discountedPrice + (discountedPrice * gstValue) / 100;
+
+    return {
+      finalPerUnit: finalPerUnit.toFixed(2),
+      total: (finalPerUnit * quantity).toFixed(2),
+      appliedDiscount,
+    };
   };
-
   const selectStyles = (errorKey: string) => ({
     control: (base: any, state: any) => ({
       ...base,
@@ -670,6 +783,36 @@ export const DrugForm = () => {
 
   return (
     <>
+      {showAdditionalDiscount && (
+        <CommonModal
+          onClose={() => setShowAdditionalDiscount(false)}
+          width="w-[600px]" // optional
+        >
+          <div className="h-[80vh] overflow-hidden flex flex-col">
+            <AdditionalDiscount
+              initialData={form.additionalDiscount}
+              onSave={(data) => {
+                setForm((prev) => {
+                  const result = calculateFinalPrice(
+                    prev.mrp,
+                    prev.discountPercentage,
+                    prev.gstPercentage,
+                    Number(prev.minimumOrderQuantity || 1),
+                    data || [],
+                  );
+
+                  return {
+                    ...prev,
+                    additionalDiscount: data || [], // ✅ persist slabs
+                    finalPrice: result?.finalPerUnit || "",
+                  };
+                });
+              }}
+              onClose={() => setShowAdditionalDiscount(false)} // ✅ NEW
+            />
+          </div>
+        </CommonModal>
+      )}
       <div>
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
           <div className="text-h4 font-semibold">Product Details</div>
@@ -1060,6 +1203,28 @@ export const DrugForm = () => {
             />
 
             <Input
+              label="Expiry Date"
+              type="date"
+              name="expiryDate"
+              id="expiryDate"
+              placeholder=""
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  expiryDate: new Date(e.target.value),
+                })
+              }
+              value={
+                form.expiryDate
+                  ? form.expiryDate.toISOString().split("T")[0]
+                  : ""
+              }
+              disabled={mode === "delete"}
+              error={errors.expiryDate}
+              required
+            />
+
+            <Input
               label="Date of Entry"
               type="date"
               name="dateOfStockEntry"
@@ -1139,15 +1304,22 @@ export const DrugForm = () => {
                   value={form.discountPercentage}
                   onChange={(e) => {
                     const value = e.target.value;
-                    setForm((prev) => ({
-                      ...prev,
-                      discountPercentage: value,
-                      finalPrice: calculateFinalPrice(
+
+                    setForm((prev) => {
+                      const result = calculateFinalPrice(
                         prev.mrp,
                         value,
+                        prev.gstPercentage,
+                        Number(prev.minimumOrderQuantity || 1),
                         prev.additionalDiscount,
-                      ),
-                    }));
+                      );
+
+                      return {
+                        ...prev,
+                        discountPercentage: value,
+                        finalPrice: result.finalPerUnit,
+                      };
+                    });
                   }}
                   disabled={mode === "delete"}
                   error={errors.discountPercentage}
@@ -1157,7 +1329,7 @@ export const DrugForm = () => {
 
               <div className="mt-6">
                 <button
-                  onClick={addMolecule}
+                  onClick={() => setShowAdditionalDiscount(true)}
                   className="w-55.5 h-10.5 px-6 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
                 >
                   <img
@@ -1199,7 +1371,7 @@ export const DrugForm = () => {
               required
             />
 
-            <div className="col-span-2">
+            {/* <div className="col-span-2">
               <Input
                 label="Final Price (after discounts):"
                 name="finalPrice"
@@ -1209,19 +1381,20 @@ export const DrugForm = () => {
                 labelClassName="text-[#3C0368]" // ✅ THIS WORKS
                 required
               />
-            </div>
+            </div> */}
           </div>
         </div>
 
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
+          <div className="text-[#364153] font-normal text-sm">
+            Product Photos{" "}
+            <span className="text-warning-500 font-semibold ml-1">*</span>
+          </div>
 
-          <div className="text-[#364153] font-normal text-sm">Product Photos <span className="text-warning-500 font-semibold ml-1">*</span></div>
-          
           <div
             className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer"
             onClick={() => document.getElementById("fileInput")?.click()}
           >
-
             <input
               id="fileInput"
               type="file"
@@ -1284,9 +1457,6 @@ export const DrugForm = () => {
             </div>
           )}
         </div>
-
-
-
 
         <div className="flex justify-between mt-6 col-span-2">
           <div className="space-x-6 flex">

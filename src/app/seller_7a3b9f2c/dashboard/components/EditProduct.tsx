@@ -3,7 +3,7 @@
 import CategoryButtons from "@/src/app/commonComponents/CategoryButtons";
 import Input from "@/src/app/commonComponents/Input";
 import { drugProductSchema } from "@/src/schema/product/DrugProductSchema";
-import { getMoleculeDesc } from "@/src/services/product/MoleculeService";
+// import { getMoleculeDesc } from "@/src/services/product/MoleculeService";
 import {
   getDosage,
   getDrugCategory,
@@ -266,33 +266,33 @@ const EditProduct = ({
   }, [form.therapeuticCategory]);
 
   // Fetch molecule data
-  useEffect(() => {
-    const fetchMoleculeData = async () => {
-      const updated = [...form.molecules];
-      for (let i = 0; i < updated.length; i++) {
-        const molecule = updated[i];
-        if (
-          molecule.moleculeName &&
-          molecule.moleculeName.length >= 3 &&
-          !molecule.mechanismOfAction
-        ) {
-          try {
-            const data = await getMoleculeDesc(molecule.moleculeName);
-            updated[i] = {
-              ...updated[i],
-              moleculeId: data.moleculeId,
-              mechanismOfAction: data.mechanismOfAction || "",
-              primaryUse: data.primaryUse || "",
-            };
-          } catch (err) {
-            console.error(err);
-          }
-        }
-      }
-      setForm((prev) => ({ ...prev, molecules: updated }));
-    };
-    fetchMoleculeData();
-  }, [form.molecules.map((m) => m.moleculeName).join()]);
+  // useEffect(() => {
+  //   const fetchMoleculeData = async () => {
+  //     const updated = [...form.molecules];
+  //     for (let i = 0; i < updated.length; i++) {
+  //       const molecule = updated[i];
+  //       if (
+  //         molecule.moleculeName &&
+  //         molecule.moleculeName.length >= 3 &&
+  //         !molecule.mechanismOfAction
+  //       ) {
+  //         try {
+  //           const data = await getMoleculeDesc(molecule.moleculeName);
+  //           updated[i] = {
+  //             ...updated[i],
+  //             moleculeId: data.moleculeId,
+  //             mechanismOfAction: data.mechanismOfAction || "",
+  //             primaryUse: data.primaryUse || "",
+  //           };
+  //         } catch (err) {
+  //           console.error(err);
+  //         }
+  //       }
+  //     }
+  //     setForm((prev) => ({ ...prev, molecules: updated }));
+  //   };
+  //   fetchMoleculeData();
+  // }, [form.molecules.map((m) => m.moleculeName).join()]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>

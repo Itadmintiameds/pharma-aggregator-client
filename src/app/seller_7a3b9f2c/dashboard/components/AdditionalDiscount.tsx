@@ -1,7 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-import { Calendar, Clock, Building2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import {
+  Calendar,
+  Clock,
+  Building2,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -16,17 +24,23 @@ interface FormState {
   alwaysActive: boolean;
 }
 
-interface AdditionalDiscountSlab {
-  minimumPurchaseQuantity: number;
-  additionalDiscountPercentage: number;
-  effectiveStartDate: string;
-  effectiveStartTime: string;
-  effectiveEndDate: string;
-  effectiveEndTime: string;
-}
+// interface AdditionalDiscountData {
+//   minimumPurchaseQuantity: number;
+//   additionalDiscountPercentage: number;
+//   effectiveStartDate: string;
+//   effectiveStartTime: string;
+//   effectiveEndDate: string;
+//   effectiveEndTime: string;
+// }
+
+// interface AdditionalDiscountProps {
+//   onSave?: (slabs?: AdditionalDiscountData[]) => void;
+// }
 
 interface AdditionalDiscountProps {
-  onSave?: (slabs?: AdditionalDiscountSlab[]) => void;
+  initialData?: AdditionalDiscountData[];
+  onSave?: (slabs?: AdditionalDiscountData[]) => void;
+  onClose?: () => void;
 }
 
 // ─── DatePickerModal ──────────────────────────────────────────────────────────
@@ -76,8 +90,18 @@ const DatePickerModal = ({
   const days = getDaysInMonth(currentMonth);
   const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
   const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
 
   const getYears = () => {
@@ -95,7 +119,11 @@ const DatePickerModal = ({
 
   const changeMonth = (increment: number) => {
     setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + increment, 1)
+      new Date(
+        currentMonth.getFullYear(),
+        currentMonth.getMonth() + increment,
+        1,
+      ),
     );
   };
 
@@ -109,10 +137,12 @@ const DatePickerModal = ({
     setViewMode("days");
   };
 
-  const isToday = (date: Date) => date.toDateString() === new Date().toDateString();
+  const isToday = (date: Date) =>
+    date.toDateString() === new Date().toDateString();
   const isSelected = (date: Date) =>
     selectedDate != null && date.toDateString() === selectedDate.toDateString();
-  const isCurrentMonth = (date: Date) => date.getMonth() === currentMonth.getMonth();
+  const isCurrentMonth = (date: Date) =>
+    date.getMonth() === currentMonth.getMonth();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -120,7 +150,10 @@ const DatePickerModal = ({
       <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-96">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Select Date</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
             <X size={20} />
           </button>
         </div>
@@ -158,7 +191,10 @@ const DatePickerModal = ({
 
             <div className="grid grid-cols-7 gap-1 mb-2">
               {weekDays.map((day) => (
-                <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
+                <div
+                  key={day}
+                  className="text-center text-xs font-medium text-gray-500 py-2"
+                >
                   {day}
                 </div>
               ))}
@@ -229,7 +265,9 @@ const DatePickerModal = ({
               <button
                 onClick={() => {
                   const newYear = currentMonth.getFullYear() - 12;
-                  setCurrentMonth(new Date(newYear, currentMonth.getMonth(), 1));
+                  setCurrentMonth(
+                    new Date(newYear, currentMonth.getMonth(), 1),
+                  );
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition"
               >
@@ -244,7 +282,9 @@ const DatePickerModal = ({
               <button
                 onClick={() => {
                   const newYear = currentMonth.getFullYear() + 12;
-                  setCurrentMonth(new Date(newYear, currentMonth.getMonth(), 1));
+                  setCurrentMonth(
+                    new Date(newYear, currentMonth.getMonth(), 1),
+                  );
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition"
               >
@@ -331,7 +371,10 @@ const TimePickerModal = ({
       <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-80">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Select Time</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
             <X size={20} />
           </button>
         </div>
@@ -422,11 +465,60 @@ const EMPTY_FORM: FormState = {
   alwaysActive: false,
 };
 
-const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
+  onSave,
+  initialData,
+  onClose,
+}) => {
+   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+
+  const [slabs, setSlabs] = useState<AdditionalDiscountData[]>(
+    initialData || [],
+  );
+
+  // const [form, setForm] = useState<FormState>(() => {
+  //   if (initialData && initialData.length > 0) {
+  //     const d = initialData[0];
+
+  //     return {
+  //       minimumPurchaseQuantity: String(d.minimumPurchaseQuantity),
+  //       maximumPurchaseQuantity: "",
+  //       discountPercentage: String(d.additionalDiscountPercentage),
+  //       startDate: d.effectiveStartDate || "",
+  //       startTime: d.effectiveStartTime || "",
+  //       endDate: d.effectiveEndDate || "",
+  //       endTime: d.effectiveEndTime || "",
+  //       alwaysActive: !d.effectiveStartDate,
+  //     };
+  //   }
+
+  //   return EMPTY_FORM;
+  // });
+
+  // useEffect(() => {
+  //   if (initialData && initialData.length > 0) {
+  //     const d = initialData[0];
+
+  //     setForm({
+  //       minimumPurchaseQuantity: String(d.minimumPurchaseQuantity),
+  //       maximumPurchaseQuantity: "",
+  //       discountPercentage: String(d.additionalDiscountPercentage),
+  //       startDate: d.effectiveStartDate || "",
+  //       startTime: d.effectiveStartTime || "",
+  //       endDate: d.effectiveEndDate || "",
+  //       endTime: d.effectiveEndTime || "",
+  //       alwaysActive: !d.effectiveStartDate,
+  //     });
+  //   }
+  // }, [initialData]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showTimePicker, setShowTimePicker] = useState<"startTime" | "endTime" | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState<"startDate" | "endDate" | null>(null);
+  const [showTimePicker, setShowTimePicker] = useState<
+    "startTime" | "endTime" | null
+  >(null);
+  const [showDatePicker, setShowDatePicker] = useState<
+    "startDate" | "endDate" | null
+  >(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -441,7 +533,8 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!form.minimumPurchaseQuantity.trim())
-      newErrors.minimumPurchaseQuantity = "Minimum Purchase Quantity is required";
+      newErrors.minimumPurchaseQuantity =
+        "Minimum Purchase Quantity is required";
     if (!form.discountPercentage.trim()) {
       newErrors.discountPercentage = "Discount percentage is required";
     } else if (isNaN(Number(form.discountPercentage))) {
@@ -460,26 +553,39 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
   };
 
   const handleSubmit = () => {
-    if (!validateForm()) return;
+  if (!validateForm()) return;
 
-    const slab: AdditionalDiscountSlab = {
-      minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
-      additionalDiscountPercentage: Number(form.discountPercentage),
-      effectiveStartDate: form.alwaysActive ? "" : form.startDate,
-      effectiveStartTime: form.alwaysActive ? "" : form.startTime,
-      effectiveEndDate: form.alwaysActive ? "" : form.endDate,
-      effectiveEndTime: form.alwaysActive ? "" : form.endTime,
-    };
-
-    setForm(EMPTY_FORM);
-    setErrors({});
-    onSave?.([slab]);
+  const slab: AdditionalDiscountData = {
+    minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
+    additionalDiscountPercentage: Number(form.discountPercentage),
+    effectiveStartDate: form.alwaysActive ? "" : form.startDate,
+    effectiveStartTime: form.alwaysActive ? "" : form.startTime,
+    effectiveEndDate: form.alwaysActive ? "" : form.endDate,
+    effectiveEndTime: form.alwaysActive ? "" : form.endTime,
   };
+
+  // ✅ CREATE updatedSlabs FIRST
+  const updatedSlabs = [...slabs, slab];
+
+  // ✅ update local state
+  setSlabs(updatedSlabs);
+
+  // ✅ send to parent
+  onSave?.(updatedSlabs);
+
+  // ✅ reset form
+  setForm(EMPTY_FORM);
+  setErrors({});
+};
+
+  useEffect(() => {
+    setSlabs(initialData || []);
+  }, [initialData]);
 
   const handleCancel = () => {
     setForm(EMPTY_FORM);
     setErrors({});
-    onSave?.();
+    onClose?.();
   };
 
   const formatTimeDisplay = (time24: string) => {
@@ -509,19 +615,24 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
   return (
     <div className="w-full bg-white flex flex-col min-h-full">
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
-
         {/* Title */}
         <div className="pb-4 border-b border-gray-200">
           <div className="flex items-baseline gap-2 mb-1">
-            <h1 className="text-xl font-normal text-gray-900">Additional Discount</h1>
-            <span className="text-sm font-normal text-gray-500">(Quantity-based)</span>
+            <h1 className="text-xl font-normal text-gray-900">
+              Additional Discount
+            </h1>
+            <span className="text-sm font-normal text-gray-500">
+              (Quantity-based)
+            </span>
           </div>
           <p className="text-sm text-gray-500">
             Create a time-based discount for bulk purchases
           </p>
 
           <div className="flex items-center justify-between mt-4">
-            <span className="text-base font-normal text-gray-900">Always Active</span>
+            <span className="text-base font-normal text-gray-900">
+              Always Active
+            </span>
             <button
               onClick={handleToggle}
               className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
@@ -538,9 +649,38 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
           </div>
         </div>
 
+        {slabs.length > 0 && (
+          <div className="border rounded-lg p-4">
+            <h3 className="font-semibold mb-2">Use Existing Discounts</h3>
+
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left">
+                  <th>Min Qt</th>
+                  <th>Discount %</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {slabs.map((s, index) => (
+                  <tr key={index}>
+                    <td>{s.minimumPurchaseQuantity}</td>
+                    <td>{s.additionalDiscountPercentage}%</td>
+                    <td>{s.effectiveStartDate}</td>
+                    <td>{s.effectiveEndDate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* Purchase Conditions */}
         <div className="space-y-4">
-          <h2 className="text-base font-bold text-gray-900">Purchase Conditions</h2>
+          <h2 className="text-base font-bold text-gray-900">
+            Purchase Conditions
+          </h2>
 
           <div className="space-y-1.5">
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
@@ -557,11 +697,13 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
               className={inputClass("minimumPurchaseQuantity")}
             />
             {errors.minimumPurchaseQuantity && (
-              <p className="text-red-500 text-xs">{errors.minimumPurchaseQuantity}</p>
+              <p className="text-red-500 text-xs">
+                {errors.minimumPurchaseQuantity}
+              </p>
             )}
           </div>
 
-          <div className="space-y-1.5">
+          {/* <div className="space-y-1.5">
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
               <Building2 size={16} className="text-gray-500" />
               Maximum Purchase Quantity
@@ -574,7 +716,7 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
               onChange={handleInputChange}
               className={inputClass("maximumPurchaseQuantity")}
             />
-          </div>
+          </div> */}
         </div>
 
         {/* Discount Details */}
@@ -586,8 +728,7 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
           <div className="space-y-1.5">
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
               <Building2 size={16} className="text-gray-500" />
-              Discount percentage %
-              <span className="text-red-500">*</span>
+              Discount percentage %<span className="text-red-500">*</span>
             </label>
             <input
               type="number"
@@ -598,7 +739,9 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
               className={inputClass("discountPercentage")}
             />
             {errors.discountPercentage && (
-              <p className="text-red-500 text-xs">{errors.discountPercentage}</p>
+              <p className="text-red-500 text-xs">
+                {errors.discountPercentage}
+              </p>
             )}
           </div>
         </div>
@@ -631,7 +774,9 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
                     } focus:outline-none focus:border-purple-600 text-sm text-gray-900 cursor-pointer`}
                   />
                   {errors.startDate && (
-                    <p className="text-red-500 text-xs mt-1">{errors.startDate}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.startDate}
+                    </p>
                   )}
                 </div>
                 <div className="flex-1 relative">
@@ -650,7 +795,9 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
                     } focus:outline-none focus:border-purple-600 text-sm text-gray-900 cursor-pointer`}
                   />
                   {errors.startTime && (
-                    <p className="text-red-500 text-xs mt-1">{errors.startTime}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.startTime}
+                    </p>
                   )}
                 </div>
               </div>
@@ -677,7 +824,9 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
                     } focus:outline-none focus:border-purple-600 text-sm text-gray-900 cursor-pointer`}
                   />
                   {errors.endDate && (
-                    <p className="text-red-500 text-xs mt-1">{errors.endDate}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.endDate}
+                    </p>
                   )}
                 </div>
                 <div className="flex-1 relative">
@@ -696,15 +845,17 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
                     } focus:outline-none focus:border-purple-600 text-sm text-gray-900 cursor-pointer`}
                   />
                   {errors.endTime && (
-                    <p className="text-red-500 text-xs mt-1">{errors.endTime}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.endTime}
+                    </p>
                   )}
                 </div>
               </div>
             </div>
 
             <p className="text-sm text-gray-600">
-              This discount will apply for orders above (MPQ to MXPQ) units from (Start Date &amp;
-              Time to End Date &amp; Time)
+              This discount will apply for orders above (MPQ to MXPQ) units from
+              (Start Date &amp; Time to End Date &amp; Time)
             </p>
           </div>
         )}
@@ -733,7 +884,10 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
           onChange={(time) => {
             setForm((prev) => ({ ...prev, [showTimePicker]: time }));
             if (errors[showTimePicker]) {
-              setErrors((prev) => ({ ...prev, [showTimePicker as string]: "" }));
+              setErrors((prev) => ({
+                ...prev,
+                [showTimePicker as string]: "",
+              }));
             }
           }}
           onClose={() => setShowTimePicker(null)}
@@ -747,7 +901,10 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({ onSave }) => {
           onChange={(date) => {
             setForm((prev) => ({ ...prev, [showDatePicker]: date }));
             if (errors[showDatePicker]) {
-              setErrors((prev) => ({ ...prev, [showDatePicker as string]: "" }));
+              setErrors((prev) => ({
+                ...prev,
+                [showDatePicker as string]: "",
+              }));
             }
           }}
           onClose={() => setShowDatePicker(null)}
