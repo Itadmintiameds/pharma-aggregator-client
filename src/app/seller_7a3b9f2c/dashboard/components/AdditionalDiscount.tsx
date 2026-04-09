@@ -10,6 +10,13 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { Pencil, Trash2 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,11 +118,25 @@ const DatePickerModal = ({
     return years;
   };
 
+  const formatLocalDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
+
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    onChange(date.toISOString().split("T")[0]);
+    onChange(formatLocalDate(date));
     onClose();
   };
+
+  // const handleDateSelect = (date: Date) => {
+  //   setSelectedDate(date);
+  //   onChange(date.toISOString().split("T")[0]);
+  //   onClose();
+  // };
 
   const changeMonth = (increment: number) => {
     setCurrentMonth(
@@ -470,7 +491,7 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
   initialData,
   onClose,
 }) => {
-   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const [slabs, setSlabs] = useState<AdditionalDiscountData[]>(
     initialData || [],
@@ -519,11 +540,201 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
   const [showDatePicker, setShowDatePicker] = useState<
     "startDate" | "endDate" | null
   >(null);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const formatDateDDMMYYYY = (dateStr: string) => {
+    if (!dateStr) return "";
+
+    const date = new Date(dateStr);
+
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+
+    return `${day}/${month}/${year}`;
+  };
+
+  const columns: ColumnDef<AdditionalDiscountData>[] = [
+    // {
+    //   id: "select",
+    //   header: "",
+    //   cell: () => (
+    //     <input type="checkbox" className="w-4 h-4 rounded border-gray-300" />
+    //   ),
+    // },
+    {
+      accessorKey: "minimumPurchaseQuantity",
+      header: "Min Qt",
+    },
+    {
+      accessorKey: "additionalDiscountPercentage",
+      header: "Discount %",
+      cell: (info) => `${info.getValue()}%`,
+    },
+    {
+      accessorKey: "effectiveStartDate",
+      header: "Start date",
+      cell: (info) => formatDateDDMMYYYY(info.getValue() as string),
+    },
+    {
+      accessorKey: "effectiveEndDate",
+      header: "End Date",
+      cell: (info) => formatDateDDMMYYYY(info.getValue() as string),
+    },
+    {
+      id: "actions",
+      header: "Action",
+      cell: () => (
+        <div className="flex gap-3">
+          <img
+            src="/icons/EditIcon.svg"
+            alt="edit"
+            className="w-4 h-4 rounded-md object-cover cursor-pointer"
+          />
+          <img
+            src="/icons/DeleteIcon.svg"
+            alt="delete"
+            className="w-4 h-4 rounded-md object-cover cursor-pointer"
+          />
+        </div>
+      ),
+    },
+  ];
+
+  const table = useReactTable({
+    data: slabs,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  const validateDateTime = (
+    updatedForm: FormState,
+    touched: Record<string, boolean>,
+  ) => {
+    const errors: Record<string, string> = {};
+
+    if (updatedForm.alwaysActive) return errors;
+
+    const { startDate, endDate, startTime, endTime } = updatedForm;
+
+    // ✅ FIELD-LEVEL VALIDATION (only if touched)
+
+    if (touched.startDate && !startDate) {
+      errors.startDate = "Start Date is required";
+    }
+
+    if (touched.endDate && !endDate) {
+      errors.endDate = "End Date is required";
+    }
+
+    if (touched.startTime && !startTime) {
+      errors.startTime = "Start Time is required";
+    }
+
+    if (touched.endTime && !endTime) {
+      errors.endTime = "End Time is required";
+    }
+
+    // ✅ DATE COMPARISON (only if BOTH values exist)
+    if (startDate && endDate) {
+      const sDate = new Date(startDate);
+      const eDate = new Date(endDate);
+
+      if (sDate > eDate) {
+        // Only show error if either field is touched
+        if (touched.startDate) {
+          errors.startDate = "Start Date must be ≤ End Date";
+        }
+        if (touched.endDate) {
+          errors.endDate = "End Date must be ≥ Start Date";
+        }
+      }
+    }
+
+    // ✅ TIME COMPARISON (only if same day + both exist)
+    if (startDate && endDate && startDate === endDate && startTime && endTime) {
+      if (startTime >= endTime) {
+        if (touched.startTime) {
+          errors.startTime = "Start Time must be less than End Time";
+        }
+        if (touched.endTime) {
+          errors.endTime = "End Time must be greater than Start Time";
+        }
+      }
+    }
+
+    return errors;
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+
+    const updatedForm = { ...form, [name]: value };
+    setForm(updatedForm);
+
+    // ✅ Step 1: update touched FIRST (important)
+    const updatedTouched = {
+      ...touched,
+      [name]: true,
+    };
+    setTouched(updatedTouched);
+
+    let newErrors = { ...errors };
+
+    const mpq = Number(updatedForm.minimumPurchaseQuantity);
+    const discount = Number(updatedForm.discountPercentage);
+
+    // ✅ Clear slab-related errors
+    delete newErrors.minimumPurchaseQuantity;
+    delete newErrors.discountPercentage;
+
+    // 🚫 Skip slab validation for first entry
+    if (slabs.length > 0) {
+      const lastSlab = slabs[slabs.length - 1];
+
+      if (name === "minimumPurchaseQuantity") {
+        if (mpq <= lastSlab.minimumPurchaseQuantity) {
+          newErrors.minimumPurchaseQuantity =
+            "Must be greater than previous slab";
+        }
+
+        if (slabs.some((s) => s.minimumPurchaseQuantity === mpq)) {
+          newErrors.minimumPurchaseQuantity = "This value is already entered";
+        }
+      }
+
+      if (name === "discountPercentage") {
+        if (discount <= lastSlab.additionalDiscountPercentage) {
+          newErrors.discountPercentage =
+            "Must be greater than previous slab discount";
+        }
+
+        if (slabs.some((s) => s.additionalDiscountPercentage === discount)) {
+          newErrors.discountPercentage = "This discount already exists";
+        }
+      }
+    }
+
+    // 🔥 CRITICAL FIX STARTS HERE
+
+    // ✅ Step 2: CLEAR old date-time errors (this fixes your issue)
+    delete newErrors.startDate;
+    delete newErrors.endDate;
+    delete newErrors.startTime;
+    delete newErrors.endTime;
+
+    // ✅ Step 3: validate with UPDATED touched
+    const dateErrors = validateDateTime(updatedForm, updatedTouched);
+
+    // ✅ Step 4: apply fresh errors only
+    newErrors = {
+      ...newErrors,
+      ...dateErrors,
+    };
+
+    // 🔥 CRITICAL FIX ENDS HERE
+
+    setErrors(newErrors);
   };
 
   const handleToggle = () => {
@@ -553,30 +764,30 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
   };
 
   const handleSubmit = () => {
-  if (!validateForm()) return;
+    if (!validateForm()) return;
 
-  const slab: AdditionalDiscountData = {
-    minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
-    additionalDiscountPercentage: Number(form.discountPercentage),
-    effectiveStartDate: form.alwaysActive ? "" : form.startDate,
-    effectiveStartTime: form.alwaysActive ? "" : form.startTime,
-    effectiveEndDate: form.alwaysActive ? "" : form.endDate,
-    effectiveEndTime: form.alwaysActive ? "" : form.endTime,
+    const slab: AdditionalDiscountData = {
+      minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
+      additionalDiscountPercentage: Number(form.discountPercentage),
+      effectiveStartDate: form.alwaysActive ? "" : form.startDate,
+      effectiveStartTime: form.alwaysActive ? "" : form.startTime,
+      effectiveEndDate: form.alwaysActive ? "" : form.endDate,
+      effectiveEndTime: form.alwaysActive ? "" : form.endTime,
+    };
+
+    // ✅ CREATE updatedSlabs FIRST
+    const updatedSlabs = [...slabs, slab];
+
+    // ✅ update local state
+    setSlabs(updatedSlabs);
+
+    // ✅ send to parent
+    onSave?.(updatedSlabs);
+
+    // ✅ reset form
+    setForm(EMPTY_FORM);
+    setErrors({});
   };
-
-  // ✅ CREATE updatedSlabs FIRST
-  const updatedSlabs = [...slabs, slab];
-
-  // ✅ update local state
-  setSlabs(updatedSlabs);
-
-  // ✅ send to parent
-  onSave?.(updatedSlabs);
-
-  // ✅ reset form
-  setForm(EMPTY_FORM);
-  setErrors({});
-};
 
   useEffect(() => {
     setSlabs(initialData || []);
@@ -650,36 +861,66 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
         </div>
 
         {slabs.length > 0 && (
-          <div className="border rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Use Existing Discounts</h3>
+          <div className="space-y-3">
+            <div className="text-label-l4 font-semibold">
+              Use Existing Discounts
+            </div>
 
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left">
-                  <th>Min Qt</th>
-                  <th>Discount %</th>
-                  <th>Start Date</th>
-                  <th>End Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {slabs.map((s, index) => (
-                  <tr key={index}>
-                    <td>{s.minimumPurchaseQuantity}</td>
-                    <td>{s.additionalDiscountPercentage}%</td>
-                    <td>{s.effectiveStartDate}</td>
-                    <td>{s.effectiveEndDate}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="border rounded-xl border-neutral-300 overflow-hidden">
+              <table className="w-full text-sm border-collapse">
+                {/* HEADER */}
+                <thead>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <th
+                          key={header.id}
+                          className="px-4 py-3 text-left text-lable-l2 font-semibold text-neutral-900 border border-neutral-300"
+                        >
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+
+                {/* BODY */}
+                <tbody>
+                  {table.getRowModel().rows.map((row, index) => (
+                    <tr
+                      key={row.id}
+                      className={
+                        index % 2 === 0 ? "bg-white" : "bg-neutral-100"
+                      }
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td
+                          key={cell.id}
+                          className="px-4 py-3 border border-neutral-300 text-center"
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="text-label-l4 font-semibold text-center m-8">OR</div>
           </div>
         )}
 
         {/* Purchase Conditions */}
         <div className="space-y-4">
-          <h2 className="text-base font-bold text-gray-900">
-            Purchase Conditions
+          <h2 className="text-label-l4 font-semibold text-neutral-900">
+           Add New Purchase Conditions
           </h2>
 
           <div className="space-y-1.5">
@@ -865,13 +1106,13 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
       <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-between items-center shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
         <button
           onClick={handleCancel}
-          className="w-28 h-10 rounded-lg border-2 border-red-500 text-red-500 font-semibold text-sm hover:bg-red-50 transition"
+          className="w-27 h-10 rounded-lg border-2 border-[#FF3B3B] text-[#FF3B3B] font-semibold text-label-l2 cursor-pointer"
         >
           Cancel
         </button>
         <button
           onClick={handleSubmit}
-          className="w-32 h-10 bg-purple-600 rounded-lg text-white font-semibold text-sm hover:bg-purple-800 transition"
+          className="w-33.25 h-10 bg-[#4B0082] rounded-lg text-white font-semibold text-label-l2 cursor-pointer"
         >
           Submit
         </button>
@@ -882,13 +1123,21 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
         <TimePickerModal
           value={showTimePicker === "startTime" ? form.startTime : form.endTime}
           onChange={(time) => {
-            setForm((prev) => ({ ...prev, [showTimePicker]: time }));
-            if (errors[showTimePicker]) {
-              setErrors((prev) => ({
-                ...prev,
-                [showTimePicker as string]: "",
-              }));
-            }
+            const field = showTimePicker as string;
+
+            const updated = { ...form, [field]: time };
+            setForm(updated);
+
+            const updatedTouched = {
+              ...touched,
+              [field]: true,
+            };
+
+            setTouched(updatedTouched);
+
+            setErrors(() => {
+              return validateDateTime(updated, updatedTouched);
+            });
           }}
           onClose={() => setShowTimePicker(null)}
         />
@@ -899,13 +1148,20 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
         <DatePickerModal
           value={showDatePicker === "startDate" ? form.startDate : form.endDate}
           onChange={(date) => {
-            setForm((prev) => ({ ...prev, [showDatePicker]: date }));
-            if (errors[showDatePicker]) {
-              setErrors((prev) => ({
-                ...prev,
-                [showDatePicker as string]: "",
-              }));
-            }
+            const field = showDatePicker as string;
+
+            const updated = { ...form, [field]: date };
+            setForm(updated);
+
+            const updatedTouched = {
+              ...touched,
+              [field]: true,
+            };
+
+            setTouched(updatedTouched);
+            setErrors(() => {
+              return validateDateTime(updated, updatedTouched);
+            });
           }}
           onClose={() => setShowDatePicker(null)}
         />

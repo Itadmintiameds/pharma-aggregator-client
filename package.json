@@ -17,6 +17,7 @@
     "@mui/material": "^7.3.8",
     "@mui/system": "^7.3.8",
     "@mui/x-date-pickers": "^8.27.2",
+    "@tanstack/react-table": "^8.21.3",
     "axios": "^1.13.2",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",

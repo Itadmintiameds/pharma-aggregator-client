@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Table, { Column } from "@/src/app/commonComponents/Table";
 import { getProductList } from "@/src/services/product/ProductService";
 import { DashboardView } from "@/src/types/seller/dashboard";
-import {ProductListData} from "@/src/types/product/ProductData";
+import { ProductListData } from "@/src/types/product/ProductData";
 import CommonModal from "../commonComponent/CommonModal";
 import DeleteProduct from "./DeleteProduct";
 
@@ -54,11 +54,12 @@ const ProductList = ({
   setCurrentView,
   setSelectedProductId,
 }: ProductListProps) => {
-
   const [data, setData] = useState<ProductListData[]>([]);
   const [loading, setLoading] = useState(false);
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
-  const [selectedProductIdLocal, setSelectedProductIdLocal] = useState<string | null>(null);
+  const [selectedProductIdLocal, setSelectedProductIdLocal] = useState<
+    string | null
+  >(null);
 
   const fetchProducts = async () => {
     try {
@@ -120,14 +121,14 @@ const ProductList = ({
           actions={(row) => (
             <div className="flex items-center gap-3">
               <img
-      src="/icons/EditIcon.svg"
-      alt="edit"
-      className="w-5 h-5 rounded-md object-cover cursor-pointer"
-      onClick={() => {
-        setSelectedProductId(row.productId ?? "");
-        setCurrentView("editProduct");
-      }}
-    />
+                src="/icons/EditIcon.svg"
+                alt="edit"
+                className="w-5 h-5 rounded-md object-cover cursor-pointer"
+                onClick={() => {
+                  setSelectedProductId(row.productId ?? "");
+                  setCurrentView("editProduct");
+                }}
+              />
               <img
                 src="/icons/ViewIcon.svg"
                 className="w-5 h-5 cursor-pointer"
@@ -163,18 +164,6 @@ const ProductList = ({
 };
 
 export default ProductList;
-
-
-
-
-
-
-
-
-
-
-
-
 
 // old code without edit functionality.............
 // "use client";
