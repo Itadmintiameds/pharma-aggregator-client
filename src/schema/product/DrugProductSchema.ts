@@ -1,149 +1,174 @@
 import { z } from "zod";
 
+const positiveInteger = z
+  .string()
+  .trim()
+  .min(1, "Required")
+  .regex(/^[1-9]\d*$/, "Only positive integers are allowed");
+
 export const drugProductSchema = z.object({
-  productName: z.string().min(1, "Product Name is required"),
 
-  productCategoryId: z.string().min(1, "Category is required"),
-
-  // therapeuticCategory: z.string().min(1, "Therapeutic Category is required"),
+  therapeuticCategory: z
+    .string()
+    .min(1, "Therapeutic Category is required"),
 
   therapeuticSubcategory: z
     .string()
     .min(1, "Therapeutic Subcategory is required"),
 
-  dosageForm: z.string().min(1, "Dosage Form is required"),
+  productName: z
+    .string()
+    .min(3, "Product Name must be at least 3 characters")
+    .max(150, "Product Name must not exceed 150 characters")
+    .regex(/^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/,
+      "Product Name can contain alphanumeric and special characters"
+    ),
 
-  // strength: z
-  //   .string()
-  //   .min(1, "Strength is required")
-  //   .refine((val) => !isNaN(Number(val)), {
-  //     message: "Strength must be a number",
-  //   }),
+  dosageId: z
+    .union([z.string(), z.number()])
+    .refine((val) => val !== "" && val !== null && val !== undefined, {
+      message: "Dosage Form is required",
+    }),
 
-strength: z
-  .string()
-  .min(1, "Strength is required"),
 
-  // molecules: z
-  //   .array(
-  //     z.object({
-  //       moleculeId: z.number().nullable(),
-  //       moleculeName: z
-  //         .string()
-  //         .min(1, "Molecule name is required"),
-  //       mechanismOfAction: z.string().optional(),
-  //       primaryUse: z.string().optional(),
-  //     })
-  //   )
-  //   .min(1, "At least one molecule is required"),
+
+    
+  molecules: z
+    .array(
+      z.object({
+        moleculeId: z
+          .union([z.string(), z.number()])
+          .transform((val) => Number(val)) // ✅ always number
+          .refine((val) => val > 0, {
+            message: "Molecule is required",
+          }),
+        drugSchedule: z.string().min(1),
+        mechanismOfAction: z.string().min(1),
+        primaryUse: z.string().min(1),
+        strength: z.string().min(1),
+      })
+    )
+    .min(1, "At least one molecule is required"),
+
+  manufacturerName: z
+    .string()
+    .trim()
+    .min(1, "Manufacturer Name is required")
+    .regex(/^[A-Za-z\s]+$/, "Only alphabets and spaces are allowed"),
 
   warningsPrecautions: z
     .string()
-    .min(1, "Warnings & Precautions are required"),
+    .trim()
+    .min(1, "Warnings & Precautions are required")
+    .max(1000, "Maximum 1000 characters allowed")
+    .regex(/^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?\n\r]*$/,
+      "Invalid characters used"
+    ),
 
-  productDescription: z.string().min(1, "Product Description is required"),
-
-  productMarketingUrl: z
+  productDescription: z
     .string()
-    .min(1, "Marketing URL is required"),
+    .trim()
+    .min(1, "Product Description is required")
+    .max(1000, "Maximum 1000 characters allowed")
+    .regex(/^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?\n\r]*$/,
+      "Invalid characters used"
+    ),
+
 
   // Packaging
-  packagingUnit: z.string().min(1, "Packaging Unit is required"),
-
-  numberOfUnits: z
-    .string()
-    .min(1, "Number of Units is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
+  packId: z
+    .union([z.string(), z.number()])
+    .refine((val) => val !== "" && val !== null && val !== undefined, {
+      message: "Pack Type is required",
     }),
 
-  packSize: z
+  unitPerPack: z
     .string()
-    .min(1, "Pack Size is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
-    }),
+    .trim()
+    .min(1, "Number of Units per Pack Type is required")
+    .regex(/^[1-9]\d*$/, "Only positive integers are allowed"),
 
-  minimumOrderQuantity: z
+  numberOfPacks: z
     .string()
-    .min(1, "Minimum Order Quantity is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
-    }),
+    .trim()
+    .min(1, "Number of Packs is required")
+    .regex(/^[1-9]\d*$/, "Only positive integers are allowed"),
 
-  maximumOrderQuantity: z
-    .string()
-    .min(1, "Maximum Order Quantity is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
-    }),
+
+  minimumOrderQuantity: positiveInteger,
+  maximumOrderQuantity: positiveInteger,
 
   // Pricing
-  batchLotNumber: z.string().min(1, "Batch Lot Number is required"),
 
-  manufacturerName: z.string().min(1, "Manufacturer Name is required"),
-
-  storageCondition: z.string().min(1, "Storage Condition is required"),
-
-  stockQuantity: z
+  batchLotNumber: z
     .string()
-    .min(1, "Stock Quantity is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
-    }),
+    .trim()
+    .min(1, "Batch/Lot Number is required") // Mandatory
+    .regex(/^[a-zA-Z0-9]+$/, "Only alphanumeric characters are allowed"),
 
-  pricePerUnit: z
-    .string()
-    .min(1, "Price Per Unit is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
-    }),
-
-  mrp: z
-    .string()
-    .min(1, "MRP is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
-    }),
-
-  // finalPrice: z
-  //   .string()
-  //   .min(1, "Final Price is required")
-  //   .refine((val) => !isNaN(Number(val)), {
-  //     message: "Must be a number",
-  //   }),
-
-  gstPercentage: z
-    .string()
-    .min(1, "GST % is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
-    }),
-
-  discountPercentage: z
-    .string()
-    .min(1, "GST % is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
-    }),
-
-  hsnCode: z
-    .string()
-    .min(1, "HSN Code is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
-    }),
   manufacturingDate: z
     .date()
-    .nullable()
-    .refine((val) => val !== null, {
+    .refine((val) => val instanceof Date && !isNaN(val.getTime()), {
       message: "Manufacturing date is required",
     }),
 
   expiryDate: z
     .date()
-    .nullable()
-    .refine((val) => val !== null, {
+    .refine((val) => val instanceof Date && !isNaN(val.getTime()), {
       message: "Expiry date is required",
     }),
+
+  storageCondition: z
+    .string()
+    .trim()
+    .min(1, "Storage Condition is required"),
+
+
+  stockQuantity: z
+    .string()
+    .trim()
+    .min(1, "Stock Quantity is required") // Mandatory
+    .regex(/^[1-9]\d*$/, "Only positive integers are allowed"),
+
+
+  sellingPrice: z
+    .string()
+    .trim()
+    .min(1, "Selling Price is required") // Mandatory
+    .regex(/^\d+(\.\d+)?$/, "Only numeric values are allowed")
+    .refine((val) => Number(val) > 0, {
+      message: "Selling Price must be greater than 0",
+    }),
+
+  mrp: z
+    .string()
+    .trim()
+    .min(1, "MRP is required") // Mandatory
+    .regex(/^\d+(\.\d+)?$/, "Only numeric values are allowed"),
+
+  discountPercentage: z
+    .string()
+    .trim()
+    .min(1, "Discount Percentage is required")
+    .regex(/^\d+(\.\d+)?$/, "Only numeric values are allowed") // allows integers & decimals
+    .refine((val) => {
+      const num = Number(val);
+      return num >= 0 && num <= 100;
+    }, {
+      message: "Discount must be between 0 and 100",
+    }),
+
+  gstPercentage: z
+    .string()
+    .trim()
+    .min(1, "GST % is required") // Mandatory
+    .regex(/^\d+(\.\d+)?$/, "Must be a valid number"),
+
+  hsnCode: z
+    .string()
+    .trim()
+    .min(1, "HSN Code is required") // Mandatory
+    .regex(/^\d+$/, "Only numeric values are allowed"), // Digits only
+
 });
+

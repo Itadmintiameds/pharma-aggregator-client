@@ -1,24 +1,17 @@
-import CategoryButtons from "@/src/app/commonComponents/CategoryButtons";
 import Input from "@/src/app/commonComponents/Input";
 import { drugProductSchema } from "@/src/schema/product/DrugProductSchema";
 import { getAllMolecules } from "@/src/services/product/MoleculeService";
 import {
   createDrugProduct,
   drugProductDelete,
-  editDrugProduct,
   getDosage,
-  getDrugCategory,
-  getDrugProductById,
   getMoleculeStrengthByDosage,
   getPackTypesByDosageId,
   getTherapeuticCategory,
   getTherapeuticSubcategory,
   uploadProductImages,
 } from "@/src/services/product/ProductService";
-import {
-  AdditionalDiscountData,
-  CreateDrugProductRequest,
-} from "@/src/types/product/ProductData";
+import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 import React, { useEffect, useState } from "react";
 import Select from "react-select";
 import CommonModal from "../commonComponent/CommonModal";
@@ -114,7 +107,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
       },
     ],
 
-    // packagingUnit: "",
     packId: "",
     packType: "",
     unitPerPack: "",
@@ -138,6 +130,13 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
     hsnCode: "",
     additionalDiscount: [],
   });
+
+  const gstOptions = [
+    { value: "0", label: "0%" },
+    { value: "5", label: "5%" },
+    { value: "12", label: "12%" },
+    { value: "18", label: "18%" },
+  ];
 
   const [therapeuticCategories, setTherapeuticCategories] = useState<
     SelectOption[]
@@ -199,24 +198,118 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
   // const handleChange = (
   //   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   // ) => {
-  //   setForm({ ...form, [e.target.name]: e.target.value });
+  //   const { name, value } = e.target;
+
+  //   setForm((prev) => {
+  //     const updatedForm = {
+  //       ...prev,
+  //       [name]: value,
+  //     };
+
+  //     const unitPerPack = Number(updatedForm.unitPerPack) || 0;
+  //     const numberOfPacks = Number(updatedForm.numberOfPacks) || 0;
+
+  //     updatedForm.packSize = String(unitPerPack * numberOfPacks);
+
+  //     return updatedForm;
+  //   });
   // };
 
+  const getMinExpiryDate = () => {
+    const today = new Date();
+    today.setMonth(today.getMonth() + 3);
+    return today.toISOString().split("T")[0];
+  };
+
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e:
+      | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+      | { name: string; value: string },
   ) => {
-    const { name, value } = e.target;
+    const name = "target" in e ? e.target.name : e.name;
+    const value = "target" in e ? e.target.value : e.value;
+
+    const finalValue = name === "expiryDate" && value ? new Date(value) : value;
 
     setForm((prev) => {
       const updatedForm = {
         ...prev,
-        [name]: value,
+        [name]: finalValue,
       };
 
       const unitPerPack = Number(updatedForm.unitPerPack) || 0;
       const numberOfPacks = Number(updatedForm.numberOfPacks) || 0;
 
       updatedForm.packSize = String(unitPerPack * numberOfPacks);
+
+      // ✅ Cross-field validation
+      const minQty = Number(updatedForm.minimumOrderQuantity) || 0;
+      const maxQty = Number(updatedForm.maximumOrderQuantity) || 0;
+
+      const mrp = Number(updatedForm.mrp) || 0;
+      const sellingPrice = Number(updatedForm.sellingPrice) || 0;
+      const discount = Number(updatedForm.discountPercentage);
+      const hsn = updatedForm.hsnCode || "";
+      const expiry = updatedForm.expiryDate || null;
+
+      setErrors((prevErrors) => {
+        const newErrors = { ...prevErrors };
+
+        // ✅ Max > Min
+        if (maxQty && minQty && maxQty <= minQty) {
+          newErrors.maximumOrderQuantity =
+            "Max Order Qty must be greater than Min Order Qty";
+        } else {
+          delete newErrors.maximumOrderQuantity;
+        }
+
+        // ✅ Selling Price < MRP
+        if (sellingPrice && mrp && sellingPrice >= mrp) {
+          newErrors.sellingPrice = "Selling Price must be less than MRP";
+        } else {
+          delete newErrors.sellingPrice;
+        }
+
+        if (updatedForm.discountPercentage !== "") {
+          if (isNaN(discount) || discount < 0 || discount > 100) {
+            newErrors.discountPercentage = "Discount must be between 0 and 100";
+          } else {
+            delete newErrors.discountPercentage;
+          }
+        }
+
+        if (hsn) {
+          const isValidLength = [4, 6, 8].includes(hsn.length);
+          const isNumeric = /^\d+$/.test(hsn);
+
+          if (!isNumeric || !isValidLength) {
+            newErrors.hsnCode = "HSN Code must be 4, 6, or 8 digits only";
+          } else {
+            delete newErrors.hsnCode;
+          }
+        }
+
+        if (expiry) {
+          const minDate = new Date();
+          minDate.setMonth(minDate.getMonth() + 3);
+
+          // normalize
+          const normalizedExpiry = new Date(expiry);
+          normalizedExpiry.setHours(0, 0, 0, 0);
+
+          const normalizedMin = new Date(minDate);
+          normalizedMin.setHours(0, 0, 0, 0);
+
+          if (normalizedExpiry < normalizedMin) {
+            newErrors.expiryDate =
+              "Expiry date must be at least 3 months from today";
+          } else {
+            delete newErrors.expiryDate;
+          }
+        }
+
+        return newErrors;
+      });
 
       return updatedForm;
     });
@@ -364,22 +457,24 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
 
   const handleSubmit = async () => {
     alert("Helllooooo");
-    // const validation = drugProductSchema.safeParse(form);
+    const validation = drugProductSchema.safeParse(form);
 
-    // if (!validation.success) {
-    //   const fieldErrors: Record<string, string> = {};
+    if (!validation.success) {
+      console.log(validation.error.issues);
 
-    //   validation.error.issues.forEach((err) => {
-    //     const fieldName = err.path.join(".");
-    //     fieldErrors[fieldName] = err.message;
-    //   });
+      const fieldErrors: Record<string, string> = {};
 
-    //   setErrors(fieldErrors);
-    //   return;
-    // }
+      validation.error.issues.forEach((err) => {
+        const fieldName = err.path.join(".");
+        fieldErrors[fieldName] = err.message;
+      });
 
-    // setErrors({});
+      setErrors(fieldErrors);
+      return;
+    }
 
+    setErrors({});
+    alert("Helllooooo1111111");
     try {
       const payload = {
         productName: form.productName,
@@ -727,14 +822,24 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
     fetchDosage();
   }, []);
 
-  // const handleDosageChange = (selected: SelectOption | null) => {
+  // const handleDosageChange = async (selected: any) => {
+  //   const dosageId = selected?.value;
+
   //   setForm((prev) => ({
   //     ...prev,
-  //     dosageId: selected ? Number(selected.value) : "",
-  //     packagingUnit: "", // ✅ reset pack type
+  //     dosageId,
   //   }));
 
-  //   setPackTypeOptions([]); // ✅ clear old options
+  //   try {
+  //     const data = await getMoleculeStrengthByDosage(dosageId);
+
+  //     // extract only strength text
+  //     const strengths = data.map((item: any) => item.moleculeStrengthFormat);
+
+  //     setStrengthFormats(strengths);
+  //   } catch (error) {
+  //     console.error(error);
+  //   }
   // };
 
   const handleDosageChange = async (selected: any) => {
@@ -743,17 +848,38 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
     setForm((prev) => ({
       ...prev,
       dosageId,
+
+      // ✅ FIXED structure
+      molecules: [
+        {
+          moleculeId: "",
+          moleculeName: "",
+          drugSchedule: "",
+          strength: "",
+          mechanismOfAction: "",
+          primaryUse: "",
+        },
+      ],
+
+      packId: "",
+      packType: "",
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      molecules: "",
+      packId: "",
     }));
 
     try {
       const data = await getMoleculeStrengthByDosage(dosageId);
 
-      // extract only strength text
       const strengths = data.map((item: any) => item.moleculeStrengthFormat);
 
       setStrengthFormats(strengths);
     } catch (error) {
       console.error(error);
+      setStrengthFormats([]);
     }
   };
 
@@ -839,9 +965,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 theme={selectTheme}
                 styles={selectStyles("productCategoryId")}
               />
-              {errors.productCategoryId && (
+              {errors.therapeuticCategory && (
                 <p className="text-red-500 text-sm mt-1">
-                  {errors.productCategoryId}
+                  {errors.therapeuticCategory}
                 </p>
               )}
             </div>
@@ -901,6 +1027,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 theme={selectTheme}
                 styles={selectStyles("dosageId")}
               />
+
+              {errors.dosageId && (
+                <p className="text-red-500 text-sm mt-1">{errors.dosageId}</p>
+              )}
             </div>
 
             {form.molecules.map((molecule, index) => (
@@ -929,6 +1059,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                     theme={selectTheme}
                     styles={selectStyles("molecule")}
                   />
+                  {errors.molecules && typeof errors.molecules === "string" && (
+                    <p className="text-red-500 text-sm">{errors.molecules}</p>
+                  )}
                 </div>
 
                 <Input
@@ -959,6 +1092,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               placeholder=""
               value={getFinalDrugSchedule(form.molecules)}
               readOnly
+              required
             />
 
             <Input
@@ -970,6 +1104,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 .filter(Boolean)
                 .join(" & ")}
               readOnly
+              required
             />
 
             <Input
@@ -981,6 +1116,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 .filter(Boolean)
                 .join(" & ")}
               readOnly
+              required
             />
 
             <Input
@@ -1004,8 +1140,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 value={form.productMarketingUrl}
                 onChange={handleChange}
                 disabled={mode === "delete"}
-                error={errors.productMarketingUrl}
-                required
+                // error={errors.productMarketingUrl}
+                // required
               />
             </div>
 
@@ -1095,9 +1231,13 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 theme={selectTheme}
                 styles={selectStyles("packId")}
               />
+              {errors.packId && (
+                <p className="text-red-500 text-sm mt-1">{errors.packId}</p>
+              )}
             </div>
 
             <Input
+              type="number"
               label="Number of Units per Pack Type"
               name="unitPerPack"
               id="unitPerPack"
@@ -1107,9 +1247,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               disabled={mode === "delete"}
               error={errors.unitPerPack}
               required
+              min={1}
+              step={1}
             />
 
             <Input
+              type="number"
               label="Number of Packs"
               name="numberOfPacks"
               id="numberOfPacks"
@@ -1119,9 +1262,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               disabled={mode === "delete"}
               error={errors.numberOfPacks}
               required
+              min={1}
+              step={1}
             />
 
             <Input
+              type="number"
               label="Pack Size (No. of packs X No. of Units per pack type)"
               name="packSize"
               id="packSize"
@@ -1129,7 +1275,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               value={form.packSize}
               onChange={handleChange}
               disabled={mode === "delete"}
-              error={errors.packSize}
+              readOnly
               required
             />
 
@@ -1140,6 +1286,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
             <div className="border-b border-neutral-200 col-span-2"></div>
 
             <Input
+              type="number"
               label="Min Order Qty"
               name="minimumOrderQuantity"
               id="minimumOrderQuantity"
@@ -1147,10 +1294,13 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               value={form.minimumOrderQuantity}
               onChange={handleChange}
               disabled={mode === "delete"}
+              min={1}
+              step={1}
               error={errors.minimumOrderQuantity}
               required
             />
             <Input
+              type="number"
               label="Max Order Qty"
               name="maximumOrderQuantity"
               id="maximumOrderQuantity"
@@ -1158,6 +1308,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               value={form.maximumOrderQuantity}
               onChange={handleChange}
               disabled={mode === "delete"}
+              min={1}
+              step={1}
               error={errors.maximumOrderQuantity}
               required
             />
@@ -1206,19 +1358,25 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               label="Expiry Date"
               type="date"
               name="expiryDate"
-              id="expiryDate"
-              placeholder=""
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  expiryDate: new Date(e.target.value),
-                })
-              }
               value={
                 form.expiryDate
                   ? form.expiryDate.toISOString().split("T")[0]
                   : ""
               }
+              onChange={handleChange} // ✅ FIX
+              min={getMinExpiryDate()}
+              onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                const input = e.currentTarget;
+                const selectedDate = new Date(input.value);
+
+                const minDate = new Date();
+                minDate.setMonth(minDate.getMonth() + 3);
+                minDate.setHours(0, 0, 0, 0);
+
+                if (selectedDate < minDate) {
+                  input.value = ""; // ❌ clear invalid input
+                }
+              }}
               disabled={mode === "delete"}
               error={errors.expiryDate}
               required
@@ -1256,6 +1414,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
             />
 
             <Input
+              type="number"
               label="Stock Quantity"
               name="stockQuantity"
               id="stockQuantity"
@@ -1263,6 +1422,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               value={form.stockQuantity}
               onChange={handleChange}
               disabled={mode === "delete"}
+              min={1}
+              step={1}
               error={errors.stockQuantity}
               required
             />
@@ -1272,6 +1433,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
             <div className="border-b border-neutral-200 col-span-2"></div>
 
             <Input
+              type="number"
               label="MRP"
               name="mrp"
               id="mrp"
@@ -1279,11 +1441,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               value={form.mrp}
               onChange={handleChange}
               disabled={mode === "delete"}
+              min={1}
+              step={1}
               error={errors.mrp}
               required
             />
 
             <Input
+              type="number"
               label="Selling Price per Pack Size"
               name="sellingPrice"
               id="sellingPrice"
@@ -1291,6 +1456,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               value={form.sellingPrice}
               onChange={handleChange}
               disabled={mode === "delete"}
+              min={1}
+              step={1}
               error={errors.sellingPrice}
               required
             />
@@ -1298,30 +1465,18 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
             <div className="col-span-2 flex items-end gap-4">
               <div className="w-1/2">
                 <Input
+                  type="number"
                   label="Discount Percentage"
                   name="discountPercentage"
-                  id="discountPercentage"
                   value={form.discountPercentage}
-                  onChange={(e) => {
-                    const value = e.target.value;
-
-                    setForm((prev) => {
-                      const result = calculateFinalPrice(
-                        prev.mrp,
-                        value,
-                        prev.gstPercentage,
-                        Number(prev.minimumOrderQuantity || 1),
-                        prev.additionalDiscount,
-                      );
-
-                      return {
-                        ...prev,
-                        discountPercentage: value,
-                        finalPrice: result.finalPerUnit,
-                      };
-                    });
+                  onChange={handleChange}
+                  min={0}
+                  max={100}
+                  step={1}
+                  onInput={(e: any) => {
+                    if (e.target.value > 100) e.target.value = 100;
+                    if (e.target.value < 0) e.target.value = 0;
                   }}
-                  disabled={mode === "delete"}
                   error={errors.discountPercentage}
                   required
                 />
@@ -1347,7 +1502,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
 
             <div className="border-b border-neutral-200 col-span-2"></div>
 
-            <Input
+            {/* <Input
               label="GST %"
               name="gstPercentage"
               id="gstPercentage"
@@ -1357,15 +1512,51 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               disabled={mode === "delete"}
               error={errors.gstPercentage}
               required
-            />
+            /> */}
+
+            <div className="flex flex-col gap-1">
+              <label className="text-label-l3 text-neutral-700 font-semibold">
+                GST %
+                <span className="text-warning-500 font-semibold ml-1">*</span>
+              </label>
+
+              <Select
+                options={gstOptions}
+                value={
+                  gstOptions.find(
+                    (o: any) => String(o.value) === String(form.gstPercentage),
+                  ) || null
+                }
+                onChange={(selected: any) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    gstPercentage: selected?.value || "",
+                  }))
+                }
+                placeholder="Select GST %"
+                isDisabled={mode === "delete"}
+                theme={selectTheme}
+                styles={selectStyles("gstPercentage")}
+              />
+
+              {errors.gstPercentage && (
+                <p className="text-red-500 text-sm mt-1">
+                  {errors.gstPercentage}
+                </p>
+              )}
+            </div>
 
             <Input
+              type="number"
               label="HSN Code"
               name="hsnCode"
               id="hsnCode"
               placeholder=""
               value={form.hsnCode}
               onChange={handleChange}
+              min={1}
+              step={1}
+              maxLength={8}
               disabled={mode === "delete"}
               error={errors.hsnCode}
               required
