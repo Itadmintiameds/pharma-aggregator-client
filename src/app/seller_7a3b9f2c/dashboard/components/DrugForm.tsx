@@ -381,10 +381,56 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
     fetchMolecules();
   }, []);
 
+  // const handleMoleculeSelect = (index: number, selected: any) => {
+  //   const m = selected?.value;
+  //   if (!m) return;
+
+  //   setForm((prev) => {
+  //     const updated = [...prev.molecules];
+
+  //     updated[index] = {
+  //       ...updated[index],
+  //       moleculeId: m.moleculeId,
+  //       moleculeName: m.moleculeName,
+  //       drugSchedule: m.drugSchedule,
+  //       mechanismOfAction: m.mechanismOfAction,
+  //       primaryUse: m.primaryUse,
+  //     };
+
+  //     return {
+  //       ...prev,
+  //       molecules: updated,
+  //     };
+  //   });
+  // };
+
   const handleMoleculeSelect = (index: number, selected: any) => {
     const m = selected?.value;
     if (!m) return;
 
+    const selectedId = m.moleculeId;
+
+    // ❌ Check duplicate (excluding current index)
+    const isDuplicate = form.molecules.some(
+      (mol, i) => i !== index && Number(mol.moleculeId) === Number(selectedId),
+    );
+
+    if (isDuplicate) {
+      setErrors((prev) => ({
+        ...prev,
+        [`molecules.${index}.moleculeId`]: "Molecule already selected",
+      }));
+      return;
+    }
+
+    // ✅ Clear error if valid
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors[`molecules.${index}.moleculeId`];
+      return newErrors;
+    });
+
+    // ✅ Update form (your original logic)
     setForm((prev) => {
       const updated = [...prev.molecules];
 
@@ -456,7 +502,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
   };
 
   const handleSubmit = async () => {
-    alert("Helllooooo");
     const validation = drugProductSchema.safeParse(form);
 
     if (!validation.success) {
@@ -474,7 +519,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
     }
 
     setErrors({});
-    alert("Helllooooo1111111");
     try {
       const payload = {
         productName: form.productName,
