@@ -10,10 +10,15 @@ interface InputProps {
   className?: string;
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onInput?: (e: React.FormEvent<HTMLInputElement>) => void;
   disabled?: boolean;
   error?: string;
   readOnly?: boolean;
   labelClassName?: string;
+  min?: number | string;
+  max?: number | string;
+  step?: number;
+  maxLength?: number;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -26,10 +31,15 @@ const Input: React.FC<InputProps> = ({
   className = "",
   value,
   onChange,
+  onInput,
   disabled = false,
   error,
   readOnly,
   labelClassName,
+  min,
+  max,
+  step,
+  maxLength,
 }) => {
   return (
     <div className="flex flex-col gap-1">
@@ -50,8 +60,20 @@ const Input: React.FC<InputProps> = ({
         placeholder={placeholder}
         value={value}
         onChange={onChange}
+        onInput={onInput}
         disabled={disabled}
         readOnly={readOnly}
+        min={min}
+        max={max}
+        step={step}
+        maxLength={maxLength}
+        onKeyDown={(e) => {
+          if (type === "number") {
+            if (["e", "E", "+", "-", "."].includes(e.key)) {
+              e.preventDefault();
+            }
+          }
+        }}
         className={`px-4 w-full h-14 rounded-2xl
           border ${
             error
