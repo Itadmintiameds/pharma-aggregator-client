@@ -553,6 +553,8 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
 
     return `${day}/${month}/${year}`;
   };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const columns: ColumnDef<AdditionalDiscountData>[] = [
     // {
@@ -633,6 +635,25 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
 
     if (touched.endTime && !endTime) {
       errors.endTime = "End Time is required";
+    }
+
+    // ✅ Prevent past dates
+    if (startDate) {
+      const sDate = new Date(startDate);
+      sDate.setHours(0, 0, 0, 0);
+
+      if (sDate < today && touched.startDate) {
+        errors.startDate = "Start Date cannot be in the past";
+      }
+    }
+
+    if (endDate) {
+      const eDate = new Date(endDate);
+      eDate.setHours(0, 0, 0, 0);
+
+      if (eDate < today && touched.endDate) {
+        errors.endDate = "End Date cannot be in the past";
+      }
     }
 
     // ✅ DATE COMPARISON (only if BOTH values exist)
@@ -913,14 +934,16 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
               </table>
             </div>
 
-            <div className="text-label-l4 font-semibold text-center m-8">OR</div>
+            <div className="text-label-l4 font-semibold text-center m-8">
+              OR
+            </div>
           </div>
         )}
 
         {/* Purchase Conditions */}
         <div className="space-y-4">
           <h2 className="text-label-l4 font-semibold text-neutral-900">
-           Add New Purchase Conditions
+            Add New Purchase Conditions
           </h2>
 
           <div className="space-y-1.5">
