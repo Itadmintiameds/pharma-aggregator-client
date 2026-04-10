@@ -10,7 +10,7 @@ interface DashboardFiltersProps {
 }
 
 type ModalView   = "methods" | "excel" | "api" | "success";
-type ProductType = "drugs" | "food";
+type ProductType = "drugs" ;
 
 interface UploadedFile {
   file:      File;
@@ -20,7 +20,7 @@ interface UploadedFile {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const IMPORT_API_URL = "http://localhost:8080/api/v1/products/import";
+const IMPORT_API_URL = "https://api-test-aggreator.tiameds.ai/api/v1/products/import";
 
 const C = {
   primary:     "#4C1D95",
@@ -84,12 +84,12 @@ const TEMPLATES: Record<ProductType, { name: string; xlsx: string; csv: string, 
     csv:  "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.csv",
     xls: "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.xls"
   },
-  food: {
-    name: "food_products_template",
-    xlsx: "/templates/food/Suppliments or Nutraceuticals _Product_Upload_Template_v0.1.xlsx",
-    csv:  "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.csv",
-    xls: "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.xls"
-  },
+  // food: {
+  //   name: "food_products_template",
+  //   xlsx: "/templates/food/Suppliments or Nutraceuticals _Product_Upload_Template_v0.1.xlsx",
+  //   csv:  "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.csv",
+  //   xls: "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.xls"
+  // },
 };
 
 const fileKey = (f: File) => `${f.name}-${f.size}`;
@@ -153,7 +153,7 @@ function FileRow({ uf, index, onRemove, submitting }: {
     : `${fileSizeKB} KB •`;
 
   return (
-    <div style={{ background: "#F3F4F6", borderRadius: 8, padding: 8, ...flex("col", 6) }}>
+    <div style={{ background: isError ? "#FEF2F2" : "#F3F4F6", borderRadius: 8, padding: 8, ...flex("col", 6), border: isError ? "1px solid #FECACA" : "none" }}>
       <div style={{ ...flex("row", 0, "flex-start", "space-between") }}>
         <div style={{ ...flex("row", 12, "center"), flex: 1, minWidth: 0 }}>
           <FileIcon ext={ext} />
@@ -179,7 +179,16 @@ function FileRow({ uf, index, onRemove, submitting }: {
                   <span style={{ color: "#111827", fontWeight: 600, fontSize: 10 }}>Completed</span>
                 </span>
               )}
-              {isError && <span style={{ color: "#DC2626", fontSize: 10 }}>Failed</span>}
+              {isError && (
+                <span style={{ ...flex("row", 4, "center") }}>
+                  <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#DC2626", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
+                    <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
+                      <path d="M3 3l4 4M7 3L3 7" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </span>
+                  <span style={{ color: "#DC2626", fontWeight: 600, fontSize: 10 }}>{uf.error ?? "Upload failed"}</span>
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -221,6 +230,8 @@ function ExcelUploadView({ onBack, onSuccess }: {
   const [dragging, setDragging]       = useState(false);
   const [files, setFiles]             = useState<UploadedFile[]>([]);
   const [submitting, setSubmitting]   = useState(false);
+  // ✅ NEW: track a global submit error message
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -243,6 +254,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
   };
 
   const addFiles = (newFiles: File[]) => {
+    setSubmitError(null); // clear error when new files are added
     setFiles((prev) => {
       const filtered = newFiles.filter((f) => !prev.some((ex) => ex.file.name === f.name && ex.file.size === f.size));
       return [...prev, ...filtered.map((f) => ({ file: f, status: "uploading" as const, progress: 0 }))];
@@ -251,6 +263,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
   };
 
   const removeFile = (i: number) => {
+    setSubmitError(null);
     setFiles((prev) => {
       const key   = fileKey(prev[i].file);
       const timer = timersRef.current.get(key);
@@ -275,33 +288,87 @@ function ExcelUploadView({ onBack, onSuccess }: {
   const handleSubmit = async () => {
     const readyFiles = files.filter((f) => f.status === "done");
     if (!readyFiles.length || submitting) return;
+
     setSubmitting(true);
+    setSubmitError(null);
+
+    // Guard: ensure auth token exists before attempting upload
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+      setSubmitError("You are not authenticated. Please log in and try again.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Track per-file results so we can decide whether to show success
+    const results: { key: string; success: boolean }[] = [];
 
     for (const uf of files) {
       if (uf.status !== "done") continue;
       const key = fileKey(uf.file);
       updateFile(key, { status: "uploading", progress: 0 });
       try {
+        // Animate progress up to 80% before actual request
         for (let p = 15; p <= 80; p += 20) {
           await new Promise((r) => setTimeout(r, 200));
           updateFile(key, { progress: p });
         }
+
         const fd = new FormData();
         fd.append("file", uf.file);
-        const res = await fetch(IMPORT_API_URL, { method: "POST", body: fd });
-        if (!res.ok) throw new Error(`${res.status}`);
+
+        // Reuse token read above; add Authorization header
+        const headers: HeadersInit = { "Authorization": `Bearer ${token}` };
+
+        const res = await fetch(IMPORT_API_URL, { method: "POST", body: fd, headers });
+
+        // ✅ FIX: also check the inner `data.status` field for application-level errors
+        if (!res.ok) {
+          let errorMessage = `Server error (${res.status})`;
+          try {
+            const body = await res.json();
+            // API wraps errors inside data.message even on non-2xx
+            if (body?.data?.message) errorMessage = body.data.message;
+            else if (body?.message) errorMessage = body.message;
+          } catch {
+            // non-JSON error body, keep default message
+          }
+          throw new Error(errorMessage);
+        }
+
+        // ✅ FIX: API returns 200 but inner data.status can still be "ERROR"
+        const body = await res.json();
+        if (body?.data?.status === "ERROR") {
+          throw new Error(body.data.message ?? "Upload failed");
+        }
+
         updateFile(key, { status: "done", progress: 100 });
+        results.push({ key, success: true });
       } catch (err) {
-        updateFile(key, { status: "error", error: err instanceof Error ? err.message : "Failed" });
+        const message = err instanceof Error ? err.message : "Upload failed";
+        updateFile(key, { status: "error", error: message });
+        results.push({ key, success: false });
       }
     }
 
     await new Promise((r) => setTimeout(r, 250));
     setSubmitting(false);
-    onSuccess(productType, files);
+
+    const anySuccess = results.some((r) => r.success);
+    const allFailed  = results.every((r) => !r.success);
+
+    if (allFailed) {
+      // ✅ FIX: do NOT navigate to success — show error banner instead
+      setSubmitError("Upload failed. Please check the errors above and try again.");
+    } else if (anySuccess) {
+      // At least one file uploaded successfully — proceed
+      onSuccess(productType, files);
+    }
   };
 
   const allReady = files.length > 0 && files.every((f) => f.status === "done" || f.status === "error");
+  // Submit should only be enabled if there's at least one "done" file
+  const hasReadyFiles = files.some((f) => f.status === "done");
   const template = TEMPLATES[productType];
 
   // Download icon SVG
@@ -332,7 +399,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
       <div style={{ ...flex("col", 12) }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: "#111827", ...fontBase }}>Select the type of product you want to upload</div>
         <div style={{ ...flex("row", 8) }}>
-          {(["drugs", "food"] as ProductType[]).map((tab) => {
+          {(["drugs"] as ProductType[]).map((tab) => {
             const active = productType === tab;
             return (
               <button
@@ -420,13 +487,24 @@ function ExcelUploadView({ onBack, onSuccess }: {
         )}
       </div>
 
+      {/* ✅ NEW: Global submit error banner */}
+      {submitError && (
+        <div style={{ ...flex("row", 10, "center"), padding: "10px 14px", background: "#FEF2F2", borderRadius: 10, outline: "1px solid #FECACA", outlineOffset: "-1px" }}>
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+            <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8"/>
+            <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#991B1B", ...fontBase }}>{submitError}</span>
+        </div>
+      )}
+
       {/* Submit */}
       <button
         onClick={handleSubmit}
-        disabled={!allReady || submitting}
-        style={{ width: "100%", height: 50, minHeight: 50, borderRadius: 10, border: "none", background: allReady ? "linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%)" : "#F3F4F6", cursor: allReady && !submitting ? "pointer" : "not-allowed", ...flex("row", 8, "center", "center"), transition: "all 0.2s", ...fontBase, boxShadow: allReady ? "0 4px 14px rgba(76,29,149,0.35)" : "none" }}
+        disabled={!hasReadyFiles || submitting}
+        style={{ width: "100%", height: 50, minHeight: 50, borderRadius: 10, border: "none", background: hasReadyFiles && !submitting ? "linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%)" : "#F3F4F6", cursor: hasReadyFiles && !submitting ? "pointer" : "not-allowed", ...flex("row", 8, "center", "center"), transition: "all 0.2s", ...fontBase, boxShadow: hasReadyFiles && !submitting ? "0 4px 14px rgba(76,29,149,0.35)" : "none" }}
       >
-        <span style={{ color: allReady ? "white" : "#9CA3AF", opacity: allReady ? 1 : 0.5, fontWeight: 700, fontSize: 16, ...fontBase, ...flex("row", 8, "center") }}>
+        <span style={{ color: hasReadyFiles && !submitting ? "white" : "#9CA3AF", opacity: hasReadyFiles ? 1 : 0.5, fontWeight: 700, fontSize: 16, ...fontBase, ...flex("row", 8, "center") }}>
           {submitting ? (
             <>
               <span style={{ width: 16, height: 16, border: "2.5px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", animation: "dfSpin 0.7s linear infinite", display: "inline-block" }}/>
