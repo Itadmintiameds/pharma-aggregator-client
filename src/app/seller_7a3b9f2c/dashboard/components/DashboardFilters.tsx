@@ -80,9 +80,9 @@ const PROGRESS_STEPS = [10, 25, 40, 55, 70, 85, 100];
 const TEMPLATES: Record<ProductType, { name: string; xlsx: string; csv: string, xls: string }> = {
   drugs: {
     name: "drug_products_template",
-    xlsx: "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.xlsx",
-    csv:  "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.csv",
-    xls: "/templates/drugs/Drugs_Pharma_Product_Upload_Template_v0.1.xls"
+    xlsx: "/templates/drugs/XLSX-Drugs Template.xlsx",
+    csv:  "/templates/drugs/CSV-Drugs Template.csv",
+    xls: "/templates/drugs/XLS-Drugs Template.xls"
   },
   // food: {
   //   name: "food_products_template",
