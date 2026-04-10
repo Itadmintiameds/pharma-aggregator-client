@@ -7,7 +7,7 @@ import NonConsumableForm from "./NonConsumableForm";
 const MedicalDevicesForm = () => {
   const [selectedType, setSelectedType] = useState<
     "consumable" | "non-consumable" | null
-  >(null);
+  >("consumable");
 
   return (
     <div className="mt-10">

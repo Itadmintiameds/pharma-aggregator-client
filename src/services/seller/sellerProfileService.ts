@@ -1,4 +1,5 @@
 import api from '@/src/lib/api';
+import { AxiosError } from 'axios';
 import { sellerAuthService } from './authService';
 import { 
   SellerProfile, 
@@ -67,16 +68,18 @@ class SellerProfileService {
         throw new Error(errorMsg);
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      
       console.error('❌ Error fetching seller profile:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        response: axiosError.response?.data,
+        status: axiosError.response?.status,
         userId: userId
       });
       
       // Handle specific error cases
-      if (error.response?.status === 401) {
+      if (axiosError.response?.status === 401) {
         console.log('🔒 Unauthorized - clearing auth and redirecting');
         sellerAuthService.clearAuth();
         if (typeof window !== 'undefined') {
@@ -85,29 +88,32 @@ class SellerProfileService {
         throw new Error('Session expired. Please login again.');
       }
       
-      if (error.response?.status === 403) {
+      if (axiosError.response?.status === 403) {
         throw new Error('You do not have permission to view this profile');
       }
       
-      if (error.response?.status === 404) {
+      if (axiosError.response?.status === 404) {
         throw new Error('Seller profile not found');
       }
       
-      throw error;
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('An unknown error occurred while fetching profile');
     }
   }
 
   async refreshProfile(): Promise<SellerProfile> {
-  console.log('🔄 Refreshing seller profile');
-  
-  // Clear any cached data if you have caching
-  const profile = await this.getCurrentSellerProfile();
-  
-  // You could also emit an event that profile was refreshed
-  // eventEmitter.emit('profileRefreshed', profile);
-  
-  return profile;
-}
+    console.log('🔄 Refreshing seller profile');
+    
+    // Clear any cached data if you have caching
+    const profile = await this.getCurrentSellerProfile();
+    
+    // You could also emit an event that profile was refreshed
+    // eventEmitter.emit('profileRefreshed', profile);
+    
+    return profile;
+  }
   
   /**
    * Get current seller profile using the logged-in user's ID
@@ -147,6 +153,9 @@ class SellerProfileService {
       }
       
       const token = sellerAuthService.getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
       
       // Replace with your actual update endpoint
       const response = await api.put<ApiResponse<SellerProfile>>(
@@ -166,9 +175,33 @@ class SellerProfileService {
         throw new Error(response.data.message || 'Failed to update profile');
       }
       
-    } catch (error: any) {
-      console.error('❌ Error updating profile:', error);
-      throw error;
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      
+      console.error('❌ Error updating profile:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        response: axiosError.response?.data,
+        status: axiosError.response?.status
+      });
+      
+      // Handle specific error cases
+      if (axiosError.response?.status === 401) {
+        console.log('🔒 Unauthorized - clearing auth and redirecting');
+        sellerAuthService.clearAuth();
+        if (typeof window !== 'undefined') {
+          window.location.href = '/?showLogin=true&sessionExpired=true';
+        }
+        throw new Error('Session expired. Please login again.');
+      }
+      
+      if (axiosError.response?.status === 403) {
+        throw new Error('You do not have permission to update this profile');
+      }
+      
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('An unknown error occurred while updating profile');
     }
   }
   
@@ -244,7 +277,6 @@ class SellerProfileService {
 
 // Create and export a singleton instance
 export const sellerProfileService = new SellerProfileService();
-
 
 export const getSellerProductTypes = async () => {
   try {
