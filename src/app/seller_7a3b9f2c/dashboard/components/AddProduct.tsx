@@ -22,7 +22,7 @@ const AddProduct = () => {
 
   const allCategories = [
     "Drugs",
-    "Supplements / Nutraceuticals",
+    "Supplements/ Nutraceuticals",
     "Food & Infant Nutrition",
     "Cosmetic & Personal Care",
     "Medical Devices & Equipment",
