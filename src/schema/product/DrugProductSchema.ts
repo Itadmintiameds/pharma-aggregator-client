@@ -30,8 +30,6 @@ export const drugProductSchema = z.object({
       message: "Dosage Form is required",
     }),
 
-
-
     
   molecules: z
     .array(
