@@ -195,26 +195,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
     fetchTherapeuticCategories();
   }, []);
 
-  // const handleChange = (
-  //   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  // ) => {
-  //   const { name, value } = e.target;
-
-  //   setForm((prev) => {
-  //     const updatedForm = {
-  //       ...prev,
-  //       [name]: value,
-  //     };
-
-  //     const unitPerPack = Number(updatedForm.unitPerPack) || 0;
-  //     const numberOfPacks = Number(updatedForm.numberOfPacks) || 0;
-
-  //     updatedForm.packSize = String(unitPerPack * numberOfPacks);
-
-  //     return updatedForm;
-  //   });
-  // };
-
   const getMinExpiryDate = () => {
     const today = new Date();
     today.setMonth(today.getMonth() + 3);
@@ -270,11 +250,21 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
           delete newErrors.sellingPrice;
         }
 
-        if (updatedForm.discountPercentage !== "") {
-          if (isNaN(discount) || discount < 0 || discount > 100) {
-            newErrors.discountPercentage = "Discount must be between 0 and 100";
-          } else {
+        if (name === "discountPercentage") {
+          if (value === "") {
             delete newErrors.discountPercentage;
+          } else {
+            const discountVal = Number(value);
+
+            if (isNaN(discountVal) || discountVal < 0 || discountVal > 100) {
+              newErrors.discountPercentage =
+                "Discount must be between 0 and 100";
+
+              // ❗ Clear the value if invalid
+              updatedForm.discountPercentage = "";
+            } else {
+              delete newErrors.discountPercentage;
+            }
           }
         }
 
@@ -380,29 +370,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
 
     fetchMolecules();
   }, []);
-
-  // const handleMoleculeSelect = (index: number, selected: any) => {
-  //   const m = selected?.value;
-  //   if (!m) return;
-
-  //   setForm((prev) => {
-  //     const updated = [...prev.molecules];
-
-  //     updated[index] = {
-  //       ...updated[index],
-  //       moleculeId: m.moleculeId,
-  //       moleculeName: m.moleculeName,
-  //       drugSchedule: m.drugSchedule,
-  //       mechanismOfAction: m.mechanismOfAction,
-  //       primaryUse: m.primaryUse,
-  //     };
-
-  //     return {
-  //       ...prev,
-  //       molecules: updated,
-  //     };
-  //   });
-  // };
 
   const handleMoleculeSelect = (index: number, selected: any) => {
     const m = selected?.value;
@@ -1103,8 +1070,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                     theme={selectTheme}
                     styles={selectStyles("molecule")}
                   />
-                  {errors.molecules && typeof errors.molecules === "string" && (
-                    <p className="text-red-500 text-sm">{errors.molecules}</p>
+                  {errors[`molecules.${index}.moleculeId`] && (
+                    <p className="text-red-500 text-sm">
+                      {errors[`molecules.${index}.moleculeId`]}
+                    </p>
                   )}
                 </div>
 
@@ -1517,10 +1486,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                   min={0}
                   max={100}
                   step={1}
-                  onInput={(e: any) => {
-                    if (e.target.value > 100) e.target.value = 100;
-                    if (e.target.value < 0) e.target.value = 0;
-                  }}
                   error={errors.discountPercentage}
                   required
                 />
