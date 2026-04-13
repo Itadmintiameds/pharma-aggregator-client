@@ -120,12 +120,12 @@ export default function VerificationModal({
               const phoneWithPrefix = formatPhone(label);
               console.log('📡 Verifying OTP:', { phone: phoneWithPrefix, otp: enteredOtp });
               
-              const response = await sellerRegService.verifySMSOtp({
-                phone: phoneWithPrefix,
-                otp: enteredOtp
-              });
+              // const response = await sellerRegService.verifySMSOtp({
+              //   phone: phoneWithPrefix,
+              //   otp: enteredOtp
+              // });
               
-              console.log('✅ OTP verified:', response);
+              // console.log('✅ OTP verified:', response);
             }
             onVerified();
           } catch (error: any) {
@@ -182,10 +182,10 @@ export default function VerificationModal({
             });
           } else {
             const phoneWithPrefix = formatPhone(label);
-            await sellerRegService.verifySMSOtp({
-              phone: phoneWithPrefix,
-              otp: pasteData
-            });
+            // await sellerRegService.verifySMSOtp({
+            //   phone: phoneWithPrefix,
+            //   otp: pasteData
+            // });
           }
           onVerified();
         } catch (error: any) {
@@ -225,12 +225,12 @@ export default function VerificationModal({
         const phoneWithPrefix = formatPhone(label);
         console.log('📡 Verifying OTP:', { phone: phoneWithPrefix, otp: enteredOtp });
         
-        const response = await sellerRegService.verifySMSOtp({
-          phone: phoneWithPrefix,
-          otp: enteredOtp
-        });
+        // const response = await sellerRegService.verifySMSOtp({
+        //   phone: phoneWithPrefix,
+        //   otp: enteredOtp
+        // });
         
-        console.log('✅ OTP verified:', response);
+        // console.log('✅ OTP verified:', response);
       }
       
       onVerified();

@@ -178,32 +178,32 @@ export default function DocumentForm({
   };
 
   // Handle paste to clean invalid characters
-  const handleLicensePaste = (e: React.ClipboardEvent<HTMLInputElement>, productName: string) => {
-    e.preventDefault();
-    const pastedText = e.clipboardData.getData('text');
-    let cleanedText = pastedText.toUpperCase();
-    // Remove invalid characters
-    cleanedText = cleanedText.replace(/[^A-Z0-9\/\-]/g, '');
-    // Limit to 30 characters
-    if (cleanedText.length > 30) {
-      cleanedText = cleanedText.substring(0, 30);
-    }
+  // const handleLicensePaste = (e: React.ClipboardEvent<HTMLInputElement>, productName: string) => {
+  //   e.preventDefault();
+  //   const pastedText = e.clipboardData.getData('text');
+  //   let cleanedText = pastedText.toUpperCase();
+  //   // Remove invalid characters
+  //   cleanedText = cleanedText.replace(/[^A-Z0-9\/\-]/g, '');
+  //   // Limit to 30 characters
+  //   if (cleanedText.length > 30) {
+  //     cleanedText = cleanedText.substring(0, 30);
+  //   }
     
-    const syntheticEvent = {
-      ...e,
-      target: { 
-        ...e.target, 
-        name: `licenseNumber-${productName}`, 
-        value: cleanedText 
-      }
-    } as React.ChangeEvent<HTMLInputElement>;
+  //   const syntheticEvent = {
+  //     ...e,
+  //     target: { 
+  //       ...e.target, 
+  //       name: `licenseNumber-${productName}`, 
+  //       value: cleanedText 
+  //     }
+  //   } as React.ChangeEvent<HTMLInputElement>;
     
-    onLicenseNumberChange(syntheticEvent);
+  //   onLicenseNumberChange(syntheticEvent);
     
-    // Validate
-    const error = validateDrugLicenseNumber(cleanedText);
-    setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
-  };
+  //   // Validate
+  //   const error = validateDrugLicenseNumber(cleanedText);
+  //   setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
+  // };
 
   // Handle license number blur for final validation
   const handleLicenseNumberBlur = (value: string, productName: string) => {
@@ -337,7 +337,7 @@ export default function DocumentForm({
                     value={licenseData.number}
                     onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
                     onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number)}
-                    onPaste={(e) => handleLicensePaste(e, productName)}
+                    // onPaste={(e) => handleLicensePaste(e, productName)}
                     onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
                     placeholder={licenseInfo.placeholder}
                     maxLength={30}

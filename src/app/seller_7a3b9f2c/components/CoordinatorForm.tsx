@@ -201,7 +201,7 @@ export default function CoordinatorForm({
 
     try {
       const phoneWithPrefix = `${selectedCountryCode}${formData.coordinatorMobile}`;
-      await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
+//      await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
       setVerificationType("phone");
       setShowModal(true);
     } catch (err: any) {
@@ -234,7 +234,7 @@ export default function CoordinatorForm({
   const handleResendPhone = async () => {
     try {
       const phoneWithPrefix = `${selectedCountryCode}${formData.coordinatorMobile}`;
-      await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
+   //   await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
       toast.success("OTP resent successfully");
     } catch (err) {
       toast.error("Failed to resend OTP");

@@ -90,7 +90,7 @@ export default function OtpVerificationModal({
     if (!phone) return;
     try {
       const phoneWithPrefix = `+91${phone}`;
-      await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
+      // await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
     } catch (error) {
       console.error('Failed to send phone OTP:', error);
       toast.error('Failed to send phone verification code');
@@ -283,10 +283,10 @@ export default function OtpVerificationModal({
     
     try {
       const phoneWithPrefix = formatPhone(phone);
-      await sellerRegService.verifySMSOtp({
-        phone: phoneWithPrefix,
-        otp
-      });
+      // await sellerRegService.verifySMSOtp({
+      //   phone: phoneWithPrefix,
+      //   otp
+      // });
       
       setPhoneVerified(true);
       toast.success("Phone verified successfully");
@@ -339,7 +339,7 @@ export default function OtpVerificationModal({
     
     try {
       const phoneWithPrefix = formatPhone(phone);
-      await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
+      // await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
       toast.success("OTP resent successfully");
     } catch (error) {
       toast.error("Failed to resend OTP");
