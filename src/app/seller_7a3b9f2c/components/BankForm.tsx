@@ -71,6 +71,27 @@ export default function BankForm({
     nextStep();
   };
 
+  // Prevent copy-paste on confirm account number field
+  const handleConfirmAccountPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    toast.warning("Copy-paste is not allowed for confirm account number");
+  };
+
+  const handleConfirmAccountCopy = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    toast.warning("Copying is not allowed for confirm account number");
+  };
+
+  const handleConfirmAccountCut = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    toast.warning("Cutting is not allowed for confirm account number");
+  };
+
+  const handleConfirmAccountDrag = (e: React.DragEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    toast.warning("Drag and drop is not allowed for confirm account number");
+  };
+
   return (
     <div className="flex flex-col gap-5">
       {/* Header Section */}
@@ -149,7 +170,7 @@ export default function BankForm({
             </div>
           </div>
 
-          {/* Confirm Account Number */}
+          {/* Confirm Account Number - No copy-paste allowed */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
               Confirm Account Number
@@ -163,6 +184,11 @@ export default function BankForm({
                 onChange={onChange}
                 placeholder="Re-enter account number"
                 maxLength={18}
+                onPaste={handleConfirmAccountPaste}
+                onCopy={handleConfirmAccountCopy}
+                onCut={handleConfirmAccountCut}
+                onDragStart={handleConfirmAccountDrag}
+                onDrop={handleConfirmAccountDrag}
                 className="w-full h-12 pl-4 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
               />
               <Hash className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5" />

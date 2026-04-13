@@ -42,6 +42,26 @@ interface Props {
   nextStep: () => void;
 }
 
+// Country codes data for company phone with validation rules
+const companyCountryCodes = [
+  { 
+    code: "+91", 
+    country: "India", 
+    flag: "🇮🇳", 
+    validate: (value: string) => {
+      if (value.length !== 10) return "Mobile number must be exactly 10 digits";
+      if (!/^[6-9]/.test(value)) return "Indian mobile number must start with 6, 7, 8, or 9";
+      return null;
+    }
+  },
+  { code: "+1", country: "USA/Canada", flag: "🇺🇸", validate: (value: string) => null },
+  { code: "+44", country: "UK", flag: "🇬🇧", validate: (value: string) => null },
+  { code: "+61", country: "Australia", flag: "🇦🇺", validate: (value: string) => null },
+  { code: "+971", country: "UAE", flag: "🇦🇪", validate: (value: string) => null },
+  { code: "+966", country: "Saudi Arabia", flag: "🇸🇦", validate: (value: string) => null },
+  { code: "+20", country: "Egypt", flag: "🇪🇬", validate: (value: string) => null },
+];
+
 export default function CompanyForm({
   formData,
   companyTypes,
@@ -71,6 +91,9 @@ export default function CompanyForm({
 
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
+  const [selectedCompanyCountryCode, setSelectedCompanyCountryCode] = useState("+91");
+  const [isCompanyPhoneDropdownOpen, setIsCompanyPhoneDropdownOpen] = useState(false);
+  const [companyPhoneError, setCompanyPhoneError] = useState("");
 
   // State for custom dropdowns
   const [openDropdown, setOpenDropdown] = React.useState<string | null>(null);
@@ -79,6 +102,7 @@ export default function CompanyForm({
   const stateDropdownRef = React.useRef<HTMLDivElement>(null);
   const districtDropdownRef = React.useRef<HTMLDivElement>(null);
   const talukaDropdownRef = React.useRef<HTMLDivElement>(null);
+  const companyPhoneDropdownRef = React.useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -97,6 +121,9 @@ export default function CompanyForm({
       }
       if (talukaDropdownRef.current && !talukaDropdownRef.current.contains(event.target as Node)) {
         if (openDropdown === 'taluka') setOpenDropdown(null);
+      }
+      if (companyPhoneDropdownRef.current && !companyPhoneDropdownRef.current.contains(event.target as Node)) {
+        setIsCompanyPhoneDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -154,6 +181,114 @@ export default function CompanyForm({
   const getSelectedTalukaLabel = () => {
     const selected = talukas.find(t => t.talukaId === formData.talukaId);
     return selected?.talukaName || "";
+  };
+
+  // Handle company phone change with numeric only and validation
+  const handleCompanyPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    
+    // For Indian numbers, restrict to 10 digits and validate starting digit
+    if (selectedCompanyCountryCode === "+91") {
+      // Only allow digits
+      value = value.replace(/\D/g, '');
+      
+      // Don't allow if first digit is not 6-9 when typing first character
+      if (value.length === 1 && !/^[6-9]$/.test(value)) {
+        return;
+      }
+      
+      // Limit to 10 digits
+      if (value.length <= 10) {
+        // Validate the complete number
+        const selectedCountry = companyCountryCodes.find(c => c.code === selectedCompanyCountryCode);
+        if (selectedCountry && selectedCountry.validate) {
+          const error = selectedCountry.validate(value);
+          setCompanyPhoneError(error || "");
+        }
+        
+        const syntheticEvent = {
+          ...e,
+          target: {
+            ...e.target,
+            name: "phone",
+            value: value
+          }
+        };
+        onNumericInput(syntheticEvent, "phone", 10);
+      }
+    } else {
+      // For other countries, only allow digits and limit to 15
+      value = value.replace(/\D/g, '');
+      if (value.length <= 15) {
+        setCompanyPhoneError("");
+        const syntheticEvent = {
+          ...e,
+          target: {
+            ...e.target,
+            name: "phone",
+            value: value
+          }
+        };
+        onNumericInput(syntheticEvent, "phone", 15);
+      }
+    }
+  };
+
+  // Handle key down to prevent invalid first digit for India
+  const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (selectedCompanyCountryCode === "+91") {
+      const currentValue = formData.phone || "";
+      // If no digits entered yet, prevent digits 0-5
+      if (currentValue.length === 0) {
+        const key = e.key;
+        if (/^[0-5]$/.test(key)) {
+          e.preventDefault();
+        }
+      }
+    }
+  };
+
+  // Handle paste to clean invalid numbers
+  const handlePhonePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text');
+    let cleanedText = pastedText.replace(/\D/g, '');
+    
+    if (selectedCompanyCountryCode === "+91") {
+      // For India, ensure first digit is 6-9 and length is 10
+      if (cleanedText.length > 0) {
+        if (!/^[6-9]/.test(cleanedText)) {
+          // If pasted number starts with invalid digit, clear it
+          cleanedText = '';
+        } else {
+          cleanedText = cleanedText.substring(0, 10);
+        }
+      }
+    } else {
+      cleanedText = cleanedText.substring(0, 15);
+    }
+    
+    const syntheticEvent = {
+      ...e,
+      target: {
+        ...e.target,
+        name: "phone",
+        value: cleanedText
+      }
+    } as any;
+    handleCompanyPhoneChange(syntheticEvent);
+  };
+
+  // Get max length based on selected country
+  const getMaxLength = () => {
+    if (selectedCompanyCountryCode === "+91") return 10;
+    return 15;
+  };
+
+  // Get placeholder based on selected country
+  const getPlaceholder = () => {
+    if (selectedCompanyCountryCode === "+91") return "Enter 10-digit mobile number (starts with 6,7,8,9)";
+    return "Enter phone number";
   };
 
   return (
@@ -630,17 +765,77 @@ export default function CompanyForm({
               Company Phone
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={(e) => onNumericInput(e, "phone", 10)}
-                placeholder="Enter Company Phone"
-                maxLength={10}
-                className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
-              />
+            <div className="relative" ref={companyPhoneDropdownRef}>
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 z-10" />
+              <div className="flex">
+                {/* Country Code Dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsCompanyPhoneDropdownOpen(!isCompanyPhoneDropdownOpen)}
+                    className="h-12 px-2 pl-10 pr-2 rounded-l-2xl border border-r-0 border-neutral-500 bg-white flex items-center gap-1 focus:outline-none hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="text-sm font-medium">{selectedCompanyCountryCode}</span>
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  {isCompanyPhoneDropdownOpen && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10"
+                        onClick={() => setIsCompanyPhoneDropdownOpen(false)}
+                      />
+                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                        {companyCountryCodes.map((country) => (
+                          <button
+                            key={country.code}
+                            onClick={() => {
+                              setSelectedCompanyCountryCode(country.code);
+                              setCompanyPhoneError("");
+                              // Clear the phone value when changing country
+                              const syntheticEvent = {
+                                target: {
+                                  name: "phone",
+                                  value: ""
+                                }
+                              } as any;
+                              onNumericInput(syntheticEvent, "phone", country.code === "+91" ? 10 : 15);
+                              setIsCompanyPhoneDropdownOpen(false);
+                            }}
+                            className="w-full px-3 py-2.5 text-left hover:bg-neutral-50 flex items-center gap-2 transition-colors"
+                          >
+                            <span className="text-lg">{country.flag}</span>
+                            <span className="text-sm font-semibold">{country.code}</span>
+                            <span className="text-xs text-neutral-500">{country.country}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                
+                {/* Phone Number Input */}
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleCompanyPhoneChange}
+                  onKeyDown={handlePhoneKeyDown}
+                  onPaste={handlePhonePaste}
+                  placeholder={getPlaceholder()}
+                  maxLength={getMaxLength()}
+                  className={`flex-1 h-12 px-4 pr-4 rounded-r-2xl border focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2 ${
+                    companyPhoneError ? 'border-red-500' : 'border-neutral-500'
+                  }`}
+                />
+              </div>
+              {companyPhoneError && (
+                <p className="mt-1 text-xs text-red-500 flex items-start">
+                  <span className="mr-1">⚠️</span>
+                  <span>{companyPhoneError}</span>
+                </p>
+              )}
             </div>
           </div>
 
@@ -710,8 +905,6 @@ export default function CompanyForm({
     </div>
   );
 }
-
-
 
 
 

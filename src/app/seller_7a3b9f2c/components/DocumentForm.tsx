@@ -21,6 +21,52 @@ interface Props {
   nextStep: () => void;
 }
 
+// Drug License Number validation function
+const validateDrugLicenseNumber = (value: string): string | null => {
+  const cleaned = value.trim().toUpperCase();
+  
+  if (!cleaned) {
+    return "Drug License Number is required";
+  }
+  
+  // Check length (minimum 8, maximum 30 characters)
+  if (cleaned.length < 8) {
+    return "Must be at least 8 characters";
+  }
+  
+  if (cleaned.length > 30) {
+    return "Cannot exceed 30 characters";
+  }
+  
+  // Pattern validation for common Drug License formats
+  const patterns = [
+    /^[A-Z]{2}\/[A-Z]{3}\/\d{2}[A-Z]?-\d{3,10}$/,      // TN/CBE/20B-12345
+    /^[A-Z]{2}-[A-Z0-9]{2,4}-\d{4,10}$/,                // MH-MZ2-123456
+    /^[A-Z]{2}-\d{2,3}-\d{5,10}$/,                      // DL-123-234567
+    /^\d{2}[A-Z]?-\d{3,10}$/,                           // 20B-12345
+    /^\d{2}\/\d{2}-\d{3,10}$/,                          // 20/21-12345
+    /^[A-Z]{2}\/\d{2}[A-Z]?-\d{3,10}$/,                 // MH/20B-12345
+    /^[A-Z]{2}\/\d{2,3}\/\d{4,10}$/,                    // MH/27/123456
+    /^[A-Z]{2}[A-Z0-9]{2,4}\d{4,10}$/,                  // TN20B12345
+  ];
+  
+  const isValid = patterns.some(pattern => pattern.test(cleaned));
+  
+  if (!isValid) {
+    return "Invalid format";
+  }
+  
+  return null;
+};
+
+// Function to clean and format license number on input - BLOCKS invalid characters
+const formatLicenseNumber = (value: string): string => {
+  let cleaned = value.toUpperCase();
+  // Allow only alphanumeric, hyphens, and slashes - BLOCK everything else
+  cleaned = cleaned.replace(/[^A-Z0-9\/\-]/g, '');
+  return cleaned;
+};
+
 export default function DocumentForm({
   formData,
   productTypes,
@@ -37,6 +83,7 @@ export default function DocumentForm({
   const router = useRouter();
   const [uploadingGST, setUploadingGST] = useState(false);
   const [uploadingLicenses, setUploadingLicenses] = useState<Record<string, boolean>>({});
+  const [licenseErrors, setLicenseErrors] = useState<Record<string, string>>({});
 
   // Derive GST file name from formData
   const gstFileName = formData.gstFile?.name || "";
@@ -49,7 +96,7 @@ export default function DocumentForm({
 
     return {
       label,
-      placeholder: `Enter ${productName} license number`,
+      placeholder: `e.g., TN/CBE/20B-12345`,
       numberLabel: `${productName} License Number`,
       fileLabel: `${productName} License Copy Upload`,
       issueDateLabel: `${productName} License Issue Date`,
@@ -63,7 +110,11 @@ export default function DocumentForm({
     if (gstNumber.length === 15) {
       const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
       if (!gstRegex.test(gstNumber)) {
-        toast.warning("GST number format appears incorrect");
+        // Just show visual error without alert
+        const input = document.querySelector('input[name="gstNumber"]') as HTMLInputElement;
+        if (input) {
+          input.classList.add('border-red-500');
+        }
       }
     }
   };
@@ -81,6 +132,83 @@ export default function DocumentForm({
     onGSTChange(syntheticEvent);
 
     if (value.length === 15) validateGSTFormat(value);
+  };
+
+  // Handle License Number change with validation - BLOCKS invalid input
+  const handleLicenseNumberChangeWithValidation = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
+    let value = e.target.value;
+    // Format and clean the input - removes invalid characters
+    const cleanedValue = formatLicenseNumber(value);
+    
+    // If cleaning removed characters, don't update (blocks them)
+    if (cleanedValue !== value) {
+      return;
+    }
+    
+    // Limit length to 30
+    if (cleanedValue.length > 30) {
+      return;
+    }
+    
+    // Create synthetic event with cleaned value
+    const syntheticEvent = {
+      ...e,
+      target: { ...e.target, name: `licenseNumber-${productName}`, value: cleanedValue }
+    } as React.ChangeEvent<HTMLInputElement>;
+    
+    onLicenseNumberChange(syntheticEvent);
+    
+    // Validate the license number
+    const error = validateDrugLicenseNumber(cleanedValue);
+    setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
+  };
+
+  // Handle key down to block invalid keys
+  const handleLicenseKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentValue: string) => {
+    const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+    if (allowedKeys.includes(e.key)) {
+      return;
+    }
+    
+    // Allow only A-Z, 0-9, /, -
+    const allowedChars = /^[A-Za-z0-9\/\-]$/;
+    if (!allowedChars.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  // Handle paste to clean invalid characters
+  const handleLicensePaste = (e: React.ClipboardEvent<HTMLInputElement>, productName: string) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text');
+    let cleanedText = pastedText.toUpperCase();
+    // Remove invalid characters
+    cleanedText = cleanedText.replace(/[^A-Z0-9\/\-]/g, '');
+    // Limit to 30 characters
+    if (cleanedText.length > 30) {
+      cleanedText = cleanedText.substring(0, 30);
+    }
+    
+    const syntheticEvent = {
+      ...e,
+      target: { 
+        ...e.target, 
+        name: `licenseNumber-${productName}`, 
+        value: cleanedText 
+      }
+    } as React.ChangeEvent<HTMLInputElement>;
+    
+    onLicenseNumberChange(syntheticEvent);
+    
+    // Validate
+    const error = validateDrugLicenseNumber(cleanedText);
+    setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
+  };
+
+  // Handle license number blur for final validation
+  const handleLicenseNumberBlur = (value: string, productName: string) => {
+    const error = validateDrugLicenseNumber(value);
+    setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
   };
 
   // Function to restrict input to letters, spaces, dots, commas, apostrophes, and hyphens
@@ -189,6 +317,7 @@ export default function DocumentForm({
         // Derive license file name from formData
         const licenseFileName = licenseData.file?.name || "";
         const isUploading = uploadingLicenses[productName];
+        const licenseError = licenseErrors[productName];
 
         return (
           <div key={productName} className="mb-2">
@@ -206,11 +335,26 @@ export default function DocumentForm({
                     type="text"
                     name={`licenseNumber-${productName}`}
                     value={licenseData.number}
-                    onChange={onLicenseNumberChange}
+                    onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
+                    onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number)}
+                    onPaste={(e) => handleLicensePaste(e, productName)}
+                    onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
                     placeholder={licenseInfo.placeholder}
-                    className="w-full h-12 pl-10 pr-4 rounded-xl border border-neutral-300 bg-neutral-50 focus:outline-none focus:border-[#4B0082]"
+                    maxLength={30}
+                    className={`w-full h-12 pl-10 pr-4 rounded-xl border focus:outline-none focus:border-[#4B0082] uppercase ${
+                      licenseError ? 'border-red-500 bg-red-50' : 'border-neutral-300 bg-neutral-50'
+                    }`}
                   />
                 </div>
+                {licenseError && (
+                  <p className="mt-1 text-xs text-red-500 flex items-start">
+                    <span className="mr-1">⚠️</span>
+                    <span>{licenseError}</span>
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-neutral-500">
+                  Use: A-Z, 0-9, /, - only | Examples: TN/CBE/20B-12345, MH-MZ2-123456
+                </p>
               </div>
 
               {/* LICENSE FILE */}
