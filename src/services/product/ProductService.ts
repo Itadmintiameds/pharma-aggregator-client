@@ -94,6 +94,37 @@ export const getProductById = async (productId: string) => {
   }
 };
 
+export const updateProduct = async (
+  productId: string,
+  payload: CreateDrugProductRequest
+) => {
+  try {
+    const response = await api.put(
+      `/products/update/${productId}`,
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return response.data;
+
+  } catch (error: any) {
+    console.error('Error updating Product', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+
+    throw new Error(
+      error.response?.data?.message ||
+      error.message ||
+      'Error updating Product'
+    );
+  }
+};
 
 export const deleteProduct = async (productId: string) => {
   try {
@@ -150,22 +181,24 @@ export const uploadProductImages = async (
   }
 };
 
-export const updateProduct = async (
-  productId: string,
-  payload: CreateDrugProductRequest
-) => {
-  try {
-    const response = await api.put(`/products/update/${productId}`, payload);
-    return response.data;
-  } catch (error: any) {
-    console.error('Error updating product:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-    });
-    throw error;
-  }
-};
+
+
+// export const updateProduct = async (
+//   productId: string,
+//   payload: CreateDrugProductRequest
+// ) => {
+//   try {
+//     const response = await api.put(`/products/update/${productId}`, payload);
+//     return response.data;
+//   } catch (error: any) {
+//     console.error('Error updating product:', {
+//       message: error.message,
+//       response: error.response?.data,
+//       status: error.response?.status,
+//     });
+//     throw error;
+//   }
+// };
 
 //Old 
 export const getDrugProductById = async (productId: string) => {
