@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import Table, { Column } from "@/src/app/commonComponents/Table";
 import { getProductList } from "@/src/services/product/ProductService";
@@ -8,6 +8,7 @@ import { DashboardView } from "@/src/types/seller/dashboard";
 import { ProductListData } from "@/src/types/product/ProductData";
 import CommonModal from "../commonComponent/CommonModal";
 import DeleteProduct from "./DeleteProduct";
+import { SlidersHorizontal, Search, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 
 interface ProductListProps {
   setCurrentView: (view: DashboardView) => void;
@@ -61,34 +62,9 @@ const getProductCategory = (product: ExtendedProductListData): string => {
   return "Uncategorized";
 };
 
-const getCategoryBadge = (category: string) => {
-  switch (category) {
-    case "Drugs":
-      return (
-        <span className="px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg border border-blue-200">
-          Drugs
-        </span>
-      );
-    case "Consumable":
-      return (
-        <span className="px-3 py-1.5 bg-green-50 text-green-700 text-xs font-semibold rounded-lg border border-green-200">
-          Consumable
-        </span>
-      );
-    case "Non-Consumable":
-      return (
-        <span className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-semibold rounded-lg border border-purple-200">
-          Non-Consumable
-        </span>
-      );
-    default:
-      return (
-        <span className="px-3 py-1.5 bg-gray-50 text-gray-600 text-xs font-semibold rounded-lg">
-          {category}
-        </span>
-      );
-  }
-};
+const getCategoryBadge = (category: string) => (
+  <span className="text-sm text-neutral-700">{category}</span>
+);
 
 const getFirstImage = (product: ExtendedProductListData): string | null => {
   if (Array.isArray(product.productImages) && product.productImages.length > 0) {
@@ -109,8 +85,6 @@ const getFirstImage = (product: ExtendedProductListData): string | null => {
   return null;
 };
 
-// Thumbnail rendered as a regular img to support arbitrary external URLs
-// (Next/Image requires domain allow-listing in next.config.js)
 const ProductThumbnail = ({ product }: { product: ExtendedProductListData }) => {
   const [src, setSrc] = React.useState(
     getFirstImage(product) ?? "/assets/images/SellerMed.jpg"
@@ -127,47 +101,19 @@ const ProductThumbnail = ({ product }: { product: ExtendedProductListData }) => 
   );
 };
 
-const columns: Column<ExtendedProductListData>[] = [
-  {
-    header: "Thumbnail",
-    accessor: (row) => <ProductThumbnail product={row} />,
-  },
-  {
-    header: "Product Name",
-    accessor: (row) => (
-      <div className="max-w-xs">
-        <p className="font-medium text-neutral-900 truncate">{row.productName || "-"}</p>
-        <p className="text-xs text-neutral-500 truncate">{row.manufacturerName || ""}</p>
-      </div>
-    ),
-  },
-  {
-    header: "Category",
-    accessor: (row) => getCategoryBadge(getProductCategory(row)),
-  },
-  {
-    header: "Price",
-    accessor: (row) => {
-      const price = row.pricingDetails?.[0]?.mrp;
-      return price ? `₹${price.toFixed(2)}` : "-";
-    },
-  },
-  {
-    header: "Stock",
-    accessor: (row) => {
-      const stock = row.pricingDetails?.[0]?.stockQuantity;
-      if (!stock) return "-";
+type SortField = "name" | "price" | "stock" | "none";
+type SortDir = "asc" | "desc";
 
-      const stockNum = Number(stock);
-      let colorClass = "text-neutral-700";
-      if (stockNum === 0) colorClass = "text-red-600 font-semibold";
-      else if (stockNum < 10) colorClass = "text-orange-600";
-      else if (stockNum >= 100) colorClass = "text-green-600";
-
-      return <span className={colorClass}>{stock}</span>;
-    },
-  },
+const SORT_OPTIONS: { label: string; field: SortField; dir: SortDir }[] = [
+  { label: "Name (A–Z)", field: "name", dir: "asc" },
+  { label: "Name (Z–A)", field: "name", dir: "desc" },
+  { label: "Price (Low–High)", field: "price", dir: "asc" },
+  { label: "Price (High–Low)", field: "price", dir: "desc" },
+  { label: "Stock (Low–High)", field: "stock", dir: "asc" },
+  { label: "Stock (High–Low)", field: "stock", dir: "desc" },
 ];
+
+const CATEGORY_OPTIONS = ["all", "Drugs", "Consumable", "Non-Consumable"] as const;
 
 const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps) => {
   const [data, setData] = useState<ExtendedProductListData[]>([]);
@@ -177,6 +123,27 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
   const [selectedProductIdLocal, setSelectedProductIdLocal] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  // Sort state
+  const [sortField, setSortField] = useState<SortField>("none");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const [activeSortLabel, setActiveSortLabel] = useState("Sort by");
+
+  // Filter panel state
+  const [filterOpen, setFilterOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  // Close sort dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const fetchProducts = async () => {
     try {
@@ -214,54 +181,215 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
       );
     }
 
+    // Apply sort
+    if (sortField !== "none") {
+      filtered = [...filtered].sort((a, b) => {
+        let valA: number | string = 0;
+        let valB: number | string = 0;
+
+        if (sortField === "name") {
+          valA = a.productName?.toLowerCase() ?? "";
+          valB = b.productName?.toLowerCase() ?? "";
+        } else if (sortField === "price") {
+          valA = a.pricingDetails?.[0]?.mrp ?? 0;
+          valB = b.pricingDetails?.[0]?.mrp ?? 0;
+        } else if (sortField === "stock") {
+          valA = Number(a.pricingDetails?.[0]?.stockQuantity ?? 0);
+          valB = Number(b.pricingDetails?.[0]?.stockQuantity ?? 0);
+        }
+
+        if (valA < valB) return sortDir === "asc" ? -1 : 1;
+        if (valA > valB) return sortDir === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
     setFilteredData(filtered);
-  }, [searchQuery, categoryFilter, data]);
+  }, [searchQuery, categoryFilter, data, sortField, sortDir]);
+
+  const columns: Column<ExtendedProductListData>[] = [
+    {
+      header: "Thumbnail",
+      accessor: (row) => <ProductThumbnail product={row} />,
+    },
+    {
+      header: "Product Name",
+      accessor: (row) => (
+        <div className="max-w-xs">
+          <p className="font-medium text-neutral-900 truncate">{row.productName || "-"}</p>
+          <p className="text-xs text-neutral-500 truncate">{row.manufacturerName || ""}</p>
+        </div>
+      ),
+    },
+    {
+      header: "Category",
+      accessor: (row) => getCategoryBadge(getProductCategory(row)),
+    },
+    {
+      header: "Price",
+      accessor: (row) => {
+        const price = row.pricingDetails?.[0]?.mrp;
+        return price ? `₹${price.toFixed(2)}` : "-";
+      },
+    },
+    {
+      header: "Stock",
+      accessor: (row) => {
+        const stock = row.pricingDetails?.[0]?.stockQuantity;
+        if (!stock) return "-";
+
+        const stockNum = Number(stock);
+        let colorClass = "text-neutral-700";
+        if (stockNum === 0) colorClass = "text-red-600 font-semibold";
+        else if (stockNum < 10) colorClass = "text-orange-600";
+        else if (stockNum >= 100) colorClass = "text-green-600";
+
+        return <span className={colorClass}>{stock}</span>;
+      },
+    },
+    {
+      header: "Status",
+      accessor: (row) => {
+        const stock = Number(row.pricingDetails?.[0]?.stockQuantity ?? 0);
+        if (stock === 0)
+          return (
+            <span className="px-3 py-1 text-xs rounded-md bg-red-50 text-red-700 font-medium">
+              Out of Stock
+            </span>
+          );
+        if (stock < 10)
+          return (
+            <span className="px-3 py-1 text-xs rounded-md bg-orange-50 text-orange-700 font-medium">
+              Low Stock
+            </span>
+          );
+        return (
+          <span className="px-3 py-1 text-xs rounded-md bg-green-50 text-green-700 font-medium">
+            Active
+          </span>
+        );
+      },
+    },
+  ];
 
   return (
     <>
-      <div className="flex justify-between gap-4 flex-wrap">
-        <div className="flex gap-2">
-          {(["all", "Drugs", "Consumable", "Non-Consumable"] as const).map((cat) => {
-            const colorMap: Record<string, string> = {
-              all: categoryFilter === "all"
+      {/* ── Top bar: Filter | Search | Sort by ── */}
+      <div className="flex items-center gap-3 flex-wrap mb-3">
+        {/* Filter button */}
+        <div className="relative">
+          <button
+            onClick={() => setFilterOpen((prev) => !prev)}
+            className={`flex items-center gap-2 h-12 px-5 rounded-xl border text-sm font-semibold transition
+              ${filterOpen || categoryFilter !== "all"
                 ? "bg-primary-900 text-white border-primary-900"
-                : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:border-primary-900",
-              Drugs: categoryFilter === "Drugs"
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-blue-50 text-blue-700 border-blue-200 hover:border-blue-600",
-              Consumable: categoryFilter === "Consumable"
-                ? "bg-green-600 text-white border-green-600"
-                : "bg-green-50 text-green-700 border-green-200 hover:border-green-600",
-              "Non-Consumable": categoryFilter === "Non-Consumable"
-                ? "bg-purple-600 text-white border-purple-600"
-                : "bg-purple-50 text-purple-700 border-purple-200 hover:border-purple-600",
-            };
-            return (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-4 h-12 border rounded-lg text-sm font-semibold transition ${colorMap[cat]}`}
-              >
-                {cat === "all" ? "All Products" : cat}
-              </button>
-            );
-          })}
+                : "bg-white text-neutral-700 border-neutral-200 hover:border-primary-900"
+              }`}
+          >
+            <SlidersHorizontal size={16} />
+            Filter
+            {categoryFilter !== "all" && (
+              <span className="ml-1 bg-white text-primary-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                1
+              </span>
+            )}
+          </button>
+
+          {/* Filter panel dropdown */}
+          {filterOpen && (
+            <div className="absolute top-14 left-0 z-20 bg-white rounded-xl border border-neutral-200 shadow-lg p-4 w-56">
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+                Category
+              </p>
+              <div className="flex flex-col gap-1">
+                {CATEGORY_OPTIONS.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setCategoryFilter(cat);
+                      setFilterOpen(false);
+                    }}
+                    className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition
+                      ${categoryFilter === cat
+                        ? "bg-primary-900 text-white"
+                        : "text-neutral-700 hover:bg-neutral-50"
+                      }`}
+                  >
+                    {cat === "all" ? "All Products" : cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="relative flex-1 min-w-[300px]">
+        {/* Search bar */}
+        <div className="relative flex-1 min-w-[260px]">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by product name, manufacturer, or ID..."
-            className="border border-neutral-200 text-sm text-neutral-700 font-medium w-full h-12 rounded-lg px-5 pr-14 focus:outline-none focus:ring-2 focus:ring-primary-900 focus:border-transparent"
+            placeholder="Search"
+            className="border border-neutral-200 text-sm text-neutral-700 font-medium w-full h-12 rounded-xl px-5 pr-14 focus:outline-none focus:ring-2 focus:ring-primary-900 focus:border-transparent bg-neutral-50"
           />
-          <div className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center bg-purple-200 rounded-r-lg pointer-events-none">
-            <Image src="/icons/SearchIcon.svg" alt="Search" width={20} height={20} />
+          <div className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center bg-purple-200 rounded-r-xl pointer-events-none">
+            <Search size={18} className="text-purple-700" />
           </div>
+        </div>
+
+        {/* Sort by dropdown */}
+        <div className="relative" ref={sortRef}>
+          <button
+            onClick={() => setSortDropdownOpen((prev) => !prev)}
+            className={`flex items-center gap-2 h-12 px-5 rounded-xl border text-sm font-semibold transition whitespace-nowrap
+              ${sortDropdownOpen || sortField !== "none"
+                ? "bg-primary-900 text-white border-primary-900"
+                : "bg-white text-neutral-700 border-neutral-200 hover:border-primary-900"
+              }`}
+          >
+            <ArrowUpDown size={16} />
+            {activeSortLabel}
+            {sortDropdownOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          {sortDropdownOpen && (
+            <div className="absolute top-14 right-0 z-20 bg-white rounded-xl border border-neutral-200 shadow-lg p-2 w-52">
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.label}
+                  onClick={() => {
+                    setSortField(opt.field);
+                    setSortDir(opt.dir);
+                    setActiveSortLabel(opt.label);
+                    setSortDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition
+                    ${sortField === opt.field && sortDir === opt.dir
+                      ? "bg-primary-900 text-white"
+                      : "text-neutral-700 hover:bg-neutral-50"
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              {sortField !== "none" && (
+                <button
+                  onClick={() => {
+                    setSortField("none");
+                    setActiveSortLabel("Sort by");
+                    setSortDropdownOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition mt-1 border-t border-neutral-100"
+                >
+                  Clear sort
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Results count + clear filters */}
       <div className="flex items-center justify-between text-sm text-neutral-600 mb-2">
         <p>
           Showing{" "}
@@ -274,19 +402,22 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
             </span>
           )}
         </p>
-        {(searchQuery || categoryFilter !== "all") && (
+        {(searchQuery || categoryFilter !== "all" || sortField !== "none") && (
           <button
             onClick={() => {
               setSearchQuery("");
               setCategoryFilter("all");
+              setSortField("none");
+              setActiveSortLabel("Sort by");
             }}
             className="text-primary-900 hover:underline font-medium"
           >
-            Clear filters
+            Clear all
           </button>
         )}
       </div>
 
+      {/* Table */}
       <div>
         <Table<ExtendedProductListData>
           columns={columns}

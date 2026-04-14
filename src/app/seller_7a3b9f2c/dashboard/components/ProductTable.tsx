@@ -1,510 +1,263 @@
 "use client";
 
-import React from "react";
-import { Edit, Eye, Trash2 } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Edit, Eye, Trash2, SlidersHorizontal, Search, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 
-const products = new Array(6).fill({
+const allProducts = new Array(6).fill(null).map((_, i) => ({
   name: "Paracetamol",
   category: "Drugs",
   price: "₹20",
+  priceNum: 20,
   stock: 10000,
   status: "Active",
-});
+}));
+
+type SortField = "name" | "price" | "stock" | "none";
+type SortDir = "asc" | "desc";
+
+const SORT_OPTIONS: { label: string; field: SortField; dir: SortDir }[] = [
+  { label: "Name (A–Z)", field: "name", dir: "asc" },
+  { label: "Name (Z–A)", field: "name", dir: "desc" },
+  { label: "Price (Low–High)", field: "price", dir: "asc" },
+  { label: "Price (High–Low)", field: "price", dir: "desc" },
+  { label: "Stock (Low–High)", field: "stock", dir: "asc" },
+  { label: "Stock (High–Low)", field: "stock", dir: "desc" },
+];
+
+const CATEGORY_OPTIONS = ["all", "Drugs", "Consumable", "Non-Consumable"] as const;
 
 const ProductTable = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("none");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [activeSortLabel, setActiveSortLabel] = useState("Sort by");
+
+  const sortRef = useRef<HTMLDivElement>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortDropdownOpen(false);
+      }
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Filter + sort logic on mock data
+  let products = [...allProducts];
+
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase();
+    products = products.filter((p) => p.name.toLowerCase().includes(q));
+  }
+
+  if (categoryFilter !== "all") {
+    products = products.filter((p) => p.category === categoryFilter);
+  }
+
+  if (sortField !== "none") {
+    products = [...products].sort((a, b) => {
+      let valA: number | string = 0;
+      let valB: number | string = 0;
+      if (sortField === "name") { valA = a.name.toLowerCase(); valB = b.name.toLowerCase(); }
+      else if (sortField === "price") { valA = a.priceNum; valB = b.priceNum; }
+      else if (sortField === "stock") { valA = a.stock; valB = b.stock; }
+      if (valA < valB) return sortDir === "asc" ? -1 : 1;
+      if (valA > valB) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-neutral-50 border-neutral-100 text-left">
-          <tr>
-            <th className="p-4">Thumbnail</th>
-            <th className="p-4">Product Name</th>
-            <th className="p-4">Category</th>
-            <th className="p-4">Price</th>
-            <th className="p-4">Stock</th>
-            <th className="p-4">Status</th>
-            <th className="p-4">Actions</th>
-          </tr>
-        </thead>
+    <div className="space-y-3">
+      {/* ── Top bar ── */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Filter */}
+        <div className="relative" ref={filterRef}>
+          <button
+            onClick={() => setFilterOpen((prev) => !prev)}
+            className={`flex items-center gap-2 h-12 px-5 rounded-xl border text-sm font-semibold transition
+              ${filterOpen || categoryFilter !== "all"
+                ? "bg-primary-900 text-white border-primary-900"
+                : "bg-white text-neutral-700 border-neutral-200 hover:border-primary-900"
+              }`}
+          >
+            <SlidersHorizontal size={16} />
+            Filter
+            {categoryFilter !== "all" && (
+              <span className="ml-1 bg-white text-primary-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                1
+              </span>
+            )}
+          </button>
 
-        <tbody>
-          {products.map((product, index) => (
-            <tr
-              key={index}
-              className="border-t border-neutral-100 hover:bg-neutral-50 transition"
-            >
-              <td className="p-4">
-                <div className="w-10 h-10 bg-neutral-200 rounded-lg" />
-              </td>
-
-              <td className="p-4">{product.name}</td>
-              <td className="p-4">{product.category}</td>
-              <td className="p-4">{product.price}</td>
-              <td className="p-4">{product.stock}</td>
-
-              <td className="p-4">
-                <span className="px-3 py-1 text-xs rounded-md bg-success-50 text-success-900">
-                  {product.status}
-                </span>
-              </td>
-
-              <td className="p-4">
-                <div className="flex items-center gap-1">
-
-                  <button className="p-2 rounded-md hover:bg-primary-05 transition">
-                    <Edit size={20} className="text-primary-600" />
+          {filterOpen && (
+            <div className="absolute top-14 left-0 z-20 bg-white rounded-xl border border-neutral-200 shadow-lg p-4 w-56">
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+                Category
+              </p>
+              <div className="flex flex-col gap-1">
+                {CATEGORY_OPTIONS.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setCategoryFilter(cat);
+                      setFilterOpen(false);
+                    }}
+                    className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition
+                      ${categoryFilter === cat
+                        ? "bg-primary-900 text-white"
+                        : "text-neutral-700 hover:bg-neutral-50"
+                      }`}
+                  >
+                    {cat === "all" ? "All Products" : cat}
                   </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
-                  <button className="p-2 rounded-md hover:bg-neutral-100 transition">
-                    <Eye size={20} className="text-neutral-500" />
-                  </button>                  
+        {/* Search */}
+        <div className="relative flex-1 min-w-[260px]">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search"
+            className="border border-neutral-200 text-sm text-neutral-700 font-medium w-full h-12 rounded-xl px-5 pr-14 focus:outline-none focus:ring-2 focus:ring-primary-900 focus:border-transparent bg-neutral-50"
+          />
+          <div className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center bg-purple-200 rounded-r-xl pointer-events-none">
+            <Search size={18} className="text-purple-700" />
+          </div>
+        </div>
 
-                  <button className="p-2 rounded-md hover:bg-warning-100 transition">
-                    <Trash2 size={20} className="text-warning-500" />
-                  </button>
-                </div>
-              </td>
+        {/* Sort by */}
+        <div className="relative" ref={sortRef}>
+          <button
+            onClick={() => setSortDropdownOpen((prev) => !prev)}
+            className={`flex items-center gap-2 h-12 px-5 rounded-xl border text-sm font-semibold transition whitespace-nowrap
+              ${sortDropdownOpen || sortField !== "none"
+                ? "bg-primary-900 text-white border-primary-900"
+                : "bg-white text-neutral-700 border-neutral-200 hover:border-primary-900"
+              }`}
+          >
+            <ArrowUpDown size={16} />
+            {activeSortLabel}
+            {sortDropdownOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          {sortDropdownOpen && (
+            <div className="absolute top-14 right-0 z-20 bg-white rounded-xl border border-neutral-200 shadow-lg p-2 w-52">
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.label}
+                  onClick={() => {
+                    setSortField(opt.field);
+                    setSortDir(opt.dir);
+                    setActiveSortLabel(opt.label);
+                    setSortDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition
+                    ${sortField === opt.field && sortDir === opt.dir
+                      ? "bg-primary-900 text-white"
+                      : "text-neutral-700 hover:bg-neutral-50"
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              {sortField !== "none" && (
+                <button
+                  onClick={() => {
+                    setSortField("none");
+                    setActiveSortLabel("Sort by");
+                    setSortDropdownOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition mt-1 border-t border-neutral-100"
+                >
+                  Clear sort
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-neutral-50 border-b border-neutral-100 text-left">
+            <tr>
+              <th className="p-4 font-semibold text-neutral-700">Thumbnail</th>
+              <th className="p-4 font-semibold text-neutral-700">Product Name</th>
+              <th className="p-4 font-semibold text-neutral-700">Category</th>
+              <th className="p-4 font-semibold text-neutral-700">Price</th>
+              <th className="p-4 font-semibold text-neutral-700">Stock</th>
+              <th className="p-4 font-semibold text-neutral-700">Status</th>
+              <th className="p-4 font-semibold text-neutral-700">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {products.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="text-center py-10 text-neutral-400 text-sm">
+                  No products match your filters.
+                </td>
+              </tr>
+            ) : (
+              products.map((product, index) => (
+                <tr
+                  key={index}
+                  className="border-t border-neutral-100 hover:bg-neutral-50 transition"
+                >
+                  <td className="p-4">
+                    <div className="w-10 h-10 bg-neutral-200 rounded-lg" />
+                  </td>
+
+                  <td className="p-4 font-medium text-neutral-900">{product.name}</td>
+                  <td className="p-4 text-neutral-600">{product.category}</td>
+                  <td className="p-4 text-neutral-700">{product.price}</td>
+                  <td className="p-4 text-neutral-700">{product.stock.toLocaleString()}</td>
+
+                  <td className="p-4">
+                    <span className="px-3 py-1 text-xs rounded-md bg-green-50 text-green-700 font-medium">
+                      {product.status}
+                    </span>
+                  </td>
+
+                  <td className="p-4">
+                    <div className="flex items-center gap-1">
+                      <button className="p-2 rounded-md hover:bg-primary-05 transition">
+                        <Edit size={20} className="text-primary-600" />
+                      </button>
+
+                      <button className="p-2 rounded-md hover:bg-neutral-100 transition">
+                        <Eye size={20} className="text-neutral-500" />
+                      </button>
+
+                      <button className="p-2 rounded-md hover:bg-warning-100 transition">
+                        <Trash2 size={20} className="text-warning-500" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
 
 export default ProductTable;
-// 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// This code is not completely functional as of now................
-
-// "use client";
-
-// import React, { useEffect, useState } from "react";
-// import { Edit, Eye, Trash2, X } from "lucide-react";
-// import { getDrugProductList, drugProductDelete, getDrugProductById } from "@/src/services/product/ProductService";
-// import { CreateDrugProductRequest } from "@/src/types/product/ProductData";
-// import { DashboardView } from "@/src/types/seller/dashboard";
-
-// interface ProductTableProps {
-//   setCurrentView: (view: DashboardView) => void;
-//   onEditProduct?: (productId: string) => void;
-//   refreshTrigger?: number;
-// }
-
-// interface Product {
-//   productId: string;
-//   productName: string;
-//   therapeuticCategory: string;
-//   dosageForm: string;
-//   strength: number;
-//   packagingDetails?: {
-//     packagingUnit: string;
-//     numberOfUnits: number;
-//     packSize: number;
-//   };
-//   pricingDetails?: Array<{
-//     pricePerUnit: number;
-//     mrp: number;
-//     stockQuantity: number;
-//     batchLotNumber: string;
-//     manufacturerName: string;
-//     expiryDate: string | null;
-//     gstPercentage: number;
-//     finalPrice: number;
-//   }>;
-//   molecules?: Array<{
-//     moleculeId: number;
-//     moleculeName: string;
-//     mechanismOfAction: string;
-//     primaryUse: string;
-//   }>;
-// }
-
-// const ProductTable = ({ setCurrentView, onEditProduct, refreshTrigger = 0 }: ProductTableProps) => {
-//   const [products, setProducts] = useState<Product[]>([]);
-//   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-//   const [showViewModal, setShowViewModal] = useState(false);
-//   const [showDeleteModal, setShowDeleteModal] = useState(false);
-//   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-
-//   useEffect(() => {
-//     fetchProducts();
-//   }, [refreshTrigger]);
-
-//   const fetchProducts = async () => {
-//     try {
-//       const data = await getDrugProductList();
-      
-//       // Handle different response structures
-//       let productList = [];
-//       if (data?.content) {
-//         productList = data.content; // Paginated response
-//       } else if (Array.isArray(data)) {
-//         productList = data; // Direct array
-//       } else if (data?.data && Array.isArray(data.data)) {
-//         productList = data.data; // Wrapped response
-//       }
-
-//       setProducts(productList);
-//     } catch (error) {
-//       console.error("Failed to fetch products:", error);
-//     }
-//   };
-
-//   const getCategoryName = (categoryId: string) => {
-//     // This will need to be mapped from your categories list
-//     // For now, return a placeholder or you can pass categories as prop
-//     return categoryId || "N/A";
-//   };
-
-//   const getStatus = (stockQuantity: number) => {
-//     if (stockQuantity <= 0) return { label: "Out of Stock", className: "bg-warning-100 text-warning-800" };
-//     if (stockQuantity < 10) return { label: "Low Stock", className: "bg-warning-50 text-warning-700" };
-//     return { label: "Active", className: "bg-success-50 text-success-700" };
-//   };
-
-//   const handleEditClick = (productId: string) => {
-//     // Store the product ID in localStorage or state management to be used in AddProduct component
-//     localStorage.setItem("editProductId", productId);
-//     localStorage.setItem("productMode", "edit");
-//     setCurrentView("addProduct");
-//     if (onEditProduct) {
-//       onEditProduct(productId);
-//     }
-//   };
-
-//   const handleViewClick = async (productId: string) => {
-//     try {
-//       const productData = await getDrugProductById(productId);
-//       setSelectedProduct(productData);
-//       setShowViewModal(true);
-//     } catch (error) {
-//       console.error("Failed to fetch product details:", error);
-//     }
-//   };
-
-//   const handleDeleteClick = (product: Product) => {
-//     setProductToDelete(product);
-//     setShowDeleteModal(true);
-//   };
-
-//   const confirmDelete = async () => {
-//     if (!productToDelete) return;
-
-//     try {
-//       await drugProductDelete(productToDelete.productId);
-//       setShowDeleteModal(false);
-//       setProductToDelete(null);
-//       fetchProducts(); // Refresh the list
-//     } catch (error) {
-//       console.error("Failed to delete product:", error);
-//     }
-//   };
-
-//   const formatPrice = (price: number) => {
-//     return `₹${price?.toFixed(2) || '0.00'}`;
-//   };
-
-//   // Get the first pricing detail or use defaults
-//   const getPricingDetail = (product: Product) => {
-//     return product.pricingDetails?.[0] || {
-//       pricePerUnit: 0,
-//       mrp: 0,
-//       stockQuantity: 0,
-//       batchLotNumber: '',
-//       manufacturerName: '',
-//       expiryDate: null,
-//       gstPercentage: 0,
-//       finalPrice: 0
-//     };
-//   };
-
-//   return (
-//     <>
-//       <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
-//         <table className="w-full text-sm">
-//           <thead className="bg-neutral-50 border-neutral-100 text-left">
-//             <tr>
-//               <th className="p-4">Thumbnail</th>
-//               <th className="p-4">Product Name</th>
-//               <th className="p-4">Category</th>
-//               <th className="p-4">Price</th>
-//               <th className="p-4">Stock</th>
-//               <th className="p-4">Status</th>
-//               <th className="p-4">Actions</th>
-//             </tr>
-//           </thead>
-
-//           <tbody>
-//             {products.length === 0 ? (
-//               <tr>
-//                 <td colSpan={7} className="text-center py-8 text-neutral-500">
-//                   No products found
-//                 </td>
-//               </tr>
-//             ) : (
-//               products.map((product, index) => {
-//                 const pricing = getPricingDetail(product);
-//                 const status = getStatus(pricing.stockQuantity);
-                
-//                 return (
-//                   <tr
-//                     key={product.productId || index}
-//                     className="border-t border-neutral-100 hover:bg-neutral-50 transition"
-//                   >
-//                     <td className="p-4">
-//                       <div className="w-10 h-10 bg-neutral-200 rounded-lg" />
-//                     </td>
-
-//                     <td className="p-4 font-medium">{product.productName}</td>
-//                     <td className="p-4">{getCategoryName(product.therapeuticCategory)}</td>
-//                     <td className="p-4">{formatPrice(pricing.pricePerUnit)}</td>
-//                     <td className="p-4">{pricing.stockQuantity}</td>
-
-//                     <td className="p-4">
-//                       <span className={`px-3 py-1 text-xs rounded-md ${status.className}`}>
-//                         {status.label}
-//                       </span>
-//                     </td>
-
-//                     <td className="p-4">
-//                       <div className="flex items-center gap-1">
-//                         <button 
-//                           className="p-2 rounded-md hover:bg-primary-05 transition"
-//                           onClick={() => handleEditClick(product.productId)}
-//                           title="Edit Product"
-//                         >
-//                           <Edit size={20} className="text-primary-600" />
-//                         </button>
-
-//                         <button 
-//                           className="p-2 rounded-md hover:bg-neutral-100 transition"
-//                           onClick={() => handleViewClick(product.productId)}
-//                           title="View Product"
-//                         >
-//                           <Eye size={20} className="text-neutral-500" />
-//                         </button>                  
-
-//                         <button 
-//                           className="p-2 rounded-md hover:bg-warning-100 transition"
-//                           onClick={() => handleDeleteClick(product)}
-//                           title="Delete Product"
-//                         >
-//                           <Trash2 size={20} className="text-warning-500" />
-//                         </button>
-//                       </div>
-//                     </td>
-//                   </tr>
-//                 );
-//               })
-//             )}
-//           </tbody>
-//         </table>
-//       </div>
-
-//       {/* View Product Modal */}
-//       {showViewModal && selectedProduct && (
-//         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-//           <div className="bg-white rounded-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-//             <div className="sticky top-0 bg-white border-b border-neutral-100 px-6 py-4 flex items-center justify-between">
-//               <h3 className="text-h6 font-bold text-neutral-900">Product Details</h3>
-//               <button
-//                 onClick={() => setShowViewModal(false)}
-//                 className="p-2 hover:bg-neutral-100 rounded-lg"
-//               >
-//                 <X size={18} />
-//               </button>
-//             </div>
-            
-//             <div className="p-6 space-y-6">
-//               {/* Basic Information */}
-//               <div>
-//                 <h4 className="font-semibold text-primary-900 mb-3">Basic Information</h4>
-//                 <div className="grid grid-cols-2 gap-4">
-//                   <div>
-//                     <p className="text-xs text-neutral-500">Product Name</p>
-//                     <p className="text-sm font-medium text-neutral-900">{selectedProduct.productName}</p>
-//                   </div>
-//                   <div>
-//                     <p className="text-xs text-neutral-500">Dosage Form</p>
-//                     <p className="text-sm font-medium text-neutral-900">{selectedProduct.dosageForm}</p>
-//                   </div>
-//                   <div>
-//                     <p className="text-xs text-neutral-500">Strength</p>
-//                     <p className="text-sm font-medium text-neutral-900">{selectedProduct.strength}</p>
-//                   </div>
-//                 </div>
-//               </div>
-
-//               {/* Molecules */}
-//               {selectedProduct.molecules && selectedProduct.molecules.length > 0 && (
-//                 <div>
-//                   <h4 className="font-semibold text-primary-900 mb-3">Molecules</h4>
-//                   <div className="space-y-3">
-//                     {selectedProduct.molecules.map((molecule: any, idx: number) => (
-//                       <div key={idx} className="bg-neutral-50 p-3 rounded-lg">
-//                         <p className="text-sm font-medium text-neutral-900">{molecule.moleculeName}</p>
-//                         {molecule.mechanismOfAction && (
-//                           <p className="text-xs text-neutral-600 mt-1">
-//                             <span className="font-medium">Mechanism:</span> {molecule.mechanismOfAction}
-//                           </p>
-//                         )}
-//                         {molecule.primaryUse && (
-//                           <p className="text-xs text-neutral-600 mt-1">
-//                             <span className="font-medium">Primary Use:</span> {molecule.primaryUse}
-//                           </p>
-//                         )}
-//                       </div>
-//                     ))}
-//                   </div>
-//                 </div>
-//               )}
-
-//               {/* Pricing Information */}
-//               {selectedProduct.pricingDetails && selectedProduct.pricingDetails.length > 0 && (
-//                 <div>
-//                   <h4 className="font-semibold text-primary-900 mb-3">Pricing & Stock</h4>
-//                   {selectedProduct.pricingDetails.map((pricing: any, idx: number) => (
-//                     <div key={idx} className="bg-neutral-50 p-3 rounded-lg space-y-2">
-//                       <div className="grid grid-cols-2 gap-3">
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Batch Number</p>
-//                           <p className="text-sm font-medium">{pricing.batchLotNumber || 'N/A'}</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Manufacturer</p>
-//                           <p className="text-sm font-medium">{pricing.manufacturerName || 'N/A'}</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">MRP</p>
-//                           <p className="text-sm font-medium">₹{pricing.mrp?.toFixed(2)}</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Price/Unit</p>
-//                           <p className="text-sm font-medium">₹{pricing.pricePerUnit?.toFixed(2)}</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Final Price</p>
-//                           <p className="text-sm font-medium">₹{pricing.finalPrice?.toFixed(2)}</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Stock</p>
-//                           <p className="text-sm font-medium">{pricing.stockQuantity} units</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Expiry Date</p>
-//                           <p className="text-sm font-medium">
-//                             {pricing.expiryDate ? new Date(pricing.expiryDate).toLocaleDateString() : 'N/A'}
-//                           </p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">GST</p>
-//                           <p className="text-sm font-medium">{pricing.gstPercentage}%</p>
-//                         </div>
-//                       </div>
-//                     </div>
-//                   ))}
-//                 </div>
-//               )}
-
-//               {/* Warnings & Description */}
-//               {selectedProduct.warningsPrecautions && (
-//                 <div>
-//                   <h4 className="font-semibold text-primary-900 mb-2">Warnings & Precautions</h4>
-//                   <p className="text-sm text-neutral-700 bg-neutral-50 p-3 rounded-lg">
-//                     {selectedProduct.warningsPrecautions}
-//                   </p>
-//                 </div>
-//               )}
-
-//               {selectedProduct.productDescription && (
-//                 <div>
-//                   <h4 className="font-semibold text-primary-900 mb-2">Description</h4>
-//                   <p className="text-sm text-neutral-700 bg-neutral-50 p-3 rounded-lg">
-//                     {selectedProduct.productDescription}
-//                   </p>
-//                 </div>
-//               )}
-//             </div>
-
-//             <div className="sticky bottom-0 bg-white border-t border-neutral-100 px-6 py-4 flex justify-end">
-//               <button
-//                 onClick={() => setShowViewModal(false)}
-//                 className="px-6 py-2 bg-primary-900 text-white rounded-lg hover:bg-primary-800"
-//               >
-//                 Close
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//       {/* Delete Confirmation Modal */}
-//       {showDeleteModal && productToDelete && (
-//         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-//           <div className="bg-white rounded-xl max-w-md w-full mx-4 p-6">
-//             <div className="text-center mb-4">
-//               <div className="w-16 h-16 bg-warning-50 rounded-full flex items-center justify-center mx-auto mb-3">
-//                 <Trash2 size={32} className="text-warning-600" />
-//               </div>
-//               <h3 className="text-h6 font-bold text-neutral-900 mb-2">Delete Product</h3>
-//               <p className="text-sm text-neutral-500">
-//                 Are you sure you want to delete &quot;{productToDelete.productName}&quot;? This action cannot be undone.
-//               </p>
-//             </div>
-//             <div className="flex gap-3">
-//               <button
-//                 onClick={() => setShowDeleteModal(false)}
-//                 className="flex-1 h-11 rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50 transition-colors"
-//               >
-//                 Cancel
-//               </button>
-//               <button
-//                 onClick={confirmDelete}
-//                 className="flex-1 h-11 rounded-lg bg-warning-600 text-white hover:bg-warning-700 transition-colors"
-//               >
-//                 Delete
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-//     </>
-//   );
-// };
-
-// export default ProductTable;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

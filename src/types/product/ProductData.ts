@@ -3,41 +3,65 @@ export interface CreateDrugProductRequest {
   productDescription: string;
   productMarketingUrl: string;
   warningsPrecautions: string;
-
   categoryId: number;
-
   packagingDetails: PackagingData;
-
   pricingDetails: PricingData[];
-
-  productAttributeDrugs: ProductAttributeDrugData[];
+  productAttributeDrugs?: ProductAttributeDrugData[];
+  productAttributeConsumableMedicals?: ProductAttributeConsumableData[];
+  productAttributeNonConsumableMedicals?: ProductAttributeNonConsumableData[];
 }
 
 export interface ProductAttributeDrugData {
-  dosageForm: string; // ✅ instead of dosageId
+  productAttributeId?: string;
+  dosageForm: string;
+  strength: string;
   therapeuticCategoryId: string;
   therapeuticSubcategoryId: string;
-
-  molecules: {
-    moleculeId: number;
-    strength: string;
-  }[];
+  molecules?: { moleculeId: number; strength: string }[];
 }
 
-// export interface ProductAttributeDrugData {
-//   dosageId?: number;
-//   strength: string;
-//   therapeuticCategoryId: string;
-//   therapeuticCategory: string;
-//   therapeuticSubcategoryId: string;
-//   therapeuticSubcategory: string;
-//   manufacturerName: string;
-//   molecules: MoleculeData[];
-// }
+export interface ProductAttributeConsumableData {
+  productAttributeId?: string;
+  brandName: string;
+  deviceCatId: number;
+  deviceSubCatId: number;
+  dimensionSize: string;
+  disposalOrReusable: string;
+  keyFeaturesSpecifications: string;
+  materialTypeId: number[];
+  purpose: string;
+  safetyInstructions: string;
+  shelfLife: string;
+  sterileOrNonSterile: string;
+  storageConditionId: number;
+  countryId: number;
+  manufacturerName: string;
+  productBrochureUrl?: string;
+}
+
+export interface ProductAttributeNonConsumableData {
+  productAttributeId?: string;
+  brandName: string;
+  deviceCategoryId: number;
+  deviceSubCategoryId: number;
+  modelName: string;
+  modelNumber: string;
+  keyFeaturesSpecifications: string;
+  materialTypeIds: number[];
+  purpose: string;
+  powerSourceId: number;
+  storageConditionId: number;
+  countryId: number;
+  manufacturerName: string;
+  warrantyPeriod: string;
+  udiNumber: string;
+  serviceAvailability: boolean;
+}
 
 export interface PackagingData {
+  packagingId?: string;
   packId?: number;
-  packType: string;
+  packType?: string;
   unitPerPack: number;
   numberOfPacks: number;
   packSize: number;
@@ -45,14 +69,13 @@ export interface PackagingData {
   maximumOrderQuantity: number;
 }
 
-
 export interface PricingData {
   pricingId?: string;
   batchLotNumber: string;
   manufacturingDate: string | null;
   expiryDate: string | null;
   dateOfStockEntry: string | null;
-  storageCondition: string;
+  storageCondition?: string;
   stockQuantity: number;
   sellingPrice: number;
   mrp: number;
@@ -61,7 +84,6 @@ export interface PricingData {
   finalPrice: number;
   hsnCode: number;
   shelfLifeMonths?: number;
-
   additionalDiscounts: AdditionalDiscountData[];
 }
 
@@ -73,9 +95,7 @@ export interface AdditionalDiscountData {
   effectiveStartTime: string | null;
   effectiveEndDate: string | null;
   effectiveEndTime: string | null;
-  
 }
-
 
 export interface MoleculeData {
   moleculeId: string;
@@ -90,8 +110,6 @@ export interface ProductListData {
   productId: string;
   productName: string;
   categoryName?: string;
+  categoryId?: number;
   pricingDetails: PricingData[];
-
 }
-
-
