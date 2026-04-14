@@ -30,11 +30,11 @@ export interface CoordinatorEmailCheckResponse {
 // ==================== SMS OTP ====================
 
 export interface SMSOtpRequest {
-  phone: string;
+  phone: number;
 }
 
 export interface SMSVerifyOtpRequest {
-  phone: string;
+  phone: number;
   otp: string;
 }
 

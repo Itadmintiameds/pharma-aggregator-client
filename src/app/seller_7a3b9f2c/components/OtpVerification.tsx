@@ -90,10 +90,10 @@ export default function VerificationModal({
               });
             } else {
               const phoneWithPrefix = formatPhone(label);
-              await sellerRegService.verifySMSOtp({
-                phone: phoneWithPrefix,
-                otp: enteredOtp
-              });
+              // await sellerRegService.verifySMSOtp({
+              //   phone: phoneWithPrefix,
+              //   otp: enteredOtp
+              // });
             }
             onVerified();
           } catch (error: any) {
@@ -145,10 +145,10 @@ export default function VerificationModal({
             });
           } else {
             const phoneWithPrefix = formatPhone(label);
-            await sellerRegService.verifySMSOtp({
-              phone: phoneWithPrefix,
-              otp: pasteData
-            });
+            // await sellerRegService.verifySMSOtp({
+            //   phone: phoneWithPrefix,
+            //   otp: pasteData
+            // });
           }
           onVerified();
         } catch (error: any) {
@@ -187,10 +187,10 @@ export default function VerificationModal({
         });
       } else {
         const phoneWithPrefix = formatPhone(label);
-        await sellerRegService.verifySMSOtp({
-          phone: phoneWithPrefix,
-          otp: enteredOtp
-        });
+        // await sellerRegService.verifySMSOtp({
+        //   phone: phoneWithPrefix,
+        //   otp: enteredOtp
+        // });
       }
       
       onVerified();

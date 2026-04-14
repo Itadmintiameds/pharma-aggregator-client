@@ -26,7 +26,9 @@ export const step2Schema = z.object({
   coordinatorName: z.string().min(1, "Coordinator name is required"),
   coordinatorDesignation: z.string().min(1, "Coordinator designation is required"),
   coordinatorEmail: z.string().email("Invalid email format"),
-  coordinatorMobile: z.string().length(10, "Mobile must be 10 digits only"),
+  coordinatorMobile: z.string()
+    .length(10, "Mobile must be 10 digits only")
+    .regex(/^\d+$/, "Mobile number must contain only digits"),
 });
 
 // License validation schema
