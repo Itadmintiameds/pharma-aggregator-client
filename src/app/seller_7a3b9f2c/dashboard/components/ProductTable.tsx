@@ -1,510 +1,394 @@
 "use client";
 
-import React from "react";
-import { Edit, Eye, Trash2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Heart, Share2 } from "lucide-react";
+import { DashboardView } from "@/src/types/seller/dashboard";
+import { PiSealCheckLight } from "react-icons/pi";
+import { HiOutlineShoppingCart } from "react-icons/hi";
+import { SlHandbag, SlReload } from "react-icons/sl";
+import { LuShield, LuTruck } from "react-icons/lu";
+import { IoIosArrowBack } from "react-icons/io";
+import Image from "next/image";
+import { getDrugProductById } from "@/src/services/product/ProductService";
 
-const products = new Array(6).fill({
-  name: "Paracetamol",
-  category: "Drugs",
-  price: "₹20",
-  stock: 10000,
-  status: "Active",
-});
 
-const ProductTable = () => {
+interface ProductViewProps {
+  productId: string | null;
+  setCurrentView: (view: DashboardView) => void;
+}
+
+const images = [
+  "/assets/images/SellerMed.jpg",
+  "/assets/images/SellerMed2.jpg",
+  "/assets/images/SellerMed3.jpg",
+  "/assets/images/SellerMed4.jpg",
+  "/assets/images/SellerMed5.jpg",
+];
+
+const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
+  const [selectedImage, setSelectedImage] = useState(images[0]);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedPack, setSelectedPack] = useState(1);
+  const [productData, setProductData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  const fetchProductDetails = async () => {
+    if (!productId) return;
+
+    try {
+      const response = await getDrugProductById(productId);
+      console.log("API Response:", response);
+
+      setProductData(response);
+
+      if (response?.packagingDetails?.minimumOrderQuantity) {
+        setQuantity(response.packagingDetails.minimumOrderQuantity);
+      }
+
+    } catch (error) {
+      console.error("Error fetching product details:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchProductDetails();
+}, [productId]);
+
+  // Access data directly from productData
+  const product = productData;
+  const packaging = productData?.packagingDetails;
+  const pricing = productData?.pricingDetails?.[0];
+
+  // Format product name: productName + strength + dosageForm
+  const formattedProductName = product
+    ? `${product.productName || ''} ${product.strength || ''}mg ${product.dosageForm || ''}`.trim()
+    : "";
+
+  // Format description: therapeuticCategory + therapeuticSubcategory
+const formattedDescription = "Broad-spectrum antibiotic for bacterial infections";
+
+  // Calculate total price
+  const totalPrice = pricing ? pricing.finalPrice * quantity : 0;
+
+  if (!productData || loading) {
+    return <div className="w-full bg-white rounded-xl p-6 space-y-8"></div>;
+  }
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-neutral-50 border-neutral-100 text-left">
-          <tr>
-            <th className="p-4">Thumbnail</th>
-            <th className="p-4">Product Name</th>
-            <th className="p-4">Category</th>
-            <th className="p-4">Price</th>
-            <th className="p-4">Stock</th>
-            <th className="p-4">Status</th>
-            <th className="p-4">Actions</th>
-          </tr>
-        </thead>
+    <div className="w-full bg-white rounded-xl p-6 space-y-8">
 
-        <tbody>
-          {products.map((product, index) => (
-            <tr
-              key={index}
-              className="border-t border-neutral-100 hover:bg-neutral-50 transition"
+      {/* MAIN SECTION */}
+
+      <div className="grid grid-cols-2 gap-10">
+
+        {/* LEFT SIDE */}
+
+        <div>
+
+          {/* MAIN IMAGE */}
+
+          <div className="relative rounded-xl overflow-hidden w-full h-171 flex items-center justify-center">
+            <Image
+              src={selectedImage}
+              alt="Product Image"
+              fill
+              className="object-cover rounded-xl"
+            />
+
+            <button
+              className="absolute left-2 bg-white rounded-full p-2 shadow hover:bg-gray-100"
+              onClick={() => {
+                const currentIndex = images.indexOf(selectedImage);
+                const prevIndex = (currentIndex - 1 + images.length) % images.length;
+                setSelectedImage(images[prevIndex]);
+              }}
             >
-              <td className="p-4">
-                <div className="w-10 h-10 bg-neutral-200 rounded-lg" />
-              </td>
+              <IoIosArrowBack size={20} />
+            </button>
 
-              <td className="p-4">{product.name}</td>
-              <td className="p-4">{product.category}</td>
-              <td className="p-4">{product.price}</td>
-              <td className="p-4">{product.stock}</td>
+            <button
+              className="absolute right-2 bg-white rounded-full p-2 shadow hover:bg-gray-100"
+              onClick={() => {
+                const currentIndex = images.indexOf(selectedImage);
+                const nextIndex = (currentIndex + 1) % images.length;
+                setSelectedImage(images[nextIndex]);
+              }}
+            >
+              <IoIosArrowBack size={20} className="rotate-180" />
+            </button>
 
-              <td className="p-4">
-                <span className="px-3 py-1 text-xs rounded-md bg-success-50 text-success-900">
-                  {product.status}
-                </span>
-              </td>
+            {pricing?.discountPercentage && pricing.discountPercentage > 0 && (
+              <span className="absolute top-4 left-4 bg-[#FB2C36] text-white text-sm px-3 py-1 rounded-full">
+                {pricing.discountPercentage}% OFF
+              </span>
+            )}
 
-              <td className="p-4">
-                <div className="flex items-center gap-1">
+            <div className="absolute top-4 right-4 flex gap-2">
+              <button className="bg-white rounded-full p-2 shadow">
+                <Heart size={20} />
+              </button>
+              <button className="bg-white rounded-full p-2 shadow">
+                <Share2 size={20} />
+              </button>
+            </div>
+          </div>
 
-                  <button className="p-2 rounded-md hover:bg-primary-05 transition">
-                    <Edit size={20} className="text-primary-600" />
-                  </button>
+          {/* THUMBNAILS */}
+          <div className="flex gap-3 mt-4">
+            {images.map((img, index) => (
+              <div
+                key={index}
+                onClick={() => setSelectedImage(img)}
+                className={`relative h-[127px] w-[127px] rounded-lg cursor-pointer border overflow-hidden ${selectedImage === img
+                  ? "border-primary-900"
+                  : "border-neutral-200"
+                  }`}
+              >
+                <Image
+                  src={img}
+                  alt={`Thumbnail ${index + 1}`}
+                  fill
+                  className="object-cover rounded-lg"
+                />
+              </div>
+            ))}
+          </div>
 
-                  <button className="p-2 rounded-md hover:bg-neutral-100 transition">
-                    <Eye size={20} className="text-neutral-500" />
-                  </button>                  
+          {/* VERIFIED / SHIPPING / RETURNS */}
+          <div className="flex items-center gap-20 mt-6 text-sm">
+            <div className="flex items-center gap-2">
+              <LuShield size={20} style={{ color: "#00A63E" }} />
+              <span className="text-neutral-600">Verified</span>
+            </div>
 
-                  <button className="p-2 rounded-md hover:bg-warning-100 transition">
-                    <Trash2 size={20} className="text-warning-500" />
-                  </button>
+            <div className="flex items-center gap-2">
+              <LuTruck size={20} style={{ color: "#155DFC" }} />
+              <span className="text-neutral-600">Fast Ship</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <SlReload size={20} style={{ color: "#9810FA" }} />
+              <span className="text-neutral-600">Returns</span>
+            </div>
+          </div>
+
+          {/* ADDITIONAL DISCOUNTS - Static as mentioned */}
+          <div className="bg-[#EFF6FF] border-2 border-[#BEDBFF] rounded-lg p-4 mt-4">
+            <p className="font-semibold text-[#1C398E] mb-2">
+              Additional Discounts Available
+            </p>
+            <ul className="text-sm text-[#193CB8] list-disc ml-4 space-y-1">
+              <li>Corporate buyers: Up to 15% additional discount</li>
+              <li>Annual contract: Up to 25% savings</li>
+              <li>First-time buyers: Extra ₹10 off on orders above ₹200</li>
+            </ul>
+          </div>
+
+        </div>
+
+        {/* RIGHT SIDE */}
+
+        <div>
+
+          {/* TAGS - Static as mentioned */}
+          <div className="flex gap-2 mb-3">
+            <span className="bg-primary-05 text-secondary-700 px-3 py-1 rounded-xl">
+              Prescription Required
+            </span>
+            <span className="bg-success-50 text-success-800 px-3 py-1 rounded-xl flex items-center gap-1">
+              <PiSealCheckLight className="text-sm" />
+              FDA Approved
+            </span>
+          </div>
+
+          {/* TITLE */}
+          <h1 className="text-[28px] font-semibold mb-2">
+            {formattedProductName}
+          </h1>
+
+          <p className="text-neutral-700 text-sm mb-4">
+            {formattedDescription}
+          </p>
+
+          {/* PRICE CARD */}
+          <div className="bg-[#F9FAFB] rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-4">
+              <span className="text-[28px] font-bold">₹{pricing?.finalPrice?.toFixed(2)}</span>
+              <span className="text-[#99A1AF] text-[18px] line-through">
+                ₹{pricing?.mrp?.toFixed(2)}
+              </span>
+              <span className="bg-warning-100 text-warning-600 text-sm px-2 py-1 rounded">
+                Save {pricing?.discountPercentage}%
+              </span>
+            </div>
+            <p className="text-sm text-neutral-700 mt-1">
+              Price per pack ({packaging?.numberOfUnits} {product?.dosageForm})
+            </p>
+          </div>
+
+          {/* SPECIAL OFFERS - Static as mentioned */}
+          <div className="border border-yellow-300 bg-yellow-50 p-4 rounded-lg mb-6">
+            <p className="font-semibold mb-2 text-sm text-neutral-900">Special Offers</p>
+            <ul className="text-sm text-neutral-700 list-disc ml-4 space-y-1">
+              <li>Buy 5+ packs: Extra 5% off</li>
+              <li>Buy 10+ packs: Extra 10% off + Free shipping</li>
+              <li>Bulk orders: Additional volume discounts available</li>
+            </ul>
+          </div>
+
+          {/* PACK SIZE */}
+          <h3 className="font-semibold text-[#364153] text-sm mb-3">
+            Select Pack Size <span className="text-warning-500">*</span>
+          </h3>
+
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            {/* First Pack - Dynamic */}
+            <div
+              onClick={() => setSelectedPack(1)}
+              className={`relative border rounded-xl p-5 cursor-pointer text-center transition ${selectedPack === 1
+                ? "border-2 border-primary-800 bg-secondary-100"
+                : "border-2 border-neutral-300"
+                }`}
+            >
+              {selectedPack === 1 && (
+                <div className="absolute -top-2 -right-2 bg-purple-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
+                  ✓
                 </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              )}
+              <p className="font-semibold text-lg">{packaging?.packSize}mg</p>
+              <p className="text-sm font-semibold text-neutral-700">₹{pricing?.mrp?.toFixed(2)}</p>
+              <p className="text-sm text-success-700 font-semibold">{pricing?.discountPercentage}% off</p>
+            </div>
+
+            {/* Second Pack - Static */}
+            <div className="relative border-2 border-neutral-300 rounded-xl p-5 cursor-pointer text-center">
+              <p className="font-semibold text-lg">100mg</p>
+              <p className="text-sm font-semibold text-neutral-700">₹599</p>
+              <p className="text-sm text-success-700 font-semibold">15% off</p>
+            </div>
+
+            {/* Third Pack - Static */}
+            <div className="relative border-2 border-neutral-300 rounded-xl p-5 cursor-pointer text-center">
+              <p className="font-semibold text-lg">200mg</p>
+              <p className="text-sm font-semibold text-neutral-700">₹999</p>
+              <p className="text-sm text-success-700 font-semibold">20% off</p>
+            </div>
+          </div>
+
+          {/* PRODUCT DETAILS */}
+          <h3 className="text-[16px] mb-3">Product Details</h3>
+
+          <div className="grid grid-cols-3 gap-4 text-sm mb-6">
+            <div className="bg-[#F9FAFB] rounded-lg p-3">
+              <p className="text-[#6A7282] text-xs">Pack Size</p>
+              <p className="text-[#101828] text-[16px]">{packaging?.packSize} {product?.dosageForm}</p>
+            </div>
+
+            <div className="bg-[#F9FAFB] rounded-lg p-3">
+              <p className="text-[#6A7282] text-xs">Min Order (MOQ)</p>
+              <p className="text-[#101828] text-[16px]">{packaging?.minimumOrderQuantity} Packs</p>
+            </div>
+
+            <div className="bg-[#F9FAFB] rounded-lg p-3">
+              <p className="text-[#6A7282] text-xs">Dosage Form</p>
+              <p className="text-[#101828] text-[16px]">{product?.dosageForm}</p>
+            </div>
+
+            <div className="bg-[#F9FAFB] rounded-lg p-3">
+              <p className="text-[#6A7282] text-xs">Manufacturer</p>
+              <p className="text-[#101828] text-[16px]">{pricing?.manufacturerName}</p>
+            </div>
+
+            <div className="bg-[#F9FAFB] rounded-lg p-3">
+              <p className="text-[#6A7282] text-xs">Strength</p>
+              <p className="text-[#101828] text-[16px]">{product?.strength}mg</p>
+            </div>
+
+            <div className="bg-[#F9FAFB] rounded-lg p-3">
+              <p className="text-[#6A7282] text-xs">Max Order</p>
+              <p className="text-[#101828] text-[16px]">{packaging?.maximumOrderQuantity} Packs</p>
+            </div>
+          </div>
+
+          {/* QUANTITY */}
+          <div className="mb-6">
+            <p className="text-sm text-[#364153] mb-2">
+              Quantity (Packs)
+            </p>
+
+            <div className="flex items-center gap-4">
+              <div className="flex border border-neutral-300 rounded-lg overflow-hidden">
+                <button
+                  className="px-4 py-2 border-r border-neutral-300 text-neutral-900"
+                  onClick={() => setQuantity(Math.max(packaging?.minimumOrderQuantity || 1, quantity - 1))}
+                >
+                  -
+                </button>
+                <span className="px-6 flex items-center justify-center">
+                  {quantity}
+                </span>
+                <button
+                  className="px-4 py-2 border-l border-neutral-300 text-neutral-900"
+                  onClick={() => setQuantity(Math.min(packaging?.maximumOrderQuantity || 1000, quantity + 1))}
+                >
+                  +
+                </button>
+              </div>
+              <p className="text-sm text-[#4A5565]">
+                Total: ₹{totalPrice.toFixed(2)}
+              </p>
+            </div>
+          </div>
+
+          <p className="text-xs text-[#6A7282] mt-1">
+            Minimum order: {packaging?.minimumOrderQuantity} packs | Maximum: {packaging?.maximumOrderQuantity} packs
+          </p>
+
+          {/* BUTTONS - Static */}
+          <button className="w-full bg-primary-900 text-white text-[16px] font-semibold py-3 rounded-lg mt-6 flex items-center justify-center gap-2">
+            <SlHandbag size={24} />
+            Buy Now
+          </button>
+
+          <button className="w-full border-2 border-primary-900 text-primary-900 text-[16px] font-semibold py-3 rounded-lg mt-3 flex items-center justify-center gap-2">
+            <HiOutlineShoppingCart size={24} />
+            Add to Cart
+          </button>
+
+        </div>
+
+      </div>
+
+      {/* PRODUCT DESCRIPTION */}
+      <div className="border-t pt-6">
+        <h2 className="text-lg font-semibold mb-3">
+          Product Description
+        </h2>
+        <p className="text-sm text-neutral-600 mb-3">
+          {product?.productDescription}
+        </p>
+
+        {/* <h3 className="font-semibold mt-4 mb-2">Key Features:</h3>
+        <ul className="list-disc ml-5 text-sm text-neutral-600 space-y-1">
+          <li>Broad-spectrum antibiotic effective against bacterial infections</li>
+          <li>High-quality pharmaceutical-grade ingredients</li>
+          <li>Manufactured in FDA-approved facility</li>
+          <li>Extended shelf life of 24 months</li>
+          <li>Easy-to-swallow capsule form</li>
+        </ul> */}
+
+        <h3 className="font-semibold mt-4 mb-2">
+          Warnings & Precautions:
+        </h3>
+        <p className="text-sm text-neutral-600">
+          {product?.warningsPrecautions}
+        </p>
+      </div>
+
     </div>
   );
 };
 
-export default ProductTable;
-// 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// This code is not completely functional as of now................
-
-// "use client";
-
-// import React, { useEffect, useState } from "react";
-// import { Edit, Eye, Trash2, X } from "lucide-react";
-// import { getDrugProductList, drugProductDelete, getDrugProductById } from "@/src/services/product/ProductService";
-// import { CreateDrugProductRequest } from "@/src/types/product/ProductData";
-// import { DashboardView } from "@/src/types/seller/dashboard";
-
-// interface ProductTableProps {
-//   setCurrentView: (view: DashboardView) => void;
-//   onEditProduct?: (productId: string) => void;
-//   refreshTrigger?: number;
-// }
-
-// interface Product {
-//   productId: string;
-//   productName: string;
-//   therapeuticCategory: string;
-//   dosageForm: string;
-//   strength: number;
-//   packagingDetails?: {
-//     packagingUnit: string;
-//     numberOfUnits: number;
-//     packSize: number;
-//   };
-//   pricingDetails?: Array<{
-//     pricePerUnit: number;
-//     mrp: number;
-//     stockQuantity: number;
-//     batchLotNumber: string;
-//     manufacturerName: string;
-//     expiryDate: string | null;
-//     gstPercentage: number;
-//     finalPrice: number;
-//   }>;
-//   molecules?: Array<{
-//     moleculeId: number;
-//     moleculeName: string;
-//     mechanismOfAction: string;
-//     primaryUse: string;
-//   }>;
-// }
-
-// const ProductTable = ({ setCurrentView, onEditProduct, refreshTrigger = 0 }: ProductTableProps) => {
-//   const [products, setProducts] = useState<Product[]>([]);
-//   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-//   const [showViewModal, setShowViewModal] = useState(false);
-//   const [showDeleteModal, setShowDeleteModal] = useState(false);
-//   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-
-//   useEffect(() => {
-//     fetchProducts();
-//   }, [refreshTrigger]);
-
-//   const fetchProducts = async () => {
-//     try {
-//       const data = await getDrugProductList();
-      
-//       // Handle different response structures
-//       let productList = [];
-//       if (data?.content) {
-//         productList = data.content; // Paginated response
-//       } else if (Array.isArray(data)) {
-//         productList = data; // Direct array
-//       } else if (data?.data && Array.isArray(data.data)) {
-//         productList = data.data; // Wrapped response
-//       }
-
-//       setProducts(productList);
-//     } catch (error) {
-//       console.error("Failed to fetch products:", error);
-//     }
-//   };
-
-//   const getCategoryName = (categoryId: string) => {
-//     // This will need to be mapped from your categories list
-//     // For now, return a placeholder or you can pass categories as prop
-//     return categoryId || "N/A";
-//   };
-
-//   const getStatus = (stockQuantity: number) => {
-//     if (stockQuantity <= 0) return { label: "Out of Stock", className: "bg-warning-100 text-warning-800" };
-//     if (stockQuantity < 10) return { label: "Low Stock", className: "bg-warning-50 text-warning-700" };
-//     return { label: "Active", className: "bg-success-50 text-success-700" };
-//   };
-
-//   const handleEditClick = (productId: string) => {
-//     // Store the product ID in localStorage or state management to be used in AddProduct component
-//     localStorage.setItem("editProductId", productId);
-//     localStorage.setItem("productMode", "edit");
-//     setCurrentView("addProduct");
-//     if (onEditProduct) {
-//       onEditProduct(productId);
-//     }
-//   };
-
-//   const handleViewClick = async (productId: string) => {
-//     try {
-//       const productData = await getDrugProductById(productId);
-//       setSelectedProduct(productData);
-//       setShowViewModal(true);
-//     } catch (error) {
-//       console.error("Failed to fetch product details:", error);
-//     }
-//   };
-
-//   const handleDeleteClick = (product: Product) => {
-//     setProductToDelete(product);
-//     setShowDeleteModal(true);
-//   };
-
-//   const confirmDelete = async () => {
-//     if (!productToDelete) return;
-
-//     try {
-//       await drugProductDelete(productToDelete.productId);
-//       setShowDeleteModal(false);
-//       setProductToDelete(null);
-//       fetchProducts(); // Refresh the list
-//     } catch (error) {
-//       console.error("Failed to delete product:", error);
-//     }
-//   };
-
-//   const formatPrice = (price: number) => {
-//     return `₹${price?.toFixed(2) || '0.00'}`;
-//   };
-
-//   // Get the first pricing detail or use defaults
-//   const getPricingDetail = (product: Product) => {
-//     return product.pricingDetails?.[0] || {
-//       pricePerUnit: 0,
-//       mrp: 0,
-//       stockQuantity: 0,
-//       batchLotNumber: '',
-//       manufacturerName: '',
-//       expiryDate: null,
-//       gstPercentage: 0,
-//       finalPrice: 0
-//     };
-//   };
-
-//   return (
-//     <>
-//       <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
-//         <table className="w-full text-sm">
-//           <thead className="bg-neutral-50 border-neutral-100 text-left">
-//             <tr>
-//               <th className="p-4">Thumbnail</th>
-//               <th className="p-4">Product Name</th>
-//               <th className="p-4">Category</th>
-//               <th className="p-4">Price</th>
-//               <th className="p-4">Stock</th>
-//               <th className="p-4">Status</th>
-//               <th className="p-4">Actions</th>
-//             </tr>
-//           </thead>
-
-//           <tbody>
-//             {products.length === 0 ? (
-//               <tr>
-//                 <td colSpan={7} className="text-center py-8 text-neutral-500">
-//                   No products found
-//                 </td>
-//               </tr>
-//             ) : (
-//               products.map((product, index) => {
-//                 const pricing = getPricingDetail(product);
-//                 const status = getStatus(pricing.stockQuantity);
-                
-//                 return (
-//                   <tr
-//                     key={product.productId || index}
-//                     className="border-t border-neutral-100 hover:bg-neutral-50 transition"
-//                   >
-//                     <td className="p-4">
-//                       <div className="w-10 h-10 bg-neutral-200 rounded-lg" />
-//                     </td>
-
-//                     <td className="p-4 font-medium">{product.productName}</td>
-//                     <td className="p-4">{getCategoryName(product.therapeuticCategory)}</td>
-//                     <td className="p-4">{formatPrice(pricing.pricePerUnit)}</td>
-//                     <td className="p-4">{pricing.stockQuantity}</td>
-
-//                     <td className="p-4">
-//                       <span className={`px-3 py-1 text-xs rounded-md ${status.className}`}>
-//                         {status.label}
-//                       </span>
-//                     </td>
-
-//                     <td className="p-4">
-//                       <div className="flex items-center gap-1">
-//                         <button 
-//                           className="p-2 rounded-md hover:bg-primary-05 transition"
-//                           onClick={() => handleEditClick(product.productId)}
-//                           title="Edit Product"
-//                         >
-//                           <Edit size={20} className="text-primary-600" />
-//                         </button>
-
-//                         <button 
-//                           className="p-2 rounded-md hover:bg-neutral-100 transition"
-//                           onClick={() => handleViewClick(product.productId)}
-//                           title="View Product"
-//                         >
-//                           <Eye size={20} className="text-neutral-500" />
-//                         </button>                  
-
-//                         <button 
-//                           className="p-2 rounded-md hover:bg-warning-100 transition"
-//                           onClick={() => handleDeleteClick(product)}
-//                           title="Delete Product"
-//                         >
-//                           <Trash2 size={20} className="text-warning-500" />
-//                         </button>
-//                       </div>
-//                     </td>
-//                   </tr>
-//                 );
-//               })
-//             )}
-//           </tbody>
-//         </table>
-//       </div>
-
-//       {/* View Product Modal */}
-//       {showViewModal && selectedProduct && (
-//         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-//           <div className="bg-white rounded-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-//             <div className="sticky top-0 bg-white border-b border-neutral-100 px-6 py-4 flex items-center justify-between">
-//               <h3 className="text-h6 font-bold text-neutral-900">Product Details</h3>
-//               <button
-//                 onClick={() => setShowViewModal(false)}
-//                 className="p-2 hover:bg-neutral-100 rounded-lg"
-//               >
-//                 <X size={18} />
-//               </button>
-//             </div>
-            
-//             <div className="p-6 space-y-6">
-//               {/* Basic Information */}
-//               <div>
-//                 <h4 className="font-semibold text-primary-900 mb-3">Basic Information</h4>
-//                 <div className="grid grid-cols-2 gap-4">
-//                   <div>
-//                     <p className="text-xs text-neutral-500">Product Name</p>
-//                     <p className="text-sm font-medium text-neutral-900">{selectedProduct.productName}</p>
-//                   </div>
-//                   <div>
-//                     <p className="text-xs text-neutral-500">Dosage Form</p>
-//                     <p className="text-sm font-medium text-neutral-900">{selectedProduct.dosageForm}</p>
-//                   </div>
-//                   <div>
-//                     <p className="text-xs text-neutral-500">Strength</p>
-//                     <p className="text-sm font-medium text-neutral-900">{selectedProduct.strength}</p>
-//                   </div>
-//                 </div>
-//               </div>
-
-//               {/* Molecules */}
-//               {selectedProduct.molecules && selectedProduct.molecules.length > 0 && (
-//                 <div>
-//                   <h4 className="font-semibold text-primary-900 mb-3">Molecules</h4>
-//                   <div className="space-y-3">
-//                     {selectedProduct.molecules.map((molecule: any, idx: number) => (
-//                       <div key={idx} className="bg-neutral-50 p-3 rounded-lg">
-//                         <p className="text-sm font-medium text-neutral-900">{molecule.moleculeName}</p>
-//                         {molecule.mechanismOfAction && (
-//                           <p className="text-xs text-neutral-600 mt-1">
-//                             <span className="font-medium">Mechanism:</span> {molecule.mechanismOfAction}
-//                           </p>
-//                         )}
-//                         {molecule.primaryUse && (
-//                           <p className="text-xs text-neutral-600 mt-1">
-//                             <span className="font-medium">Primary Use:</span> {molecule.primaryUse}
-//                           </p>
-//                         )}
-//                       </div>
-//                     ))}
-//                   </div>
-//                 </div>
-//               )}
-
-//               {/* Pricing Information */}
-//               {selectedProduct.pricingDetails && selectedProduct.pricingDetails.length > 0 && (
-//                 <div>
-//                   <h4 className="font-semibold text-primary-900 mb-3">Pricing & Stock</h4>
-//                   {selectedProduct.pricingDetails.map((pricing: any, idx: number) => (
-//                     <div key={idx} className="bg-neutral-50 p-3 rounded-lg space-y-2">
-//                       <div className="grid grid-cols-2 gap-3">
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Batch Number</p>
-//                           <p className="text-sm font-medium">{pricing.batchLotNumber || 'N/A'}</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Manufacturer</p>
-//                           <p className="text-sm font-medium">{pricing.manufacturerName || 'N/A'}</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">MRP</p>
-//                           <p className="text-sm font-medium">₹{pricing.mrp?.toFixed(2)}</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Price/Unit</p>
-//                           <p className="text-sm font-medium">₹{pricing.pricePerUnit?.toFixed(2)}</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Final Price</p>
-//                           <p className="text-sm font-medium">₹{pricing.finalPrice?.toFixed(2)}</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Stock</p>
-//                           <p className="text-sm font-medium">{pricing.stockQuantity} units</p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">Expiry Date</p>
-//                           <p className="text-sm font-medium">
-//                             {pricing.expiryDate ? new Date(pricing.expiryDate).toLocaleDateString() : 'N/A'}
-//                           </p>
-//                         </div>
-//                         <div>
-//                           <p className="text-xs text-neutral-500">GST</p>
-//                           <p className="text-sm font-medium">{pricing.gstPercentage}%</p>
-//                         </div>
-//                       </div>
-//                     </div>
-//                   ))}
-//                 </div>
-//               )}
-
-//               {/* Warnings & Description */}
-//               {selectedProduct.warningsPrecautions && (
-//                 <div>
-//                   <h4 className="font-semibold text-primary-900 mb-2">Warnings & Precautions</h4>
-//                   <p className="text-sm text-neutral-700 bg-neutral-50 p-3 rounded-lg">
-//                     {selectedProduct.warningsPrecautions}
-//                   </p>
-//                 </div>
-//               )}
-
-//               {selectedProduct.productDescription && (
-//                 <div>
-//                   <h4 className="font-semibold text-primary-900 mb-2">Description</h4>
-//                   <p className="text-sm text-neutral-700 bg-neutral-50 p-3 rounded-lg">
-//                     {selectedProduct.productDescription}
-//                   </p>
-//                 </div>
-//               )}
-//             </div>
-
-//             <div className="sticky bottom-0 bg-white border-t border-neutral-100 px-6 py-4 flex justify-end">
-//               <button
-//                 onClick={() => setShowViewModal(false)}
-//                 className="px-6 py-2 bg-primary-900 text-white rounded-lg hover:bg-primary-800"
-//               >
-//                 Close
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//       {/* Delete Confirmation Modal */}
-//       {showDeleteModal && productToDelete && (
-//         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-//           <div className="bg-white rounded-xl max-w-md w-full mx-4 p-6">
-//             <div className="text-center mb-4">
-//               <div className="w-16 h-16 bg-warning-50 rounded-full flex items-center justify-center mx-auto mb-3">
-//                 <Trash2 size={32} className="text-warning-600" />
-//               </div>
-//               <h3 className="text-h6 font-bold text-neutral-900 mb-2">Delete Product</h3>
-//               <p className="text-sm text-neutral-500">
-//                 Are you sure you want to delete &quot;{productToDelete.productName}&quot;? This action cannot be undone.
-//               </p>
-//             </div>
-//             <div className="flex gap-3">
-//               <button
-//                 onClick={() => setShowDeleteModal(false)}
-//                 className="flex-1 h-11 rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50 transition-colors"
-//               >
-//                 Cancel
-//               </button>
-//               <button
-//                 onClick={confirmDelete}
-//                 className="flex-1 h-11 rounded-lg bg-warning-600 text-white hover:bg-warning-700 transition-colors"
-//               >
-//                 Delete
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-//     </>
-//   );
-// };
-
-// export default ProductTable;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+export default ProductView1;

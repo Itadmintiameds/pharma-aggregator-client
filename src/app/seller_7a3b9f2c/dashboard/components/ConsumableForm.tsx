@@ -823,7 +823,7 @@ const ConsumableForm = ({ deviceType, onSubmitSuccess }: ConsumableFormProps) =>
             {errors.sterileStatus && <p className="text-red-500 text-sm mt-1">{errors.sterileStatus}</p>}
           </div>
 
-          <Input label="Shelf Life" name="shelfLife" placeholder="e.g., 3 years, 24 months" onChange={handleChange} value={form.shelfLife} error={errors.shelfLife} required />
+          <Input label="Shelf Life (Enter in months)" name="shelfLife" placeholder="e.g., 15" onChange={handleChange} value={form.shelfLife} error={errors.shelfLife} required />
 
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">Disposable / Reusable <span className="text-warning-500 ml-1">*</span></label>
