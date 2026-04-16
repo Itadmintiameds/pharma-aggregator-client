@@ -7,8 +7,10 @@ import {
   getDosage,
   getMoleculeStrengthByDosage,
   getPackTypesByDosageId,
+  getProductById,
   getTherapeuticCategory,
   getTherapeuticSubcategory,
+  updateProduct,
   uploadProductImages,
 } from "@/src/services/product/ProductService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
@@ -24,9 +26,11 @@ interface SelectOption {
 
 interface DrugFormProps {
   categoryId: number;
+  editProductId?: string;
 }
 
-export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
+export const DrugForm: React.FC<DrugFormProps> = ({ categoryId,
+  editProductId }) => {
   type FormState = {
     productId: string;
     categoryId: string;
@@ -147,6 +151,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
     null,
   );
   const [mode, setMode] = useState<"create" | "edit" | "delete">("create");
+  const isReadOnly = mode === "edit" || mode === "delete";
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [subcategoryOptions, setSubcategoryOptions] = useState<SelectOption[]>(
     [],
@@ -156,10 +161,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
   const [dosageOptions, setDosageOptions] = useState<any[]>([]);
   const [loadingDosage, setLoadingDosage] = useState(false);
   const [images, setImages] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
   const [moleculeOptions, setMoleculeOptions] = useState<any[]>([]);
   const [loadingMolecules, setLoadingMolecules] = useState(false);
   const [packTypeOptions, setPackTypeOptions] = useState([]);
   const [strengthFormats, setStrengthFormats] = useState<string[]>([]);
+  const [dosageFormLabel, setDosageFormLabel] = useState<string>("");
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
   const [additionalDiscounts, setAdditionalDiscounts] = useState([]);
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -172,6 +179,26 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
       }));
     }
   }, [categoryId]);
+
+  useEffect(() => {
+    if (editProductId) {
+      setMode("edit");
+      setSelectedProductId(editProductId);
+      setShowForm(true);
+    }
+  }, [editProductId]);
+
+  useEffect(() => {
+    if (!form.dosageId && dosageFormLabel && dosageOptions.length > 0) {
+      const matched = dosageOptions.find((option) => option.label === dosageFormLabel);
+      if (matched) {
+        setForm((prev) => ({
+          ...prev,
+          dosageId: matched.value,
+        }));
+      }
+    }
+  }, [dosageFormLabel, dosageOptions, form.dosageId]);
 
   useEffect(() => {
     const fetchTherapeuticCategories = async () => {
@@ -468,6 +495,70 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
     return combined.toISOString().slice(0, 19);
   };
 
+  const buildDrugProductPayload = () => {
+    return {
+      productName: form.productName,
+      productDescription: form.productDescription,
+      productMarketingUrl: form.productMarketingUrl,
+      warningsPrecautions: form.warningsPrecautions,
+      categoryId: Number(form.categoryId),
+      packagingDetails: {
+        packId: form.packId ? Number(form.packId) : undefined,
+        packType: form.packType,
+        unitPerPack: Number(form.unitPerPack),
+        numberOfPacks: Number(form.numberOfPacks),
+        packSize: Number(form.packSize),
+        minimumOrderQuantity: Number(form.minimumOrderQuantity),
+        maximumOrderQuantity: Number(form.maximumOrderQuantity),
+      },
+      pricingDetails: [
+        {
+          pricingId: form.pricingId || undefined,
+          batchLotNumber: form.batchLotNumber,
+          manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
+          expiryDate: toLocalDateTimeString(form.expiryDate),
+          dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
+          storageCondition: form.storageCondition,
+          stockQuantity: Number(form.stockQuantity),
+          sellingPrice: Number(form.sellingPrice),
+          mrp: Number(form.mrp),
+          discountPercentage: Number(form.discountPercentage),
+          gstPercentage: Number(form.gstPercentage),
+          finalPrice: Number(form.finalPrice),
+          hsnCode: Number(form.hsnCode),
+          shelfLifeMonths: 24,
+          additionalDiscounts: form.additionalDiscount.map((d) => ({
+            minimumPurchaseQuantity: Number(d.minimumPurchaseQuantity),
+            additionalDiscountPercentage: Number(d.additionalDiscountPercentage),
+            effectiveStartDate: d.effectiveStartDate,
+            effectiveStartTime: d.effectiveStartTime,
+            effectiveEndDate: d.effectiveEndDate,
+            effectiveEndTime: d.effectiveEndTime,
+          })),
+        },
+      ],
+      productAttributeDrugs: [
+        {
+          therapeuticCategoryId: form.therapeuticCategory,
+          therapeuticSubcategoryId: form.therapeuticSubcategory,
+          dosageForm:
+            dosageOptions.find((d) => d.value === form.dosageId)?.label ||
+            dosageFormLabel ||
+            "",
+          molecules: form.molecules
+            .map((m) => ({
+              moleculeId: Number(m.moleculeId),
+              strength: m.strength,
+            }))
+            .filter((m) => m.moleculeId > 0 && m.strength),
+        },
+      ],
+      productImages: images.map((img) => ({
+        productImage: img.name,
+      })),
+    };
+  };
+
   const handleSubmit = async () => {
     const validation = drugProductSchema.safeParse(form);
 
@@ -487,81 +578,16 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
 
     setErrors({});
     try {
-      const payload = {
-        productName: form.productName,
-        productDescription: form.productDescription,
-        productMarketingUrl: form.productMarketingUrl,
-        warningsPrecautions: form.warningsPrecautions,
-
-        manufacturerName: form.manufacturerName, // ✅ MOVED TO ROOT
-
-        categoryId: Number(form.categoryId), // ✅ FIX
-
-        packagingDetails: {
-          packId: Number(form.packId),
-          packType: form.packType,
-          unitPerPack: Number(form.unitPerPack), // ✅ STRING
-          numberOfPacks: Number(form.numberOfPacks),
-          packSize: Number(form.packSize),
-          minimumOrderQuantity: Number(form.minimumOrderQuantity),
-          maximumOrderQuantity: Number(form.maximumOrderQuantity),
-        },
-
-        pricingDetails: [
-          {
-            batchLotNumber: form.batchLotNumber,
-            manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-            expiryDate: toLocalDateTimeString(form.expiryDate),
-            storageCondition: form.storageCondition,
-            stockQuantity: Number(form.stockQuantity),
-            dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-            sellingPrice: Number(form.sellingPrice),
-            mrp: Number(form.mrp),
-            discountPercentage: Number(form.discountPercentage),
-            gstPercentage: Number(form.gstPercentage),
-            finalPrice: Number(form.finalPrice),
-            hsnCode: Number(form.hsnCode),
-            shelfLifeMonths: 24, // optional
-
-            // 🔥 IMPORTANT FIX
-            additionalDiscounts: form.additionalDiscount.map((d) => ({
-              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-              additionalDiscountPercentage: d.additionalDiscountPercentage,
-              effectiveStartDate: d.effectiveStartDate,
-              effectiveStartTime: d.effectiveStartTime,
-              effectiveEndDate: d.effectiveEndDate,
-              effectiveEndTime: d.effectiveEndTime,
-            })),
-          },
-        ],
-
-        productAttributeDrugs: [
-          {
-            therapeuticCategoryId: form.therapeuticCategory,
-            therapeuticSubcategoryId: form.therapeuticSubcategory,
-
-            dosageForm:
-              dosageOptions.find((d) => d.value === form.dosageId)?.label || "", // ✅ FIX
-
-            molecules: form.molecules.map((m) => ({
-              moleculeId: Number(m.moleculeId),
-              strength: m.strength,
-            })),
-          },
-        ],
-
-        productImages: images.map((img) => ({
-          productImage: img.name,
-        })),
-      };
+      const payload = buildDrugProductPayload();
 
       const productResponse = await createDrugProduct(payload);
+      const productId =
+        productResponse?.data?.productId ||
+        productResponse?.productId ||
+        productResponse?.data?.id ||
+        "";
 
-      // console.log("Product Response:", productResponse);
-
-      const productId = productResponse.data.productId;
-
-      if (images.length > 0) {
+      if (images.length > 0 && productId) {
         await uploadProductImages(productId, images);
       }
 
@@ -577,75 +603,116 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
     }
   };
 
-  // useEffect(() => {
-  //   if ((mode === "edit" || mode === "delete") && selectedProductId) {
-  //     fetchProductByIdAndFillForm(selectedProductId);
-  //   }
-  // }, [mode, selectedProductId]);
+  useEffect(() => {
+    if (
+      (mode === "edit" || mode === "delete") &&
+      selectedProductId &&
+      dosageOptions.length > 0 &&
+      moleculeOptions.length > 0 // ✅ IMPORTANT
+    ) {
+      fetchProductByIdAndFillForm(selectedProductId);
+    }
+  }, [mode, selectedProductId, dosageOptions, moleculeOptions]);
 
-  // const fetchProductByIdAndFillForm = async (id: string) => {
-  //   try {
-  //     const data = await getDrugProductById(id);
-  //     if (!data) throw new Error("Product not found");
-  //     const pricing = data.pricingDetails?.[0] || {};
-  //     const packaging = data.packagingDetails || {};
-  //     setForm({
-  //       productId: data.productId || "",
-  //       // productCategoryId: String(data.productCategoryId || ""),
-  //       productName: data.productName || "",
-  //       therapeuticCategory: data.productCategoryId || "",
-  //       therapeuticSubcategory: data.therapeuticSubcategory || "",
-  //       dosageId: data.dosageId || "",
-  //       strength: String(data.strength ?? ""),
-  //       warningsPrecautions: data.warningsPrecautions || "",
-  //       productDescription: data.productDescription || "",
-  //       productMarketingUrl: data.productMarketingUrl || "",
-  //       molecules:
-  //         data.molecules?.length > 0
-  //           ? data.molecules.map((m: any) => ({
-  //               moleculeId: m.moleculeId ?? null,
-  //               moleculeName: m.moleculeName ?? "",
-  //               mechanismOfAction: m.mechanismOfAction ?? "",
-  //               primaryUse: m.primaryUse ?? "",
-  //             }))
-  //           : [
-  //               {
-  //                 moleculeId: null,
-  //                 moleculeName: "",
-  //                 mechanismOfAction: "",
-  //                 primaryUse: "",
-  //               },
-  //             ],
-  //       packagingUnit: packaging.packagingUnit || "",
-  //       numberOfUnits: String(packaging.numberOfUnits ?? ""),
-  //       packSize: String(packaging.packSize ?? ""),
-  //       minimumOrderQuantity: String(packaging.minimumOrderQuantity ?? ""),
-  //       maximumOrderQuantity: String(packaging.maximumOrderQuantity ?? ""),
-  //       packagingId: packaging.packagingId || "",
-  //       pricingId: pricing.pricingId || "",
-  //       batchLotNumber: pricing.batchLotNumber || "",
-  //       manufacturerName: pricing.manufacturerName || "",
-  //       manufacturingDate: pricing.manufacturingDate
-  //         ? new Date(pricing.manufacturingDate)
-  //         : null,
-  //       expiryDate: pricing.expiryDate ? new Date(pricing.expiryDate) : null,
-  //       storageCondition: pricing.storageCondition || "",
-  //       stockQuantity: String(pricing.stockQuantity ?? ""),
-  //       pricePerUnit: String(pricing.pricePerUnit ?? ""),
-  //       mrp: String(pricing.mrp ?? ""),
-  //       // createdDate: form.createdDate,
-  //       gstPercentage: String(pricing.gstPercentage ?? ""),
-  //       discountPercentage: String(pricing.discountPercentage ?? ""),
-  //       minimumPurchaseQuantity: String(pricing.minimumPurchaseQuantity ?? ""),
-  //       additionalDiscount: String(pricing.additionalDiscount ?? ""),
-  //       finalPrice: String(pricing.finalPrice ?? ""),
-  //       hsnCode: String(pricing.hsnCode ?? ""),
-  //     });
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert("Failed to load product");
-  //   }
-  // };
+  const fetchProductByIdAndFillForm = async (id: string) => {
+    try {
+      const data = await getProductById(id);
+      if (!data) throw new Error("Product not found");
+
+      const pricing = data.pricingDetails?.[0] || {};
+      const packaging = data.packagingDetails || {};
+      const attributeDrug = data.productAttributeDrugs?.[0] || {};
+      const dosageForm = attributeDrug.dosageForm || "";
+      const selectedDosage = dosageOptions.find((option) => option.label === dosageForm);
+
+      const molecules =
+        attributeDrug.molecules?.length > 0
+          ? attributeDrug.molecules.map((m: any) => {
+            const full = moleculeOptions.find(
+              (opt) => opt.value.moleculeId === m.moleculeId
+            )?.value;
+
+            return {
+              moleculeId: m.moleculeId ?? "",
+              moleculeName: full?.moleculeName || "",
+              drugSchedule: full?.drugSchedule || "",
+              mechanismOfAction: full?.mechanismOfAction || "",
+              primaryUse: full?.primaryUse || "",
+              strength: m.strength ?? "",
+            };
+          })
+          : [
+            {
+              moleculeId: "",
+              moleculeName: "",
+              drugSchedule: "",
+              mechanismOfAction: "",
+              primaryUse: "",
+              strength: "",
+            },
+          ];
+
+      setExistingImages(
+        data.productImages?.map((img: any) => img.productImage) || []
+      );
+
+      setForm((prev) => ({
+        ...prev,
+        productId: data.productId || "",
+        categoryId: String(data.categoryId || categoryId || ""),
+        productName: data.productName || "",
+        productDescription: data.productDescription || "",
+        productMarketingUrl: data.productMarketingUrl || "",
+        warningsPrecautions: data.warningsPrecautions || "",
+        manufacturerName: data.manufacturerName || "",
+        therapeuticCategory: String(attributeDrug.therapeuticCategoryId || ""),
+        therapeuticSubcategory: String(attributeDrug.therapeuticSubcategoryId || ""),
+        dosageId: selectedDosage?.value || "",
+        strength: String(attributeDrug.strength ?? ""),
+        molecules,
+        packId: String(packaging.packId || ""),
+        packType: packaging.packType || "",
+        unitPerPack: String(packaging.unitPerPack ?? ""),
+        numberOfPacks: String(packaging.numberOfPacks ?? ""),
+        packSize: String(packaging.packSize ?? ""),
+        minimumOrderQuantity: String(packaging.minimumOrderQuantity ?? ""),
+        maximumOrderQuantity: String(packaging.maximumOrderQuantity ?? ""),
+        pricingId: pricing.pricingId || "",
+        batchLotNumber: pricing.batchLotNumber || "",
+        manufacturingDate: pricing.manufacturingDate
+          ? new Date(pricing.manufacturingDate)
+          : null,
+        expiryDate: pricing.expiryDate ? new Date(pricing.expiryDate) : null,
+        dateOfStockEntry: pricing.dateOfStockEntry
+          ? new Date(pricing.dateOfStockEntry)
+          : new Date(),
+        storageCondition: pricing.storageCondition || "",
+        stockQuantity: String(pricing.stockQuantity ?? ""),
+        sellingPrice: String(pricing.sellingPrice ?? ""),
+        mrp: String(pricing.mrp ?? ""),
+        gstPercentage: String(pricing.gstPercentage ?? ""),
+        discountPercentage: String(pricing.discountPercentage ?? ""),
+        finalPrice: String(pricing.finalPrice ?? ""),
+        hsnCode: String(pricing.hsnCode ?? ""),
+        additionalDiscount: pricing.additionalDiscounts || [],
+      }));
+
+      setDosageFormLabel(dosageForm);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load product");
+    }
+  };
+
+  useEffect(() => {
+    if (
+      (mode === "edit" || mode === "delete") &&
+      selectedProductId &&
+      dosageOptions.length > 0 // ✅ IMPORTANT
+    ) {
+      fetchProductByIdAndFillForm(selectedProductId);
+    }
+  }, [mode, selectedProductId, dosageOptions]);
 
   const handleDelete = async () => {
     if (!form.productId) return;
@@ -661,59 +728,38 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
     }
   };
 
-  // const handleUpdate = async () => {
-  //   try {
-  //     const moleculeIds = form.molecules
-  //       .map((m) => m.moleculeId)
-  //       .filter((id): id is number => id !== null);
-  //     const payload = {
-  //       productId: form.productId,
-  //       // productCategoryId: form.productCategoryId,
-  //       productName: form.productName,
-  //       therapeuticCategory: form.therapeuticCategory,
-  //       therapeuticSubcategory: form.therapeuticSubcategory,
-  //       dosageId: form.dosageId,
-  //       strength: Number(form.strength),
-  //       warningsPrecautions: form.warningsPrecautions,
-  //       productDescription: form.productDescription,
-  //       productMarketingUrl: form.productMarketingUrl,
-  //       packagingDetails: {
-  //         packagingUnit: form.packagingUnit,
-  //         numberOfUnits: Number(form.numberOfUnits),
-  //         packSize: Number(form.packSize),
-  //         minimumOrderQuantity: Number(form.minimumOrderQuantity),
-  //         maximumOrderQuantity: Number(form.maximumOrderQuantity),
-  //       },
-  //       pricingDetails: [
-  //         {
-  //           pricingId: form.pricingId || undefined,
-  //           batchLotNumber: form.batchLotNumber,
-  //           manufacturerName: form.manufacturerName,
-  //           manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-  //           expiryDate: toLocalDateTimeString(form.expiryDate),
-  //           storageCondition: form.storageCondition,
-  //           stockQuantity: Number(form.stockQuantity),
-  //           pricePerUnit: Number(form.pricePerUnit),
-  //           mrp: Number(form.mrp),
-  //           discountPercentage: Number(form.discountPercentage),
-  //           gstPercentage: Number(form.gstPercentage),
-  //           additionalDiscount: Number(form.additionalDiscount),
-  //           minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
-  //           finalPrice: Number(form.finalPrice),
-  //           hsnCode: Number(form.hsnCode),
-  //         },
-  //       ],
-  //       moleculeIds,
-  //     };
-  //     await editDrugProduct(form.productId, payload as any);
-  //     alert("Product updated successfully");
-  //     setMode("create");
-  //     setSelectedProductId(null);
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert("Update failed");
-  //   }
-  // };
+  const handleUpdate = async () => {
+    const validation = drugProductSchema.safeParse(form);
+    if (!validation.success) {
+      console.log(validation.error.issues);
+      const fieldErrors: Record<string, string> = {};
+      validation.error.issues.forEach((err) => {
+        const fieldName = err.path.join(".");
+        fieldErrors[fieldName] = err.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
+    setErrors({});
+
+    try {
+      const payload = buildDrugProductPayload();
+      await updateProduct(form.productId, payload as any);
+
+      if (images.length > 0) {
+        await uploadProductImages(form.productId, images);
+      }
+
+      alert("✅ Product updated successfully!");
+      setMode("create");
+      setSelectedProductId(null);
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Update failed");
+    }
+  };
 
   const calculateFinalPrice = (
     mrp: string,
@@ -855,6 +901,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
 
   const handleDosageChange = async (selected: any) => {
     const dosageId = selected?.value;
+    const dosageLabel = selected?.label || "";
 
     setForm((prev) => ({
       ...prev,
@@ -875,6 +922,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
       packId: "",
       packType: "",
     }));
+
+    setDosageFormLabel(dosageLabel);
 
     setErrors((prev) => ({
       ...prev,
@@ -972,7 +1021,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 }
                 onChange={handleTherapeuticCategoriesChange}
                 placeholder="Select category"
-                isDisabled={mode === "delete"}
+                isDisabled={isReadOnly}
                 theme={selectTheme}
                 styles={selectStyles("productCategoryId")}
               />
@@ -998,7 +1047,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 }
                 onChange={handleSubcategoryChange}
                 placeholder="Select subcategory"
-                isDisabled={!form.therapeuticCategory || mode === "delete"}
+                isDisabled={!form.therapeuticCategory || isReadOnly}
                 theme={selectTheme}
                 styles={selectStyles("therapeuticSubcategory")}
               />
@@ -1016,7 +1065,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
               placeholder="e.g., Paracetamol"
               onChange={handleChange}
               value={form.productName}
-              disabled={mode === "delete"}
+              disabled={isReadOnly}
               error={errors.productName}
               required
             />
@@ -1034,7 +1083,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 }
                 onChange={handleDosageChange}
                 placeholder="Select dosage"
-                isDisabled={mode === "delete"}
+                isDisabled={isReadOnly}
                 theme={selectTheme}
                 styles={selectStyles("dosageId")}
               />
@@ -1066,7 +1115,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                       handleMoleculeSelect(index, selected)
                     }
                     placeholder="Select molecule"
-                    isDisabled={mode === "delete"}
+                    isDisabled={isReadOnly}
                     theme={selectTheme}
                     styles={selectStyles("molecule")}
                   />
@@ -1079,6 +1128,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
 
                 <Input
                   label="Molecule Strength"
+                  disabled={isReadOnly}
                   name="strength"
                   placeholder={strengthFormats.join(", ") || "Enter strength"}
                   value={molecule.strength || ""}
@@ -1087,17 +1137,19 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 />
               </div>
             ))}
-            <button
-              onClick={addMolecule}
-              className="col-span-2 w-41.25 h-10.5 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5"
-            >
-              <img
-                src="/icons/PlusIcon.svg"
-                alt="drug"
-                className="w-[12.5px] h-[12.5px] rounded-md object-cover"
-              />
-              Add Molecule
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={addMolecule}
+                className="col-span-2 w-41.25 h-10.5 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5"
+              >
+                <img
+                  src="/icons/PlusIcon.svg"
+                  alt="drug"
+                  className="w-[12.5px] h-[12.5px]"
+                />
+                Add Molecule
+              </button>
+            )}
 
             <Input
               label="Drug Schedule"
@@ -1153,8 +1205,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 value={form.productMarketingUrl}
                 onChange={handleChange}
                 disabled={mode === "delete"}
-                // error={errors.productMarketingUrl}
-                // required
+              // error={errors.productMarketingUrl}
+              // required
               />
             </div>
 
@@ -1171,11 +1223,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 onChange={handleChange}
                 disabled={mode === "delete"}
                 rows={4}
-                className={`w-full h-36 rounded-2xl p-3 resize-none overflow-y-auto border ${
-                  errors.warningsPrecautions
-                    ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
-                    : "border-neutral-500 focus:border-[#4B0082]"
-                } focus:outline-none focus:ring-0`}
+                className={`w-full h-36 rounded-2xl p-3 resize-none overflow-y-auto border ${errors.warningsPrecautions
+                  ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
+                  : "border-neutral-500 focus:border-[#4B0082]"
+                  } focus:outline-none focus:ring-0`}
               />
               {errors.warningsPrecautions && (
                 <p className="text-red-500 text-sm mt-1">
@@ -1197,11 +1248,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
                 onChange={handleChange}
                 disabled={mode === "delete"}
                 rows={4}
-                className={`w-full h-36 rounded-2xl p-3 resize-none overflow-y-auto border ${
-                  errors.productDescription
-                    ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
-                    : "border-neutral-500 focus:border-[#4B0082]"
-                } focus:outline-none focus:ring-0`}
+                className={`w-full h-36 rounded-2xl p-3 resize-none overflow-y-auto border ${errors.productDescription
+                  ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
+                  : "border-neutral-500 focus:border-[#4B0082]"
+                  } focus:outline-none focus:ring-0`}
               />
               {errors.productDescription && (
                 <p className="text-red-500 text-sm mt-1">
@@ -1593,11 +1643,16 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
 
           <div
             className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer"
-            onClick={() => document.getElementById("fileInput")?.click()}
+            onClick={() => {
+              if (!isReadOnly) {
+                document.getElementById("fileInput")?.click();
+              }
+            }}
           >
             <input
               id="fileInput"
               type="file"
+              disabled={isReadOnly}
               multiple
               accept="image/*"
               className="hidden"
@@ -1627,31 +1682,53 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
             </div>
           </div>
 
-          {images.length > 0 && (
-            <div className="mt-2 text-green-600 text-sm">
-              ✅ {images.length} image(s) added successfully
+          {/* ✅ Existing Images (from backend) */}
+          {existingImages.length > 0 && (
+            <div className="grid grid-cols-4 gap-3 mt-4">
+              {existingImages.map((img, index) => (
+                <div key={`existing-${index}`} className="relative">
+                  <img
+                    src={img}
+                    alt="product"
+                    className="w-full h-24 object-cover rounded-md border"
+                  />
+
+                  {!isReadOnly && (
+                    <button
+                      onClick={() =>
+                        setExistingImages(existingImages.filter((_, i) => i !== index))
+                      }
+                      className="absolute top-1 right-1 bg-black text-white text-xs px-1 rounded"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
+          {/* ✅ Newly Uploaded Images */}
           {images.length > 0 && (
             <div className="grid grid-cols-4 gap-3 mt-4">
               {images.map((file, index) => (
-                <div key={index} className="relative">
+                <div key={`new-${index}`} className="relative">
                   <img
                     src={URL.createObjectURL(file)}
                     alt="preview"
                     className="w-full h-24 object-cover rounded-md border"
                   />
 
-                  {/* Remove button */}
-                  <button
-                    onClick={() =>
-                      setImages(images.filter((_, i) => i !== index))
-                    }
-                    className="absolute top-1 right-1 bg-black text-white text-xs px-1 rounded"
-                  >
-                    ✕
-                  </button>
+                  {!isReadOnly && (
+                    <button
+                      onClick={() =>
+                        setImages(images.filter((_, i) => i !== index))
+                      }
+                      className="absolute top-1 right-1 bg-black text-white text-xs px-1 rounded"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -1688,7 +1765,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({ categoryId }) => {
             ) : mode === "edit" ? (
               <button
                 type="button"
-                // onClick={handleUpdate}
+                onClick={handleUpdate}
                 className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
               >
                 Update

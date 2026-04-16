@@ -302,7 +302,7 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
                 className="cursor-pointer opacity-70 hover:opacity-100 transition"
                 onClick={() => {
                   setSelectedProductId(row.productId ?? "");
-                  setCurrentView("editProduct");
+                  setCurrentView("editProduct"); // Inc
                 }}
               />
               <Image

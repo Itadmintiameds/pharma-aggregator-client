@@ -5,9 +5,8 @@ import SellerHeader from "@/src/app/seller_7a3b9f2c/dashboard/components/SellerH
 import ViewProducts from "@/src/app/seller_7a3b9f2c/dashboard/components/ViewProducts";
 import SellerSidebar from "@/src/app/seller_7a3b9f2c/dashboard/components/SellerSidebar";
 import SellerProfile from "@/src/app/seller_7a3b9f2c/dashboard/components/SellerProfile";
-import EditProduct from "@/src/app/seller_7a3b9f2c/dashboard/components/EditProduct";
+import { DrugForm } from "@/src/app/seller_7a3b9f2c/dashboard/components/DrugForm";
 import DashboardOverview from "@/src/app/seller_7a3b9f2c/dashboard/components/DashboardOverview";
-import AddProduct from "@/src/app/seller_7a3b9f2c/dashboard/components/AddProduct";
 import ProductView1 from "@/src/app/seller_7a3b9f2c/dashboard/components/ProductView1";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import Reports from "./components/Reports";
@@ -101,15 +100,15 @@ const SellerDashboard = () => {
     setSelectedProductId={setSelectedProductId}
   />
 )}
-          {currentView === "addProduct" && <AddProduct />}
+          {currentView === "addProduct" && (
+            <DrugForm categoryId={1} />
+          )}
           {currentView === "editProduct" && (
-  <EditProduct 
-    productId={selectedProductId || ""}
-    setCurrentView={(view: DashboardView) => setCurrentView(view)}
-    setSelectedProductId={setSelectedProductId}
-    onCancel={() => setCurrentView("overview")}
-  />
-)}
+            <DrugForm
+              categoryId={1}
+              editProductId={selectedProductId || undefined}
+            />
+                    )}
           {currentView === "viewProducts" && <ViewProducts />}
           {/* {currentView === "deleteProduct" && <DeleteProduct />} */}
           {currentView === "profile" && <SellerProfile />}
