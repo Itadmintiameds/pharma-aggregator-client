@@ -540,13 +540,19 @@ const NonConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: No
       let resolvedAttributeId = productAttributeId;
 
       if (mode === "edit" && productId) {
-        await fetch(`${API_BASE}/products/update/${productId}`, { method: "PUT", headers: jsonHeaders, body: JSON.stringify(payload) });
+        // Update existing product
+        const updateRes = await fetch(`${API_BASE}/products/update/${productId}`, { method: "PUT", headers: jsonHeaders, body: JSON.stringify(payload) });
+        if (!updateRes.ok) throw new Error("Failed to update product");
+        
+        // Upload new images if any
         if (images.length > 0) {
           const imageFd = new FormData();
           images.forEach((img) => imageFd.append("images", img));
-          await fetch(`${API_BASE}/product-images/${productId}`, { method: "POST", headers, body: imageFd });
+          const uploadRes = await fetch(`${API_BASE}/product-images/${productId}`, { method: "POST", headers, body: imageFd });
+          if (!uploadRes.ok) throw new Error("Failed to upload product images");
         }
       } else {
+        // Create new product
         const createRes = await fetch(`${API_BASE}/products/create`, { method: "POST", headers: jsonHeaders, body: JSON.stringify(payload) });
         const rawText = await createRes.text();
         let createData: ApiResponseData;
@@ -556,20 +562,27 @@ const NonConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: No
         resolvedProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
         if (!resolvedProductId || resolvedProductId === "undefined") throw new Error("Product ID not returned from server");
         resolvedAttributeId = extractProductAttributeId(createData) || "";
+        
+        // Upload images for new product
         if (images.length > 0) {
           const imageFd = new FormData();
           images.forEach((img) => imageFd.append("images", img));
-          await fetch(`${API_BASE}/product-images/${resolvedProductId}`, { method: "POST", headers, body: imageFd });
+          const uploadRes = await fetch(`${API_BASE}/product-images/${resolvedProductId}`, { method: "POST", headers, body: imageFd });
+          if (!uploadRes.ok) throw new Error("Failed to upload product images");
         }
       }
 
+      // Upload certificates and brochure if we have attribute ID
       if (resolvedAttributeId) {
         const certBaseUrl = `${API_BASE}/product-documents/non-consumable/${resolvedAttributeId}/certificates`;
         const brochureUrl = `${API_BASE}/product-documents/non-consumable/${resolvedAttributeId}/brochure`;
+        
         for (const cert of selectedCertifications.filter((c) => c.file)) {
           await uploadWithRetry(certBaseUrl, headers, cert.file!, { certificationId: String(cert.certificationId) }, ["certificate", "certificateFile", "certFile", "file"], `certificate: ${cert.label}`, 3);
         }
-        if (brochureFile) await uploadWithRetry(brochureUrl, headers, brochureFile, {}, ["brochure", "brochureFile", "file", "document"], "brochure", 3);
+        if (brochureFile) {
+          await uploadWithRetry(brochureUrl, headers, brochureFile, {}, ["brochure", "brochureFile", "file", "document"], "brochure", 3);
+        }
       }
 
       alert(`Product ${mode === "edit" ? "updated" : "created"} successfully!`);

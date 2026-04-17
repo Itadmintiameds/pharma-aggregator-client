@@ -18,7 +18,7 @@ interface CertificationTag {
   id: string; label: string; tagCode: string; file: File | null;
   fileName: string; uploading: boolean; isUploaded: boolean;
   previewUrl: string | null; certificationId: number;
-  existingUrl?: string; // pre-existing URL from server
+  existingUrl?: string;
 }
 
 interface AdditionalDiscountSlab {
@@ -27,7 +27,6 @@ interface AdditionalDiscountSlab {
   effectiveEndDate: string; effectiveEndTime: string;
 }
 
-// ─── Shape of pre-populated data passed from EditProduct ─────────────────────
 export interface ConsumableFormInitialData {
   productId: string;
   productAttributeId?: string;
@@ -40,16 +39,15 @@ export interface ConsumableFormInitialData {
   deviceCatId: string | number;
   deviceSubCatId: string | number;
   dimensionSize: string;
-  disposalOrReusable: string;          // "Disposable" | "Reusable"
+  disposalOrReusable: string;
   keyFeaturesSpecifications: string;
   materialTypeId: number[];
   purpose: string;
   safetyInstructions: string;
   shelfLife: string;
-  sterileOrNonSterile: string;         // "Sterile" | "Non-Sterile"
+  sterileOrNonSterile: string;
   storageConditionId: string | number;
   countryId: string | number;
-  // packaging
   packagingId?: string;
   packId: string | number;
   unitPerPack: string;
@@ -57,7 +55,6 @@ export interface ConsumableFormInitialData {
   packSize: string;
   minimumOrderQuantity: string;
   maximumOrderQuantity: string;
-  // pricing
   pricingId?: string;
   batchLotNumber: string;
   manufacturingDate: Date | null;
@@ -71,7 +68,6 @@ export interface ConsumableFormInitialData {
   additionalDiscounts: AdditionalDiscountData[];
   finalPrice: string;
   hsnCode: string;
-  // existing assets
   existingImages?: string[];
   existingBrochureUrl?: string;
   existingCertifications?: { certificationId: number; label: string; url: string }[];
@@ -172,7 +168,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
     hsnCode: "", finalPrice: "",
   });
 
-  // IDs needed for edit PUT calls
   const [productId, setProductId] = useState("");
   const [productAttributeId, setProductAttributeId] = useState("");
   const [packagingId, setPackagingId] = useState("");
@@ -184,6 +179,13 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
   const [storageConditionOptions, setStorageConditionOptions] = useState<SelectOption[]>([]);
   const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
+  // ── NEW: material type options for consumable ─────────────────────────────
+  const [materialTypeOptions, setMaterialTypeOptions] = useState<SelectOption[]>([]);
+  const [loadingMaterialTypes, setLoadingMaterialTypes] = useState(false);
+  const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
+  const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
+  const materialDropdownRef = useRef<HTMLDivElement>(null);
+  // ─────────────────────────────────────────────────────────────────────────
   const [productCategoryId, setProductCategoryId] = useState<number | null>(null);
 
   const [loadingCategories, setLoadingCategories] = useState(false);
@@ -275,13 +277,22 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
     } catch { setDeviceSubCategoryOptions([]); } finally { setLoadingSubCategories(false); }
   }, [authHeaders]);
 
-  // ── Load master data on mount ─────────────────────────────────────────────
   useEffect(() => {
     fetchDeviceCategories(); fetchProductCategoryId();
     fetchList(`${MASTERS}/countries`, setCountryOptions, ["countryId", "id"], ["countryName", "name"]);
     fetchList(`${MASTERS}/storagecondition`, setStorageConditionOptions, ["storageConditionId", "id"], ["conditionName", "name"]);
     fetchList(`${MASTERS}/pack-types`, setPackTypeApiOptions, ["packId", "id"], ["packName", "name"],
       [{ value: "1", label: "Box" }, { value: "2", label: "Pack" }, { value: "3", label: "Pouch" }, { value: "4", label: "Piece" }]);
+
+    // ── Fetch consumable material types ────────────────────────────────────
+    setLoadingMaterialTypes(true);
+    fetchList(
+      `${MASTERS}/consumable-material-types`,
+      setMaterialTypeOptions,
+      ["materialTypeId", "id"],
+      ["materialTypeName", "name"]
+    ).finally(() => setLoadingMaterialTypes(false));
+    // ─────────────────────────────────────────────────────────────────────
 
     setLoadingCertifications(true);
     fetch(`${MASTERS}/certifications`, { headers: authHeaders() })
@@ -304,7 +315,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
       .finally(() => setLoadingCertifications(false));
   }, [fetchDeviceCategories, fetchProductCategoryId, fetchList, authHeaders]);
 
-  // ── Pre-populate form from initialData when in edit mode ──────────────────
   useEffect(() => {
     if (mode !== "edit" || !initialData) return;
 
@@ -353,10 +363,12 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
     if (initialData.additionalDiscounts?.length) {
       setAdditionalDiscountSlabs(convertToDiscountSlab(initialData.additionalDiscounts));
     }
+    if (initialData.materialTypeId?.length) {
+      setSelectedMaterialTypes(initialData.materialTypeId.map(String));
+    }
     if (initialData.existingImages?.length) setExistingImages(initialData.existingImages);
     if (initialData.existingBrochureUrl) setExistingBrochureUrl(initialData.existingBrochureUrl);
 
-    // Pre-select certifications
     if (initialData.existingCertifications?.length) {
       setSelectedCertifications(initialData.existingCertifications.map((c) => ({
         id: String(c.certificationId), label: c.label, tagCode: "",
@@ -365,7 +377,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
       })));
     }
 
-    // Also load subcategories for existing category
     if (initialData.deviceCatId) {
       fetchDeviceSubCategories(String(initialData.deviceCatId));
     }
@@ -375,7 +386,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
   useEffect(() => {
     if (form.deviceCategoryId) {
       fetchDeviceSubCategories(form.deviceCategoryId);
-      // Don't reset subcategory if we're editing and already have one
       if (mode === "create") {
         setForm((p) => ({ ...p, deviceSubCategoryId: "" }));
       }
@@ -398,6 +408,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowCertDropdown(false);
+      if (materialDropdownRef.current && !materialDropdownRef.current.contains(e.target as Node)) setShowMaterialDropdown(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -417,6 +428,11 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
   const handleSelectChange = (field: string, sel: SelectOption | null) => {
     setForm((p) => ({ ...p, [field]: sel ? sel.value : "" }));
     if (errors[field]) setErrors((p) => { const n = { ...p }; delete n[field]; return n; });
+  };
+
+  const handleMaterialCheckbox = (option: SelectOption) => {
+    setSelectedMaterialTypes((p) => p.includes(option.value) ? p.filter((v) => v !== option.value) : [...p, option.value]);
+    if (errors.materialType) setErrors((p) => { const n = { ...p }; delete n.materialType; return n; });
   };
 
   const handleCertCheckbox = (option: CertificationMasterOption) => {
@@ -444,6 +460,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
     if (!form.deviceCategoryId) e.deviceCategoryId = "Device category required";
     if (!form.deviceSubCategoryId) e.deviceSubCategoryId = "Device sub-category required";
     if (!form.brandName.trim()) e.brandName = "Brand name required";
+    if (selectedMaterialTypes.length === 0) e.materialType = "At least one material type required";
     if (!form.sizeDimension.trim()) e.sizeDimension = "Size or dimension required";
     if (!form.sterileStatus) e.sterileStatus = "Sterile status required";
     if (!form.disposableType) e.disposableType = "Disposable type required";
@@ -480,7 +497,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
     if (!form.gstPercentage) e.gstPercentage = "GST percentage required";
     if (!form.hsnCode.trim()) { e.hsnCode = "HSN code required"; } else { const hsnError = validateHSNCode(form.hsnCode); if (hsnError) e.hsnCode = hsnError; }
     if (mode === "create" && images.length === 0) e.images = "At least 1 product image required";
-    if (images.length > 5) e.images = "Maximum 5 images allowed";
+    if (images.length > 8) e.images = "Maximum 8 images allowed";
     return e;
   };
 
@@ -537,7 +554,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
           deviceCatId: Number(form.deviceCategoryId),
           deviceSubCatId: Number(form.deviceSubCategoryId),
           brandName: form.brandName,
-          materialTypeId: [],
+          materialTypeId: selectedMaterialTypes.map(Number),
           dimensionSize: form.sizeDimension,
           sterileOrNonSterile: form.sterileStatus === "sterile" ? "Sterile" : "Non-Sterile",
           disposalOrReusable: form.disposableType === "disposable" ? "Disposable" : "Reusable",
@@ -563,8 +580,11 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
 
       if (mode === "edit" && productId) {
         await fetch(`${API_BASE}/products/update/${productId}`, { method: "PUT", headers: jsonHeaders, body: JSON.stringify(payload) });
-        // Upload new images
-        if (images.length > 0) await uploadProductImages(productId, images);
+        if (images.length > 0) {
+          const imageFd = new FormData();
+          images.forEach((img) => imageFd.append("images", img));
+          await fetch(`${API_BASE}/product-images/${productId}`, { method: "POST", headers, body: imageFd });
+        }
       } else {
         const createRes = await fetch(`${API_BASE}/products/create`, { method: "POST", headers: jsonHeaders, body: JSON.stringify(payload) });
         const rawText = await createRes.text();
@@ -575,12 +595,15 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
         resolvedProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
         if (!resolvedProductId || resolvedProductId === "undefined") throw new Error("Product ID not returned from server");
         resolvedAttributeId = extractProductAttributeId(createData) || "";
-        if (images.length > 0) await uploadDocument(`${API_BASE}/product-images/${resolvedProductId}`, headers, images[0], {}, "image", 3);
+        if (images.length > 0) {
+          const imageFd = new FormData();
+          images.forEach((img) => imageFd.append("images", img));
+          await fetch(`${API_BASE}/product-images/${resolvedProductId}`, { method: "POST", headers, body: imageFd });
+        }
       }
 
-      // Upload new cert documents
       if (resolvedAttributeId) {
-        const certBaseUrl = `${API_BASE}/product-documents/consumable/${resolvedAttributeId}/certificates`;
+        const certBaseUrl = `${API_BASE}/masters/certifications`;
         const brochureUploadUrl = `${API_BASE}/product-documents/consumable/${resolvedAttributeId}/brochure`;
         for (const cert of selectedCertifications.filter((c) => c.file)) {
           await uploadDocument(certBaseUrl, headers, cert.file!, { certificationId: String(cert.certificationId) }, "certificate", 3);
@@ -629,6 +652,8 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
         <div className="text-h3 font-semibold mb-3">Product Details</div>
         <div className="border-b border-neutral-200" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 mt-8 gap-y-4">
+
+          {/* Row 1: Product Name | Device Category */}
           <Input label="Product Name" name="productName" placeholder="e.g., Surgical Mask, Syringe"
             onChange={handleChange} value={form.productName} error={errors.productName} required />
 
@@ -641,6 +666,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             {errors.deviceCategoryId && <p className="text-red-500 text-sm mt-1">{errors.deviceCategoryId}</p>}
           </div>
 
+          {/* Row 2: Device Sub-Category | Brand Name */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">Device Sub-Category <span className="text-warning-500 ml-1">*</span></label>
             <Select options={deviceSubCategoryOptions} isLoading={loadingSubCategories} isDisabled={!form.deviceCategoryId}
@@ -653,9 +679,48 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
 
           <Input label="Brand Name" name="brandName" placeholder="e.g., 3M, Johnson & Johnson"
             onChange={handleChange} value={form.brandName} error={errors.brandName} required />
+
+          {/* Row 3: Material Type | Size / Dimension / Gauge */}
+          <div className="flex flex-col gap-1">
+            <label className="text-label-l3 text-neutral-700 font-semibold">Material Type <span className="text-warning-500 ml-1">*</span></label>
+            <div className="relative" ref={materialDropdownRef}>
+              <div
+                onClick={() => setShowMaterialDropdown((p) => !p)}
+                className={`w-full h-14 px-4 border rounded-xl flex items-center justify-between cursor-pointer hover:border-[#4B0082] transition-colors ${errors.materialType ? "border-red-500" : "border-neutral-300"}`}
+              >
+                <span className="text-sm text-neutral-700 truncate pr-2">
+                  {selectedMaterialTypes.length > 0
+                    ? selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")
+                    : <span className="text-neutral-400">e.g., Plastic, Metal, Steel</span>}
+                </span>
+                <svg className={`w-5 h-5 flex-shrink-0 transition-transform text-neutral-500 ${showMaterialDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+              {showMaterialDropdown && (
+                <div className="absolute z-20 w-full bg-white border mt-1 rounded-xl shadow-md max-h-60 overflow-y-auto">
+                  {loadingMaterialTypes ? (
+                    <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div>
+                  ) : materialTypeOptions.length === 0 ? (
+                    <div className="px-4 py-3 text-gray-400 text-sm">No material types found</div>
+                  ) : (
+                    materialTypeOptions.map((opt) => (
+                      <label key={opt.value} className="flex items-center gap-2 px-4 py-2 hover:bg-purple-50 cursor-pointer">
+                        <input type="checkbox" checked={selectedMaterialTypes.includes(opt.value)} onChange={() => handleMaterialCheckbox(opt)} className="accent-purple-600" />
+                        <span className="text-sm">{opt.label}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            {errors.materialType && <p className="text-red-500 text-sm mt-1">{errors.materialType}</p>}
+          </div>
+
           <Input label="Size / Dimension / Gauge" name="sizeDimension" placeholder="e.g., Size M, 22G"
             onChange={handleChange} value={form.sizeDimension} error={errors.sizeDimension} required />
 
+          {/* Row 4: Sterile | Disposable */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">Sterile Status <span className="text-warning-500 ml-1">*</span></label>
             <div className="flex gap-6 mt-2">
@@ -682,10 +747,14 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             {errors.disposableType && <p className="text-red-500 text-sm mt-1">{errors.disposableType}</p>}
           </div>
 
+          {/* Row 5: Shelf Life | Intended Use */}
           <Input label="Shelf Life (Enter in months)" name="shelfLife" placeholder="e.g., 15"
             onChange={handleChange} value={form.shelfLife} error={errors.shelfLife} required />
 
-          {/* Certifications */}
+          <Input label="Intended Use / Purpose" name="intendedUse" placeholder="e.g., For surgical procedures"
+            onChange={handleChange} value={form.intendedUse} error={errors.intendedUse} required />
+
+          {/* Row 6: Certifications (full width grid) */}
           <div className="col-span-1 md:col-span-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
@@ -732,7 +801,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
                     {selectedCertifications.map((cert) => (
                       <div key={cert.id}>
                         {cert.existingUrl && !cert.file ? (
-                          // Show existing cert as uploaded
                           <div className="flex items-center border border-purple-300 rounded-xl overflow-hidden h-14 bg-purple-50">
                             <div className="w-12 h-full bg-[#DED0FE] flex items-center justify-center flex-shrink-0"><FileText size={18} className="text-purple-700" /></div>
                             <div className="flex-1 px-3 min-w-0">
@@ -776,9 +844,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             </div>
           </div>
 
-          <Input label="Intended Use / Purpose" name="intendedUse" placeholder="e.g., For surgical procedures"
-            onChange={handleChange} value={form.intendedUse} error={errors.intendedUse} required />
-
+          {/* Row 7: Country of Origin | Manufacturer Name */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">Country of Origin <span className="text-warning-500 ml-1">*</span></label>
             <Select options={countryOptions} value={countryOptions.find((o) => o.value === form.countryOfOrigin) || null}
@@ -789,6 +855,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
           <Input label="Manufacturer Name" name="manufacturerName" placeholder="Manufacturer company name"
             onChange={handleChange} value={form.manufacturerName} error={errors.manufacturerName} required />
 
+          {/* Row 8: Storage Condition | Brochure Upload */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">Storage Condition <span className="text-warning-500 ml-1">*</span></label>
             <Select options={storageConditionOptions} value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null}
@@ -796,7 +863,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             {errors.storageCondition && <p className="text-red-500 text-sm mt-1">{errors.storageCondition}</p>}
           </div>
 
-          {/* Brochure Upload */}
           <div>
             <label className="block text-label-l3 text-neutral-700 font-semibold mb-3">Upload Product Brochure / User Manual</label>
             {existingBrochureUrl && !brochureFile && (
@@ -829,6 +895,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             <input ref={brochureInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleBrochureUpload(e.target.files[0]); }} />
           </div>
 
+          {/* Row 9: Safety Instructions | Key Features */}
           <div className="col-span-1 md:col-span-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -848,6 +915,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             </div>
           </div>
 
+          {/* Row 10: Product Description (full width) */}
           <div className="col-span-1 md:col-span-2">
             <label className="block text-label-l3 text-neutral-700 font-semibold mb-1">Product Description <span className="text-warning-500 ml-1">*</span></label>
             <textarea name="productDescription" value={form.productDescription} onChange={handleChange} rows={4}
@@ -956,7 +1024,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
         {existingImages.length > 0 && (
           <div className="mb-4">
             <p className="text-sm font-semibold text-neutral-600 mb-2">Current Images</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {existingImages.map((url, i) => (
                 <img key={i} src={url} alt={`existing-${i}`} className="w-full aspect-square object-cover rounded-xl border-2 border-neutral-200" />
               ))}
@@ -965,38 +1033,36 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
           </div>
         )}
 
-        <p className="text-xs text-neutral-400 mb-3">JPG, PNG, JPEG formats accepted. Maximum 5MB each.</p>
         <div className="border-2 border-dashed border-neutral-300 rounded-xl p-6 cursor-pointer hover:border-purple-400 transition"
           onClick={() => document.getElementById("consumableFileInput")?.click()}>
           <div className="flex flex-col items-center justify-center py-4">
             <Image src="/icons/FolderIcon.svg" alt="Upload" width={40} height={40} className="mb-4" />
             <div className="text-label-l2 font-normal text-center">Choose files or drag and drop them here</div>
+            <div className="text-label-l1 font-normal text-neutral-400 text-center">Upload product images — maximum 8</div>
           </div>
         </div>
         <input id="consumableFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg" className="hidden"
           onChange={(e) => {
             if (e.target.files) {
               const files = Array.from(e.target.files);
-              if (images.length + files.length > 5) { alert("Maximum 5 images allowed"); return; }
+              if (images.length + files.length > 8) { alert("Maximum 8 images allowed"); return; }
               setImages((p) => [...p, ...files]);
               setErrors((p) => { const n = { ...p }; delete n.images; return n; });
             }
           }} />
         {images.length > 0 && (
-          <div className="mt-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              {images.map((file, i) => {
-                const url = URL.createObjectURL(file);
-                return (
-                  <div key={i} className="relative group">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Product ${i + 1}`} className="w-full aspect-square object-cover rounded-xl border-2 border-neutral-200 group-hover:border-purple-300 transition shadow-sm" />
-                    <button type="button" onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition"><X size={12} /></button>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {images.map((file, i) => {
+              const url = URL.createObjectURL(file);
+              return (
+                <div key={i} className="relative group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt={`Product ${i + 1}`} className="w-full aspect-square object-cover rounded-xl border-2 border-neutral-200 group-hover:border-purple-300 transition" />
+                  <button type="button" onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><X size={12} /></button>
+                </div>
+              );
+            })}
           </div>
         )}
         {errors.images && <p className="text-red-500 text-sm mt-2">{errors.images}</p>}
