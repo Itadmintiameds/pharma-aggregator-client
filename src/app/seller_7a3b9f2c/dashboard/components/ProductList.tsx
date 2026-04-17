@@ -18,7 +18,8 @@ const categoryMap: Record<number, string> = {
   2: "Supplement",
   3: "Infant Food",
   4: "Cosmetic",
-  5: "Medical Device",
+  5: "Consumable Medical Device",
+  6: "Non-Consumable Medical Device",
 };
 
 const columns: Column<ProductListData>[] = [
