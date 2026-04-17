@@ -112,6 +112,10 @@ export interface ProductListData {
   categoryName?: string;
   categoryId?: number;
   pricingDetails: PricingData[];
+  productImages?: {
+    productImage: string;
+    productImageId: string;
+  }[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
