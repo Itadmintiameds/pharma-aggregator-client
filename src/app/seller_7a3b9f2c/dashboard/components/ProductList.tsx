@@ -13,16 +13,28 @@ interface ProductListProps {
   setSelectedProductId: (id: string) => void;
 }
 
+const categoryMap: Record<number, string> = {
+  1: "Drug",
+  2: "Supplement",
+  3: "Infant Food",
+  4: "Cosmetic",
+  5: "Medical Device",
+};
+
 const columns: Column<ProductListData>[] = [
   {
     header: "Thumbnail",
-    accessor: () => (
-      <img
-        src="/icons/Tumbnail.svg"
-        alt="drug"
-        className="w-10 h-10 rounded-md object-cover"
-      />
-    ),
+    accessor: (row) => {
+      const image = row.productImages?.[0]?.productImage;
+
+      return (
+        <img
+          src={image || "/icons/Tumbnail.svg"}
+          alt="product"
+          className="w-10 h-10 rounded-md object-cover"
+        />
+      );
+    },
   },
   {
     header: "Product Name",
@@ -30,7 +42,7 @@ const columns: Column<ProductListData>[] = [
   },
   {
     header: "Category",
-    accessor: () => "Drug",
+    accessor: (row) => categoryMap[row.categoryId as number] || "-",
   },
   {
     header: "Price",
@@ -180,9 +192,6 @@ const ProductList = ({
 };
 
 export default ProductList;
-
-
-
 
 // "use client";
 
@@ -454,7 +463,7 @@ export default ProductList;
 //         <div className="relative" ref={filterRef}>
 //           <button
 //             onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
-//             className={`w-32 h-12 bg-neutral-50 border rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2 
+//             className={`w-32 h-12 bg-neutral-50 border rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2
 //               hover:bg-neutral-100 hover:border-primary-900 transition
 //               ${categoryFilter !== "all" ? "border-primary-900 text-primary-900" : "border-neutral-200"}`}
 //           >
@@ -516,7 +525,7 @@ export default ProductList;
 //             id="search"
 //             placeholder="Search"
 // <<<<<<< HEAD
-//             className="border border-neutral-200 text-p4 text-neutral-500 font-semibold w-full h-12 rounded-lg px-5 pr-14 
+//             className="border border-neutral-200 text-p4 text-neutral-500 font-semibold w-full h-12 rounded-lg px-5 pr-14
 //               focus:outline-none focus:ring-0 hover:border-primary-900 transition"
 //           />
 //           <div className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center bg-purple-200 rounded-r-lg pointer-events-none">
@@ -535,7 +544,7 @@ export default ProductList;
 //         <div className="relative" ref={sortRef}>
 //           <button
 //             onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
-//             className="w-36 h-12 bg-neutral-50 border border-neutral-200 rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2 
+//             className="w-36 h-12 bg-neutral-50 border border-neutral-200 rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2
 //               hover:bg-neutral-100 hover:border-primary-900 transition"
 //           >
 //             {activeSortLabel}
