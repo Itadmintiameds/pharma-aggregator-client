@@ -3,34 +3,65 @@ export interface CreateDrugProductRequest {
   productDescription: string;
   productMarketingUrl: string;
   warningsPrecautions: string;
-
   categoryId: number;
-
   packagingDetails: PackagingData;
-
   pricingDetails: PricingData[];
-
-  productAttributeDrugs: ProductAttributeDrugData[];
-
-  // NEW: optional fields for device products
+  productAttributeDrugs?: ProductAttributeDrugData[];
   productAttributeConsumableMedicals?: ProductAttributeConsumableData[];
   productAttributeNonConsumableMedicals?: ProductAttributeNonConsumableData[];
 }
 
 export interface ProductAttributeDrugData {
-  dosageForm: string; // ✅ instead of dosageId
+  productAttributeId?: string;
+  dosageForm: string;
+  strength: string;
   therapeuticCategoryId: string;
   therapeuticSubcategoryId: string;
+  molecules?: { moleculeId: number; strength: string }[];
+}
 
-  molecules: {
-    moleculeId: number;
-    strength: string;
-  }[];
+export interface ProductAttributeConsumableData {
+  productAttributeId?: string;
+  brandName: string;
+  deviceCatId: number;
+  deviceSubCatId: number;
+  dimensionSize: string;
+  disposalOrReusable: string;
+  keyFeaturesSpecifications: string;
+  materialTypeId: number[];
+  purpose: string;
+  safetyInstructions: string;
+  shelfLife: string;
+  sterileOrNonSterile: string;
+  storageConditionId: number;
+  countryId: number;
+  manufacturerName: string;
+  productBrochureUrl?: string;
+}
+
+export interface ProductAttributeNonConsumableData {
+  productAttributeId?: string;
+  brandName: string;
+  deviceCategoryId: number;
+  deviceSubCategoryId: number;
+  modelName: string;
+  modelNumber: string;
+  keyFeaturesSpecifications: string;
+  materialTypeIds: number[];
+  purpose: string;
+  powerSourceId: number;
+  storageConditionId: number;
+  countryId: number;
+  manufacturerName: string;
+  warrantyPeriod: string;
+  udiNumber: string;
+  serviceAvailability: boolean;
 }
 
 export interface PackagingData {
+  packagingId?: string;
   packId?: number;
-  packType: string;
+  packType?: string;
   unitPerPack: number;
   numberOfPacks: number;
   packSize: number;
@@ -44,7 +75,7 @@ export interface PricingData {
   manufacturingDate: string | null;
   expiryDate: string | null;
   dateOfStockEntry: string | null;
-  storageCondition: string;
+  storageCondition?: string;
   stockQuantity: number;
   sellingPrice: number;
   mrp: number;
@@ -53,7 +84,6 @@ export interface PricingData {
   finalPrice: number;
   hsnCode: number;
   shelfLifeMonths?: number;
-
   additionalDiscounts: AdditionalDiscountData[];
 }
 
@@ -80,6 +110,7 @@ export interface ProductListData {
   productId: string;
   productName: string;
   categoryName?: string;
+  categoryId?: number;
   pricingDetails: PricingData[];
 }
 
