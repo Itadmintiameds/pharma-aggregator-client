@@ -1,36 +1,31 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import Image from "next/image";
 import Table, { Column } from "@/src/app/commonComponents/Table";
 import { getProductList } from "@/src/services/product/ProductService";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { ProductListData } from "@/src/types/product/ProductData";
 import CommonModal from "../commonComponent/CommonModal";
 import DeleteProduct from "./DeleteProduct";
-import { SlidersHorizontal, Search, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 
 interface ProductListProps {
   setCurrentView: (view: DashboardView) => void;
   setSelectedProductId: (id: string) => void;
 }
 
-// Extend ProductListData with dynamic API fields that may not be in the base type
+// Extended type to handle all product categories
 type ExtendedProductListData = ProductListData & {
   productAttributeNonConsumableMedicals?: unknown[];
   productAttributeConsumableMedicals?: unknown[];
-  drugAttributes?: unknown;
   productAttributeDrugs?: unknown;
-  productImages?: Array<{
-    productImage?: string;
-    imageUrl?: string;
-    url?: string;
-    imagePath?: string;
-  }>;
+  drugAttributes?: unknown;
+  productImages?: Array<{ productImage?: string; imageUrl?: string; url?: string; imagePath?: string }>;
   images?: string[];
   manufacturerName?: string;
+  categoryName?: string;
 };
 
+// Helper: detect category from API response
 const getProductCategory = (product: ExtendedProductListData): string => {
   if (product.categoryName) {
     const catName = product.categoryName.toLowerCase();
@@ -38,65 +33,36 @@ const getProductCategory = (product: ExtendedProductListData): string => {
     if (catName.includes("non-consumable") || catName.includes("nonconsumable")) return "Non-Consumable";
     if (catName.includes("consumable")) return "Consumable";
   }
-
-  if (
-    product.productAttributeNonConsumableMedicals &&
-    Array.isArray(product.productAttributeNonConsumableMedicals) &&
-    product.productAttributeNonConsumableMedicals.length > 0
-  ) {
-    return "Non-Consumable";
-  }
-
-  if (
-    product.productAttributeConsumableMedicals &&
-    Array.isArray(product.productAttributeConsumableMedicals) &&
-    product.productAttributeConsumableMedicals.length > 0
-  ) {
-    return "Consumable";
-  }
-
-  if (product.drugAttributes || product.productAttributeDrugs) {
-    return "Drugs";
-  }
-
+  if (product.productAttributeNonConsumableMedicals?.length) return "Non-Consumable";
+  if (product.productAttributeConsumableMedicals?.length) return "Consumable";
+  if (product.productAttributeDrugs || product.drugAttributes) return "Drugs";
   return "Uncategorized";
 };
 
-const getCategoryBadge = (category: string) => (
-  <span className="text-sm text-neutral-700">{category}</span>
-);
-
+// Get first valid image URL
 const getFirstImage = (product: ExtendedProductListData): string | null => {
-  if (Array.isArray(product.productImages) && product.productImages.length > 0) {
-    const firstImg = product.productImages[0];
-    const url =
-      firstImg?.productImage ||
-      firstImg?.imageUrl ||
-      firstImg?.url ||
-      firstImg?.imagePath;
+  const images = product.productImages;
+  if (Array.isArray(images) && images.length) {
+    const first = images[0];
+    const url = first?.productImage || first?.imageUrl || first?.url || first?.imagePath;
     if (url && url !== "PENDING" && url.startsWith("http")) return url;
   }
-
-  if (Array.isArray(product.images) && product.images.length > 0) {
+  if (Array.isArray(product.images) && product.images.length) {
     const url = product.images[0];
     if (url && url !== "PENDING" && url.startsWith("http")) return url;
   }
-
   return null;
 };
 
+// Thumbnail component with fallback
 const ProductThumbnail = ({ product }: { product: ExtendedProductListData }) => {
-  const [src, setSrc] = React.useState(
-    getFirstImage(product) ?? "/assets/images/SellerMed.jpg"
-  );
-
+  const [src, setSrc] = React.useState(getFirstImage(product) ?? "/icons/Tumbnail.svg");
   return (
-    /* eslint-disable-next-line @next/next/no-img-element */
     <img
       src={src}
-      alt="Product thumbnail"
-      className="w-12 h-12 rounded-lg object-cover border border-neutral-200"
-      onError={() => setSrc("/assets/images/SellerMed.jpg")}
+      alt="Thumbnail"
+      className="w-10 h-10 rounded-md object-cover"
+      onError={() => setSrc("/icons/Tumbnail.svg")}
     />
   );
 };
@@ -104,7 +70,7 @@ const ProductThumbnail = ({ product }: { product: ExtendedProductListData }) => 
 type SortField = "name" | "price" | "stock" | "none";
 type SortDir = "asc" | "desc";
 
-const SORT_OPTIONS: { label: string; field: SortField; dir: SortDir }[] = [
+const SORT_OPTIONS: Array<{ label: string; field: SortField; dir: SortDir }> = [
   { label: "Name (A–Z)", field: "name", dir: "asc" },
   { label: "Name (Z–A)", field: "name", dir: "desc" },
   { label: "Price (Low–High)", field: "price", dir: "asc" },
@@ -113,7 +79,7 @@ const SORT_OPTIONS: { label: string; field: SortField; dir: SortDir }[] = [
   { label: "Stock (High–Low)", field: "stock", dir: "desc" },
 ];
 
-const CATEGORY_OPTIONS = ["all", "Drugs", "Consumable", "Non-Consumable"] as const;
+const CATEGORY_OPTIONS = ["all", "Drugs", "Consumable", "Non-Consumable"];
 
 const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps) => {
   const [data, setData] = useState<ExtendedProductListData[]>([]);
@@ -123,34 +89,30 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
   const [selectedProductIdLocal, setSelectedProductIdLocal] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-
-  // Sort state
   const [sortField, setSortField] = useState<SortField>("none");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [activeSortLabel, setActiveSortLabel] = useState("Sort By");
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
-  const [activeSortLabel, setActiveSortLabel] = useState("Sort by");
-
-  // Filter panel state
-  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
 
-  // Close sort dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
-        setSortDropdownOpen(false);
-      }
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterDropdownOpen(false);
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortDropdownOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
       const response = await getProductList();
-      setData((response as ExtendedProductListData[]) || []);
-      setFilteredData((response as ExtendedProductListData[]) || []);
+      setData(response as ExtendedProductListData[] || []);
+      setFilteredData(response as ExtendedProductListData[] || []);
     } catch (error) {
       console.error("Error fetching product list:", error);
     } finally {
@@ -162,31 +124,25 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
     fetchProducts();
   }, []);
 
+  // Filtering + sorting logic
   useEffect(() => {
     let filtered = [...data];
 
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (product) =>
-          product.productName?.toLowerCase().includes(query) ||
-          product.manufacturerName?.toLowerCase().includes(query) ||
-          product.productId?.toLowerCase().includes(query)
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.productName?.toLowerCase().includes(q) ||
+        p.productId?.toLowerCase().includes(q)
       );
     }
 
     if (categoryFilter !== "all") {
-      filtered = filtered.filter(
-        (product) => getProductCategory(product) === categoryFilter
-      );
+      filtered = filtered.filter(p => getProductCategory(p) === categoryFilter);
     }
 
-    // Apply sort
     if (sortField !== "none") {
-      filtered = [...filtered].sort((a, b) => {
-        let valA: number | string = 0;
-        let valB: number | string = 0;
-
+      filtered.sort((a, b) => {
+        let valA: string | number = 0, valB: string | number = 0;
         if (sortField === "name") {
           valA = a.productName?.toLowerCase() ?? "";
           valB = b.productName?.toLowerCase() ?? "";
@@ -197,7 +153,6 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
           valA = Number(a.pricingDetails?.[0]?.stockQuantity ?? 0);
           valB = Number(b.pricingDetails?.[0]?.stockQuantity ?? 0);
         }
-
         if (valA < valB) return sortDir === "asc" ? -1 : 1;
         if (valA > valB) return sortDir === "asc" ? 1 : -1;
         return 0;
@@ -214,16 +169,11 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
     },
     {
       header: "Product Name",
-      accessor: (row) => (
-        <div className="max-w-xs">
-          <p className="font-medium text-neutral-900 truncate">{row.productName || "-"}</p>
-          <p className="text-xs text-neutral-500 truncate">{row.manufacturerName || ""}</p>
-        </div>
-      ),
+      accessor: (row) => row.productName ?? "-",
     },
     {
       header: "Category",
-      accessor: (row) => getCategoryBadge(getProductCategory(row)),
+      accessor: (row) => getProductCategory(row),
     },
     {
       header: "Price",
@@ -236,125 +186,89 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
       header: "Stock",
       accessor: (row) => {
         const stock = row.pricingDetails?.[0]?.stockQuantity;
-        if (!stock) return "-";
-
-        const stockNum = Number(stock);
-        let colorClass = "text-neutral-700";
-        if (stockNum === 0) colorClass = "text-red-600 font-semibold";
-        else if (stockNum < 10) colorClass = "text-orange-600";
-        else if (stockNum >= 100) colorClass = "text-green-600";
-
-        return <span className={colorClass}>{stock}</span>;
+        return stock !== undefined && stock !== null ? String(stock) : "-";
       },
     },
     {
       header: "Status",
       accessor: (row) => {
         const stock = Number(row.pricingDetails?.[0]?.stockQuantity ?? 0);
-        if (stock === 0)
-          return (
-            <span className="px-3 py-1 text-xs rounded-md bg-red-50 text-red-700 font-medium">
-              Out of Stock
-            </span>
-          );
-        if (stock < 10)
-          return (
-            <span className="px-3 py-1 text-xs rounded-md bg-orange-50 text-orange-700 font-medium">
-              Low Stock
-            </span>
-          );
-        return (
-          <span className="px-3 py-1 text-xs rounded-md bg-green-50 text-green-700 font-medium">
-            Active
-          </span>
-        );
+        if (stock === 0) return <span className="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-medium">Out of Stock</span>;
+        if (stock < 10) return <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-medium">Low Stock</span>;
+        return <span className="px-2 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-medium">Active</span>;
       },
     },
   ];
 
   return (
     <>
-      {/* ── Top bar: Filter | Search | Sort by ── */}
-      <div className="flex items-center gap-3 flex-wrap mb-3">
-        {/* Filter button */}
-        <div className="relative">
+      {/* Top bar */}
+      <div className="flex justify-between gap-10">
+        {/* Filter button with hover effect */}
+        <div className="relative" ref={filterRef}>
           <button
-            onClick={() => setFilterOpen((prev) => !prev)}
-            className={`flex items-center gap-2 h-12 px-5 rounded-xl border text-sm font-semibold transition
-              ${filterOpen || categoryFilter !== "all"
-                ? "bg-primary-900 text-white border-primary-900"
-                : "bg-white text-neutral-700 border-neutral-200 hover:border-primary-900"
-              }`}
+            onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
+            className={`w-32 h-12 bg-neutral-50 border rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2 
+              hover:bg-neutral-100 hover:border-primary-900 transition
+              ${categoryFilter !== "all" ? "border-primary-900 text-primary-900" : "border-neutral-200"}`}
           >
-            <SlidersHorizontal size={16} />
+            <img src="/icons/FilterIcon.svg" alt="filter" className="w-4.5 h-4.5" />
             Filter
             {categoryFilter !== "all" && (
-              <span className="ml-1 bg-white text-primary-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+              <span className="ml-1 bg-primary-900 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
                 1
               </span>
             )}
           </button>
-
-          {/* Filter panel dropdown */}
-          {filterOpen && (
-            <div className="absolute top-14 left-0 z-20 bg-white rounded-xl border border-neutral-200 shadow-lg p-4 w-56">
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
-                Category
-              </p>
-              <div className="flex flex-col gap-1">
-                {CATEGORY_OPTIONS.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => {
-                      setCategoryFilter(cat);
-                      setFilterOpen(false);
-                    }}
-                    className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition
-                      ${categoryFilter === cat
-                        ? "bg-primary-900 text-white"
-                        : "text-neutral-700 hover:bg-neutral-50"
-                      }`}
-                  >
-                    {cat === "all" ? "All Products" : cat}
-                  </button>
-                ))}
-              </div>
+          {filterDropdownOpen && (
+            <div className="absolute top-14 left-0 z-20 bg-white rounded-xl border border-neutral-200 shadow-lg p-3 w-48">
+              <p className="text-xs font-semibold text-neutral-500 mb-2">Category</p>
+              {CATEGORY_OPTIONS.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    setCategoryFilter(cat);
+                    setFilterDropdownOpen(false);
+                  }}
+                  className={`block w-full text-left px-3 py-2 rounded-lg text-sm ${
+                    categoryFilter === cat ? "bg-primary-900 text-white" : "hover:bg-neutral-100"
+                  }`}
+                >
+                  {cat === "all" ? "All Products" : cat}
+                </button>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Search bar */}
-        <div className="relative flex-1 min-w-[260px]">
+        {/* Search input with hover effect */}
+        <div className="relative w-full">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search"
-            className="border border-neutral-200 text-sm text-neutral-700 font-medium w-full h-12 rounded-xl px-5 pr-14 focus:outline-none focus:ring-2 focus:ring-primary-900 focus:border-transparent bg-neutral-50"
+            className="border border-neutral-200 text-p4 text-neutral-500 font-semibold w-full h-12 rounded-lg px-5 pr-14 
+              focus:outline-none focus:ring-0 hover:border-primary-900 transition"
           />
-          <div className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center bg-purple-200 rounded-r-xl pointer-events-none">
-            <Search size={18} className="text-purple-700" />
+          <div className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center bg-purple-200 rounded-r-lg pointer-events-none">
+            <img src="/icons/SearchIcon.svg" alt="search" className="w-6 h-6" />
           </div>
         </div>
 
-        {/* Sort by dropdown */}
+        {/* Sort By button with hover effect */}
         <div className="relative" ref={sortRef}>
           <button
-            onClick={() => setSortDropdownOpen((prev) => !prev)}
-            className={`flex items-center gap-2 h-12 px-5 rounded-xl border text-sm font-semibold transition whitespace-nowrap
-              ${sortDropdownOpen || sortField !== "none"
-                ? "bg-primary-900 text-white border-primary-900"
-                : "bg-white text-neutral-700 border-neutral-200 hover:border-primary-900"
-              }`}
+            onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
+            className="w-36 h-12 bg-neutral-50 border border-neutral-200 rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2 
+              hover:bg-neutral-100 hover:border-primary-900 transition"
           >
-            <ArrowUpDown size={16} />
             {activeSortLabel}
-            {sortDropdownOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            <img src="/icons/SortbyIcon.svg" alt="sort" className="w-4.5 h-4.5" />
           </button>
-
           {sortDropdownOpen && (
             <div className="absolute top-14 right-0 z-20 bg-white rounded-xl border border-neutral-200 shadow-lg p-2 w-52">
-              {SORT_OPTIONS.map((opt) => (
+              {SORT_OPTIONS.map(opt => (
                 <button
                   key={opt.label}
                   onClick={() => {
@@ -363,11 +277,11 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
                     setActiveSortLabel(opt.label);
                     setSortDropdownOpen(false);
                   }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition
-                    ${sortField === opt.field && sortDir === opt.dir
+                  className={`block w-full text-left px-3 py-2 rounded-lg text-sm ${
+                    sortField === opt.field && sortDir === opt.dir
                       ? "bg-primary-900 text-white"
-                      : "text-neutral-700 hover:bg-neutral-50"
-                    }`}
+                      : "hover:bg-neutral-100"
+                  }`}
                 >
                   {opt.label}
                 </button>
@@ -376,10 +290,10 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
                 <button
                   onClick={() => {
                     setSortField("none");
-                    setActiveSortLabel("Sort by");
+                    setActiveSortLabel("Sort By");
                     setSortDropdownOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition mt-1 border-t border-neutral-100"
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 mt-1 border-t border-neutral-100"
                 >
                   Clear sort
                 </button>
@@ -389,17 +303,13 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
         </div>
       </div>
 
-      {/* Results count + clear filters */}
-      <div className="flex items-center justify-between text-sm text-neutral-600 mb-2">
+      {/* Results info + clear filters */}
+      <div className="flex justify-between items-center mt-3 text-sm text-neutral-600">
         <p>
-          Showing{" "}
-          <span className="font-semibold text-neutral-900">{filteredData.length}</span> of{" "}
-          <span className="font-semibold text-neutral-900">{data.length}</span> products
+          Showing <span className="font-semibold">{filteredData.length}</span> of{" "}
+          <span className="font-semibold">{data.length}</span> products
           {categoryFilter !== "all" && (
-            <span className="ml-1">
-              in category:{" "}
-              <span className="font-semibold text-primary-900">{categoryFilter}</span>
-            </span>
+            <span className="ml-1">in category: <span className="font-semibold text-primary-900">{categoryFilter}</span></span>
           )}
         </p>
         {(searchQuery || categoryFilter !== "all" || sortField !== "none") && (
@@ -408,7 +318,7 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
               setSearchQuery("");
               setCategoryFilter("all");
               setSortField("none");
-              setActiveSortLabel("Sort by");
+              setActiveSortLabel("Sort By");
             }}
             className="text-primary-900 hover:underline font-medium"
           >
@@ -418,41 +328,35 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
       </div>
 
       {/* Table */}
-      <div>
+      <div className="mt-4">
         <Table<ExtendedProductListData>
           columns={columns}
           data={filteredData}
           loading={loading}
           actions={(row) => (
             <div className="flex items-center gap-3">
-              <Image
+              <img
                 src="/icons/EditIcon.svg"
-                alt="Edit product"
-                width={20}
-                height={20}
-                className="cursor-pointer opacity-70 hover:opacity-100 transition"
+                alt="edit"
+                className="w-5 h-5 rounded-md object-cover cursor-pointer opacity-70 hover:opacity-100 transition"
                 onClick={() => {
                   setSelectedProductId(row.productId ?? "");
                   setCurrentView("editProduct");
                 }}
               />
-              <Image
+              <img
                 src="/icons/ViewIcon.svg"
-                alt="View product"
-                width={20}
-                height={20}
-                className="cursor-pointer opacity-70 hover:opacity-100 transition"
+                alt="view"
+                className="w-5 h-5 cursor-pointer opacity-70 hover:opacity-100 transition"
                 onClick={() => {
                   setSelectedProductId(row.productId ?? "");
                   setCurrentView("productView");
                 }}
               />
-              <Image
+              <img
                 src="/icons/DeleteIcon.svg"
-                alt="Delete product"
-                width={20}
-                height={20}
-                className="cursor-pointer opacity-70 hover:opacity-100 transition"
+                alt="delete"
+                className="w-5 h-5 rounded-md object-cover cursor-pointer opacity-70 hover:opacity-100 transition"
                 onClick={() => {
                   setSelectedProductIdLocal(row.productId ?? null);
                   setOpenDeleteModal(true);
@@ -463,6 +367,7 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
         />
       </div>
 
+      {/* Delete modal */}
       {openDeleteModal && selectedProductIdLocal && (
         <CommonModal onClose={() => setOpenDeleteModal(false)}>
           <DeleteProduct
