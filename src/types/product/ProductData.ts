@@ -11,6 +11,10 @@ export interface CreateDrugProductRequest {
   pricingDetails: PricingData[];
 
   productAttributeDrugs: ProductAttributeDrugData[];
+
+  // NEW: optional fields for device products
+  productAttributeConsumableMedicals?: ProductAttributeConsumableData[];
+  productAttributeNonConsumableMedicals?: ProductAttributeNonConsumableData[];
 }
 
 export interface ProductAttributeDrugData {
@@ -24,17 +28,6 @@ export interface ProductAttributeDrugData {
   }[];
 }
 
-// export interface ProductAttributeDrugData {
-//   dosageId?: number;
-//   strength: string;
-//   therapeuticCategoryId: string;
-//   therapeuticCategory: string;
-//   therapeuticSubcategoryId: string;
-//   therapeuticSubcategory: string;
-//   manufacturerName: string;
-//   molecules: MoleculeData[];
-// }
-
 export interface PackagingData {
   packId?: number;
   packType: string;
@@ -44,7 +37,6 @@ export interface PackagingData {
   minimumOrderQuantity: number;
   maximumOrderQuantity: number;
 }
-
 
 export interface PricingData {
   pricingId?: string;
@@ -73,9 +65,7 @@ export interface AdditionalDiscountData {
   effectiveStartTime: string | null;
   effectiveEndDate: string | null;
   effectiveEndTime: string | null;
-  
 }
-
 
 export interface MoleculeData {
   moleculeId: string;
@@ -91,7 +81,46 @@ export interface ProductListData {
   productName: string;
   categoryName?: string;
   pricingDetails: PricingData[];
-
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW (consumable & non‑consumable device attributes)
+// ─────────────────────────────────────────────────────────────────────────────
 
+export interface ProductAttributeConsumableData {
+  productAttributeId?: string;
+  brandName: string;
+  deviceCatId: number;
+  deviceSubCatId: number;
+  dimensionSize: string;
+  disposalOrReusable: string;
+  keyFeaturesSpecifications: string;
+  materialTypeId: number[];
+  purpose: string;
+  safetyInstructions: string;
+  shelfLife: string;
+  sterileOrNonSterile: string;
+  storageConditionId: number;
+  countryId: number;
+  manufacturerName: string;
+  productBrochureUrl?: string;
+}
+
+export interface ProductAttributeNonConsumableData {
+  productAttributeId?: string;
+  brandName: string;
+  deviceCategoryId: number;
+  deviceSubCategoryId: number;
+  modelName: string;
+  modelNumber: string;
+  keyFeaturesSpecifications: string;
+  materialTypeIds: number[];
+  purpose: string;
+  powerSourceId: number;
+  storageConditionId: number;
+  countryId: number;
+  manufacturerName: string;
+  warrantyPeriod: string;
+  udiNumber: string;
+  serviceAvailability: boolean;
+}
