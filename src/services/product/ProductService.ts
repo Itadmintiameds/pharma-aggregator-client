@@ -6,36 +6,44 @@ import { AxiosError } from "axios";
 
 export const getDrugCategory = async () => {
   try {
-    const response = await api.get("drugCategory/getAll");
+    const response = await api.get('drugCategory/getAll');
     return response.data.data;
   } catch (error: unknown) {
-    console.error("Error fetching Drug Category:", error);
-    throw new Error("An unknown error occurred while fetching Drug Category.");
+    console.error('Error fetching Drug Category:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Drug Category: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Drug Category.');
+    }
   }
 };
 
-export const getTherapeuticSubcategory = async (
-  therapeuticCategoryId: string
-) => {
+export const getTherapeuticSubcategory = async (therapeuticCategoryId: string) => {
   try {
     if (!therapeuticCategoryId) throw new Error("Category ID is required");
-    const response = await api.get(
-      `therapeutic/therapeuticSubcategories/${therapeuticCategoryId}`
-    );
+    const response = await api.get(`therapeutic/therapeuticSubcategories/${therapeuticCategoryId}`);
     return response.data?.data ?? response.data;
   } catch (error: unknown) {
-    console.error("Error fetching Subcategory:", error);
-    throw new Error("An unknown error occurred while fetching Subcategory.");
+    console.error('Error fetching Subcategory:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Subcategory: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Subcategory.');
+    }
   }
 };
 
 export const getDosage = async () => {
   try {
-    const response = await api.get("dosage/allDosage");
+    const response = await api.get('dosage/allDosage');
     return response.data.data;
   } catch (error: unknown) {
-    console.error("Error fetching Dosage:", error);
-    throw new Error("An unknown error occurred while fetching Dosage.");
+    console.error('Error fetching Dosage:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Dosage: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Dosage.');
+    }
   }
 };
 
@@ -44,7 +52,12 @@ export const getPackTypesByDosageId = async (dosageId: number) => {
     const response = await api.get(`dosage/packType/${dosageId}`);
     return response.data.data;
   } catch (error: unknown) {
-    throw new Error("An unknown error occurred while fetching Pack Types.");
+    console.error('Error fetching Pack Types:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Pack Types: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Pack Types.');
+    }
   }
 };
 
@@ -53,9 +66,12 @@ export const getMoleculeStrengthByDosage = async (dosageId: number) => {
     const response = await api.get(`dosageMolecule/strengthFormat/${dosageId}`);
     return response.data.data;
   } catch (error: unknown) {
-    throw new Error(
-      "An unknown error occurred while fetching Molecule Strength."
-    );
+    console.error('Error fetching Molecule Strength Format:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Molecule Strength Format: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Molecule Strength Format.');
+    }
   }
 };
 
@@ -67,7 +83,11 @@ export const getConsumableDeviceCategories = async () => {
     return response.data?.data ?? response.data ?? [];
   } catch (error: unknown) {
     console.error("Error fetching consumable device categories:", error);
-    throw new Error("Failed to fetch consumable device categories.");
+    if (error instanceof Error) {
+      throw new Error(`Error fetching consumable device categories: ${error.message}`);
+    } else {
+      throw new Error("An unknown error occurred while fetching consumable device categories.");
+    }
   }
 };
 
@@ -77,21 +97,25 @@ export const getNonConsumableDeviceCategories = async () => {
     return response.data?.data ?? response.data ?? [];
   } catch (error: unknown) {
     console.error("Error fetching non-consumable device categories:", error);
-    throw new Error("Failed to fetch non-consumable device categories.");
+    if (error instanceof Error) {
+      throw new Error(`Error fetching non-consumable device categories: ${error.message}`);
+    } else {
+      throw new Error("An unknown error occurred while fetching non-consumable device categories.");
+    }
   }
 };
 
-export const getDeviceSubCategories = async (
-  categoryId: number | string
-) => {
+export const getDeviceSubCategories = async (categoryId: number | string) => {
   try {
-    const response = await api.get(
-      `masters/device-sub-categories/${categoryId}`
-    );
+    const response = await api.get(`masters/device-sub-categories/${categoryId}`);
     return response.data?.data ?? response.data ?? [];
   } catch (error: unknown) {
     console.error("Error fetching device subcategories:", error);
-    throw new Error("Failed to fetch device subcategories.");
+    if (error instanceof Error) {
+      throw new Error(`Error fetching device subcategories: ${error.message}`);
+    } else {
+      throw new Error("An unknown error occurred while fetching device subcategories.");
+    }
   }
 };
 
@@ -101,7 +125,11 @@ export const getMaterialTypes = async () => {
     return response.data?.data ?? response.data ?? [];
   } catch (error: unknown) {
     console.error("Error fetching material types:", error);
-    throw new Error("Failed to fetch material types.");
+    if (error instanceof Error) {
+      throw new Error(`Error fetching material types: ${error.message}`);
+    } else {
+      throw new Error("An unknown error occurred while fetching material types.");
+    }
   }
 };
 
@@ -111,7 +139,11 @@ export const getStorageConditions = async () => {
     return response.data?.data ?? response.data ?? [];
   } catch (error: unknown) {
     console.error("Error fetching storage conditions:", error);
-    throw new Error("Failed to fetch storage conditions.");
+    if (error instanceof Error) {
+      throw new Error(`Error fetching storage conditions: ${error.message}`);
+    } else {
+      throw new Error("An unknown error occurred while fetching storage conditions.");
+    }
   }
 };
 
@@ -121,7 +153,11 @@ export const getCountries = async () => {
     return response.data?.data ?? response.data ?? [];
   } catch (error: unknown) {
     console.error("Error fetching countries:", error);
-    throw new Error("Failed to fetch countries.");
+    if (error instanceof Error) {
+      throw new Error(`Error fetching countries: ${error.message}`);
+    } else {
+      throw new Error("An unknown error occurred while fetching countries.");
+    }
   }
 };
 
@@ -131,31 +167,37 @@ export const getPackTypes = async () => {
     return response.data?.data ?? response.data ?? [];
   } catch (error: unknown) {
     console.error("Error fetching pack types:", error);
-    throw new Error("Failed to fetch pack types.");
+    if (error instanceof Error) {
+      throw new Error(`Error fetching pack types: ${error.message}`);
+    } else {
+      throw new Error("An unknown error occurred while fetching pack types.");
+    }
   }
 };
 
-// ─── PRODUCT CRUD ─────────────────────────────────────────────────────────────
+// ─── PRODUCT CRUD (old error style) ──────────────────────────────────────────
 
-export const createDrugProduct = async (
-  payload: CreateDrugProductRequest
-) => {
+export const createDrugProduct = async (payload: CreateDrugProductRequest) => {
   try {
-    const response = await api.post("/products/create", payload, {
-      headers: { "Content-Type": "application/json" },
+    const response = await api.post('/products/create', payload, {
+      headers: { 'Content-Type': 'application/json' },
     });
     return response.data;
   } catch (error: any) {
-    console.error("Error creating Product", error);
+    console.error('Error creating Product', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
     throw new Error(
-      error.response?.data?.message || error.message || "Error creating Product"
+      error.response?.data?.message || error.message || 'Error creating Product'
     );
   }
 };
 
 export const getProductList = async () => {
   try {
-    const response = await api.get("/products/getAll");
+    const response = await api.get('/products/getAll');
     return (
       response.data?.data?.content ||
       response.data?.data ||
@@ -164,7 +206,12 @@ export const getProductList = async () => {
       []
     );
   } catch (error: unknown) {
-    throw new Error("An unknown error occurred while fetching Product List.");
+    console.error('Error fetching Drug Product List:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Drug Product List: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Drug Product List.');
+    }
   }
 };
 
@@ -173,23 +220,29 @@ export const getProductById = async (productId: string) => {
     const response = await api.get(`/products/getById/${productId}`);
     return response.data?.data || response.data;
   } catch (error: unknown) {
-    throw new Error("An unknown error occurred while fetching Product.");
+    console.error('Error fetching Product by ID:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Product: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Product.');
+    }
   }
 };
 
-export const updateProduct = async (
-  productId: string,
-  payload: CreateDrugProductRequest
-) => {
+export const updateProduct = async (productId: string, payload: CreateDrugProductRequest) => {
   try {
     const response = await api.put(`/products/update/${productId}`, payload, {
-      headers: { "Content-Type": "application/json" },
+      headers: { 'Content-Type': 'application/json' },
     });
     return response.data;
   } catch (error: any) {
-    console.error("Error updating Product", error);
+    console.error('Error updating Product', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
     throw new Error(
-      error.response?.data?.message || error.message || "Error updating Product"
+      error.response?.data?.message || error.message || 'Error updating Product'
     );
   }
 };
@@ -199,14 +252,16 @@ export const deleteProduct = async (productId: string) => {
     const response = await api.delete(`/products/delete/${productId}`);
     return response.data?.data || response.data || null;
   } catch (error: unknown) {
-    throw new Error("An unknown error occurred while deleting Product.");
+    console.error('Error deleting Product:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error deleting Product: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while deleting Product.');
+    }
   }
 };
 
-export const uploadProductImages = async (
-  productId: string,
-  files: File[]
-) => {
+export const uploadProductImages = async (productId: string, files: File[]) => {
   try {
     const formData = new FormData();
     files.forEach((file) => formData.append("images", file));
@@ -215,15 +270,14 @@ export const uploadProductImages = async (
     });
     return response.data;
   } catch (error: any) {
+    console.error("Error uploading images", error);
     throw new Error(
-      error.response?.data?.message ||
-        error.message ||
-        "Error uploading images"
+      error.response?.data?.message || error.message || "Error uploading images"
     );
   }
 };
 
-// ─── LEGACY (kept for backward compat) ───────────────────────────────────────
+// ─── LEGACY (kept exactly as old) ────────────────────────────────────────────
 
 export const getDrugProductById = async (productId: string) => {
   try {
@@ -231,7 +285,12 @@ export const getDrugProductById = async (productId: string) => {
     const response = await api.get(`products/getById/${productId}`);
     return response.data?.data ?? response.data;
   } catch (error: unknown) {
-    throw new Error("An unknown error occurred while fetching Product.");
+    console.error('Error fetching Product:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Product: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while Product.');
+    }
   }
 };
 
@@ -242,27 +301,30 @@ export const drugProductDelete = async (productId: string) => {
     return response.data;
   } catch (error: unknown) {
     if (error instanceof AxiosError) {
-      if (error.response?.status === 403)
+      if (error.response?.status === 403) {
         throw new Error("Access denied: You don't have permission");
+      }
       throw new Error(error.response?.data?.message || "Failed");
     }
     throw new Error("Unknown error");
   }
 };
 
-export const editDrugProduct = async (
-  productId: string,
-  payload: CreateDrugProductRequest
-) => {
+export const editDrugProduct = async (productId: string, payload: CreateDrugProductRequest) => {
   const response = await api.put(`products/update/${productId}`, payload);
   return response.data;
 };
 
 export const getTherapeuticCategory = async () => {
   try {
-    const response = await api.get("therapeutic/therapeuticCategories");
+    const response = await api.get('therapeutic/therapeuticCategories');
     return response.data.data;
   } catch (error: unknown) {
-    throw new Error("An unknown error occurred while fetching Therapeutic Category.");
+    console.error('Error fetching Drug Category:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Drug Category: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Drug Category.');
+    }
   }
 };

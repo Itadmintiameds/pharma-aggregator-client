@@ -684,7 +684,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             {errors.disposableType && <p className="text-red-500 text-sm mt-1">{errors.disposableType}</p>}
           </div>
 
-          <Input label="Shelf Life" name="shelfLife" placeholder="e.g., 3 years, 24 months"
+          <Input label="Shelf Life (Enter in months)" name="shelfLife" placeholder="e.g., 15"
             onChange={handleChange} value={form.shelfLife} error={errors.shelfLife} required />
 
           {/* Certifications */}
