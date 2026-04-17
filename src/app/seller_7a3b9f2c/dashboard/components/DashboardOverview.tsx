@@ -24,10 +24,10 @@ import CosmeticForm from "./CosmeticForm";
 // }
 
 interface DashboardOverviewProps {
-  currentView: DashboardView;   // ✅ ADD THIS
+  currentView: DashboardView; // ✅ ADD THIS
   setCurrentView: (view: DashboardView) => void;
   setSelectedProductId: (id: string) => void;
-  selectedProductId: string;    // ✅ ADD THIS
+  selectedProductId: string; // ✅ ADD THIS
 }
 
 // const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {
@@ -37,10 +37,14 @@ const DashboardOverview = ({
   setSelectedProductId,
   selectedProductId,
 }: DashboardOverviewProps) => {
+
   if (currentView === "editDrug") {
+    if (!selectedProductId) {
+      return <div>Loading...</div>; // ✅ prevents blank screen
+    }
+
     return <DrugForm productId={selectedProductId} mode="edit" />;
   }
-
   // if (currentView === "editSupplement") {
   //   return <SupplementForm productId={selectedProductId} mode="edit" />;
   // }

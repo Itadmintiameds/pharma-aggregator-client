@@ -7,8 +7,10 @@ import {
   getDosage,
   getMoleculeStrengthByDosage,
   getPackTypesByDosageId,
+  getProductById,
   getTherapeuticCategory,
   getTherapeuticSubcategory,
+  updateProduct,
   uploadProductImages,
 } from "@/src/services/product/ProductService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
@@ -25,7 +27,7 @@ interface SelectOption {
 interface DrugFormProps {
   categoryId?: number;
   productId?: string;
-  mode: "create" | "edit";
+  mode?: "create" | "edit";
 }
 
 export const DrugForm: React.FC<DrugFormProps> = ({
@@ -149,9 +151,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   >([]);
   const [loadingTherapeuticCategories, setLoadingTherapeuticCategories] =
     useState(false);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(
-    null,
-  );
+  // const [selectedProductId, setSelectedProductId] = useState<string | null>(
+  //   null,
+  // );
   // const [mode, setMode] = useState<"create" | "edit" | "delete">("create");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [subcategoryOptions, setSubcategoryOptions] = useState<SelectOption[]>(
@@ -169,6 +171,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
   const [additionalDiscounts, setAdditionalDiscounts] = useState([]);
   const [openDrawer, setOpenDrawer] = useState(false);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const isReadOnly = mode === "edit";
+  const [dosageFormLabel, setDosageFormLabel] = useState<string>("");
 
   useEffect(() => {
     if (categoryId) {
@@ -584,144 +589,231 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     }
   };
 
-useEffect(() => {
-  if (mode === "edit" && productId) {
-    fetchProductByIdAndFillForm(productId);
-  }
-}, [mode, productId]);
+  useEffect(() => {
+    if (mode === "edit" && productId) {
+      fetchProductByIdAndFillForm(productId);
+    }
+  }, [mode, productId, dosageOptions, moleculeOptions]);
 
   const fetchProductByIdAndFillForm = async (id: string) => {
     try {
-      const data = await getDrugProductById(id);
+      const data = await getProductById(id);
       if (!data) throw new Error("Product not found");
+
       const pricing = data.pricingDetails?.[0] || {};
       const packaging = data.packagingDetails || {};
-      setForm({
+      const attributeDrug = data.productAttributeDrugs?.[0] || {};
+      const dosageForm = attributeDrug.dosageForm || "";
+      const selectedDosage = dosageOptions.find(
+        (option) => option.label === dosageForm,
+      );
+
+      const molecules =
+        attributeDrug.molecules?.length > 0
+          ? attributeDrug.molecules.map((m: any) => {
+              const full = moleculeOptions.find(
+                (opt) => opt.value.moleculeId === m.moleculeId,
+              )?.value;
+
+              return {
+                moleculeId: m.moleculeId ?? "",
+                moleculeName: full?.moleculeName || "",
+                drugSchedule: full?.drugSchedule || "",
+                mechanismOfAction: full?.mechanismOfAction || "",
+                primaryUse: full?.primaryUse || "",
+                strength: m.strength ?? "",
+              };
+            })
+          : [
+              {
+                moleculeId: "",
+                moleculeName: "",
+                drugSchedule: "",
+                mechanismOfAction: "",
+                primaryUse: "",
+                strength: "",
+              },
+            ];
+
+      setExistingImages(
+        data.productImages?.map((img: any) => img.productImage) || [],
+      );
+
+      setForm((prev) => ({
+        ...prev,
         productId: data.productId || "",
-        // productCategoryId: String(data.productCategoryId || ""),
+        categoryId: String(data.categoryId || categoryId || ""),
         productName: data.productName || "",
-        therapeuticCategory: data.productCategoryId || "",
-        therapeuticSubcategory: data.therapeuticSubcategory || "",
-        dosageId: data.dosageId || "",
-        strength: String(data.strength ?? ""),
-        warningsPrecautions: data.warningsPrecautions || "",
         productDescription: data.productDescription || "",
         productMarketingUrl: data.productMarketingUrl || "",
-        molecules:
-          data.molecules?.length > 0
-            ? data.molecules.map((m: any) => ({
-                moleculeId: m.moleculeId ?? null,
-                moleculeName: m.moleculeName ?? "",
-                mechanismOfAction: m.mechanismOfAction ?? "",
-                primaryUse: m.primaryUse ?? "",
-              }))
-            : [
-                {
-                  moleculeId: null,
-                  moleculeName: "",
-                  mechanismOfAction: "",
-                  primaryUse: "",
-                },
-              ],
-        packagingUnit: packaging.packagingUnit || "",
-        numberOfUnits: String(packaging.numberOfUnits ?? ""),
+        warningsPrecautions: data.warningsPrecautions || "",
+        manufacturerName: data.manufacturerName || "",
+        therapeuticCategory: String(attributeDrug.therapeuticCategoryId || ""),
+        therapeuticSubcategory: String(
+          attributeDrug.therapeuticSubcategoryId || "",
+        ),
+        dosageId: selectedDosage?.value || "",
+        strength: String(attributeDrug.strength ?? ""),
+        molecules,
+        packId: String(packaging.packId || ""),
+        packType: packaging.packType || "",
+        unitPerPack: String(packaging.unitPerPack ?? ""),
+        numberOfPacks: String(packaging.numberOfPacks ?? ""),
         packSize: String(packaging.packSize ?? ""),
         minimumOrderQuantity: String(packaging.minimumOrderQuantity ?? ""),
         maximumOrderQuantity: String(packaging.maximumOrderQuantity ?? ""),
-        packagingId: packaging.packagingId || "",
         pricingId: pricing.pricingId || "",
         batchLotNumber: pricing.batchLotNumber || "",
-        manufacturerName: pricing.manufacturerName || "",
         manufacturingDate: pricing.manufacturingDate
           ? new Date(pricing.manufacturingDate)
           : null,
         expiryDate: pricing.expiryDate ? new Date(pricing.expiryDate) : null,
+        dateOfStockEntry: pricing.dateOfStockEntry
+          ? new Date(pricing.dateOfStockEntry)
+          : new Date(),
         storageCondition: pricing.storageCondition || "",
         stockQuantity: String(pricing.stockQuantity ?? ""),
-        pricePerUnit: String(pricing.pricePerUnit ?? ""),
+        sellingPrice: String(pricing.sellingPrice ?? ""),
         mrp: String(pricing.mrp ?? ""),
-        // createdDate: form.createdDate,
-        gstPercentage: String(pricing.gstPercentage ?? ""),
+        gstPercentage:
+          pricing.gstPercentage !== null && pricing.gstPercentage !== undefined
+            ? String(pricing.gstPercentage)
+            : "",
         discountPercentage: String(pricing.discountPercentage ?? ""),
-        minimumPurchaseQuantity: String(pricing.minimumPurchaseQuantity ?? ""),
-        additionalDiscount: String(pricing.additionalDiscount ?? ""),
         finalPrice: String(pricing.finalPrice ?? ""),
         hsnCode: String(pricing.hsnCode ?? ""),
-      });
+        additionalDiscount: pricing.additionalDiscounts || [],
+      }));
+
+      setDosageFormLabel(dosageForm);
     } catch (err) {
       console.error(err);
       alert("Failed to load product");
     }
   };
 
-  const handleDelete = async () => {
-    if (!form.productId) return;
-    const confirmed = confirm("Are you sure you want to delete this product?");
-    if (!confirmed) return;
-    try {
-      await drugProductDelete(form.productId);
-      alert("Product deleted successfully");
-      // setMode("create");
-      setSelectedProductId(null);
-    } catch (err: any) {
-      alert(err.message || "Delete failed");
-    }
-  };
+const handleUpdate = async () => {
+  const validation = drugProductSchema.safeParse(form);
 
-  // const handleUpdate = async () => {
+  if (!validation.success) {
+    const fieldErrors: Record<string, string> = {};
+    validation.error.issues.forEach((err) => {
+      fieldErrors[err.path.join(".")] = err.message;
+    });
+    setErrors(fieldErrors);
+    return;
+  }
+
+  setErrors({});
+
+  try {
+    const payload = {
+      productId: form.productId, // ✅ IMPORTANT
+
+      productName: form.productName,
+      productDescription: form.productDescription,
+      productMarketingUrl: form.productMarketingUrl,
+      warningsPrecautions: form.warningsPrecautions,
+
+      manufacturerName: form.manufacturerName,
+      categoryId: Number(form.categoryId),
+
+      packagingDetails: {
+        packId: Number(form.packId),
+        packType: form.packType,
+        unitPerPack: Number(form.unitPerPack),
+        numberOfPacks: Number(form.numberOfPacks),
+        packSize: Number(form.packSize),
+        minimumOrderQuantity: Number(form.minimumOrderQuantity),
+        maximumOrderQuantity: Number(form.maximumOrderQuantity),
+      },
+
+      pricingDetails: [
+        {
+          pricingId: form.pricingId || undefined, // ✅ VERY IMPORTANT FIX
+
+          batchLotNumber: form.batchLotNumber,
+          manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
+          expiryDate: toLocalDateTimeString(form.expiryDate),
+          storageCondition: form.storageCondition,
+          stockQuantity: Number(form.stockQuantity),
+          dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
+
+          sellingPrice: Number(form.sellingPrice),
+          mrp: Number(form.mrp),
+          discountPercentage: Number(form.discountPercentage),
+
+          // ✅ GST FIX (safe conversion)
+          gstPercentage: form.gstPercentage
+            ? Number(form.gstPercentage)
+            : 0,
+
+          finalPrice: Number(form.finalPrice),
+          hsnCode: Number(form.hsnCode),
+          shelfLifeMonths: 24,
+
+          additionalDiscounts: form.additionalDiscount.map((d) => ({
+            minimumPurchaseQuantity: d.minimumPurchaseQuantity,
+            additionalDiscountPercentage: d.additionalDiscountPercentage,
+            effectiveStartDate: d.effectiveStartDate,
+            effectiveStartTime: d.effectiveStartTime,
+            effectiveEndDate: d.effectiveEndDate,
+            effectiveEndTime: d.effectiveEndTime,
+          })),
+        },
+      ],
+
+      productAttributeDrugs: [
+        {
+          therapeuticCategoryId: form.therapeuticCategory,
+          therapeuticSubcategoryId: form.therapeuticSubcategory,
+
+          dosageForm:
+            dosageOptions.find((d) => d.value === form.dosageId)?.label || "",
+
+          strength: form.strength,
+
+          molecules: form.molecules.map((m) => ({
+            moleculeId: Number(m.moleculeId),
+            strength: m.strength,
+          })),
+        },
+      ],
+
+      productImages: images.map((img) => ({
+        productImage: img.name,
+      })),
+    };
+
+    await updateProduct(form.productId, payload);
+
+    if (images.length > 0) {
+      await uploadProductImages(form.productId, images);
+    }
+
+    alert("✅ Product updated successfully!");
+    window.location.reload();
+
+  } catch (err) {
+    console.error(err);
+    alert("❌ Update failed");
+  }
+};
+  // const handleDelete = async () => {
+  //   if (!form.productId) return;
+  //   const confirmed = confirm("Are you sure you want to delete this product?");
+  //   if (!confirmed) return;
   //   try {
-  //     const moleculeIds = form.molecules
-  //       .map((m) => m.moleculeId)
-  //       .filter((id): id is number => id !== null);
-  //     const payload = {
-  //       productId: form.productId,
-  //       // productCategoryId: form.productCategoryId,
-  //       productName: form.productName,
-  //       therapeuticCategory: form.therapeuticCategory,
-  //       therapeuticSubcategory: form.therapeuticSubcategory,
-  //       dosageId: form.dosageId,
-  //       strength: Number(form.strength),
-  //       warningsPrecautions: form.warningsPrecautions,
-  //       productDescription: form.productDescription,
-  //       productMarketingUrl: form.productMarketingUrl,
-  //       packagingDetails: {
-  //         packagingUnit: form.packagingUnit,
-  //         numberOfUnits: Number(form.numberOfUnits),
-  //         packSize: Number(form.packSize),
-  //         minimumOrderQuantity: Number(form.minimumOrderQuantity),
-  //         maximumOrderQuantity: Number(form.maximumOrderQuantity),
-  //       },
-  //       pricingDetails: [
-  //         {
-  //           pricingId: form.pricingId || undefined,
-  //           batchLotNumber: form.batchLotNumber,
-  //           manufacturerName: form.manufacturerName,
-  //           manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-  //           expiryDate: toLocalDateTimeString(form.expiryDate),
-  //           storageCondition: form.storageCondition,
-  //           stockQuantity: Number(form.stockQuantity),
-  //           pricePerUnit: Number(form.pricePerUnit),
-  //           mrp: Number(form.mrp),
-  //           discountPercentage: Number(form.discountPercentage),
-  //           gstPercentage: Number(form.gstPercentage),
-  //           additionalDiscount: Number(form.additionalDiscount),
-  //           minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
-  //           finalPrice: Number(form.finalPrice),
-  //           hsnCode: Number(form.hsnCode),
-  //         },
-  //       ],
-  //       moleculeIds,
-  //     };
-  //     await editDrugProduct(form.productId, payload as any);
-  //     alert("Product updated successfully");
-  //     setMode("create");
+  //     await drugProductDelete(form.productId);
+  //     alert("Product deleted successfully");
+  //     // setMode("create");
   //     setSelectedProductId(null);
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert("Update failed");
+  //   } catch (err: any) {
+  //     alert(err.message || "Delete failed");
   //   }
   // };
 
+ 
   const calculateFinalPrice = (
     mrp: string,
     standardDiscount: string,
@@ -840,34 +932,14 @@ useEffect(() => {
     fetchDosage();
   }, []);
 
-  // const handleDosageChange = async (selected: any) => {
-  //   const dosageId = selected?.value;
-
-  //   setForm((prev) => ({
-  //     ...prev,
-  //     dosageId,
-  //   }));
-
-  //   try {
-  //     const data = await getMoleculeStrengthByDosage(dosageId);
-
-  //     // extract only strength text
-  //     const strengths = data.map((item: any) => item.moleculeStrengthFormat);
-
-  //     setStrengthFormats(strengths);
-  //   } catch (error) {
-  //     console.error(error);
-  //   }
-  // };
-
   const handleDosageChange = async (selected: any) => {
     const dosageId = selected?.value;
+    const dosageLabel = selected?.label || "";
 
     setForm((prev) => ({
       ...prev,
       dosageId,
 
-      // ✅ FIXED structure
       molecules: [
         {
           moleculeId: "",
@@ -882,6 +954,8 @@ useEffect(() => {
       packId: "",
       packType: "",
     }));
+
+    setDosageFormLabel(dosageLabel);
 
     setErrors((prev) => ({
       ...prev,
@@ -907,7 +981,6 @@ useEffect(() => {
     const fetchPackTypes = async () => {
       try {
         const res = await getPackTypesByDosageId(Number(form.dosageId));
-        console.log("PackType API:", res);
 
         const data = Array.isArray(res) ? res : res?.data;
 
@@ -1540,9 +1613,13 @@ useEffect(() => {
               <Select
                 options={gstOptions}
                 value={
-                  gstOptions.find(
-                    (o: any) => String(o.value) === String(form.gstPercentage),
-                  ) || null
+                  gstOptions.find((o) => o.value === form.gstPercentage) ||
+                  (form.gstPercentage
+                    ? {
+                        value: form.gstPercentage,
+                        label: `${form.gstPercentage}%`,
+                      }
+                    : null)
                 }
                 onChange={(selected: any) =>
                   setForm((prev) => ({
@@ -1601,6 +1678,108 @@ useEffect(() => {
 
           <div
             className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer"
+            onClick={() => {
+              if (!isReadOnly) {
+                document.getElementById("fileInput")?.click();
+              }
+            }}
+          >
+            <input
+              id="fileInput"
+              type="file"
+              disabled={isReadOnly}
+              multiple
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) {
+                  setImages(Array.from(e.target.files));
+                }
+              }}
+            />
+            <div className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg">
+              <div className="w-285 h-34.5 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center ">
+                <div className="flex flex-col items-center justify-center">
+                  <img
+                    src="/icons/FolderIcon.svg"
+                    alt="drug"
+                    className="w-10 h-10 rounded-md object-cover"
+                  />
+
+                  <div className="text-label-l2 font-normal mt-4">
+                    Choose a file or drag & drop it here
+                  </div>
+                  <div className="text-label-l1 font-normal text-neutral-400">
+                    or click to browse JPEG, PNG, and Pdf{" "}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ✅ Existing Images (from backend) */}
+          {existingImages.length > 0 && (
+            <div className="grid grid-cols-4 gap-3 mt-4">
+              {existingImages.map((img, index) => (
+                <div key={`existing-${index}`} className="relative">
+                  <img
+                    src={img}
+                    alt="product"
+                    className="w-full h-24 object-cover rounded-md border"
+                  />
+
+                  {!isReadOnly && (
+                    <button
+                      onClick={() =>
+                        setExistingImages(
+                          existingImages.filter((_, i) => i !== index),
+                        )
+                      }
+                      className="absolute top-1 right-1 bg-black text-white text-xs px-1 rounded"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ✅ Newly Uploaded Images */}
+          {images.length > 0 && (
+            <div className="grid grid-cols-4 gap-3 mt-4">
+              {images.map((file, index) => (
+                <div key={`new-${index}`} className="relative">
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt="preview"
+                    className="w-full h-24 object-cover rounded-md border"
+                  />
+
+                  {!isReadOnly && (
+                    <button
+                      onClick={() =>
+                        setImages(images.filter((_, i) => i !== index))
+                      }
+                      className="absolute top-1 right-1 bg-black text-white text-xs px-1 rounded"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
+          <div className="text-[#364153] font-normal text-sm">
+            Product Photos{" "}
+            <span className="text-warning-500 font-semibold ml-1">*</span>
+          </div>
+
+          <div
+            className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer"
             onClick={() => document.getElementById("fileInput")?.click()}
           >
             <input
@@ -1651,7 +1830,6 @@ useEffect(() => {
                     className="w-full h-24 object-cover rounded-md border"
                   />
 
-                  {/* Remove button */}
                   <button
                     onClick={() =>
                       setImages(images.filter((_, i) => i !== index))
@@ -1664,7 +1842,7 @@ useEffect(() => {
               ))}
             </div>
           )}
-        </div>
+        </div> */}
 
         <div className="flex justify-between mt-6 col-span-2">
           <div className="space-x-6 flex">
@@ -1697,7 +1875,7 @@ useEffect(() => {
             {mode === "edit" ? (
               <button
                 type="button"
-                // onClick={handleUpdate}
+                 onClick={handleUpdate}
                 className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
               >
                 Update

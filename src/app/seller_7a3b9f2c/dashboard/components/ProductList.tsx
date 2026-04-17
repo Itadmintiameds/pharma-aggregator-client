@@ -79,12 +79,12 @@ const ProductList = ({
   }, []);
 
   const categoryViewMap: Record<number, DashboardView> = {
-  1: "editDrug",
-  2: "editSupplement",
-  3: "editFoodInfant",
-  4: "editCosmetic",
-  5: "editMedicalDevice",
-};
+    1: "editDrug",
+    2: "editSupplement",
+    3: "editFoodInfant",
+    4: "editCosmetic",
+    5: "editMedicalDevice",
+  };
 
   return (
     <>
@@ -134,13 +134,15 @@ const ProductList = ({
                 className="w-5 h-5 rounded-md object-cover cursor-pointer"
                 onClick={() => {
                   const view = categoryViewMap[row.categoryId as number];
-                  if (!view) {
-                    console.warn("Unknown categoryId:", row.categoryId);
-                    return;
-                  }
+                  if (!view) return;
 
+                  // ✅ FIX: ensure ID is set BEFORE view
                   setSelectedProductId(row.productId ?? "");
-                  setCurrentView(view);
+
+                  // ⏳ Delay view change (critical)
+                  setTimeout(() => {
+                    setCurrentView(view);
+                  }, 0);
                 }}
               />
               <img
