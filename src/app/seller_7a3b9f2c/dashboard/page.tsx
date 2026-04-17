@@ -139,12 +139,7 @@ const SellerDashboard = () => {
           ) : currentView === "addProduct" ? (
             <AddProduct />
           ) : currentView === "editProduct" ? (
-            <EditProduct
-              productId={selectedProductId || ""}
-              setCurrentView={setCurrentView}
-              setSelectedProductId={setSelectedProductId}
-              onCancel={() => setCurrentView("overview")}
-            />
+            <EditProduct />
           ) : currentView === "viewProducts" ? (
             <ViewProducts />
           ) : currentView === "profile" ? (
