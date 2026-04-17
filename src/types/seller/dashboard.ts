@@ -7,4 +7,13 @@ export type DashboardView =
   | "reports" 
   | "product" 
   | "productView"
-  | "editProduct";
+  | "editProduct"
+  | "productList"
+  | "productView"
+  | "editDrug"
+  | "editSupplement"
+  | "editFoodInfant"
+  | "editCosmetic"
+  | "editMedicalDevice";
+
+
