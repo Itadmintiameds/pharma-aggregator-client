@@ -31,6 +31,7 @@ interface ConsumableFormProps {
   productId?: string;
   mode?: "create" | "edit";
   onSubmitSuccess?: () => void;
+  deviceType?: "consumable" | "non-consumable";
 }
 
 interface CertificationMasterOption {
@@ -248,7 +249,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
       setForm({
         productName: data.productName || "",
-        // FIX: use deviceCatId (number) as string for Select value matching
         deviceCategoryId: String(attribute.deviceCatId || ""),
         deviceSubCategoryId: String(attribute.deviceSubCatId || ""),
         brandName: attribute.brandName || "",
@@ -264,7 +264,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         storageCondition: String(attribute.storageConditionId || ""),
         productDescription: data.productDescription || "",
         brochureUrl: data.productMarketingUrl || "",
-        // FIX: packType stores the packId (numeric ID) as string for Select value matching
         packType: String(packaging.packId || ""),
         unitsPerPack: String(packaging.unitPerPack || ""),
         numberOfPacks: String(packaging.numberOfPacks || ""),
@@ -288,7 +287,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
       }
 
-      // FIX: materialTypeId is an array of numbers — convert each to string
       if (attribute.materialTypeId?.length) {
         setSelectedMaterialTypes(attribute.materialTypeId.map(String));
       }
@@ -330,8 +328,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     } finally {
       setLoadingProduct(false);
     }
-  // convertToDiscountSlab is stable (defined outside component); fetchDeviceSubCategories is memoized
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, productId, fetchDeviceSubCategories]);
 
   // ─── Master data on mount ───────────────────────────────────────────────────
@@ -386,9 +382,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     } else {
       setDeviceSubCategoryOptions([]);
     }
-  // Intentionally omitting fetchDeviceSubCategories to avoid double-fetch on edit load
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.deviceCategoryId]);
+  }, [form.deviceCategoryId, mode, fetchDeviceSubCategories]);
 
   // ─── Auto-calculate pack size ───────────────────────────────────────────────
   useEffect(() => {
@@ -523,63 +517,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     return combined.toISOString().slice(0, 19);
   };
 
-  const buildPayload = () => ({
-    productName: form.productName,
-    warningsPrecautions: form.safetyInstructions,
-    productDescription: form.productDescription,
-    productMarketingUrl: form.brochureUrl || "",
-    manufacturerName: form.manufacturerName,
-    categoryId: String(productCategoryId),
-    packagingDetails: {
-      ...(packagingId ? { packagingId } : {}),
-      packId: Number(form.packType),
-      unitPerPack: form.unitsPerPack,
-      numberOfPacks: Number(form.numberOfPacks),
-      packSize: Number(form.packSize),
-      minimumOrderQuantity: Number(form.minimumOrderQuantity),
-      maximumOrderQuantity: Number(form.maximumOrderQuantity),
-    },
-    pricingDetails: [{
-      ...(pricingId ? { pricingId } : {}),
-      batchLotNumber: form.batchLotNumber,
-      manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-      expiryDate: toLocalDateTimeString(form.expiryDate),
-      stockQuantity: Number(form.stockQuantity),
-      dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-      sellingPrice: Number(form.sellingPricePerPack),
-      mrp: Number(form.mrp),
-      discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
-      gstPercentage: Number(form.gstPercentage),
-      finalPrice: Number(form.finalPrice),
-      hsnCode: form.hsnCode,
-      additionalDiscounts: additionalDiscountSlabs,
-    }],
-    productAttributeConsumableMedicals: [{
-      ...(productAttributeId ? { productAttributeId } : {}),
-      deviceCatId: Number(form.deviceCategoryId),
-      deviceSubCatId: Number(form.deviceSubCategoryId),
-      brandName: form.brandName,
-      materialTypeId: selectedMaterialTypes.map(Number),
-      dimensionSize: form.sizeDimension,
-      sterileOrNonSterile: form.sterileStatus === "sterile" ? "Sterile" : "Non-Sterile",
-      disposalOrReusable: form.disposableType === "disposable" ? "Disposable" : "Reusable",
-      shelfLife: form.shelfLife,
-      purpose: form.intendedUse,
-      keyFeaturesSpecifications: form.keyFeatures,
-      safetyInstructions: form.safetyInstructions,
-      countryId: Number(form.countryOfOrigin),
-      manufacturerName: form.manufacturerName,
-      storageConditionId: form.storageCondition ? Number(form.storageCondition) : null,
-      brochureType: "PDF",
-      brochurePath: existingBrochureUrl || "PENDING",
-      certificateDocuments: selectedCertifications.map((c) => ({
-        certificationId: c.certificationId,
-        certificateUrl: c.existingUrl || "PENDING",
-      })),
-    }],
-    productImages: images.map(() => ({ productImage: "PENDING" })),
-  });
-
   const handleSubmit = async () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
@@ -589,28 +526,89 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       return;
     }
     setErrors({});
-    if (!productCategoryId) { setApiError("Product category not loaded. Please refresh."); return; }
+    
+    // Validate productCategoryId before proceeding
+    if (!productCategoryId) { 
+      setApiError("Product category not loaded. Please refresh."); 
+      return; 
+    }
 
-    setSubmitting(true); setApiError(null);
+    setSubmitting(true); 
+    setApiError(null);
+    
     try {
       const token = sellerAuthService.getToken();
       if (!token) throw new Error("Authentication required. Please log in again.");
       const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
       const jsonHeaders = { ...headers, "Content-Type": "application/json" };
 
-      const payload = buildPayload();
+      // Build payload with all proper type conversions - NO NULL VALUES
+      const payload = {
+        productName: form.productName,
+        warningsPrecautions: form.safetyInstructions,
+        productDescription: form.productDescription,
+        productMarketingUrl: form.brochureUrl || "",
+        manufacturerName: form.manufacturerName,
+        categoryId: productCategoryId,
+        packagingDetails: {
+          ...(packagingId ? { packagingId } : {}),
+          packId: Number(form.packType),
+          unitPerPack: Number(form.unitsPerPack),
+          numberOfPacks: Number(form.numberOfPacks),
+          packSize: Number(form.packSize),
+          minimumOrderQuantity: Number(form.minimumOrderQuantity),
+          maximumOrderQuantity: Number(form.maximumOrderQuantity),
+        },
+        pricingDetails: [{
+          ...(pricingId ? { pricingId } : {}),
+          batchLotNumber: form.batchLotNumber,
+          manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
+          expiryDate: toLocalDateTimeString(form.expiryDate),
+          stockQuantity: Number(form.stockQuantity),
+          dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
+          sellingPrice: Number(form.sellingPricePerPack),
+          mrp: Number(form.mrp),
+          discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
+          gstPercentage: Number(form.gstPercentage),
+          finalPrice: Number(form.finalPrice),
+          hsnCode: Number(form.hsnCode),
+          additionalDiscounts: additionalDiscountSlabs,
+        }],
+        productAttributeConsumableMedicals: [{
+          ...(productAttributeId ? { productAttributeId } : {}),
+          deviceCatId: Number(form.deviceCategoryId),
+          deviceSubCatId: Number(form.deviceSubCategoryId),
+          brandName: form.brandName,
+          materialTypeId: selectedMaterialTypes.map(Number),
+          dimensionSize: form.sizeDimension,
+          sterileOrNonSterile: form.sterileStatus === "sterile" ? "Sterile" : "Non-Sterile",
+          disposalOrReusable: form.disposableType === "disposable" ? "Disposable" : "Reusable",
+          shelfLife: form.shelfLife,
+          purpose: form.intendedUse,
+          keyFeaturesSpecifications: form.keyFeatures,
+          safetyInstructions: form.safetyInstructions,
+          countryId: Number(form.countryOfOrigin),
+          manufacturerName: form.manufacturerName,
+          storageConditionId: form.storageCondition ? Number(form.storageCondition) : 0, // Convert null to 0
+          brochureType: "PDF",
+          brochurePath: existingBrochureUrl || "PENDING",
+          certificateDocuments: selectedCertifications.map((c) => ({
+            certificationId: c.certificationId,
+            certificateUrl: c.existingUrl || "PENDING",
+          })),
+        }],
+        productImages: images.map(() => ({ productImage: "PENDING" })),
+      };
+      
       let currentProductId = resolvedProductId || productId || "";
       let currentAttributeId = productAttributeId;
 
       if (mode === "edit" && currentProductId) {
-        // ─── UPDATE path ──────────────────────────────────────────────────────
         await updateProduct(currentProductId, payload);
-
         if (images.length > 0) {
           await uploadProductImages(currentProductId, images);
         }
       } else {
-        // ─── CREATE path ──────────────────────────────────────────────────────
         const createRes = await fetch(`${API_BASE}/products/create`, {
           method: "POST", headers: jsonHeaders, body: JSON.stringify(payload),
         });
@@ -631,7 +629,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         }
       }
 
-      // ─── Upload certificates and brochure (both create & edit) ─────────────
       if (currentAttributeId) {
         const certBaseUrl = `${API_BASE}/product-documents/consumable/${currentAttributeId}/certificates`;
         const brochureUploadUrl = `${API_BASE}/product-documents/consumable/${currentAttributeId}/brochure`;
@@ -911,8 +908,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                   <p className="text-xs text-neutral-500">{(brochureFile.size / 1024).toFixed(1)} KB</p>
                 </div>
                 <div className="flex items-center gap-1 pr-3">
-                  <button type="button" onClick={() => brochureInputRef.current?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-700"><RefreshCw size={14} /></button>
-                  <button type="button" onClick={() => { setBrochureFile(null); if (brochureInputRef.current) brochureInputRef.current.value = ""; }} className="p-1.5 rounded-lg hover:bg-red-100 text-red-500"><X size={14} /></button>
+                  <button type="button" onClick={() => brochureInputRef.current?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-700" title="Replace"><RefreshCw size={14} /></button>
+                  <button type="button" onClick={() => { setBrochureFile(null); if (brochureInputRef.current) brochureInputRef.current.value = ""; }} className="p-1.5 rounded-lg hover:bg-red-100 text-red-500" title="Remove"><X size={14} /></button>
                 </div>
               </div>
             )}

@@ -60,10 +60,16 @@ const DashboardOverview = ({
   // }
 
   if (currentView === "editConsumable") {
+    if (!selectedProductId) {
+      return <div>Loading...</div>;
+    }
     return <ConsumableForm productId={selectedProductId} mode="edit" />;
   }
 
   if (currentView === "editNonConsumable") {
+    if (!selectedProductId) {
+      return <div>Loading...</div>;
+    }
     return <NonConsumableForm productId={selectedProductId} mode="edit" />;
   }
 

@@ -49,31 +49,46 @@ function validateHSNCode(hsnCode: string): string | null {
   const trimmed = hsnCode.trim();
   if (trimmed === "") return null;
   if (!/^\d{4}$|^\d{6}$|^\d{8}$/.test(trimmed)) return "HSN code must be 4, 6, or 8 digits";
-  const firstTwo = trimmed.substring(0, 2);
-  if (!["90", "30", "39", "40", "84", "85"].includes(firstTwo))
-    return "Medical products typically have HSN codes starting with 90, 30, 39, 40, 84, or 85";
   return null;
 }
 
 function deepFind(obj: unknown, key: string): unknown {
   if (!obj || typeof obj !== "object") return undefined;
-  if (Array.isArray(obj)) { for (const item of obj) { const r = deepFind(item, key); if (r !== undefined) return r; } return undefined; }
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      const r = deepFind(item, key);
+      if (r !== undefined) return r;
+    }
+    return undefined;
+  }
   const rec = obj as Record<string, unknown>;
   if (key in rec && rec[key] != null) return rec[key];
-  for (const k of Object.keys(rec)) { const r = deepFind(rec[k], key); if (r !== undefined) return r; }
+  for (const k of Object.keys(rec)) {
+    const r = deepFind(rec[k], key);
+    if (r !== undefined) return r;
+  }
   return undefined;
 }
 
-function extractProductAttributeId(data: ApiResponseData): string | undefined {
+function extractProductAttributeId(data: ApiResponseData): number | null {
   const dataInner = data?.data as ApiResponseData | undefined;
   const s1 = dataInner?.productAttributeNonConsumableMedicals;
-  if (Array.isArray(s1) && s1.length > 0) { const id = (s1[0] as ApiResponseData)?.productAttributeId; if (id != null) return String(id); }
+  if (Array.isArray(s1) && s1.length > 0) {
+    const id = (s1[0] as ApiResponseData)?.productAttributeId;
+    if (id != null) return Number(id);
+  }
   const s2 = data?.productAttributeNonConsumableMedicals;
-  if (Array.isArray(s2) && s2.length > 0) { const id = (s2[0] as ApiResponseData)?.productAttributeId; if (id != null) return String(id); }
-  const s3 = dataInner?.productAttributeId; if (s3 != null) return String(s3);
-  const s4 = data?.productAttributeId; if (s4 != null) return String(s4);
-  const deep = deepFind(data, "productAttributeId"); if (deep !== undefined) return String(deep);
-  return undefined;
+  if (Array.isArray(s2) && s2.length > 0) {
+    const id = (s2[0] as ApiResponseData)?.productAttributeId;
+    if (id != null) return Number(id);
+  }
+  const s3 = dataInner?.productAttributeId;
+  if (s3 != null) return Number(s3);
+  const s4 = data?.productAttributeId;
+  if (s4 != null) return Number(s4);
+  const deep = deepFind(data, "productAttributeId");
+  if (deep !== undefined) return Number(deep);
+  return null;
 }
 
 async function uploadDocument(
@@ -98,7 +113,9 @@ async function uploadDocument(
         fd.append(fieldName, file);
         const res = await fetch(url, { method: "POST", headers, body: fd });
         if (res.ok) return { success: true };
-      } catch (err) { console.error(`[${documentType}] field "${fieldName}":`, err); }
+      } catch (err) {
+        console.error(`[${documentType}] field "${fieldName}":`, err);
+      }
     }
     if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 1000 * attempt));
   }
@@ -106,7 +123,10 @@ async function uploadDocument(
 }
 
 function getMasterStr(item: MasterItem, ...keys: string[]): string {
-  for (const key of keys) { const v = item[key]; if (v != null) return String(v); }
+  for (const key of keys) {
+    const v = item[key];
+    if (v != null) return String(v);
+  }
   return "";
 }
 
@@ -119,7 +139,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     warningsPrecautions: "",
     manufacturerName: "",
 
-    // Non-consumable attributes
     brandName: "",
     modelName: "",
     modelNumber: "",
@@ -135,9 +154,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     powerSourceId: "",
     warrantyPeriod: "",
     amcAvailability: "",
-    brochureUrl: "",
 
-    // Packaging — packType stores the packId (numeric ID) as a string for Select value matching
     packType: "",
     unitPerPack: "",
     numberOfPacks: "",
@@ -145,7 +162,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     minimumOrderQuantity: "",
     maximumOrderQuantity: "",
 
-    // Pricing
     batchLotNumber: "",
     manufacturingDate: null as Date | null,
     expiryDate: null as Date | null,
@@ -159,14 +175,14 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     hsnCode: "",
   });
 
-  // IDs needed for update — stored outside form state
+  // IDs for update
   const [resolvedProductId, setResolvedProductId] = useState("");
-  const [productAttributeId, setProductAttributeId] = useState("");
-  const [packagingId, setPackagingId] = useState("");
-  const [pricingId, setPricingId] = useState("");
-  const [categoryId, setCategoryId] = useState<number>(6);
+  const [productAttributeId, setProductAttributeId] = useState<number | null>(null);
+  const [packagingId, setPackagingId] = useState<number | null>(null);
+  const [pricingId, setPricingId] = useState<number | null>(null);
+  const [productCategoryId, setProductCategoryId] = useState<number | null>(null);
 
-  // ─── Master data options ────────────────────────────────────────────────────
+  // Master data options
   const [deviceCategoryOptions, setDeviceCategoryOptions] = useState<SelectOption[]>([]);
   const [deviceSubCategoryOptions, setDeviceSubCategoryOptions] = useState<SelectOption[]>([]);
   const [materialTypeOptions, setMaterialTypeOptions] = useState<SelectOption[]>([]);
@@ -176,7 +192,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
 
-  // ─── UI state ───────────────────────────────────────────────────────────────
+  // UI state
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
   const [loadingMaterialTypes, setLoadingMaterialTypes] = useState(false);
@@ -186,37 +202,43 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
-  // ─── File states ────────────────────────────────────────────────────────────
+  // File states
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
   const [uploadingBrochure, setUploadingBrochure] = useState(false);
 
-  // ─── Multi-select states ────────────────────────────────────────────────────
+  // Multi-select states
   const [showCertDropdown, setShowCertDropdown] = useState(false);
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
-  // NOTE: selectedMaterialTypes is the single source of truth — DO NOT sync to form.materialTypeIds
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
   const [showDiscountDrawer, setShowDiscountDrawer] = useState(false);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
 
-  // ─── Refs ────────────────────────────────────────────────────────────────────
+  // Refs
   const dropdownRef = useRef<HTMLDivElement>(null);
   const materialDropdownRef = useRef<HTMLDivElement>(null);
   const brochureInputRef = useRef<HTMLInputElement>(null);
 
-  // ─── Static options ─────────────────────────────────────────────────────────
+  // Static options
   const deviceClassOptions: SelectOption[] = [
-    { value: "Class A", label: "Class A" }, { value: "Class B", label: "Class B" },
-    { value: "Class C", label: "Class C" }, { value: "Class D", label: "Class D" },
+    { value: "Class A", label: "Class A" },
+    { value: "Class B", label: "Class B" },
+    { value: "Class C", label: "Class C" },
+    { value: "Class D", label: "Class D" },
   ];
   const gstOptions: SelectOption[] = [
-    { value: "0", label: "0%" }, { value: "5", label: "5%" },
-    { value: "12", label: "12%" }, { value: "18", label: "18%" },
+    { value: "0", label: "0%" },
+    { value: "5", label: "5%" },
+    { value: "12", label: "12%" },
+    { value: "18", label: "18%" },
   ];
-  const amcOptions: SelectOption[] = [{ value: "true", label: "Yes" }, { value: "false", label: "No" }];
+  const amcOptions: SelectOption[] = [
+    { value: "true", label: "Yes" },
+    { value: "false", label: "No" }
+  ];
 
   const authHeaders = useCallback((): Record<string, string> => {
     const token = sellerAuthService.getToken();
@@ -233,7 +255,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       effectiveEndTime: item.effectiveEndTime || "",
     }));
 
-  const convertToDiscountData = (slabs: AdditionalDiscountSlab[]): AdditionalDiscountData[] => slabs.map((s) => ({ ...s }));
+  const convertToDiscountData = (slabs: AdditionalDiscountSlab[]): AdditionalDiscountData[] =>
+    slabs.map((s) => ({ ...s }));
 
   const fetchList = useCallback(async (
     url: string,
@@ -251,27 +274,53 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         .map((i) => ({ value: getMasterStr(i, ...idKey), label: getMasterStr(i, ...labelKey) || "Unknown" }))
         .filter((o) => o.value);
       setter(mapped);
-    } catch { if (fallback) setter(fallback); }
+    } catch {
+      if (fallback) setter(fallback);
+    }
+  }, [authHeaders]);
+
+  const fetchProductCategoryId = useCallback(async () => {
+    try {
+      const res = await fetch(`${MASTERS}/categories`, { headers: authHeaders() });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
+      const nonConsumable = items.find((i) => {
+        const name = getMasterStr(i, "categoryName", "name").toLowerCase();
+        return name.includes("non-consumable") || name.includes("nonconsumable");
+      });
+      setProductCategoryId(nonConsumable ? Number(getMasterStr(nonConsumable, "categoryId", "id") || "6") : 6);
+    } catch {
+      setProductCategoryId(6);
+    }
   }, [authHeaders]);
 
   const fetchDeviceCategories = useCallback(async () => {
-    setLoadingCategories(true); setApiError(null);
+    setLoadingCategories(true);
+    setApiError(null);
     try {
       const res = await fetch(`${MASTERS}/device-categories/non-consumable`, { headers: authHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
       setDeviceCategoryOptions(
-        items.map((i) => ({ value: getMasterStr(i, "deviceCatId", "id"), label: getMasterStr(i, "deviceName", "name") || "Unknown" }))
-          .filter((o) => o.value)
+        items.map((i) => ({
+          value: getMasterStr(i, "deviceCatId", "id"),
+          label: getMasterStr(i, "deviceName", "name") || "Unknown"
+        })).filter((o) => o.value)
       );
     } catch (err) {
       setApiError(`Failed to load device categories: ${err instanceof Error ? err.message : String(err)}`);
-    } finally { setLoadingCategories(false); }
+    } finally {
+      setLoadingCategories(false);
+    }
   }, [authHeaders]);
 
   const fetchDeviceSubCategories = useCallback(async (catId: string) => {
-    if (!catId) { setDeviceSubCategoryOptions([]); return; }
+    if (!catId) {
+      setDeviceSubCategoryOptions([]);
+      return;
+    }
     setLoadingSubCategories(true);
     try {
       const res = await fetch(`${MASTERS}/device-sub-categories/${catId}`, { headers: authHeaders() });
@@ -284,11 +333,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           label: getMasterStr(i, "deviceSubCatName", "subCategoryName", "name") || "Unknown",
         })).filter((o) => o.value)
       );
-    } catch { setDeviceSubCategoryOptions([]); }
-    finally { setLoadingSubCategories(false); }
+    } catch {
+      setDeviceSubCategoryOptions([]);
+    } finally {
+      setLoadingSubCategories(false);
+    }
   }, [authHeaders]);
 
-  // ─── Fetch product data for edit mode ───────────────────────────────────────
   const fetchProductData = useCallback(async () => {
     if (mode !== "edit" || !productId) return;
     setLoadingProduct(true);
@@ -300,12 +351,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const packaging = data.packagingDetails || {};
       const pricing = data.pricingDetails?.[0] || {};
 
-      // Store IDs needed for updates
       setResolvedProductId(data.productId || productId);
-      setProductAttributeId(String(attribute.productAttributeId || ""));
-      setPackagingId(String(packaging.packagingId || ""));
-      setPricingId(String(pricing.pricingId || ""));
-      setCategoryId(Number(data.categoryId || 6));
+      setProductAttributeId(attribute.productAttributeId ? Number(attribute.productAttributeId) : null);
+      setPackagingId(packaging.packagingId ? Number(packaging.packagingId) : null);
+      setPricingId(pricing.pricingId ? Number(pricing.pricingId) : null);
 
       setForm({
         productName: data.productName || "",
@@ -321,18 +370,15 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         udiNumber: attribute.udiNumber || "",
         intendedUse: attribute.purpose || "",
         keyFeatures: attribute.keyFeaturesSpecifications || "",
-        safetyInstructions: data.warningsPrecautions || attribute.safetyInstructions || "",
+        safetyInstructions: attribute.safetyInstructions || data.warningsPrecautions || "",
         countryOfOrigin: String(attribute.countryId || ""),
         storageCondition: String(attribute.storageConditionId || ""),
-        // FIX: use deviceCategoryId (numeric) as string for Select value matching
         deviceCategoryId: String(attribute.deviceCategoryId || attribute.deviceCatId || ""),
         deviceSubCategoryId: String(attribute.deviceSubCategoryId || attribute.deviceSubCatId || ""),
         powerSourceId: String(attribute.powerSourceId || ""),
         warrantyPeriod: String(attribute.warrantyPeriod || ""),
         amcAvailability: attribute.amcAvailability === true ? "true" : "false",
-        brochureUrl: data.productMarketingUrl || "",
 
-        // FIX: store packId (number) as string — NOT packType (label string)
         packType: String(packaging.packId || ""),
         unitPerPack: String(packaging.unitPerPack || ""),
         numberOfPacks: String(packaging.numberOfPacks || ""),
@@ -353,12 +399,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         hsnCode: String(pricing.hsnCode || ""),
       });
 
-      // FIX: materialTypeIds is an array of numbers — convert each to string
       if (attribute.materialTypeIds?.length) {
         setSelectedMaterialTypes(attribute.materialTypeIds.map(String));
-      } else if (attribute.materialTypeId?.length) {
-        // handle alternate key name
-        setSelectedMaterialTypes(attribute.materialTypeId.map(String));
       }
 
       if (data.productImages?.length) {
@@ -370,7 +412,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       }
 
       if (attribute.certificateDocuments?.length) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setSelectedCertifications(attribute.certificateDocuments.map((cert: any) => ({
           id: String(cert.certificationId),
           label: cert.certificationName || `Certificate ${cert.certificationId}`,
@@ -389,7 +430,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
       }
 
-      // Fetch subcategories for loaded category
       const catId = String(attribute.deviceCategoryId || attribute.deviceCatId || "");
       if (catId) {
         await fetchDeviceSubCategories(catId);
@@ -401,12 +441,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     } finally {
       setLoadingProduct(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, productId, fetchDeviceSubCategories]);
 
-  // ─── Master data on mount ───────────────────────────────────────────────────
+  // Master data on mount
   useEffect(() => {
     fetchDeviceCategories();
+    fetchProductCategoryId();
 
     setLoadingMaterialTypes(true);
     fetchList(`${MASTERS}/non-consumable-material-types`, setMaterialTypeOptions, ["materialTypeId", "id"], ["materialTypeName", "name"])
@@ -416,13 +456,19 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     fetchList(`${MASTERS}/storagecondition`, setStorageConditionOptions, ["storageConditionId", "id"], ["conditionName", "name"]);
     fetchList(`${MASTERS}/power-sources`, setPowerSourceOptions, ["powerSourceId", "id"], ["powerSourceName", "name"],
       [
-        { value: "1", label: "Battery Operated" }, { value: "2", label: "Rechargeable" },
-        { value: "3", label: "Electric" }, { value: "4", label: "USB Powered" }, { value: "5", label: "Manual" },
+        { value: "1", label: "Battery Operated" },
+        { value: "2", label: "Rechargeable" },
+        { value: "3", label: "Electric" },
+        { value: "4", label: "USB Powered" },
+        { value: "5", label: "Manual" },
       ]);
     fetchList(`${MASTERS}/pack-types`, setPackTypeApiOptions, ["packId", "id"], ["packName", "name"],
       [
-        { value: "1", label: "Box" }, { value: "2", label: "Unit" },
-        { value: "3", label: "Carrying Case" }, { value: "4", label: "Kit" }, { value: "5", label: "Bag" },
+        { value: "1", label: "Box" },
+        { value: "2", label: "Unit" },
+        { value: "3", label: "Carrying Case" },
+        { value: "4", label: "Kit" },
+        { value: "5", label: "Bag" },
       ]);
 
     setLoadingCertifications(true);
@@ -444,16 +490,16 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         { value: "4", label: "BIS Certification", certificationId: 4, tagCode: "Tag 04" },
       ]))
       .finally(() => setLoadingCertifications(false));
-  }, [fetchDeviceCategories, fetchList, authHeaders]);
+  }, [fetchDeviceCategories, fetchProductCategoryId, fetchList, authHeaders]);
 
-  // ─── Load product for edit ──────────────────────────────────────────────────
+  // Load product for edit
   useEffect(() => {
     if (mode === "edit" && productId) {
       fetchProductData();
     }
   }, [mode, productId, fetchProductData]);
 
-  // ─── Subcategories when category changes ────────────────────────────────────
+  // Subcategories when category changes
   useEffect(() => {
     if (form.deviceCategoryId) {
       fetchDeviceSubCategories(form.deviceCategoryId);
@@ -463,10 +509,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     } else {
       setDeviceSubCategoryOptions([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.deviceCategoryId]);
+  }, [form.deviceCategoryId, fetchDeviceSubCategories, mode]);
 
-  // ─── Auto-calculate pack size ───────────────────────────────────────────────
+  // Auto-calculate pack size
   useEffect(() => {
     const u = parseFloat(form.unitPerPack), p = parseFloat(form.numberOfPacks);
     if (!isNaN(u) && !isNaN(p) && u > 0 && p > 0) {
@@ -474,16 +519,19 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     }
   }, [form.unitPerPack, form.numberOfPacks]);
 
-  // ─── Auto-calculate final price ────────────────────────────────────────────
+  // Auto-calculate final price
   useEffect(() => {
-    const s = parseFloat(form.sellingPrice), d = parseFloat(form.discountPercentage);
+    const s = parseFloat(form.sellingPrice);
+    const d = parseFloat(form.discountPercentage);
     setForm((prev) => ({
       ...prev,
-      finalPrice: !isNaN(s) && s > 0 ? (isNaN(d) ? s : s - (s * d) / 100).toFixed(2) : "0.00",
+      finalPrice: !isNaN(s) && s > 0
+        ? (isNaN(d) ? s : s - (s * d) / 100).toFixed(2)
+        : "0.00",
     }));
   }, [form.sellingPrice, form.discountPercentage]);
 
-  // ─── Click-outside for dropdowns ───────────────────────────────────────────
+  // Click-outside for dropdowns
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowCertDropdown(false);
@@ -496,25 +544,42 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm((p) => ({ ...p, [name]: value }));
-    if (errors[name]) setErrors((p) => { const n = { ...p }; delete n[name]; return n; });
+    if (errors[name]) setErrors((p) => {
+      const n = { ...p };
+      delete n[name];
+      return n;
+    });
     if (name === "hsnCode" && value.trim()) {
       const hsnError = validateHSNCode(value);
       if (hsnError) setErrors((p) => ({ ...p, hsnCode: hsnError }));
-      else setErrors((p) => { const n = { ...p }; delete n.hsnCode; return n; });
+      else setErrors((p) => {
+        const n = { ...p };
+        delete n.hsnCode;
+        return n;
+      });
     }
   };
 
   const handleSelectChange = (field: string, sel: SelectOption | null) => {
     setForm((p) => ({ ...p, [field]: sel ? sel.value : "" }));
-    if (errors[field]) setErrors((p) => { const n = { ...p }; delete n[field]; return n; });
+    if (errors[field]) setErrors((p) => {
+      const n = { ...p };
+      delete n[field];
+      return n;
+    });
   };
 
-  // FIX: no stale closure — selectedMaterialTypes state is updated functionally
   const handleMaterialCheckbox = (option: SelectOption) => {
     setSelectedMaterialTypes((prev) =>
-      prev.includes(option.value) ? prev.filter((v) => v !== option.value) : [...prev, option.value]
+      prev.includes(option.value)
+        ? prev.filter((v) => v !== option.value)
+        : [...prev, option.value]
     );
-    if (errors.materialType) setErrors((p) => { const n = { ...p }; delete n.materialType; return n; });
+    if (errors.materialType) setErrors((p) => {
+      const n = { ...p };
+      delete n.materialType;
+      return n;
+    });
   };
 
   const handleCertCheckbox = (option: CertificationMasterOption) => {
@@ -523,25 +588,52 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       setSelectedCertifications((p) => p.filter((c) => c.id !== option.value));
     } else {
       setSelectedCertifications((p) => [...p, {
-        id: option.value, label: option.label, tagCode: option.tagCode,
-        certificationId: option.certificationId, file: null, fileName: "",
-        uploading: false, isUploaded: false, previewUrl: null,
+        id: option.value,
+        label: option.label,
+        tagCode: option.tagCode,
+        certificationId: option.certificationId,
+        file: null,
+        fileName: "",
+        uploading: false,
+        isUploaded: false,
+        previewUrl: null,
       }]);
     }
+    if (errors.certifications) setErrors((p) => {
+      const n = { ...p };
+      delete n.certifications;
+      return n;
+    });
   };
 
   const handleCertFileUpload = async (certId: string, file: File) => {
-    setSelectedCertifications((p) => p.map((c) => c.id === certId ? { ...c, uploading: true } : c));
-    await new Promise((r) => setTimeout(r, 300));
-    setSelectedCertifications((p) => p.map((c) => c.id === certId ? {
-      ...c, file, fileName: file.name, uploading: false, isUploaded: true,
-      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
-    } : c));
+    setSelectedCertifications((p) =>
+      p.map((c) => c.id === certId ? { ...c, uploading: true } : c)
+    );
+    await new Promise((r) => setTimeout(r, 500));
+    setSelectedCertifications((p) =>
+      p.map((c) => c.id === certId ? {
+        ...c,
+        file,
+        fileName: file.name,
+        uploading: false,
+        isUploaded: true,
+        previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      } : c)
+    );
   };
 
   const handleBrochureUpload = async (file: File) => {
+    if (file.type !== "application/pdf") {
+      alert("Only PDF files are allowed for brochure");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Brochure file size must be less than 5MB");
+      return;
+    }
     setUploadingBrochure(true);
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 500));
     setBrochureFile(file);
     setUploadingBrochure(false);
   };
@@ -576,71 +668,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (!form.packType) e.packType = "Pack type required";
     if (mode === "create" && images.length === 0) e.images = "At least 1 product image required";
     if (images.length > 8) e.images = "Maximum 8 images allowed";
+    if (!form.mrp) e.mrp = "MRP required";
+    if (!form.sellingPrice) e.sellingPrice = "Selling price required";
+    if (!form.stockQuantity) e.stockQuantity = "Stock quantity required";
+    if (!form.gstPercentage) e.gstPercentage = "GST percentage required";
+    if (!form.hsnCode) e.hsnCode = "HSN code required";
     return e;
   };
-
-  const buildPayload = () => ({
-    productName: form.productName,
-    warningsPrecautions: form.safetyInstructions,
-    productDescription: form.productDescription,
-    productMarketingUrl: form.brochureUrl || "",
-    manufacturerName: form.manufacturerName,
-    categoryId: categoryId,
-
-    packagingDetails: {
-      ...(packagingId ? { packagingId } : {}),
-      packId: Number(form.packType),
-      unitPerPack: form.unitPerPack,
-      numberOfPacks: Number(form.numberOfPacks),
-      packSize: Number(form.packSize),
-      minimumOrderQuantity: Number(form.minimumOrderQuantity),
-      maximumOrderQuantity: Number(form.maximumOrderQuantity),
-    },
-
-    pricingDetails: [{
-      ...(pricingId ? { pricingId } : {}),
-      batchLotNumber: form.batchLotNumber,
-      manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-      expiryDate: toLocalDateTimeString(form.expiryDate),
-      stockQuantity: Number(form.stockQuantity),
-      dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-      sellingPrice: Number(form.sellingPrice),
-      mrp: Number(form.mrp),
-      discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
-      gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : 0,
-      finalPrice: Number(form.finalPrice),
-      hsnCode: form.hsnCode,
-      additionalDiscounts: additionalDiscountSlabs,
-    }],
-
-    productAttributeNonConsumableMedicals: [{
-      ...(productAttributeId ? { productAttributeId } : {}),
-      deviceCategoryId: Number(form.deviceCategoryId),
-      deviceSubCategoryId: Number(form.deviceSubCategoryId),
-      brandName: form.brandName,
-      modelName: form.modelName,
-      modelNumber: form.modelNumber,
-      deviceClassification: form.deviceClassification,
-      udiNumber: form.udiNumber || "",
-      purpose: form.intendedUse,
-      keyFeaturesSpecifications: form.keyFeatures,
-      certificateDocuments: selectedCertifications.map((c) => ({
-        certificationId: c.certificationId,
-        certificateUrl: c.existingUrl || "PENDING",
-      })),
-      // Use the state directly (no stale closure risk here)
-      materialTypeIds: selectedMaterialTypes.map(Number),
-      powerSourceId: form.powerSourceId ? Number(form.powerSourceId) : null,
-      warrantyPeriod: form.warrantyPeriod,
-      amcAvailability: form.amcAvailability === "true",
-      countryId: Number(form.countryOfOrigin),
-      manufacturerName: form.manufacturerName,
-      storageConditionId: form.storageCondition ? Number(form.storageCondition) : null,
-      brochurePath: existingBrochureUrl || "PENDING",
-    }],
-
-    productImages: images.map(() => ({ productImage: "PENDING" })),
-  });
 
   const handleSubmit = async () => {
     const errs = validate();
@@ -650,6 +684,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
+    
+    if (!productCategoryId) {
+      setApiError("Product category not loaded. Please refresh.");
+      return;
+    }
+
     setErrors({});
     setSubmitting(true);
     setApiError(null);
@@ -657,57 +697,132 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     try {
       const token = sellerAuthService.getToken();
       if (!token) throw new Error("Authentication required.");
-      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
-      const jsonHeaders = { ...headers, "Content-Type": "application/json" };
 
-      const payload = buildPayload();
+      // Build payload with correct types
+      const payload = {
+        productName: form.productName,
+        warningsPrecautions: form.safetyInstructions,
+        productDescription: form.productDescription,
+        productMarketingUrl: form.productMarketingUrl || "",
+        manufacturerName: form.manufacturerName,
+        categoryId: productCategoryId,
+
+        packagingDetails: {
+          ...(packagingId !== null ? { packagingId } : {}),
+          packId: Number(form.packType),
+          unitPerPack: Number(form.unitPerPack) || 0,
+          numberOfPacks: Number(form.numberOfPacks) || 0,
+          packSize: Number(form.packSize) || 0,
+          minimumOrderQuantity: Number(form.minimumOrderQuantity) || 0,
+          maximumOrderQuantity: Number(form.maximumOrderQuantity) || 0,
+        },
+
+        pricingDetails: [{
+          ...(pricingId !== null ? { pricingId } : {}),
+          batchLotNumber: form.batchLotNumber || "",
+          manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
+          expiryDate: toLocalDateTimeString(form.expiryDate),
+          stockQuantity: Number(form.stockQuantity) || 0,
+          dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
+          sellingPrice: Number(form.sellingPrice) || 0,
+          mrp: Number(form.mrp) || 0,
+          discountPercentage: Number(form.discountPercentage) || 0,
+          gstPercentage: Number(form.gstPercentage) || 0,
+          finalPrice: Number(form.finalPrice) || 0,
+          hsnCode: Number(form.hsnCode) || 0,
+          additionalDiscounts: additionalDiscountSlabs.map(slab => ({
+            minimumPurchaseQuantity: slab.minimumPurchaseQuantity,
+            additionalDiscountPercentage: slab.additionalDiscountPercentage,
+            effectiveStartDate: slab.effectiveStartDate || null,
+            effectiveStartTime: slab.effectiveStartTime || null,
+            effectiveEndDate: slab.effectiveEndDate || null,
+            effectiveEndTime: slab.effectiveEndTime || null,
+          })),
+        }],
+
+        productAttributeNonConsumableMedicals: [{
+          ...(productAttributeId !== null ? { productAttributeId } : {}),
+          brandName: form.brandName,
+          deviceCategoryId: Number(form.deviceCategoryId),
+          deviceSubCategoryId: Number(form.deviceSubCategoryId),
+          modelName: form.modelName,
+          modelNumber: form.modelNumber,
+          keyFeaturesSpecifications: form.keyFeatures,
+          materialTypeIds: selectedMaterialTypes.map(Number),
+          purpose: form.intendedUse,
+          powerSourceId: form.powerSourceId ? Number(form.powerSourceId) : 0,
+          storageConditionId: form.storageCondition ? Number(form.storageCondition) : 0,
+          countryId: Number(form.countryOfOrigin),
+          manufacturerName: form.manufacturerName,
+          warrantyPeriod: form.warrantyPeriod || "",
+          udiNumber: form.udiNumber || "",
+          deviceClassification: form.deviceClassification,
+          safetyInstructions: form.safetyInstructions,
+          amcAvailability: form.amcAvailability === "true",
+          certificationIds: selectedCertifications.map(cert => cert.certificationId),
+        }],
+
+        productImages: images.map(() => ({ productImage: "PENDING" })),
+      };
+
       let currentProductId = resolvedProductId || productId || "";
       let currentAttributeId = productAttributeId;
 
       if (mode === "edit" && currentProductId) {
-        // ─── UPDATE path ────────────────────────────────────────────────────
         await updateProduct(currentProductId, payload);
-
         if (images.length > 0) {
           await uploadProductImages(currentProductId, images);
         }
       } else {
-        // ─── CREATE path ────────────────────────────────────────────────────
         const createRes = await fetch(`${API_BASE}/products/create`, {
-          method: "POST", headers: jsonHeaders, body: JSON.stringify(payload),
+          method: "POST",
+          headers: { ...authHeaders(), "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
+        
         const rawText = await createRes.text();
         let createData: ApiResponseData;
-        try { createData = JSON.parse(rawText) as ApiResponseData; }
-        catch { throw new Error(`Invalid server response: ${rawText.substring(0, 200)}`); }
-        if (!createRes.ok) throw new Error("Failed to create product");
-
+        try {
+          createData = JSON.parse(rawText) as ApiResponseData;
+        } catch {
+          throw new Error(`Invalid server response: ${rawText.substring(0, 200)}`);
+        }
+        
+        if (!createRes.ok) {
+          throw new Error(String((createData?.data as ApiResponseData)?.message ?? createData?.message ?? `HTTP ${createRes.status}`));
+        }
+        
         const dataInner = createData?.data as ApiResponseData | undefined;
         currentProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
-        if (!currentProductId || currentProductId === "undefined") throw new Error("Product ID not returned from server");
-        currentAttributeId = extractProductAttributeId(createData) || "";
-
+        if (!currentProductId || currentProductId === "undefined") {
+          throw new Error("Product ID not returned from server");
+        }
+        
+        currentAttributeId = extractProductAttributeId(createData);
+        
         if (images.length > 0) {
           await uploadProductImages(currentProductId, images);
         }
       }
 
-      // ─── Upload certificates and brochure (both create & edit) ─────────────
       if (currentAttributeId) {
         const certBaseUrl = `${API_BASE}/product-documents/non-consumable/${currentAttributeId}/certificates`;
         const brochureUploadUrl = `${API_BASE}/product-documents/non-consumable/${currentAttributeId}/brochure`;
 
         for (const cert of selectedCertifications.filter((c) => c.file)) {
-          await uploadDocument(certBaseUrl, headers, cert.file!, { certificationId: String(cert.certificationId) }, "certificate", 3);
+          await uploadDocument(certBaseUrl, authHeaders(), cert.file!, { certificationId: String(cert.certificationId) }, "certificate", 3);
         }
         if (brochureFile) {
-          await uploadDocument(brochureUploadUrl, headers, brochureFile, {}, "brochure", 3);
+          await uploadDocument(brochureUploadUrl, authHeaders(), brochureFile, {}, "brochure", 3);
         }
       }
 
       alert(`Product ${mode === "edit" ? "updated" : "created"} successfully!`);
-      if (onSubmitSuccess) onSubmitSuccess();
-      else window.location.reload();
+      if (onSubmitSuccess) {
+        onSubmitSuccess();
+      } else {
+        window.location.reload();
+      }
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
@@ -720,20 +835,38 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   const selectStyles = (errorKey: string): SelectStyles => ({
     control: (base, state) => ({
-      ...base, height: "56px", minHeight: "56px", borderRadius: "16px",
+      ...base,
+      height: "56px",
+      minHeight: "56px",
+      borderRadius: "16px",
       borderColor: errors[errorKey] ? "#FF3B3B" : state.isFocused ? "#4B0082" : "#737373",
-      boxShadow: "none", cursor: "pointer",
+      boxShadow: "none",
+      cursor: "pointer",
       "&:hover": { borderColor: errors[errorKey] ? "#FF3B3B" : "#4B0082" },
     }),
     valueContainer: (base) => ({ ...base, padding: "0 16px", cursor: "pointer" }),
     indicatorsContainer: (base) => ({ ...base, height: "56px", cursor: "pointer" }),
-    dropdownIndicator: (base, state) => ({ ...base, color: state.isFocused ? "#4B0082" : "#737373", cursor: "pointer", "&:hover": { color: "#4B0082" } }),
-    option: (base, state) => ({ ...base, backgroundColor: state.isSelected ? "#4B0082" : state.isFocused ? "#F3E8FF" : "white", color: state.isSelected ? "white" : "#1E1E1E", cursor: "pointer", "&:active": { backgroundColor: "#4B0082", color: "white" } }),
+    dropdownIndicator: (base, state) => ({
+      ...base,
+      color: state.isFocused ? "#4B0082" : "#737373",
+      cursor: "pointer",
+      "&:hover": { color: "#4B0082" }
+    }),
+    option: (base, state) => ({
+      ...base,
+      backgroundColor: state.isSelected ? "#4B0082" : state.isFocused ? "#F3E8FF" : "white",
+      color: state.isSelected ? "white" : "#1E1E1E",
+      cursor: "pointer",
+      "&:active": { backgroundColor: "#4B0082", color: "white" }
+    }),
     placeholder: (base) => ({ ...base, color: "#A3A3A3" }),
     singleValue: (base) => ({ ...base, color: "#1E1E1E" }),
   });
 
-  const selectTheme = (theme: Theme) => ({ ...theme, colors: { ...theme.colors, primary: "#4B0082", primary25: "#F3E8FF", primary50: "#E9D5FF" } });
+  const selectTheme = (theme: Theme) => ({
+    ...theme,
+    colors: { ...theme.colors, primary: "#4B0082", primary25: "#F3E8FF", primary50: "#E9D5FF" }
+  });
 
   if (loadingProduct) {
     return (
