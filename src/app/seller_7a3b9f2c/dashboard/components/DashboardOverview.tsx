@@ -18,6 +18,8 @@ import { DrugForm } from "./DrugForm";
 import SupplementForm from "./SupplementForm";
 import FoodInfantForm from "./FoodInfantForm";
 import CosmeticForm from "./CosmeticForm";
+import ConsumableForm from "./ConsumableForm";
+import NonConsumableForm from "./NonConsumableForm";
 
 // interface DashboardOverviewProps {
 //   setCurrentView: (view: DashboardView) => void;
@@ -57,9 +59,13 @@ const DashboardOverview = ({
   //   return <CosmeticForm productId={selectedProductId} mode="edit" />;
   // }
 
-  // if (currentView === "editMedicalDevice") {
-  //   return <MedicalDevicesForm productId={selectedProductId} mode="edit" />;
-  // }
+  if (currentView === "editConsumable") {
+    return <ConsumableForm productId={selectedProductId} mode="edit" />;
+  }
+
+  if (currentView === "editNonConsumable") {
+    return <NonConsumableForm productId={selectedProductId} mode="edit" />;
+  }
 
   return (
     <div className="space-y-8">

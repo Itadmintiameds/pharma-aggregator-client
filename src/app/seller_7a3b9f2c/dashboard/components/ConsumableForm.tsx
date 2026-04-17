@@ -9,7 +9,7 @@ import Drawer from "@/src/app/commonComponents/Drawer";
 import AdditionalDiscount from "./AdditionalDiscount";
 import { FileText, X, Upload, RefreshCw, AlertCircle } from "lucide-react";
 import { sellerAuthService } from "@/src/services/seller/authService";
-import { updateProduct, uploadProductImages } from "@/src/services/product/ProductService";
+import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 
 interface SelectOption { value: string; label: string; }
@@ -27,56 +27,9 @@ interface AdditionalDiscountSlab {
   effectiveEndDate: string; effectiveEndTime: string;
 }
 
-export interface ConsumableFormInitialData {
-  productId: string;
-  productAttributeId?: string;
-  productName: string;
-  productDescription: string;
-  warningsPrecautions: string;
-  productMarketingUrl: string;
-  manufacturerName: string;
-  brandName: string;
-  deviceCatId: string | number;
-  deviceSubCatId: string | number;
-  dimensionSize: string;
-  disposalOrReusable: string;
-  keyFeaturesSpecifications: string;
-  materialTypeId: number[];
-  purpose: string;
-  safetyInstructions: string;
-  shelfLife: string;
-  sterileOrNonSterile: string;
-  storageConditionId: string | number;
-  countryId: string | number;
-  packagingId?: string;
-  packId: string | number;
-  unitPerPack: string;
-  numberOfPacks: string;
-  packSize: string;
-  minimumOrderQuantity: string;
-  maximumOrderQuantity: string;
-  pricingId?: string;
-  batchLotNumber: string;
-  manufacturingDate: Date | null;
-  expiryDate: Date | null;
-  dateOfStockEntry: Date | null;
-  stockQuantity: string;
-  sellingPrice: string;
-  mrp: string;
-  gstPercentage: string;
-  discountPercentage: string;
-  additionalDiscounts: AdditionalDiscountData[];
-  finalPrice: string;
-  hsnCode: string;
-  existingImages?: string[];
-  existingBrochureUrl?: string;
-  existingCertifications?: { certificationId: number; label: string; url: string }[];
-}
-
 interface ConsumableFormProps {
-  deviceType: "consumable";
+  productId?: string;
   mode?: "create" | "edit";
-  initialData?: ConsumableFormInitialData;
   onSubmitSuccess?: () => void;
 }
 
@@ -117,12 +70,9 @@ function extractProductAttributeId(data: ApiResponseData): string | undefined {
   if (Array.isArray(s1) && s1.length > 0) { const id = (s1[0] as ApiResponseData)?.productAttributeId; if (id != null) return String(id); }
   const s2 = data?.productAttributeConsumableMedicals;
   if (Array.isArray(s2) && s2.length > 0) { const id = (s2[0] as ApiResponseData)?.productAttributeId; if (id != null) return String(id); }
-  const s3 = dataInner?.productAttributeId;
-  if (s3 != null) return String(s3);
-  const s4 = data?.productAttributeId;
-  if (s4 != null) return String(s4);
-  const deep = deepFind(data, "productAttributeId");
-  if (deep !== undefined) return String(deep);
+  const s3 = dataInner?.productAttributeId; if (s3 != null) return String(s3);
+  const s4 = data?.productAttributeId; if (s4 != null) return String(s4);
+  const deep = deepFind(data, "productAttributeId"); if (deep !== undefined) return String(deep);
   return undefined;
 }
 
@@ -153,7 +103,7 @@ function getMasterStr(item: MasterItem, ...keys: string[]): string {
   return "";
 }
 
-const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: ConsumableFormProps) => {
+const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: ConsumableFormProps) => {
   const [form, setForm] = useState({
     productName: "", deviceCategoryId: "", deviceSubCategoryId: "",
     brandName: "", sizeDimension: "", sterileStatus: "", disposableType: "",
@@ -168,7 +118,8 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
     hsnCode: "", finalPrice: "",
   });
 
-  const [productId, setProductId] = useState("");
+  // IDs needed for update — stored outside form to avoid accidental form resets
+  const [resolvedProductId, setResolvedProductId] = useState("");
   const [productAttributeId, setProductAttributeId] = useState("");
   const [packagingId, setPackagingId] = useState("");
   const [pricingId, setPricingId] = useState("");
@@ -179,19 +130,18 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
   const [storageConditionOptions, setStorageConditionOptions] = useState<SelectOption[]>([]);
   const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
-  // ── NEW: material type options for consumable ─────────────────────────────
   const [materialTypeOptions, setMaterialTypeOptions] = useState<SelectOption[]>([]);
   const [loadingMaterialTypes, setLoadingMaterialTypes] = useState(false);
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
   const materialDropdownRef = useRef<HTMLDivElement>(null);
-  // ─────────────────────────────────────────────────────────────────────────
   const [productCategoryId, setProductCategoryId] = useState<number | null>(null);
 
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingProduct, setLoadingProduct] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -277,22 +227,125 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
     } catch { setDeviceSubCategoryOptions([]); } finally { setLoadingSubCategories(false); }
   }, [authHeaders]);
 
+  const fetchProductData = useCallback(async () => {
+    if (mode !== "edit" || !productId) return;
+
+    setLoadingProduct(true);
+    try {
+      const data = await getProductById(productId);
+      if (!data) throw new Error("Product not found");
+
+      // Store IDs needed for updates
+      setResolvedProductId(data.productId || productId);
+
+      const attribute = data.productAttributeConsumableMedicals?.[0] || {};
+      const packaging = data.packagingDetails || {};
+      const pricing = data.pricingDetails?.[0] || {};
+
+      setProductAttributeId(String(attribute.productAttributeId || ""));
+      setPackagingId(String(packaging.packagingId || ""));
+      setPricingId(String(pricing.pricingId || ""));
+
+      setForm({
+        productName: data.productName || "",
+        // FIX: use deviceCatId (number) as string for Select value matching
+        deviceCategoryId: String(attribute.deviceCatId || ""),
+        deviceSubCategoryId: String(attribute.deviceSubCatId || ""),
+        brandName: attribute.brandName || "",
+        sizeDimension: attribute.dimensionSize || "",
+        sterileStatus: attribute.sterileOrNonSterile?.toLowerCase() === "sterile" ? "sterile" : "non-sterile",
+        disposableType: attribute.disposalOrReusable?.toLowerCase() === "disposable" ? "disposable" : "reusable",
+        shelfLife: String(attribute.shelfLife || ""),
+        intendedUse: attribute.purpose || "",
+        keyFeatures: attribute.keyFeaturesSpecifications || "",
+        safetyInstructions: attribute.safetyInstructions || data.warningsPrecautions || "",
+        countryOfOrigin: String(attribute.countryId || ""),
+        manufacturerName: data.manufacturerName || "",
+        storageCondition: String(attribute.storageConditionId || ""),
+        productDescription: data.productDescription || "",
+        brochureUrl: data.productMarketingUrl || "",
+        // FIX: packType stores the packId (numeric ID) as string for Select value matching
+        packType: String(packaging.packId || ""),
+        unitsPerPack: String(packaging.unitPerPack || ""),
+        numberOfPacks: String(packaging.numberOfPacks || ""),
+        packSize: String(packaging.packSize || ""),
+        minimumOrderQuantity: String(packaging.minimumOrderQuantity || ""),
+        maximumOrderQuantity: String(packaging.maximumOrderQuantity || ""),
+        batchLotNumber: pricing.batchLotNumber || "",
+        manufacturingDate: pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null,
+        expiryDate: pricing.expiryDate ? new Date(pricing.expiryDate) : null,
+        stockQuantity: String(pricing.stockQuantity || ""),
+        dateOfStockEntry: pricing.dateOfStockEntry ? new Date(pricing.dateOfStockEntry) : new Date(),
+        mrp: String(pricing.mrp || ""),
+        sellingPricePerPack: String(pricing.sellingPrice || ""),
+        discountPercentage: String(pricing.discountPercentage || ""),
+        gstPercentage: String(pricing.gstPercentage || ""),
+        hsnCode: String(pricing.hsnCode || ""),
+        finalPrice: String(pricing.finalPrice || ""),
+      });
+
+      if (pricing.additionalDiscounts?.length) {
+        setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
+      }
+
+      // FIX: materialTypeId is an array of numbers — convert each to string
+      if (attribute.materialTypeId?.length) {
+        setSelectedMaterialTypes(attribute.materialTypeId.map(String));
+      }
+
+      if (data.productImages?.length) {
+        setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
+      }
+
+      if (attribute.brochurePath) {
+        setExistingBrochureUrl(attribute.brochurePath);
+      }
+
+      if (attribute.certificateDocuments?.length) {
+        setSelectedCertifications(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          attribute.certificateDocuments.map((cert: any) => ({
+            id: String(cert.certificationId),
+            label: cert.certificationName || `Certificate ${cert.certificationId}`,
+            tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
+            certificationId: cert.certificationId,
+            file: null,
+            fileName: cert.certificateUrl ? cert.certificateUrl.split("/").pop() || "" : "",
+            uploading: false,
+            isUploaded: !!cert.certificateUrl,
+            previewUrl: null,
+            existingUrl: cert.certificateUrl,
+          }))
+        );
+      }
+
+      // Fetch subcategories for the loaded category AFTER setting form
+      if (attribute.deviceCatId) {
+        await fetchDeviceSubCategories(String(attribute.deviceCatId));
+      }
+
+    } catch (err) {
+      console.error("Error fetching product:", err);
+      setApiError("Failed to load product data. Please refresh and try again.");
+    } finally {
+      setLoadingProduct(false);
+    }
+  // convertToDiscountSlab is stable (defined outside component); fetchDeviceSubCategories is memoized
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, productId, fetchDeviceSubCategories]);
+
+  // ─── Master data on mount ───────────────────────────────────────────────────
   useEffect(() => {
-    fetchDeviceCategories(); fetchProductCategoryId();
+    fetchDeviceCategories();
+    fetchProductCategoryId();
     fetchList(`${MASTERS}/countries`, setCountryOptions, ["countryId", "id"], ["countryName", "name"]);
     fetchList(`${MASTERS}/storagecondition`, setStorageConditionOptions, ["storageConditionId", "id"], ["conditionName", "name"]);
     fetchList(`${MASTERS}/pack-types`, setPackTypeApiOptions, ["packId", "id"], ["packName", "name"],
       [{ value: "1", label: "Box" }, { value: "2", label: "Pack" }, { value: "3", label: "Pouch" }, { value: "4", label: "Piece" }]);
 
-    // ── Fetch consumable material types ────────────────────────────────────
     setLoadingMaterialTypes(true);
-    fetchList(
-      `${MASTERS}/consumable-material-types`,
-      setMaterialTypeOptions,
-      ["materialTypeId", "id"],
-      ["materialTypeName", "name"]
-    ).finally(() => setLoadingMaterialTypes(false));
-    // ─────────────────────────────────────────────────────────────────────
+    fetchList(`${MASTERS}/consumable-material-types`, setMaterialTypeOptions, ["materialTypeId", "id"], ["materialTypeName", "name"])
+      .finally(() => setLoadingMaterialTypes(false));
 
     setLoadingCertifications(true);
     fetch(`${MASTERS}/certifications`, { headers: authHeaders() })
@@ -315,96 +368,48 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
       .finally(() => setLoadingCertifications(false));
   }, [fetchDeviceCategories, fetchProductCategoryId, fetchList, authHeaders]);
 
+  // ─── Load product for edit ──────────────────────────────────────────────────
   useEffect(() => {
-    if (mode !== "edit" || !initialData) return;
-
-    setProductId(initialData.productId);
-    setProductAttributeId(initialData.productAttributeId || "");
-    setPackagingId(initialData.packagingId || "");
-    setPricingId(initialData.pricingId || "");
-
-    setForm({
-      productName: initialData.productName,
-      deviceCategoryId: String(initialData.deviceCatId),
-      deviceSubCategoryId: String(initialData.deviceSubCatId),
-      brandName: initialData.brandName,
-      sizeDimension: initialData.dimensionSize,
-      sterileStatus: initialData.sterileOrNonSterile?.toLowerCase() === "sterile" ? "sterile" : "non-sterile",
-      disposableType: initialData.disposalOrReusable?.toLowerCase() === "disposable" ? "disposable" : "reusable",
-      shelfLife: initialData.shelfLife,
-      intendedUse: initialData.purpose,
-      keyFeatures: initialData.keyFeaturesSpecifications,
-      safetyInstructions: initialData.safetyInstructions || initialData.warningsPrecautions,
-      countryOfOrigin: String(initialData.countryId),
-      manufacturerName: initialData.manufacturerName,
-      storageCondition: String(initialData.storageConditionId),
-      productDescription: initialData.productDescription,
-      brochureUrl: initialData.productMarketingUrl,
-      packType: String(initialData.packId),
-      unitsPerPack: initialData.unitPerPack,
-      numberOfPacks: initialData.numberOfPacks,
-      packSize: initialData.packSize,
-      minimumOrderQuantity: initialData.minimumOrderQuantity,
-      maximumOrderQuantity: initialData.maximumOrderQuantity,
-      batchLotNumber: initialData.batchLotNumber,
-      manufacturingDate: initialData.manufacturingDate,
-      expiryDate: initialData.expiryDate,
-      stockQuantity: initialData.stockQuantity,
-      dateOfStockEntry: initialData.dateOfStockEntry || new Date(),
-      mrp: initialData.mrp,
-      sellingPricePerPack: initialData.sellingPrice,
-      discountPercentage: initialData.discountPercentage,
-      gstPercentage: initialData.gstPercentage,
-      hsnCode: initialData.hsnCode,
-      finalPrice: initialData.finalPrice,
-      warningsPrecautions: initialData.warningsPrecautions,
-    } as any);
-
-    if (initialData.additionalDiscounts?.length) {
-      setAdditionalDiscountSlabs(convertToDiscountSlab(initialData.additionalDiscounts));
+    if (mode === "edit" && productId) {
+      fetchProductData();
     }
-    if (initialData.materialTypeId?.length) {
-      setSelectedMaterialTypes(initialData.materialTypeId.map(String));
-    }
-    if (initialData.existingImages?.length) setExistingImages(initialData.existingImages);
-    if (initialData.existingBrochureUrl) setExistingBrochureUrl(initialData.existingBrochureUrl);
+  }, [mode, productId, fetchProductData]);
 
-    if (initialData.existingCertifications?.length) {
-      setSelectedCertifications(initialData.existingCertifications.map((c) => ({
-        id: String(c.certificationId), label: c.label, tagCode: "",
-        certificationId: c.certificationId, file: null, fileName: c.url ? c.url.split("/").pop() || "" : "",
-        uploading: false, isUploaded: !!c.url, previewUrl: null, existingUrl: c.url,
-      })));
-    }
-
-    if (initialData.deviceCatId) {
-      fetchDeviceSubCategories(String(initialData.deviceCatId));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, initialData]);
-
+  // ─── Subcategories when category changes (create mode only resets sub) ──────
   useEffect(() => {
     if (form.deviceCategoryId) {
       fetchDeviceSubCategories(form.deviceCategoryId);
+      // Only clear sub-category when user actively changes it in create mode
       if (mode === "create") {
         setForm((p) => ({ ...p, deviceSubCategoryId: "" }));
       }
-    } else { setDeviceSubCategoryOptions([]); }
-  }, [form.deviceCategoryId, fetchDeviceSubCategories, mode]);
+    } else {
+      setDeviceSubCategoryOptions([]);
+    }
+  // Intentionally omitting fetchDeviceSubCategories to avoid double-fetch on edit load
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.deviceCategoryId]);
 
+  // ─── Auto-calculate pack size ───────────────────────────────────────────────
   useEffect(() => {
     const u = parseFloat(form.unitsPerPack), p = parseFloat(form.numberOfPacks);
-    if (!isNaN(u) && !isNaN(p) && u > 0 && p > 0) setForm((prev) => ({ ...prev, packSize: (u * p).toString() }));
+    if (!isNaN(u) && !isNaN(p) && u > 0 && p > 0) {
+      setForm((prev) => ({ ...prev, packSize: (u * p).toString() }));
+    }
   }, [form.unitsPerPack, form.numberOfPacks]);
 
+  // ─── Auto-calculate final price ────────────────────────────────────────────
   useEffect(() => {
     const selling = parseFloat(form.sellingPricePerPack), disc = parseFloat(form.discountPercentage);
     setForm((prev) => ({
       ...prev,
-      finalPrice: !isNaN(selling) && selling > 0 ? (isNaN(disc) ? selling : selling - (selling * disc) / 100).toFixed(2) : "0.00",
+      finalPrice: !isNaN(selling) && selling > 0
+        ? (isNaN(disc) ? selling : selling - (selling * disc) / 100).toFixed(2)
+        : "0.00",
     }));
   }, [form.sellingPricePerPack, form.discountPercentage]);
 
+  // ─── Click-outside for dropdowns ───────────────────────────────────────────
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowCertDropdown(false);
@@ -438,13 +443,20 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
   const handleCertCheckbox = (option: CertificationMasterOption) => {
     const exists = selectedCertifications.some((c) => c.id === option.value);
     if (exists) setSelectedCertifications((p) => p.filter((c) => c.id !== option.value));
-    else setSelectedCertifications((p) => [...p, { id: option.value, label: option.label, tagCode: option.tagCode, certificationId: option.certificationId, file: null, fileName: "", uploading: false, isUploaded: false, previewUrl: null }]);
+    else setSelectedCertifications((p) => [...p, {
+      id: option.value, label: option.label, tagCode: option.tagCode,
+      certificationId: option.certificationId, file: null, fileName: "",
+      uploading: false, isUploaded: false, previewUrl: null,
+    }]);
   };
 
   const handleCertFileUpload = async (certId: string, file: File) => {
     setSelectedCertifications((p) => p.map((c) => c.id === certId ? { ...c, uploading: true } : c));
     await new Promise((r) => setTimeout(r, 500));
-    setSelectedCertifications((p) => p.map((c) => c.id === certId ? { ...c, file, fileName: file.name, uploading: false, isUploaded: true, previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null } : c));
+    setSelectedCertifications((p) => p.map((c) => c.id === certId ? {
+      ...c, file, fileName: file.name, uploading: false, isUploaded: true,
+      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+    } : c));
   };
 
   const handleBrochureUpload = async (file: File) => {
@@ -501,11 +513,79 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
     return e;
   };
 
+  const toLocalDateTimeString = (date: Date | null): string | null => {
+    if (!date) return null;
+    const now = new Date();
+    const combined = new Date(
+      date.getFullYear(), date.getMonth(), date.getDate(),
+      now.getHours(), now.getMinutes(), now.getSeconds(),
+    );
+    return combined.toISOString().slice(0, 19);
+  };
+
+  const buildPayload = () => ({
+    productName: form.productName,
+    warningsPrecautions: form.safetyInstructions,
+    productDescription: form.productDescription,
+    productMarketingUrl: form.brochureUrl || "",
+    manufacturerName: form.manufacturerName,
+    categoryId: String(productCategoryId),
+    packagingDetails: {
+      ...(packagingId ? { packagingId } : {}),
+      packId: Number(form.packType),
+      unitPerPack: form.unitsPerPack,
+      numberOfPacks: Number(form.numberOfPacks),
+      packSize: Number(form.packSize),
+      minimumOrderQuantity: Number(form.minimumOrderQuantity),
+      maximumOrderQuantity: Number(form.maximumOrderQuantity),
+    },
+    pricingDetails: [{
+      ...(pricingId ? { pricingId } : {}),
+      batchLotNumber: form.batchLotNumber,
+      manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
+      expiryDate: toLocalDateTimeString(form.expiryDate),
+      stockQuantity: Number(form.stockQuantity),
+      dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
+      sellingPrice: Number(form.sellingPricePerPack),
+      mrp: Number(form.mrp),
+      discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
+      gstPercentage: Number(form.gstPercentage),
+      finalPrice: Number(form.finalPrice),
+      hsnCode: form.hsnCode,
+      additionalDiscounts: additionalDiscountSlabs,
+    }],
+    productAttributeConsumableMedicals: [{
+      ...(productAttributeId ? { productAttributeId } : {}),
+      deviceCatId: Number(form.deviceCategoryId),
+      deviceSubCatId: Number(form.deviceSubCategoryId),
+      brandName: form.brandName,
+      materialTypeId: selectedMaterialTypes.map(Number),
+      dimensionSize: form.sizeDimension,
+      sterileOrNonSterile: form.sterileStatus === "sterile" ? "Sterile" : "Non-Sterile",
+      disposalOrReusable: form.disposableType === "disposable" ? "Disposable" : "Reusable",
+      shelfLife: form.shelfLife,
+      purpose: form.intendedUse,
+      keyFeaturesSpecifications: form.keyFeatures,
+      safetyInstructions: form.safetyInstructions,
+      countryId: Number(form.countryOfOrigin),
+      manufacturerName: form.manufacturerName,
+      storageConditionId: form.storageCondition ? Number(form.storageCondition) : null,
+      brochureType: "PDF",
+      brochurePath: existingBrochureUrl || "PENDING",
+      certificateDocuments: selectedCertifications.map((c) => ({
+        certificationId: c.certificationId,
+        certificateUrl: c.existingUrl || "PENDING",
+      })),
+    }],
+    productImages: images.map(() => ({ productImage: "PENDING" })),
+  });
+
   const handleSubmit = async () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
-      document.querySelector(`[name="${Object.keys(validationErrors)[0]}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.querySelector(`[name="${Object.keys(validationErrors)[0]}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     setErrors({});
@@ -518,102 +598,56 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
       const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
       const jsonHeaders = { ...headers, "Content-Type": "application/json" };
 
-      const payload = {
-        productName: form.productName,
-        warningsPrecautions: form.safetyInstructions,
-        productDescription: form.productDescription,
-        productMarketingUrl: form.brochureUrl || "",
-        manufacturerName: form.manufacturerName,
-        categoryId: String(productCategoryId),
-        packagingDetails: {
-          ...(packagingId ? { packagingId } : {}),
-          packId: Number(form.packType),
-          unitPerPack: form.unitsPerPack,
-          numberOfPacks: Number(form.numberOfPacks),
-          packSize: Number(form.packSize),
-          minimumOrderQuantity: Number(form.minimumOrderQuantity),
-          maximumOrderQuantity: Number(form.maximumOrderQuantity),
-        },
-        pricingDetails: [{
-          ...(pricingId ? { pricingId } : {}),
-          batchLotNumber: form.batchLotNumber,
-          manufacturingDate: form.manufacturingDate?.toISOString() ?? null,
-          expiryDate: form.expiryDate?.toISOString() ?? null,
-          stockQuantity: Number(form.stockQuantity),
-          dateOfStockEntry: form.dateOfStockEntry?.toISOString() ?? new Date().toISOString(),
-          sellingPrice: Number(form.sellingPricePerPack),
-          mrp: Number(form.mrp),
-          discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
-          gstPercentage: Number(form.gstPercentage),
-          finalPrice: Number(form.finalPrice),
-          hsnCode: form.hsnCode,
-          additionalDiscounts: additionalDiscountSlabs,
-        }],
-        productAttributeConsumableMedicals: [{
-          ...(productAttributeId ? { productAttributeId } : {}),
-          deviceCatId: Number(form.deviceCategoryId),
-          deviceSubCatId: Number(form.deviceSubCategoryId),
-          brandName: form.brandName,
-          materialTypeId: selectedMaterialTypes.map(Number),
-          dimensionSize: form.sizeDimension,
-          sterileOrNonSterile: form.sterileStatus === "sterile" ? "Sterile" : "Non-Sterile",
-          disposalOrReusable: form.disposableType === "disposable" ? "Disposable" : "Reusable",
-          shelfLife: form.shelfLife,
-          purpose: form.intendedUse,
-          keyFeaturesSpecifications: form.keyFeatures,
-          safetyInstructions: form.safetyInstructions,
-          countryId: Number(form.countryOfOrigin),
-          manufacturerName: form.manufacturerName,
-          storageConditionId: form.storageCondition ? Number(form.storageCondition) : null,
-          brochureType: "PDF",
-          brochurePath: existingBrochureUrl || "PENDING",
-          certificateDocuments: selectedCertifications.map((c) => ({
-            certificationId: c.certificationId,
-            certificateUrl: c.existingUrl || "PENDING",
-          })),
-        }],
-        productImages: images.map(() => ({ productImage: "PENDING" })),
-      };
+      const payload = buildPayload();
+      let currentProductId = resolvedProductId || productId || "";
+      let currentAttributeId = productAttributeId;
 
-      let resolvedProductId = productId;
-      let resolvedAttributeId = productAttributeId;
+      if (mode === "edit" && currentProductId) {
+        // ─── UPDATE path ──────────────────────────────────────────────────────
+        await updateProduct(currentProductId, payload);
 
-      if (mode === "edit" && productId) {
-        await fetch(`${API_BASE}/products/update/${productId}`, { method: "PUT", headers: jsonHeaders, body: JSON.stringify(payload) });
         if (images.length > 0) {
-          const imageFd = new FormData();
-          images.forEach((img) => imageFd.append("images", img));
-          await fetch(`${API_BASE}/product-images/${productId}`, { method: "POST", headers, body: imageFd });
+          await uploadProductImages(currentProductId, images);
         }
       } else {
-        const createRes = await fetch(`${API_BASE}/products/create`, { method: "POST", headers: jsonHeaders, body: JSON.stringify(payload) });
+        // ─── CREATE path ──────────────────────────────────────────────────────
+        const createRes = await fetch(`${API_BASE}/products/create`, {
+          method: "POST", headers: jsonHeaders, body: JSON.stringify(payload),
+        });
         const rawText = await createRes.text();
         let createData: ApiResponseData;
-        try { createData = JSON.parse(rawText) as ApiResponseData; } catch { throw new Error(`Invalid server response: ${rawText.substring(0, 200)}`); }
-        if (!createRes.ok) throw new Error(String((createData?.data as any)?.message ?? createData?.message ?? `HTTP ${createRes.status}`));
+        try { createData = JSON.parse(rawText) as ApiResponseData; }
+        catch { throw new Error(`Invalid server response: ${rawText.substring(0, 200)}`); }
+        if (!createRes.ok) {
+          throw new Error(String((createData?.data as ApiResponseData)?.message ?? createData?.message ?? `HTTP ${createRes.status}`));
+        }
         const dataInner = createData?.data as ApiResponseData | undefined;
-        resolvedProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
-        if (!resolvedProductId || resolvedProductId === "undefined") throw new Error("Product ID not returned from server");
-        resolvedAttributeId = extractProductAttributeId(createData) || "";
+        currentProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
+        if (!currentProductId || currentProductId === "undefined") throw new Error("Product ID not returned from server");
+        currentAttributeId = extractProductAttributeId(createData) || "";
+
         if (images.length > 0) {
-          const imageFd = new FormData();
-          images.forEach((img) => imageFd.append("images", img));
-          await fetch(`${API_BASE}/product-images/${resolvedProductId}`, { method: "POST", headers, body: imageFd });
+          await uploadProductImages(currentProductId, images);
         }
       }
 
-      if (resolvedAttributeId) {
-        const certBaseUrl = `${API_BASE}/masters/certifications`;
-        const brochureUploadUrl = `${API_BASE}/product-documents/consumable/${resolvedAttributeId}/brochure`;
+      // ─── Upload certificates and brochure (both create & edit) ─────────────
+      if (currentAttributeId) {
+        const certBaseUrl = `${API_BASE}/product-documents/consumable/${currentAttributeId}/certificates`;
+        const brochureUploadUrl = `${API_BASE}/product-documents/consumable/${currentAttributeId}/brochure`;
+
         for (const cert of selectedCertifications.filter((c) => c.file)) {
           await uploadDocument(certBaseUrl, headers, cert.file!, { certificationId: String(cert.certificationId) }, "certificate", 3);
         }
-        if (brochureFile) await uploadDocument(brochureUploadUrl, headers, brochureFile, {}, "brochure", 3);
+        if (brochureFile) {
+          await uploadDocument(brochureUploadUrl, headers, brochureFile, {}, "brochure", 3);
+        }
       }
 
       alert(`Product ${mode === "edit" ? "updated" : "created"} successfully!`);
       if (onSubmitSuccess) onSubmitSuccess();
       else window.location.reload();
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
       setApiError(errorMessage);
@@ -638,6 +672,14 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
 
   const selectTheme = (theme: Theme) => ({ ...theme, colors: { ...theme.colors, primary: "#4B0082", primary25: "#F3E8FF", primary50: "#E9D5FF" } });
 
+  if (loadingProduct) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5 max-w-full mx-auto">
       {apiError && (
@@ -652,8 +694,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
         <div className="text-h3 font-semibold mb-3">Product Details</div>
         <div className="border-b border-neutral-200" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 mt-8 gap-y-4">
-
-          {/* Row 1: Product Name | Device Category */}
           <Input label="Product Name" name="productName" placeholder="e.g., Surgical Mask, Syringe"
             onChange={handleChange} value={form.productName} error={errors.productName} required />
 
@@ -666,7 +706,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             {errors.deviceCategoryId && <p className="text-red-500 text-sm mt-1">{errors.deviceCategoryId}</p>}
           </div>
 
-          {/* Row 2: Device Sub-Category | Brand Name */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">Device Sub-Category <span className="text-warning-500 ml-1">*</span></label>
             <Select options={deviceSubCategoryOptions} isLoading={loadingSubCategories} isDisabled={!form.deviceCategoryId}
@@ -680,30 +719,23 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
           <Input label="Brand Name" name="brandName" placeholder="e.g., 3M, Johnson & Johnson"
             onChange={handleChange} value={form.brandName} error={errors.brandName} required />
 
-          {/* Row 3: Material Type | Size / Dimension / Gauge */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">Material Type <span className="text-warning-500 ml-1">*</span></label>
             <div className="relative" ref={materialDropdownRef}>
-              <div
-                onClick={() => setShowMaterialDropdown((p) => !p)}
-                className={`w-full h-14 px-4 border rounded-xl flex items-center justify-between cursor-pointer hover:border-[#4B0082] transition-colors ${errors.materialType ? "border-red-500" : "border-neutral-300"}`}
-              >
+              <div onClick={() => setShowMaterialDropdown((p) => !p)}
+                className={`w-full h-14 px-4 border rounded-xl flex items-center justify-between cursor-pointer hover:border-[#4B0082] transition-colors ${errors.materialType ? "border-red-500" : "border-neutral-300"}`}>
                 <span className="text-sm text-neutral-700 truncate pr-2">
                   {selectedMaterialTypes.length > 0
                     ? selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")
-                    : <span className="text-neutral-400">e.g., Plastic, Metal, Steel</span>}
+                    : "Select material types"}
                 </span>
-                <svg className={`w-5 h-5 flex-shrink-0 transition-transform text-neutral-500 ${showMaterialDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-5 h-5 flex-shrink-0 transition-transform ${showMaterialDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
               {showMaterialDropdown && (
                 <div className="absolute z-20 w-full bg-white border mt-1 rounded-xl shadow-md max-h-60 overflow-y-auto">
-                  {loadingMaterialTypes ? (
-                    <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div>
-                  ) : materialTypeOptions.length === 0 ? (
-                    <div className="px-4 py-3 text-gray-400 text-sm">No material types found</div>
-                  ) : (
+                  {loadingMaterialTypes ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
                     materialTypeOptions.map((opt) => (
                       <label key={opt.value} className="flex items-center gap-2 px-4 py-2 hover:bg-purple-50 cursor-pointer">
                         <input type="checkbox" checked={selectedMaterialTypes.includes(opt.value)} onChange={() => handleMaterialCheckbox(opt)} className="accent-purple-600" />
@@ -720,7 +752,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
           <Input label="Size / Dimension / Gauge" name="sizeDimension" placeholder="e.g., Size M, 22G"
             onChange={handleChange} value={form.sizeDimension} error={errors.sizeDimension} required />
 
-          {/* Row 4: Sterile | Disposable */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">Sterile Status <span className="text-warning-500 ml-1">*</span></label>
             <div className="flex gap-6 mt-2">
@@ -733,8 +764,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             </div>
             {errors.sterileStatus && <p className="text-red-500 text-sm mt-1">{errors.sterileStatus}</p>}
           </div>
-
-          <Input label="Shelf Life (Enter in months)" name="shelfLife" placeholder="e.g., 15" onChange={handleChange} value={form.shelfLife} error={errors.shelfLife} required />
 
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">Disposable / Reusable <span className="text-warning-500 ml-1">*</span></label>
@@ -749,20 +778,17 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             {errors.disposableType && <p className="text-red-500 text-sm mt-1">{errors.disposableType}</p>}
           </div>
 
-          {/* Row 5: Shelf Life | Intended Use */}
-          <Input label="Shelf Life (Enter in months)" name="shelfLife" placeholder="e.g., 15"
+          <Input label="Shelf Life (months)" name="shelfLife" placeholder="e.g., 15"
             onChange={handleChange} value={form.shelfLife} error={errors.shelfLife} required />
 
           <Input label="Intended Use / Purpose" name="intendedUse" placeholder="e.g., For surgical procedures"
             onChange={handleChange} value={form.intendedUse} error={errors.intendedUse} required />
 
-          {/* Row 6: Certifications (full width grid) */}
+          {/* Certifications */}
           <div className="col-span-1 md:col-span-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <label className="text-label-l3 text-neutral-700 font-semibold block mb-2">
-                  Certifications & Compliance <span className="text-warning-500 ml-1">*</span>
-                </label>
+                <label className="text-label-l3 text-neutral-700 font-semibold block mb-2">Certifications & Compliance <span className="text-warning-500 ml-1">*</span></label>
                 <div className="relative" ref={dropdownRef}>
                   <div onClick={() => setShowCertDropdown((p) => !p)}
                     className={`w-full h-14 px-4 border rounded-xl flex items-center justify-between cursor-pointer hover:border-[#4B0082] transition-colors ${errors.certifications ? "border-red-500" : "border-neutral-300"}`}>
@@ -790,9 +816,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
               </div>
 
               <div>
-                <label className="text-label-l3 text-neutral-700 font-semibold block mb-2">
-                  Upload Certificate Documents <span className="text-warning-500 ml-1">*</span>
-                </label>
+                <label className="text-label-l3 text-neutral-700 font-semibold block mb-2">Upload Certificate Documents <span className="text-warning-500 ml-1">*</span></label>
                 {selectedCertifications.length === 0 ? (
                   <div className="w-full border border-neutral-300 rounded-xl flex items-center h-14 overflow-hidden">
                     <div className="w-12 h-full bg-[#DED0FE] flex items-center justify-center flex-shrink-0"><Upload size={18} className="text-purple-700" /></div>
@@ -846,7 +870,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             </div>
           </div>
 
-          {/* Row 7: Country of Origin | Manufacturer Name */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">Country of Origin <span className="text-warning-500 ml-1">*</span></label>
             <Select options={countryOptions} value={countryOptions.find((o) => o.value === form.countryOfOrigin) || null}
@@ -857,7 +880,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
           <Input label="Manufacturer Name" name="manufacturerName" placeholder="Manufacturer company name"
             onChange={handleChange} value={form.manufacturerName} error={errors.manufacturerName} required />
 
-          {/* Row 8: Storage Condition | Brochure Upload */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">Storage Condition <span className="text-warning-500 ml-1">*</span></label>
             <Select options={storageConditionOptions} value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null}
@@ -871,7 +893,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
               <div className="mb-2 flex items-center gap-2 text-sm text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
                 <FileText size={16} />
                 <a href={existingBrochureUrl} target="_blank" rel="noreferrer" className="underline truncate">Current brochure</a>
-                <button type="button" onClick={() => setBrochureFile(null)} className="ml-auto text-neutral-400 hover:text-red-500"><X size={14} /></button>
+                <button type="button" onClick={() => setExistingBrochureUrl("")} className="ml-auto text-neutral-400 hover:text-red-500"><X size={14} /></button>
               </div>
             )}
             {!brochureFile ? (
@@ -879,7 +901,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
                 <div className="w-12 h-full bg-[#DED0FE] flex items-center justify-center flex-shrink-0">
                   {uploadingBrochure ? <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" /> : <Upload size={18} className="text-purple-700" />}
                 </div>
-                <span className="px-3 text-sm text-neutral-400">{uploadingBrochure ? "Processing..." : existingBrochureUrl ? "Upload to replace current brochure" : "Upload PDF (max 5MB)"}</span>
+                <span className="px-3 text-sm text-neutral-400">{uploadingBrochure ? "Processing..." : existingBrochureUrl ? "Upload to replace" : "Upload PDF (max 5MB)"}</span>
               </div>
             ) : (
               <div className="flex items-center border border-purple-300 rounded-xl overflow-hidden h-14 bg-purple-50">
@@ -889,15 +911,14 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
                   <p className="text-xs text-neutral-500">{(brochureFile.size / 1024).toFixed(1)} KB</p>
                 </div>
                 <div className="flex items-center gap-1 pr-3">
-                  <button type="button" onClick={() => brochureInputRef.current?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-700" title="Change"><RefreshCw size={14} /></button>
-                  <button type="button" onClick={() => { setBrochureFile(null); if (brochureInputRef.current) brochureInputRef.current.value = ""; }} className="p-1.5 rounded-lg hover:bg-red-100 text-red-500" title="Remove"><X size={14} /></button>
+                  <button type="button" onClick={() => brochureInputRef.current?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-700"><RefreshCw size={14} /></button>
+                  <button type="button" onClick={() => { setBrochureFile(null); if (brochureInputRef.current) brochureInputRef.current.value = ""; }} className="p-1.5 rounded-lg hover:bg-red-100 text-red-500"><X size={14} /></button>
                 </div>
               </div>
             )}
             <input ref={brochureInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleBrochureUpload(e.target.files[0]); }} />
           </div>
 
-          {/* Row 9: Safety Instructions | Key Features */}
           <div className="col-span-1 md:col-span-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -917,7 +938,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
             </div>
           </div>
 
-          {/* Row 10: Product Description (full width) */}
           <div className="col-span-1 md:col-span-2">
             <label className="block text-label-l3 text-neutral-700 font-semibold mb-1">Product Description <span className="text-warning-500 ml-1">*</span></label>
             <textarea name="productDescription" value={form.productDescription} onChange={handleChange} rows={4}
@@ -974,9 +994,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
           <Input label="Discount Percentage (%)" name="discountPercentage" onChange={handleChange} value={form.discountPercentage} />
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 font-semibold opacity-0">_</label>
-            <button type="button" onClick={() => setShowDiscountDrawer(true)} className="px-4 py-2 h-14 bg-[#9F75FC] text-white rounded-xl font-semibold w-1/2 hover:bg-purple-600">
-              + Add Additional Discount
-            </button>
+            <button type="button" onClick={() => setShowDiscountDrawer(true)} className="px-4 py-2 h-14 bg-[#9F75FC] text-white rounded-xl font-semibold w-1/2 hover:bg-purple-600">+ Add Additional Discount</button>
           </div>
         </div>
 
@@ -1058,7 +1076,6 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
               const url = URL.createObjectURL(file);
               return (
                 <div key={i} className="relative group">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url} alt={`Product ${i + 1}`} className="w-full aspect-square object-cover rounded-xl border-2 border-neutral-200 group-hover:border-purple-300 transition" />
                   <button type="button" onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }}
                     className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><X size={12} /></button>
@@ -1081,7 +1098,7 @@ const ConsumableForm = ({ mode = "create", initialData, onSubmitSuccess }: Consu
           </button>
         </div>
         <button type="button" onClick={handleSubmit} disabled={submitting}
-          className="px-8 py-2 bg-[#4B0082] text-white rounded-lg font-semibold hover:bg-purple-800 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2">
+          className="px-8 py-2 bg-[#4B0082] text-white rounded-lg font-semibold hover:bg-purple-800 transition disabled:opacity-60 flex items-center gap-2">
           {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
           {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
         </button>
