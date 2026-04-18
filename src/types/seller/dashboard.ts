@@ -14,6 +14,7 @@ export type DashboardView =
   | "editSupplement"
   | "editFoodInfant"
   | "editCosmetic"
-  | "editMedicalDevice";
-
+  | "editMedicalDevice"
+  | "editConsumable"
+  | "editNonConsumable";
 

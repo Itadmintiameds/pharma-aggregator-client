@@ -51,8 +51,8 @@ const MedicalDevicesForm = () => {
 
       {/* FORMS OUTSIDE */}
       <div className="mt-6">
-        {selectedType === "consumable" && <ConsumableForm deviceType="consumable" />}
-        {selectedType === "non-consumable" && <NonConsumableForm deviceType="non-consumable" />}
+        {selectedType === "consumable" && <ConsumableForm />}
+        {selectedType === "non-consumable" && <NonConsumableForm />}
       </div>
     </div>
   );

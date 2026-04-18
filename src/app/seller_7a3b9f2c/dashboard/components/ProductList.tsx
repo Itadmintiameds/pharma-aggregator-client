@@ -96,7 +96,8 @@ const ProductList = ({
     2: "editSupplement",
     3: "editFoodInfant",
     4: "editCosmetic",
-    5: "editMedicalDevice",
+    5: "editConsumable",
+    6: "editNonConsumable",
   };
 
   return (
