@@ -70,25 +70,25 @@ function deepFind(obj: unknown, key: string): unknown {
   return undefined;
 }
 
-function extractProductAttributeId(data: ApiResponseData): number | null {
+function extractProductAttributeId(data: ApiResponseData): string | undefined {
   const dataInner = data?.data as ApiResponseData | undefined;
   const s1 = dataInner?.productAttributeNonConsumableMedicals;
   if (Array.isArray(s1) && s1.length > 0) {
     const id = (s1[0] as ApiResponseData)?.productAttributeId;
-    if (id != null) return Number(id);
+    if (id != null) return String(id);
   }
   const s2 = data?.productAttributeNonConsumableMedicals;
   if (Array.isArray(s2) && s2.length > 0) {
     const id = (s2[0] as ApiResponseData)?.productAttributeId;
-    if (id != null) return Number(id);
+    if (id != null) return String(id);
   }
   const s3 = dataInner?.productAttributeId;
-  if (s3 != null) return Number(s3);
+  if (s3 != null) return String(s3);
   const s4 = data?.productAttributeId;
-  if (s4 != null) return Number(s4);
+  if (s4 != null) return String(s4);
   const deep = deepFind(data, "productAttributeId");
-  if (deep !== undefined) return Number(deep);
-  return null;
+  if (deep !== undefined) return String(deep);
+  return undefined;
 }
 
 async function uploadDocument(
@@ -175,11 +175,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     hsnCode: "",
   });
 
-  // IDs for update
+  // ✅ IDs stored separately as STRINGS (matching DrugForm & ConsumableForm)
   const [resolvedProductId, setResolvedProductId] = useState("");
-  const [productAttributeId, setProductAttributeId] = useState<number | null>(null);
-  const [packagingId, setPackagingId] = useState<number | null>(null);
-  const [pricingId, setPricingId] = useState<number | null>(null);
+  const [productAttributeId, setProductAttributeId] = useState("");
+  const [packagingId, setPackagingId] = useState("");
+  const [pricingId, setPricingId] = useState("");
   const [productCategoryId, setProductCategoryId] = useState<number | null>(null);
 
   // Master data options
@@ -351,10 +351,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const packaging = data.packagingDetails || {};
       const pricing = data.pricingDetails?.[0] || {};
 
+      // ✅ Store IDs as STRINGS (matching DrugForm pattern)
       setResolvedProductId(data.productId || productId);
-      setProductAttributeId(attribute.productAttributeId ? Number(attribute.productAttributeId) : null);
-      setPackagingId(packaging.packagingId ? Number(packaging.packagingId) : null);
-      setPricingId(pricing.pricingId ? Number(pricing.pricingId) : null);
+      setProductAttributeId(String(attribute.productAttributeId || ""));
+      setPackagingId(String(packaging.packagingId || ""));
+      setPricingId(String(pricing.pricingId || ""));
 
       setForm({
         productName: data.productName || "",
@@ -377,7 +378,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         deviceSubCategoryId: String(attribute.deviceSubCategoryId || attribute.deviceSubCatId || ""),
         powerSourceId: String(attribute.powerSourceId || ""),
         warrantyPeriod: String(attribute.warrantyPeriod || ""),
-        amcAvailability: attribute.amcAvailability === true ? "true" : "false",
+        amcAvailability: (attribute.amcAvailability === true || attribute.serviceAvailability === true) ? "true" : "false",
 
         packType: String(packaging.packId || ""),
         unitPerPack: String(packaging.unitPerPack || ""),
@@ -412,6 +413,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       }
 
       if (attribute.certificateDocuments?.length) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setSelectedCertifications(attribute.certificateDocuments.map((cert: any) => ({
           id: String(cert.certificationId),
           label: cert.certificationName || `Certificate ${cert.certificationId}`,
@@ -684,7 +686,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    
+
     if (!productCategoryId) {
       setApiError("Product category not loaded. Please refresh.");
       return;
@@ -698,8 +700,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const token = sellerAuthService.getToken();
       if (!token) throw new Error("Authentication required.");
 
-      // Build payload with correct types
-      const payload = {
+      const amcValue = form.amcAvailability === "true";
+
+      // ✅ Build payload — cast to `any` to avoid strict interface mismatch
+      // (API accepts extra fields like amcAvailability, certificationIds, deviceClassification
+      //  that are not yet reflected in the shared ProductAttributeNonConsumableData type)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payload: any = {
         productName: form.productName,
         warningsPrecautions: form.safetyInstructions,
         productDescription: form.productDescription,
@@ -708,7 +715,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         categoryId: productCategoryId,
 
         packagingDetails: {
-          ...(packagingId !== null ? { packagingId } : {}),
+          ...(packagingId ? { packagingId } : {}),
           packId: Number(form.packType),
           unitPerPack: Number(form.unitPerPack) || 0,
           numberOfPacks: Number(form.numberOfPacks) || 0,
@@ -718,7 +725,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         },
 
         pricingDetails: [{
-          ...(pricingId !== null ? { pricingId } : {}),
+          ...(pricingId ? { pricingId } : {}),
           batchLotNumber: form.batchLotNumber || "",
           manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
           expiryDate: toLocalDateTimeString(form.expiryDate),
@@ -741,7 +748,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         }],
 
         productAttributeNonConsumableMedicals: [{
-          ...(productAttributeId !== null ? { productAttributeId } : {}),
+          ...(productAttributeId ? { productAttributeId } : {}),
           brandName: form.brandName,
           deviceCategoryId: Number(form.deviceCategoryId),
           deviceSubCategoryId: Number(form.deviceSubCategoryId),
@@ -758,8 +765,16 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           udiNumber: form.udiNumber || "",
           deviceClassification: form.deviceClassification,
           safetyInstructions: form.safetyInstructions,
-          amcAvailability: form.amcAvailability === "true",
+          // ✅ Both field names sent — serviceAvailability satisfies the type,
+          //    amcAvailability is the API's actual field name
+          serviceAvailability: amcValue,
+          amcAvailability: amcValue,
+          // ✅ Send BOTH formats so the API accepts whichever it expects
           certificationIds: selectedCertifications.map(cert => cert.certificationId),
+          certificateDocuments: selectedCertifications.map(cert => ({
+            certificationId: cert.certificationId,
+            certificateUrl: cert.existingUrl || "",
+          })),
         }],
 
         productImages: images.map(() => ({ productImage: "PENDING" })),
@@ -769,17 +784,19 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       let currentAttributeId = productAttributeId;
 
       if (mode === "edit" && currentProductId) {
+        // ✅ UPDATE MODE - matching DrugForm
         await updateProduct(currentProductId, payload);
         if (images.length > 0) {
           await uploadProductImages(currentProductId, images);
         }
       } else {
+        // ✅ CREATE MODE
         const createRes = await fetch(`${API_BASE}/products/create`, {
           method: "POST",
           headers: { ...authHeaders(), "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        
+
         const rawText = await createRes.text();
         let createData: ApiResponseData;
         try {
@@ -787,19 +804,19 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         } catch {
           throw new Error(`Invalid server response: ${rawText.substring(0, 200)}`);
         }
-        
+
         if (!createRes.ok) {
           throw new Error(String((createData?.data as ApiResponseData)?.message ?? createData?.message ?? `HTTP ${createRes.status}`));
         }
-        
+
         const dataInner = createData?.data as ApiResponseData | undefined;
         currentProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
         if (!currentProductId || currentProductId === "undefined") {
           throw new Error("Product ID not returned from server");
         }
-        
-        currentAttributeId = extractProductAttributeId(createData);
-        
+
+        currentAttributeId = extractProductAttributeId(createData) || "";
+
         if (images.length > 0) {
           await uploadProductImages(currentProductId, images);
         }
