@@ -89,15 +89,32 @@ class SellerRegService {
     }
   }
 
-  async verifyEmailOtp(data: EmailOtpVerifyRequest): Promise<OtpResponse> {
-    try {
-      const response = await api.post<OtpResponse>('/temp-seller/email-otp/verify', data);
-      return response.data;
-    } catch (error) {
-      console.error('Error verifying email OTP:', error);
-      throw error;
+async verifyEmailOtp(
+  data: EmailOtpVerifyRequest
+): Promise<OtpResponse> {
+  try {
+    const response = await api.post<OtpResponse>(
+      "/temp-seller/email-otp/verify",
+      data
+    );
+
+    return response.data;
+  } catch (error: any) {
+    const message =
+      error?.response?.data?.message ||
+      error?.response?.data?.data?.message ||
+      error?.message ||
+      "Invalid OTP";
+
+    if (message === "Request processed successfully") {
+      return Promise.reject({
+        message: "Invalid OTP"
+      });
     }
+
+    return Promise.reject({ message });
   }
+}
 
 
 
@@ -154,20 +171,31 @@ async sendSMSOtp(data: SMSOtpRequest): Promise<SMSOtpResponse> {
 
 async verifySMSOtp(data: SMSVerifyOtpRequest): Promise<SMSOtpResponse> {
   try {
-    const response = await api.post<ApiResponseWrapper<SMSOtpResponse>>('/otp/verify', data);
-    return response.data.data;
-  } catch (error: any) {
-    console.error('❌ Error verifying SMS OTP:', error);
-    
-    if (error.response?.data?.data?.message) {
-      throw new Error(error.response.data.data.message);
-    } else if (error.response?.data?.message) {
-      throw new Error(error.response.data.message);
+    const response =
+      await api.post<ApiResponseWrapper<SMSOtpResponse>>(
+        "/otp/verify",
+        data
+      );
+
+    const result = response.data?.data; // 👈 IMPORTANT FIX
+
+    if (result?.status === "ERROR") {
+      return Promise.reject({
+        message: result.message || "Invalid OTP",
+      });
     }
-    throw error;
+
+    return result; // success case
+  } catch (error: any) {
+    const message =
+      error?.response?.data?.data?.message ||
+      error?.response?.data?.message ||
+      error?.message ||
+      "Invalid OTP";
+
+    return Promise.reject({ message });
   }
 }
-
 async checkCoordinatorPhone(phone: string): Promise<boolean> {
   try {
     const cleanPhone = phone.replace(/\D/g, '');

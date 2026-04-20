@@ -112,4 +112,50 @@ export interface ProductListData {
   categoryName?: string;
   categoryId?: number;
   pricingDetails: PricingData[];
+  productImages?: {
+    productImage: string;
+    productImageId: string;
+  }[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW (consumable & non‑consumable device attributes)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ProductAttributeConsumableData {
+  productAttributeId?: string;
+  brandName: string;
+  deviceCatId: number;
+  deviceSubCatId: number;
+  dimensionSize: string;
+  disposalOrReusable: string;
+  keyFeaturesSpecifications: string;
+  materialTypeId: number[];
+  purpose: string;
+  safetyInstructions: string;
+  shelfLife: string;
+  sterileOrNonSterile: string;
+  storageConditionId: number;
+  countryId: number;
+  manufacturerName: string;
+  productBrochureUrl?: string;
+}
+
+export interface ProductAttributeNonConsumableData {
+  productAttributeId?: string;
+  brandName: string;
+  deviceCategoryId: number;
+  deviceSubCategoryId: number;
+  modelName: string;
+  modelNumber: string;
+  keyFeaturesSpecifications: string;
+  materialTypeIds: number[];
+  purpose: string;
+  powerSourceId: number;
+  storageConditionId: number;
+  countryId: number;
+  manufacturerName: string;
+  warrantyPeriod: string;
+  udiNumber: string;
+  serviceAvailability: boolean;
 }
