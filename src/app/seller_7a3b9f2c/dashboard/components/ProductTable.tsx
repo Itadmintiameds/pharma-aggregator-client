@@ -1,6 +1,6 @@
 "use client";
-
-
+ 
+ 
 import React, { useState, useEffect } from "react";
 import { Heart, Share2 } from "lucide-react";
 import { DashboardView } from "@/src/types/seller/dashboard";
@@ -11,13 +11,13 @@ import { LuShield, LuTruck } from "react-icons/lu";
 import { IoIosArrowBack } from "react-icons/io";
 import Image from "next/image";
 import { getDrugProductById } from "@/src/services/product/ProductService";
-
-
+ 
+ 
 interface ProductViewProps {
   productId: string | null;
   setCurrentView: (view: DashboardView) => void;
 }
-
+ 
 const images = [
   "/assets/images/SellerMed.jpg",
   "/assets/images/SellerMed2.jpg",
@@ -25,71 +25,71 @@ const images = [
   "/assets/images/SellerMed4.jpg",
   "/assets/images/SellerMed5.jpg",
 ];
-
+ 
 const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
   const [selectedImage, setSelectedImage] = useState(images[0]);
   const [quantity, setQuantity] = useState(1);
   const [selectedPack, setSelectedPack] = useState(1);
   const [productData, setProductData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
+ 
 useEffect(() => {
   const fetchProductDetails = async () => {
     if (!productId) return;
-
+ 
     try {
       const response = await getDrugProductById(productId);
       console.log("API Response:", response);
-
+ 
       setProductData(response);
-
+ 
       if (response?.packagingDetails?.minimumOrderQuantity) {
         setQuantity(response.packagingDetails.minimumOrderQuantity);
       }
-
+ 
     } catch (error) {
       console.error("Error fetching product details:", error);
     } finally {
       setLoading(false);
     }
   };
-
+ 
   fetchProductDetails();
 }, [productId]);
-
+ 
   // Access data directly from productData
   const product = productData;
   const packaging = productData?.packagingDetails;
   const pricing = productData?.pricingDetails?.[0];
-
+ 
   // Format product name: productName + strength + dosageForm
   const formattedProductName = product
     ? `${product.productName || ''} ${product.strength || ''}mg ${product.dosageForm || ''}`.trim()
     : "";
-
+ 
   // Format description: therapeuticCategory + therapeuticSubcategory
 const formattedDescription = "Broad-spectrum antibiotic for bacterial infections";
-
+ 
   // Calculate total price
   const totalPrice = pricing ? pricing.finalPrice * quantity : 0;
-
+ 
   if (!productData || loading) {
     return <div className="w-full bg-white rounded-xl p-6 space-y-8"></div>;
   }
-
+ 
   return (
     <div className="w-full bg-white rounded-xl p-6 space-y-8">
-
+ 
       {/* MAIN SECTION */}
-
+ 
       <div className="grid grid-cols-2 gap-10">
-
+ 
         {/* LEFT SIDE */}
-
+ 
         <div>
-
+ 
           {/* MAIN IMAGE */}
-
+ 
           <div className="relative rounded-xl overflow-hidden w-full h-171 flex items-center justify-center">
             <Image
               src={selectedImage}
@@ -97,7 +97,7 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
               fill
               className="object-cover rounded-xl"
             />
-
+ 
             <button
               className="absolute left-2 bg-white rounded-full p-2 shadow hover:bg-gray-100"
               onClick={() => {
@@ -108,7 +108,7 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
             >
               <IoIosArrowBack size={20} />
             </button>
-
+ 
             <button
               className="absolute right-2 bg-white rounded-full p-2 shadow hover:bg-gray-100"
               onClick={() => {
@@ -119,13 +119,13 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
             >
               <IoIosArrowBack size={20} className="rotate-180" />
             </button>
-
+ 
             {pricing?.discountPercentage && pricing.discountPercentage > 0 && (
               <span className="absolute top-4 left-4 bg-[#FB2C36] text-white text-sm px-3 py-1 rounded-full">
                 {pricing.discountPercentage}% OFF
               </span>
             )}
-
+ 
             <div className="absolute top-4 right-4 flex gap-2">
               <button className="bg-white rounded-full p-2 shadow">
                 <Heart size={20} />
@@ -135,7 +135,7 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
               </button>
             </div>
           </div>
-
+ 
           {/* THUMBNAILS */}
           <div className="flex gap-3 mt-4">
             {images.map((img, index) => (
@@ -156,25 +156,25 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
               </div>
             ))}
           </div>
-
+ 
           {/* VERIFIED / SHIPPING / RETURNS */}
           <div className="flex items-center gap-20 mt-6 text-sm">
             <div className="flex items-center gap-2">
               <LuShield size={20} style={{ color: "#00A63E" }} />
               <span className="text-neutral-600">Verified</span>
             </div>
-
+ 
             <div className="flex items-center gap-2">
               <LuTruck size={20} style={{ color: "#155DFC" }} />
               <span className="text-neutral-600">Fast Ship</span>
             </div>
-
+ 
             <div className="flex items-center gap-2">
               <SlReload size={20} style={{ color: "#9810FA" }} />
               <span className="text-neutral-600">Returns</span>
             </div>
           </div>
-
+ 
           {/* ADDITIONAL DISCOUNTS - Static as mentioned */}
           <div className="bg-[#EFF6FF] border-2 border-[#BEDBFF] rounded-lg p-4 mt-4">
             <p className="font-semibold text-[#1C398E] mb-2">
@@ -186,13 +186,13 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
               <li>First-time buyers: Extra ₹10 off on orders above ₹200</li>
             </ul>
           </div>
-
+ 
         </div>
-
+ 
         {/* RIGHT SIDE */}
-
+ 
         <div>
-
+ 
           {/* TAGS - Static as mentioned */}
           <div className="flex gap-2 mb-3">
             <span className="bg-primary-05 text-secondary-700 px-3 py-1 rounded-xl">
@@ -203,16 +203,16 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
               FDA Approved
             </span>
           </div>
-
+ 
           {/* TITLE */}
           <h1 className="text-[28px] font-semibold mb-2">
             {formattedProductName}
           </h1>
-
+ 
           <p className="text-neutral-700 text-sm mb-4">
             {formattedDescription}
           </p>
-
+ 
           {/* PRICE CARD */}
           <div className="bg-[#F9FAFB] rounded-lg p-4 mb-4">
             <div className="flex items-center gap-4">
@@ -228,7 +228,7 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
               Price per pack ({packaging?.numberOfUnits} {product?.dosageForm})
             </p>
           </div>
-
+ 
           {/* SPECIAL OFFERS - Static as mentioned */}
           <div className="border border-yellow-300 bg-yellow-50 p-4 rounded-lg mb-6">
             <p className="font-semibold mb-2 text-sm text-neutral-900">Special Offers</p>
@@ -238,12 +238,12 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
               <li>Bulk orders: Additional volume discounts available</li>
             </ul>
           </div>
-
+ 
           {/* PACK SIZE */}
           <h3 className="font-semibold text-[#364153] text-sm mb-3">
             Select Pack Size <span className="text-warning-500">*</span>
           </h3>
-
+ 
           <div className="grid grid-cols-3 gap-4 mb-6">
             {/* First Pack - Dynamic */}
             <div
@@ -262,14 +262,14 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
               <p className="text-sm font-semibold text-neutral-700">₹{pricing?.mrp?.toFixed(2)}</p>
               <p className="text-sm text-success-700 font-semibold">{pricing?.discountPercentage}% off</p>
             </div>
-
+ 
             {/* Second Pack - Static */}
             <div className="relative border-2 border-neutral-300 rounded-xl p-5 cursor-pointer text-center">
               <p className="font-semibold text-lg">100mg</p>
               <p className="text-sm font-semibold text-neutral-700">₹599</p>
               <p className="text-sm text-success-700 font-semibold">15% off</p>
             </div>
-
+ 
             {/* Third Pack - Static */}
             <div className="relative border-2 border-neutral-300 rounded-xl p-5 cursor-pointer text-center">
               <p className="font-semibold text-lg">200mg</p>
@@ -277,48 +277,48 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
               <p className="text-sm text-success-700 font-semibold">20% off</p>
             </div>
           </div>
-
+ 
           {/* PRODUCT DETAILS */}
           <h3 className="text-[16px] mb-3">Product Details</h3>
-
+ 
           <div className="grid grid-cols-3 gap-4 text-sm mb-6">
             <div className="bg-[#F9FAFB] rounded-lg p-3">
               <p className="text-[#6A7282] text-xs">Pack Size</p>
               <p className="text-[#101828] text-[16px]">{packaging?.packSize} {product?.dosageForm}</p>
             </div>
-
+ 
             <div className="bg-[#F9FAFB] rounded-lg p-3">
               <p className="text-[#6A7282] text-xs">Min Order (MOQ)</p>
               <p className="text-[#101828] text-[16px]">{packaging?.minimumOrderQuantity} Packs</p>
             </div>
-
+ 
             <div className="bg-[#F9FAFB] rounded-lg p-3">
               <p className="text-[#6A7282] text-xs">Dosage Form</p>
               <p className="text-[#101828] text-[16px]">{product?.dosageForm}</p>
             </div>
-
+ 
             <div className="bg-[#F9FAFB] rounded-lg p-3">
               <p className="text-[#6A7282] text-xs">Manufacturer</p>
               <p className="text-[#101828] text-[16px]">{pricing?.manufacturerName}</p>
             </div>
-
+ 
             <div className="bg-[#F9FAFB] rounded-lg p-3">
               <p className="text-[#6A7282] text-xs">Strength</p>
               <p className="text-[#101828] text-[16px]">{product?.strength}mg</p>
             </div>
-
+ 
             <div className="bg-[#F9FAFB] rounded-lg p-3">
               <p className="text-[#6A7282] text-xs">Max Order</p>
               <p className="text-[#101828] text-[16px]">{packaging?.maximumOrderQuantity} Packs</p>
             </div>
           </div>
-
+ 
           {/* QUANTITY */}
           <div className="mb-6">
             <p className="text-sm text-[#364153] mb-2">
               Quantity (Packs)
             </p>
-
+ 
             <div className="flex items-center gap-4">
               <div className="flex border border-neutral-300 rounded-lg overflow-hidden">
                 <button
@@ -342,26 +342,26 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
               </p>
             </div>
           </div>
-
+ 
           <p className="text-xs text-[#6A7282] mt-1">
             Minimum order: {packaging?.minimumOrderQuantity} packs | Maximum: {packaging?.maximumOrderQuantity} packs
           </p>
-
+ 
           {/* BUTTONS - Static */}
           <button className="w-full bg-primary-900 text-white text-[16px] font-semibold py-3 rounded-lg mt-6 flex items-center justify-center gap-2">
             <SlHandbag size={24} />
             Buy Now
           </button>
-
+ 
           <button className="w-full border-2 border-primary-900 text-primary-900 text-[16px] font-semibold py-3 rounded-lg mt-3 flex items-center justify-center gap-2">
             <HiOutlineShoppingCart size={24} />
             Add to Cart
           </button>
-
+ 
         </div>
-
+ 
       </div>
-
+ 
       {/* PRODUCT DESCRIPTION */}
       <div className="border-t pt-6">
         <h2 className="text-lg font-semibold mb-3">
@@ -370,7 +370,7 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
         <p className="text-sm text-neutral-600 mb-3">
           {product?.productDescription}
         </p>
-
+ 
         {/* <h3 className="font-semibold mt-4 mb-2">Key Features:</h3>
         <ul className="list-disc ml-5 text-sm text-neutral-600 space-y-1">
           <li>Broad-spectrum antibiotic effective against bacterial infections</li>
@@ -379,7 +379,7 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
           <li>Extended shelf life of 24 months</li>
           <li>Easy-to-swallow capsule form</li>
         </ul> */}
-
+ 
         <h3 className="font-semibold mt-4 mb-2">
           Warnings & Precautions:
         </h3>
@@ -387,10 +387,10 @@ const formattedDescription = "Broad-spectrum antibiotic for bacterial infections
           {product?.warningsPrecautions}
         </p>
       </div>
-
+ 
     </div>
   );
 };
-
-
+ 
+ 
 export default ProductView1;
