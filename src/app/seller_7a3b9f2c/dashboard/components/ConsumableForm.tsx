@@ -336,8 +336,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     fetchProductCategoryId();
     fetchList(`${MASTERS}/countries`, setCountryOptions, ["countryId", "id"], ["countryName", "name"]);
     fetchList(`${MASTERS}/storagecondition`, setStorageConditionOptions, ["storageConditionId", "id"], ["conditionName", "name"]);
-    fetchList(`${MASTERS}/pack-types`, setPackTypeApiOptions, ["packId", "id"], ["packName", "name"],
-      [{ value: "1", label: "Box" }, { value: "2", label: "Pack" }, { value: "3", label: "Pouch" }, { value: "4", label: "Piece" }]);
+    fetchList(`${API_BASE}/dosage/packType/category/5`, setPackTypeApiOptions, ["packId"], ["packType"]);
 
     setLoadingMaterialTypes(true);
     fetchList(`${MASTERS}/consumable-material-types`, setMaterialTypeOptions, ["materialTypeId", "id"], ["materialTypeName", "name"])
@@ -503,7 +502,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     if (!form.gstPercentage) e.gstPercentage = "GST percentage required";
     if (!form.hsnCode.trim()) { e.hsnCode = "HSN code required"; } else { const hsnError = validateHSNCode(form.hsnCode); if (hsnError) e.hsnCode = hsnError; }
     if (mode === "create" && images.length === 0) e.images = "At least 1 product image required";
-    if (images.length > 8) e.images = "Maximum 8 images allowed";
+    if (images.length > 5) e.images = "Maximum 5 images allowed";
     return e;
   };
 
@@ -1055,14 +1054,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           <div className="flex flex-col items-center justify-center py-4">
             <Image src="/icons/FolderIcon.svg" alt="Upload" width={40} height={40} className="mb-4" />
             <div className="text-label-l2 font-normal text-center">Choose files or drag and drop them here</div>
-            <div className="text-label-l1 font-normal text-neutral-400 text-center">Upload product images — maximum 8</div>
+            <div className="text-label-l1 font-normal text-neutral-400 text-center">Upload product images — maximum 5</div>
           </div>
         </div>
         <input id="consumableFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg" className="hidden"
           onChange={(e) => {
             if (e.target.files) {
               const files = Array.from(e.target.files);
-              if (images.length + files.length > 8) { alert("Maximum 8 images allowed"); return; }
+              if (images.length + files.length > 5) { alert("Maximum 5 images allowed"); return; }
               setImages((p) => [...p, ...files]);
               setErrors((p) => { const n = { ...p }; delete n.images; return n; });
             }
