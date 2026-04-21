@@ -102,9 +102,9 @@ const TEMPLATES: Record<ProductType, { name: string; xlsx: string; csv: string; 
   },
   medical_devices_non_consumable: {
     name: "medical_devices_non_consumable_template",
-    xlsx: "/templates/medical-devices/nonconsumable/XLSX-Non-Consumable Template.xlsx",
-    csv:  "/templates/medical-devices/nonconsumable/CSV-Non-Consumable Template.csv",
-    xls:  "/templates/medical-devices/nonconsumable/XLS-Non-Consumable Template.xls",
+    xlsx: "/templates/medical-devices/nonconsumable/XLSX-Non Consumable Template.xlsx",
+    csv:  "/templates/medical-devices/nonconsumable/CSV-Non Consumable Template.csv",
+    xls:  "/templates/medical-devices/nonconsumable/XLS-Non Consumable Template.xls",
   },
 };
 
