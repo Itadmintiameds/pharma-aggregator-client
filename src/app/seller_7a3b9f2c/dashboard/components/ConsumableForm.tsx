@@ -1,4 +1,3 @@
-// ConsumableForm.tsx — supports both create and edit modes
 "use client";
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
@@ -77,26 +76,72 @@ function extractProductAttributeId(data: ApiResponseData): string | undefined {
   return undefined;
 }
 
-async function uploadDocument(url: string, headers: Record<string, string>, file: File, extraFields: Record<string, string>, documentType: string, maxAttempts = 3): Promise<{ success: boolean; fieldUsed?: string }> {
-  const fieldNamesByType: Record<string, string[]> = {
-    certificate: ["certificate", "certificateFile", "certFile", "file", "document"],
-    brochure: ["brochure", "brochureFile", "file", "document", "pdfFile"],
-    image: ["images", "productImages", "image", "file"],
-  };
-  const fieldNames = [...(fieldNamesByType[documentType.toLowerCase()] ?? ["file"])];
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    for (const fieldName of fieldNames) {
-      try {
-        const formData = new FormData();
-        Object.entries(extraFields).forEach(([k, v]) => formData.append(k, v));
-        formData.append(fieldName, file);
-        const response = await fetch(url, { method: "POST", headers, body: formData });
-        if (response.ok) return { success: true, fieldUsed: fieldName };
-      } catch (error) { console.error(`[${documentType}] Error with field "${fieldName}":`, error); }
+// FIXED: Upload multiple certificates in ONE request
+async function uploadCertificatesBatch(
+  baseUrl: string,
+  headers: Record<string, string>,
+  certificates: CertificationTag[]
+): Promise<{ success: boolean; message?: string }> {
+  const formData = new FormData();
+  
+  // Get all certification IDs as comma-separated string
+  const documentIds = certificates.map(c => c.certificationId).join(',');
+  formData.append('documentIds', documentIds);
+  
+  // Add ALL certificate files with the same field name 'certificateFiles'
+  certificates.forEach((cert) => {
+    if (cert.file) {
+      formData.append('certificateFiles', cert.file);
     }
-    if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+  });
+  
+  try {
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: headers, // Don't set Content-Type - browser will add multipart boundary
+      body: formData
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Certificate upload failed:', errorText);
+      return { success: false, message: `HTTP ${response.status}: ${errorText}` };
+    }
+    
+    const result = await response.json();
+    console.log('All certificates uploaded successfully:', result);
+    return { success: true };
+  } catch (error) {
+    console.error('Error uploading certificates:', error);
+    return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
   }
-  return { success: false };
+}
+
+// FIXED: Upload brochure
+async function uploadBrochure(
+  baseUrl: string,
+  headers: Record<string, string>,
+  file: File
+): Promise<{ success: boolean; message?: string }> {
+  const formData = new FormData();
+  formData.append('brochure', file);
+  
+  try {
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: headers,
+      body: formData
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, message: `HTTP ${response.status}: ${errorText}` };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+  }
 }
 
 function getMasterStr(item: MasterItem, ...keys: string[]): string {
@@ -119,7 +164,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     hsnCode: "", finalPrice: "",
   });
 
-  // IDs needed for update — stored outside form to avoid accidental form resets
   const [resolvedProductId, setResolvedProductId] = useState("");
   const [productAttributeId, setProductAttributeId] = useState("");
   const [packagingId, setPackagingId] = useState("");
@@ -236,7 +280,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const data = await getProductById(productId);
       if (!data) throw new Error("Product not found");
 
-      // Store IDs needed for updates
       setResolvedProductId(data.productId || productId);
 
       const attribute = data.productAttributeConsumableMedicals?.[0] || {};
@@ -295,29 +338,27 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
       }
 
-      if (attribute.brochurePath) {
+      if (attribute.brochurePath && attribute.brochurePath !== "PENDING") {
         setExistingBrochureUrl(attribute.brochurePath);
       }
 
       if (attribute.certificateDocuments?.length) {
         setSelectedCertifications(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           attribute.certificateDocuments.map((cert: any) => ({
             id: String(cert.certificationId),
             label: cert.certificationName || `Certificate ${cert.certificationId}`,
             tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
             certificationId: cert.certificationId,
             file: null,
-            fileName: cert.certificateUrl ? cert.certificateUrl.split("/").pop() || "" : "",
+            fileName: cert.certificateUrl && cert.certificateUrl !== "PENDING" ? cert.certificateUrl.split("/").pop() || "" : "",
             uploading: false,
-            isUploaded: !!cert.certificateUrl,
+            isUploaded: cert.certificateUrl && cert.certificateUrl !== "PENDING",
             previewUrl: null,
-            existingUrl: cert.certificateUrl,
+            existingUrl: cert.certificateUrl !== "PENDING" ? cert.certificateUrl : undefined,
           }))
         );
       }
 
-      // Fetch subcategories for the loaded category AFTER setting form
       if (attribute.deviceCatId) {
         await fetchDeviceSubCategories(String(attribute.deviceCatId));
       }
@@ -330,7 +371,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }
   }, [mode, productId, fetchDeviceSubCategories]);
 
-  // ─── Master data on mount ───────────────────────────────────────────────────
   useEffect(() => {
     fetchDeviceCategories();
     fetchProductCategoryId();
@@ -363,18 +403,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       .finally(() => setLoadingCertifications(false));
   }, [fetchDeviceCategories, fetchProductCategoryId, fetchList, authHeaders]);
 
-  // ─── Load product for edit ──────────────────────────────────────────────────
   useEffect(() => {
     if (mode === "edit" && productId) {
       fetchProductData();
     }
   }, [mode, productId, fetchProductData]);
 
-  // ─── Subcategories when category changes (create mode only resets sub) ──────
   useEffect(() => {
     if (form.deviceCategoryId) {
       fetchDeviceSubCategories(form.deviceCategoryId);
-      // Only clear sub-category when user actively changes it in create mode
       if (mode === "create") {
         setForm((p) => ({ ...p, deviceSubCategoryId: "" }));
       }
@@ -383,7 +420,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }
   }, [form.deviceCategoryId, mode, fetchDeviceSubCategories]);
 
-  // ─── Auto-calculate pack size ───────────────────────────────────────────────
   useEffect(() => {
     const u = parseFloat(form.unitsPerPack), p = parseFloat(form.numberOfPacks);
     if (!isNaN(u) && !isNaN(p) && u > 0 && p > 0) {
@@ -391,7 +427,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }
   }, [form.unitsPerPack, form.numberOfPacks]);
 
-  // ─── Auto-calculate final price ────────────────────────────────────────────
   useEffect(() => {
     const selling = parseFloat(form.sellingPricePerPack), disc = parseFloat(form.discountPercentage);
     setForm((prev) => ({
@@ -402,7 +437,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }));
   }, [form.sellingPricePerPack, form.discountPercentage]);
 
-  // ─── Click-outside for dropdowns ───────────────────────────────────────────
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowCertDropdown(false);
@@ -449,6 +483,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     setSelectedCertifications((p) => p.map((c) => c.id === certId ? {
       ...c, file, fileName: file.name, uploading: false, isUploaded: true,
       previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      existingUrl: undefined, // Clear existing URL since we're uploading a new file
     } : c));
   };
 
@@ -456,6 +491,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     setUploadingBrochure(true);
     await new Promise((r) => setTimeout(r, 500));
     setBrochureFile(file);
+    setExistingBrochureUrl(""); // Clear existing brochure URL since we're uploading a new one
     setUploadingBrochure(false);
   };
 
@@ -526,7 +562,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }
     setErrors({});
     
-    // Validate productCategoryId before proceeding
     if (!productCategoryId) { 
       setApiError("Product category not loaded. Please refresh."); 
       return; 
@@ -541,7 +576,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
       const jsonHeaders = { ...headers, "Content-Type": "application/json" };
 
-      // Build payload with all proper type conversions - NO NULL VALUES
+      // FIXED: Build payload with proper certificate URL handling
       const payload = {
         productName: form.productName,
         warningsPrecautions: form.safetyInstructions,
@@ -588,12 +623,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           safetyInstructions: form.safetyInstructions,
           countryId: Number(form.countryOfOrigin),
           manufacturerName: form.manufacturerName,
-          storageConditionId: form.storageCondition ? Number(form.storageCondition) : 0, // Convert null to 0
+          storageConditionId: form.storageCondition ? Number(form.storageCondition) : 0,
           brochureType: "PDF",
-          brochurePath: existingBrochureUrl || "PENDING",
+          // FIXED: Mark certificates with files as "TO_UPLOAD" instead of "PENDING"
+          brochurePath: existingBrochureUrl || (brochureFile ? "TO_UPLOAD" : "PENDING"),
           certificateDocuments: selectedCertifications.map((c) => ({
             certificationId: c.certificationId,
-            certificateUrl: c.existingUrl || "PENDING",
+            // If there's a new file, mark as "TO_UPLOAD"; otherwise use existing URL or "PENDING"
+            certificateUrl: c.file ? "TO_UPLOAD" : (c.existingUrl || "PENDING"),
           })),
         }],
         productImages: images.map(() => ({ productImage: "PENDING" })),
@@ -628,15 +665,36 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         }
       }
 
+      // FIXED: Upload certificates and brochure AFTER product creation/update
       if (currentAttributeId) {
-        const certBaseUrl = `${API_BASE}/product-documents/consumable/${currentAttributeId}/certificates`;
-        const brochureUploadUrl = `${API_BASE}/product-documents/consumable/${currentAttributeId}/brochure`;
-
-        for (const cert of selectedCertifications.filter((c) => c.file)) {
-          await uploadDocument(certBaseUrl, headers, cert.file!, { certificationId: String(cert.certificationId) }, "certificate", 3);
+        // Upload all certificates that have new files in ONE batch request
+        const certificatesWithFiles = selectedCertifications.filter(c => c.file && !c.existingUrl);
+        
+        if (certificatesWithFiles.length > 0) {
+          console.log(`Uploading ${certificatesWithFiles.length} certificates in one request...`);
+          const certBaseUrl = `${API_BASE}/product-documents/consumable/${currentAttributeId}/certificates`;
+          const uploadResult = await uploadCertificatesBatch(certBaseUrl, headers, certificatesWithFiles);
+          
+          if (!uploadResult.success) {
+            console.warn(`Certificate upload warning: ${uploadResult.message}`);
+            setApiError(`Warning: ${uploadResult.message}`);
+          } else {
+            console.log("All certificates uploaded successfully!");
+          }
         }
+        
+        // Upload brochure if there's a new file
         if (brochureFile) {
-          await uploadDocument(brochureUploadUrl, headers, brochureFile, {}, "brochure", 3);
+          console.log("Uploading brochure...");
+          const brochureUploadUrl = `${API_BASE}/product-documents/consumable/${currentAttributeId}/brochure`;
+          const brochureResult = await uploadBrochure(brochureUploadUrl, headers, brochureFile);
+          
+          if (!brochureResult.success) {
+            console.warn(`Brochure upload warning: ${brochureResult.message}`);
+            if (!apiError) setApiError(`Warning: ${brochureResult.message}`);
+          } else {
+            console.log("Brochure uploaded successfully!");
+          }
         }
       }
 
