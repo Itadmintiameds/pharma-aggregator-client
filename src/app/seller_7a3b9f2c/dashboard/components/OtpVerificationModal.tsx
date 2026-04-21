@@ -65,16 +65,17 @@ export default function OtpVerificationModal({
         setStep('phone');
         sendPhoneOtp();
       }
-      
-      setTimeout(() => {
-        if (step === 'email' && emailInputs.current[0]) {
-          emailInputs.current[0]?.focus();
-        } else if (step === 'phone' && phoneInputs.current[0]) {
-          phoneInputs.current[0]?.focus();
-        }
-      }, 50);
     }
   }, [show, email, phone]);
+
+  // FIX: Separate effect for autofocus so it reacts to step changes correctly
+  useEffect(() => {
+    if (!show) return;
+    setTimeout(() => {
+      if (step === 'email') emailInputs.current[0]?.focus();
+      else if (step === 'phone') phoneInputs.current[0]?.focus();
+    }, 50);
+  }, [show, step]);
 
   const sendEmailOtp = async () => {
     if (!email) return;
@@ -90,7 +91,7 @@ export default function OtpVerificationModal({
     if (!phone) return;
     try {
       const phoneWithPrefix = `+91${phone}`;
-      // await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
+      await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix }); // FIX: uncommented
     } catch (error) {
       console.error('Failed to send phone OTP:', error);
       toast.error('Failed to send phone verification code');
@@ -283,10 +284,10 @@ export default function OtpVerificationModal({
     
     try {
       const phoneWithPrefix = formatPhone(phone);
-      // await sellerRegService.verifySMSOtp({
-      //   phone: phoneWithPrefix,
-      //   otp
-      // });
+       await sellerRegService.verifySMSOtp({
+         phone: phoneWithPrefix,
+         otp
+       });
       
       setPhoneVerified(true);
       toast.success("Phone verified successfully");
@@ -339,7 +340,7 @@ export default function OtpVerificationModal({
     
     try {
       const phoneWithPrefix = formatPhone(phone);
-      // await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
+          await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
       toast.success("OTP resent successfully");
     } catch (error) {
       toast.error("Failed to resend OTP");
