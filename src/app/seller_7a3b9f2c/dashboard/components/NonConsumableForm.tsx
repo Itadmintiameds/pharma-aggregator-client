@@ -464,14 +464,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         { value: "4", label: "USB Powered" },
         { value: "5", label: "Manual" },
       ]);
-    fetchList(`${MASTERS}/pack-types`, setPackTypeApiOptions, ["packId", "id"], ["packName", "name"],
-      [
-        { value: "1", label: "Box" },
-        { value: "2", label: "Unit" },
-        { value: "3", label: "Carrying Case" },
-        { value: "4", label: "Kit" },
-        { value: "5", label: "Bag" },
-      ]);
+    fetchList(`${API_BASE}/dosage/packType/category/6`, setPackTypeApiOptions, ["packId"], ["packType"]);
 
     setLoadingCertifications(true);
     fetch(`${MASTERS}/certifications`, { headers: authHeaders() })
@@ -669,7 +662,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (!form.productDescription.trim()) e.productDescription = "Product description required";
     if (!form.packType) e.packType = "Pack type required";
     if (mode === "create" && images.length === 0) e.images = "At least 1 product image required";
-    if (images.length > 8) e.images = "Maximum 8 images allowed";
+    if (images.length > 5) e.images = "Maximum 5 images allowed";
     if (!form.mrp) e.mrp = "MRP required";
     if (!form.sellingPrice) e.sellingPrice = "Selling price required";
     if (!form.stockQuantity) e.stockQuantity = "Stock quantity required";
@@ -1187,9 +1180,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               placeholder="Select pack type" theme={selectTheme} styles={selectStyles("packType")} />
             {errors.packType && <p className="text-red-500 text-sm mt-1">{errors.packType}</p>}
           </div>
-          <Input label="Number of Units per Pack Type" name="unitPerPack"
+          <Input label="Number of Units per Pack Type" name="unitPerPack" placeholder="e.g., 100"
             onChange={handleChange} value={form.unitPerPack} error={errors.unitPerPack} required />
-          <Input label="Number of Packs" name="numberOfPacks"
+          <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 10"
             onChange={handleChange} value={form.numberOfPacks} error={errors.numberOfPacks} required />
           <Input label="Pack Size (auto calculated)" name="packSize" value={form.packSize} disabled required />
           <Input label="Minimum Order Quantity" name="minimumOrderQuantity"
@@ -1285,14 +1278,14 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           <div className="flex flex-col items-center justify-center py-4">
             <Image src="/icons/FolderIcon.svg" alt="upload" width={40} height={40} className="mb-4" />
             <div className="text-label-l2 font-normal text-center">Choose files or drag and drop them here</div>
-            <div className="text-label-l1 font-normal text-neutral-400 text-center">Upload product images — maximum 8</div>
+            <div className="text-label-l1 font-normal text-neutral-400 text-center">Upload product images — maximum 5</div>
           </div>
         </div>
         <input id="ncFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg" className="hidden"
           onChange={(e) => {
             if (e.target.files) {
               const files = Array.from(e.target.files);
-              if (images.length + files.length > 8) { alert("Maximum 8 images allowed"); return; }
+              if (images.length + files.length > 5) { alert("Maximum 5 images allowed"); return; }
               setImages((p) => [...p, ...files]);
               setErrors((p) => { const n = { ...p }; delete n.images; return n; });
             }
