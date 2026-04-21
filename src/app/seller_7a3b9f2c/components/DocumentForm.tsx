@@ -84,6 +84,7 @@ export default function DocumentForm({
   const [uploadingGST, setUploadingGST] = useState(false);
   const [uploadingLicenses, setUploadingLicenses] = useState<Record<string, boolean>>({});
   const [licenseErrors, setLicenseErrors] = useState<Record<string, string>>({});
+  const [showExpiredError, setShowExpiredError] = useState(false);
 
   // Derive GST file name from formData
   const gstFileName = formData.gstFile?.name || "";
@@ -177,34 +178,6 @@ export default function DocumentForm({
     }
   };
 
-  // Handle paste to clean invalid characters
-  // const handleLicensePaste = (e: React.ClipboardEvent<HTMLInputElement>, productName: string) => {
-  //   e.preventDefault();
-  //   const pastedText = e.clipboardData.getData('text');
-  //   let cleanedText = pastedText.toUpperCase();
-  //   // Remove invalid characters
-  //   cleanedText = cleanedText.replace(/[^A-Z0-9\/\-]/g, '');
-  //   // Limit to 30 characters
-  //   if (cleanedText.length > 30) {
-  //     cleanedText = cleanedText.substring(0, 30);
-  //   }
-    
-  //   const syntheticEvent = {
-  //     ...e,
-  //     target: { 
-  //       ...e.target, 
-  //       name: `licenseNumber-${productName}`, 
-  //       value: cleanedText 
-  //     }
-  //   } as React.ChangeEvent<HTMLInputElement>;
-    
-  //   onLicenseNumberChange(syntheticEvent);
-    
-  //   // Validate
-  //   const error = validateDrugLicenseNumber(cleanedText);
-  //   setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
-  // };
-
   // Handle license number blur for final validation
   const handleLicenseNumberBlur = (value: string, productName: string) => {
     const error = validateDrugLicenseNumber(value);
@@ -257,6 +230,23 @@ export default function DocumentForm({
     }
   };
 
+  // Get all expired licenses
+  const expiredProducts = formData.productTypes.filter((productName: string) => {
+    const licenseData = formData.licenses[productName];
+    return licenseData?.status === "Expired";
+  });
+
+  // Handle continue button click with expired license check
+  const handleContinue = () => {
+    if (expiredProducts.length > 0) {
+      setShowExpiredError(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    setShowExpiredError(false);
+    nextStep();
+  };
+
   // Show warning if no products selected
   if (formData.productTypes.length === 0) {
     return (
@@ -300,6 +290,29 @@ export default function DocumentForm({
         </div>
       </div>
 
+      {/* EXPIRED LICENSE ERROR BANNER */}
+      {showExpiredError && expiredProducts.length > 0 && (
+        <div className="p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
+          <span className="text-red-500 text-xl mt-0.5">🚫</span>
+          <div>
+            <p className="text-red-700 font-semibold">
+              Expired license{expiredProducts.length > 1 ? "s" : ""} detected — cannot proceed
+            </p>
+            <p className="text-red-600 text-sm mt-1">
+              The following license{expiredProducts.length > 1 ? "s are" : " is"} expired. Please provide a valid, active license before continuing:
+            </p>
+            <ul className="mt-2 space-y-1">
+              {expiredProducts.map((productName: string) => (
+                <li key={productName} className="text-red-600 text-sm font-medium flex items-center gap-1">
+                  <span>•</span>
+                  <span>{productName} License</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* LICENSE SECTIONS */}
       {formData.productTypes.map((productName: string) => {
 
@@ -318,9 +331,20 @@ export default function DocumentForm({
         const licenseFileName = licenseData.file?.name || "";
         const isUploading = uploadingLicenses[productName];
         const licenseError = licenseErrors[productName];
+        const isExpired = licenseData.status === "Expired" && (licenseData.issueDate || licenseData.expiryDate);
 
         return (
           <div key={productName} className="mb-2">
+            {/* Expired warning per license */}
+            {isExpired && (
+              <div className="mb-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                <span className="text-red-500 text-base">⚠️</span>
+                <p className="text-red-600 text-sm font-medium">
+                  {productName} License is expired. Please update with a valid license.
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-6">
               {/* LICENSE NUMBER */}
               <div className="flex flex-col gap-1">
@@ -337,7 +361,6 @@ export default function DocumentForm({
                     value={licenseData.number}
                     onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
                     onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number)}
-                    // onPaste={(e) => handleLicensePaste(e, productName)}
                     onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
                     placeholder={licenseInfo.placeholder}
                     maxLength={30}
@@ -504,11 +527,18 @@ export default function DocumentForm({
                   {licenseInfo.statusLabel}
                 </label>
 
-                <div className="h-12 px-4 rounded-xl bg-neutral-200 flex items-center justify-between">
-                  <span className="text-neutral-700 font-medium">
+                <div className={`h-12 px-4 rounded-xl flex items-center justify-between ${
+                  isExpired ? "bg-red-100 border border-red-300" : "bg-neutral-200"
+                }`}>
+                  <span className={`font-medium ${
+                    isExpired ? "text-red-600" : "text-neutral-700"
+                  }`}>
                     {!licenseData.issueDate || !licenseData.expiryDate
                       ? "Pending"
                       : licenseData.status}
+                    {isExpired && (
+                      <span className="ml-2 text-xs font-normal text-red-500">— renewal required</span>
+                    )}
                   </span>
 
                   <div
@@ -628,8 +658,13 @@ export default function DocumentForm({
           </button>
 
           <button
-            onClick={nextStep}
-            className="flex h-12  px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-900 text-primary-900 font-semibold hover:border-primary-100 transition"
+            onClick={handleContinue}
+            disabled={expiredProducts.length > 0}
+            className={`flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 font-semibold transition ${
+              expiredProducts.length > 0
+                ? "border-neutral-300 text-neutral-400 bg-neutral-100 cursor-not-allowed opacity-60"
+                : "border-primary-900 text-primary-900 hover:border-primary-100"
+            }`}
           >
             Continue
             <Image
