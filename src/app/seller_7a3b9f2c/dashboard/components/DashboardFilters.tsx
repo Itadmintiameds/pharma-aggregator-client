@@ -10,7 +10,7 @@ interface DashboardFiltersProps {
 }
 
 type ModalView   = "methods" | "excel" | "api" | "success";
-type ProductType = "drugs" | "medical_devices_non_consumable";
+type ProductType = "drugs" | "medical_devices_non_consumable" | "medical_devices_consumable";
 type MedicalDeviceSubType = "consumable" | "non_consumable";
 
 interface UploadedFile {
@@ -106,10 +106,26 @@ const TEMPLATES: Record<ProductType, { name: string; xlsx: string; csv: string; 
     csv:  "/templates/medical-devices/nonconsumable/CSV-Non Consumable Template.csv",
     xls:  "/templates/medical-devices/nonconsumable/XLS-Non Consumable Template.xls",
   },
+  medical_devices_consumable: {
+    name: "medical_devices_consumable_template",
+    xlsx: "/templates/medical-devices/consumable/XLSX-Consumable Template.xlsx",
+    csv:  "/templates/medical-devices/consumable/CSV-Consumable Template.csv",
+    xls:  "/templates/medical-devices/consumable/XLS-Consumable Template.xls",
+  },
 };
 
+// categoryId mapping (confirmed via Postman):
+//   Drugs                        → 1
+//   Medical Devices (Consumable) → 5
+//   Medical Devices (Non-Consumable) → 6
 const MEDICAL_DEVICE_CONSUMABLE_IDS     = [5];
 const MEDICAL_DEVICE_NON_CONSUMABLE_IDS = [6];
+
+const getCategoryId = (productType: ProductType): number => {
+  if (productType === "medical_devices_consumable")     return 5;
+  if (productType === "medical_devices_non_consumable") return 6;
+  return 1; // drugs
+};
 
 const fileKey = (f: File) => `${f.name}-${f.size}`;
 
@@ -232,6 +248,7 @@ function FileRow({ uf, index, onRemove, submitting }: {
 }
 
 // ─── MedicalDeviceSubTypePicker ───────────────────────────────────────────────
+// Consumable is shown FIRST, Non-Consumable second
 function MedicalDeviceSubTypePicker({
   selected,
   onChange,
@@ -245,6 +262,39 @@ function MedicalDeviceSubTypePicker({
         Select device type
       </div>
       <div style={{ ...flex("row", 10) }}>
+        {/* ── Consumable (first) ── */}
+        <button
+          onClick={() => onChange("consumable")}
+          style={{
+            flex: 1,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: `1.5px solid ${selected === "consumable" ? C.primary : "#E5E7EB"}`,
+            background: selected === "consumable" ? C.primaryLight : "#FAFAFA",
+            color: selected === "consumable" ? C.primary : "#374151",
+            fontWeight: selected === "consumable" ? 700 : 500,
+            fontSize: 12,
+            cursor: "pointer",
+            textAlign: "left",
+            ...fontBase,
+            transition: "all 0.15s",
+            ...flex("col", 3),
+          }}
+        >
+          <div style={{ ...flex("row", 6, "center") }}>
+            {selected === "consumable" && (
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
+                <path d="M2 6l3 3 5-5" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+            <span>Consumable</span>
+          </div>
+          <span style={{ fontSize: 10, color: selected === "consumable" ? "#7C3AED" : "#9CA3AF", fontWeight: 400 }}>
+            Single-use / disposable
+          </span>
+        </button>
+
+        {/* ── Non-Consumable (second) ── */}
         <button
           onClick={() => onChange("non_consumable")}
           style={{
@@ -274,31 +324,6 @@ function MedicalDeviceSubTypePicker({
           <span style={{ fontSize: 10, color: selected === "non_consumable" ? "#7C3AED" : "#9CA3AF", fontWeight: 400 }}>
             Durable / reusable devices
           </span>
-        </button>
-
-        <button
-          disabled
-          style={{
-            flex: 1,
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1.5px solid #E5E7EB",
-            background: "#F9FAFB",
-            color: "#9CA3AF",
-            fontWeight: 500,
-            fontSize: 12,
-            cursor: "default",
-            textAlign: "left",
-            opacity: 0.6,
-            ...fontBase,
-            ...flex("col", 3),
-          }}
-        >
-          <div style={{ ...flex("row", 6, "center") }}>
-            <span>Consumable</span>
-            <span style={{ background: "#F3F4F6", color: "#9CA3AF", fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 99, letterSpacing: 0.4, ...fontBase }}>SOON</span>
-          </div>
-          <span style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 400 }}>Single-use / disposable</span>
         </button>
       </div>
     </div>
@@ -401,7 +426,8 @@ function ExcelUploadView({ onBack, onSuccess }: {
   onSuccess:  (type: ProductType, files: UploadedFile[], result: UploadResult) => void;
 }) {
   const [productType, setProductType]                 = useState<ProductType>("drugs");
-  const [medDevSubType, setMedDevSubType]             = useState<MedicalDeviceSubType>("non_consumable");
+  // Default sub-type is now "consumable" (shown first in the picker)
+  const [medDevSubType, setMedDevSubType]             = useState<MedicalDeviceSubType>("consumable");
   const [dragging, setDragging]                       = useState(false);
   const [files, setFiles]                             = useState<UploadedFile[]>([]);
   const [submitting, setSubmitting]                   = useState(false);
@@ -413,10 +439,13 @@ function ExcelUploadView({ onBack, onSuccess }: {
   const inputRef  = useRef<HTMLInputElement>(null);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+  // Derive the effective ProductType from (productType, medDevSubType)
   const effectiveProductType: ProductType =
     productType === "medical_devices_non_consumable"
-      ? "medical_devices_non_consumable"
-      : "drugs";
+      ? medDevSubType === "consumable"
+        ? "medical_devices_consumable"
+        : "medical_devices_non_consumable"
+      : productType;
 
   const getUserId = useCallback((): number | null => {
     try {
@@ -493,7 +522,11 @@ function ExcelUploadView({ onBack, onSuccess }: {
 
   const handleCategorySelect = (catId: number) => {
     if (catId === 1) setProductType("drugs");
-    else if (isMedDevCategory(catId)) { setProductType("medical_devices_non_consumable"); setMedDevSubType("non_consumable"); }
+    else if (isMedDevCategory(catId)) {
+      setProductType("medical_devices_non_consumable");
+      // Reset to consumable (shown first) when re-entering Medical Devices
+      setMedDevSubType("consumable");
+    }
     setFiles([]); setUploadResult(null); setSubmitError(null); setFileFormatError(null);
   };
 
@@ -577,7 +610,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
-  // ── Core: parse & validate API response ────────────────────────────────────
+  // ── Parse & validate API response ─────────────────────────────────────────
   const parseUploadResponse = async (res: Response): Promise<UploadResult> => {
     let body: any;
     try { body = await res.json(); } catch {
@@ -585,25 +618,28 @@ function ExcelUploadView({ onBack, onSuccess }: {
     }
 
     if (!res.ok) {
-      const msg = body?.data?.message ?? body?.message ?? `Server error (${res.status})`;
+      // Prefer the most specific message available
+      const msg =
+        body?.data?.message ??
+        body?.message ??
+        body?.error ??
+        `Server error (${res.status})`;
       throw new Error(msg);
     }
 
     const data = body?.data ?? body;
 
-    // Hard error status
     if (data?.status === "ERROR") throw new Error(data.message ?? "Upload failed");
 
-    const successCount: number    = data?.successCount  ?? 0;
-    const failureCount: number    = data?.failureCount  ?? data?.errorCount ?? 0;
-    const totalRows: number       = data?.totalRows     ?? (successCount + failureCount);
+    const successCount: number = data?.successCount ?? 0;
+    const failureCount: number = data?.failureCount ?? data?.errorCount ?? 0;
+    const totalRows: number    = data?.totalRows ?? (successCount + failureCount);
     const validationErrors: ValidationError[] = (data?.errors ?? []).map((e: any) => ({
-      rowNumber:    e.rowNumber    ?? e.row    ?? "?",
+      rowNumber:    e.rowNumber    ?? e.row     ?? "?",
       productName:  e.productName  ?? e.product ?? "",
       errorMessage: e.errorMessage ?? e.message ?? e.error ?? "Unknown error",
     }));
 
-    // ── Blank-file guard: if server says 0 rows processed it's a blank/header-only file
     if (totalRows === 0 && successCount === 0 && failureCount === 0 && validationErrors.length === 0) {
       throw new Error(
         "No product rows found in the file. Please ensure your file has at least one data row below the header, using our template."
@@ -625,6 +661,12 @@ function ExcelUploadView({ onBack, onSuccess }: {
       return;
     }
 
+    // Resolve categoryId once for this session:
+    //   Drugs                             → 1
+    //   Medical Devices (Consumable)      → 5
+    //   Medical Devices (Non-Consumable)  → 6
+    const categoryId = getCategoryId(effectiveProductType);
+
     let lastResult: UploadResult | null = null;
 
     for (const uf of readyFiles) {
@@ -638,13 +680,12 @@ function ExcelUploadView({ onBack, onSuccess }: {
 
         const fd = new FormData();
         fd.append("file", uf.file);
-        if (effectiveProductType === "medical_devices_non_consumable") {
-          fd.append("productType", "NON_CONSUMABLE");
-          fd.append("deviceType",  "NON_CONSUMABLE");
-        }
+        // Only categoryId + file are sent — matches confirmed Postman payload
+        fd.append("categoryId", String(categoryId));
 
         const res = await fetch(IMPORT_API_URL, {
-          method: "POST", body: fd,
+          method: "POST",
+          body: fd,
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -674,16 +715,19 @@ function ExcelUploadView({ onBack, onSuccess }: {
     if (lastResult && lastResult.success && !lastResult.validationErrors.length) {
       onSuccess(effectiveProductType, files, lastResult);
     } else if (lastResult && lastResult.success && lastResult.validationErrors.length > 0) {
-      // Partial success — show errors inline, don't navigate away
       setUploadResult(lastResult);
     }
   };
 
   const hasReadyFiles = files.some((f) => f.status === "done");
   const template      = TEMPLATES[effectiveProductType];
-  const templateLabel = effectiveProductType === "medical_devices_non_consumable"
-    ? "Medical Devices (Non-Consumable) Template"
-    : "Drugs Template";
+
+  const templateLabel =
+    effectiveProductType === "medical_devices_consumable"
+      ? "Medical Devices (Consumable) Template"
+      : effectiveProductType === "medical_devices_non_consumable"
+      ? "Medical Devices (Non-Consumable) Template"
+      : "Drugs Template";
 
   const renderCategories = () => {
     const seen  = new Set<string>();
@@ -763,7 +807,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
         )}
       </div>
 
-      {/* Medical Devices Sub-Type Picker — inline, compact */}
+      {/* Medical Devices Sub-Type Picker — Consumable first, Non-Consumable second */}
       {productType === "medical_devices_non_consumable" && (
         <MedicalDeviceSubTypePicker
           selected={medDevSubType}
@@ -1051,7 +1095,7 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
         </button>
       )}
 
-      {/* Modal — fixed height with inner scroll so it never resizes */}
+      {/* Modal */}
       <div
         className="df-modal-root"
         onClick={(e) => e.stopPropagation()}
@@ -1060,8 +1104,7 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
           transform: "translate(-50%, -50%)",
           zIndex: 1000,
           width: "90vw", maxWidth: 460,
-          // Fixed height prevents layout jumps when content changes
-          height: isSuccess ? "auto" : 640,
+          height: "auto",
           maxHeight: "92vh",
           background: "white",
           borderRadius: 20,
@@ -1072,7 +1115,6 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
           overflow: "hidden",
         }}
       >
-        {/* Inner scrollable area */}
         <div
           className="df-modal-scroll"
           style={{
@@ -1086,11 +1128,11 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
             {/* Methods view */}
             {displayView === "methods" && (
               <>
-                <div style={{ marginBottom: 20, ...flex("col", 6) }}>
+                <div style={{ marginBottom: 16, ...flex("col", 4) }}>
                   <div style={{ fontSize: 19, fontWeight: 700, color: "#111827", ...fontBase }}>How would you like to add products?</div>
                   <div style={{ fontSize: 13, color: "#6B7280", ...fontBase }}>Choose the method that fits your workflow.</div>
                 </div>
-                <div style={{ ...flex("col", 10) }}>
+                <div style={{ ...flex("col", 8) }}>
                   {METHODS.map((m) => (
                     <button
                       key={m.id}
