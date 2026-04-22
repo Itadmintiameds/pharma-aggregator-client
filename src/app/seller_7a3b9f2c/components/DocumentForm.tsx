@@ -21,6 +21,24 @@ interface Props {
   nextStep: () => void;
 }
 
+// Helper function to calculate license status based on dates
+const calculateLicenseStatus = (issueDate: Date | null, expiryDate: Date | null): string => {
+  if (!issueDate || !expiryDate) {
+    return "Pending";
+  }
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Check if expired
+  if (expiryDate < today) {
+    return "Expired";
+  }
+  
+  // Check if active (not expired and issue date is valid)
+  return "Active";
+};
+
 // Drug License Number validation function
 const validateDrugLicenseNumber = (value: string): string | null => {
   const cleaned = value.trim().toUpperCase();
@@ -230,10 +248,11 @@ export default function DocumentForm({
     }
   };
 
-  // Get all expired licenses
+  // Get all expired licenses - Now using calculateLicenseStatus function
   const expiredProducts = formData.productTypes.filter((productName: string) => {
     const licenseData = formData.licenses[productName];
-    return licenseData?.status === "Expired";
+    const status = calculateLicenseStatus(licenseData?.issueDate || null, licenseData?.expiryDate || null);
+    return status === "Expired";
   });
 
   // Handle continue button click with expired license check
@@ -331,7 +350,10 @@ export default function DocumentForm({
         const licenseFileName = licenseData.file?.name || "";
         const isUploading = uploadingLicenses[productName];
         const licenseError = licenseErrors[productName];
-        const isExpired = licenseData.status === "Expired" && (licenseData.issueDate || licenseData.expiryDate);
+        
+        // Calculate status and expiry based on actual dates
+        const currentStatus = calculateLicenseStatus(licenseData.issueDate, licenseData.expiryDate);
+        const isExpired = currentStatus === "Expired" && (licenseData.issueDate || licenseData.expiryDate);
 
         return (
           <div key={productName} className="mb-2">
@@ -528,29 +550,29 @@ export default function DocumentForm({
                 </label>
 
                 <div className={`h-12 px-4 rounded-xl flex items-center justify-between ${
-                  isExpired ? "bg-red-100 border border-red-300" : "bg-neutral-200"
+                  currentStatus === "Expired" ? "bg-red-100 border border-red-300" : "bg-neutral-200"
                 }`}>
                   <span className={`font-medium ${
-                    isExpired ? "text-red-600" : "text-neutral-700"
+                    currentStatus === "Expired" ? "text-red-600" : "text-neutral-700"
                   }`}>
                     {!licenseData.issueDate || !licenseData.expiryDate
                       ? "Pending"
-                      : licenseData.status}
-                    {isExpired && (
+                      : currentStatus}
+                    {currentStatus === "Expired" && (
                       <span className="ml-2 text-xs font-normal text-red-500">— renewal required</span>
                     )}
                   </span>
 
                   <div
                     className={`w-10 h-6 rounded-full flex items-center px-1 transition
-                    ${licenseData.status === "Active"
+                    ${currentStatus === "Active"
                         ? "bg-purple-300"
                         : "bg-neutral-400"
                       }`}
                   >
                     <div
                       className={`w-4 h-4 bg-white rounded-full shadow transform transition
-                      ${licenseData.status === "Active"
+                      ${currentStatus === "Active"
                           ? "translate-x-4"
                           : "translate-x-0"
                         }`}
