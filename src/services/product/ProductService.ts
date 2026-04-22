@@ -277,6 +277,37 @@ export const uploadProductImages = async (productId: string, files: File[]) => {
   }
 };
 
+export const uploadProductUserManual = async (
+  productAttributeId: string,
+  file: File
+) => {
+  try {
+    const formData = new FormData();
+
+    formData.append("file", file);
+
+    const response = await api.post(
+      `/userManual/${productAttributeId}`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Error uploading user manual", error);
+
+    throw new Error(
+      error.response?.data?.message ||
+        error.message ||
+        "Error uploading user manual"
+    );
+  }
+};
+
 // ─── LEGACY (kept exactly as old) ────────────────────────────────────────────
 
 export const getDrugProductById = async (productId: string) => {
