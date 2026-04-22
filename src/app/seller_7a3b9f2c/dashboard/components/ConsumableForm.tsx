@@ -1208,7 +1208,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               options={storageConditionOptions}
               value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null}
               onChange={(sel) => handleSelectChange("storageCondition", sel)}
-              placeholder="Select storage condition"
+              placeholder="Select storage condition"  
               theme={selectTheme}
               styles={selectStyles("storageCondition")}
             />
