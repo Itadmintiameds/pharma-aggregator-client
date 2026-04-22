@@ -1126,7 +1126,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                         {cert.existingUrl && !cert.file ? (
                           <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
                             <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                            <div className="flex-1 px-3 min-w-0">
+                            <div className="flex-1 px-3 min-w-0"> 
                               <p className="text-sm font-medium text-gray-800 truncate">{cert.label}</p>
                               <p className="text-xs text-gray-500">Existing certificate</p>
                             </div>
@@ -1136,7 +1136,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                             </div>
                           </div>
                         ) : !cert.isUploaded ? (
-                          <div
+                          <div  
                             className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition"
                             onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()}
                           >
