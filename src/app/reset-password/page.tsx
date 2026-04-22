@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,9 +31,12 @@ const resetPasswordSchema = z
 
 type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
-export default function ResetPasswordPage() {
+interface ResetPasswordFormProps {
+  usernameFromUrl: string;
+}
+
+export default function ResetPasswordForm({ usernameFromUrl }: ResetPasswordFormProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -49,15 +52,10 @@ export default function ResetPasswordPage() {
   } = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
     mode: "onChange",
+    defaultValues: {
+      username: usernameFromUrl,
+    },
   });
-
-  // Auto-populate username from URL
-  useEffect(() => {
-    const usernameFromUrl = searchParams.get("username");
-    if (usernameFromUrl) {
-      setValue("username", usernameFromUrl);
-    }
-  }, [searchParams, setValue]);
 
   const handleResetPassword = async (data: ResetPasswordFormData) => {
     setIsLoading(true);
@@ -190,10 +188,10 @@ export default function ResetPasswordPage() {
                 <input
                   {...register("username")}
                   type="text"
-                  placeholder="Username (from email)"
-                  className="w-full h-12 px-4 leading-none rounded-lg border border-neutral-300 bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-purple-600 cursor-not-allowed"
+                  placeholder="Username"
+                  className="w-full h-12 px-4 leading-none rounded-lg border border-neutral-300 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-purple-600"
                   disabled={isLoading}
-                  readOnly
+                  
                 />
                 {errors.username && (
                   <p className="text-warning-500 text-xs mt-1">

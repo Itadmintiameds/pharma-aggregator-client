@@ -1018,7 +1018,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               name="udiNumber"
               value={form.udiNumber}
               onChange={handleChange}
-              placeholder="Optional — max 60 characters"
+              placeholder="Optional "
               className={`${inputBase} ${errors.udiNumber ? inputError : ""}`}
             />
             {errors.udiNumber && <p className={errorMsg}>{errors.udiNumber}</p>}
@@ -1194,13 +1194,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           <div className="flex flex-col gap-1">
             <label className={fieldLabel}>
               Warranty Period (months)
-              <span className="ml-1.5 text-xs font-normal text-gray-400">(Optional)</span>
+              {/* <span className="ml-1.5 text-xs font-normal text-gray-400">(Optional)</span> */}
             </label>
             <input
               name="warrantyPeriod"
               value={form.warrantyPeriod}
               onChange={handleChange}
-              placeholder="e.g., 12 (optional, max 3 digits)"
+              placeholder="e.g., 12"
               className={`${inputBase} ${errors.warrantyPeriod ? inputError : ""}`}
             />
             {errors.warrantyPeriod && <p className={errorMsg}>{errors.warrantyPeriod}</p>}
