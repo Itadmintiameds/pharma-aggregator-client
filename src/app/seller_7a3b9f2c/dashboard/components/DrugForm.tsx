@@ -12,12 +12,14 @@ import {
   getTherapeuticSubcategory,
   updateProduct,
   uploadProductImages,
+  uploadProductUserManual,
 } from "@/src/services/product/ProductService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 import React, { useEffect, useState } from "react";
 import Select from "react-select";
 import CommonModal from "../commonComponent/CommonModal";
 import AdditionalDiscount from "./AdditionalDiscount";
+import UploadInput from "../commonComponent/UploadInput";
 
 interface SelectOption {
   value: string;
@@ -40,7 +42,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     categoryId: string;
     productName: string;
     productDescription: string;
-    productMarketingUrl: string;
     warningsPrecautions: string;
 
     therapeuticCategoryId: string;
@@ -82,6 +83,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     discountPercentage: string;
     finalPrice: string;
     hsnCode: string;
+    shelfLife: string;
 
     // ✅ IMPORTANT FIX
     additionalDiscount: AdditionalDiscountData[];
@@ -92,7 +94,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     categoryId: "",
     productName: "",
     productDescription: "",
-    productMarketingUrl: "",
     warningsPrecautions: "",
 
     therapeuticCategoryId: "",
@@ -136,6 +137,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     discountPercentage: "",
     finalPrice: "",
     hsnCode: "",
+    shelfLife: "",
     additionalDiscount: [],
   });
 
@@ -174,6 +176,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const isReadOnly = mode === "edit";
   const [dosageFormLabel, setDosageFormLabel] = useState<string>("");
+  const [manualFile, setManualFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (categoryId) {
@@ -290,22 +293,59 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           }
         }
 
-        if (expiry) {
-          const minDate = new Date();
-          minDate.setMonth(minDate.getMonth() + 3);
+        if (name === "expiryDate") {
+          if (value) {
+            const year = value.split("-")[0];
 
-          // normalize
-          const normalizedExpiry = new Date(expiry);
-          normalizedExpiry.setHours(0, 0, 0, 0);
+            if (year.length > 4) {
+              newErrors.expiryDate = "Year must be 4 digits";
+              return newErrors;
+            }
 
-          const normalizedMin = new Date(minDate);
-          normalizedMin.setHours(0, 0, 0, 0);
+            const date = new Date(value);
 
-          if (normalizedExpiry < normalizedMin) {
-            newErrors.expiryDate =
-              "Expiry date must be at least 3 months from today";
+            if (isNaN(date.getTime())) {
+              newErrors.expiryDate = "Invalid date";
+              return newErrors;
+            }
+
+            const minDate = new Date();
+            minDate.setMonth(minDate.getMonth() + 3);
+            minDate.setHours(0, 0, 0, 0);
+
+            const normalized = new Date(date);
+            normalized.setHours(0, 0, 0, 0);
+
+            if (normalized < minDate) {
+              newErrors.expiryDate = "Expiry must be at least 3 months ahead";
+            } else {
+              delete newErrors.expiryDate;
+            }
+
+            // ✅ Set expiry date
+            updatedForm.expiryDate = date;
+
+            // ✅ Calculate Shelf Life ONLY if manufacturing date exists
+            if (updatedForm.manufacturingDate) {
+              const mfg = new Date(updatedForm.manufacturingDate);
+
+              const years = date.getFullYear() - mfg.getFullYear();
+              const months = date.getMonth() - mfg.getMonth();
+
+              const totalMonths = years * 12 + months;
+
+              // ✅ Prevent negative shelf life
+              if (totalMonths >= 0) {
+                updatedForm.shelfLife = totalMonths.toString();
+              } else {
+                updatedForm.shelfLife = "";
+                newErrors.expiryDate =
+                  "Expiry cannot be before Manufacturing Date";
+              }
+            }
           } else {
-            delete newErrors.expiryDate;
+            updatedForm.expiryDate = null;
+            updatedForm.shelfLife = ""; // ✅ reset shelf life
           }
         }
 
@@ -480,7 +520,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleSubmit = async () => {
-    const validation = drugProductSchema.safeParse(form);
+    const validation = drugProductSchema.safeParse({
+      ...form,
+      images,
+    });
 
     if (!validation.success) {
       console.log(validation.error.issues);
@@ -501,7 +544,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       const payload = {
         productName: form.productName,
         productDescription: form.productDescription,
-        productMarketingUrl: form.productMarketingUrl,
         warningsPrecautions: form.warningsPrecautions,
 
         manufacturerName: form.manufacturerName, // ✅ MOVED TO ROOT
@@ -568,20 +610,26 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       };
 
       const productResponse = await createDrugProduct(payload);
+      const productId = productResponse?.data?.productId;
 
-      // console.log("Product Response:", productResponse);
-
-      const productId = productResponse.data.productId;
-
-      if (images.length > 0) {
-        await uploadProductImages(productId, images);
-      }
+      const productAttributeId =
+        productResponse?.data?.productAttributeDrugs?.[0]?.productAttributeId;
 
       if (!productId) {
         throw new Error("Product ID not returned from backend");
       }
 
-      alert("✅ Product + Images uploaded successfully!");
+      //Upload User Manual
+      if (manualFile && productAttributeId) {
+        await uploadProductUserManual(productAttributeId, manualFile);
+      }
+
+      //Upload Product Images
+      if (images.length > 0) {
+        await uploadProductImages(productId, images);
+      }
+
+      alert("Product Uploaded successfully!");
       window.location.reload();
     } catch (err) {
       console.error("❌ Submit Error:", err);
@@ -645,7 +693,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         categoryId: String(data.categoryId || categoryId || ""),
         productName: data.productName || "",
         productDescription: data.productDescription || "",
-        productMarketingUrl: data.productMarketingUrl || "",
         warningsPrecautions: data.warningsPrecautions || "",
         manufacturerName: data.manufacturerName || "",
         therapeuticCategory: String(attributeDrug.therapeuticCategoryId || ""),
@@ -692,113 +739,109 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     }
   };
 
-const handleUpdate = async () => {
-  const validation = drugProductSchema.safeParse(form);
+  const handleUpdate = async () => {
+    const validation = drugProductSchema.safeParse(form);
 
-  if (!validation.success) {
-    const fieldErrors: Record<string, string> = {};
-    validation.error.issues.forEach((err) => {
-      fieldErrors[err.path.join(".")] = err.message;
-    });
-    setErrors(fieldErrors);
-    return;
-  }
-
-  setErrors({});
-
-  try {
-    const payload = {
-      productId: form.productId, // ✅ IMPORTANT
-
-      productName: form.productName,
-      productDescription: form.productDescription,
-      productMarketingUrl: form.productMarketingUrl,
-      warningsPrecautions: form.warningsPrecautions,
-
-      manufacturerName: form.manufacturerName,
-      categoryId: Number(form.categoryId),
-
-      packagingDetails: {
-        packId: Number(form.packId),
-        packType: form.packType,
-        unitPerPack: Number(form.unitPerPack),
-        numberOfPacks: Number(form.numberOfPacks),
-        packSize: Number(form.packSize),
-        minimumOrderQuantity: Number(form.minimumOrderQuantity),
-        maximumOrderQuantity: Number(form.maximumOrderQuantity),
-      },
-
-      pricingDetails: [
-        {
-          pricingId: form.pricingId || undefined, // ✅ VERY IMPORTANT FIX
-
-          batchLotNumber: form.batchLotNumber,
-          manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-          expiryDate: toLocalDateTimeString(form.expiryDate),
-          storageCondition: form.storageCondition,
-          stockQuantity: Number(form.stockQuantity),
-          dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-
-          sellingPrice: Number(form.sellingPrice),
-          mrp: Number(form.mrp),
-          discountPercentage: Number(form.discountPercentage),
-
-          // ✅ GST FIX (safe conversion)
-          gstPercentage: form.gstPercentage
-            ? Number(form.gstPercentage)
-            : 0,
-
-          finalPrice: Number(form.finalPrice),
-          hsnCode: Number(form.hsnCode),
-          shelfLifeMonths: 24,
-
-          additionalDiscounts: form.additionalDiscount.map((d) => ({
-            minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-            additionalDiscountPercentage: d.additionalDiscountPercentage,
-            effectiveStartDate: d.effectiveStartDate,
-            effectiveStartTime: d.effectiveStartTime,
-            effectiveEndDate: d.effectiveEndDate,
-            effectiveEndTime: d.effectiveEndTime,
-          })),
-        },
-      ],
-
-      productAttributeDrugs: [
-        {
-          therapeuticCategoryId: form.therapeuticCategory,
-          therapeuticSubcategoryId: form.therapeuticSubcategory,
-
-          dosageForm:
-            dosageOptions.find((d) => d.value === form.dosageId)?.label || "",
-
-          strength: form.strength,
-
-          molecules: form.molecules.map((m) => ({
-            moleculeId: Number(m.moleculeId),
-            strength: m.strength,
-          })),
-        },
-      ],
-
-      productImages: images.map((img) => ({
-        productImage: img.name,
-      })),
-    };
-
-    await updateProduct(form.productId, payload);
-
-    if (images.length > 0) {
-      await uploadProductImages(form.productId, images);
+    if (!validation.success) {
+      const fieldErrors: Record<string, string> = {};
+      validation.error.issues.forEach((err) => {
+        fieldErrors[err.path.join(".")] = err.message;
+      });
+      setErrors(fieldErrors);
+      return;
     }
 
-    alert("✅ Product updated successfully!");
-    window.location.reload();
+    setErrors({});
 
-  } catch (err) {
-    console.error(err);
-    alert("❌ Update failed");
-  }
-};
+    try {
+      const payload = {
+        productId: form.productId, // ✅ IMPORTANT
+
+        productName: form.productName,
+        productDescription: form.productDescription,
+        warningsPrecautions: form.warningsPrecautions,
+
+        manufacturerName: form.manufacturerName,
+        categoryId: Number(form.categoryId),
+
+        packagingDetails: {
+          packId: Number(form.packId),
+          packType: form.packType,
+          unitPerPack: Number(form.unitPerPack),
+          numberOfPacks: Number(form.numberOfPacks),
+          packSize: Number(form.packSize),
+          minimumOrderQuantity: Number(form.minimumOrderQuantity),
+          maximumOrderQuantity: Number(form.maximumOrderQuantity),
+        },
+
+        pricingDetails: [
+          {
+            pricingId: form.pricingId || undefined, // ✅ VERY IMPORTANT FIX
+
+            batchLotNumber: form.batchLotNumber,
+            manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
+            expiryDate: toLocalDateTimeString(form.expiryDate),
+            storageCondition: form.storageCondition,
+            stockQuantity: Number(form.stockQuantity),
+            dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
+
+            sellingPrice: Number(form.sellingPrice),
+            mrp: Number(form.mrp),
+            discountPercentage: Number(form.discountPercentage),
+
+            // ✅ GST FIX (safe conversion)
+            gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : 0,
+
+            finalPrice: Number(form.finalPrice),
+            hsnCode: Number(form.hsnCode),
+            shelfLifeMonths: 24,
+
+            additionalDiscounts: form.additionalDiscount.map((d) => ({
+              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
+              additionalDiscountPercentage: d.additionalDiscountPercentage,
+              effectiveStartDate: d.effectiveStartDate,
+              effectiveStartTime: d.effectiveStartTime,
+              effectiveEndDate: d.effectiveEndDate,
+              effectiveEndTime: d.effectiveEndTime,
+            })),
+          },
+        ],
+
+        productAttributeDrugs: [
+          {
+            therapeuticCategoryId: form.therapeuticCategory,
+            therapeuticSubcategoryId: form.therapeuticSubcategory,
+
+            dosageForm:
+              dosageOptions.find((d) => d.value === form.dosageId)?.label || "",
+
+            strength: form.strength,
+
+            molecules: form.molecules.map((m) => ({
+              moleculeId: Number(m.moleculeId),
+              strength: m.strength,
+            })),
+          },
+        ],
+
+        productImages: images.map((img) => ({
+          productImage: img.name,
+        })),
+      };
+
+      await updateProduct(form.productId, payload);
+
+      if (images.length > 0) {
+        await uploadProductImages(form.productId, images);
+      }
+
+      alert("✅ Product updated successfully!");
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Update failed");
+    }
+  };
   // const handleDelete = async () => {
   //   if (!form.productId) return;
   //   const confirmed = confirm("Are you sure you want to delete this product?");
@@ -813,7 +856,6 @@ const handleUpdate = async () => {
   //   }
   // };
 
- 
   const calculateFinalPrice = (
     mrp: string,
     standardDiscount: string,
@@ -997,6 +1039,17 @@ const handleUpdate = async () => {
 
     fetchPackTypes();
   }, [form.dosageId]);
+
+  const calculateShelfLife = (mfg: Date, exp: Date) => {
+    if (!mfg || !exp) return "";
+
+    const years = exp.getFullYear() - mfg.getFullYear();
+    const months = exp.getMonth() - mfg.getMonth();
+
+    const totalMonths = years * 12 + months;
+
+    return totalMonths >= 0 ? totalMonths : "";
+  };
 
   return (
     <>
@@ -1212,6 +1265,20 @@ const handleUpdate = async () => {
               required
             />
 
+            <UploadInput onFileSelect={setManualFile} />
+
+            <Input
+              label="Storage Condition"
+              name="storageCondition"
+              id="storageCondition"
+              placeholder=""
+              value={form.storageCondition}
+              onChange={handleChange}
+              // disabled={mode === "delete"}
+              error={errors.storageCondition}
+              required
+            />
+
             <Input
               label="Manufacturer Name"
               name="manufacturerName"
@@ -1223,20 +1290,6 @@ const handleUpdate = async () => {
               error={errors.manufacturerName}
               required
             />
-
-            <div className="col-span-2">
-              <Input
-                label="Marketing URL"
-                name="productMarketingUrl"
-                id="productMarketingUrl"
-                placeholder="https://"
-                value={form.productMarketingUrl}
-                onChange={handleChange}
-                // disabled={mode === "delete"}
-                // error={errors.productMarketingUrl}
-                // required
-              />
-            </div>
 
             <div>
               <label className="block text-label-l3 text-neutral-700 font-semibold mb-1">
@@ -1432,18 +1485,90 @@ const handleUpdate = async () => {
               name="manufacturingDate"
               id="manufacturingDate"
               placeholder=""
-              onChange={(e) =>
+              onChange={(e) => {
+                const value = e.target.value;
+
+                // Prevent year > 4 digits
+                const year = value.split("-")[0];
+                if (year && year.length > 4) {
+                  setErrors({
+                    ...errors,
+                    manufacturingDate: "Year must be 4 digits",
+                  });
+                  return;
+                }
+
+                const date = new Date(value);
+
+                if (isNaN(date.getTime())) {
+                  setErrors({
+                    ...errors,
+                    manufacturingDate: "Invalid date",
+                  });
+                  return;
+                }
+
+                // ✅ NEW: Prevent future dates
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const normalized = new Date(date);
+                normalized.setHours(0, 0, 0, 0);
+
+                if (normalized > today) {
+                  setErrors({
+                    ...errors,
+                    manufacturingDate:
+                      "Manufacturing date cannot be in the future",
+                  });
+                  return;
+                }
+
+                // ✅ Clear error
+                setErrors({
+                  ...errors,
+                  manufacturingDate: "",
+                });
+
+                // ✅ Calculate Shelf Life if expiry exists
+                let newShelfLife = "";
+
+                if (form.expiryDate) {
+                  const exp = new Date(form.expiryDate);
+
+                  const years = exp.getFullYear() - date.getFullYear();
+                  const months = exp.getMonth() - date.getMonth();
+
+                  let totalMonths = years * 12 + months;
+
+                  if (exp.getDate() < date.getDate()) {
+                    totalMonths -= 1;
+                  }
+
+                  if (totalMonths >= 0) {
+                    newShelfLife = totalMonths.toString();
+                  } else {
+                    newShelfLife = "";
+                    setErrors((prev) => ({
+                      ...prev,
+                      manufacturingDate: "MFG cannot be after Expiry",
+                    }));
+                  }
+                }
+
+                // ✅ Update form
                 setForm({
                   ...form,
-                  manufacturingDate: new Date(e.target.value),
-                })
-              }
+                  manufacturingDate: date,
+                  shelfLife: newShelfLife,
+                });
+              }}
               value={
-                form.manufacturingDate
+                form.manufacturingDate &&
+                !isNaN(form.manufacturingDate.getTime())
                   ? form.manufacturingDate.toISOString().split("T")[0]
                   : ""
               }
-              // disabled={mode === "delete"}
               error={errors.manufacturingDate}
               required
             />
@@ -1453,26 +1578,25 @@ const handleUpdate = async () => {
               type="date"
               name="expiryDate"
               value={
-                form.expiryDate
+                form.expiryDate && !isNaN(form.expiryDate.getTime())
                   ? form.expiryDate.toISOString().split("T")[0]
                   : ""
               }
-              onChange={handleChange} // ✅ FIX
+              onChange={handleChange}
               min={getMinExpiryDate()}
-              onInput={(e: React.FormEvent<HTMLInputElement>) => {
-                const input = e.currentTarget;
-                const selectedDate = new Date(input.value);
-
-                const minDate = new Date();
-                minDate.setMonth(minDate.getMonth() + 3);
-                minDate.setHours(0, 0, 0, 0);
-
-                if (selectedDate < minDate) {
-                  input.value = ""; // ❌ clear invalid input
-                }
-              }}
               // disabled={mode === "delete"}
               error={errors.expiryDate}
+              required
+            />
+
+            <Input
+              type="number"
+              label="Shelf Life"
+              name="shelfLife"
+              id="shelfLife"
+              value={form.shelfLife}
+              readOnly
+              error={errors.shelfLife}
               required
             />
 
@@ -1492,18 +1616,6 @@ const handleUpdate = async () => {
               }
               disabled
               error={errors.dateOfStockEntry}
-              required
-            />
-
-            <Input
-              label="Storage Condition"
-              name="storageCondition"
-              id="storageCondition"
-              placeholder=""
-              value={form.storageCondition}
-              onChange={handleChange}
-              // disabled={mode === "delete"}
-              error={errors.storageCondition}
               required
             />
 
@@ -1592,18 +1704,6 @@ const handleUpdate = async () => {
 
             <div className="border-b border-neutral-200 col-span-2"></div>
 
-            {/* <Input
-              label="GST %"
-              name="gstPercentage"
-              id="gstPercentage"
-              placeholder=""
-              value={form.gstPercentage}
-              onChange={handleChange}
-              disabled={mode === "delete"}
-              error={errors.gstPercentage}
-              required
-            /> */}
-
             <div className="flex flex-col gap-1">
               <label className="text-label-l3 text-neutral-700 font-semibold">
                 GST %
@@ -1655,18 +1755,6 @@ const handleUpdate = async () => {
               error={errors.hsnCode}
               required
             />
-
-            {/* <div className="col-span-2">
-              <Input
-                label="Final Price (after discounts):"
-                name="finalPrice"
-                id="finalPrice"
-                value={form.finalPrice}
-                disabled
-                labelClassName="text-[#3C0368]" // ✅ THIS WORKS
-                required
-              />
-            </div> */}
           </div>
         </div>
 
@@ -1693,10 +1781,13 @@ const handleUpdate = async () => {
               className="hidden"
               onChange={(e) => {
                 if (e.target.files) {
-                  setImages(Array.from(e.target.files));
+                  const newFiles = Array.from(e.target.files);
+
+                  setImages((prev) => [...prev, ...newFiles].slice(0, 5));
                 }
               }}
             />
+
             <div className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg">
               <div className="w-285 h-34.5 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center ">
                 <div className="flex flex-col items-center justify-center">
@@ -1717,15 +1808,18 @@ const handleUpdate = async () => {
             </div>
           </div>
 
-          {/* ✅ Existing Images (from backend) */}
+          {errors.images && (
+            <div className="text-red-500 text-sm mt-2">{errors.images}</div>
+          )}
+
           {existingImages.length > 0 && (
-            <div className="grid grid-cols-4 gap-3 mt-4">
+            <div className="flex flex-wrap gap-3 mt-4">
               {existingImages.map((img, index) => (
-                <div key={`existing-${index}`} className="relative">
+                <div key={index} className="relative w-24 h-24 flex-shrink-0">
                   <img
                     src={img}
                     alt="product"
-                    className="w-full h-24 object-cover rounded-md border"
+                    className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
                   />
 
                   {!isReadOnly && (
@@ -1735,7 +1829,7 @@ const handleUpdate = async () => {
                           existingImages.filter((_, i) => i !== index),
                         )
                       }
-                      className="absolute top-1 right-1 bg-black text-white text-xs px-1 rounded"
+                      className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
                     >
                       ✕
                     </button>
@@ -1745,15 +1839,14 @@ const handleUpdate = async () => {
             </div>
           )}
 
-          {/* ✅ Newly Uploaded Images */}
           {images.length > 0 && (
-            <div className="grid grid-cols-4 gap-3 mt-4">
+            <div className="flex flex-wrap gap-3 mt-4">
               {images.map((file, index) => (
-                <div key={`new-${index}`} className="relative">
+                <div key={index} className="relative w-24 h-24 flex-shrink-0">
                   <img
                     src={URL.createObjectURL(file)}
                     alt="preview"
-                    className="w-full h-24 object-cover rounded-md border"
+                      className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
                   />
 
                   {!isReadOnly && (
@@ -1761,7 +1854,7 @@ const handleUpdate = async () => {
                       onClick={() =>
                         setImages(images.filter((_, i) => i !== index))
                       }
-                      className="absolute top-1 right-1 bg-black text-white text-xs px-1 rounded"
+                      className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
                     >
                       ✕
                     </button>
@@ -1771,78 +1864,6 @@ const handleUpdate = async () => {
             </div>
           )}
         </div>
-
-        {/* <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
-          <div className="text-[#364153] font-normal text-sm">
-            Product Photos{" "}
-            <span className="text-warning-500 font-semibold ml-1">*</span>
-          </div>
-
-          <div
-            className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer"
-            onClick={() => document.getElementById("fileInput")?.click()}
-          >
-            <input
-              id="fileInput"
-              type="file"
-              multiple
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) {
-                  setImages(Array.from(e.target.files));
-                }
-              }}
-            />
-            <div className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg">
-              <div className="w-285 h-34.5 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center ">
-                <div className="flex flex-col items-center justify-center">
-                  <img
-                    src="/icons/FolderIcon.svg"
-                    alt="drug"
-                    className="w-10 h-10 rounded-md object-cover"
-                  />
-
-                  <div className="text-label-l2 font-normal mt-4">
-                    Choose a file or drag & drop it here
-                  </div>
-                  <div className="text-label-l1 font-normal text-neutral-400">
-                    or click to browse JPEG, PNG, and Pdf{" "}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {images.length > 0 && (
-            <div className="mt-2 text-green-600 text-sm">
-              ✅ {images.length} image(s) added successfully
-            </div>
-          )}
-
-          {images.length > 0 && (
-            <div className="grid grid-cols-4 gap-3 mt-4">
-              {images.map((file, index) => (
-                <div key={index} className="relative">
-                  <img
-                    src={URL.createObjectURL(file)}
-                    alt="preview"
-                    className="w-full h-24 object-cover rounded-md border"
-                  />
-
-                  <button
-                    onClick={() =>
-                      setImages(images.filter((_, i) => i !== index))
-                    }
-                    className="absolute top-1 right-1 bg-black text-white text-xs px-1 rounded"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div> */}
 
         <div className="flex justify-between mt-6 col-span-2">
           <div className="space-x-6 flex">
@@ -1875,7 +1896,7 @@ const handleUpdate = async () => {
             {mode === "edit" ? (
               <button
                 type="button"
-                 onClick={handleUpdate}
+                onClick={handleUpdate}
                 className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
               >
                 Update
