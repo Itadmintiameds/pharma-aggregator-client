@@ -705,11 +705,71 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
     const mpq = Number(updatedForm.minimumPurchaseQuantity);
     const discount = Number(updatedForm.discountPercentage);
 
-    // ✅ Clear slab-related errors
-    delete newErrors.minimumPurchaseQuantity;
-    delete newErrors.discountPercentage;
+    if (name === "minimumPurchaseQuantity") {
+      if (value === "") {
+        newErrors.minimumPurchaseQuantity =
+          "Minimum Purchase Quantity is required";
+      } else if (isNaN(Number(value))) {
+        newErrors.minimumPurchaseQuantity = "Enter a valid number";
+      } else if (Number(value) <= 0) {
+        newErrors.minimumPurchaseQuantity = "Must be greater than 0";
+      } else {
+        // ✅ Only run slab validation if basic validation passes
+        if (slabs.length > 0) {
+          const lastSlab = slabs[slabs.length - 1];
 
-    // 🚫 Skip slab validation for first entry
+          if (Number(value) <= lastSlab.minimumPurchaseQuantity) {
+            newErrors.minimumPurchaseQuantity =
+              "Must be greater than previous slab";
+          } else if (
+            slabs.some((s) => s.minimumPurchaseQuantity === Number(value))
+          ) {
+            newErrors.minimumPurchaseQuantity = "This value is already entered";
+          } else {
+            delete newErrors.minimumPurchaseQuantity;
+          }
+        } else {
+          delete newErrors.minimumPurchaseQuantity;
+        }
+      }
+    }
+
+    if (name === "discountPercentage") {
+      if (value === "") {
+        newErrors.discountPercentage = "Discount is required";
+      } else if (isNaN(Number(value))) {
+        newErrors.discountPercentage = "Enter a valid number";
+      } else if (Number(value) <= 0) {
+        newErrors.discountPercentage = "Must be greater than 0";
+      } else {
+        if (slabs.length > 0) {
+          const lastSlab = slabs[slabs.length - 1];
+
+          if (Number(value) <= lastSlab.additionalDiscountPercentage) {
+            newErrors.discountPercentage = "Must be greater than previous slab";
+          } else if (
+            slabs.some((s) => s.additionalDiscountPercentage === Number(value))
+          ) {
+            newErrors.discountPercentage = "This value is already entered";
+          } else {
+            delete newErrors.discountPercentage;
+          }
+        } else {
+          delete newErrors.discountPercentage;
+        }
+      }
+
+      // ❗ STOP invalid values from entering state
+      if (Number(value) <= 0) {
+        setErrors(newErrors);
+        return;
+      }
+    }
+
+    // ✅ Clear slab-related errors
+    // delete newErrors.minimumPurchaseQuantity;
+    // delete newErrors.discountPercentage;
+
     if (slabs.length > 0) {
       const lastSlab = slabs[slabs.length - 1];
 
@@ -955,9 +1015,14 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
             <input
               type="number"
               name="minimumPurchaseQuantity"
-              placeholder="Placeholder"
               value={form.minimumPurchaseQuantity}
               onChange={handleInputChange}
+              min={1}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e") {
+                  e.preventDefault();
+                }
+              }}
               className={inputClass("minimumPurchaseQuantity")}
             />
             {errors.minimumPurchaseQuantity && (
@@ -966,21 +1031,6 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
               </p>
             )}
           </div>
-
-          {/* <div className="space-y-1.5">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <Building2 size={16} className="text-gray-500" />
-              Maximum Purchase Quantity
-            </label>
-            <input
-              type="number"
-              name="maximumPurchaseQuantity"
-              placeholder="Placeholder"
-              value={form.maximumPurchaseQuantity}
-              onChange={handleInputChange}
-              className={inputClass("maximumPurchaseQuantity")}
-            />
-          </div> */}
         </div>
 
         {/* Discount Details */}
@@ -1000,6 +1050,12 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
               placeholder="Placeholder"
               value={form.discountPercentage}
               onChange={handleInputChange}
+              min={1}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e") {
+                  e.preventDefault();
+                }
+              }}
               className={inputClass("discountPercentage")}
             />
             {errors.discountPercentage && (
@@ -1131,7 +1187,7 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
           onClick={handleCancel}
           className="w-27 h-10 rounded-lg border-2 border-[#FF3B3B] text-[#FF3B3B] font-semibold text-label-l2 cursor-pointer"
         >
-          Cancel
+          Close
         </button>
         <button
           onClick={handleSubmit}

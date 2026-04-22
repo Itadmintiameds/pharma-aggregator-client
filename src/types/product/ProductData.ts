@@ -1,7 +1,6 @@
 export interface CreateDrugProductRequest {
   productName: string;
   productDescription: string;
-  productMarketingUrl: string;
   warningsPrecautions: string;
   categoryId: number;
   packagingDetails: PackagingData;

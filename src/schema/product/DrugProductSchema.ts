@@ -30,7 +30,7 @@ export const drugProductSchema = z.object({
       message: "Dosage Form is required",
     }),
 
-    
+
   molecules: z
     .array(
       z.object({
@@ -98,11 +98,12 @@ export const drugProductSchema = z.object({
 
   // Pricing
 
-  batchLotNumber: z
-    .string()
-    .trim()
-    .min(1, "Batch/Lot Number is required") // Mandatory
-    .regex(/^[a-zA-Z0-9]+$/, "Only alphanumeric characters are allowed"),
+batchLotNumber: z
+  .string()
+  .trim()
+  .min(3, "Batch/Lot Number must be at least 3 characters")
+  .max(20, "Batch/Lot Number must not exceed 20 characters")
+  .regex(/^[a-zA-Z0-9]+$/, "Only alphanumeric characters are allowed"),
 
   manufacturingDate: z
     .date()
@@ -165,8 +166,33 @@ export const drugProductSchema = z.object({
   hsnCode: z
     .string()
     .trim()
-    .min(1, "HSN Code is required") // Mandatory
-    .regex(/^\d+$/, "Only numeric values are allowed"), // Digits only
+    .min(1, "HSN Code is required")
+    .regex(/^\d+$/, "Only numeric values are allowed")
+    .refine((val) => [4, 6, 8].includes(val.length), {
+      message: "HSN Code must be 4, 6, or 8 digits only",
+    }),
+
+  images: z
+    .array(z.instanceof(File))
+    .min(1, "Product Image is mandatory.")
+    .max(5, "Maximum 5 images are allowed")
+    .refine(
+      (files) =>
+        files.every((file) =>
+          ["image/jpeg", "image/jpg", "image/png", "image/svg+xml"].includes(
+            file.type
+          )
+        ),
+      {
+        message: "Only JPG, JPEG, PNG, SVG formats are allowed",
+      }
+    )
+    .refine(
+      (files) => files.every((file) => file.size <= 5 * 1024 * 1024),
+      {
+        message: "Each image must be less than 5MB",
+      }
+    ),
 
 });
 
