@@ -2,8 +2,6 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Select, { StylesConfig, Theme } from "react-select";
-import Input from "@/src/app/commonComponents/Input";
-import Image from "next/image";
 import Drawer from "@/src/app/commonComponents/Drawer";
 import AdditionalDiscount from "./AdditionalDiscount";
 import { FileText, X, RefreshCw, AlertCircle } from "lucide-react";
@@ -13,17 +11,32 @@ import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 
 interface SelectOption { value: string; label: string; }
 
+// ── CertificationTag now mirrors ConsumableForm exactly ──────────────────────
+// productCertificateDocumentId = the server-assigned row ID (e.g. 163, 164…)
+// returned inside certificateDocuments[].productCertificateDocumentId after
+// product creation. This is the value sent as `documentIds` to the upload endpoint.
+// Before the create call we pre-populate it with certificationId as a placeholder;
+// after the create response we patch it with the real server value via extractCertDocumentIdMap.
 interface CertificationTag {
-  id: string; label: string; tagCode: string; file: File | null;
-  fileName: string; uploading: boolean; isUploaded: boolean;
-  previewUrl: string | null; certificationId: number;
+  id: string;
+  label: string;
+  tagCode: string;
+  file: File | null;
+  fileName: string;
+  uploading: boolean;
+  isUploaded: boolean;
+  previewUrl: string | null;
+  productCertificateDocumentId: number; // server-assigned row ID — NOT certificationId
   existingUrl?: string;
 }
 
 interface AdditionalDiscountSlab {
-  minimumPurchaseQuantity: number; additionalDiscountPercentage: number;
-  effectiveStartDate: string; effectiveStartTime: string;
-  effectiveEndDate: string; effectiveEndTime: string;
+  minimumPurchaseQuantity: number;
+  additionalDiscountPercentage: number;
+  effectiveStartDate: string;
+  effectiveStartTime: string;
+  effectiveEndDate: string;
+  effectiveEndTime: string;
 }
 
 interface NonConsumableFormProps {
@@ -33,7 +46,10 @@ interface NonConsumableFormProps {
 }
 
 interface CertificationMasterOption {
-  value: string; label: string; certificationId: number; tagCode: string;
+  value: string;
+  label: string;
+  certificationId: number;
+  tagCode: string;
 }
 
 interface MasterItem { [key: string]: unknown; }
@@ -73,6 +89,29 @@ function deepFind(obj: unknown, key: string): unknown {
   return undefined;
 }
 
+// ─── Extract { certificationId → productCertificateDocumentId } from create response ──
+// The server returns productCertificateDocumentId inside
+// data.data.productAttributeNonConsumableMedicals[0].certificateDocuments[]
+function extractCertDocumentIdMap(data: ApiResponseData): Map<number, number> {
+  const map = new Map<number, number>();
+  try {
+    const dataInner = (data?.data ?? data) as ApiResponseData;
+    const attrs = dataInner?.productAttributeNonConsumableMedicals;
+    if (!Array.isArray(attrs) || attrs.length === 0) return map;
+    const certDocs = (attrs[0] as ApiResponseData)?.certificateDocuments;
+    if (!Array.isArray(certDocs)) return map;
+    for (const doc of certDocs) {
+      const d = doc as ApiResponseData;
+      const certId = Number(d.certificationId);
+      const docId = Number(d.productCertificateDocumentId);
+      if (!isNaN(certId) && !isNaN(docId) && docId > 0) {
+        map.set(certId, docId);
+      }
+    }
+  } catch { /* ignore — map will be empty */ }
+  return map;
+}
+
 function extractProductAttributeId(data: ApiResponseData): string | undefined {
   const dataInner = data?.data as ApiResponseData | undefined;
   const s1 = dataInner?.productAttributeNonConsumableMedicals;
@@ -85,35 +124,80 @@ function extractProductAttributeId(data: ApiResponseData): string | undefined {
   return undefined;
 }
 
-async function uploadDocument(
-  url: string,
+// ─── Certificate upload: one request per certificate (mirrors ConsumableForm) ─
+// POST {API_BASE}/product-documents/non-consumable/{attributeId}/certificates
+// FormData:
+//   documentIds      = productCertificateDocumentId  (server-assigned row ID)
+//   certificateFiles = the actual File
+async function uploadSingleCertificate(
+  attributeId: string,
+  headers: Record<string, string>,
+  cert: CertificationTag,
+): Promise<{ success: boolean; certId: string; message?: string }> {
+  if (!cert.file) return { success: false, certId: cert.id, message: "No file attached" };
+
+  const formData = new FormData();
+  formData.append("documentIds", String(cert.productCertificateDocumentId));
+  formData.append("certificateFiles", cert.file, cert.file.name);
+
+  const url = `${API_BASE}/product-documents/non-consumable/${attributeId}/certificates`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers, // Do NOT set Content-Type — browser sets multipart boundary automatically
+      body: formData,
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, certId: cert.id, message: `HTTP ${response.status}: ${errorText}` };
+    }
+    return { success: true, certId: cert.id };
+  } catch (error) {
+    return {
+      success: false,
+      certId: cert.id,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+// ─── Upload all certificates sequentially ────────────────────────────────────
+async function uploadAllCertificates(
+  attributeId: string,
+  headers: Record<string, string>,
+  certificates: CertificationTag[],
+): Promise<{ allSuccess: boolean; failures: string[] }> {
+  const certsWithFiles = certificates.filter((c) => c.file && !c.existingUrl);
+  if (certsWithFiles.length === 0) return { allSuccess: true, failures: [] };
+
+  const failures: string[] = [];
+  for (const cert of certsWithFiles) {
+    const result = await uploadSingleCertificate(attributeId, headers, cert);
+    if (!result.success) {
+      failures.push(`${cert.label}: ${result.message || "Upload failed"}`);
+    }
+  }
+  return { allSuccess: failures.length === 0, failures };
+}
+
+async function uploadBrochure(
+  baseUrl: string,
   headers: Record<string, string>,
   file: File,
-  extraFields: Record<string, string>,
-  documentType: string,
-  maxAttempts = 3,
-): Promise<{ success: boolean }> {
-  const fieldNamesByType: Record<string, string[]> = {
-    certificate: ["certificate", "certificateFile", "certFile", "file", "document"],
-    brochure: ["brochure", "brochureFile", "file", "document", "pdfFile"],
-    image: ["images", "productImages", "image", "file"],
-  };
-  const fieldNames = fieldNamesByType[documentType.toLowerCase()] ?? ["file"];
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    for (const fieldName of fieldNames) {
-      try {
-        const fd = new FormData();
-        Object.entries(extraFields).forEach(([k, v]) => fd.append(k, v));
-        fd.append(fieldName, file);
-        const res = await fetch(url, { method: "POST", headers, body: fd });
-        if (res.ok) return { success: true };
-      } catch (err) {
-        console.error(`[${documentType}] field "${fieldName}":`, err);
-      }
+): Promise<{ success: boolean; message?: string }> {
+  const formData = new FormData();
+  formData.append("brochureFile", file);
+  try {
+    const response = await fetch(baseUrl, { method: "POST", headers, body: formData });
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, message: `HTTP ${response.status}: ${errorText}` };
     }
-    if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 1000 * attempt));
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : "Unknown error" };
   }
-  return { success: false };
 }
 
 function getMasterStr(item: MasterItem, ...keys: string[]): string {
@@ -132,8 +216,6 @@ const errorMsg = "text-red-500 text-xs mt-1";
 const sectionCard = "bg-white border border-gray-200 rounded-2xl p-6 shadow-sm";
 const sectionTitle = "mb-4 pb-3 border-b border-gray-100 text-[28px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D]";
 const subSectionTitle = "mb-3 mt-5 pb-2 border-b border-gray-100 text-[21px] [font-family:'Open_Sans',sans-serif] font-normal leading-6 [color:#1E1E1D]";
-
-// ─── Upload Cloud Icon ─────────────────────────────────────────────────────────
 
 const UploadCloudIcon = () => (
   <img src="/icons/upload-cloud.svg" alt="upload" className="w-5 h-5 object-contain" />
@@ -381,9 +463,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         hsnCode: String(pricing.hsnCode || ""),
       });
 
+      if (pricing.additionalDiscounts?.length) setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
       if (attribute.materialTypeIds?.length) setSelectedMaterialTypes(attribute.materialTypeIds.map(String));
       if (data.productImages?.length) setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
-      if (attribute.brochurePath) setExistingBrochureUrl(attribute.brochurePath);
+      if (attribute.brochurePath && attribute.brochurePath !== "PENDING") setExistingBrochureUrl(attribute.brochurePath);
 
       if (attribute.certificateDocuments?.length) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -391,17 +474,20 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           id: String(cert.certificationId),
           label: cert.certificationName || `Certificate ${cert.certificationId}`,
           tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
-          certificationId: cert.certificationId,
           file: null,
-          fileName: cert.certificateUrl ? cert.certificateUrl.split("/").pop() || "" : "",
+          fileName: cert.certificateUrl && cert.certificateUrl !== "PENDING"
+            ? cert.certificateUrl.split("/").pop() || ""
+            : "",
           uploading: false,
-          isUploaded: !!cert.certificateUrl,
+          isUploaded: !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
           previewUrl: null,
-          existingUrl: cert.certificateUrl,
+          // productCertificateDocumentId = server-assigned row ID used as `documentIds` in upload
+          productCertificateDocumentId: Number(cert.productCertificateDocumentId),
+          existingUrl: cert.certificateUrl && cert.certificateUrl !== "PENDING"
+            ? cert.certificateUrl
+            : undefined,
         })));
       }
-
-      if (pricing.additionalDiscounts?.length) setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
 
       const catId = String(attribute.deviceCategoryId || attribute.deviceCatId || "");
       if (catId) await fetchDeviceSubCategories(catId);
@@ -554,32 +640,60 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       setSelectedCertifications((p) => p.filter((c) => c.id !== option.value));
     } else {
       setSelectedCertifications((p) => [...p, {
-        id: option.value, label: option.label, tagCode: option.tagCode,
-        certificationId: option.certificationId, file: null, fileName: "",
-        uploading: false, isUploaded: false, previewUrl: null,
+        id: option.value,
+        label: option.label,
+        tagCode: option.tagCode,
+        // Pre-populate productCertificateDocumentId with certificationId as placeholder;
+        // patched with the real server-assigned row ID after the product is created.
+        productCertificateDocumentId: option.certificationId,
+        file: null,
+        fileName: "",
+        uploading: false,
+        isUploaded: false,
+        previewUrl: null,
       }]);
     }
     if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
   };
 
-  const handleCertFileUpload = async (certId: string, file: File) => {
-    if (file.size > 5 * 1024 * 1024) { alert("Certificate file size must be less than 5 MB"); return; }
-    setSelectedCertifications((p) => p.map((c) => c.id === certId ? { ...c, uploading: true } : c));
-    await new Promise((r) => setTimeout(r, 500));
-    setSelectedCertifications((p) =>
-      p.map((c) => c.id === certId ? {
-        ...c, file, fileName: file.name, uploading: false, isUploaded: true,
-        previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
-      } : c),
+  // ── Certificate file selection (local only — no upload yet) ─────────────────
+  // Actual upload happens in handleSubmit after we have attributeId
+  const handleCertFileSelect = (certId: string, file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Certificate file size must be less than 5 MB");
+      return;
+    }
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Only PDF, JPG, JPEG, PNG files are allowed for certificates");
+      return;
+    }
+
+    setSelectedCertifications((prev) =>
+      prev.map((c) =>
+        c.id === certId
+          ? {
+              ...c,
+              file,
+              fileName: file.name,
+              uploading: false,
+              isUploaded: true, // staged — will upload on submit
+              previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+              existingUrl: undefined, // replacing any existing
+            }
+          : c,
+      ),
     );
+    if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
   };
 
   const handleBrochureUpload = async (file: File) => {
     if (file.type !== "application/pdf") { alert("Only PDF files are allowed for the brochure / user manual"); return; }
     if (file.size > 5 * 1024 * 1024) { alert("Brochure file size must be less than 5 MB"); return; }
     setUploadingBrochure(true);
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 300));
     setBrochureFile(file);
+    setExistingBrochureUrl("");
     setUploadingBrochure(false);
   };
 
@@ -622,7 +736,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     else if (mNumber.length > 60) e.modelNumber = "Model number must not exceed 60 characters";
 
     if (!form.deviceClassification) e.deviceClassification = "Device classification is required";
-
     if (form.udiNumber.trim().length > 60) e.udiNumber = "UDI / Serial number must not exceed 60 characters";
 
     const iUse = form.intendedUse.trim();
@@ -640,6 +753,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (selectedCertifications.length === 0) {
       e.certifications = "At least one certification / compliance is required";
     } else {
+      // Every selected cert must have either a new file staged OR an existing URL
       const missing = selectedCertifications.find((c) => !c.file && !c.existingUrl);
       if (missing) e.certifications = `Please upload the certificate file for "${missing.label}"`;
     }
@@ -739,12 +853,16 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
     try {
       const token = sellerAuthService.getToken();
-      if (!token) throw new Error("Authentication required.");
+      if (!token) throw new Error("Authentication required. Please log in again.");
+
+      // NOTE: Do NOT include Content-Type in headers used for FormData uploads —
+      // the browser must set it with the multipart boundary automatically.
+      const authOnlyHeaders: Record<string, string> = { Authorization: `Bearer ${token}` };
+      const jsonHeaders: Record<string, string> = { ...authOnlyHeaders, "Content-Type": "application/json" };
 
       const amcValue = form.amcAvailability === "true";
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const payload: any = {
+      const payload = {
         productName: form.productName,
         warningsPrecautions: form.safetyInstructions,
         productDescription: form.productDescription,
@@ -771,6 +889,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           gstPercentage: Number(form.gstPercentage) || 0,
           finalPrice: Number(form.finalPrice) || 0,
           hsnCode: Number(form.hsnCode) || 0,
+          batchLotNumber: "",
+          expiryDate: "",
           additionalDiscounts: additionalDiscountSlabs.map((slab) => ({
             minimumPurchaseQuantity: slab.minimumPurchaseQuantity,
             additionalDiscountPercentage: slab.additionalDiscountPercentage,
@@ -800,10 +920,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           safetyInstructions: form.safetyInstructions,
           serviceAvailability: amcValue,
           amcAvailability: amcValue,
-          certificationIds: selectedCertifications.map((cert) => cert.certificationId),
-          certificateDocuments: selectedCertifications.map((cert) => ({
-            certificationId: cert.certificationId,
-            certificateUrl: cert.existingUrl || "",
+          brochureType: "PDF",
+          brochurePathStatus: existingBrochureUrl || (brochureFile ? "TO_UPLOAD" : "PENDING"),
+          // certificationId = master type — tells server which cert type this is for;
+          // server assigns productCertificateDocumentId which we use for the upload endpoint
+          certificateDocuments: selectedCertifications.map((c) => ({
+            certificationId: Number(c.id),
+            certificateUrl: c.existingUrl || "PENDING",
           })),
         }],
         productImages: images.map(() => ({ productImage: "PENDING" })),
@@ -811,14 +934,16 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
       let currentProductId = resolvedProductId || productId || "";
       let currentAttributeId = productAttributeId;
+      // Local snapshot of certs — patched with server productCertificateDocumentId after create
+      let certsToUpload: CertificationTag[] = [...selectedCertifications];
 
+      // ── Step 1: Create or Update the product record ───────────────────────
       if (mode === "edit" && currentProductId) {
         await updateProduct(currentProductId, payload);
-        if (images.length > 0) await uploadProductImages(currentProductId, images);
       } else {
         const createRes = await fetch(`${API_BASE}/products/create`, {
           method: "POST",
-          headers: { ...authHeaders(), "Content-Type": "application/json" },
+          headers: jsonHeaders,
           body: JSON.stringify(payload),
         });
         const rawText = await createRes.text();
@@ -826,24 +951,69 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         try { createData = JSON.parse(rawText) as ApiResponseData; }
         catch { throw new Error(`Invalid server response: ${rawText.substring(0, 200)}`); }
         if (!createRes.ok) {
-          throw new Error(String((createData?.data as ApiResponseData)?.message ?? createData?.message ?? `HTTP ${createRes.status}`));
+          throw new Error(String(
+            (createData?.data as ApiResponseData)?.message ?? createData?.message ?? `HTTP ${createRes.status}`,
+          ));
         }
         const dataInner = createData?.data as ApiResponseData | undefined;
         currentProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
-        if (!currentProductId || currentProductId === "undefined") throw new Error("Product ID not returned from server");
+        if (!currentProductId || currentProductId === "undefined") {
+          throw new Error("Product ID not returned from server");
+        }
         currentAttributeId = extractProductAttributeId(createData) || "";
-        if (images.length > 0) await uploadProductImages(currentProductId, images);
+        if (!currentAttributeId) {
+          throw new Error("Product attribute ID not returned from server — cannot upload certificates");
+        }
+
+        // ── Re-map productCertificateDocumentId from server response ─────────
+        // The server returns the real document row IDs inside
+        // certificateDocuments[].productCertificateDocumentId, keyed by certificationId.
+        // We patch our staged cert list so each cert carries the correct row ID
+        // before calling the upload endpoint.
+        const certDocIdMap = extractCertDocumentIdMap(createData);
+        if (certDocIdMap.size > 0) {
+          setSelectedCertifications((prev) =>
+            prev.map((c) => {
+              const serverDocId = certDocIdMap.get(Number(c.id));
+              return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
+            }),
+          );
+          // Also patch the local snapshot used immediately below
+          certsToUpload = certsToUpload.map((c) => {
+            const serverDocId = certDocIdMap.get(Number(c.id));
+            return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
+          });
+        }
       }
 
+      // ── Step 2: Upload product images ─────────────────────────────────────
+      if (images.length > 0) {
+        await uploadProductImages(currentProductId, images);
+      }
+
+      // ── Step 3: Upload certificates (one request per cert) ────────────────
       if (currentAttributeId) {
-        const certBaseUrl = `${API_BASE}/product-documents/non-consumable/${currentAttributeId}/certificates`;
-        const brochureUploadUrl = `${API_BASE}/product-documents/non-consumable/${currentAttributeId}/brochure`;
-        for (const cert of selectedCertifications.filter((c) => c.file)) {
-          await uploadDocument(certBaseUrl, authHeaders(), cert.file!, { certificationId: String(cert.certificationId) }, "certificate", 3);
+        const { allSuccess, failures } = await uploadAllCertificates(
+          currentAttributeId,
+          authOnlyHeaders,
+          certsToUpload,
+        );
+        if (!allSuccess) {
+          console.warn("Some certificate uploads failed:", failures);
+          setApiError(`Warning: Some certificate files could not be uploaded:\n${failures.join("\n")}`);
         }
+
+        // ── Step 4: Upload brochure ─────────────────────────────────────────
         if (brochureFile) {
-          await uploadDocument(brochureUploadUrl, authHeaders(), brochureFile, {}, "brochure", 3);
+          const brochureUploadUrl = `${API_BASE}/product-documents/non-consumable/${currentAttributeId}/brochure`;
+          const brochureResult = await uploadBrochure(brochureUploadUrl, authOnlyHeaders, brochureFile);
+          if (!brochureResult.success) {
+            console.warn(`Brochure upload warning: ${brochureResult.message}`);
+            if (!apiError) setApiError(`Warning: Brochure could not be uploaded — ${brochureResult.message}`);
+          }
         }
+      } else {
+        console.warn("No attribute ID available — skipping certificate and brochure uploads");
       }
 
       alert(`Product ${mode === "edit" ? "updated" : "created"} successfully!`);
@@ -899,11 +1069,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   }
 
   return (
-    <div className="flex flex-col gap-5 max-w-full mx-auto">
+    <div className="flex flex-col gap-5 w-full">
       {apiError && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle size={18} className="text-red-500 mt-0.5 flex-shrink-0" />
-          <span className="text-red-700 text-sm">{apiError}</span>
+          <span className="text-red-700 text-sm whitespace-pre-line">{apiError}</span>
         </div>
       )}
 
@@ -1011,14 +1181,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
           {/* UDI / Serial Number */}
           <div className="flex flex-col gap-1">
-            <label className={fieldLabel}>
-              UDI (Unique Device Identifier)/ Serial Number
-            </label>
+            <label className={fieldLabel}>UDI (Unique Device Identifier) / Serial Number</label>
             <input
               name="udiNumber"
               value={form.udiNumber}
               onChange={handleChange}
-              placeholder="Optional "
+              placeholder="Optional"
               className={`${inputBase} ${errors.udiNumber ? inputError : ""}`}
             />
             {errors.udiNumber && <p className={errorMsg}>{errors.udiNumber}</p>}
@@ -1045,10 +1213,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                 onClick={() => setShowMaterialDropdown((p) => !p)}
                 className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.materialType ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}
               >
-                <span
-                  className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
-                  style={{ color: selectedMaterialTypes.length > 0 ? "#969793" : "#969793" }}
-                >
+                <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: "#969793" }}>
                   {selectedMaterialTypes.length > 0
                     ? selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")
                     : "Select material / build types"}
@@ -1075,9 +1240,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             {errors.materialType && <p className={errorMsg}>{errors.materialType}</p>}
           </div>
 
-          {/* Certifications */}
+          {/* ── Certifications ─────────────────────────────────────────────────── */}
           <div className="col-span-1 md:col-span-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+              {/* Left: Select certifications */}
               <div>
                 <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
                 <div className="relative" ref={dropdownRef}>
@@ -1086,7 +1253,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                     className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}
                   >
                     <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif] [color:#969793]">
-                      {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
+                      {selectedCertifications.length > 0
+                        ? selectedCertifications.map((c) => c.label).join(", ")
+                        : "Select certifications"}
                     </span>
                     <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1099,7 +1268,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                       ) : (
                         certificationMasterOptions.map((opt) => (
                           <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                            <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
+                            <input
+                              type="checkbox"
+                              checked={selectedCertifications.some((c) => c.id === opt.value)}
+                              onChange={() => handleCertCheckbox(opt)}
+                              className="accent-purple-600 w-4 h-4"
+                            />
                             <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#969793]">{opt.label}</span>
                           </label>
                         ))
@@ -1110,75 +1284,135 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                 {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
               </div>
 
+              {/* Right: Upload certificate files */}
               <div>
                 <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
+
                 {selectedCertifications.length === 0 ? (
                   <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
                     <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                       <UploadCloudIcon />
                     </div>
-                    <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
+                    <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">
+                      Select certifications first
+                    </span>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {selectedCertifications.map((cert) => (
                       <div key={cert.id}>
+                        {/* Case A: existing server URL, no new file staged */}
                         {cert.existingUrl && !cert.file ? (
                           <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                            <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                            <div className="flex-1 px-3 min-w-0"> 
+                            <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                              <FileText size={16} className="text-purple-600" />
+                            </div>
+                            <div className="flex-1 px-3 min-w-0">
                               <p className="text-sm font-medium text-gray-800 truncate">{cert.label}</p>
                               <p className="text-xs text-gray-500">Existing certificate</p>
                             </div>
                             <div className="flex items-center gap-1 pr-3">
-                              <button type="button" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                              <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
+                              <button
+                                type="button"
+                                title="Replace certificate"
+                                onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()}
+                                className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"
+                              >
+                                <RefreshCw size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                title="Remove certification"
+                                onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))}
+                                className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"
+                              >
+                                <X size={13} />
+                              </button>
                             </div>
                           </div>
-                        ) : !cert.isUploaded ? (
-                          <div  
+
+                        ) : cert.isUploaded && cert.file ? (
+                          /* Case B: new file staged, ready to upload on submit */
+                          <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
+                            <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                              <FileText size={16} className="text-purple-600" />
+                            </div>
+                            <div className="flex-1 px-3 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{cert.fileName}</p>
+                              <p className="text-xs text-gray-500">{cert.label} · {(cert.file.size / 1024).toFixed(0)} KB</p>
+                            </div>
+                            <div className="flex items-center gap-1 pr-3">
+                              <button
+                                type="button"
+                                title="Replace file"
+                                onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()}
+                                className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"
+                              >
+                                <RefreshCw size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                title="Remove certification"
+                                onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))}
+                                className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                          </div>
+
+                        ) : (
+                          /* Case C: no file yet — click to choose */
+                          <div
                             className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition"
                             onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()}
                           >
                             <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                              {cert.uploading
-                                ? <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
-                                : <UploadCloudIcon />}
+                              <UploadCloudIcon />
                             </div>
                             <span className="px-3 text-base [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">
-                              {cert.uploading ? "Processing..." : cert.label}
+                              {cert.label} — click to upload
                             </span>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                            <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                            <div className="flex-1 px-3 min-w-0">
-                              <p className="text-sm font-medium text-gray-800 truncate">{cert.fileName}</p>
-                              <p className="text-xs text-gray-500">{cert.label}</p>
-                            </div>
-                            <div className="flex items-center gap-1 pr-3">
-                              <button type="button" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                              <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id));
+                              }}
+                              className="pr-3 text-gray-400 hover:text-red-500"
+                            >
+                              <X size={13} />
+                            </button>
                           </div>
                         )}
-                        <input id={`nc-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
-                          onChange={(e) => { if (e.target.files?.[0]) handleCertFileUpload(cert.id, e.target.files[0]); }} />
+
+                        {/* Hidden file input per certificate */}
+                        <input
+                          id={`nc-cert-upload-${cert.id}`}
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          className="hidden"
+                          onClick={(e) => { (e.target as HTMLInputElement).value = ""; }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleCertFileSelect(cert.id, file);
+                          }}
+                        />
                       </div>
                     ))}
                   </div>
                 )}
-                <p className="text-xs text-gray-400 mt-1">Max 5 MB per certificate file</p>
+
+                <p className="text-xs text-gray-400 mt-1">
+                  PDF, JPG, PNG — max 5 MB per file. Files are uploaded on Save.
+                </p>
               </div>
             </div>
           </div>
 
           {/* Power Source */}
           <div className="flex flex-col gap-1">
-            <label className={fieldLabel}>
-              Power Source
-            </label>
+            <label className={fieldLabel}>Power Source</label>
             <Select
               options={powerSourceOptions}
               value={powerSourceOptions.find((o) => o.value === form.powerSourceId) || null}
@@ -1192,10 +1426,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
           {/* Warranty Period */}
           <div className="flex flex-col gap-1">
-            <label className={fieldLabel}>
-              Warranty Period (months)
-              {/* <span className="ml-1.5 text-xs font-normal text-gray-400">(Optional)</span> */}
-            </label>
+            <label className={fieldLabel}>Warranty Period (months)</label>
             <input
               name="warrantyPeriod"
               value={form.warrantyPeriod}
@@ -1249,10 +1480,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
           {/* Storage Condition */}
           <div className="flex flex-col gap-1">
-            <label className={fieldLabel}>
-              Storage Condition (If applicable)
-              {/* <span className="ml-1.5 text-xs font-normal text-gray-400">(If applicable)</span> */}
-            </label>
+            <label className={fieldLabel}>Storage Condition (If applicable)</label>
             <Select
               options={storageConditionOptions}
               value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null}
@@ -1266,15 +1494,16 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
           {/* Brochure */}
           <div>
-            <label className={fieldLabel}>
-              Upload Product Brochure / User Manual
-              {/* <span className="ml-1.5 text-xs font-normal text-gray-400">(Optional – PDF only, max 5 MB)</span> */}
-            </label>
+            <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
             {existingBrochureUrl && !brochureFile && (
               <div className="mb-2 flex items-center gap-2 text-sm text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
                 <FileText size={15} />
-                <a href={existingBrochureUrl} target="_blank" rel="noreferrer" className="underline truncate">Current brochure</a>
-                <button type="button" onClick={() => setExistingBrochureUrl("")} className="ml-auto text-gray-400 hover:text-red-500"><X size={13} /></button>
+                <a href={existingBrochureUrl} target="_blank" rel="noreferrer" className="underline truncate">
+                  Current brochure
+                </a>
+                <button type="button" onClick={() => setExistingBrochureUrl("")} className="ml-auto text-gray-400 hover:text-red-500">
+                  <X size={13} />
+                </button>
               </div>
             )}
             {!brochureFile ? (
@@ -1293,19 +1522,34 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             ) : (
               <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
+                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <FileText size={16} className="text-purple-600" />
+                </div>
                 <div className="flex-1 px-3 min-w-0">
                   <p className="text-sm font-medium text-gray-800 truncate">{brochureFile.name}</p>
                   <p className="text-xs text-gray-500">{(brochureFile.size / 1024).toFixed(1)} KB</p>
                 </div>
                 <div className="flex items-center gap-1 pr-3">
-                  <button type="button" onClick={() => brochureInputRef.current?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                  <button type="button" onClick={() => { setBrochureFile(null); if (brochureInputRef.current) brochureInputRef.current.value = ""; }} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
+                  <button type="button" onClick={() => brochureInputRef.current?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600">
+                    <RefreshCw size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setBrochureFile(null); if (brochureInputRef.current) brochureInputRef.current.value = ""; }}
+                    className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"
+                  >
+                    <X size={13} />
+                  </button>
                 </div>
               </div>
             )}
-            <input ref={brochureInputRef} type="file" accept=".pdf" className="hidden"
-              onChange={(e) => { if (e.target.files?.[0]) handleBrochureUpload(e.target.files[0]); }} />
+            <input
+              ref={brochureInputRef}
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              onChange={(e) => { if (e.target.files?.[0]) handleBrochureUpload(e.target.files[0]); }}
+            />
           </div>
 
           {/* Safety Instructions & Key Features */}
@@ -1401,7 +1645,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             {errors.numberOfPacks && <p className={errorMsg}>{errors.numberOfPacks}</p>}
           </div>
 
-          {/* Pack Size */}
+          {/* Pack Size (auto-calculated) */}
           <div className="flex flex-col gap-1">
             <label className={fieldLabel}>Pack Size (No. of Units per Pack Type X No. of Packs)</label>
             <input
@@ -1519,10 +1763,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
           {/* Discount % */}
           <div className="flex flex-col gap-1">
-            <label className={fieldLabel}>
-              Discount Percentage (%)
-              {/* <span className="ml-1.5 text-xs font-normal text-gray-400">Optional</span> */}
-            </label>
+            <label className={fieldLabel}>Discount Percentage (%)</label>
             <input
               name="discountPercentage"
               value={form.discountPercentage}
@@ -1544,7 +1785,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               className="h-12 px-5 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] w-auto self-start hover:opacity-90 transition-opacity flex items-center gap-2"
             >
               <span className="w-5 h-5 flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M7 1v12M1 7h12" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                </svg>
               </span>
               Add Additional Discount
             </button>
@@ -1562,7 +1805,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             {additionalDiscountSlabs.map((slab, idx) => (
               <div key={idx} className="flex items-center justify-between text-xs text-purple-700 py-1.5 border-t border-purple-100">
                 <span>Min Qty: {slab.minimumPurchaseQuantity} — {slab.additionalDiscountPercentage}% off</span>
-                <button type="button" onClick={() => setAdditionalDiscountSlabs((p) => p.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 ml-3"><X size={12} /></button>
+                <button
+                  type="button"
+                  onClick={() => setAdditionalDiscountSlabs((p) => p.filter((_, i) => i !== idx))}
+                  className="text-red-400 hover:text-red-600 ml-3"
+                >
+                  <X size={12} />
+                </button>
               </div>
             ))}
           </div>
@@ -1603,7 +1852,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         </div>
 
         {/* Final Price */}
-        <div className="mt-5">
+        {/* <div className="mt-5">
           <label className="block mb-1.5 font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]">
             Final Price (after discounts):
           </label>
@@ -1622,7 +1871,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               style={{ color: "#7D32FC" }}
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Save button inside section */}
         <div className="flex justify-end mt-5">
@@ -1639,12 +1888,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         </div>
       </div>
 
-      {/* ── Section 3: Product Photos ─────────────────────────────────────── */}
+      {/* ── Section 3: Product Photos ──────────────────────────────────────────── */}
       <div className={sectionCard}>
         <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
           Product Photos {mode === "create" && <span className="text-red-500">*</span>}
         </h2>
-        {/* <p className="text-xs text-gray-400 mb-4">Min 1 – Max 5 images · Accepted: JPG, JPEG, PNG, SVG · Max 5 MB each</p> */}
 
         {existingImages.length > 0 && (
           <div className="mb-4">
@@ -1686,7 +1934,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               const url = URL.createObjectURL(file);
               return (
                 <div key={i} className="relative group">
-                  <img src={url} alt={`Product ${i + 1}`} className="w-full aspect-square object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
+                  <img
+                    src={url}
+                    alt={`Product ${i + 1}`}
+                    className="w-full aspect-square object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition"
+                  />
                   <button
                     type="button"
                     onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }}
@@ -1703,7 +1955,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         {errors.images && <p className={`${errorMsg} mt-2`}>{errors.images}</p>}
       </div>
 
-      {/* ── Actions ──────────────────────────────────────────────────────── */}
+      {/* ── Actions ─────────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
         <div className="flex gap-3">
           <button
