@@ -1217,6 +1217,12 @@ export default function SellerProfile() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // ✅ NEW: Alphanumeric handler for coordinator fields (letters, numbers, spaces only)
+  const handleAlphanumericInput = (e: React.ChangeEvent<HTMLInputElement>, field: string, maxLen = 100) => {
+    const value = e.target.value.replace(/[^a-zA-Z0-9\s]/g, "").slice(0, maxLen);
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
   const handleNumericInput = (e: React.ChangeEvent<HTMLInputElement>, field: string, maxLength?: number) => {
     let value = e.target.value.replace(/\D/g, "");
     if (maxLength && value.length > maxLength) {
@@ -2819,18 +2825,23 @@ export default function SellerProfile() {
           underReview={reviewSections.includes("coordinator")}
         >
           <div className="grid grid-cols-2 gap-6">
+            {/* ✅ UPDATED: Using handleAlphanumericInput for Coordinator Name */}
             <Input 
               label="Coordinator Name" 
               value={formData.coordinatorName} 
               editable={!!editingSection}
+              maxLength={100}
               icon={<FaRegUser />}
-              onChange={(e) => handleAlphabetInput(e, 'coordinatorName')}
+              onChange={(e) => handleAlphanumericInput(e, 'coordinatorName')}
             />
+            
+            {/* ✅ UPDATED: Using handleAlphanumericInput for Coordinator Designation */}
             <Input 
               label="Coordinator Designation"
               value={formData.coordinatorDesignation} 
               editable={!!editingSection}
-              onChange={(e) => handleAlphabetInput(e, 'coordinatorDesignation')}
+              maxLength={100}
+              onChange={(e) => handleAlphanumericInput(e, 'coordinatorDesignation')}
             />
 
             <Input 
@@ -2969,11 +2980,11 @@ export default function SellerProfile() {
                           <span>{licenseErrors[productName]}</span>
                         </p>
                       )}
-                      {editingSection && !licenseErrors[productName] && (
+                      {/* {editingSection && !licenseErrors[productName] && (
                         <p className="mt-1 text-xs text-neutral-500">
                           Use: A-Z, 0-9, /, - only | Examples: TN/CBE/20B-12345, MH-MZ2-123456
                         </p>
-                      )}
+                      )} */}
                     </div>
                   </div>
 
@@ -3300,6 +3311,10 @@ interface InputProps {
   placeholder?: string;
 }
 
+// ✅ FIXED: Removed internal useState/useEffect so the Input is fully controlled.
+// Previously, the component cached raw input in local state before the parent's
+// onChange filter could clean it — allowing special characters like @#$% to display.
+// Now value flows directly from props, so parent filters take effect immediately.
 function Input({ 
   label, 
   value, 
@@ -3310,21 +3325,9 @@ function Input({
   type = "text",
   className = "",
   error,
-  hideAsterisk = false 
+  hideAsterisk = false,
+  placeholder
 }: InputProps) {
-  const [inputValue, setInputValue] = useState(value);
-
-  useEffect(() => {
-    setInputValue(value);
-  }, [value]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
-    if (onChange) {
-      onChange(e);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-2">
       <label className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
@@ -3338,10 +3341,11 @@ function Input({
       </label>
       <input
         type={type}
-        value={inputValue}
-        onChange={handleChange}
+        value={value}
+        onChange={onChange}
         disabled={!editable}
         maxLength={maxLength}
+        placeholder={placeholder}
         className={`w-full h-14 px-4 rounded-xl text-[16px] ${className}
         ${editable
           ? "bg-white border border-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-500"

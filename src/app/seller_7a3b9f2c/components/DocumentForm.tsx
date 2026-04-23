@@ -397,9 +397,9 @@ export default function DocumentForm({
                     <span>{licenseError}</span>
                   </p>
                 )}
-                <p className="mt-1 text-xs text-neutral-500">
+                {/* <p className="mt-1 text-xs text-neutral-500">
                   Use: A-Z, 0-9, /, - only | Examples: TN/CBE/20B-12345, MH-MZ2-123456
-                </p>
+                </p> */}
               </div>
 
               {/* LICENSE FILE */}
