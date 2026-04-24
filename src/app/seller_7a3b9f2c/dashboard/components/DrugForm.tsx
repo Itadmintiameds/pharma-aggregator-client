@@ -20,6 +20,7 @@ import Select from "react-select";
 import CommonModal from "../commonComponent/CommonModal";
 import AdditionalDiscount from "./AdditionalDiscount";
 import UploadInput from "../commonComponent/UploadInput";
+import PopupModal from "../commonComponent/PopupModal";
 
 interface SelectOption {
   value: string;
@@ -83,7 +84,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     discountPercentage: string;
     finalPrice: string;
     hsnCode: string;
-    shelfLife: string;
+    shelfLifeMonths: string;
 
     // ✅ IMPORTANT FIX
     additionalDiscount: AdditionalDiscountData[];
@@ -137,9 +138,63 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     discountPercentage: "",
     finalPrice: "",
     hsnCode: "",
-    shelfLife: "",
+    shelfLifeMonths: "",
     additionalDiscount: [],
   });
+
+  const initialFormState: FormState = {
+    productId: "",
+    categoryId: "",
+    productName: "",
+    productDescription: "",
+    warningsPrecautions: "",
+
+    therapeuticCategoryId: "",
+    therapeuticCategory: "",
+    therapeuticSubcategoryId: "",
+    therapeuticSubcategory: "",
+    manufacturerName: "",
+
+    dosageId: "",
+    strength: "",
+
+    molecules: [
+      {
+        moleculeId: "",
+        moleculeName: "",
+        drugSchedule: "",
+        mechanismOfAction: "",
+        primaryUse: "",
+        strength: "",
+      },
+    ],
+
+    packId: "",
+    packType: "",
+    unitPerPack: "",
+    numberOfPacks: "",
+    packSize: "",
+    minimumOrderQuantity: "",
+    maximumOrderQuantity: "",
+
+    pricingId: "",
+    batchLotNumber: "",
+    manufacturingDate: null,
+    expiryDate: null,
+    dateOfStockEntry: new Date(), // ⚠️ dynamic field
+
+    storageCondition: "",
+    stockQuantity: "",
+    sellingPrice: "",
+    mrp: "",
+    gstPercentage: "",
+    discountPercentage: "",
+    finalPrice: "",
+    hsnCode: "",
+    shelfLifeMonths: "",
+
+    additionalDiscount: [],
+  };
 
   const gstOptions = [
     { value: "0", label: "0%" },
@@ -177,6 +232,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const isReadOnly = mode === "edit";
   const [dosageFormLabel, setDosageFormLabel] = useState<string>("");
   const [manualFile, setManualFile] = useState<File | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [existingManualFile, setExistingManualFile] = useState<string | null>(
+    null,
+  );
+  const isEditMode = mode === "edit";
 
   useEffect(() => {
     if (categoryId) {
@@ -336,16 +396,16 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
               // ✅ Prevent negative shelf life
               if (totalMonths >= 0) {
-                updatedForm.shelfLife = totalMonths.toString();
+                updatedForm.shelfLifeMonths = totalMonths.toString();
               } else {
-                updatedForm.shelfLife = "";
+                updatedForm.shelfLifeMonths = "";
                 newErrors.expiryDate =
                   "Expiry cannot be before Manufacturing Date";
               }
             }
           } else {
             updatedForm.expiryDate = null;
-            updatedForm.shelfLife = ""; // ✅ reset shelf life
+            updatedForm.shelfLifeMonths = ""; // ✅ reset shelf life
           }
         }
 
@@ -522,7 +582,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const handleSubmit = async () => {
     const validation = drugProductSchema.safeParse({
       ...form,
-      images,
+      images: [...existingImages, ...images], // ✅ FIX
     });
 
     if (!validation.success) {
@@ -550,15 +610,17 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
         categoryId: Number(form.categoryId), // ✅ FIX
 
-        packagingDetails: {
-          packId: Number(form.packId),
-          packType: form.packType,
-          unitPerPack: Number(form.unitPerPack), // ✅ STRING
-          numberOfPacks: Number(form.numberOfPacks),
-          packSize: Number(form.packSize),
-          minimumOrderQuantity: Number(form.minimumOrderQuantity),
-          maximumOrderQuantity: Number(form.maximumOrderQuantity),
-        },
+        packagingDetails: [
+          {
+            packId: Number(form.packId),
+            packType: form.packType,
+            unitPerPack: Number(form.unitPerPack), // ✅ STRING
+            numberOfPacks: Number(form.numberOfPacks),
+            packSize: Number(form.packSize),
+            minimumOrderQuantity: Number(form.minimumOrderQuantity),
+            maximumOrderQuantity: Number(form.maximumOrderQuantity),
+          },
+        ],
 
         pricingDetails: [
           {
@@ -574,7 +636,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             gstPercentage: Number(form.gstPercentage),
             finalPrice: Number(form.finalPrice),
             hsnCode: Number(form.hsnCode),
-            shelfLifeMonths: 24, // optional
+            shelfLifeMonths: Number(form.shelfLifeMonths),
 
             // 🔥 IMPORTANT FIX
             additionalDiscounts: form.additionalDiscount.map((d) => ({
@@ -628,13 +690,43 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       if (images.length > 0) {
         await uploadProductImages(productId, images);
       }
+      setShowSuccessModal(true);
 
-      alert("Product Uploaded successfully!");
-      window.location.reload();
+      // alert("Product Saved successfully!");
+      // window.location.reload();
     } catch (err) {
       console.error("❌ Submit Error:", err);
       alert("❌ Failed to create product");
     }
+  };
+
+  const resetForm = () => {
+    setForm({
+      ...initialFormState,
+      dateOfStockEntry: new Date(), // 🔥 always fresh
+    });
+
+    setImages([]);
+    setErrors({});
+    setManualFile(null);
+  };
+
+  const handleViewProduct = () => {
+    console.log("Go to product page");
+    // navigate(`/product/${productId}`) ← if using router
+  };
+
+  const handleContinueEditing = () => {
+    setShowSuccessModal(false);
+  };
+
+  const handleContinueAdding = () => {
+    setShowSuccessModal(false);
+    resetForm();
+  };
+
+  const handleBackToDashboard = () => {
+    window.location.reload();
   };
 
   useEffect(() => {
@@ -648,8 +740,22 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       const data = await getProductById(id);
       if (!data) throw new Error("Product not found");
 
-      const pricing = data.pricingDetails?.[0] || {};
-      const packaging = data.packagingDetails || {};
+      const pricing =
+        data.pricingDetails?.length > 0
+          ? data.pricingDetails.reduce((latest: any, curr: any) =>
+              new Date(curr.createdDate) > new Date(latest.createdDate)
+                ? curr
+                : latest,
+            )
+          : {};
+      const packaging =
+        data.packagingDetails?.length > 0
+          ? data.packagingDetails.reduce((latest: any, curr: any) =>
+              new Date(curr.createdDate) > new Date(latest.createdDate)
+                ? curr
+                : latest,
+            )
+          : {};
       const attributeDrug = data.productAttributeDrugs?.[0] || {};
       const dosageForm = attributeDrug.dosageForm || "";
       const selectedDosage = dosageOptions.find(
@@ -687,6 +793,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         data.productImages?.map((img: any) => img.productImage) || [],
       );
 
+      setExistingManualFile(
+        data.productAttributeDrugs?.[0]?.userManualUrl || null,
+      );
       setForm((prev) => ({
         ...prev,
         productId: data.productId || "",
@@ -729,6 +838,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         discountPercentage: String(pricing.discountPercentage ?? ""),
         finalPrice: String(pricing.finalPrice ?? ""),
         hsnCode: String(pricing.hsnCode ?? ""),
+        shelfLifeMonths: String(pricing.shelfLifeMonths ?? ""),
         additionalDiscount: pricing.additionalDiscounts || [],
       }));
 
@@ -740,7 +850,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleUpdate = async () => {
-    const validation = drugProductSchema.safeParse(form);
+    const validation = drugProductSchema.safeParse({
+      ...form,
+      images: [...existingImages, ...images],
+    });
 
     if (!validation.success) {
       const fieldErrors: Record<string, string> = {};
@@ -764,15 +877,17 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         manufacturerName: form.manufacturerName,
         categoryId: Number(form.categoryId),
 
-        packagingDetails: {
-          packId: Number(form.packId),
-          packType: form.packType,
-          unitPerPack: Number(form.unitPerPack),
-          numberOfPacks: Number(form.numberOfPacks),
-          packSize: Number(form.packSize),
-          minimumOrderQuantity: Number(form.minimumOrderQuantity),
-          maximumOrderQuantity: Number(form.maximumOrderQuantity),
-        },
+        packagingDetails: [
+          {
+            packId: Number(form.packId),
+            packType: form.packType,
+            unitPerPack: Number(form.unitPerPack),
+            numberOfPacks: Number(form.numberOfPacks),
+            packSize: Number(form.packSize),
+            minimumOrderQuantity: Number(form.minimumOrderQuantity),
+            maximumOrderQuantity: Number(form.maximumOrderQuantity),
+          },
+        ],
 
         pricingDetails: [
           {
@@ -794,7 +909,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
             finalPrice: Number(form.finalPrice),
             hsnCode: Number(form.hsnCode),
-            shelfLifeMonths: 24,
+            shelfLifeMonths: Number(form.shelfLifeMonths),
 
             additionalDiscounts: form.additionalDiscount.map((d) => ({
               minimumPurchaseQuantity: d.minimumPurchaseQuantity,
@@ -1051,8 +1166,34 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     return totalMonths >= 0 ? totalMonths : "";
   };
 
+  const removeMolecule = (indexToRemove: number) => {
+    if (form.molecules.length === 1) {
+      alert("At least one molecule is required.");
+      return;
+    }
+
+    const updated = form.molecules.filter((_, i) => i !== indexToRemove);
+
+    setForm({
+      ...form,
+      molecules: updated,
+    });
+  };
+
   return (
     <>
+      <PopupModal
+        isOpen={showSuccessModal}
+        title="Product Saved Successfully!"
+        description="Your product has been saved and is now live on the platform"
+        primaryActionText="View Product"
+        secondaryActionText="Continue Adding"
+        tertiaryActionText="Back to Dashboard"
+        onPrimaryAction={handleViewProduct}
+        onSecondaryAction={handleContinueAdding}
+        onTertiaryAction={handleBackToDashboard}
+        onClose={() => setShowSuccessModal(false)}
+      />
       {showAdditionalDiscount && (
         <CommonModal
           onClose={() => setShowAdditionalDiscount(false)}
@@ -1105,7 +1246,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 }
                 onChange={handleTherapeuticCategoriesChange}
                 placeholder="Select category"
-                // isDisabled={mode === "delete"}
+                isDisabled={isEditMode}
                 theme={selectTheme}
                 styles={selectStyles("productCategoryId")}
               />
@@ -1131,7 +1272,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 }
                 onChange={handleSubcategoryChange}
                 placeholder="Select subcategory"
-                // isDisabled={!form.therapeuticCategory || mode === "delete"}
+                isDisabled={isEditMode}
                 theme={selectTheme}
                 styles={selectStyles("therapeuticSubcategory")}
               />
@@ -1149,7 +1290,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder="e.g., Paracetamol"
               onChange={handleChange}
               value={form.productName}
-              // disabled={mode === "delete"}
+              readOnly={isEditMode}
               error={errors.productName}
               required
             />
@@ -1167,7 +1308,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 }
                 onChange={handleDosageChange}
                 placeholder="Select dosage"
-                // isDisabled={mode === "delete"}
+                isDisabled={isEditMode}
                 theme={selectTheme}
                 styles={selectStyles("dosageId")}
               />
@@ -1177,7 +1318,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               )}
             </div>
 
-            {form.molecules.map((molecule, index) => (
+            {/* {form.molecules.map((molecule, index) => (
               <div key={index} className="grid grid-cols-2 gap-4 col-span-2">
                 <div className="flex flex-col gap-1">
                   <label className="text-label-l3 text-neutral-700 font-semibold">
@@ -1218,20 +1359,103 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   onChange={(e) => handleStrengthChange(index, e.target.value)}
                   required
                 />
+
+                <button className="border-2 border-[#FF3B3B] w-11 h-10 rounded-lg text-[#FF3B3B] flex items-center justify-center">
+                  <img
+                    src="/icons/RedMinusIcon.svg"
+                    alt="upload"
+                    className="w-5 h-5 object-contain"
+                  />
+                </button>
+              </div>
+            ))} */}
+
+            {form.molecules.map((molecule, index) => (
+              <div
+                key={index}
+                className="grid grid-cols-[1fr_1fr_auto] gap-4 col-span-2"
+              >
+                <div className="flex flex-col gap-1 w-full">
+                  <label className="text-label-l3 text-neutral-700 font-semibold">
+                    Molecule
+                    <span className="text-warning-500 font-semibold ml-1">
+                      *
+                    </span>
+                  </label>
+
+                  <Select
+                    options={moleculeOptions}
+                    isLoading={loadingMolecules}
+                    value={
+                      moleculeOptions.find(
+                        (o) => o.value.moleculeId === molecule.moleculeId,
+                      ) || null
+                    }
+                    onChange={(selected) =>
+                      handleMoleculeSelect(index, selected)
+                    }
+                    placeholder="Select molecule"
+                    theme={selectTheme}
+                    styles={{
+                      ...selectStyles("molecule"),
+                      container: (base) => ({
+                        ...base,
+                        width: "100%",
+                      }),
+                    }}
+                    isDisabled={isEditMode}
+                  />
+
+                  {errors[`molecules.${index}.moleculeId`] && (
+                    <p className="text-red-500 text-sm">
+                      {errors[`molecules.${index}.moleculeId`]}
+                    </p>
+                  )}
+                </div>
+
+                <div className="w-full">
+                  <Input
+                    label="Molecule Strength"
+                    name="strength"
+                    placeholder={strengthFormats.join(", ") || "Enter strength"}
+                    value={molecule.strength || ""}
+                    onChange={(e) =>
+                      handleStrengthChange(index, e.target.value)
+                    }
+                    readOnly={isEditMode}
+                    required
+                  />
+                </div>
+
+                {!isEditMode && (
+                  <div className="flex items-end">
+                    <button
+                      onClick={() => removeMolecule(index)}
+                      className="border-2 border-[#FF3B3B] w-11 h-10 rounded-lg flex items-center justify-center"
+                    >
+                      <img
+                        src="/icons/RedMinusIcon.svg"
+                        alt="remove"
+                        className="w-5 h-5 object-contain"
+                      />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
-            <button
-              onClick={addMolecule}
-              className="col-span-2 w-41.25 h-10.5 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5"
-            >
-              <img
-                src="/icons/PlusIcon.svg"
-                alt="drug"
-                className="w-[12.5px] h-[12.5px] rounded-md object-cover"
-              />
-              Add Molecule
-            </button>
-
+            {!isEditMode && (
+              <button
+                onClick={addMolecule}
+                className="col-span-2 w-41.25 h-10.5 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5"
+              >
+                <img
+                  src="/icons/PlusIcon.svg"
+                  alt="drug"
+                  className="w-[12.5px] h-[12.5px] rounded-md object-cover"
+                />
+                Add Molecule
+              </button>
+            )}
             <Input
               label="Drug Schedule"
               name="drugSchedule"
@@ -1265,8 +1489,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
-            <UploadInput onFileSelect={setManualFile} />
 
+            <UploadInput
+              onFileSelect={setManualFile}
+              existingFile={existingManualFile || undefined}
+            />
             <Input
               label="Storage Condition"
               name="storageCondition"
@@ -1274,7 +1501,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.storageCondition}
               onChange={handleChange}
-              // disabled={mode === "delete"}
               error={errors.storageCondition}
               required
             />
@@ -1286,7 +1512,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.manufacturerName}
               onChange={handleChange}
-              // disabled={mode === "delete"}
+              readOnly={isEditMode}
               error={errors.manufacturerName}
               required
             />
@@ -1373,8 +1599,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   }))
                 }
                 placeholder="Select Pack Type"
-                isDisabled={!form.dosageId}
-                // isDisabled={!form.dosageId || mode === "delete"}
+                isDisabled={isEditMode || !form.dosageId}
                 theme={selectTheme}
                 styles={selectStyles("packId")}
               />
@@ -1474,7 +1699,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.batchLotNumber}
               onChange={handleChange}
-              // disabled={mode === "delete"}
+              readOnly={isEditMode}
               error={errors.batchLotNumber}
               required
             />
@@ -1485,6 +1710,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               name="manufacturingDate"
               id="manufacturingDate"
               placeholder=""
+              readOnly={isEditMode}
               onChange={(e) => {
                 const value = e.target.value;
 
@@ -1560,7 +1786,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 setForm({
                   ...form,
                   manufacturingDate: date,
-                  shelfLife: newShelfLife,
+                  shelfLifeMonths: newShelfLife,
                 });
               }}
               value={
@@ -1582,6 +1808,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   ? form.expiryDate.toISOString().split("T")[0]
                   : ""
               }
+              readOnly={isEditMode}
               onChange={handleChange}
               min={getMinExpiryDate()}
               // disabled={mode === "delete"}
@@ -1592,11 +1819,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             <Input
               type="number"
               label="Shelf Life"
-              name="shelfLife"
-              id="shelfLife"
-              value={form.shelfLife}
+              name="shelfLifeMonths"
+              id="shelfLifeMonths"
+              value={form.shelfLifeMonths}
               readOnly
-              error={errors.shelfLife}
+              error={errors.shelfLifeMonths}
               required
             />
 
@@ -1627,7 +1854,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.stockQuantity}
               onChange={handleChange}
-              // disabled={mode === "delete"}
+              readOnly={isEditMode}
               min={1}
               step={1}
               error={errors.stockQuantity}
@@ -1728,7 +1955,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   }))
                 }
                 placeholder="Select GST %"
-                // isDisabled={mode === "delete"}
+                isDisabled={isEditMode}
                 theme={selectTheme}
                 styles={selectStyles("gstPercentage")}
               />
@@ -1751,7 +1978,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               min={1}
               step={1}
               maxLength={8}
-              // disabled={mode === "delete"}
+              readOnly={isEditMode}
               error={errors.hsnCode}
               required
             />
@@ -1767,7 +1994,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           <div
             className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer"
             onClick={() => {
-              if (!isReadOnly) {
+              if (!isReadOnly || mode === "edit") {
                 document.getElementById("fileInput")?.click();
               }
             }}
@@ -1775,7 +2002,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             <input
               id="fileInput"
               type="file"
-              disabled={isReadOnly}
+              disabled={isReadOnly && mode !== "edit"}
               multiple
               accept="image/*"
               className="hidden"
@@ -1783,7 +2010,33 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 if (e.target.files) {
                   const newFiles = Array.from(e.target.files);
 
-                  setImages((prev) => [...prev, ...newFiles].slice(0, 5));
+                  const totalFiles =
+                    images.length + existingImages.length + newFiles.length;
+
+                  if (totalFiles > 5) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      images: "Maximum 5 images are allowed",
+                    }));
+
+                    const remainingSlots =
+                      5 - (images.length + existingImages.length);
+
+                    const allowedFiles = newFiles.slice(0, remainingSlots);
+
+                    if (allowedFiles.length > 0) {
+                      setImages((prev) => [...prev, ...allowedFiles]);
+                    }
+
+                    return;
+                  }
+
+                  setErrors((prev) => ({
+                    ...prev,
+                    images: "",
+                  }));
+
+                  setImages((prev) => [...prev, ...newFiles]);
                 }
               }}
             />
@@ -1812,57 +2065,59 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             <div className="text-red-500 text-sm mt-2">{errors.images}</div>
           )}
 
-          {existingImages.length > 0 && (
-            <div className="flex flex-wrap gap-3 mt-4">
-              {existingImages.map((img, index) => (
-                <div key={index} className="relative w-24 h-24 flex-shrink-0">
-                  <img
-                    src={img}
-                    alt="product"
-                    className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
-                  />
-
-                  {!isReadOnly && (
-                    <button
-                      onClick={() =>
-                        setExistingImages(
-                          existingImages.filter((_, i) => i !== index),
-                        )
-                      }
-                      className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {images.length > 0 && (
-            <div className="flex flex-wrap gap-3 mt-4">
-              {images.map((file, index) => (
-                <div key={index} className="relative w-24 h-24 flex-shrink-0">
-                  <img
-                    src={URL.createObjectURL(file)}
-                    alt="preview"
+          <div className="flex gap-4">
+            {existingImages.length > 0 && (
+              <div className="flex flex-wrap gap-3 mt-4">
+                {existingImages.map((img, index) => (
+                  <div key={index} className="relative w-24 h-24 flex-shrink-0">
+                    <img
+                      src={img}
+                      alt="product"
                       className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
-                  />
+                    />
 
-                  {!isReadOnly && (
-                    <button
-                      onClick={() =>
-                        setImages(images.filter((_, i) => i !== index))
-                      }
-                      className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                    {!isReadOnly && (
+                      <button
+                        onClick={() =>
+                          setExistingImages(
+                            existingImages.filter((_, i) => i !== index),
+                          )
+                        }
+                        className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {images.length > 0 && (
+              <div className="flex flex-wrap gap-3 mt-4">
+                {images.map((file, index) => (
+                  <div key={index} className="relative w-24 h-24 flex-shrink-0">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt="preview"
+                      className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
+                    />
+
+                    {(!isReadOnly || mode === "edit") && (
+                      <button
+                        onClick={() =>
+                          setImages(images.filter((_, i) => i !== index))
+                        }
+                        className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-between mt-6 col-span-2">
