@@ -5,13 +5,12 @@ import { Heart, Share2, FileText, ExternalLink, ChevronDown } from "lucide-react
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { PiSealCheckLight } from "react-icons/pi";
 import { HiOutlineShoppingCart } from "react-icons/hi";
-import { SlHandbag, SlReload } from "react-icons/sl";
-import { LuShield, LuTruck } from "react-icons/lu";
+import { SlHandbag } from "react-icons/sl";
 import { IoIosArrowBack } from "react-icons/io";
 import Image from "next/image";
 import { getDrugProductById } from "@/src/services/product/ProductService";
 
-/* ─────────────────── Types (unchanged) ─────────────────── */
+/* ─────────────────── Types ─────────────────── */
 
 interface ProductViewProps {
   productId: string | null;
@@ -62,6 +61,7 @@ interface NonConsumableAttributes {
   manufacturerName?: string;
   storageCondition?: string;
   storageConditionName?: string;
+  storageConditionId?: number;
   certificateDocuments?: CertificateDocument[];
   brochurePath?: string;
 }
@@ -96,7 +96,8 @@ interface ProductApiData {
   productImages?: ProductImage[];
   images?: string[];
   imageUrls?: string[];
-  packagingDetails?: PackagingDetails;
+  /* packagingDetails can be array OR object depending on endpoint */
+  packagingDetails?: PackagingDetails | PackagingDetails[];
   pricingDetails?: PricingDetails[];
   productAttributeNonConsumableMedicals?: NonConsumableAttributes[];
   nonConsumableAttributes?: NonConsumableAttributes;
@@ -108,8 +109,7 @@ interface ProductApiData {
 
 const PLACEHOLDER_IMAGE = "/assets/images/SellerMed.jpg";
 
-/* ─────────────────── Design tokens (from Figma spec) ─────────────────── */
-// Primary
+/* ─────────────────── Design tokens ─────────────────── */
 const C_PNEUTRAL_50  = "#F9F9F8";
 const C_PNEUTRAL_200 = "#D5D5D4";
 const C_PNEUTRAL_300 = "#C0C1BE";
@@ -118,26 +118,58 @@ const C_PNEUTRAL_600 = "#787975";
 const C_PNEUTRAL_700 = "#5A5B58";
 const C_PNEUTRAL_800 = "#3C3D3A";
 const C_PNEUTRAL_900 = "#1E1E1D";
-// Secondary / brand purple
 const C_SECONDARY_50  = "#F8F5FF";
 const C_SECONDARY_700 = "#7D32FC";
 const C_SECONDARY_800 = "#4307A9";
 const C_PRIMARY_05    = "#E4D6FB";
 const C_PRIMARY_900   = "#4C0080";
-// Success
 const C_SUCCESS_50  = "#DCF7CB";
 const C_SUCCESS_800 = "#409600";
-// Warning / danger
 const C_WARNING_100 = "#FBD7D7";
 const C_WARNING_600 = "#BA2C2C";
-// Misc
 const C_WHITE       = "#FFFFFF";
 const C_RED_BADGE   = "#FB2C36";
 const C_BORDER      = "#E5E7EB";
-
-/* Font stacks */
 const FONT_OPEN_SANS = "'Open Sans', sans-serif";
 const FONT_INTER     = "'Inter', sans-serif";
+
+/* ─────────────────── Shared table-cell styles ─────────────────── */
+const CELL_WRAPPER: React.CSSProperties = {
+  padding: 12,
+  background: C_PNEUTRAL_50,
+  borderRadius: 10,
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+};
+
+const CELL_LABEL: React.CSSProperties = {
+  color: C_PNEUTRAL_700,          // #5A5B58
+  fontSize: 12,
+  fontFamily: FONT_OPEN_SANS,
+  fontWeight: 400,
+  lineHeight: "18px",
+  wordWrap: "break-word",
+  margin: 0,
+};
+
+const CELL_VALUE: React.CSSProperties = {
+  color: C_PNEUTRAL_900,          // #1E1E1D
+  fontSize: 16,
+  fontFamily: FONT_OPEN_SANS,
+  fontWeight: 400,
+  lineHeight: "22px",
+  wordWrap: "break-word",
+  margin: 0,
+};
+
+/* ─────────────────── Helper sub-component ─────────────────── */
+const PackagingCell = ({ label, value }: { label: string; value: string | number }) => (
+  <div style={CELL_WRAPPER}>
+    <p style={CELL_LABEL}>{label}</p>
+    <p style={CELL_VALUE}>{String(value)}</p>
+  </div>
+);
 
 /* ─────────────────── Component ─────────────────── */
 
@@ -151,7 +183,7 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
   const [activeCertDoc, setActiveCertDoc]           = useState<CertificateDocument | null>(null);
   const [showBrochureAccordion, setShowBrochureAccordion] = useState(false);
 
-  /* ── helpers (unchanged logic) ── */
+  /* ── helpers ── */
   const resolveProductImages = (data: ProductApiData | null): string[] => {
     if (!data) return [];
     if (Array.isArray(data.productImages)) {
@@ -192,8 +224,11 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
         setProductData(response);
         const images = resolveProductImages(response);
         if (images.length > 0) setSelectedImageIndex(0);
-        if (response?.packagingDetails?.minimumOrderQuantity)
-          setQuantity(response.packagingDetails.minimumOrderQuantity);
+        /* unpack packagingDetails array for MOQ */
+        const pkg = Array.isArray(response?.packagingDetails)
+          ? response.packagingDetails[0]
+          : response?.packagingDetails;
+        if (pkg?.minimumOrderQuantity) setQuantity(pkg.minimumOrderQuantity);
       } catch (error) {
         console.error("Error fetching product details:", error);
       } finally {
@@ -203,41 +238,68 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
     fetchProductDetails();
   }, [productId]);
 
-  const packaging        = productData?.packagingDetails;
-  const pricing          = productData?.pricingDetails?.[0];
-  const ncAttributes     = productData?.productAttributeNonConsumableMedicals?.[0] ?? productData?.nonConsumableAttributes ?? null;
-  const consumableAttrs  = productData?.productAttributeConsumableMedicals?.[0] ?? null;
+  /* ── Derived data ── */
+
+  // packagingDetails is an array in the API — always unpack [0]
+  const packaging: PackagingDetails | undefined = Array.isArray(productData?.packagingDetails)
+    ? productData?.packagingDetails[0]
+    : productData?.packagingDetails;
+
+  const pricing         = productData?.pricingDetails?.[0];
+  const ncAttributes    = productData?.productAttributeNonConsumableMedicals?.[0]
+                          ?? productData?.nonConsumableAttributes
+                          ?? null;
+  const consumableAttrs = productData?.productAttributeConsumableMedicals?.[0] ?? null;
 
   const certDocs: CertificateDocument[] = [
     ...(ncAttributes?.certificateDocuments ?? []),
     ...(consumableAttrs?.certificateDocuments ?? []),
   ].filter((c) => c.certificateUrl && c.certificateUrl !== "PENDING");
 
-  const brochureUrl           = getBrochureUrl(productData);
-  const productImages         = resolveProductImages(productData);
-  const displayImages         = productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
-  const selectedImage         = displayImages[selectedImageIndex] ?? PLACEHOLDER_IMAGE;
-  const formattedProductName  = productData?.productName || "Product Name";
-  const productDescription    = ncAttributes?.purpose || consumableAttrs?.purpose || productData?.productDescription;
-  const totalPrice            = pricing?.finalPrice != null ? pricing.finalPrice * quantity : 0;
-  const additionalDiscounts   = pricing?.additionalDiscounts?.filter(
+  const brochureUrl          = getBrochureUrl(productData);
+  const productImages        = resolveProductImages(productData);
+  const displayImages        = productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
+  const selectedImage        = displayImages[selectedImageIndex] ?? PLACEHOLDER_IMAGE;
+  const formattedProductName = productData?.productName || "Product Name";
+  const productDescription   = ncAttributes?.purpose || consumableAttrs?.purpose || productData?.productDescription;
+  const totalPrice           = pricing?.finalPrice != null ? pricing.finalPrice * quantity : 0;
+  const additionalDiscounts  = pricing?.additionalDiscounts?.filter(
     (d) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage,
   ) ?? [];
-  const storageConditionName  =
-    ncAttributes?.storageConditionName || ncAttributes?.storageCondition ||
-    consumableAttrs?.storageConditionName || consumableAttrs?.storageCondition || null;
 
-  const formatDate = (dateStr?: string) => {
+  // storageConditionName — handle id-only case (consumable sends only storageConditionId)
+  const STORAGE_CONDITION_MAP: Record<number, string> = {
+    1: "Room Temperature",
+    2: "Refrigerated",
+    3: "Frozen",
+    4: "Cool & Dry",
+  };
+  const storageConditionName =
+    ncAttributes?.storageConditionName ||
+    ncAttributes?.storageCondition ||
+    consumableAttrs?.storageConditionName ||
+    consumableAttrs?.storageCondition ||
+    (ncAttributes?.storageConditionId != null
+      ? STORAGE_CONDITION_MAP[ncAttributes.storageConditionId] ?? `Condition ${ncAttributes.storageConditionId}`
+      : null) ||
+    (consumableAttrs?.storageConditionId != null
+      ? STORAGE_CONDITION_MAP[consumableAttrs.storageConditionId] ?? `Condition ${consumableAttrs.storageConditionId}`
+      : null) ||
+    null;
+
+  const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
     try {
-      return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+      return new Date(dateStr).toLocaleDateString("en-IN", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+      });
     } catch { return dateStr; }
   };
 
   const isImageUrl = (url: string) => /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
   const isPdfUrl   = (url: string) => /\.pdf(\?.*)?$/i.test(url);
 
-  /* ── Loading state ── */
+  /* ── Loading ── */
   if (loading) {
     return (
       <div style={{ width: "100%", background: C_WHITE, borderRadius: 10, padding: 24 }}>
@@ -260,6 +322,19 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
       </div>
     );
   }
+
+  /* ── Packaging grid rows ── */
+  const packagingRows: { label: string; value: string | number }[] = [
+    { label: "Packaging Unit",        value: packaging?.packType ?? packaging?.packTypeName ?? "—" },
+    { label: "Dosage Form",           value: productData?.dosageForm ?? ncAttributes?.deviceClassification ?? "—" },
+    { label: "No. of Units per Strip",value: packaging?.unitPerPack ?? packaging?.unitsPerPack ?? "—" },
+    { label: "No. of Strips per Pack",value: packaging?.numberOfPacks ?? "—" },
+    { label: "Strength per Unit",     value: productData?.strength ? `${productData.strength}mg` : "—" },
+    { label: "Storage Condition",     value: storageConditionName ?? "—" },
+    { label: "Batch / Lot Number",    value: pricing?.batchLotNumber || "—" },
+    { label: "Manufacturing Date",    value: formatDate(pricing?.manufacturingDate) },
+    { label: "Expiry Date",           value: formatDate(pricing?.expiryDate) },
+  ];
 
   /* ─────────────────── Render ─────────────────── */
   return (
@@ -310,7 +385,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                 onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
               />
 
-              {/* Prev / Next arrows */}
               {displayImages.length > 1 && (
                 <>
                   <button
@@ -342,7 +416,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                 </>
               )}
 
-              {/* Discount badge */}
               {pricing?.discountPercentage != null && pricing.discountPercentage > 0 && (
                 <span style={{
                   position: "absolute", left: 16, top: 20,
@@ -355,7 +428,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                 </span>
               )}
 
-              {/* Wish / Share icons */}
               <div style={{
                 position: "absolute", top: 16, right: 16,
                 display: "flex", gap: 8, zIndex: 10,
@@ -398,23 +470,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
               </div>
             )}
 
-            {/* Trust badges */}
-            {/* <div style={{ display: "flex", gap: 32, alignItems: "center" }}>
-              {[
-                { icon: <LuShield size={20} color="#00A63E" />, label: "Verified" },
-                { icon: <LuTruck size={20} color="#155DFC" />, label: "Fast Ship" },
-                { icon: <SlReload size={20} color="#9810FA" />, label: "Returns" },
-              ].map(({ icon, label }) => (
-                <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {icon}
-                  <span style={{
-                    color: C_PNEUTRAL_600, fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                    fontWeight: 400, lineHeight: "20px",
-                  }}>{label}</span>
-                </div>
-              ))}
-            </div> */}
-
             {/* Brochure accordion */}
             {brochureUrl && (
               <div style={{
@@ -437,7 +492,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                     fontWeight: 600, lineHeight: "22px",
                     display: "flex", alignItems: "center", gap: 8,
                   }}>
-                    {/* <FileText size={16} color={C_SECONDARY_700} /> */}
                     Product URL/User Manual
                   </span>
                   <ChevronDown
@@ -469,7 +523,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
 
             {/* Tags row */}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {/* Prescription badge */}
               <span style={{
                 padding: "4px 8px", background: C_PRIMARY_05, borderRadius: 8,
                 color: C_SECONDARY_700, fontSize: 16, fontFamily: FONT_OPEN_SANS,
@@ -478,7 +531,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                 Prescription Required
               </span>
 
-              {/* Cert badges / FDA fallback */}
               {certDocs.length > 0 ? (
                 certDocs.map((cert) => (
                   <button
@@ -497,15 +549,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                     {cert.certificationName || cert.label || `Certificate ${cert.certificationId}`}
                   </button>
                 ))
-              ) : ncAttributes?.deviceClassification ? (
-                <span style={{
-                  padding: "4px 8px", background: C_SUCCESS_50, borderRadius: 8,
-                  color: C_SUCCESS_800, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                  fontWeight: 400, lineHeight: "22px",
-                  display: "flex", alignItems: "center", gap: 8,
-                }}>
-                  <PiSealCheckLight /> FDA Approved
-                </span>
               ) : (
                 <span style={{
                   padding: "4px 8px", background: C_SUCCESS_50, borderRadius: 8,
@@ -543,25 +586,10 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
               }}>
                 {formattedProductName}
               </h1>
-
-              {/* Model / subtitle */}
-              {/* {(ncAttributes?.modelNumber || ncAttributes?.modelName) && (
-                <p style={{
-                  color: C_PNEUTRAL_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                  fontWeight: 400, lineHeight: "20px", margin: 0,
-                }}>
-                  {ncAttributes.modelName && `Model: ${ncAttributes.modelName}`}
-                  {ncAttributes.modelNumber && ` | No: ${ncAttributes.modelNumber}`}
-                  {ncAttributes.warrantyPeriod && ` | Warranty: ${ncAttributes.warrantyPeriod} months`}
-                </p>
-              )} */}
-
-              {/* MoA line */}
               <p style={{
                 color: C_PNEUTRAL_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
                 fontWeight: 400, lineHeight: "20px", margin: 0, paddingTop: 4,
               }}>
-                {/* Mechanism of Action placeholder, kept as-is from spec */}
                 {productDescription}
               </p>
             </div>
@@ -600,14 +628,11 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                 color: C_PNEUTRAL_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
                 fontWeight: 400, lineHeight: "20px", margin: 0,
               }}>
-                Price per pack 
-                {/* (
-                {packaging?.unitPerPack ?? packaging?.unitsPerPack ?? packaging?.numberOfUnits ?? "?"}{" "}
-                {productData?.dosageForm || "units"}) */}
+                Price per pack
               </p>
             </div>
 
-            {/* Packaging details */}
+            {/* ── Packaging details grid ── */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <p style={{
                 color: C_PNEUTRAL_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
@@ -616,33 +641,12 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                 Packaging Details
               </p>
               <div style={{
-                display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
                 gap: 12,
               }}>
-                {[
-                  { label: "Packaging Unit",       value: packaging?.packType ?? packaging?.packTypeName ?? "—" },
-                  { label: "Dosage Form",           value: productData?.dosageForm ?? ncAttributes?.deviceClassification ?? "—" },
-                  { label: "No. of Units per Strip",value: packaging?.unitPerPack ?? packaging?.unitsPerPack ?? "—" },
-                  { label: "No. of Strips per Pack",value: packaging?.numberOfPacks ?? "—" },
-                  { label: "Strength per Unit",     value: productData?.strength ? `${productData.strength}mg` : "—" },
-                  { label: "Storage Condition",     value: storageConditionName ?? "—" },
-                  { label: "Batch / Lot Number",    value: pricing?.batchLotNumber ?? "—" },
-                  { label: "Manufacturing Date",    value: formatDate(pricing?.manufacturingDate) },
-                  { label: "Expiry Date",           value: formatDate(pricing?.expiryDate) },
-                ].map(({ label, value }) => (
-                  <div key={label} style={{
-                    padding: 12, background: C_PNEUTRAL_50, borderRadius: 10,
-                    display: "flex", flexDirection: "column", gap: 4,
-                  }}>
-                    <p style={{
-                      color: "#6A7282", fontSize: 12, fontFamily: FONT_OPEN_SANS,
-                      fontWeight: 400, lineHeight: "18px", margin: 0,
-                    }}>{label}</p>
-                    <p style={{
-                      color: "#101828", fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                      fontWeight: 600, lineHeight: "20px", margin: 0,
-                    }}>{String(value)}</p>
-                  </div>
+                {packagingRows.map(({ label, value }) => (
+                  <PackagingCell key={label} label={label} value={value} />
                 ))}
               </div>
             </div>
@@ -723,7 +727,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                 Quantity (Packs)
               </p>
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                {/* Stepper */}
                 <div style={{
                   borderRadius: 10, outline: `1px ${C_PNEUTRAL_300} solid`, outlineOffset: -1,
                   display: "flex", alignItems: "center", overflow: "hidden",
@@ -735,7 +738,9 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                       borderRight: `1px ${C_PNEUTRAL_300} solid`, cursor: "pointer",
                     }}
                   >
-                    <svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 10h12" stroke={C_PNEUTRAL_800} strokeWidth="1.5" strokeLinecap="round" /></svg>
+                    <svg width="20" height="20" viewBox="0 0 20 20">
+                      <path d="M4 10h12" stroke={C_PNEUTRAL_800} strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
                   </button>
                   <div style={{
                     width: 80, paddingTop: 12, paddingBottom: 12,
@@ -779,7 +784,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
 
             {/* CTA buttons */}
             <div style={{ display: "flex", gap: 12 }}>
-              {/* Buy Now */}
               <button style={{
                 flex: 1, height: 56, minHeight: 56, minWidth: 130,
                 background: "#4B0082", borderRadius: 12, border: "none", cursor: "pointer",
@@ -790,7 +794,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                 <SlHandbag size={24} />
                 Buy Now
               </button>
-              {/* Add to Cart */}
               <button style={{
                 flex: 1, height: 56, minHeight: 56, minWidth: 130,
                 background: "transparent", borderRadius: 12, cursor: "pointer",
@@ -815,7 +818,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
         }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* Description */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <h2 style={{
                 color: "#101828", fontSize: 18, fontFamily: FONT_OPEN_SANS,
@@ -831,10 +833,8 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
               </p>
             </div>
 
-            {/* Spacer */}
             <div style={{ height: 24 }} />
 
-            {/* Warnings */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <h2 style={{
                 color: "#101828", fontSize: 18, fontFamily: FONT_OPEN_SANS,
@@ -862,7 +862,7 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
         </div>
       </div>
 
-      {/* ── Certificate modal (unchanged logic, styled) ── */}
+      {/* ── Certificate modal ── */}
       {showCertModal && activeCertDoc && (
         <div
           onClick={() => { setShowCertModal(false); setActiveCertDoc(null); }}
@@ -882,7 +882,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
               maxHeight: "90vh",
             }}
           >
-            {/* Modal header */}
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: "16px 24px", borderBottom: `1px ${C_BORDER} solid`,
@@ -933,7 +932,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
               </div>
             </div>
 
-            {/* Modal body */}
             <div style={{
               flex: 1, overflowY: "auto", background: C_PNEUTRAL_50,
               padding: 16, display: "flex", alignItems: "center", justifyContent: "center",
@@ -986,7 +984,6 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
               )}
             </div>
 
-            {/* Footer quick-switch */}
             {certDocs.length > 1 && (
               <div style={{
                 borderTop: `1px ${C_BORDER} solid`,
