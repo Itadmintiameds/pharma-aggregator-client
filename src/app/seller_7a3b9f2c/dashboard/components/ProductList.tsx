@@ -543,8 +543,8 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
       >
         
         {/* All Stocks dropdown (maps to stock filter) */}
-        {/* <Dropdown
-          label="All Stocks"
+        <Dropdown
+          label=""
           options={[
             { label: "All Stocks", value: "all" },
             { label: "In Stock", value: "instock" },
@@ -554,11 +554,11 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
           value={stockFilter}
           onChange={setStockFilter}
           iconPosition="right"
-        /> */}
+        />
 
         {/* All Categories dropdown */}
-        {/* <Dropdown
-          label="All Categories"
+        <Dropdown
+          label=""
           options={[
             { label: "All Categories", value: "all" },
             ...availableCategories.map((id) => ({
@@ -569,10 +569,10 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
           value={categoryFilter}
           onChange={setCategoryFilter}
           iconPosition="right"
-        /> */}
+        />
 
         {/* Add New Product button */}
-        {/* <button
+        <button
           style={{
             height: 48,
             minHeight: 48,
@@ -598,7 +598,7 @@ const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps)
             <path d="M10 4.167v11.666M4.167 10h11.666" stroke="#F9F9F8" strokeWidth="1.667" strokeLinecap="round" />
           </svg>
           Add New Product
-        </button> */}
+        </button>
       </div>
 
       {/* Search + Filter + Sort row */}

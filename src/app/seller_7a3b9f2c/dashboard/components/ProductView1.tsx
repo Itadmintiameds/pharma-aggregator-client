@@ -399,7 +399,7 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
             )}
 
             {/* Trust badges */}
-            <div style={{ display: "flex", gap: 32, alignItems: "center" }}>
+            {/* <div style={{ display: "flex", gap: 32, alignItems: "center" }}>
               {[
                 { icon: <LuShield size={20} color="#00A63E" />, label: "Verified" },
                 { icon: <LuTruck size={20} color="#155DFC" />, label: "Fast Ship" },
@@ -413,7 +413,7 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                   }}>{label}</span>
                 </div>
               ))}
-            </div>
+            </div> */}
 
             {/* Brochure accordion */}
             {brochureUrl && (
@@ -437,7 +437,7 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                     fontWeight: 600, lineHeight: "22px",
                     display: "flex", alignItems: "center", gap: 8,
                   }}>
-                    <FileText size={16} color={C_SECONDARY_700} />
+                    {/* <FileText size={16} color={C_SECONDARY_700} /> */}
                     Product URL/User Manual
                   </span>
                   <ChevronDown
@@ -600,9 +600,10 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                 color: C_PNEUTRAL_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
                 fontWeight: 400, lineHeight: "20px", margin: 0,
               }}>
-                Price per pack (
+                Price per pack 
+                {/* (
                 {packaging?.unitPerPack ?? packaging?.unitsPerPack ?? packaging?.numberOfUnits ?? "?"}{" "}
-                {productData?.dosageForm || "units"})
+                {productData?.dosageForm || "units"}) */}
               </p>
             </div>
 

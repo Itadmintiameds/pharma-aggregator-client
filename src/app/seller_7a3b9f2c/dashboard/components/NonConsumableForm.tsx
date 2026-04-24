@@ -869,7 +869,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         productMarketingUrl: form.productMarketingUrl || "",
         manufacturerName: form.manufacturerName,
         categoryId: productCategoryId,
-        packagingDetails: {
+        packagingDetails: [{
           ...(packagingId ? { packagingId } : {}),
           packId: Number(form.packType),
           unitPerPack: Number(form.unitPerPack) || 0,
@@ -877,7 +877,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           packSize: Number(form.packSize) || 0,
           minimumOrderQuantity: Number(form.minimumOrderQuantity) || 0,
           maximumOrderQuantity: Number(form.maximumOrderQuantity) || 0,
-        },
+        }],
         pricingDetails: [{
           ...(pricingId ? { pricingId } : {}),
           manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
