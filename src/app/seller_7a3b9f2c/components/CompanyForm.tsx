@@ -317,6 +317,7 @@ export default function CompanyForm({
                 name="sellerName"
                 value={formData.sellerName}
                 onChange={(e) => onAlphabetInput(e, "sellerName")}
+                maxLength={60}
                 placeholder="Enter Your Name/Company Name"
                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none focus:ring-0 text-label-l2"
               />
