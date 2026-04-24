@@ -31,10 +31,10 @@ interface Props {
 
 // Country codes data with validation rules
 const countryCodes = [
-  { 
-    code: "+91", 
-    country: "India", 
-    flag: "🇮🇳", 
+  {
+    code: "+91",
+    country: "India",
+    flag: "🇮🇳",
     validate: (value: string) => {
       if (value.length !== 10) return "Mobile number must be exactly 10 digits";
       if (!/^[6-9]/.test(value)) return "Indian mobile number must start with 6, 7, 8, or 9";
@@ -95,17 +95,17 @@ export default function CoordinatorForm({
   // Handle phone change with numeric only and validation
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
-    
+
     // For Indian numbers, restrict to 10 digits and validate starting digit
     if (selectedCountryCode === "+91") {
       // Only allow digits
       value = value.replace(/\D/g, '');
-      
+
       // Don't allow if first digit is not 6-9 when typing first character
       if (value.length === 1 && !/^[6-9]$/.test(value)) {
         return;
       }
-      
+
       // Limit to 10 digits
       if (value.length <= 10) {
         // Validate the complete number
@@ -114,7 +114,7 @@ export default function CoordinatorForm({
           const error = selectedCountry.validate(value);
           setPhoneError(error || "");
         }
-        
+
         onPhoneChange(value);
       }
     } else {
@@ -146,7 +146,7 @@ export default function CoordinatorForm({
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
     let cleanedText = pastedText.replace(/\D/g, '');
-    
+
     if (selectedCountryCode === "+91") {
       // For India, ensure first digit is 6-9 and length is 10
       if (cleanedText.length > 0) {
@@ -160,7 +160,7 @@ export default function CoordinatorForm({
     } else {
       cleanedText = cleanedText.substring(0, 15);
     }
-    
+
     onPhoneChange(cleanedText);
   };
 
@@ -206,7 +206,7 @@ export default function CoordinatorForm({
 
       toast.error(
         error?.response?.data?.message ||
-          "Failed to send email OTP"
+        "Failed to send email OTP"
       );
     }
   };
@@ -253,7 +253,7 @@ export default function CoordinatorForm({
 
       toast.error(
         error?.response?.data?.message ||
-          "Failed to send phone OTP"
+        "Failed to send phone OTP"
       );
     }
   };
@@ -282,7 +282,7 @@ export default function CoordinatorForm({
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message ||
-          "Failed to resend OTP"
+        "Failed to resend OTP"
       );
     }
   };
@@ -299,7 +299,7 @@ export default function CoordinatorForm({
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message ||
-          "Failed to resend OTP"
+        "Failed to resend OTP"
       );
     }
   };
@@ -380,7 +380,7 @@ export default function CoordinatorForm({
             <div className="relative">
               <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
 
-              <input
+              {/* <input
                 type="text"
                 value={formData.coordinatorName}
                 onChange={(e) =>
@@ -388,12 +388,44 @@ export default function CoordinatorForm({
                 }
                 placeholder="Enter coordinator name"
                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
+              /> */}
+              <input
+                type="text"
+                value={formData.coordinatorName}
+                onChange={(e) => {
+                  let value = e.target.value;
+
+                  // If empty, allow
+                  if (value === "") {
+                    onAlphabetInput(e, "coordinatorName");
+                    return;
+                  }
+
+                  // Check first character - must be a letter (A-Z or a-z)
+                  if (value.length === 1 && !/^[A-Za-z]$/.test(value)) {
+                    return; // Block if first char is not a letter
+                  }
+
+                  // Allow only: letters, numbers, and spaces
+                  const allowedCharsRegex = /^[A-Za-z0-9\s]*$/;
+                  if (!allowedCharsRegex.test(value)) {
+                    return; // Block invalid characters
+                  }
+
+                  // Limit to 100 characters
+                  if (value.length <= 100) {
+                    onAlphabetInput(e, "coordinatorName");
+                  }
+                }}
+                placeholder="Enter coordinator name"
+                maxLength={100}
+                className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
               />
             </div>
           </div>
 
           {/* Designation */}
-          <div className="flex flex-col gap-1">
+          {/* <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
               Coordinator Designation
               <span className="text-warning-500 ml-1">*</span>
@@ -412,6 +444,49 @@ export default function CoordinatorForm({
                   )
                 }
                 placeholder="Enter designation"
+                className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
+              />
+            </div>
+          </div> */}
+          <div className="flex flex-col gap-1">
+            <label className="text-label-l3 text-neutral-700 font-semibold">
+              Coordinator Designation
+              <span className="text-warning-500 ml-1">*</span>
+            </label>
+
+            <div className="relative">
+              <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+
+              <input
+                type="text"
+                value={formData.coordinatorDesignation}
+                onChange={(e) => {
+                  let value = e.target.value;
+
+                  // If empty, allow
+                  if (value === "") {
+                    onAlphabetInput(e, "coordinatorDesignation");
+                    return;
+                  }
+
+                  // Check first character - must be a letter (A-Z or a-z)
+                  if (value.length === 1 && !/^[A-Za-z]$/.test(value)) {
+                    return; // Block if first char is not a letter
+                  }
+
+                  // Allow only: letters, numbers, and spaces
+                  const allowedCharsRegex = /^[A-Za-z0-9\s]*$/;
+                  if (!allowedCharsRegex.test(value)) {
+                    return; // Block invalid characters
+                  }
+
+                  // Limit to 100 characters
+                  if (value.length <= 100) {
+                    onAlphabetInput(e, "coordinatorDesignation");
+                  }
+                }}
+                placeholder="Enter designation"
+                maxLength={100}
                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
               />
             </div>
@@ -436,11 +511,11 @@ export default function CoordinatorForm({
                     <span className="text-sm font-medium">{selectedCountryCode}</span>
                     <ChevronDown className="w-4 h-4 text-gray-500" />
                   </button>
-                  
+
                   {/* Dropdown Menu */}
                   {isPhoneDropdownOpen && (
                     <>
-                      <div 
+                      <div
                         className="fixed inset-0 z-10"
                         onClick={() => setIsPhoneDropdownOpen(false)}
                       />
@@ -466,7 +541,7 @@ export default function CoordinatorForm({
                     </>
                   )}
                 </div>
-                
+
                 {/* Phone Number Input */}
                 <div className="relative flex-1">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
@@ -478,18 +553,16 @@ export default function CoordinatorForm({
                     onPaste={handlePhonePaste}
                     placeholder={getPlaceholder()}
                     maxLength={getMaxLength()}
-                    className={`w-full h-12 pl-10 pr-4 rounded-r-2xl border focus:outline-none ${
-                      phoneError ? 'border-red-500' : 'border-neutral-500'
-                    }`}
+                    className={`w-full h-12 pl-10 pr-4 rounded-r-2xl border focus:outline-none ${phoneError ? 'border-red-500' : 'border-neutral-500'
+                      }`}
                   />
                 </div>
 
                 <button
                   onClick={handleSendPhoneOTP}
                   disabled={!!phoneError || !formData.coordinatorMobile}
-                  className={`h-12 px-4 rounded-lg text-white font-semibold ml-2 ${
-                    phoneError || !formData.coordinatorMobile ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#9F75FC]'
-                  }`}
+                  className={`h-12 px-4 rounded-lg text-white font-semibold ml-2 ${phoneError || !formData.coordinatorMobile ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#9F75FC]'
+                    }`}
                 >
                   {phoneVerified ? "OTP Verified" : "Send OTP"}
                 </button>
@@ -533,9 +606,8 @@ export default function CoordinatorForm({
               <button
                 onClick={handleSendEmailOTP}
                 disabled={!formData.coordinatorEmail}
-                className={`h-12 px-4 rounded-lg text-white font-semibold ${
-                  !formData.coordinatorEmail ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#9F75FC]'
-                }`}
+                className={`h-12 px-4 rounded-lg text-white font-semibold ${!formData.coordinatorEmail ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#9F75FC]'
+                  }`}
               >
                 {emailVerified ? "OTP Verified" : "Send OTP"}
               </button>
@@ -621,7 +693,7 @@ export default function CoordinatorForm({
 
 // old code without send otp button ..............
 
-// "use client"; 
+// "use client";
 
 // import React, { useState } from "react";
 // import { Briefcase, Phone, Mail } from "lucide-react";
