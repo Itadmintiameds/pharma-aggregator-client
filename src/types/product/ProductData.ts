@@ -3,7 +3,7 @@ export interface CreateDrugProductRequest {
   productDescription: string;
   warningsPrecautions: string;
   categoryId: number;
-  packagingDetails: PackagingData;
+  packagingDetails: PackagingData[];
   pricingDetails: PricingData[];
   productAttributeDrugs?: ProductAttributeDrugData[];
   productAttributeConsumableMedicals?: ProductAttributeConsumableData[];

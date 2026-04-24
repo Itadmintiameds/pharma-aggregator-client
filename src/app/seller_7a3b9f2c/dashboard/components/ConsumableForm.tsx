@@ -880,7 +880,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         productMarketingUrl: form.brochureUrl || "",
         manufacturerName: form.manufacturerName,
         categoryId: productCategoryId,
-        packagingDetails: {
+        packagingDetails: [ {
           ...(packagingId ? { packagingId } : {}),
           packId: Number(form.packType),
           unitPerPack: Number(form.unitsPerPack),
@@ -889,6 +889,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           minimumOrderQuantity: Number(form.minimumOrderQuantity),
           maximumOrderQuantity: Number(form.maximumOrderQuantity),
         },
+      ],
         pricingDetails: [{
           ...(pricingId ? { pricingId } : {}),
           batchLotNumber: form.batchLotNumber,
