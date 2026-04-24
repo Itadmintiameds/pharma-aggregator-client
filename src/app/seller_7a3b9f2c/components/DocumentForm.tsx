@@ -361,10 +361,11 @@ export default function DocumentForm({
     setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
   };
 
-  // Function to restrict input to letters, spaces, dots, commas, apostrophes, and hyphens
+  // Function to restrict input to alphanumeric characters and spaces only
   const handleIssuingAuthorityInput = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
     let value = e.target.value;
-    const filteredValue = value.replace(/[^a-zA-Z\s.,'-]/g, '');
+    // Allow only alphanumeric characters (letters A-Z a-z and numbers 0-9) and spaces
+    const filteredValue = value.replace(/[^a-zA-Z0-9\s]/g, '');
     
     if (filteredValue !== value) {
       const syntheticEvent = {

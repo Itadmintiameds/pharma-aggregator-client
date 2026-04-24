@@ -41,9 +41,9 @@ export const licenseSchema = z.object({
     .string()
     .min(1, "Issuing authority is required")
     .regex(
-      /^[a-zA-Z\s.,'-]+$/,
-      "Issuing authority should only contain letters, spaces, dots, commas, apostrophes, and hyphens"
-    ),
+  /^[a-zA-Z0-9\s]+$/,
+  "Issuing authority should only contain alphanumeric characters and spaces"
+),
   // issuingAuthority: z.string().min(1, "Issuing authority is required"),
   status: z.string(), // Auto-calculated, not validated
 }).refine(

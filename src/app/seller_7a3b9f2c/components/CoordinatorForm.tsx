@@ -49,6 +49,14 @@ const countryCodes = [
   { code: "+20", country: "Egypt", flag: "🇪🇬", validate: (value: string) => null },
 ];
 
+// Email validation function
+const validateEmail = (email: string) => {
+  if (!email) return "Email is required";
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return "Please enter a valid email address";
+  return null;
+};
+
 export default function CoordinatorForm({
   formData,
   isCheckingEmail,
@@ -68,13 +76,16 @@ export default function CoordinatorForm({
   const router = useRouter();
 
   const [showModal, setShowModal] = useState(false);
-  const [verificationType, setVerificationType] = useState<"email" | "phone">(
-    "email"
-  );
+  const [verificationType, setVerificationType] = useState<"email" | "phone">("email");
+
+  // Local state for name & designation to bypass parent's onAlphabetInput which strips numbers
+  const [coordinatorNameLocal, setCoordinatorNameLocal] = useState<string>(formData.coordinatorName || "");
+  const [coordinatorDesignationLocal, setCoordinatorDesignationLocal] = useState<string>(formData.coordinatorDesignation || "");
 
   const [selectedCountryCode, setSelectedCountryCode] = useState("+91");
   const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
   const [phoneError, setPhoneError] = useState("");
+  const [emailError, setEmailError] = useState("");
   const phoneDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -88,37 +99,128 @@ export default function CoordinatorForm({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // ---- Coordinator Name handler ----
+  // First character MUST be a letter (A-Z, a-z), after that letters/numbers/spaces allowed
+  const handleCoordinatorNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+
+    // If empty, allow clear
+    if (value === "") {
+      setCoordinatorNameLocal("");
+      onAlphabetInput(e, "coordinatorName");
+      return;
+    }
+
+    // First character must be a letter
+    if (!/^[A-Za-z]/.test(value)) {
+      return;
+    }
+
+    // Allow only: letters, numbers, and spaces after first character
+    const allowedCharsRegex = /^[A-Za-z][A-Za-z0-9\s]*$/;
+    if (!allowedCharsRegex.test(value)) {
+      return;
+    }
+
+    // Limit to 100 characters
+    if (value.length > 100) return;
+
+    // Save directly in local state — bypasses the parent stripping numbers
+    setCoordinatorNameLocal(value);
+
+    // Push to parent so formData stays in sync
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value"
+    )?.set;
+    if (nativeInputValueSetter) {
+      nativeInputValueSetter.call(e.target, value);
+      e.target.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    Object.defineProperty(e, "target", {
+      writable: false,
+      value: { ...e.target, value },
+    });
+    onAlphabetInput(e, "coordinatorName");
+  };
+
+  // ---- Coordinator Designation handler ----
+  // First character MUST be a letter (A-Z, a-z), after that letters/numbers/spaces allowed
+  const handleCoordinatorDesignationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+
+    // If empty, allow clear
+    if (value === "") {
+      setCoordinatorDesignationLocal("");
+      onAlphabetInput(e, "coordinatorDesignation");
+      return;
+    }
+
+    // First character must be a letter
+    if (!/^[A-Za-z]/.test(value)) {
+      return;
+    }
+
+    // Allow only: letters, numbers, and spaces after first character
+    const allowedCharsRegex = /^[A-Za-z][A-Za-z0-9\s]*$/;
+    if (!allowedCharsRegex.test(value)) {
+      return;
+    }
+
+    // Limit to 100 characters
+    if (value.length > 100) return;
+
+    // Save directly in local state — bypasses the parent stripping numbers
+    setCoordinatorDesignationLocal(value);
+
+    // Push to parent so formData stays in sync
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value"
+    )?.set;
+    if (nativeInputValueSetter) {
+      nativeInputValueSetter.call(e.target, value);
+      e.target.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    Object.defineProperty(e, "target", {
+      writable: false,
+      value: { ...e.target, value },
+    });
+    onAlphabetInput(e, "coordinatorDesignation");
+  };
+
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onEmailChange(e.target.value);
+    const value = e.target.value;
+    onEmailChange(value);
+
+    if (value) {
+      const error = validateEmail(value);
+      setEmailError(error || "");
+    } else {
+      setEmailError("");
+    }
   };
 
   // Handle phone change with numeric only and validation
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
 
-    // For Indian numbers, restrict to 10 digits and validate starting digit
     if (selectedCountryCode === "+91") {
-      // Only allow digits
       value = value.replace(/\D/g, '');
 
-      // Don't allow if first digit is not 6-9 when typing first character
       if (value.length === 1 && !/^[6-9]$/.test(value)) {
         return;
       }
 
-      // Limit to 10 digits
       if (value.length <= 10) {
-        // Validate the complete number
         const selectedCountry = countryCodes.find(c => c.code === selectedCountryCode);
         if (selectedCountry && selectedCountry.validate) {
           const error = selectedCountry.validate(value);
           setPhoneError(error || "");
         }
-
         onPhoneChange(value);
       }
     } else {
-      // For other countries, only allow digits and limit to 15
       value = value.replace(/\D/g, '');
       if (value.length <= 15) {
         setPhoneError("");
@@ -127,11 +229,9 @@ export default function CoordinatorForm({
     }
   };
 
-  // Handle key down to prevent invalid first digit for India
   const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (selectedCountryCode === "+91") {
       const currentValue = formData.coordinatorMobile || "";
-      // If no digits entered yet, prevent digits 0-5
       if (currentValue.length === 0) {
         const key = e.key;
         if (/^[0-5]$/.test(key)) {
@@ -141,17 +241,14 @@ export default function CoordinatorForm({
     }
   };
 
-  // Handle paste to clean invalid numbers
   const handlePhonePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
     let cleanedText = pastedText.replace(/\D/g, '');
 
     if (selectedCountryCode === "+91") {
-      // For India, ensure first digit is 6-9 and length is 10
       if (cleanedText.length > 0) {
         if (!/^[6-9]/.test(cleanedText)) {
-          // If pasted number starts with invalid digit, clear it
           cleanedText = '';
         } else {
           cleanedText = cleanedText.substring(0, 10);
@@ -164,13 +261,11 @@ export default function CoordinatorForm({
     onPhoneChange(cleanedText);
   };
 
-  // Get max length based on selected country
   const getMaxLength = () => {
     if (selectedCountryCode === "+91") return 10;
     return 15;
   };
 
-  // Get placeholder based on selected country
   const getPlaceholder = () => {
     if (selectedCountryCode === "+91") return "Enter 10-digit mobile number (starts with 6,7,8,9)";
     return "Enter mobile number";
@@ -180,6 +275,12 @@ export default function CoordinatorForm({
   const handleSendEmailOTP = async () => {
     if (!formData.coordinatorEmail) {
       toast.error("Please enter email address");
+      return;
+    }
+
+    const emailValidationError = validateEmail(formData.coordinatorEmail);
+    if (emailValidationError) {
+      toast.error(emailValidationError);
       return;
     }
 
@@ -194,31 +295,28 @@ export default function CoordinatorForm({
     }
 
     try {
-      await sellerRegService.sendEmailOtp({
-        email: formData.coordinatorEmail,
-      });
-
+      await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
       setVerificationType("email");
       setShowModal(true);
       toast.success("Email OTP sent successfully");
     } catch (error: any) {
       console.error(error);
-
-      toast.error(
-        error?.response?.data?.message ||
-        "Failed to send email OTP"
-      );
+      toast.error(error?.response?.data?.message || "Failed to send email OTP");
     }
   };
 
   // ---------------- PHONE OTP ----------------
   const handleSendPhoneOTP = async () => {
+    if (phoneVerified) {
+      toast.info("Phone number is already verified");
+      return;
+    }
+
     if (!formData.coordinatorMobile) {
       toast.error("Please enter mobile number");
       return;
     }
 
-    // Validate based on selected country
     const selectedCountry = countryCodes.find(c => c.code === selectedCountryCode);
     if (selectedCountry && selectedCountry.validate) {
       const error = selectedCountry.validate(formData.coordinatorMobile);
@@ -240,21 +338,13 @@ export default function CoordinatorForm({
 
     try {
       const fullPhone = `${selectedCountryCode}${formData.coordinatorMobile}`;
-
-      await sellerRegService.sendSMSOtp({
-        phone: fullPhone,
-      });
-
+      await sellerRegService.sendSMSOtp({ phone: fullPhone });
       setVerificationType("phone");
       setShowModal(true);
       toast.success("Phone OTP sent successfully");
     } catch (error: any) {
       console.error(error);
-
-      toast.error(
-        error?.response?.data?.message ||
-        "Failed to send phone OTP"
-      );
+      toast.error(error?.response?.data?.message || "Failed to send phone OTP");
     }
   };
 
@@ -274,44 +364,31 @@ export default function CoordinatorForm({
   // ---------------- RESEND ----------------
   const handleResendEmail = async () => {
     try {
-      await sellerRegService.sendEmailOtp({
-        email: formData.coordinatorEmail,
-      });
-
+      await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
       toast.success("OTP resent successfully");
     } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-        "Failed to resend OTP"
-      );
+      toast.error(error?.response?.data?.message || "Failed to resend OTP");
     }
   };
 
   const handleResendPhone = async () => {
     try {
       const fullPhone = `${selectedCountryCode}${formData.coordinatorMobile}`;
-
-      await sellerRegService.sendSMSOtp({
-        phone: fullPhone,
-      });
-
+      await sellerRegService.sendSMSOtp({ phone: fullPhone });
       toast.success("OTP resent successfully");
     } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-        "Failed to resend OTP"
-      );
+      toast.error(error?.response?.data?.message || "Failed to resend OTP");
     }
   };
 
   // ---------------- CONTINUE ----------------
   const handleContinue = () => {
-    if (!formData.coordinatorName?.trim()) {
+    if (!coordinatorNameLocal?.trim()) {
       toast.error("Coordinator name is required");
       return;
     }
 
-    if (!formData.coordinatorDesignation?.trim()) {
+    if (!coordinatorDesignationLocal?.trim()) {
       toast.error("Coordinator designation is required");
       return;
     }
@@ -321,12 +398,17 @@ export default function CoordinatorForm({
       return;
     }
 
+    const emailValidationError = validateEmail(formData.coordinatorEmail);
+    if (emailValidationError) {
+      toast.error(emailValidationError);
+      return;
+    }
+
     if (!formData.coordinatorMobile) {
       toast.error("Coordinator mobile number is required");
       return;
     }
 
-    // Validate based on selected country
     const selectedCountry = countryCodes.find(c => c.code === selectedCountryCode);
     if (selectedCountry && selectedCountry.validate) {
       const error = selectedCountry.validate(formData.coordinatorMobile);
@@ -361,7 +443,6 @@ export default function CoordinatorForm({
         <div className="text-h2 font-semibold">
           Coordinator contact details
         </div>
-
         <div className="text-label-l3 text-neutral-600 mt-1">
           Coordinator details for communication and verification
         </div>
@@ -370,7 +451,8 @@ export default function CoordinatorForm({
       {/* Form */}
       <div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-          {/* Name */}
+
+          {/* Name — must start with letter, numbers allowed after */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
               Coordinator Name
@@ -379,44 +461,10 @@ export default function CoordinatorForm({
 
             <div className="relative">
               <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-
-              {/* <input
-                type="text"
-                value={formData.coordinatorName}
-                onChange={(e) =>
-                  onAlphabetInput(e, "coordinatorName")
-                }
-                placeholder="Enter coordinator name"
-                className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
-              /> */}
               <input
                 type="text"
-                value={formData.coordinatorName}
-                onChange={(e) => {
-                  let value = e.target.value;
-
-                  // If empty, allow
-                  if (value === "") {
-                    onAlphabetInput(e, "coordinatorName");
-                    return;
-                  }
-
-                  // Check first character - must be a letter (A-Z or a-z)
-                  if (value.length === 1 && !/^[A-Za-z]$/.test(value)) {
-                    return; // Block if first char is not a letter
-                  }
-
-                  // Allow only: letters, numbers, and spaces
-                  const allowedCharsRegex = /^[A-Za-z0-9\s]*$/;
-                  if (!allowedCharsRegex.test(value)) {
-                    return; // Block invalid characters
-                  }
-
-                  // Limit to 100 characters
-                  if (value.length <= 100) {
-                    onAlphabetInput(e, "coordinatorName");
-                  }
-                }}
+                value={coordinatorNameLocal}
+                onChange={handleCoordinatorNameChange}
                 placeholder="Enter coordinator name"
                 maxLength={100}
                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
@@ -424,30 +472,7 @@ export default function CoordinatorForm({
             </div>
           </div>
 
-          {/* Designation */}
-          {/* <div className="flex flex-col gap-1">
-            <label className="text-label-l3 text-neutral-700 font-semibold">
-              Coordinator Designation
-              <span className="text-warning-500 ml-1">*</span>
-            </label>
-
-            <div className="relative">
-              <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-
-              <input
-                type="text"
-                value={formData.coordinatorDesignation}
-                onChange={(e) =>
-                  onAlphabetInput(
-                    e,
-                    "coordinatorDesignation"
-                  )
-                }
-                placeholder="Enter designation"
-                className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
-              />
-            </div>
-          </div> */}
+          {/* Designation — must start with letter, numbers allowed after */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
               Coordinator Designation
@@ -456,35 +481,10 @@ export default function CoordinatorForm({
 
             <div className="relative">
               <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-
               <input
                 type="text"
-                value={formData.coordinatorDesignation}
-                onChange={(e) => {
-                  let value = e.target.value;
-
-                  // If empty, allow
-                  if (value === "") {
-                    onAlphabetInput(e, "coordinatorDesignation");
-                    return;
-                  }
-
-                  // Check first character - must be a letter (A-Z or a-z)
-                  if (value.length === 1 && !/^[A-Za-z]$/.test(value)) {
-                    return; // Block if first char is not a letter
-                  }
-
-                  // Allow only: letters, numbers, and spaces
-                  const allowedCharsRegex = /^[A-Za-z0-9\s]*$/;
-                  if (!allowedCharsRegex.test(value)) {
-                    return; // Block invalid characters
-                  }
-
-                  // Limit to 100 characters
-                  if (value.length <= 100) {
-                    onAlphabetInput(e, "coordinatorDesignation");
-                  }
-                }}
+                value={coordinatorDesignationLocal}
+                onChange={handleCoordinatorDesignationChange}
                 placeholder="Enter designation"
                 maxLength={100}
                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
@@ -512,7 +512,6 @@ export default function CoordinatorForm({
                     <ChevronDown className="w-4 h-4 text-gray-500" />
                   </button>
 
-                  {/* Dropdown Menu */}
                   {isPhoneDropdownOpen && (
                     <>
                       <div
@@ -526,7 +525,6 @@ export default function CoordinatorForm({
                             onClick={() => {
                               setSelectedCountryCode(country.code);
                               setPhoneError("");
-                              // Clear the phone value when changing country
                               onPhoneChange("");
                               setIsPhoneDropdownOpen(false);
                             }}
@@ -553,18 +551,25 @@ export default function CoordinatorForm({
                     onPaste={handlePhonePaste}
                     placeholder={getPlaceholder()}
                     maxLength={getMaxLength()}
-                    className={`w-full h-12 pl-10 pr-4 rounded-r-2xl border focus:outline-none ${phoneError ? 'border-red-500' : 'border-neutral-500'
-                      }`}
+                    disabled={phoneVerified}
+                    className={`w-full h-12 pl-10 pr-4 rounded-r-2xl border focus:outline-none ${
+                      phoneError ? 'border-red-500' : 'border-neutral-500'
+                    }`}
                   />
                 </div>
 
                 <button
                   onClick={handleSendPhoneOTP}
-                  disabled={!!phoneError || !formData.coordinatorMobile}
-                  className={`h-12 px-4 rounded-lg text-white font-semibold ml-2 ${phoneError || !formData.coordinatorMobile ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#9F75FC]'
-                    }`}
+                  disabled={!!phoneError || !formData.coordinatorMobile || phoneVerified}
+                  className={`h-12 px-4 rounded-lg text-white font-semibold ml-2 transition-colors ${
+                    phoneVerified
+                      ? 'bg-[#9F75FC] cursor-not-allowed'
+                      : phoneError || !formData.coordinatorMobile
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-[#9F75FC] hover:bg-[#8B5CF6]'
+                  }`}
                 >
-                  {phoneVerified ? "OTP Verified" : "Send OTP"}
+                  {phoneVerified ? "✓ Verified" : "Send OTP"}
                 </button>
               </div>
             </div>
@@ -593,27 +598,40 @@ export default function CoordinatorForm({
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-
                 <input
                   type="email"
                   value={formData.coordinatorEmail}
                   onChange={handleEmailChange}
                   placeholder="Enter email"
-                  className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
+                  disabled={emailVerified}
+                  className={`w-full h-12 pl-10 pr-4 rounded-2xl border focus:outline-none ${
+                    emailError ? 'border-red-500' : 'border-neutral-500'
+                  }`}
                 />
               </div>
 
               <button
                 onClick={handleSendEmailOTP}
-                disabled={!formData.coordinatorEmail}
-                className={`h-12 px-4 rounded-lg text-white font-semibold ${!formData.coordinatorEmail ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#9F75FC]'
-                  }`}
+                disabled={!formData.coordinatorEmail || !!emailError || emailVerified}
+                className={`h-12 px-4 rounded-lg text-white font-semibold transition-colors ${
+                  emailVerified
+                    ? 'bg-[#9F75FC] cursor-not-allowed'
+                    : !formData.coordinatorEmail || !!emailError
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-[#9F75FC] hover:bg-[#8B5CF6]'
+                }`}
               >
-                {emailVerified ? "OTP Verified" : "Send OTP"}
+                {emailVerified ? "✓ Verified" : "Send OTP"}
               </button>
             </div>
 
-            {emailExistsError && (
+            {emailError && (
+              <p className="text-xs text-red-500 mt-1">
+                {emailError}
+              </p>
+            )}
+
+            {emailExistsError && !emailError && (
               <p className="text-xs text-red-500 mt-1">
                 {emailExistsError}
               </p>
@@ -626,7 +644,7 @@ export default function CoordinatorForm({
       <div className="flex justify-between mt-10">
         <button
           onClick={() => router.push("/")}
-          className="h-12 px-6 border-2 border-warning-500 text-warning-500 rounded-xl font-semibold"
+          className="h-12 px-6 border-2 border-warning-500 text-warning-500 rounded-xl font-semibold hover:bg-warning-50 transition-colors"
         >
           Cancel
         </button>
@@ -634,7 +652,7 @@ export default function CoordinatorForm({
         <div className="flex gap-4">
           <button
             onClick={prevStep}
-            className="h-12 px-6 border-2 border-neutral-500 text-neutral-500 rounded-xl flex items-center gap-2"
+            className="h-12 px-6 border-2 border-neutral-500 text-neutral-500 rounded-xl flex items-center gap-2 hover:bg-neutral-50 transition-colors"
           >
             <Image
               src="/icons/backbuttonicon.png"
@@ -647,7 +665,7 @@ export default function CoordinatorForm({
 
           <button
             onClick={handleContinue}
-            className="h-12 px-6 border-2 border-primary-900 text-primary-900 rounded-xl flex items-center gap-2"
+            className="h-12 px-6 border-2 border-primary-900 text-primary-900 rounded-xl flex items-center gap-2 hover:bg-primary-50 transition-colors"
           >
             Continue
             <Image
@@ -684,367 +702,3 @@ export default function CoordinatorForm({
     </div>
   );
 }
-
-
-
-
-
-
-
-// old code without send otp button ..............
-
-// "use client";
-
-// import React, { useState } from "react";
-// import { Briefcase, Phone, Mail } from "lucide-react";
-// import VerificationModal from "./OtpModalSixBox";
-// import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
-// import Image from "next/image";
-// import { useRouter } from "next/navigation";
-// import { toast } from "react-toastify";
-// import { HiOutlineUserGroup } from "react-icons/hi2";
-
-// interface Props {
-//   formData: any;
-//   isCheckingEmail: boolean;
-//   isCheckingPhone: boolean;
-//   emailExistsError: string;
-//   phoneExistsError: string;
-//   emailVerified: boolean;
-//   phoneVerified: boolean;
-//   onEmailChange: (email: string) => void;
-//   onPhoneChange: (phone: string) => void;
-//   onAlphabetInput: (e: React.ChangeEvent<HTMLInputElement>, field: string) => void;
-//   prevStep: () => void;
-//   onOTPSuccess: () => void;
-// }
-
-// export default function CoordinatorForm({
-//   formData,
-//   isCheckingEmail,
-//   isCheckingPhone,
-//   emailExistsError,
-//   phoneExistsError,
-//   emailVerified,
-//   phoneVerified,
-//   onEmailChange,
-//   onPhoneChange,
-//   onAlphabetInput,
-//   prevStep,
-//   onOTPSuccess,
-// }: Props) {
-
-//   const router = useRouter();
-
-//   const [showModal, setShowModal] = useState(false)
-//   const [verificationType, setVerificationType] = useState<"email" | "phone">("email")
-//   const [isTransitioning, setIsTransitioning] = useState(false);
-
-//   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     onEmailChange(e.target.value);
-//   };
-
-//   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     onPhoneChange(e.target.value);
-//   };
-
-//   const handleContinue = async () => {
-//     // Check if both email and phone are already verified
-//     if (emailVerified && phoneVerified) {
-//       // If already verified, just proceed to next step
-//       onOTPSuccess();
-//       return;
-//     }
-
-//     // Check mandatory fields with toast errors
-//     if (!formData.coordinatorName?.trim()) {
-//       toast.error("Coordinator name is required");
-//       return;
-//     }
-
-//     if (!formData.coordinatorDesignation?.trim()) {
-//       toast.error("Coordinator designation is required");
-//       return;
-//     }
-
-//     // Check if email has error or is being checked
-//     if (emailExistsError) {
-//       toast.error(emailExistsError);
-//       return;
-//     }
-
-//     if (phoneExistsError) {
-//       toast.error(phoneExistsError);
-//       return;
-//     }
-
-//     if (isCheckingEmail || isCheckingPhone) {
-//       toast.info("Please wait while we check availability");
-//       return;
-//     }
-
-//     // Validate email and phone are filled
-//     if (!formData.coordinatorEmail) {
-//       toast.error("Coordinator email is required");
-//       return;
-//     }
-
-//     if (!formData.coordinatorMobile) {
-//       toast.error("Coordinator mobile number is required");
-//       return;
-//     }
-
-//     if (formData.coordinatorMobile.length !== 10) {
-//       toast.error("Please enter a valid 10-digit mobile number");
-//       return;
-//     }
-
-//     try {
-//       // Determine which verification is needed
-//       if (!emailVerified && !phoneVerified) {
-//         // Neither is verified, start with email
-//         await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
-//         setVerificationType("email");
-//         setShowModal(true);
-//       } else if (!emailVerified && phoneVerified) {
-//         // Only phone is verified, verify email
-//         await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
-//         setVerificationType("email");
-//         setShowModal(true);
-//       } else if (emailVerified && !phoneVerified) {
-//         // Only email is verified, verify phone
-//         const phoneWithPrefix = `+91${formData.coordinatorMobile}`;
-//         await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
-//         setVerificationType("phone");
-//         setShowModal(true);
-//       }
-//     } catch (err: any) {
-//       console.error('❌ Failed to send OTP:', err);
-//       toast.error("Failed to send OTP. Please try again.");
-//     }
-//   };
-
-//   const handleEmailVerified = async () => {
-//     setIsTransitioning(true)
-
-//     const phoneWithPrefix = `+91${formData.coordinatorMobile}`
-//     await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix })
-
-//     // change modal content instead of closing
-//     setVerificationType("phone")
-
-//     setTimeout(() => {
-//       setIsTransitioning(false)
-//     }, 400)
-//   }
-
-//   const handlePhoneVerified = () => {
-//     setShowModal(false)
-//     onOTPSuccess()
-//   }
-
-//   const handleResendEmail = async () => {
-//     try {
-//       await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
-//       toast.success("OTP resent successfully");
-//     } catch (err) {
-//       toast.error("Failed to resend OTP");
-//     }
-//   };
-
-//   const handleResendPhone = async () => {
-//     try {
-//       const phoneWithPrefix = `+91${formData.coordinatorMobile}`;
-//       await sellerRegService.sendSMSOtp({ phone: phoneWithPrefix });
-//       toast.success("OTP resent successfully");
-//     } catch (err) {
-//       toast.error("Failed to resend OTP");
-//     }
-//   };
-
-//   return (
-//     <div className="flex flex-col gap-5">
-//       {/* Header Section */}
-//       <div>
-//         <div className="text-h2 font-semibold">Coordinator contact details</div>
-//         <div className="text-label-l3 text-neutral-600 mt-1">
-//           Coordinator details for communication and verification
-//         </div>
-//       </div>
-
-//       {/* Coordinator Details Section */}
-//       <div>
-//         <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-//           {/* Coordinator Name */}
-//           <div className="flex flex-col gap-1">
-//             <label className="text-label-l3 text-neutral-700 font-semibold">
-//               Coordinator Name
-//               <span className="text-warning-500 font-semibold ml-1">*</span>
-//             </label>
-//             <div className="relative">
-//               <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-//               <input
-//                 type="text"
-//                 name="coordinatorName"
-//                 value={formData.coordinatorName}
-//                 onChange={(e) => onAlphabetInput(e, "coordinatorName")}
-//                 placeholder="Enter coordinator name"
-//                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
-//               />
-//             </div>
-//           </div>
-
-//           {/* Coordinator Designation */}
-//           <div className="flex flex-col gap-1">
-//             <label className="text-label-l3 text-neutral-700 font-semibold">
-//               Coordinator Designation
-//               <span className="text-warning-500 font-semibold ml-1">*</span>
-//             </label>
-//             <div className="relative">
-//               <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-//               <input
-//                 type="text"
-//                 name="coordinatorDesignation"
-//                 value={formData.coordinatorDesignation}
-//                 onChange={(e) => onAlphabetInput(e, "coordinatorDesignation")}
-//                 placeholder="Enter designation"
-//                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
-//               />
-//             </div>
-//           </div>
-
-//           {/* Mobile Number */}
-//           <div className="flex flex-col gap-1">
-//             <label className="text-label-l3 text-neutral-700 font-semibold">
-//               Coordinator Mobile Number
-//               <span className="text-warning-500 font-semibold ml-1">*</span>
-//             </label>
-//             <div className="relative">
-//               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-//               <input
-//                 type="tel"
-//                 name="coordinatorMobile"
-//                 value={formData.coordinatorMobile}
-//                 onChange={handlePhoneChange}
-//                 placeholder="Enter 10-digit mobile number"
-//                 maxLength={10}
-//                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
-//               />
-//             </div>
-//             {isCheckingPhone && (
-//               <p className="mt-1 text-xs text-[#4B0082] flex items-center">
-//                 <span className="animate-spin mr-1">⏳</span>
-//                 Checking phone availability...
-//               </p>
-//             )}
-//             {phoneExistsError && (
-//               <p className="mt-1 text-xs text-red-500 flex items-start">
-//                 <span className="mr-1">⚠️</span>
-//                 <span>{phoneExistsError}</span>
-//               </p>
-//             )}
-//           </div>
-
-//           {/* Email */}
-//           <div className="flex flex-col gap-1">
-//             <label className="text-label-l3 text-neutral-700 font-semibold">
-//               Coordinator Email ID
-//               <span className="text-warning-500 font-semibold ml-1">*</span>
-//             </label>
-//             <div className="relative">
-//               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-//               <input
-//                 type="email"
-//                 name="coordinatorEmail"
-//                 value={formData.coordinatorEmail}
-//                 onChange={handleEmailChange}
-//                 placeholder="Enter email address"
-//                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
-//               />
-//             </div>
-//             {isCheckingEmail && (
-//               <p className="mt-1 text-xs text-[#4B0082] flex items-center">
-//                 <span className="animate-spin mr-1">⏳</span>
-//                 Checking email availability...
-//               </p>
-//             )}
-//             {emailExistsError && (
-//               <p className="mt-1 text-xs text-red-500 flex items-start">
-//                 <span className="mr-1">⚠️</span>
-//                 <span>{emailExistsError}</span>
-//               </p>
-//             )}
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* Buttons */}
-//       <div className="flex justify-between mt-10">
-//         <div className="flex gap-4">
-//           <button
-//             onClick={() => router.push("/")}
-//             className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold"
-//           >
-//             Cancel
-//           </button>
-
-//         </div>
-
-//         <div className="flex gap-4">
-//           <button
-//             onClick={prevStep}
-//             className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-neutral-500 text-neutral-500 font-semibold"
-//           >
-//             <Image
-//               src="/icons/backbuttonicon.png"
-//               alt="Back"
-//               width={18}
-//               height={18}
-//             />
-//             Back
-//           </button>
-
-//           <button
-//             onClick={handleContinue}
-//             disabled={!!emailExistsError || !!phoneExistsError || isCheckingEmail || isCheckingPhone}
-//             className={`flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 transition ${
-//               emailExistsError || phoneExistsError || isCheckingEmail || isCheckingPhone
-//                 ? 'border-gray-300 text-gray-400 cursor-not-allowed bg-gray-50'
-//                 : 'border-primary-900 text-primary-900 font-semibold'
-//             }`}
-//           >
-//             Continue
-//             <Image
-//               src="/icons/continueicon.png"
-//               alt="Continue"
-//               width={20}
-//               height={20}
-//             />
-//           </button>
-//         </div>
-//       </div>
-
-//       {/* Verification Modal */}
-//       <VerificationModal
-//         show={showModal}
-//         label={
-//           verificationType === "email"
-//             ? formData.coordinatorEmail
-//             : formData.coordinatorMobile
-//         }
-//         type={verificationType}
-//         onClose={() => setShowModal(false)}
-//         onVerified={
-//           verificationType === "email"
-//             ? handleEmailVerified
-//             : handlePhoneVerified
-//         }
-//         onResend={
-//           verificationType === "email"
-//             ? handleResendEmail
-//             : handleResendPhone
-//         }
-//       />
-//     </div>
-//   );
-// }
