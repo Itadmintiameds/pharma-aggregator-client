@@ -411,30 +411,30 @@ const columns: Column<ProductListData>[] = [
       </span>
     ),
   },
-  {
-    header: "Status",
-    accessor: () => (
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: 32,
-          padding: "6px 8px",
-          background: "#DCF7CB",
-          borderRadius: 8,
-          fontFamily: "'Open Sans', sans-serif",
-          fontSize: 14,
-          fontWeight: 600,
-          lineHeight: "20px",
-          color: "#378200",
-          wordWrap: "break-word",
-        }}
-      >
-        Active
-      </span>
-    ),
-  },
+  // {
+  //   header: "Status",
+  //   accessor: () => (
+  //     <span
+  //       style={{
+  //         display: "inline-flex",
+  //         alignItems: "center",
+  //         justifyContent: "center",
+  //         height: 32,
+  //         padding: "6px 8px",
+  //         background: "#DCF7CB",
+  //         borderRadius: 8,
+  //         fontFamily: "'Open Sans', sans-serif",
+  //         fontSize: 14,
+  //         fontWeight: 600,
+  //         lineHeight: "20px",
+  //         color: "#378200",
+  //         wordWrap: "break-word",
+  //       }}
+  //     >
+  //       Active
+  //     </span>
+  //   ),
+  // },
 ];
 
 const ProductList = ({ setCurrentView, setSelectedProductId }: ProductListProps) => {
