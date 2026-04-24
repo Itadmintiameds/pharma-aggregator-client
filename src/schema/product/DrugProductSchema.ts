@@ -172,27 +172,31 @@ batchLotNumber: z
       message: "HSN Code must be 4, 6, or 8 digits only",
     }),
 
-  images: z
-    .array(z.instanceof(File))
-    .min(1, "Product Image is mandatory.")
-    .max(5, "Maximum 5 images are allowed")
-    .refine(
-      (files) =>
-        files.every((file) =>
-          ["image/jpeg", "image/jpg", "image/png", "image/svg+xml"].includes(
-            file.type
-          )
-        ),
-      {
-        message: "Only JPG, JPEG, PNG, SVG formats are allowed",
-      }
-    )
-    .refine(
-      (files) => files.every((file) => file.size <= 5 * 1024 * 1024),
-      {
-        message: "Each image must be less than 5MB",
-      }
-    ),
+images: z
+  .array(
+    z.union([z.instanceof(File), z.string()])
+  )
+  .min(1, "Product Image is mandatory.")
+  .max(5, "Maximum 5 images are allowed")
+  .refine(
+    (files) =>
+      files.every((file) =>
+        typeof file === "string" ||
+        ["image/jpeg", "image/jpg", "image/png", "image/svg+xml"].includes(file.type)
+      ),
+    {
+      message: "Only JPG, JPEG, PNG, SVG formats are allowed",
+    }
+  )
+  .refine(
+    (files) =>
+      files.every((file) =>
+        typeof file === "string" || file.size <= 5 * 1024 * 1024
+      ),
+    {
+      message: "Each image must be less than 5MB",
+    }
+  ),
 
 });
 
