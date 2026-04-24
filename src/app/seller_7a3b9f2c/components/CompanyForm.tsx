@@ -44,10 +44,10 @@ interface Props {
 
 // Country codes data for company phone with validation rules
 const companyCountryCodes = [
-  { 
-    code: "+91", 
-    country: "India", 
-    flag: "🇮🇳", 
+  {
+    code: "+91",
+    country: "India",
+    flag: "🇮🇳",
     validate: (value: string) => {
       if (value.length !== 10) return "Mobile number must be exactly 10 digits";
       if (!/^[6-9]/.test(value)) return "Indian mobile number must start with 6, 7, 8, or 9";
@@ -148,7 +148,7 @@ export default function CompanyForm({
 
       setUploading(true);
       toast.info("Uploading company registration certificate...");
-      
+
       setTimeout(() => {
         onCompanyRegFileChange(file);
         setUploading(false);
@@ -186,17 +186,17 @@ export default function CompanyForm({
   // Handle company phone change with numeric only and validation
   const handleCompanyPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
-    
+
     // For Indian numbers, restrict to 10 digits and validate starting digit
     if (selectedCompanyCountryCode === "+91") {
       // Only allow digits
       value = value.replace(/\D/g, '');
-      
+
       // Don't allow if first digit is not 6-9 when typing first character
       if (value.length === 1 && !/^[6-9]$/.test(value)) {
         return;
       }
-      
+
       // Limit to 10 digits
       if (value.length <= 10) {
         // Validate the complete number
@@ -205,7 +205,7 @@ export default function CompanyForm({
           const error = selectedCountry.validate(value);
           setCompanyPhoneError(error || "");
         }
-        
+
         const syntheticEvent = {
           ...e,
           target: {
@@ -253,7 +253,7 @@ export default function CompanyForm({
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
     let cleanedText = pastedText.replace(/\D/g, '');
-    
+
     if (selectedCompanyCountryCode === "+91") {
       // For India, ensure first digit is 6-9 and length is 10
       if (cleanedText.length > 0) {
@@ -267,7 +267,7 @@ export default function CompanyForm({
     } else {
       cleanedText = cleanedText.substring(0, 15);
     }
-    
+
     const syntheticEvent = {
       ...e,
       target: {
@@ -316,7 +316,14 @@ export default function CompanyForm({
                 type="text"
                 name="sellerName"
                 value={formData.sellerName}
-                onChange={(e) => onAlphabetInput(e, "sellerName")}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow alphabets, numbers, spaces, and special characters
+                  // Remove any length restriction in regex, handle maxLength separately
+                  if (value.length <= 60) {
+                    onChange(e);
+                  }
+                }}
                 maxLength={60}
                 placeholder="Enter Your Name/Company Name"
                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none focus:ring-0 text-label-l2"
@@ -672,6 +679,7 @@ export default function CompanyForm({
           </div>
 
           {/* Row 5: City | Street */}
+
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
               City / Town / Village
@@ -683,12 +691,20 @@ export default function CompanyForm({
                 type="text"
                 name="city"
                 value={formData.city}
-                onChange={(e) => onAlphabetInput(e, "city")}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value.length <= 100) {
+                    onChange(e);
+                  }
+                }}
+                maxLength={100}
                 placeholder="Enter City/Town/Village"
                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
               />
             </div>
           </div>
+
+
 
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
@@ -701,7 +717,13 @@ export default function CompanyForm({
                 type="text"
                 name="street"
                 value={formData.street}
-                onChange={(e) => onAlphabetInput(e, "street")}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value.length <= 100) {
+                    onChange(e);
+                  }
+                }}
+                maxLength={100}
                 placeholder="Enter Street/Area/Road"
                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
               />
@@ -709,6 +731,7 @@ export default function CompanyForm({
           </div>
 
           {/* Row 6: Building/House No | Pincode */}
+
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
               Building / House No.
@@ -720,7 +743,13 @@ export default function CompanyForm({
                 type="text"
                 name="buildingNo"
                 value={formData.buildingNo}
-                onChange={onChange}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value.length <= 50) {
+                    onChange(e);
+                  }
+                }}
+                maxLength={50}
                 placeholder="Enter Building/House No."
                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
               />
@@ -755,12 +784,20 @@ export default function CompanyForm({
               type="text"
               name="landmark"
               value={formData.landmark}
-              onChange={onChange}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow only alphanumeric characters and spaces
+                const allowedChars = /^[a-zA-Z0-9\s]*$/;
+
+                if (value.length <= 100 && (value === "" || allowedChars.test(value))) {
+                  onChange(e);
+                }
+              }}
+              maxLength={100}
               placeholder="Enter Landmark"
               className="w-full h-12 px-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
             />
           </div>
-
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
               Company Phone
@@ -779,11 +816,11 @@ export default function CompanyForm({
                     <span className="text-sm font-medium">{selectedCompanyCountryCode}</span>
                     <ChevronDown className="w-4 h-4 text-gray-500" />
                   </button>
-                  
+
                   {/* Dropdown Menu */}
                   {isCompanyPhoneDropdownOpen && (
                     <>
-                      <div 
+                      <div
                         className="fixed inset-0 z-10"
                         onClick={() => setIsCompanyPhoneDropdownOpen(false)}
                       />
@@ -815,7 +852,7 @@ export default function CompanyForm({
                     </>
                   )}
                 </div>
-                
+
                 {/* Phone Number Input */}
                 <input
                   type="tel"
@@ -826,9 +863,8 @@ export default function CompanyForm({
                   onPaste={handlePhonePaste}
                   placeholder={getPlaceholder()}
                   maxLength={getMaxLength()}
-                  className={`flex-1 h-12 px-4 pr-4 rounded-r-2xl border focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2 ${
-                    companyPhoneError ? 'border-red-500' : 'border-neutral-500'
-                  }`}
+                  className={`flex-1 h-12 px-4 pr-4 rounded-r-2xl border focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2 ${companyPhoneError ? 'border-red-500' : 'border-neutral-500'
+                    }`}
                 />
               </div>
               {companyPhoneError && (
