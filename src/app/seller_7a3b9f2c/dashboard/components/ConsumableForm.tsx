@@ -14,16 +14,25 @@ import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 interface SelectOption { value: string; label: string; }
 
 interface CertificationTag {
-  id: string; label: string; tagCode: string; file: File | null;
-  fileName: string; uploading: boolean; isUploaded: boolean;
-  previewUrl: string | null; certificationId: number;
+  id: string;
+  label: string;
+  tagCode: string;
+  file: File | null;
+  fileName: string;
+  uploading: boolean;
+  isUploaded: boolean;
+  previewUrl: string | null;
+  productCertificateDocumentId: number;
   existingUrl?: string;
 }
 
 interface AdditionalDiscountSlab {
-  minimumPurchaseQuantity: number; additionalDiscountPercentage: number;
-  effectiveStartDate: string; effectiveStartTime: string;
-  effectiveEndDate: string; effectiveEndTime: string;
+  minimumPurchaseQuantity: number;
+  additionalDiscountPercentage: number;
+  effectiveStartDate: string;
+  effectiveStartTime: string;
+  effectiveEndDate: string;
+  effectiveEndTime: string;
 }
 
 interface ConsumableFormProps {
@@ -34,7 +43,10 @@ interface ConsumableFormProps {
 }
 
 interface CertificationMasterOption {
-  value: string; label: string; certificationId: number; tagCode: string;
+  value: string;
+  label: string;
+  certificationId: number;
+  tagCode: string;
 }
 
 interface MasterItem { [key: string]: unknown; }
@@ -79,11 +91,38 @@ function computeShelfLife(mfgDate: Date | null, expDate: Date | null): string {
 
 function deepFind(obj: unknown, key: string): unknown {
   if (!obj || typeof obj !== "object") return undefined;
-  if (Array.isArray(obj)) { for (const item of obj) { const r = deepFind(item, key); if (r !== undefined) return r; } return undefined; }
+  if (Array.isArray(obj)) {
+    for (const item of obj) { const r = deepFind(item, key); if (r !== undefined) return r; }
+    return undefined;
+  }
   const rec = obj as Record<string, unknown>;
   if (key in rec && rec[key] != null) return rec[key];
   for (const k of Object.keys(rec)) { const r = deepFind(rec[k], key); if (r !== undefined) return r; }
   return undefined;
+}
+
+// ─── Extract { certificationId → productCertificateDocumentId } from create response ──
+// The server returns productCertificateDocumentId (163, 164…) inside
+// data.data.productAttributeConsumableMedicals[0].certificateDocuments[].
+// We need these to pass as `documentIds` in the upload call.
+function extractCertDocumentIdMap(data: ApiResponseData): Map<number, number> {
+  const map = new Map<number, number>();
+  try {
+    const dataInner = (data?.data ?? data) as ApiResponseData;
+    const attrs = dataInner?.productAttributeConsumableMedicals;
+    if (!Array.isArray(attrs) || attrs.length === 0) return map;
+    const certDocs = (attrs[0] as ApiResponseData)?.certificateDocuments;
+    if (!Array.isArray(certDocs)) return map;
+    for (const doc of certDocs) {
+      const d = doc as ApiResponseData;
+      const certId = Number(d.certificationId);
+      const docId = Number(d.productCertificateDocumentId);
+      if (!isNaN(certId) && !isNaN(docId) && docId > 0) {
+        map.set(certId, docId);
+      }
+    }
+  } catch { /* ignore — map will be empty */ }
+  return map;
 }
 
 function extractProductAttributeId(data: ApiResponseData): string | undefined {
@@ -98,23 +137,67 @@ function extractProductAttributeId(data: ApiResponseData): string | undefined {
   return undefined;
 }
 
-async function uploadCertificatesBatch(
-  baseUrl: string,
+// ─── Certificate upload: one request per certificate ────────────────────────
+// POST {API_BASE}/product-documents/consumable/{attributeId}/certificates
+// FormData:
+//   documentIds      = productCertificateDocumentId  (163, 164, etc — the row ID
+//                      created by the server when the product is saved, NOT certificationId)
+//   certificateFiles = the actual File
+async function uploadSingleCertificate(
+  attributeId: string,
+  headers: Record<string, string>,
+  cert: CertificationTag
+): Promise<{ success: boolean; certId: string; message?: string }> {
+  if (!cert.file) return { success: false, certId: cert.id, message: "No file attached" };
+
+  const formData = new FormData();
+  // documentIds = productCertificateDocumentId (163, 164…) — the server-assigned row ID
+  formData.append("documentIds", String(cert.productCertificateDocumentId));
+  formData.append("certificateFiles", cert.file, cert.file.name);
+
+  const url = `${API_BASE}/product-documents/consumable/${attributeId}/certificates`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers, // Do NOT set Content-Type — browser sets multipart boundary automatically
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, certId: cert.id, message: `HTTP ${response.status}: ${errorText}` };
+    }
+
+    return { success: true, certId: cert.id };
+  } catch (error) {
+    return {
+      success: false,
+      certId: cert.id,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+// ─── Upload all certificates sequentially ────────────────────────────────────
+async function uploadAllCertificates(
+  attributeId: string,
   headers: Record<string, string>,
   certificates: CertificationTag[]
-): Promise<{ success: boolean; message?: string }> {
-  const formData = new FormData();
-  const documentIds = certificates.map(c => c.certificationId).join(",");
-  formData.append("documentIds", documentIds);
-  certificates.forEach((cert) => { if (cert.file) formData.append("certificateFiles", cert.file); });
-  try {
-    const response = await fetch(baseUrl, { method: "POST", headers, body: formData });
-    if (!response.ok) { const errorText = await response.text(); return { success: false, message: `HTTP ${response.status}: ${errorText}` }; }
-    await response.json();
-    return { success: true };
-  } catch (error) {
-    return { success: false, message: error instanceof Error ? error.message : "Unknown error" };
+): Promise<{ allSuccess: boolean; failures: string[] }> {
+  const certsWithFiles = certificates.filter((c) => c.file && !c.existingUrl);
+  if (certsWithFiles.length === 0) return { allSuccess: true, failures: [] };
+
+  const failures: string[] = [];
+
+  for (const cert of certsWithFiles) {
+    const result = await uploadSingleCertificate(attributeId, headers, cert);
+    if (!result.success) {
+      failures.push(`${cert.label}: ${result.message || "Upload failed"}`);
+    }
   }
+
+  return { allSuccess: failures.length === 0, failures };
 }
 
 async function uploadBrochure(
@@ -123,10 +206,13 @@ async function uploadBrochure(
   file: File
 ): Promise<{ success: boolean; message?: string }> {
   const formData = new FormData();
-  formData.append("brochure", file);
+  formData.append("brochureFile", file);
   try {
     const response = await fetch(baseUrl, { method: "POST", headers, body: formData });
-    if (!response.ok) { const errorText = await response.text(); return { success: false, message: `HTTP ${response.status}: ${errorText}` }; }
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, message: `HTTP ${response.status}: ${errorText}` };
+    }
     return { success: true };
   } catch (error) {
     return { success: false, message: error instanceof Error ? error.message : "Unknown error" };
@@ -138,7 +224,7 @@ function getMasterStr(item: MasterItem, ...keys: string[]): string {
   return "";
 }
 
-// ─── Styles (matched to NonConsumableForm) ────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const fieldLabel = "block mb-1.5 font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]";
 const requiredStar = <span className="text-red-500 ml-0.5">*</span>;
@@ -149,8 +235,6 @@ const errorMsg = "text-red-500 text-xs mt-1";
 const sectionCard = "bg-white border border-gray-200 rounded-2xl p-6 shadow-sm";
 const sectionTitle = "mb-4 pb-3 border-b border-gray-100 text-[28px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D]";
 const subSectionTitle = "mb-3 mt-5 pb-2 border-b border-gray-100 text-[21px] [font-family:'Open_Sans',sans-serif] font-normal leading-6 [color:#1E1E1D]";
-
-// ─── Upload Cloud Icon ─────────────────────────────────────────────────────────
 
 const UploadCloudIcon = () => (
   <img src="/icons/upload-cloud.svg" alt="upload" className="w-5 h-5 object-contain" />
@@ -398,16 +482,23 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (attribute.certificateDocuments?.length) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setSelectedCertifications(attribute.certificateDocuments.map((cert: any) => ({
+          // id = master certificationId, used only to match against the selection dropdown
           id: String(cert.certificationId),
           label: cert.certificationName || `Certificate ${cert.certificationId}`,
           tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
-          certificationId: cert.certificationId,
           file: null,
-          fileName: cert.certificateUrl && cert.certificateUrl !== "PENDING" ? cert.certificateUrl.split("/").pop() || "" : "",
+          fileName: cert.certificateUrl && cert.certificateUrl !== "PENDING"
+            ? cert.certificateUrl.split("/").pop() || ""
+            : "",
           uploading: false,
-          isUploaded: cert.certificateUrl && cert.certificateUrl !== "PENDING",
+          isUploaded: !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
           previewUrl: null,
-          existingUrl: cert.certificateUrl !== "PENDING" ? cert.certificateUrl : undefined,
+          // productCertificateDocumentId = the actual document row ID (163, 164…)
+          // returned by the server — used as `documentIds` in the upload endpoint
+          productCertificateDocumentId: Number(cert.productCertificateDocumentId),
+          existingUrl: cert.certificateUrl && cert.certificateUrl !== "PENDING"
+            ? cert.certificateUrl
+            : undefined,
         })));
       }
 
@@ -560,32 +651,59 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       setSelectedCertifications((p) => p.filter((c) => c.id !== option.value));
     } else {
       setSelectedCertifications((p) => [...p, {
-        id: option.value, label: option.label, tagCode: option.tagCode,
-        certificationId: option.certificationId, file: null, fileName: "",
-        uploading: false, isUploaded: false, previewUrl: null,
+        id: option.value,
+        label: option.label,
+        tagCode: option.tagCode,
+        productCertificateDocumentId: option.certificationId,
+        file: null,
+        fileName: "",
+        uploading: false,
+        isUploaded: false,
+        previewUrl: null,
       }]);
     }
     if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
   };
 
-  const handleCertFileUpload = async (certId: string, file: File) => {
-    if (file.size > 5 * 1024 * 1024) { alert("Certificate file size must be less than 5 MB"); return; }
-    setSelectedCertifications((p) => p.map((c) => c.id === certId ? { ...c, uploading: true } : c));
-    await new Promise((r) => setTimeout(r, 500));
-    setSelectedCertifications((p) =>
-      p.map((c) => c.id === certId ? {
-        ...c, file, fileName: file.name, uploading: false, isUploaded: true,
-        previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
-        existingUrl: undefined,
-      } : c),
+  // ── Certificate file selection (local only — no upload yet) ─────────────────
+  // Actual upload happens in handleSubmit after we have attributeId
+  const handleCertFileSelect = (certId: string, file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Certificate file size must be less than 5 MB");
+      return;
+    }
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Only PDF, JPG, JPEG, PNG files are allowed for certificates");
+      return;
+    }
+
+    setSelectedCertifications((prev) =>
+      prev.map((c) =>
+        c.id === certId
+          ? {
+              ...c,
+              file,
+              fileName: file.name,
+              uploading: false,
+              isUploaded: true, // mark as "staged" — will upload on submit
+              previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+              existingUrl: undefined, // replacing any existing
+            }
+          : c
+      )
     );
+
+    if (errors.certifications) {
+      setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
+    }
   };
 
   const handleBrochureUpload = async (file: File) => {
     if (file.type !== "application/pdf") { alert("Only PDF files are allowed for the brochure / user manual"); return; }
     if (file.size > 5 * 1024 * 1024) { alert("Brochure file size must be less than 5 MB"); return; }
     setUploadingBrochure(true);
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 300));
     setBrochureFile(file);
     setExistingBrochureUrl("");
     setUploadingBrochure(false);
@@ -645,6 +763,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     if (selectedCertifications.length === 0) {
       e.certifications = "At least one certification / compliance is required";
     } else {
+      // Every selected cert must have either a new file staged OR an existing URL
       const missing = selectedCertifications.find((c) => !c.file && !c.existingUrl);
       if (missing) e.certifications = `Please upload the certificate file for "${missing.label}"`;
     }
@@ -748,8 +867,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     try {
       const token = sellerAuthService.getToken();
       if (!token) throw new Error("Authentication required. Please log in again.");
-      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
-      const jsonHeaders = { ...headers, "Content-Type": "application/json" };
+
+      // NOTE: Do NOT include Content-Type in headers used for FormData uploads —
+      // the browser must set it with the multipart boundary automatically.
+      const authOnlyHeaders: Record<string, string> = { Authorization: `Bearer ${token}` };
+      const jsonHeaders: Record<string, string> = { ...authOnlyHeaders, "Content-Type": "application/json" };
 
       const payload = {
         productName: form.productName,
@@ -799,10 +921,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           storageConditionId: form.storageCondition ? Number(form.storageCondition) : 0,
           shelfLife: shelfLifeDisplay,
           brochureType: "PDF",
-          brochurePath: existingBrochureUrl || (brochureFile ? "TO_UPLOAD" : "PENDING"),
+          brochurePathStatus: existingBrochureUrl || (brochureFile ? "TO_UPLOAD" : "PENDING"),
           certificateDocuments: selectedCertifications.map((c) => ({
-            certificationId: c.certificationId,
-            certificateUrl: c.file ? "TO_UPLOAD" : (c.existingUrl || "PENDING"),
+            // certificationId = master type (1 = CDSCO, 2 = ISO…) — tells the server
+            // which cert type this document is for; the server assigns productCertificateDocumentId
+            certificationId: Number(c.id),
+            certificateUrl: c.existingUrl || "PENDING",
           })),
         }],
         productImages: images.map(() => ({ productImage: "PENDING" })),
@@ -810,40 +934,89 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
       let currentProductId = resolvedProductId || productId || "";
       let currentAttributeId = productAttributeId;
+      // Local snapshot of certs — patched with server productCertificateDocumentId after create
+      let certsToUpload: CertificationTag[] = [...selectedCertifications];
 
+      // ── Step 1: Create or Update the product record ───────────────────────
       if (mode === "edit" && currentProductId) {
         await updateProduct(currentProductId, payload);
-        if (images.length > 0) await uploadProductImages(currentProductId, images);
       } else {
         const createRes = await fetch(`${API_BASE}/products/create`, {
-          method: "POST", headers: jsonHeaders, body: JSON.stringify(payload),
+          method: "POST",
+          headers: jsonHeaders,
+          body: JSON.stringify(payload),
         });
         const rawText = await createRes.text();
         let createData: ApiResponseData;
         try { createData = JSON.parse(rawText) as ApiResponseData; }
         catch { throw new Error(`Invalid server response: ${rawText.substring(0, 200)}`); }
         if (!createRes.ok) {
-          throw new Error(String((createData?.data as ApiResponseData)?.message ?? createData?.message ?? `HTTP ${createRes.status}`));
+          throw new Error(String(
+            (createData?.data as ApiResponseData)?.message ?? createData?.message ?? `HTTP ${createRes.status}`
+          ));
         }
         const dataInner = createData?.data as ApiResponseData | undefined;
         currentProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
-        if (!currentProductId || currentProductId === "undefined") throw new Error("Product ID not returned from server");
+        if (!currentProductId || currentProductId === "undefined") {
+          throw new Error("Product ID not returned from server");
+        }
         currentAttributeId = extractProductAttributeId(createData) || "";
-        if (images.length > 0) await uploadProductImages(currentProductId, images);
+        if (!currentAttributeId) {
+          throw new Error("Product attribute ID not returned from server — cannot upload certificates");
+        }
+
+        // ── Re-map productCertificateDocumentId from server response ─────────
+        // The server returns the real document row IDs (163, 164…) inside
+        // certificateDocuments[].productCertificateDocumentId, keyed by certificationId.
+        // We must patch our staged cert list so each cert carries the correct
+        // productCertificateDocumentId before we call the upload endpoint.
+        const certDocIdMap = extractCertDocumentIdMap(createData);
+        if (certDocIdMap.size > 0) {
+          setSelectedCertifications((prev) =>
+            prev.map((c) => {
+              const serverDocId = certDocIdMap.get(c.productCertificateDocumentId);
+              return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
+            })
+          );
+          // Also patch the local snapshot we'll use immediately below
+          certsToUpload = certsToUpload.map((c) => {
+            const serverDocId = certDocIdMap.get(c.productCertificateDocumentId);
+            return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
+          });
+        }
       }
 
+      // ── Step 2: Upload product images ─────────────────────────────────────
+      if (images.length > 0) {
+        await uploadProductImages(currentProductId, images);
+      }
+
+      // ── Step 3: Upload certificates (one request per cert) ────────────────
       if (currentAttributeId) {
-        const certificatesWithFiles = selectedCertifications.filter((c) => c.file && !c.existingUrl);
-        if (certificatesWithFiles.length > 0) {
-          const certBaseUrl = `${API_BASE}/product-documents/consumable/${currentAttributeId}/certificates`;
-          const uploadResult = await uploadCertificatesBatch(certBaseUrl, headers, certificatesWithFiles);
-          if (!uploadResult.success) { console.warn(`Certificate upload warning: ${uploadResult.message}`); setApiError(`Warning: ${uploadResult.message}`); }
+        // In edit mode certsToUpload already has correct productCertificateDocumentId
+        // from fetchProductData. In create mode it was patched above from the server response.
+        const { allSuccess, failures } = await uploadAllCertificates(
+          currentAttributeId,
+          authOnlyHeaders,
+          certsToUpload
+        );
+        if (!allSuccess) {
+          // Non-fatal: warn but don't block success message
+          console.warn("Some certificate uploads failed:", failures);
+          setApiError(`Warning: Some certificate files could not be uploaded:\n${failures.join("\n")}`);
         }
+
+        // ── Step 4: Upload brochure ─────────────────────────────────────────
         if (brochureFile) {
           const brochureUploadUrl = `${API_BASE}/product-documents/consumable/${currentAttributeId}/brochure`;
-          const brochureResult = await uploadBrochure(brochureUploadUrl, headers, brochureFile);
-          if (!brochureResult.success) { console.warn(`Brochure upload warning: ${brochureResult.message}`); if (!apiError) setApiError(`Warning: ${brochureResult.message}`); }
+          const brochureResult = await uploadBrochure(brochureUploadUrl, authOnlyHeaders, brochureFile);
+          if (!brochureResult.success) {
+            console.warn(`Brochure upload warning: ${brochureResult.message}`);
+            if (!apiError) setApiError(`Warning: Brochure could not be uploaded — ${brochureResult.message}`);
+          }
         }
+      } else {
+        console.warn("No attribute ID available — skipping certificate and brochure uploads");
       }
 
       alert(`Product ${mode === "edit" ? "updated" : "created"} successfully!`);
@@ -853,7 +1026,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
       setApiError(errorMessage);
       alert(`Failed to ${mode === "edit" ? "update" : "create"} product: ${errorMessage}`);
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const selectStyles = (errorKey: string): SelectStyles => ({
@@ -899,11 +1074,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   }
 
   return (
-    <div className="flex flex-col gap-5 max-w-full mx-auto">
+    <div className="flex flex-col gap-5 w-full">
       {apiError && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle size={18} className="text-red-500 mt-0.5 flex-shrink-0" />
-          <span className="text-red-700 text-sm">{apiError}</span>
+          <span className="text-red-700 text-sm whitespace-pre-line">{apiError}</span>
         </div>
       )}
 
@@ -1075,9 +1250,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {errors.intendedUse && <p className={errorMsg}>{errors.intendedUse}</p>}
           </div>
 
-          {/* Certifications */}
+          {/* ── Certifications ───────────────────────────────────────────────── */}
           <div className="col-span-1 md:col-span-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+              {/* Left: Select certifications */}
               <div>
                 <label className={fieldLabel}>Certifications &amp; Compliance {requiredStar}</label>
                 <div className="relative" ref={dropdownRef}>
@@ -1086,7 +1263,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                     className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}
                   >
                     <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif] [color:#969793]">
-                      {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
+                      {selectedCertifications.length > 0
+                        ? selectedCertifications.map((c) => c.label).join(", ")
+                        : "Select certifications"}
                     </span>
                     <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1099,7 +1278,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                       ) : (
                         certificationMasterOptions.map((opt) => (
                           <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                            <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
+                            <input
+                              type="checkbox"
+                              checked={selectedCertifications.some((c) => c.id === opt.value)}
+                              onChange={() => handleCertCheckbox(opt)}
+                              className="accent-purple-600 w-4 h-4"
+                            />
                             <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#969793]">{opt.label}</span>
                           </label>
                         ))
@@ -1110,66 +1294,130 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
               </div>
 
+              {/* Right: Upload certificate files */}
               <div>
                 <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
+
                 {selectedCertifications.length === 0 ? (
+                  /* Empty state */
                   <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
                     <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                       <UploadCloudIcon />
                     </div>
-                    <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
+                    <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">
+                      Select certifications first
+                    </span>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {selectedCertifications.map((cert) => (
                       <div key={cert.id}>
+                        {/* ── Case A: existing server URL, no new file staged ── */}
                         {cert.existingUrl && !cert.file ? (
                           <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                            <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
+                            <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                              <FileText size={16} className="text-purple-600" />
+                            </div>
                             <div className="flex-1 px-3 min-w-0">
                               <p className="text-sm font-medium text-gray-800 truncate">{cert.label}</p>
                               <p className="text-xs text-gray-500">Existing certificate</p>
                             </div>
                             <div className="flex items-center gap-1 pr-3">
-                              <button type="button" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                              <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
+                              <button
+                                type="button"
+                                title="Replace certificate"
+                                onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()}
+                                className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"
+                              >
+                                <RefreshCw size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                title="Remove certification"
+                                onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))}
+                                className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"
+                              >
+                                <X size={13} />
+                              </button>
                             </div>
                           </div>
-                        ) : !cert.isUploaded ? (
+
+                        ) : cert.isUploaded && cert.file ? (
+                          /* ── Case B: new file staged, ready to upload on submit ── */
+                          <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
+                            <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                              <FileText size={16} className="text-purple-600" />
+                            </div>
+                            <div className="flex-1 px-3 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{cert.fileName}</p>
+                              <p className="text-xs text-gray-500">{cert.label} · {(cert.file.size / 1024).toFixed(0)} KB</p>
+                            </div>
+                            <div className="flex items-center gap-1 pr-3">
+                              <button
+                                type="button"
+                                title="Replace file"
+                                onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()}
+                                className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"
+                              >
+                                <RefreshCw size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                title="Remove certification"
+                                onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))}
+                                className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                          </div>
+
+                        ) : (
+                          /* ── Case C: no file yet — click to choose ── */
                           <div
                             className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition"
                             onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()}
                           >
                             <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                              {cert.uploading
-                                ? <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
-                                : <UploadCloudIcon />}
+                              <UploadCloudIcon />
                             </div>
                             <span className="px-3 text-base [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">
-                              {cert.uploading ? "Processing..." : cert.label}
+                              {cert.label} — click to upload
                             </span>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                            <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                            <div className="flex-1 px-3 min-w-0">
-                              <p className="text-sm font-medium text-gray-800 truncate">{cert.fileName}</p>
-                              <p className="text-xs text-gray-500">{cert.label}</p>
-                            </div>
-                            <div className="flex items-center gap-1 pr-3">
-                              <button type="button" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                              <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id));
+                              }}
+                              className="pr-3 text-gray-400 hover:text-red-500"
+                            >
+                              <X size={13} />
+                            </button>
                           </div>
                         )}
-                        <input id={`consumable-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
-                          onChange={(e) => { if (e.target.files?.[0]) handleCertFileUpload(cert.id, e.target.files[0]); }} />
+
+                        {/* Hidden file input per certificate */}
+                        <input
+                          id={`consumable-cert-upload-${cert.id}`}
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          className="hidden"
+                          // Reset value so the same file can be re-selected after removal
+                          onClick={(e) => { (e.target as HTMLInputElement).value = ""; }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleCertFileSelect(cert.id, file);
+                          }}
+                        />
                       </div>
                     ))}
                   </div>
                 )}
-                <p className="text-xs text-gray-400 mt-1">Max 5 MB per certificate file</p>
+
+                <p className="text-xs text-gray-400 mt-1">
+                  PDF, JPG, PNG — max 5 MB per file. Files are uploaded on Save.
+                </p>
               </div>
             </div>
           </div>
@@ -1208,7 +1456,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               options={storageConditionOptions}
               value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null}
               onChange={(sel) => handleSelectChange("storageCondition", sel)}
-              placeholder="Select storage condition"  
+              placeholder="Select storage condition"
               theme={selectTheme}
               styles={selectStyles("storageCondition")}
             />
@@ -1217,14 +1465,20 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
           {/* Product Brochure */}
           <div>
-            <label className={fieldLabel}>
-              Upload Product Brochure / User Manual
-            </label>
+            <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
             {existingBrochureUrl && !brochureFile && (
               <div className="mb-2 flex items-center gap-2 text-sm text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
                 <FileText size={15} />
-                <a href={existingBrochureUrl} target="_blank" rel="noreferrer" className="underline truncate">Current brochure</a>
-                <button type="button" onClick={() => setExistingBrochureUrl("")} className="ml-auto text-gray-400 hover:text-red-500"><X size={13} /></button>
+                <a href={existingBrochureUrl} target="_blank" rel="noreferrer" className="underline truncate">
+                  Current brochure
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setExistingBrochureUrl("")}
+                  className="ml-auto text-gray-400 hover:text-red-500"
+                >
+                  <X size={13} />
+                </button>
               </div>
             )}
             {!brochureFile ? (
@@ -1243,18 +1497,38 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               </div>
             ) : (
               <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
+                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <FileText size={16} className="text-purple-600" />
+                </div>
                 <div className="flex-1 px-3 min-w-0">
                   <p className="text-sm font-medium text-gray-800 truncate">{brochureFile.name}</p>
                   <p className="text-xs text-gray-500">{(brochureFile.size / 1024).toFixed(1)} KB</p>
                 </div>
                 <div className="flex items-center gap-1 pr-3">
-                  <button type="button" onClick={() => brochureInputRef.current?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                  <button type="button" onClick={() => { setBrochureFile(null); if (brochureInputRef.current) brochureInputRef.current.value = ""; }} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
+                  <button
+                    type="button"
+                    onClick={() => brochureInputRef.current?.click()}
+                    className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"
+                  >
+                    <RefreshCw size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setBrochureFile(null); if (brochureInputRef.current) brochureInputRef.current.value = ""; }}
+                    className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"
+                  >
+                    <X size={13} />
+                  </button>
                 </div>
               </div>
             )}
-            <input ref={brochureInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleBrochureUpload(e.target.files[0]); }} />
+            <input
+              ref={brochureInputRef}
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              onChange={(e) => { if (e.target.files?.[0]) handleBrochureUpload(e.target.files[0]); }}
+            />
           </div>
 
           {/* Safety Instructions & Key Features */}
@@ -1456,7 +1730,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {errors.stockQuantity && <p className={errorMsg}>{errors.stockQuantity}</p>}
           </div>
 
-          {/* Date of Stock Entry — read-only */}
+          {/* Date of Stock Entry */}
           <div className="flex flex-col gap-1">
             <label className={fieldLabel}>Date of Stock Entry {requiredStar}</label>
             <input
@@ -1524,7 +1798,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               className="h-12 px-5 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] w-auto self-start hover:opacity-90 transition-opacity flex items-center gap-2"
             >
               <span className="w-5 h-5 flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M7 1v12M1 7h12" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                </svg>
               </span>
               Add Additional Discount
             </button>
@@ -1542,7 +1818,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {additionalDiscountSlabs.map((slab, idx) => (
               <div key={idx} className="flex items-center justify-between text-xs text-purple-700 py-1.5 border-t border-purple-100">
                 <span>Min Qty: {slab.minimumPurchaseQuantity} — {slab.additionalDiscountPercentage}% off</span>
-                <button type="button" onClick={() => setAdditionalDiscountSlabs((p) => p.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 ml-3"><X size={12} /></button>
+                <button
+                  type="button"
+                  onClick={() => setAdditionalDiscountSlabs((p) => p.filter((_, i) => i !== idx))}
+                  className="text-red-400 hover:text-red-600 ml-3"
+                >
+                  <X size={12} />
+                </button>
               </div>
             ))}
           </div>
@@ -1583,7 +1865,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         </div>
 
         {/* Final Price */}
-        <div className="mt-5">
+        {/* <div className="mt-5">
           <label className="block mb-1.5 font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]">
             Final Price (after discounts):
           </label>
@@ -1602,7 +1884,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               style={{ color: "#7D32FC" }}
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Save button inside section */}
         <div className="flex justify-end mt-5">
@@ -1619,7 +1901,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         </div>
       </div>
 
-      {/* ── Section 3: Product Photos ─────────────────────────────────────── */}
+      {/* ── Section 3: Product Photos ──────────────────────────────────────────── */}
       <div className={sectionCard}>
         <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
           Product Photos {mode === "create" && <span className="text-red-500">*</span>}
@@ -1665,7 +1947,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               const url = URL.createObjectURL(file);
               return (
                 <div key={i} className="relative group">
-                  <img src={url} alt={`Product ${i + 1}`} className="w-full aspect-square object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
+                  <img
+                    src={url}
+                    alt={`Product ${i + 1}`}
+                    className="w-full aspect-square object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition"
+                  />
                   <button
                     type="button"
                     onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }}
@@ -1682,7 +1968,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         {errors.images && <p className={`${errorMsg} mt-2`}>{errors.images}</p>}
       </div>
 
-      {/* ── Actions ──────────────────────────────────────────────────────── */}
+      {/* ── Actions ─────────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
         <div className="flex gap-3">
           <button
