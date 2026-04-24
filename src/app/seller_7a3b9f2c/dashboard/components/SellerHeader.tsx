@@ -26,7 +26,6 @@ const SellerHeader = ({ currentView, setCurrentView }: SellerHeaderProps) => {
   const [profile, setProfile] = useState<SellerProfile | null>(null); 
   const [isLoadingProfile, setIsLoadingProfile] = useState(true); 
 
-
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
@@ -35,31 +34,24 @@ const SellerHeader = ({ currentView, setCurrentView }: SellerHeaderProps) => {
     nearingExpiry: 3,
   };
 
-  // ADD CLICK OUTSIDE HANDLER
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Close user menu if click is outside
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
-      
-      // Close notifications if click is outside
       if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
       }
     };
 
-    // Add event listener when either menu is open
     if (showUserMenu || showNotifications) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
-    // Cleanup
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showUserMenu, showNotifications]); 
-
 
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
@@ -78,7 +70,6 @@ const SellerHeader = ({ currentView, setCurrentView }: SellerHeaderProps) => {
     };
   }, [showUserMenu, showNotifications]);
 
-  // Fetch profile
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -102,22 +93,13 @@ const SellerHeader = ({ currentView, setCurrentView }: SellerHeaderProps) => {
     setIsLoggingOut(true);
     
     try {
-      // Show loading toast
       toast.loading("Logging out...", { id: "logout" });
-      
-      // Call the auth service logout
       await sellerAuthService.logout(false); 
-      
-      // Show success message
       toast.success("Logged out successfully", { id: "logout" });
-      
-      // Redirect to home with login modal
       router.push("/?showLogin=true");
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Error logging out", { id: "logout" });
-      
-      // Even if error, clear local and redirect
       sellerAuthService.clearAuth();
       router.push("/?showLogin=true");
     } finally {
@@ -138,48 +120,109 @@ const SellerHeader = ({ currentView, setCurrentView }: SellerHeaderProps) => {
     setCurrentView("profile");
   };
 
-  // Get display name and company info from profile
-  const companyDisplay = profile?.sellerName || "Company";
+  const companyDisplay = profile?.sellerName
+    ? `${profile.sellerName}`
+    : "Official Store";
+
+  const coordinatorName = profile?.coordinator?.name || null;
 
   return (
-    <header className="fixed top-0 left-64 right-0 bg-base-white border-b border-neutral-100 z-40">
-      <div className="flex items-center justify-between px-6 py-3">
+    <header
+      style={{
+        background: 'var(--Colors-Shades-white, white)',
+        borderBottom: '1px var(--Colors-Primary-Neutral-pneutral-100, #EAEAE9) solid',
+      }}
+      className="fixed top-0 left-64 right-0 z-40"
+    >
+      <div
+        style={{ paddingLeft: 24, paddingRight: 24, paddingTop: 16, paddingBottom: 16 }}
+        className="flex items-center justify-between"
+      >
 
         {/* Search Bar */}
-        <div className="flex-1 max-w-xl mx-4">
+        <div className="flex-1 max-w-xl">
           <form onSubmit={handleSearch} className="w-full">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search by molecule, Brand or therapeutic area"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-5 py-3 pl-12 pr-4 rounded-lg bg-neutral-100 border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-base placeholder:text-neutral-700"
-              />
-              <IoSearchSharp size={20} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-500" />
+            <div
+              style={{
+                height: 48,
+                minHeight: 48,
+                background: 'var(--Colors-Primary-Neutral-pneutral-50, #F9F9F8)',
+                borderRadius: 8,
+                outline: '1px var(--Colors-Primary-Neutral-pneutral-100, #EAEAE9) solid',
+                outlineOffset: '-1px',
+              }}
+              className="flex items-center"
+            >
+              <div
+                style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 10, paddingBottom: 10 }}
+                className="flex items-center gap-2 w-full"
+              >
+                <IoSearchSharp
+                  size={20}
+                  style={{ color: 'var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)', flexShrink: 0 }}
+                />
+                <input
+                  type="text"
+                  placeholder="Search by molecule, Brand or therapeutic area"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    color: 'var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)',
+                    fontSize: 14,
+                    fontFamily: 'Open Sans, sans-serif',
+                    fontWeight: 300,
+                    lineHeight: '20px',
+                    wordWrap: 'break-word',
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    width: '100%',
+                  }}
+                  className="placeholder:text-[#969793]"
+                />
+              </div>
             </div>
           </form>
         </div>
 
         {/* Right Icons & User Menu */}
-        <div className="flex items-center gap-4">
-          {/* Notifications with Inventory Alerts */}
-          <div className="relative" ref={notificationsRef}> 
-            <button 
-              className="relative"
+        <div style={{ justifyContent: 'flex-start', alignItems: 'center', gap: 16, display: 'inline-flex' }}>
+          <div style={{ justifyContent: 'flex-start', alignItems: 'center', gap: 16, display: 'flex' }}>
+
+          {/* Notifications */}
+          <div style={{ position: 'relative' }} ref={notificationsRef}> 
+            <button
               onClick={() => setShowNotifications(!showNotifications)}
+              style={{ width: 26, height: 26, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              <Bell size={20} className="text-neutral-600" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-warning-500 text-white text-xs rounded-full flex items-center justify-center">
-                {inventoryAlerts.lowStock + inventoryAlerts.nearingExpiry}
-              </span>
+              <Bell size={20} style={{ color: 'var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)' }} />
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  left: 15,
+                  top: 3,
+                  position: 'absolute',
+                  background: 'var(--Colors-Warning-warning-500, #FF3B3B)',
+                  borderRadius: 9999,
+                }}
+              />
             </button>
 
             {/* Notifications Dropdown */}
             {showNotifications && (
               <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-neutral-100 py-2 z-50">
                 <div className="px-4 py-2 border-b border-neutral-100">
-                  <h3 className="text-sm font-semibold text-neutral-900">Inventory Alerts</h3>
+                  <h3
+                    style={{
+                      fontFamily: 'Roboto, sans-serif',
+                      fontWeight: 700,
+                      fontSize: 12,
+                      color: 'var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)',
+                    }}
+                  >
+                    Inventory Alerts
+                  </h3>
                 </div>
                 <div className="p-3">
                   <div className="flex items-start gap-2 mb-2 p-2 hover:bg-warning-50 rounded">
@@ -209,32 +252,84 @@ const SellerHeader = ({ currentView, setCurrentView }: SellerHeaderProps) => {
             )}
           </div>
 
-          {/* User Menu with Dropdown */}
-          <div className="relative" ref={userMenuRef}> 
+          {/* User Menu */}
+          <div style={{ position: 'relative' }} ref={userMenuRef}> 
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 p-2 rounded-lg transition-colors"
               disabled={isLoggingOut}
+              style={{ justifyContent: 'flex-start', alignItems: 'center', display: 'flex' }}
             >
-              <div className="text-left">
-                <p className="text-sm font-medium text-neutral-900">
+              {/* Name & Coordinator */}
+              <div
+                style={{
+                  height: 35,
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'flex-end',
+                  display: 'inline-flex',
+                }}
+              >
+                <div
+                  style={{
+                    width: 119,
+                    height: 17,
+                    textAlign: 'center',
+                    color: 'var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)',
+                    fontSize: 12,
+                    fontFamily: 'Roboto, sans-serif',
+                    fontWeight: 700,
+                    lineHeight: '18.5px',
+                    wordWrap: 'break-word',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
                   {isLoadingProfile ? "Loading..." : companyDisplay}
-                </p>
-                {/* <p className="text-xs text-neutral-500">
-                  {isLoadingProfile ? "Loading..." : companyDisplay}
-                </p> */}
+                </div>
+                <div
+                  style={{
+                    width: 79,
+                    height: 15,
+                    textAlign: 'center',
+                    color: 'var(--Colors-Primary-Neutral-pneutral-500, #969793)',
+                    fontSize: 10,
+                    fontFamily: 'Roboto, sans-serif',
+                    fontWeight: 600,
+                    lineHeight: '14px',
+                    wordWrap: 'break-word',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {isLoadingProfile ? "" : (coordinatorName || "Change Seller")}
+                </div>
               </div>
-              <div className="w-8 h-8 rounded-md overflow-hidden shrink-0">
-                <Image
-                  src="/assets/images/sellerprofile.png"
-                  alt="User avatar"
-                  width={32}
-                  height={32}
-                  className="object-cover w-full h-full"
-                />
+
+              {/* Avatar + Chevron */}
+              <div style={{ justifyContent: 'flex-start', alignItems: 'center', display: 'flex' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                  <Image
+                    src="/assets/images/sellerprofile.png"
+                    alt="User avatar"
+                    width={48}
+                    height={48}
+                    className="object-cover w-full h-full"
+                  />
+                </div>
+                {/* Chevron — matches spec: 24×24 container, chevron shape */}
+                <div style={{ width: 24, height: 24, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ChevronDown
+                    size={14}
+                    style={{
+                      color: 'var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)',
+                      transition: 'transform 0.2s',
+                      transform: showUserMenu ? 'rotate(180deg)' : 'rotate(0deg)',
+                    }}
+                  />
+                </div>
               </div>
-              
-              <ChevronDown size={16} className={`text-neutral-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
             </button>
 
             {/* User Dropdown Menu */}
@@ -274,7 +369,8 @@ const SellerHeader = ({ currentView, setCurrentView }: SellerHeaderProps) => {
               </div>
             )}
           </div>
-        </div>
+          </div>{/* end inner flex */}
+        </div>{/* end right section */}
       </div>
     </header>
   );
