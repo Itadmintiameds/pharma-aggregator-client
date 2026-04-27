@@ -7,32 +7,34 @@ interface Props {
   show: boolean;
   label: string;
   type: "email" | "phone";
-  onClose: () => void;  
+  onClose: () => void;
   onVerified: () => void;
   onResend: () => Promise<void>;
 }
 
-export default function VerificationModal({ 
-  show, 
-  label, 
-  onClose,  
-  onVerified, 
-  type, 
-  onResend 
+export default function VerificationModal({
+  show,
+  label,
+  onClose,
+  onVerified,
+  type,
+  onResend,
 }: Props) {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
   const [canResend, setCanResend] = useState(true);
   const [resendCountdown, setResendCountdown] = useState(0);
   const [error, setError] = useState<string>("");
+
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
-  const modalRef = useRef<HTMLDivElement>(null); 
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (show) {
       setOtp(["", "", "", "", "", ""]);
       setIsVerifying(false);
       setError("");
+
       setTimeout(() => {
         inputs.current[0]?.focus();
       }, 50);
@@ -42,46 +44,54 @@ export default function VerificationModal({
   // click outside handler
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (show && modalRef.current && !modalRef.current.contains(event.target as Node)) {
+      if (
+        show &&
+        modalRef.current &&
+        !modalRef.current.contains(event.target as Node)
+      ) {
         onClose();
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [show, onClose]);
 
   // escape key handler
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
-      if (show && event.key === 'Escape') {
+      if (show && event.key === "Escape") {
         onClose();
       }
     };
 
-    document.addEventListener('keydown', handleEscKey);
+    document.addEventListener("keydown", handleEscKey);
+
     return () => {
-      document.removeEventListener('keydown', handleEscKey);
+      document.removeEventListener("keydown", handleEscKey);
     };
   }, [show, onClose]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
+
     if (resendCountdown > 0) {
       timer = setTimeout(() => {
-        setResendCountdown(resendCountdown - 1);
+        setResendCountdown((prev) => prev - 1);
       }, 1000);
     } else if (resendCountdown === 0 && !canResend) {
       setCanResend(true);
     }
+
     return () => clearTimeout(timer);
   }, [resendCountdown, canResend]);
 
   const formatPhone = (phone: string) => {
     const clean = phone.replace(/\D/g, "");
-    
+
     if (clean.startsWith("91") && clean.length === 12) {
       return `+${clean}`;
     }
@@ -93,56 +103,83 @@ export default function VerificationModal({
     return `+${clean}`;
   };
 
+  // ===================== NEW COMMON VERIFY FUNCTION =====================
+ const verifyOtpNow = async (enteredOtp: string) => {
+  setIsVerifying(true);
+  setError("");
+
+  try {
+    let response: any;
+
+    if (type === "email") {
+      response = await sellerRegService.verifyEmailOtp({
+        email: label,
+        otp: enteredOtp,
+      });
+    } else {
+      const phoneWithPrefix = formatPhone(label);
+
+      response = await sellerRegService.verifySMSOtp({
+        phone: phoneWithPrefix,
+        otp: enteredOtp,
+      });
+    }
+
+    onVerified();
+
+  } catch (error: any) {
+    const statusCode = error?.response?.status;
+
+    const msg =
+      error?.response?.data?.message ||
+      error?.response?.data?.data?.message ||
+      error?.message ||
+      "Invalid OTP. Please try again.";
+
+    // ✅ Only special case:
+    // backend wrongly sends 400 + success message
+    if (
+      statusCode === 400 &&
+      msg === "Request processed successfully"
+    ) {
+      onVerified();
+      return;
+    }
+
+    // ❌ real invalid otp
+    setOtp(["", "", "", "", "", ""]);
+    setError(msg);
+
+    setTimeout(() => {
+      inputs.current[0]?.focus();
+    }, 50);
+  } finally {
+    setIsVerifying(false);
+  }
+};
+
+
+
   const handleChange = (value: string, index: number) => {
     if (!/^\d?$/.test(value)) return;
-    
+
     const newOtp = [...otp];
     newOtp[index] = value;
+
     setOtp(newOtp);
     setError("");
-    
+
     if (value && index < 5) {
       inputs.current[index + 1]?.focus();
     }
-    
+
+    // auto verify after 6 digits
     if (value && index === 5) {
       const enteredOtp = newOtp.join("");
+
       if (enteredOtp.length === 6) {
-        setTimeout(async () => {
-          setIsVerifying(true);
-          try {
-            if (type === "email") {
-              await sellerRegService.verifyEmailOtp({
-                email: label,
-                otp: enteredOtp
-              });
-            } else {
-              const phoneWithPrefix = formatPhone(label);
-              console.log('📡 Verifying OTP:', { phone: phoneWithPrefix, otp: enteredOtp });
-              
-              // const response = await sellerRegService.verifySMSOtp({
-              //   phone: phoneWithPrefix,
-              //   otp: enteredOtp
-              // });
-              
-              // console.log('✅ OTP verified:', response);
-            }
-            onVerified();
-          } catch (error: any) {
-            console.error('❌ Verification failed:', error);
-            
-            if (error.message && error.message.includes('Authenticate')) {
-              setError("Authentication failed. Please check your API configuration.");
-            } else if (error.message) {
-              setError(error.message);
-            } else {
-              setError("Invalid OTP. Please try again.");
-            }
-            
-            setOtp(["", "", "", "", "", ""]);
-          } finally {
-            setIsVerifying(false);
-          }
+        setTimeout(() => {
+          verifyOtpNow(enteredOtp);
         }, 50);
       }
     }
@@ -152,11 +189,12 @@ export default function VerificationModal({
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       inputs.current[index - 1]?.focus();
     }
-    
+
     if (e.key === "ArrowLeft" && index > 0) {
       e.preventDefault();
       inputs.current[index - 1]?.focus();
     }
+
     if (e.key === "ArrowRight" && index < 5) {
       e.preventDefault();
       inputs.current[index + 1]?.focus();
@@ -165,119 +203,56 @@ export default function VerificationModal({
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pasteData = e.clipboardData.getData('text').trim();
-    
-    if (/^\d{6}$/.test(pasteData)) {
-      const newOtp = pasteData.split('');
-      setOtp(newOtp as string[]);
-      setError("");
-      
-      setTimeout(async () => {
-        setIsVerifying(true);
-        try {
-          if (type === "email") {
-            await sellerRegService.verifyEmailOtp({
-              email: label,
-              otp: pasteData
-            });
-          } else {
-            const phoneWithPrefix = formatPhone(label);
-            // await sellerRegService.verifySMSOtp({
-            //   phone: phoneWithPrefix,
-            //   otp: pasteData
-            // });
-          }
-          onVerified();
-        } catch (error: any) {
-          setError(error.message || "Invalid OTP. Please try again.");
-          setOtp(["", "", "", "", "", ""]);
-        } finally {
-          setIsVerifying(false);
-        }
-      }, 50);
-      
-      setTimeout(() => {
-        inputs.current[5]?.focus();
-      }, 10);
-    } else {
+
+    const pasteData = e.clipboardData.getData("text").trim();
+
+    if (!/^\d{6}$/.test(pasteData)) {
       setError("Please paste a valid 6-digit code");
+      return;
     }
+
+    const newOtp = pasteData.split("");
+    setOtp(newOtp);
+    setError("");
+
+    setTimeout(() => {
+      verifyOtpNow(pasteData);
+    }, 50);
+
+    setTimeout(() => {
+      inputs.current[5]?.focus();
+    }, 10);
   };
 
   const verify = async () => {
     const enteredOtp = otp.join("");
-    
+
     if (enteredOtp.length !== 6) {
       setError("Please enter all 6 digits");
       return;
     }
-    
-    setIsVerifying(true);
-    setError("");
-    
-    try {
-      if (type === "email") {
-        await sellerRegService.verifyEmailOtp({
-          email: label,
-          otp: enteredOtp
-        });
-      } else {
-        const phoneWithPrefix = formatPhone(label);
-        console.log('📡 Verifying OTP:', { phone: phoneWithPrefix, otp: enteredOtp });
-        
-        // const response = await sellerRegService.verifySMSOtp({
-        //   phone: phoneWithPrefix,
-        //   otp: enteredOtp
-        // });
-        
-        // console.log('✅ OTP verified:', response);
-      }
-      
-      onVerified();
-    } catch (error: any) {
-      console.error('❌ Verification failed:', error);
-      
-      if (error.message && error.message.includes('Authenticate')) {
-        setError("Authentication failed. Please check your API configuration.");
-      } else if (error.message) {
-        setError(error.message);
-      } else {
-        setError("Invalid OTP. Please try again.");
-      }
-      
-      setOtp(["", "", "", "", "", ""]);
-    } finally {
-      setIsVerifying(false);
-    }
+
+    verifyOtpNow(enteredOtp);
   };
 
   const handleResendCode = async () => {
     if (!canResend) return;
-    
+
     setCanResend(false);
     setResendCountdown(30);
     setOtp(["", "", "", "", "", ""]);
     setError("");
-    
+
     try {
-      console.log(`🔄 Resending ${type} OTP to:`, label);
       await onResend();
-      console.log(`✅ ${type} OTP resent successfully`);
     } catch (error: any) {
-      console.error(`❌ Failed to resend ${type} OTP:`, error);
-      
-      let errorMessage = "Failed to resend code. Please try again.";
-      
-      if (error.response) {
-        const backendMessage = error.response.data?.message;
-        if (backendMessage) {
-          errorMessage = backendMessage;
-        }
-      }
-      
-      setError(errorMessage);
+      const msg =
+        error?.response?.data?.message ||
+        "Failed to resend code. Please try again.";
+
+      setError(msg);
     }
-    
+
     setTimeout(() => {
       inputs.current[0]?.focus();
     }, 50);
@@ -286,12 +261,11 @@ export default function VerificationModal({
   if (!show) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={onClose}
     >
-      {/* Modal content */}
-      <div 
+      <div
         ref={modalRef}
         className="w-90 bg-white rounded-xl shadow-lg p-8 text-center"
         onClick={(e) => e.stopPropagation()}
@@ -299,8 +273,9 @@ export default function VerificationModal({
         {/* Icon */}
         <div className="flex justify-center mb-4">
           <div
-            className={`w-20 h-20 rounded-full flex items-center justify-center shadow-md
-              ${type === "email" ? "bg-purple-200" : "bg-red-200"}`}
+            className={`w-20 h-20 rounded-full flex items-center justify-center shadow-md ${
+              type === "email" ? "bg-purple-200" : "bg-red-200"
+            }`}
           >
             {type === "email" ? (
               <Image
@@ -324,7 +299,9 @@ export default function VerificationModal({
 
         {/* Title */}
         <h2 className="text-2xl font-semibold text-neutral-900 mb-1">
-          {type === "email" ? "Verify your email" : "Verify your mobile number"}
+          {type === "email"
+            ? "Verify your email"
+            : "Verify your mobile number"}
         </h2>
 
         {/* Subtitle */}
@@ -357,18 +334,14 @@ export default function VerificationModal({
           ))}
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <p className="text-sm text-red-500 mb-4">
-            {error}
-          </p>
-        )}
+        {/* Error */}
+        {error && <p className="text-sm text-red-500 mb-4">{error}</p>}
 
-        {/* Verify Button */}
+        {/* Verify */}
         <button
           onClick={verify}
           disabled={isVerifying || otp.join("").length !== 6}
-          className="w-37.5 h-12 py-3 rounded-md bg-primary-900 text-white font-medium transition"
+          className="w-37.5 h-12 py-3 rounded-md bg-primary-900 text-white font-medium transition disabled:opacity-60"
         >
           {isVerifying ? "Verifying..." : "Verify"}
         </button>
@@ -389,7 +362,6 @@ export default function VerificationModal({
     </div>
   );
 }
-
 
 
 

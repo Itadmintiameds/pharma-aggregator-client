@@ -119,6 +119,7 @@ export default function BankForm({
                 value={formData.accountHolderName}
                 onChange={(e) => onAlphabetInput(e, "accountHolderName")}
                 placeholder="As per bank records"
+                 maxLength={100}
                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
               />
             </div>

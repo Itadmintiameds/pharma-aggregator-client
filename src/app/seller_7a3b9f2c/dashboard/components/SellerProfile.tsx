@@ -51,6 +51,25 @@ import { ifscSchema } from "@/src/schema/seller/IFSCSchema";
 import OtpVerificationModal from "./OtpVerificationModal";
 import toast from "react-hot-toast";
 
+// Helper function to calculate license status based on dates - returns only Active or InActive
+const calculateLicenseStatus = (issueDate: Date | null, expiryDate: Date | null): 'Active' | 'InActive' => {
+  if (!issueDate || !expiryDate) {
+    return 'InActive';
+  }
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expDate = new Date(expiryDate);
+  expDate.setHours(0, 0, 0, 0);
+  
+  // Check if expired
+  if (expDate < today) {
+    return 'InActive';
+  }
+  
+  return 'Active';
+};
+
 // Drug License Number validation functions
 const validateDrugLicenseNumber = (value: string): string | null => {
   const cleaned = value.trim().toUpperCase();
@@ -221,6 +240,10 @@ export default function SellerProfile() {
   // Submit loading state
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ✅ State to track inactive licenses for blocking submission
+  const [inactiveLicenses, setInactiveLicenses] = useState<string[]>([]);
+  const [showInactiveError, setShowInactiveError] = useState(false);
+
   // Form State for editing
   const [formData, setFormData] = useState({
     // IDs for submission
@@ -270,7 +293,7 @@ export default function SellerProfile() {
       issueDate: Date | null;
       expiryDate: Date | null;
       issuingAuthority: string;
-      status: 'Active' | 'InActive' | '----';
+      status: 'Active' | 'InActive';
       productTypeId: number;
       documentId?: number;
     }>,
@@ -288,10 +311,28 @@ export default function SellerProfile() {
     cancelledChequeFileUrl: "",
   });
 
+  // ✅ Effect to check for inactive licenses whenever licenses data changes
+  useEffect(() => {
+    const inactive: string[] = [];
+    
+    Object.entries(formData.licenses).forEach(([productName, licenseData]) => {
+      // Only check if both dates are present
+      if (licenseData.issueDate && licenseData.expiryDate) {
+        const status = calculateLicenseStatus(licenseData.issueDate, licenseData.expiryDate);
+        if (status === 'InActive') {
+          inactive.push(productName);
+        }
+      }
+    });
+    
+    setInactiveLicenses(inactive);
+  }, [formData.licenses]);
+
   // Debug licenses
   useEffect(() => {
     console.log('📋 Current licenses in formData:', formData.licenses);
-  }, [formData.licenses]);
+    console.log('📋 Inactive licenses:', inactiveLicenses);
+  }, [formData.licenses, inactiveLicenses]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -322,15 +363,19 @@ export default function SellerProfile() {
       profileData.documents.forEach((doc: SellerDocument) => {
         const productName = doc.productTypes?.productTypeName;
         if (productName) {
+          const issueDate = doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null;
+          const expiryDate = doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null;
+          const calculatedStatus = calculateLicenseStatus(issueDate, expiryDate);
+          
           licenses[productName] = {
             documentId: doc.sellerDocumentsId,
             number: doc.documentNumber || "",
             file: null,
             fileUrl: doc.documentFileUrl || "",
-            issueDate: doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null,
-            expiryDate: doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null,
+            issueDate: issueDate,
+            expiryDate: expiryDate,
             issuingAuthority: doc.licenseIssuingAuthority || "",
-            status: (doc.licenseStatus as 'Active' | 'InActive') || 'InActive',
+            status: calculatedStatus,
             productTypeId: doc.productTypes?.productTypeId || 0
           };
         }
@@ -401,6 +446,8 @@ export default function SellerProfile() {
       
       // ✅ Reset document changes flag
       setHasDocumentChanges(false);
+      setInactiveLicenses([]);
+      setShowInactiveError(false);
     }
   };
 
@@ -419,6 +466,8 @@ export default function SellerProfile() {
     // ✅ Reset document changes flag
     setHasDocumentChanges(false);
     setPendingRequestError(null);
+    setInactiveLicenses([]);
+    setShowInactiveError(false);
   };
 
   // Master data fetch functions
@@ -525,15 +574,18 @@ export default function SellerProfile() {
           data.documents.forEach((doc: SellerDocument) => {
             const productName = doc.productTypes?.productTypeName;
             if (productName) {
+              const issueDate = doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null;
+              const expiryDate = doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null;
+              const calculatedStatus = calculateLicenseStatus(issueDate, expiryDate);
+              
               licenses[productName] = {
                 number: doc.documentNumber || "",
                 file: null,
                 fileUrl: doc.documentFileUrl || "",
-                issueDate: doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null,
-                expiryDate: doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null,
+                issueDate: issueDate,
+                expiryDate: expiryDate,
                 issuingAuthority: doc.licenseIssuingAuthority || "",
-                status: (doc.licenseStatus as 'Active' | 'Expired') || 
-                       (doc.documentVerified ? 'Active' : 'Expired'),
+                status: calculatedStatus,
                 productTypeId: doc.productTypes?.productTypeId || 0
               };
             }
@@ -673,20 +725,6 @@ export default function SellerProfile() {
     }));
     setHasDocumentChanges(true); // ✅ Force admin approval
   };
-  
-  // License status calculator
-  const calculateLicenseStatus = (issueDate: Date | null, expiryDate: Date | null, apiStatus?: string): 'Active' | 'InActive' => {
-    if (apiStatus === 'Active' || apiStatus === 'InActive') {
-      return apiStatus;
-    }
-    
-    if (!issueDate || !expiryDate) return 'InActive';
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const expDate = new Date(expiryDate);
-    expDate.setHours(0, 0, 0, 0);
-    return today <= expDate ? 'Active' : 'InActive';
-  };
 
   // Handle License Number change with validation - BLOCKS invalid input
   const handleLicenseNumberChangeWithValidation = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
@@ -795,15 +833,19 @@ export default function SellerProfile() {
         
         if (existingDoc) {
           // ✅ If it exists, use the existing data (preserves documentId, number, dates, etc.)
+          const issueDate = existingDoc.licenseIssueDate ? new Date(existingDoc.licenseIssueDate) : null;
+          const expiryDate = existingDoc.licenseExpiryDate ? new Date(existingDoc.licenseExpiryDate) : null;
+          const calculatedStatus = calculateLicenseStatus(issueDate, expiryDate);
+          
           newLicenses[product.productTypeName] = {
             documentId: existingDoc.sellerDocumentsId,
             number: existingDoc.documentNumber || "",
             file: null,
             fileUrl: existingDoc.documentFileUrl || "",
-            issueDate: existingDoc.licenseIssueDate ? new Date(existingDoc.licenseIssueDate) : null,
-            expiryDate: existingDoc.licenseExpiryDate ? new Date(existingDoc.licenseExpiryDate) : null,
+            issueDate: issueDate,
+            expiryDate: expiryDate,
             issuingAuthority: existingDoc.licenseIssuingAuthority || "",
-            status: (existingDoc.licenseStatus as 'Active' | 'InActive') || 'InActive',
+            status: calculatedStatus,
             productTypeId: product.productTypeId
           };
         } else {
@@ -814,7 +856,7 @@ export default function SellerProfile() {
             issueDate: null,
             expiryDate: null,
             issuingAuthority: "",
-            status: '----',
+            status: 'InActive',
             productTypeId: product.productTypeId
           };
         }
@@ -858,15 +900,19 @@ export default function SellerProfile() {
         
         if (existingDoc) {
           // Use existing data
+          const issueDate = existingDoc.licenseIssueDate ? new Date(existingDoc.licenseIssueDate) : null;
+          const expiryDate = existingDoc.licenseExpiryDate ? new Date(existingDoc.licenseExpiryDate) : null;
+          const calculatedStatus = calculateLicenseStatus(issueDate, expiryDate);
+          
           newLicenses[name] = {
             documentId: existingDoc.sellerDocumentsId,
             number: existingDoc.documentNumber || "",
             file: null,
             fileUrl: existingDoc.documentFileUrl || "",
-            issueDate: existingDoc.licenseIssueDate ? new Date(existingDoc.licenseIssueDate) : null,
-            expiryDate: existingDoc.licenseExpiryDate ? new Date(existingDoc.licenseExpiryDate) : null,
+            issueDate: issueDate,
+            expiryDate: expiryDate,
             issuingAuthority: existingDoc.licenseIssuingAuthority || "",
-            status: (existingDoc.licenseStatus as 'Active' | 'InActive') || '----',
+            status: calculatedStatus,
             productTypeId: product.productTypeId
           };
         } else {
@@ -877,7 +923,7 @@ export default function SellerProfile() {
             issueDate: null,
             expiryDate: null,
             issuingAuthority: "",
-            status: '----', 
+            status: 'InActive', 
             productTypeId: product.productTypeId
           };
         }
@@ -1139,16 +1185,12 @@ export default function SellerProfile() {
     setFormData(prev => {
       const updatedLicenses = { ...prev.licenses };
       if (updatedLicenses[productName]) {
+        const newStatus = calculateLicenseStatus(date, updatedLicenses[productName].expiryDate);
         updatedLicenses[productName] = {
           ...updatedLicenses[productName],
           issueDate: date,
+          status: newStatus,
         };
-        if (updatedLicenses[productName].expiryDate) {
-          updatedLicenses[productName].status = calculateLicenseStatus(
-            date,
-            updatedLicenses[productName].expiryDate
-          );
-        }
       }
       return { ...prev, licenses: updatedLicenses };
     });
@@ -1158,16 +1200,12 @@ export default function SellerProfile() {
     setFormData(prev => {
       const updatedLicenses = { ...prev.licenses };
       if (updatedLicenses[productName]) {
+        const newStatus = calculateLicenseStatus(updatedLicenses[productName].issueDate, date);
         updatedLicenses[productName] = {
           ...updatedLicenses[productName],
           expiryDate: date,
+          status: newStatus,
         };
-        if (updatedLicenses[productName].issueDate) {
-          updatedLicenses[productName].status = calculateLicenseStatus(
-            updatedLicenses[productName].issueDate,
-            date
-          );
-        }
       }
       return { ...prev, licenses: updatedLicenses };
     });
@@ -1176,6 +1214,12 @@ export default function SellerProfile() {
   // Input handlers
   const handleAlphabetInput = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
     const value = e.target.value.replace(/[^a-zA-Z\s,'.-]/g, "");
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // ✅ NEW: Alphanumeric handler for coordinator fields (letters, numbers, spaces only)
+  const handleAlphanumericInput = (e: React.ChangeEvent<HTMLInputElement>, field: string, maxLen = 100) => {
+    const value = e.target.value.replace(/[^a-zA-Z0-9\s]/g, "").slice(0, maxLen);
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -1242,9 +1286,36 @@ export default function SellerProfile() {
     }
   }, [pendingRequestError]);
 
+  // Auto dismiss inactive error after 10 seconds
+  useEffect(() => {
+    if (showInactiveError) {
+      const timer = setTimeout(() => {
+        setShowInactiveError(false);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [showInactiveError]);
+
+  // ✅ Function to check if any license is inactive before submission
+  const hasInactiveLicenses = (): boolean => {
+    return inactiveLicenses.length > 0;
+  };
+
   const handleSaveAll = async () => {
     setIsSubmitting(true);
     setPendingRequestError(null);
+    
+    // ✅ Check for inactive licenses first
+    if (hasInactiveLicenses()) {
+      setShowInactiveError(true);
+      scrollToTop();
+      toast.error(
+        `Cannot submit: The following license(s) are inactive/expired:\n${inactiveLicenses.join('\n')}\n\nPlease update with valid licenses.`,
+        { duration: 8000 }
+      );
+      setIsSubmitting(false);
+      return;
+    }
     
     // Validate phone numbers before proceeding
     const companyPhoneValidationError = validateIndianMobileNumber(formData.phone);
@@ -1357,7 +1428,7 @@ export default function SellerProfile() {
               ? formatDate(licenseData.expiryDate) 
               : existingDoc.licenseExpiryDate || '',
             licenseIssuingAuthority: licenseData.issuingAuthority || existingDoc.licenseIssuingAuthority || '',
-            licenseStatus: licenseData.status === '----' ? 'InActive' : (licenseData.status || existingDoc.licenseStatus || 'InActive')
+            licenseStatus: licenseData.status || existingDoc.licenseStatus || 'InActive'
           });
           
           processedProductTypeIds.add(productTypeId);
@@ -1399,7 +1470,7 @@ export default function SellerProfile() {
               licenseIssueDate: licenseData.issueDate ? formatDate(licenseData.issueDate) : '',
               licenseExpiryDate: licenseData.expiryDate ? formatDate(licenseData.expiryDate) : '',
               licenseIssuingAuthority: licenseData.issuingAuthority || '',
-              licenseStatus: licenseData.status === '----' ? 'InActive' : (licenseData.status || 'InActive')
+              licenseStatus: licenseData.status || 'InActive'
             });
             
             processedProductTypeIds.add(productType.productTypeId);
@@ -1590,15 +1661,19 @@ export default function SellerProfile() {
           updatedProfile.documents.forEach((doc: SellerDocument) => {
             const productName = doc.productTypes?.productTypeName;
             if (productName) {
+              const issueDate = doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null;
+              const expiryDate = doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null;
+              const calculatedStatus = calculateLicenseStatus(issueDate, expiryDate);
+              
               updatedLicenses[productName] = {
                 documentId: doc.sellerDocumentsId,
                 number: doc.documentNumber || "",
                 file: null,
                 fileUrl: doc.documentFileUrl || "",
-                issueDate: doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null,
-                expiryDate: doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null,
+                issueDate: issueDate,
+                expiryDate: expiryDate,
                 issuingAuthority: doc.licenseIssuingAuthority || "",
-                status: (doc.licenseStatus as 'Active' | 'InActive') || 'InActive',
+                status: calculatedStatus,
                 productTypeId: doc.productTypes?.productTypeId || 0
               };
             }
@@ -2354,6 +2429,35 @@ export default function SellerProfile() {
           </div>
         )}
 
+        {/* ✅ INACTIVE LICENSE ERROR BANNER */}
+        {showInactiveError && inactiveLicenses.length > 0 && (
+          <div className="p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
+            <span className="text-red-500 text-xl mt-0.5">🚫</span>
+            <div>
+              <p className="text-red-700 font-semibold">
+                Inactive/Expired license{inactiveLicenses.length > 1 ? "s" : ""} detected — cannot submit
+              </p>
+              <p className="text-red-600 text-sm mt-1">
+                The following license{inactiveLicenses.length > 1 ? "s are" : " is"} inactive/expired. Please provide a valid, active license before submitting:
+              </p>
+              <ul className="mt-2 space-y-1">
+                {inactiveLicenses.map((productName) => (
+                  <li key={productName} className="text-red-600 text-sm font-medium flex items-center gap-1">
+                    <span>•</span>
+                    <span>{productName} License</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <button
+              onClick={() => setShowInactiveError(false)}
+              className="ml-auto text-red-500 hover:text-red-700"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Success Message - Only show when there's no pending error */}
         {!pendingRequestError && savedSection && showSuccess && (
           <div className="bg-success-50 border-l-4 border-success-300 p-4 rounded-md flex gap-2">
@@ -2459,11 +2563,11 @@ export default function SellerProfile() {
                     <div className="relative" ref={productDropdownRef}>
                       <div
                         className={`w-full h-14 px-4 rounded-xl border flex items-center justify-between cursor-pointer
-                          ${false 
+                          ${editingSection 
                             ? "bg-white border-secondary-200 hover:border-primary-900" 
                             : "bg-neutral-50 border-neutral-100 cursor-not-allowed"
                           }`}
-                        onClick={() => false && setIsProductDropdownOpen(!isProductDropdownOpen)}
+                        onClick={() => editingSection && setIsProductDropdownOpen(!isProductDropdownOpen)}
                       >
                         <span className={`${formData.productTypes.length === 0 ? "text-neutral-500" : "text-neutral-900"}`}>
                           {loadingStates.productTypes
@@ -2475,7 +2579,7 @@ export default function SellerProfile() {
                         <ChevronDown className={`w-5 h-5 text-neutral-500 transition-transform ${isProductDropdownOpen ? 'rotate-180' : ''}`} />
                       </div>
 
-                      {false && isProductDropdownOpen && !loadingStates.productTypes && (
+                      {editingSection && isProductDropdownOpen && !loadingStates.productTypes && (
                         <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
                           <div className="p-2 border-b border-neutral-200 sticky top-0 bg-white">
                             <p className="text-sm text-neutral-600 font-medium">
@@ -2721,18 +2825,23 @@ export default function SellerProfile() {
           underReview={reviewSections.includes("coordinator")}
         >
           <div className="grid grid-cols-2 gap-6">
+            {/* ✅ UPDATED: Using handleAlphanumericInput for Coordinator Name */}
             <Input 
               label="Coordinator Name" 
               value={formData.coordinatorName} 
               editable={!!editingSection}
+              maxLength={100}
               icon={<FaRegUser />}
-              onChange={(e) => handleAlphabetInput(e, 'coordinatorName')}
+              onChange={(e) => handleAlphanumericInput(e, 'coordinatorName')}
             />
+            
+            {/* ✅ UPDATED: Using handleAlphanumericInput for Coordinator Designation */}
             <Input 
               label="Coordinator Designation"
               value={formData.coordinatorDesignation} 
               editable={!!editingSection}
-              onChange={(e) => handleAlphabetInput(e, 'coordinatorDesignation')}
+              maxLength={100}
+              onChange={(e) => handleAlphanumericInput(e, 'coordinatorDesignation')}
             />
 
             <Input 
@@ -2816,8 +2925,12 @@ export default function SellerProfile() {
             issueDate: null,
             expiryDate: null,
             issuingAuthority: "",
-            status: 'Expired'
+            status: 'InActive'
           };
+
+          // Calculate current status based on dates
+          const currentStatus = calculateLicenseStatus(licenseData.issueDate, licenseData.expiryDate);
+          const isInactive = currentStatus === 'InActive';
 
           return (
             <div key={productName}>
@@ -2828,6 +2941,16 @@ export default function SellerProfile() {
                 iconColor="text-secondary-800"
                 underReview={reviewSections.includes(`license-${index}`)}
               >
+                {/* ✅ Inactive warning per license */}
+                {isInactive && licenseData.issueDate && licenseData.expiryDate && (
+                  <div className="mb-4 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                    <span className="text-red-500 text-base">⚠️</span>
+                    <p className="text-red-600 text-sm font-medium">
+                      {productName} License is inactive/expired. Please update with a valid license.
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-6">
                   {/* LICENSE NUMBER with validation */}
                   <div className="flex flex-col gap-2">
@@ -2857,11 +2980,11 @@ export default function SellerProfile() {
                           <span>{licenseErrors[productName]}</span>
                         </p>
                       )}
-                      {editingSection && !licenseErrors[productName] && (
+                      {/* {editingSection && !licenseErrors[productName] && (
                         <p className="mt-1 text-xs text-neutral-500">
                           Use: A-Z, 0-9, /, - only | Examples: TN/CBE/20B-12345, MH-MZ2-123456
                         </p>
-                      )}
+                      )} */}
                     </div>
                   </div>
 
@@ -2976,10 +3099,12 @@ export default function SellerProfile() {
                     </label>
                     <div className="flex items-center h-14 px-4 rounded-xl bg-neutral-50 border border-neutral-100">
                       <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${
-                        licenseData.status === 'Active' ? 'bg-success-50 text-success-700' : 'bg-orange-50 text-orange-700'
+                        currentStatus === 'Active' ? 'bg-success-50 text-success-700' : 'bg-red-50 text-red-700'
                       }`}>
                         <GoCheckCircle size={16} />
-                        <span className="text-sm font-medium">{licenseData.status}</span>
+                        <span className="text-sm font-medium">
+                          {!licenseData.issueDate || !licenseData.expiryDate ? 'Pending' : currentStatus}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -3105,7 +3230,9 @@ export default function SellerProfile() {
                   await handleSaveAll();
                 }}
                 disabled={isSubmitting}
-                className={`flex items-center gap-2 bg-primary-900 font-semibold text-white text-md px-6 py-3 rounded-lg hover:bg-primary-800 transition-colors ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                className={`flex items-center gap-2 bg-primary-900 font-semibold text-white text-md px-6 py-3 rounded-lg transition-colors ${
+                  isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-primary-800'
+                }`}
               >
                 {isSubmitting ? (
                   <>
@@ -3184,6 +3311,10 @@ interface InputProps {
   placeholder?: string;
 }
 
+// ✅ FIXED: Removed internal useState/useEffect so the Input is fully controlled.
+// Previously, the component cached raw input in local state before the parent's
+// onChange filter could clean it — allowing special characters like @#$% to display.
+// Now value flows directly from props, so parent filters take effect immediately.
 function Input({ 
   label, 
   value, 
@@ -3194,21 +3325,9 @@ function Input({
   type = "text",
   className = "",
   error,
-  hideAsterisk = false 
+  hideAsterisk = false,
+  placeholder
 }: InputProps) {
-  const [inputValue, setInputValue] = useState(value);
-
-  useEffect(() => {
-    setInputValue(value);
-  }, [value]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
-    if (onChange) {
-      onChange(e);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-2">
       <label className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
@@ -3222,10 +3341,11 @@ function Input({
       </label>
       <input
         type={type}
-        value={inputValue}
-        onChange={handleChange}
+        value={value}
+        onChange={onChange}
         disabled={!editable}
         maxLength={maxLength}
+        placeholder={placeholder}
         className={`w-full h-14 px-4 rounded-xl text-[16px] ${className}
         ${editable
           ? "bg-white border border-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-500"

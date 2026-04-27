@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Building2, FileText } from "lucide-react";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { ProductTypeResponse } from "@/src/types/seller/SellerRegMasterData";
 import { toast } from "react-toastify";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 interface Props {
   formData: any;
@@ -20,6 +22,32 @@ interface Props {
   prevStep: () => void;
   nextStep: () => void;
 }
+
+// Helper function to calculate license status based on dates
+const calculateLicenseStatus = (issueDate: Date | null, expiryDate: Date | null): string => {
+  if (!issueDate || !expiryDate) {
+    return "Pending";
+  }
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Check if expired
+  if (expiryDate < today) {
+    return "Expired";
+  }
+  
+  // Check if active (not expired and issue date is valid)
+  return "Active";
+};
+
+// Function to check if date gap is more than 5 years
+const isDateGapExceedingFiveYears = (issueDate: Date | null, expiryDate: Date | null): boolean => {
+  if (!issueDate || !expiryDate) return false;
+  
+  const diffInYears = (expiryDate.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+  return diffInYears > 5;
+};
 
 // Drug License Number validation function
 const validateDrugLicenseNumber = (value: string): string | null => {
@@ -67,6 +95,79 @@ const formatLicenseNumber = (value: string): string => {
   return cleaned;
 };
 
+// ✅ Helper: intercept manual year typing in MUI DatePicker and block years < 2000.
+// MUI DatePicker renders an <input> internally. When the user is in the "year" segment,
+// we track the digits they type. As soon as 4 digits are collected we check if the
+// resulting year is < 2000 and, if so, replace the segment value via execCommand so the
+// picker sees "2000" instead.  We also keep a running buffer so we can block the entry
+// the moment the 4th digit produces an invalid year.
+const useDateYearGuard = () => {
+  // We store a per-input digit buffer keyed by a ref so we don't re-render
+  const bufferRef = useRef<string>("");
+
+  const handleDateInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    const selectionStart = input.selectionStart ?? 0;
+    const fullValue = input.value; // e.g. "DD/MM/YYYY" or "01/01/0000"
+
+    // Only act on digit keys
+    if (!/^\d$/.test(e.key)) {
+      // Reset buffer on non-digit navigation
+      if (!['ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
+        bufferRef.current = "";
+      }
+      return;
+    }
+
+    // Detect if the cursor is in the YEAR segment.
+    // MUI DatePicker with format "dd/MM/yyyy" places year characters at indices 6,7,8,9
+    const inYearSegment = selectionStart >= 6;
+
+    if (!inYearSegment) {
+      bufferRef.current = "";
+      return;
+    }
+
+    // Accumulate digits for the year
+    bufferRef.current = (bufferRef.current + e.key).slice(-4);
+
+    // Once we have 4 digits, validate
+    if (bufferRef.current.length === 4) {
+      const typedYear = parseInt(bufferRef.current, 10);
+      if (typedYear < 2000) {
+        // Block the keystroke and clear buffer
+        e.preventDefault();
+        bufferRef.current = "";
+        toast.error("Year must be 2000 or greater", { toastId: "year-guard" });
+      } else {
+        // Valid – reset buffer for next entry
+        bufferRef.current = "";
+      }
+    }
+  };
+
+  // Called on change – if the picker has resolved to a date, validate year >= 2000
+  const handleDateInputChange = (
+    date: Date | null,
+    productName: string,
+    type: "issue" | "expiry",
+    originalHandler: (date: Date | null, productName: string) => void,
+    setDateErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
+  ) => {
+    if (date && date.getFullYear() < 2000) {
+      setDateErrors(prev => ({
+        ...prev,
+        [`${productName}_${type}`]: "Year must be 2000 or greater",
+      }));
+      // Do NOT propagate invalid date
+      return;
+    }
+    originalHandler(date, productName);
+  };
+
+  return { handleDateInputKeyDown, handleDateInputChange };
+};
+
 export default function DocumentForm({
   formData,
   productTypes,
@@ -84,6 +185,11 @@ export default function DocumentForm({
   const [uploadingGST, setUploadingGST] = useState(false);
   const [uploadingLicenses, setUploadingLicenses] = useState<Record<string, boolean>>({});
   const [licenseErrors, setLicenseErrors] = useState<Record<string, string>>({});
+  const [showExpiredError, setShowExpiredError] = useState(false);
+  const [dateErrors, setDateErrors] = useState<Record<string, string>>({});
+
+  // ✅ Year guard hook
+  const { handleDateInputKeyDown, handleDateInputChange } = useDateYearGuard();
 
   // Derive GST file name from formData
   const gstFileName = formData.gstFile?.name || "";
@@ -110,7 +216,6 @@ export default function DocumentForm({
     if (gstNumber.length === 15) {
       const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
       if (!gstRegex.test(gstNumber)) {
-        // Just show visual error without alert
         const input = document.querySelector('input[name="gstNumber"]') as HTMLInputElement;
         if (input) {
           input.classList.add('border-red-500');
@@ -134,23 +239,98 @@ export default function DocumentForm({
     if (value.length === 15) validateGSTFormat(value);
   };
 
+  // Enhanced issue date change handler with validation
+  const handleIssueDateChangeWithValidation = (date: Date | null, productName: string) => {
+    if (date) {
+      // Validate year is >= 2000
+      if (date.getFullYear() < 2000) {
+        setDateErrors(prev => ({ 
+          ...prev, 
+          [`${productName}_issue`]: "Year must be 2000 or greater" 
+        }));
+        return;
+      }
+      
+      // Validate date is not in future
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (date > today) {
+        setDateErrors(prev => ({ 
+          ...prev, 
+          [`${productName}_issue`]: "Issue date cannot be in the future" 
+        }));
+        return;
+      }
+      
+      // Clear error for this product
+      setDateErrors(prev => ({ ...prev, [`${productName}_issue`]: "" }));
+    } else {
+      setDateErrors(prev => ({ ...prev, [`${productName}_issue`]: "" }));
+    }
+    
+    onIssueDateChange(date, productName);
+    
+    // Validate gap if both dates exist
+    const licenseData = formData.licenses[productName];
+    const expiryDate = licenseData?.expiryDate || null;
+    
+    if (date && expiryDate && isDateGapExceedingFiveYears(date, expiryDate)) {
+      setDateErrors(prev => ({ 
+        ...prev, 
+        [`${productName}_gap`]: "License validity cannot exceed 5 years" 
+      }));
+    } else {
+      setDateErrors(prev => ({ ...prev, [`${productName}_gap`]: "" }));
+    }
+  };
+  
+  // Enhanced expiry date change handler with validation
+  const handleExpiryDateChangeWithValidation = (date: Date | null, productName: string) => {
+    if (date) {
+      // Validate year is >= 2000
+      if (date.getFullYear() < 2000) {
+        setDateErrors(prev => ({ 
+          ...prev, 
+          [`${productName}_expiry`]: "Year must be 2000 or greater" 
+        }));
+        return;
+      }
+      
+      // Clear error for this product
+      setDateErrors(prev => ({ ...prev, [`${productName}_expiry`]: "" }));
+    } else {
+      setDateErrors(prev => ({ ...prev, [`${productName}_expiry`]: "" }));
+    }
+    
+    onExpiryDateChange(date, productName);
+    
+    // Validate gap if both dates exist
+    const licenseData = formData.licenses[productName];
+    const issueDate = licenseData?.issueDate || null;
+    
+    if (issueDate && date && isDateGapExceedingFiveYears(issueDate, date)) {
+      setDateErrors(prev => ({ 
+        ...prev, 
+        [`${productName}_gap`]: "License validity cannot exceed 5 years" 
+      }));
+    } else {
+      setDateErrors(prev => ({ ...prev, [`${productName}_gap`]: "" }));
+    }
+  };
+
   // Handle License Number change with validation - BLOCKS invalid input
   const handleLicenseNumberChangeWithValidation = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
     let value = e.target.value;
-    // Format and clean the input - removes invalid characters
     const cleanedValue = formatLicenseNumber(value);
     
-    // If cleaning removed characters, don't update (blocks them)
     if (cleanedValue !== value) {
       return;
     }
     
-    // Limit length to 30
     if (cleanedValue.length > 30) {
       return;
     }
     
-    // Create synthetic event with cleaned value
     const syntheticEvent = {
       ...e,
       target: { ...e.target, name: `licenseNumber-${productName}`, value: cleanedValue }
@@ -158,7 +338,6 @@ export default function DocumentForm({
     
     onLicenseNumberChange(syntheticEvent);
     
-    // Validate the license number
     const error = validateDrugLicenseNumber(cleanedValue);
     setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
   };
@@ -170,40 +349,11 @@ export default function DocumentForm({
       return;
     }
     
-    // Allow only A-Z, 0-9, /, -
     const allowedChars = /^[A-Za-z0-9\/\-]$/;
     if (!allowedChars.test(e.key)) {
       e.preventDefault();
     }
   };
-
-  // Handle paste to clean invalid characters
-  // const handleLicensePaste = (e: React.ClipboardEvent<HTMLInputElement>, productName: string) => {
-  //   e.preventDefault();
-  //   const pastedText = e.clipboardData.getData('text');
-  //   let cleanedText = pastedText.toUpperCase();
-  //   // Remove invalid characters
-  //   cleanedText = cleanedText.replace(/[^A-Z0-9\/\-]/g, '');
-  //   // Limit to 30 characters
-  //   if (cleanedText.length > 30) {
-  //     cleanedText = cleanedText.substring(0, 30);
-  //   }
-    
-  //   const syntheticEvent = {
-  //     ...e,
-  //     target: { 
-  //       ...e.target, 
-  //       name: `licenseNumber-${productName}`, 
-  //       value: cleanedText 
-  //     }
-  //   } as React.ChangeEvent<HTMLInputElement>;
-    
-  //   onLicenseNumberChange(syntheticEvent);
-    
-  //   // Validate
-  //   const error = validateDrugLicenseNumber(cleanedText);
-  //   setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
-  // };
 
   // Handle license number blur for final validation
   const handleLicenseNumberBlur = (value: string, productName: string) => {
@@ -211,14 +361,13 @@ export default function DocumentForm({
     setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
   };
 
-  // Function to restrict input to letters, spaces, dots, commas, apostrophes, and hyphens
+  // Function to restrict input to alphanumeric characters and spaces only
   const handleIssuingAuthorityInput = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
     let value = e.target.value;
-    // Allow only letters, spaces, dots, commas, apostrophes, and hyphens
-    const filteredValue = value.replace(/[^a-zA-Z\s.,'-]/g, '');
+    // Allow only alphanumeric characters (letters A-Z a-z and numbers 0-9) and spaces
+    const filteredValue = value.replace(/[^a-zA-Z0-9\s]/g, '');
     
     if (filteredValue !== value) {
-      // Create a synthetic event with the filtered value
       const syntheticEvent = {
         ...e,
         target: { ...e.target, name: `issuingAuthority-${productName}`, value: filteredValue }
@@ -257,6 +406,36 @@ export default function DocumentForm({
     }
   };
 
+  // Get all expired licenses
+  const expiredProducts = formData.productTypes.filter((productName: string) => {
+    const licenseData = formData.licenses[productName];
+    const status = calculateLicenseStatus(licenseData?.issueDate || null, licenseData?.expiryDate || null);
+    return status === "Expired";
+  });
+
+  // Get products with gap exceeding 5 years
+  const invalidGapProducts = formData.productTypes.filter((productName: string) => {
+    const licenseData = formData.licenses[productName];
+    return isDateGapExceedingFiveYears(licenseData?.issueDate || null, licenseData?.expiryDate || null);
+  });
+
+  // Handle continue button click with expired license check
+  const handleContinue = () => {
+    if (expiredProducts.length > 0) {
+      setShowExpiredError(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    
+    if (invalidGapProducts.length > 0) {
+      toast.error("Some licenses have validity period exceeding 5 years. Please correct them.");
+      return;
+    }
+    
+    setShowExpiredError(false);
+    nextStep();
+  };
+
   // Show warning if no products selected
   if (formData.productTypes.length === 0) {
     return (
@@ -290,359 +469,459 @@ export default function DocumentForm({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <div className="flex flex-col gap-6">
 
-      {/* HEADER */}
-      <div>
-        <div className="text-2xl font-semibold">Statutory Documents</div>
-        <div className="text-neutral-600 text-sm">
-          License and GST compliance upload
+        {/* HEADER */}
+        <div>
+          <div className="text-2xl font-semibold">Statutory Documents</div>
+          <div className="text-neutral-600 text-sm">
+            License and GST compliance upload
+          </div>
         </div>
-      </div>
 
-      {/* LICENSE SECTIONS */}
-      {formData.productTypes.map((productName: string) => {
+        {/* EXPIRED LICENSE ERROR BANNER */}
+        {showExpiredError && expiredProducts.length > 0 && (
+          <div className="p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
+            <span className="text-red-500 text-xl mt-0.5">🚫</span>
+            <div>
+              <p className="text-red-700 font-semibold">
+                Expired license{expiredProducts.length > 1 ? "s" : ""} detected — cannot proceed
+              </p>
+              <p className="text-red-600 text-sm mt-1">
+                The following license{expiredProducts.length > 1 ? "s are" : " is"} expired. Please provide a valid, active license before continuing:
+              </p>
+              <ul className="mt-2 space-y-1">
+                {expiredProducts.map((productName: string) => (
+                  <li key={productName} className="text-red-600 text-sm font-medium flex items-center gap-1">
+                    <span>•</span>
+                    <span>{productName} License</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
 
-        const licenseInfo = getLicenseInfo(productName);
+        {/* LICENSE SECTIONS */}
+        {formData.productTypes.map((productName: string) => {
 
-        const licenseData = formData.licenses[productName] || {
-          number: "",
-          file: null,
-          issueDate: null,
-          expiryDate: null,
-          issuingAuthority: "",
-          status: "Expired"
-        };
+          const licenseInfo = getLicenseInfo(productName);
 
-        // Derive license file name from formData
-        const licenseFileName = licenseData.file?.name || "";
-        const isUploading = uploadingLicenses[productName];
-        const licenseError = licenseErrors[productName];
+          const licenseData = formData.licenses[productName] || {
+            number: "",
+            file: null,
+            issueDate: null,
+            expiryDate: null,
+            issuingAuthority: "",
+            status: "Expired"
+          };
 
-        return (
-          <div key={productName} className="mb-2">
-            <div className="grid grid-cols-2 gap-6">
-              {/* LICENSE NUMBER */}
-              <div className="flex flex-col gap-1">
-                <label className="font-medium text-neutral-700">
-                  {licenseInfo.numberLabel}
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
+          const licenseFileName = licenseData.file?.name || "";
+          const isUploading = uploadingLicenses[productName];
+          const licenseError = licenseErrors[productName];
+          const issueDateError = dateErrors[`${productName}_issue`];
+          const expiryDateError = dateErrors[`${productName}_expiry`];
+          const gapError = dateErrors[`${productName}_gap`];
+          
+          const currentStatus = calculateLicenseStatus(licenseData.issueDate, licenseData.expiryDate);
+          const isExpired = currentStatus === "Expired" && (licenseData.issueDate || licenseData.expiryDate);
+          const hasGapError = !!gapError;
 
-                <div className="relative">
-                  <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-                  <input
-                    type="text"
-                    name={`licenseNumber-${productName}`}
-                    value={licenseData.number}
-                    onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
-                    onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number)}
-                    // onPaste={(e) => handleLicensePaste(e, productName)}
-                    onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
-                    placeholder={licenseInfo.placeholder}
-                    maxLength={30}
-                    className={`w-full h-12 pl-10 pr-4 rounded-xl border focus:outline-none focus:border-[#4B0082] uppercase ${
-                      licenseError ? 'border-red-500 bg-red-50' : 'border-neutral-300 bg-neutral-50'
-                    }`}
-                  />
-                </div>
-                {licenseError && (
-                  <p className="mt-1 text-xs text-red-500 flex items-start">
-                    <span className="mr-1">⚠️</span>
-                    <span>{licenseError}</span>
+          // Determine status color
+          const getStatusColor = () => {
+            if (!licenseData.issueDate || !licenseData.expiryDate) return "bg-gray-100 text-gray-600";
+            if (currentStatus === "Active") return "bg-green-100 text-green-700 border-green-200";
+            if (currentStatus === "Expired") return "bg-red-100 text-red-700 border-red-200";
+            return "bg-gray-100 text-gray-600";
+          };
+
+          const getStatusDotColor = () => {
+            if (!licenseData.issueDate || !licenseData.expiryDate) return "bg-gray-400";
+            if (currentStatus === "Active") return "bg-green-500";
+            if (currentStatus === "Expired") return "bg-red-500";
+            return "bg-gray-400";
+          };
+
+          return (
+            <div key={productName} className="mb-2">
+              {/* Expired warning per license */}
+              {isExpired && (
+                <div className="mb-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                  <span className="text-red-500 text-base">⚠️</span>
+                  <p className="text-red-600 text-sm font-medium">
+                    {productName} License is expired. Please update with a valid license.
                   </p>
-                )}
-                <p className="mt-1 text-xs text-neutral-500">
-                  Use: A-Z, 0-9, /, - only | Examples: TN/CBE/20B-12345, MH-MZ2-123456
-                </p>
-              </div>
+                </div>
+              )}
+              
+              {/* Gap warning per license */}
+              {hasGapError && (
+                <div className="mb-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                  <span className="text-red-500 text-base">⚠️</span>
+                  <p className="text-red-600 text-sm font-medium">
+                    {gapError}
+                  </p>
+                </div>
+              )}
 
-              {/* LICENSE FILE */}
-              <div className="flex flex-col gap-1">
-                <label className="font-medium text-neutral-700">
-                  {licenseInfo.fileLabel}
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
+              <div className="grid grid-cols-2 gap-6">
+                {/* LICENSE NUMBER */}
+                <div className="flex flex-col gap-1">
+                  <label className="font-medium text-neutral-700">
+                    {licenseInfo.numberLabel}
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
 
-                <div
-                  className="flex items-center border border-neutral-300 rounded-xl overflow-hidden h-12 bg-neutral-50 cursor-pointer hover:bg-neutral-100 transition"
-                  onClick={() => document.getElementById(`license-upload-${productName}`)?.click()}
-                >
-                  <div className="w-12 h-full bg-[#DED0FE] flex items-center justify-center">
-                    <Image
-                      src="/icons/upload.png"
-                      alt="Upload"
-                      width={20}
-                      height={20}
+                  <div className="relative">
+                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+                    <input
+                      type="text"
+                      name={`licenseNumber-${productName}`}
+                      value={licenseData.number}
+                      onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
+                      onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number)}
+                      onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
+                      placeholder={licenseInfo.placeholder}
+                      maxLength={30}
+                      className={`w-full h-12 pl-10 pr-4 rounded-xl border focus:outline-none focus:border-[#4B0082] uppercase ${
+                        licenseError ? 'border-red-500 bg-red-50' : 'border-neutral-300 bg-neutral-50'
+                      }`}
                     />
                   </div>
-
-                  <div className="flex-1 px-3 text-sm">
-                    {isUploading ? (
-                      <span className="text-neutral-500">Uploading...</span>
-                    ) : licenseFileName ? (
-                      <span className="text-neutral-900 font-medium truncate block">
-                        {licenseFileName}
-                      </span>
-                    ) : (
-                      <span className="text-neutral-400">Upload the Certificate</span>
-                    )}
-                  </div>
-
-                  <input
-                    id={`license-upload-${productName}`}
-                    type="file"
-                    name={`licenseFile-${productName}`}
-                    onChange={(e) => handleLicenseFileUpload(e, productName)}
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="hidden"
-                    disabled={isUploading}
-                  />
+                  {licenseError && (
+                    <p className="mt-1 text-xs text-red-500 flex items-start">
+                      <span className="mr-1">⚠️</span>
+                      <span>{licenseError}</span>
+                    </p>
+                  )}
                 </div>
-              </div>
 
-              {/* ISSUE DATE */}
-              <div className="flex flex-col gap-1">
-                <label className="font-medium text-neutral-700">
-                  {licenseInfo.issueDateLabel}
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-
-                <DatePicker
-                  value={licenseData.issueDate}
-                  onChange={(date) => onIssueDateChange(date, productName)}
-                  maxDate={new Date()}
-                  format="dd/MM/yyyy"
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      size: "small",
-                      placeholder: "DD/MM/YYYY",
-                      sx: {
-                        '& .MuiOutlinedInput-root': {
-                          height: '48px',
-                          borderRadius: '12px',
-                          backgroundColor: '#F5F5F5',
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#d1d5db',
-                          },
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#4B0082',
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#4B0082',
-                          },
-                        },
-                      },
-                    },
-                  }}
-                />
-              </div>
-
-              {/* EXPIRY DATE */}
-              <div className="flex flex-col gap-1">
-                <label className="font-medium text-neutral-700">
-                  {licenseInfo.expiryDateLabel}
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-
-                <DatePicker
-                  value={licenseData.expiryDate}
-                  onChange={(date) => onExpiryDateChange(date, productName)}
-                  minDate={licenseData.issueDate || undefined}
-                  format="dd/MM/yyyy"
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      size: "small",
-                      placeholder: "DD/MM/YYYY",
-                      sx: {
-                        '& .MuiOutlinedInput-root': {
-                          height: '48px',
-                          borderRadius: '12px',
-                          backgroundColor: '#F5F5F5',
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#d1d5db',
-                          },
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#4B0082',
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#4B0082',
-                          },
-                        },
-                      },
-                    },
-                  }}
-                />
-              </div>
-
-              {/* ISSUING AUTHORITY */}
-              <div className="flex flex-col gap-1">
-                <label className="font-medium text-neutral-700">
-                  {licenseInfo.authorityLabel}
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-
-                  <input
-                    type="text"
-                    name={`issuingAuthority-${productName}`}
-                    value={licenseData.issuingAuthority}
-                    onChange={(e) => handleIssuingAuthorityInput(e, productName)}
-                    placeholder="Enter issuing authority"
-                    className="w-full h-12 pl-10 pr-4 rounded-xl border border-neutral-300 bg-neutral-50 focus:outline-none focus:border-[#4B0082]"
-                  />
-                </div>
-              </div>
-
-              {/* LICENSE STATUS */}
-              <div className="flex flex-col gap-1">
-                <label className="font-medium text-neutral-700">
-                  {licenseInfo.statusLabel}
-                </label>
-
-                <div className="h-12 px-4 rounded-xl bg-neutral-200 flex items-center justify-between">
-                  <span className="text-neutral-700 font-medium">
-                    {!licenseData.issueDate || !licenseData.expiryDate
-                      ? "Pending"
-                      : licenseData.status}
-                  </span>
+                {/* LICENSE FILE */}
+                <div className="flex flex-col gap-1">
+                  <label className="font-medium text-neutral-700">
+                    {licenseInfo.fileLabel}
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
 
                   <div
-                    className={`w-10 h-6 rounded-full flex items-center px-1 transition
-                    ${licenseData.status === "Active"
-                        ? "bg-purple-300"
-                        : "bg-neutral-400"
-                      }`}
+                    className="flex items-center border border-neutral-300 rounded-xl overflow-hidden h-12 bg-neutral-50 cursor-pointer hover:bg-neutral-100 transition"
+                    onClick={() => document.getElementById(`license-upload-${productName}`)?.click()}
                   >
-                    <div
-                      className={`w-4 h-4 bg-white rounded-full shadow transform transition
-                      ${licenseData.status === "Active"
-                          ? "translate-x-4"
-                          : "translate-x-0"
-                        }`}
+                    <div className="w-12 h-full bg-[#DED0FE] flex items-center justify-center">
+                      <Image
+                        src="/icons/upload.png"
+                        alt="Upload"
+                        width={20}
+                        height={20}
+                      />
+                    </div>
+
+                    <div className="flex-1 px-3 text-sm">
+                      {isUploading ? (
+                        <span className="text-neutral-500">Uploading...</span>
+                      ) : licenseFileName ? (
+                        <span className="text-neutral-900 font-medium truncate block">
+                          {licenseFileName}
+                        </span>
+                      ) : (
+                        <span className="text-neutral-400">Upload the Certificate</span>
+                      )}
+                    </div>
+
+                    <input
+                      id={`license-upload-${productName}`}
+                      type="file"
+                      name={`licenseFile-${productName}`}
+                      onChange={(e) => handleLicenseFileUpload(e, productName)}
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      className="hidden"
+                      disabled={isUploading}
                     />
+                  </div>
+                </div>
+
+                {/* ISSUE DATE */}
+                <div className="flex flex-col gap-1">
+                  <label className="font-medium text-neutral-700">
+                    {licenseInfo.issueDateLabel}
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+
+                  <div>
+                    <DatePicker
+                      value={licenseData.issueDate}
+                      onChange={(date) =>
+                        // ✅ Year guard: reject dates with year < 2000 before passing upstream
+                        handleDateInputChange(
+                          date,
+                          productName,
+                          "issue",
+                          handleIssueDateChangeWithValidation,
+                          setDateErrors
+                        )
+                      }
+                      maxDate={new Date()}
+                      format="dd/MM/yyyy"
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          placeholder: "DD/MM/YYYY",
+                          error: !!issueDateError,
+                          // ✅ onKeyDown on the inner <input> blocks year < 2000 while typing
+                          inputProps: {
+                            onKeyDown: handleDateInputKeyDown,
+                          },
+                          sx: {
+                            '& .MuiOutlinedInput-root': {
+                              height: '48px',
+                              borderRadius: '12px',
+                              backgroundColor: '#F5F5F5',
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: issueDateError ? '#ef4444' : '#d1d5db',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4B0082',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4B0082',
+                              },
+                            },
+                          },
+                        },
+                      }}
+                    />
+                    {issueDateError && (
+                      <p className="mt-1 text-xs text-red-500 flex items-start">
+                        <span className="mr-1">⚠️</span>
+                        <span>{issueDateError}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* EXPIRY DATE */}
+                <div className="flex flex-col gap-1">
+                  <label className="font-medium text-neutral-700">
+                    {licenseInfo.expiryDateLabel}
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+
+                  <div>
+                    <DatePicker
+                      value={licenseData.expiryDate}
+                      onChange={(date) =>
+                        // ✅ Year guard: reject dates with year < 2000 before passing upstream
+                        handleDateInputChange(
+                          date,
+                          productName,
+                          "expiry",
+                          handleExpiryDateChangeWithValidation,
+                          setDateErrors
+                        )
+                      }
+                      minDate={licenseData.issueDate || undefined}
+                      format="dd/MM/yyyy"
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          placeholder: "DD/MM/YYYY",
+                          error: !!expiryDateError,
+                          // ✅ onKeyDown on the inner <input> blocks year < 2000 while typing
+                          inputProps: {
+                            onKeyDown: handleDateInputKeyDown,
+                          },
+                          sx: {
+                            '& .MuiOutlinedInput-root': {
+                              height: '48px',
+                              borderRadius: '12px',
+                              backgroundColor: '#F5F5F5',
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: expiryDateError ? '#ef4444' : '#d1d5db',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4B0082',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4B0082',
+                              },
+                            },
+                          },
+                        },
+                      }}
+                    />
+                    {expiryDateError && (
+                      <p className="mt-1 text-xs text-red-500 flex items-start">
+                        <span className="mr-1">⚠️</span>
+                        <span>{expiryDateError}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* ISSUING AUTHORITY */}
+                <div className="flex flex-col gap-1">
+                  <label className="font-medium text-neutral-700">
+                    {licenseInfo.authorityLabel}
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+
+                    <input
+                      type="text"
+                      name={`issuingAuthority-${productName}`}
+                      value={licenseData.issuingAuthority}
+                      onChange={(e) => handleIssuingAuthorityInput(e, productName)}
+                      placeholder="Enter issuing authority"
+                      maxLength={150}
+                      className="w-full h-12 pl-10 pr-4 rounded-xl border border-neutral-300 bg-neutral-50 focus:outline-none focus:border-[#4B0082]"
+                    />
+                  </div>
+                </div>
+
+                {/* LICENSE STATUS - Without toggle button */}
+                <div className="flex flex-col gap-1">
+                  <label className="font-medium text-neutral-700">
+                    {licenseInfo.statusLabel}
+                  </label>
+
+                  <div className={`h-12 px-4 rounded-xl flex items-center border ${getStatusColor()}`}>
+                    <div className={`w-2.5 h-2.5 rounded-full ${getStatusDotColor()} mr-2`}></div>
+                    <span className="font-medium">
+                      {!licenseData.issueDate || !licenseData.expiryDate
+                        ? "Pending"
+                        : currentStatus}
+                      {currentStatus === "Expired" && (
+                        <span className="ml-2 text-xs font-normal text-red-500">— renewal required</span>
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
+          );
+        })}
+
+        {/* GST SECTION */}
+        <div className="grid grid-cols-2 gap-6 mt-4">
+
+          <div className="flex flex-col gap-1">
+            <label className="font-medium text-neutral-700">
+              GSTIN Number
+              <span className="text-red-500 ml-1">*</span>
+            </label>
+
+            <div className="relative">
+              <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+
+              <input
+                type="text"
+                name="gstNumber"
+                value={formData.gstNumber}
+                onChange={handleGSTChangeWithValidation}
+                placeholder="Enter GST number"
+                maxLength={15}
+                className="w-full h-12 pl-10 pr-4 rounded-xl border border-neutral-300 bg-neutral-50 focus:outline-none focus:border-[#4B0082] uppercase"
+              />
+            </div>
           </div>
-        );
-      })}
 
-      {/* GST SECTION */}
-      <div className="grid grid-cols-2 gap-6 mt-4">
+          <div className="flex flex-col gap-1">
+            <label className="font-medium text-neutral-700">
+              GST Certificate
+              <span className="text-red-500 ml-1">*</span>
+            </label>
 
-        <div className="flex flex-col gap-1">
-          <label className="font-medium text-neutral-700">
-            GSTIN Number
-            <span className="text-red-500 ml-1">*</span>
-          </label>
+            <div
+              className="flex items-center border border-neutral-300 rounded-xl overflow-hidden h-12 bg-neutral-50 cursor-pointer hover:bg-neutral-100 transition"
+              onClick={() => document.getElementById('gst-upload')?.click()}
+            >
+              <div className="w-12 h-full bg-[#DED0FE] flex items-center justify-center">
+                <Image
+                  src="/icons/upload.png"
+                  alt="Upload"
+                  width={20}
+                  height={20}
+                />
+              </div>
 
-          <div className="relative">
-            <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+              <div className="flex-1 px-3 text-sm">
+                {uploadingGST ? (
+                  <span className="text-neutral-500">Uploading...</span>
+                ) : gstFileName ? (
+                  <span className="text-neutral-900 font-medium truncate block">
+                    {gstFileName}
+                  </span>
+                ) : (
+                  <span className="text-neutral-400">Upload the Certificate</span>
+                )}
+              </div>
 
-            <input
-              type="text"
-              name="gstNumber"
-              value={formData.gstNumber}
-              onChange={handleGSTChangeWithValidation}
-              placeholder="Enter GST number"
-              maxLength={15}
-              className="w-full h-12 pl-10 pr-4 rounded-xl border border-neutral-300 bg-neutral-50 focus:outline-none focus:border-[#4B0082] uppercase"
-            />
+              <input
+                id="gst-upload"
+                type="file"
+                name="gstFile"
+                onChange={handleGSTFileUpload}
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="hidden"
+                disabled={uploadingGST}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="font-medium text-neutral-700">
-            GST Certificate
-            <span className="text-red-500 ml-1">*</span>
-          </label>
+        {/* BUTTONS */}
+        <div className="flex justify-between mt-10">
 
-          <div
-            className="flex items-center border border-neutral-300 rounded-xl overflow-hidden h-12 bg-neutral-50 cursor-pointer hover:bg-neutral-100 transition"
-            onClick={() => document.getElementById('gst-upload')?.click()}
-          >
-            <div className="w-12 h-full bg-[#DED0FE] flex items-center justify-center">
+          <div className="flex gap-4">
+            <button
+              onClick={() => router.push("/")}
+              className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold">
+              Cancel
+            </button>
+          </div>
+
+          <div className="flex gap-4">
+
+            <button
+              onClick={prevStep}
+              className="flex h-12  px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-neutral-500 text-neutral-500 font-semibold hover:neutral-500 hover:text-neutral-500 transition"
+            >
               <Image
-                src="/icons/upload.png"
-                alt="Upload"
+                src="/icons/backbuttonicon.png"
+                alt="Back"
                 width={20}
                 height={20}
               />
-            </div>
+              Back
+            </button>
 
-            <div className="flex-1 px-3 text-sm">
-              {uploadingGST ? (
-                <span className="text-neutral-500">Uploading...</span>
-              ) : gstFileName ? (
-                <span className="text-neutral-900 font-medium truncate block">
-                  {gstFileName}
-                </span>
-              ) : (
-                <span className="text-neutral-400">Upload the Certificate</span>
-              )}
-            </div>
+            <button
+              onClick={handleContinue}
+              disabled={expiredProducts.length > 0 || invalidGapProducts.length > 0}
+              className={`flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 font-semibold transition ${
+                expiredProducts.length > 0 || invalidGapProducts.length > 0
+                  ? "border-neutral-300 text-neutral-400 bg-neutral-100 cursor-not-allowed opacity-60"
+                  : "border-primary-900 text-primary-900 hover:border-primary-100"
+              }`}
+            >
+              Continue
+              <Image
+                src="/icons/continueicon.png"
+                alt="Continue"
+                width={20}
+                height={20}
+              />
+            </button>
 
-            <input
-              id="gst-upload"
-              type="file"
-              name="gstFile"
-              onChange={handleGSTFileUpload}
-              accept=".pdf,.jpg,.jpeg,.png"
-              className="hidden"
-              disabled={uploadingGST}
-            />
           </div>
         </div>
+
       </div>
-
-      {/* BUTTONS */}
-      <div className="flex justify-between mt-10">
-
-        <div className="flex gap-4">
-          <button
-            onClick={() => router.push("/")}
-            className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold">
-            Cancel
-          </button>
-        </div>
-
-        <div className="flex gap-4">
-
-          <button
-            onClick={prevStep}
-            className="flex h-12  px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-neutral-500 text-neutral-500 font-semibold hover:neutral-500 hover:text-neutral-500 transition"
-          >
-            <Image
-              src="/icons/backbuttonicon.png"
-              alt="Back"
-              width={20}
-              height={20}
-            />
-            Back
-          </button>
-
-          <button
-            onClick={nextStep}
-            className="flex h-12  px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-900 text-primary-900 font-semibold hover:border-primary-100 transition"
-          >
-            Continue
-            <Image
-              src="/icons/continueicon.png"
-              alt="Continue"
-              width={20}
-              height={20}
-            />
-          </button>
-
-        </div>
-      </div>
-
-    </div>
+    </LocalizationProvider>
   );
 }

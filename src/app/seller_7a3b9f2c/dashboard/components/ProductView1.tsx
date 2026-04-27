@@ -5,24 +5,23 @@ import { Heart, Share2, FileText, ExternalLink, ChevronDown } from "lucide-react
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { PiSealCheckLight } from "react-icons/pi";
 import { HiOutlineShoppingCart } from "react-icons/hi";
-import { SlHandbag, SlReload } from "react-icons/sl";
-import { LuShield, LuTruck } from "react-icons/lu";
+import { SlHandbag } from "react-icons/sl";
 import { IoIosArrowBack } from "react-icons/io";
 import Image from "next/image";
 import { getDrugProductById } from "@/src/services/product/ProductService";
+
+/* ─────────────────── Types ─────────────────── */
 
 interface ProductViewProps {
   productId: string | null;
   setCurrentView: (view: DashboardView) => void;
 }
-
 interface ProductImage {
   productImage?: string;
   imageUrl?: string;
   url?: string;
   imagePath?: string;
 }
-
 interface PackagingDetails {
   packSize?: number;
   packType?: string;
@@ -34,7 +33,6 @@ interface PackagingDetails {
   numberOfUnits?: number;
   numberOfPacks?: number;
 }
-
 interface PricingDetails {
   finalPrice?: number;
   mrp?: number;
@@ -46,12 +44,10 @@ interface PricingDetails {
   stockQuantity?: number;
   additionalDiscounts?: AdditionalDiscount[];
 }
-
 interface AdditionalDiscount {
   minimumPurchaseQuantity?: number;
   additionalDiscountPercentage?: number;
 }
-
 interface NonConsumableAttributes {
   brandName?: string;
   modelName?: string;
@@ -65,17 +61,16 @@ interface NonConsumableAttributes {
   manufacturerName?: string;
   storageCondition?: string;
   storageConditionName?: string;
+  storageConditionId?: number;
   certificateDocuments?: CertificateDocument[];
   brochurePath?: string;
 }
-
 interface CertificateDocument {
   certificationId: number;
   certificateUrl: string;
   certificationName?: string;
   label?: string;
 }
-
 interface ConsumableAttributes {
   brochurePath?: string;
   brochureType?: string;
@@ -91,7 +86,6 @@ interface ConsumableAttributes {
   disposalOrReusable?: string;
   shelfLife?: string;
 }
-
 interface ProductApiData {
   productName?: string;
   productDescription?: string;
@@ -102,7 +96,8 @@ interface ProductApiData {
   productImages?: ProductImage[];
   images?: string[];
   imageUrls?: string[];
-  packagingDetails?: PackagingDetails;
+  /* packagingDetails can be array OR object depending on endpoint */
+  packagingDetails?: PackagingDetails | PackagingDetails[];
   pricingDetails?: PricingDetails[];
   productAttributeNonConsumableMedicals?: NonConsumableAttributes[];
   nonConsumableAttributes?: NonConsumableAttributes;
@@ -110,63 +105,114 @@ interface ProductApiData {
   productMarketingUrl?: string;
 }
 
+/* ─────────────────── Constants ─────────────────── */
+
 const PLACEHOLDER_IMAGE = "/assets/images/SellerMed.jpg";
+
+/* ─────────────────── Design tokens ─────────────────── */
+const C_PNEUTRAL_50  = "#F9F9F8";
+const C_PNEUTRAL_200 = "#D5D5D4";
+const C_PNEUTRAL_300 = "#C0C1BE";
+const C_PNEUTRAL_500 = "#969793";
+const C_PNEUTRAL_600 = "#787975";
+const C_PNEUTRAL_700 = "#5A5B58";
+const C_PNEUTRAL_800 = "#3C3D3A";
+const C_PNEUTRAL_900 = "#1E1E1D";
+const C_SECONDARY_50  = "#F8F5FF";
+const C_SECONDARY_700 = "#7D32FC";
+const C_SECONDARY_800 = "#4307A9";
+const C_PRIMARY_05    = "#E4D6FB";
+const C_PRIMARY_900   = "#4C0080";
+const C_SUCCESS_50  = "#DCF7CB";
+const C_SUCCESS_800 = "#409600";
+const C_WARNING_100 = "#FBD7D7";
+const C_WARNING_600 = "#BA2C2C";
+const C_WHITE       = "#FFFFFF";
+const C_RED_BADGE   = "#FB2C36";
+const C_BORDER      = "#E5E7EB";
+const FONT_OPEN_SANS = "'Open Sans', sans-serif";
+const FONT_INTER     = "'Inter', sans-serif";
+
+/* ─────────────────── Shared table-cell styles ─────────────────── */
+const CELL_WRAPPER: React.CSSProperties = {
+  padding: 12,
+  background: C_PNEUTRAL_50,
+  borderRadius: 10,
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+};
+
+const CELL_LABEL: React.CSSProperties = {
+  color: C_PNEUTRAL_700,          // #5A5B58
+  fontSize: 12,
+  fontFamily: FONT_OPEN_SANS,
+  fontWeight: 400,
+  lineHeight: "18px",
+  wordWrap: "break-word",
+  margin: 0,
+};
+
+const CELL_VALUE: React.CSSProperties = {
+  color: C_PNEUTRAL_900,          // #1E1E1D
+  fontSize: 16,
+  fontFamily: FONT_OPEN_SANS,
+  fontWeight: 400,
+  lineHeight: "22px",
+  wordWrap: "break-word",
+  margin: 0,
+};
+
+/* ─────────────────── Helper sub-component ─────────────────── */
+const PackagingCell = ({ label, value }: { label: string; value: string | number }) => (
+  <div style={CELL_WRAPPER}>
+    <p style={CELL_LABEL}>{label}</p>
+    <p style={CELL_VALUE}>{String(value)}</p>
+  </div>
+);
+
+/* ─────────────────── Component ─────────────────── */
 
 const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-  const [productData, setProductData] = useState<ProductApiData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [pincode, setPincode] = useState("");
-  const [showCertModal, setShowCertModal] = useState(false);
-  const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
+  const [quantity, setQuantity]                     = useState(1);
+  const [productData, setProductData]               = useState<ProductApiData | null>(null);
+  const [loading, setLoading]                       = useState(true);
+  const [pincode, setPincode]                       = useState("");
+  const [showCertModal, setShowCertModal]           = useState(false);
+  const [activeCertDoc, setActiveCertDoc]           = useState<CertificateDocument | null>(null);
   const [showBrochureAccordion, setShowBrochureAccordion] = useState(false);
 
-  // FIXED: More flexible image resolver that doesn't strictly require http://
+  /* ── helpers ── */
   const resolveProductImages = (data: ProductApiData | null): string[] => {
     if (!data) return [];
-    
     if (Array.isArray(data.productImages)) {
       const urls = data.productImages
         .map((img) => img?.productImage || img?.imageUrl || img?.url || img?.imagePath || "")
         .filter((url) => url && url !== "PENDING");
       if (urls.length > 0) return urls;
     }
-    
     if (Array.isArray(data.images)) {
       const urls = data.images.filter((url) => url && url !== "PENDING");
       if (urls.length > 0) return urls;
     }
-    
     if (Array.isArray(data.imageUrls)) {
       const urls = data.imageUrls.filter((url) => url && url !== "PENDING");
       if (urls.length > 0) return urls;
     }
-    
     return [];
   };
 
-  // FIXED: Get brochure URL from both consumable and non-consumable
   const getBrochureUrl = (data: ProductApiData | null): string | null => {
     if (!data) return null;
-    
-    // Check consumable attributes
     const consumableAttrs = data.productAttributeConsumableMedicals?.[0];
-    if (consumableAttrs?.brochurePath && consumableAttrs.brochurePath !== "PENDING") {
+    if (consumableAttrs?.brochurePath && consumableAttrs.brochurePath !== "PENDING")
       return consumableAttrs.brochurePath;
-    }
-    
-    // Check non-consumable attributes
     const ncAttributes = data.productAttributeNonConsumableMedicals?.[0] ?? data.nonConsumableAttributes;
-    if (ncAttributes?.brochurePath && ncAttributes.brochurePath !== "PENDING") {
+    if (ncAttributes?.brochurePath && ncAttributes.brochurePath !== "PENDING")
       return ncAttributes.brochurePath;
-    }
-    
-    // Also check productMarketingUrl
-    if (data.productMarketingUrl && data.productMarketingUrl !== "PENDING") {
+    if (data.productMarketingUrl && data.productMarketingUrl !== "PENDING")
       return data.productMarketingUrl;
-    }
-    
     return null;
   };
 
@@ -176,16 +222,13 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
       try {
         const response = await getDrugProductById(productId) as ProductApiData;
         setProductData(response);
-        
-        // Set images
         const images = resolveProductImages(response);
-        if (images.length > 0) {
-          setSelectedImageIndex(0);
-        }
-        
-        if (response?.packagingDetails?.minimumOrderQuantity) {
-          setQuantity(response.packagingDetails.minimumOrderQuantity);
-        }
+        if (images.length > 0) setSelectedImageIndex(0);
+        /* unpack packagingDetails array for MOQ */
+        const pkg = Array.isArray(response?.packagingDetails)
+          ? response.packagingDetails[0]
+          : response?.packagingDetails;
+        if (pkg?.minimumOrderQuantity) setQuantity(pkg.minimumOrderQuantity);
       } catch (error) {
         console.error("Error fetching product details:", error);
       } finally {
@@ -195,70 +238,75 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
     fetchProductDetails();
   }, [productId]);
 
-  const packaging = productData?.packagingDetails;
-  const pricing = productData?.pricingDetails?.[0];
+  /* ── Derived data ── */
 
-  // Non-consumable attributes
-  const ncAttributes = productData?.productAttributeNonConsumableMedicals?.[0] ??
-    productData?.nonConsumableAttributes ?? null;
+  // packagingDetails is an array in the API — always unpack [0]
+  const packaging: PackagingDetails | undefined = Array.isArray(productData?.packagingDetails)
+    ? productData?.packagingDetails[0]
+    : productData?.packagingDetails;
 
-  // Consumable attributes
+  const pricing         = productData?.pricingDetails?.[0];
+  const ncAttributes    = productData?.productAttributeNonConsumableMedicals?.[0]
+                          ?? productData?.nonConsumableAttributes
+                          ?? null;
   const consumableAttrs = productData?.productAttributeConsumableMedicals?.[0] ?? null;
 
-  // FIXED: Merge cert docs from both consumable and non-consumable
   const certDocs: CertificateDocument[] = [
     ...(ncAttributes?.certificateDocuments ?? []),
     ...(consumableAttrs?.certificateDocuments ?? []),
   ].filter((c) => c.certificateUrl && c.certificateUrl !== "PENDING");
 
-  const brochureUrl = getBrochureUrl(productData);
-
-  const productImages = resolveProductImages(productData);
-  const displayImages = productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
-  const selectedImage = displayImages[selectedImageIndex] ?? PLACEHOLDER_IMAGE;
-
+  const brochureUrl          = getBrochureUrl(productData);
+  const productImages        = resolveProductImages(productData);
+  const displayImages        = productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
+  const selectedImage        = displayImages[selectedImageIndex] ?? PLACEHOLDER_IMAGE;
   const formattedProductName = productData?.productName || "Product Name";
-  const productDescription = ncAttributes?.purpose || consumableAttrs?.purpose || productData?.productDescription;
-  const totalPrice = pricing?.finalPrice != null ? pricing.finalPrice * quantity : 0;
-
-  const additionalDiscounts = pricing?.additionalDiscounts?.filter(
-    (d) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage
+  const productDescription   = ncAttributes?.purpose || consumableAttrs?.purpose || productData?.productDescription;
+  const totalPrice           = pricing?.finalPrice != null ? pricing.finalPrice * quantity : 0;
+  const additionalDiscounts  = pricing?.additionalDiscounts?.filter(
+    (d) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage,
   ) ?? [];
 
-  const storageConditionName = ncAttributes?.storageConditionName ||
+  // storageConditionName — handle id-only case (consumable sends only storageConditionId)
+  const STORAGE_CONDITION_MAP: Record<number, string> = {
+    1: "Room Temperature",
+    2: "Refrigerated",
+    3: "Frozen",
+    4: "Cool & Dry",
+  };
+  const storageConditionName =
+    ncAttributes?.storageConditionName ||
     ncAttributes?.storageCondition ||
     consumableAttrs?.storageConditionName ||
     consumableAttrs?.storageCondition ||
+    (ncAttributes?.storageConditionId != null
+      ? STORAGE_CONDITION_MAP[ncAttributes.storageConditionId] ?? `Condition ${ncAttributes.storageConditionId}`
+      : null) ||
+    (consumableAttrs?.storageConditionId != null
+      ? STORAGE_CONDITION_MAP[consumableAttrs.storageConditionId] ?? `Condition ${consumableAttrs.storageConditionId}`
+      : null) ||
     null;
 
-  const formatDate = (dateStr?: string) => {
+  const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
     try {
       return new Date(dateStr).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
+        day: "2-digit", month: "2-digit", year: "numeric",
       });
-    } catch {
-      return dateStr;
-    }
+    } catch { return dateStr; }
   };
 
-  // Helper: determine cert file type from URL
   const isImageUrl = (url: string) => /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
-  const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url);
+  const isPdfUrl   = (url: string) => /\.pdf(\?.*)?$/i.test(url);
 
+  /* ── Loading ── */
   if (loading) {
     return (
-      <div className="w-full bg-white rounded-xl p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-64 bg-neutral-100 rounded-xl" />
-          <div className="h-6 bg-neutral-100 rounded w-2/3" />
-          <div className="h-4 bg-neutral-100 rounded w-1/2" />
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div className="h-32 bg-neutral-100 rounded" />
-            <div className="h-32 bg-neutral-100 rounded" />
-          </div>
+      <div style={{ width: "100%", background: C_WHITE, borderRadius: 10, padding: 24 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ height: 256, background: C_PNEUTRAL_50, borderRadius: 10 }} />
+          <div style={{ height: 24, background: C_PNEUTRAL_50, borderRadius: 6, width: "66%" }} />
+          <div style={{ height: 16, background: C_PNEUTRAL_50, borderRadius: 6, width: "50%" }} />
         </div>
       </div>
     );
@@ -266,487 +314,688 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
 
   if (!productData) {
     return (
-      <div className="w-full bg-white rounded-xl p-6 text-center text-neutral-500">
+      <div style={{
+        width: "100%", background: C_WHITE, borderRadius: 10, padding: 24,
+        textAlign: "center", color: C_PNEUTRAL_500, fontFamily: FONT_OPEN_SANS, fontSize: 16,
+      }}>
         Product not found.
       </div>
     );
   }
 
+  /* ── Packaging grid rows ── */
+  const packagingRows: { label: string; value: string | number }[] = [
+    { label: "Packaging Unit",        value: packaging?.packType ?? packaging?.packTypeName ?? "—" },
+    { label: "Dosage Form",           value: productData?.dosageForm ?? ncAttributes?.deviceClassification ?? "—" },
+    { label: "No. of Units per Strip",value: packaging?.unitPerPack ?? packaging?.unitsPerPack ?? "—" },
+    { label: "No. of Strips per Pack",value: packaging?.numberOfPacks ?? "—" },
+    { label: "Strength per Unit",     value: productData?.strength ? `${productData.strength}mg` : "—" },
+    { label: "Storage Condition",     value: storageConditionName ?? "—" },
+    { label: "Batch / Lot Number",    value: pricing?.batchLotNumber || "—" },
+    { label: "Manufacturing Date",    value: formatDate(pricing?.manufacturingDate) },
+    { label: "Expiry Date",           value: formatDate(pricing?.expiryDate) },
+  ];
+
+  /* ─────────────────── Render ─────────────────── */
   return (
-    <div className="w-full bg-white rounded-xl p-6 space-y-8">
-      <div className="grid grid-cols-2 gap-10">
-        {/* LEFT SIDE - Images */}
-        <div>
-          <div className="relative rounded-xl overflow-hidden w-full h-[430px] flex items-center justify-center bg-neutral-50">
-            <Image
-              src={selectedImage}
-              alt="Product Image"
-              fill
-              className="object-cover rounded-xl"
-              unoptimized={selectedImage.startsWith("http")}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = PLACEHOLDER_IMAGE;
-              }}
-            />
+    <div style={{
+      width: "100%",
+      paddingBottom: 32,
+      background: C_PNEUTRAL_50,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 32,
+      fontFamily: FONT_OPEN_SANS,
+    }}>
 
-            {displayImages.length > 1 && (
-              <>
-                <button
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-white rounded-full p-2 shadow hover:bg-gray-100 z-10"
-                  onClick={() => setSelectedImageIndex((prev) => (prev - 1 + displayImages.length) % displayImages.length)}
-                >
-                  <IoIosArrowBack size={20} />
-                </button>
-                <button
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-white rounded-full p-2 shadow hover:bg-gray-100 z-10"
-                  onClick={() => setSelectedImageIndex((prev) => (prev + 1) % displayImages.length)}
-                >
-                  <IoIosArrowBack size={20} className="rotate-180" />
-                </button>
-              </>
-            )}
+      {/* ── Main card ── */}
+      <div style={{
+        width: 1216,
+        background: C_WHITE,
+        boxShadow: "0px 1px 3px rgba(0,0,0,0.10), 0px 1px 2px -1px rgba(0,0,0,0.10)",
+        borderRadius: 10,
+        display: "flex",
+        flexDirection: "column",
+      }}>
 
-            {pricing?.discountPercentage != null && pricing.discountPercentage > 0 && (
-              <span className="absolute top-4 left-4 bg-[#FB2C36] text-white text-sm px-3 py-1 rounded-full z-10">
-                {pricing.discountPercentage}% OFF
-              </span>
-            )}
+        {/* Top two-column section */}
+        <div style={{ padding: 32, display: "flex", gap: 32, alignItems: "flex-start" }}>
 
-            {displayImages.length > 1 && (
-              <span className="absolute bottom-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full z-10">
-                {selectedImageIndex + 1} / {displayImages.length}
-              </span>
-            )}
+          {/* ════ LEFT COLUMN ════ */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
 
-            <div className="absolute top-4 right-4 flex gap-2 z-10">
-              <button className="bg-white rounded-full p-2 shadow hover:bg-gray-50 transition">
-                <Heart size={20} />
-              </button>
-              <button className="bg-white rounded-full p-2 shadow hover:bg-gray-50 transition">
-                <Share2 size={20} />
-              </button>
-            </div>
-          </div>
+            {/* Main image */}
+            <div style={{
+              width: 560, height: 684,
+              position: "relative",
+              background: "#F3F4F6",
+              borderRadius: 10,
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+              <Image
+                src={selectedImage}
+                alt="Product Image"
+                fill
+                style={{ objectFit: "cover", borderRadius: 10 }}
+                unoptimized={selectedImage.startsWith("http")}
+                onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
+              />
 
-          {displayImages.length > 1 && (
-            <div className="flex gap-3 mt-4 overflow-x-auto pb-1">
-              {displayImages.map((img, index) => (
-                <div
-                  key={index}
-                  onClick={() => setSelectedImageIndex(index)}
-                  className={`relative h-[80px] w-[80px] rounded-lg cursor-pointer border overflow-hidden flex-shrink-0 transition ${
-                    selectedImageIndex === index
-                      ? "border-primary-900 border-2"
-                      : "border-neutral-200 hover:border-neutral-400"
-                  }`}
-                >
-                  <Image
-                    src={img}
-                    alt={`Thumbnail ${index + 1}`}
-                    fill
-                    className="object-cover rounded-lg"
-                    unoptimized={img.startsWith("http")}
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = PLACEHOLDER_IMAGE;
+              {displayImages.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setSelectedImageIndex((p) => (p - 1 + displayImages.length) % displayImages.length)}
+                    style={{
+                      position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)",
+                      background: "rgba(255,255,255,0.90)", borderRadius: "50%",
+                      width: 36, height: 36, border: "none", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      boxShadow: "0px 10px 15px -3px rgba(0,0,0,0.10), 0px 4px 6px -4px rgba(0,0,0,0.10)",
+                      zIndex: 10,
                     }}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+                  >
+                    <IoIosArrowBack size={20} color="#364153" />
+                  </button>
+                  <button
+                    onClick={() => setSelectedImageIndex((p) => (p + 1) % displayImages.length)}
+                    style={{
+                      position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)",
+                      background: "rgba(255,255,255,0.90)", borderRadius: "50%",
+                      width: 36, height: 36, border: "none", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      boxShadow: "0px 10px 15px -3px rgba(0,0,0,0.10), 0px 4px 6px -4px rgba(0,0,0,0.10)",
+                      zIndex: 10,
+                    }}
+                  >
+                    <IoIosArrowBack size={20} color="#364153" style={{ transform: "rotate(180deg)" }} />
+                  </button>
+                </>
+              )}
 
-          <div className="flex items-center gap-12 mt-5 text-sm">
-            <div className="flex items-center gap-2">
-              <LuShield size={20} style={{ color: "#00A63E" }} />
-              <span className="text-neutral-600">Verified</span>
+              {pricing?.discountPercentage != null && pricing.discountPercentage > 0 && (
+                <span style={{
+                  position: "absolute", left: 16, top: 20,
+                  background: C_RED_BADGE,
+                  color: C_WHITE, fontSize: 14, fontFamily: FONT_OPEN_SANS,
+                  fontWeight: 400, lineHeight: "20px",
+                  padding: "4px 12px", borderRadius: 9999, zIndex: 10,
+                }}>
+                  {pricing.discountPercentage}% OFF
+                </span>
+              )}
+
+              <div style={{
+                position: "absolute", top: 16, right: 16,
+                display: "flex", gap: 8, zIndex: 10,
+              }}>
+                {[<Heart size={20} key="heart" />, <Share2 size={20} key="share" />].map((icon, i) => (
+                  <button key={i} style={{
+                    background: "rgba(255,255,255,0.90)", borderRadius: "50%",
+                    width: 36, height: 36, border: "none", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: "0px 10px 15px -3px rgba(0,0,0,0.10), 0px 4px 6px -4px rgba(0,0,0,0.10)",
+                    color: "#364153",
+                  }}>{icon}</button>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <LuTruck size={20} style={{ color: "#155DFC" }} />
-              <span className="text-neutral-600">Fast Ship</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <SlReload size={20} style={{ color: "#9810FA" }} />
-              <span className="text-neutral-600">Returns</span>
-            </div>
+
+            {/* Thumbnail strip */}
+            {displayImages.length > 1 && (
+              <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
+                {displayImages.map((img, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => setSelectedImageIndex(idx)}
+                    style={{
+                      width: 127, height: 127, borderRadius: 10,
+                      background: "#F3F4F6", overflow: "hidden",
+                      flexShrink: 0, cursor: "pointer", position: "relative",
+                      outline: selectedImageIndex === idx ? `2px solid #2B7FFF` : "2px solid transparent",
+                      outlineOffset: -2,
+                    }}
+                  >
+                    <Image
+                      src={img} alt={`Thumbnail ${idx + 1}`} fill
+                      style={{ objectFit: "cover", borderRadius: 10 }}
+                      unoptimized={img.startsWith("http")}
+                      onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Brochure accordion */}
+            {brochureUrl && (
+              <div style={{
+                borderRadius: 8, overflow: "hidden",
+                outline: `1px ${C_PNEUTRAL_200} solid`, outlineOffset: -1,
+                background: C_SECONDARY_50,
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setShowBrochureAccordion((p) => !p)}
+                  style={{
+                    width: "100%", display: "flex", alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: 16, background: "transparent", border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span style={{
+                    color: C_PNEUTRAL_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                    fontWeight: 600, lineHeight: "22px",
+                    display: "flex", alignItems: "center", gap: 8,
+                  }}>
+                    Product URL/User Manual
+                  </span>
+                  <ChevronDown
+                    size={20} color={C_PNEUTRAL_800}
+                    style={{ transform: showBrochureAccordion ? "rotate(180deg)" : "none", transition: "transform .2s" }}
+                  />
+                </button>
+                {showBrochureAccordion && (
+                  <div style={{
+                    borderTop: `1px ${C_PNEUTRAL_200} solid`,
+                    padding: "8px 16px 12px",
+                  }}>
+                    <a href={brochureUrl} target="_blank" rel="noreferrer" style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      color: C_SECONDARY_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
+                      fontWeight: 400, lineHeight: "20px", textDecoration: "none",
+                    }}>
+                      <ExternalLink size={14} />
+                      View / Download Brochure
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* FIXED: Product URL / User Manual accordion - Now shows for BOTH types */}
-          {brochureUrl && (
-            <div className="border border-neutral-200 rounded-xl mt-4 overflow-hidden">
+          {/* ════ RIGHT COLUMN ════ */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
+
+            {/* Tags row */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <span style={{
+                padding: "4px 8px", background: C_PRIMARY_05, borderRadius: 8,
+                color: C_SECONDARY_700, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 400, lineHeight: "22px",
+              }}>
+                Prescription Required
+              </span>
+
+              {certDocs.length > 0 ? (
+                certDocs.map((cert) => (
+                  <button
+                    key={cert.certificationId}
+                    type="button"
+                    onClick={() => { setActiveCertDoc(cert); setShowCertModal(true); }}
+                    style={{
+                      padding: "4px 8px", background: C_SUCCESS_50, borderRadius: 8,
+                      color: C_SUCCESS_800, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                      fontWeight: 400, lineHeight: "22px",
+                      border: "none", cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: 8,
+                    }}
+                  >
+                    <PiSealCheckLight />
+                    {cert.certificationName || cert.label || `Certificate ${cert.certificationId}`}
+                  </button>
+                ))
+              ) : (
+                <span style={{
+                  padding: "4px 8px", background: C_SUCCESS_50, borderRadius: 8,
+                  color: C_SUCCESS_800, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                  fontWeight: 400, lineHeight: "22px",
+                  display: "flex", alignItems: "center", gap: 8,
+                }}>
+                  <PiSealCheckLight /> FDA Approved
+                </span>
+              )}
+
+              {ncAttributes?.amcAvailability && (
+                <span style={{
+                  padding: "4px 8px", background: C_PRIMARY_05, borderRadius: 8,
+                  color: C_SECONDARY_700, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                  fontWeight: 400, lineHeight: "22px",
+                }}>AMC Available</span>
+              )}
+              {ncAttributes?.deviceClassification && (
+                <span style={{
+                  padding: "4px 8px", background: C_PNEUTRAL_50, borderRadius: 8,
+                  color: C_PNEUTRAL_700, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                  fontWeight: 400, lineHeight: "22px",
+                }}>
+                  {ncAttributes.deviceClassification}
+                </span>
+              )}
+            </div>
+
+            {/* Product name */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <h1 style={{
+                color: C_PNEUTRAL_900, fontSize: 28, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 400, lineHeight: "32px", margin: 0,
+              }}>
+                {formattedProductName}
+              </h1>
+              <p style={{
+                color: C_PNEUTRAL_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 400, lineHeight: "20px", margin: 0, paddingTop: 4,
+              }}>
+                {productDescription}
+              </p>
+            </div>
+
+            {/* Price card */}
+            <div style={{
+              padding: 16, background: C_PNEUTRAL_50, borderRadius: 10,
+              display: "flex", flexDirection: "column", gap: 8,
+            }}>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
+                <span style={{
+                  color: C_PNEUTRAL_900, fontSize: 28, fontFamily: FONT_OPEN_SANS,
+                  fontWeight: 400, lineHeight: "32px",
+                }}>
+                  ₹{pricing?.finalPrice?.toFixed(2) ?? "—"}
+                </span>
+                {pricing?.mrp && (
+                  <span style={{
+                    color: C_PNEUTRAL_600, fontSize: 18, fontFamily: FONT_OPEN_SANS,
+                    fontWeight: 400, lineHeight: "24px", textDecoration: "line-through",
+                  }}>
+                    ₹{pricing.mrp.toFixed(2)}
+                  </span>
+                )}
+                {pricing?.discountPercentage != null && pricing.discountPercentage > 0 && (
+                  <span style={{
+                    padding: "4px 8px", background: C_WARNING_100, borderRadius: 8,
+                    color: C_WARNING_600, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                    fontWeight: 400, lineHeight: "22px",
+                  }}>
+                    Save {pricing.discountPercentage}%
+                  </span>
+                )}
+              </div>
+              <p style={{
+                color: C_PNEUTRAL_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 400, lineHeight: "20px", margin: 0,
+              }}>
+                Price per pack
+              </p>
+            </div>
+
+            {/* ── Packaging details grid ── */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <p style={{
+                color: C_PNEUTRAL_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 400, lineHeight: "22px", margin: 0,
+              }}>
+                Packaging Details
+              </p>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 12,
+              }}>
+                {packagingRows.map(({ label, value }) => (
+                  <PackagingCell key={label} label={label} value={value} />
+                ))}
+              </div>
+            </div>
+
+            {/* Additional discounts */}
+            {additionalDiscounts.length > 0 && (
+              <div style={{
+                padding: 16, background: C_SECONDARY_50, borderRadius: 10,
+                outline: `1px ${C_PRIMARY_05} solid`, outlineOffset: -1,
+                display: "flex", flexDirection: "column", gap: 8,
+              }}>
+                <p style={{
+                  color: C_SECONDARY_800, fontSize: 13.2, fontFamily: FONT_INTER,
+                  fontWeight: 400, lineHeight: "20px", margin: 0,
+                }}>
+                  Additional Discounts Available
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {additionalDiscounts.map((d, i) => (
+                    <p key={`qty-${i}`} style={{
+                      color: C_SECONDARY_700, fontSize: 12, fontFamily: FONT_OPEN_SANS,
+                      fontWeight: 400, lineHeight: "18px", margin: 0,
+                    }}>
+                      Minimum Purchase Quantity - {d.minimumPurchaseQuantity} Packs
+                    </p>
+                  ))}
+                  {additionalDiscounts.map((d, i) => (
+                    <p key={`disc-${i}`} style={{
+                      color: C_SECONDARY_700, fontSize: 12, fontFamily: FONT_OPEN_SANS,
+                      fontWeight: 400, lineHeight: "18px", margin: 0,
+                    }}>
+                      Discount percentage - {d.additionalDiscountPercentage}%
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Check availability */}
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
+              <div style={{
+                minHeight: 40, padding: "6px 12px",
+                background: C_WHITE, borderRadius: 8,
+                outline: `1px ${C_PNEUTRAL_500} solid`, outlineOffset: -1,
+              }}>
+                <input
+                  type="text"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="560079"
+                  style={{
+                    border: "none", outline: "none", background: "transparent",
+                    color: C_PNEUTRAL_500, fontSize: 14, fontFamily: FONT_OPEN_SANS,
+                    fontWeight: 300, lineHeight: "20px", width: 80,
+                  }}
+                />
+              </div>
               <button
                 type="button"
-                onClick={() => setShowBrochureAccordion((p) => !p)}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-neutral-50 transition"
+                style={{
+                  height: 40, minHeight: 40,
+                  padding: "6px 12px", background: "#9F75FC",
+                  borderRadius: 8, border: "none", cursor: "pointer",
+                  color: C_WHITE, fontSize: 14, fontFamily: FONT_OPEN_SANS,
+                  fontWeight: 600, lineHeight: "20px",
+                }}
               >
-                <div className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
-                  <FileText size={16} className="text-purple-600" />
-                  Product Brochure / User Manual
-                </div>
-                <ChevronDown
-                  size={18}
-                  className={`text-neutral-400 transition-transform ${showBrochureAccordion ? "rotate-180" : ""}`}
-                />
+                Check Availability
               </button>
-              {showBrochureAccordion && (
-                <div className="px-4 pb-3 pt-1 border-t border-neutral-100">
-                  <a
-                    href={brochureUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 text-sm text-purple-700 hover:text-purple-900 hover:underline transition"
-                  >
-                    <ExternalLink size={14} />
-                    View / Download Brochure
-                  </a>
-                </div>
-              )}
             </div>
-          )}
-        </div>
 
-        {/* RIGHT SIDE */}
-        <div>
-          {/* Tags with Certifications */}
-          <div className="flex gap-2 mb-3 flex-wrap">
-            <span className="bg-primary-05 text-secondary-700 px-3 py-1 rounded-xl text-sm">
-              Prescription Required
-            </span>
-
-            {/* FIXED: Certification tags - now clickable */}
-            {certDocs.length > 0 ? (
-              certDocs.map((cert) => (
-                <button
-                  key={cert.certificationId}
-                  type="button"
-                  onClick={() => {
-                    setActiveCertDoc(cert);
-                    setShowCertModal(true);
-                  }}
-                  className="bg-success-50 text-success-800 px-3 py-1 rounded-xl flex items-center gap-1 text-sm hover:bg-success-100 hover:text-success-900 transition cursor-pointer"
-                >
-                  <PiSealCheckLight className="text-sm" />
-                  {cert.certificationName || cert.label || `Certificate ${cert.certificationId}`}
-                </button>
-              ))
-            ) : (
-              /* Fallback if no certs */
-              ncAttributes?.deviceClassification ? (
-                <span className="bg-success-50 text-success-800 px-3 py-1 rounded-xl flex items-center gap-1 text-sm">
-                  <PiSealCheckLight className="text-sm" />
-                  Verified Device
-                </span>
-              ) : null
-            )}
-
-            {ncAttributes?.amcAvailability && (
-              <span className="bg-primary-05 text-secondary-700 px-3 py-1 rounded-xl text-sm">
-                AMC Available
-              </span>
-            )}
-            {ncAttributes?.deviceClassification && (
-              <span className="bg-neutral-100 text-neutral-700 px-3 py-1 rounded-xl text-sm">
-                {ncAttributes.deviceClassification}
-              </span>
-            )}
-          </div>
-
-          {/* Title */}
-          <h1 className="text-[28px] font-semibold mb-1">{formattedProductName}</h1>
-
-          {/* Subtitle */}
-          {(ncAttributes?.modelNumber || ncAttributes?.modelName) && (
-            <p className="text-neutral-500 text-sm mb-2">
-              {ncAttributes.modelName && `Model: ${ncAttributes.modelName}`}
-              {ncAttributes.modelNumber && ` | No: ${ncAttributes.modelNumber}`}
-              {ncAttributes.warrantyPeriod && ` | Warranty: ${ncAttributes.warrantyPeriod} months`}
-            </p>
-          )}
-
-          <p className="text-neutral-700 text-sm mb-4">{productDescription}</p>
-
-          {/* Price Card */}
-          <div className="bg-[#F9FAFB] rounded-lg p-4 mb-4">
-            <div className="flex items-center gap-4">
-              <span className="text-[28px] font-bold">
-                ₹{pricing?.finalPrice?.toFixed(2) ?? "—"}
-              </span>
-              {pricing?.mrp && (
-                <span className="text-[#99A1AF] text-[18px] line-through">
-                  ₹{pricing.mrp.toFixed(2)}
-                </span>
-              )}
-              {pricing?.discountPercentage != null && pricing.discountPercentage > 0 && (
-                <span className="bg-warning-100 text-warning-600 text-sm px-2 py-1 rounded">
-                  Save {pricing.discountPercentage}%
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-neutral-700 mt-1">
-              Price per pack (
-              {packaging?.unitPerPack ??
-                packaging?.unitsPerPack ??
-                packaging?.numberOfUnits ??
-                "?"}{" "}
-              {productData?.dosageForm || "units"})
-            </p>
-          </div>
-
-          {/* Packaging Details */}
-          <h3 className="font-semibold text-[15px] mb-3 text-neutral-900">Packaging Details</h3>
-          <div className="border border-neutral-200 rounded-xl overflow-hidden mb-4">
-            <div className="grid grid-cols-3 divide-x divide-y divide-neutral-200">
-              <div className="p-3">
-                <p className="text-xs text-[#6A7282]">Packaging Unit</p>
-                <p className="text-[14px] font-medium text-[#101828] mt-1">
-                  {packaging?.packType ?? packaging?.packTypeName ?? "—"}
-                </p>
-              </div>
-              <div className="p-3">
-                <p className="text-xs text-[#6A7282]">Dosage Form</p>
-                <p className="text-[14px] font-medium text-[#101828] mt-1">
-                  {productData?.dosageForm ?? ncAttributes?.deviceClassification ?? "—"}
-                </p>
-              </div>
-              <div className="p-3">
-                <p className="text-xs text-[#6A7282]">No. of Units per Strip</p>
-                <p className="text-[14px] font-medium text-[#101828] mt-1">
-                  {packaging?.unitPerPack ?? packaging?.unitsPerPack ?? "—"}
-                </p>
-              </div>
-              <div className="p-3">
-                <p className="text-xs text-[#6A7282]">No. of Strips per Pack</p>
-                <p className="text-[14px] font-medium text-[#101828] mt-1">
-                  {packaging?.numberOfPacks ?? "—"}
-                </p>
-              </div>
-              <div className="p-3">
-                <p className="text-xs text-[#6A7282]">Strength per Unit</p>
-                <p className="text-[14px] font-medium text-[#101828] mt-1">
-                  {productData?.strength ? `${productData.strength}mg` : "—"}
-                </p>
-              </div>
-              <div className="p-3">
-                <p className="text-xs text-[#6A7282]">Storage Condition</p>
-                <p className="text-[14px] font-medium text-[#101828] mt-1">
-                  {storageConditionName ?? "—"}
-                </p>
-              </div>
-              <div className="p-3">
-                <p className="text-xs text-[#6A7282]">Batch / Lot Number</p>
-                <p className="text-[14px] font-medium text-[#101828] mt-1">
-                  {pricing?.batchLotNumber ?? "—"}
-                </p>
-              </div>
-              <div className="p-3">
-                <p className="text-xs text-[#6A7282]">Manufacturing Date</p>
-                <p className="text-[14px] font-medium text-[#101828] mt-1">
-                  {formatDate(pricing?.manufacturingDate)}
-                </p>
-              </div>
-              <div className="p-3">
-                <p className="text-xs text-[#6A7282]">Expiry Date</p>
-                <p className="text-[14px] font-medium text-[#101828] mt-1">
-                  {formatDate(pricing?.expiryDate)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Additional Discounts */}
-          {additionalDiscounts.length > 0 && (
-            <div className="border border-[#C4B5FD] bg-[#FAF5FF] rounded-lg p-4 mb-4">
-              <p className="font-semibold text-[#6D28D9] mb-2 text-sm">
-                Additional Discounts Available
+            {/* Quantity + total */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <p style={{
+                color: "#364153", fontSize: 14, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 400, lineHeight: "20px", margin: 0,
+              }}>
+                Quantity (Packs)
               </p>
-              <div className="space-y-1">
-                {additionalDiscounts.map((d, i) => (
-                  <p key={i} className="text-sm text-[#7C3AED]">
-                    Minimum Purchase Quantity - {d.minimumPurchaseQuantity} Packs
-                  </p>
-                ))}
-                {additionalDiscounts.map((d, i) => (
-                  <p key={`disc-${i}`} className="text-sm text-[#7C3AED]">
-                    Discount percentage - {d.additionalDiscountPercentage}%
-                  </p>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Check Availability */}
-          <div className="flex items-center gap-3 mb-4">
-            <input
-              type="text"
-              value={pincode}
-              onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="Enter pincode"
-              className="border border-neutral-300 rounded-lg px-4 py-2 text-sm w-32 focus:outline-none focus:border-[#4B0082]"
-            />
-            <button
-              type="button"
-              className="bg-[#4B0082] hover:bg-purple-800 text-white text-sm font-semibold px-5 py-2 rounded-lg transition"
-            >
-              Check Availability
-            </button>
-          </div>
-
-          {/* Quantity */}
-          <div className="mb-5">
-            <p className="text-sm text-[#364153] mb-2 font-medium">Quantity (Packs)</p>
-            <div className="flex items-center gap-4">
-              <div className="flex border border-neutral-300 rounded-lg overflow-hidden">
-                <button
-                  className="px-4 py-2 border-r border-neutral-300 text-neutral-900 hover:bg-neutral-50 transition"
-                  onClick={() => setQuantity(Math.max(packaging?.minimumOrderQuantity || 1, quantity - 1))}
-                >
-                  -
-                </button>
-                <span className="px-6 flex items-center justify-center text-sm font-medium">
-                  {quantity}
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{
+                  borderRadius: 10, outline: `1px ${C_PNEUTRAL_300} solid`, outlineOffset: -1,
+                  display: "flex", alignItems: "center", overflow: "hidden",
+                }}>
+                  <button
+                    onClick={() => setQuantity(Math.max(packaging?.minimumOrderQuantity || 1, quantity - 1))}
+                    style={{
+                      padding: 12, background: C_WHITE, border: "none",
+                      borderRight: `1px ${C_PNEUTRAL_300} solid`, cursor: "pointer",
+                    }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20">
+                      <path d="M4 10h12" stroke={C_PNEUTRAL_800} strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                  <div style={{
+                    width: 80, paddingTop: 12, paddingBottom: 12,
+                    borderLeft: `1px ${C_PNEUTRAL_300} solid`,
+                    borderRight: `1px ${C_PNEUTRAL_300} solid`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <span style={{
+                      color: C_PNEUTRAL_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                      fontWeight: 600, lineHeight: "22px",
+                    }}>
+                      {quantity}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setQuantity(Math.min(packaging?.maximumOrderQuantity || 1000, quantity + 1))}
+                    style={{
+                      padding: 12, background: C_WHITE, border: "none",
+                      borderLeft: `1px ${C_PNEUTRAL_300} solid`, cursor: "pointer",
+                    }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20">
+                      <path d="M4 10h12M10 4v12" stroke={C_PNEUTRAL_800} strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
+                <span style={{
+                  color: "#4A5565", fontSize: 14, fontFamily: FONT_OPEN_SANS,
+                  fontWeight: 600, lineHeight: "20px",
+                }}>
+                  Total: ₹{totalPrice.toFixed(2)}
                 </span>
-                <button
-                  className="px-4 py-2 border-l border-neutral-300 text-neutral-900 hover:bg-neutral-50 transition"
-                  onClick={() => setQuantity(Math.min(packaging?.maximumOrderQuantity || 1000, quantity + 1))}
-                >
-                  +
-                </button>
               </div>
-              <p className="text-sm text-[#4A5565]">Total: ₹{totalPrice.toFixed(2)}</p>
+              <p style={{
+                color: "#6A7282", fontSize: 12, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 400, lineHeight: "18px", paddingTop: 7, margin: 0,
+              }}>
+                Minimum order: {packaging?.minimumOrderQuantity ?? "—"} packs | Maximum: {packaging?.maximumOrderQuantity ?? "—"} packs
+              </p>
             </div>
-            <p className="text-xs text-[#6A7282] mt-1">
-              Minimum order: {packaging?.minimumOrderQuantity ?? "—"} packs | Maximum:{" "}
-              {packaging?.maximumOrderQuantity ?? "—"} packs
-            </p>
-          </div>
 
-          {/* Buttons */}
-          <button className="w-full bg-primary-900 text-white text-[16px] font-semibold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-purple-900 transition">
-            <SlHandbag size={24} />
-            Buy Now
-          </button>
-          <button className="w-full border-2 border-primary-900 text-primary-900 text-[16px] font-semibold py-3 rounded-lg mt-3 flex items-center justify-center gap-2 hover:bg-purple-50 transition">
-            <HiOutlineShoppingCart size={24} />
-            Add to Cart
-          </button>
+            {/* CTA buttons */}
+            <div style={{ display: "flex", gap: 12 }}>
+              <button style={{
+                flex: 1, height: 56, minHeight: 56, minWidth: 130,
+                background: "#4B0082", borderRadius: 12, border: "none", cursor: "pointer",
+                color: C_WHITE, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 600, lineHeight: "22px",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}>
+                <SlHandbag size={24} />
+                Buy Now
+              </button>
+              <button style={{
+                flex: 1, height: 56, minHeight: 56, minWidth: 130,
+                background: "transparent", borderRadius: 12, cursor: "pointer",
+                outline: `3px ${C_PRIMARY_900} solid`, outlineOffset: -1.5,
+                border: "none",
+                color: C_PRIMARY_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 600, lineHeight: "22px",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}>
+                <HiOutlineShoppingCart size={24} />
+                Add to Cart
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Product description section ── */}
+        <div style={{
+          borderTop: `1px ${C_BORDER} solid`,
+          padding: "32px 32px 48px",
+          display: "flex", flexDirection: "column", gap: 16,
+        }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <h2 style={{
+                color: "#101828", fontSize: 18, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 400, lineHeight: "24px", margin: 0,
+              }}>
+                Product Description
+              </h2>
+              <p style={{
+                color: "#4A5565", fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 400, lineHeight: "22px", margin: 0,
+              }}>
+                {productData?.productDescription}
+              </p>
+            </div>
+
+            <div style={{ height: 24 }} />
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <h2 style={{
+                color: "#101828", fontSize: 18, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 400, lineHeight: "24px", margin: 0,
+              }}>
+                Warnings &amp; Precautions:
+              </h2>
+              <p style={{
+                color: "#4A5565", fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 400, lineHeight: "22px", margin: 0,
+              }}>
+                {productData?.warningsPrecautions}
+              </p>
+            </div>
+
+            {ncAttributes?.udiNumber && (
+              <p style={{
+                color: C_PNEUTRAL_500, fontSize: 12, fontFamily: FONT_OPEN_SANS,
+                fontWeight: 300, lineHeight: "18px", marginTop: 8,
+              }}>
+                UDI / Serial: {ncAttributes.udiNumber}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Product Description */}
-      <div className="border-t pt-6">
-        <h2 className="text-lg font-semibold mb-3">Product Description</h2>
-        <p className="text-sm text-neutral-600 mb-4">{productData?.productDescription}</p>
-        {(ncAttributes?.keyFeaturesSpecifications || consumableAttrs?.keyFeaturesSpecifications) && (
-          <>
-            <h3 className="font-semibold mt-4 mb-2">Key Features / Specifications</h3>
-            <p className="text-sm text-neutral-600 whitespace-pre-line">
-              {ncAttributes?.keyFeaturesSpecifications || consumableAttrs?.keyFeaturesSpecifications}
-            </p>
-          </>
-        )}
-        <h3 className="font-semibold mt-4 mb-2">Warnings & Precautions</h3>
-        <p className="text-sm text-neutral-600">{productData?.warningsPrecautions}</p>
-        {ncAttributes?.udiNumber && (
-          <p className="text-xs text-neutral-400 mt-4">UDI / Serial: {ncAttributes.udiNumber}</p>
-        )}
-      </div>
-
-      {/* Certification Viewer Modal */}
+      {/* ── Certificate modal ── */}
       {showCertModal && activeCertDoc && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => {
-            setShowCertModal(false);
-            setActiveCertDoc(null);
+          onClick={() => { setShowCertModal(false); setActiveCertDoc(null); }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 50,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.50)",
           }}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col"
-            style={{ maxHeight: "90vh" }}
             onClick={(e) => e.stopPropagation()}
+            style={{
+              background: C_WHITE, borderRadius: 16,
+              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+              width: "100%", maxWidth: 672, margin: "0 16px",
+              overflow: "hidden", display: "flex", flexDirection: "column",
+              maxHeight: "90vh",
+            }}
           >
-            {/* Modal header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <PiSealCheckLight size={20} className="text-purple-700" />
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "16px 24px", borderBottom: `1px ${C_BORDER} solid`,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  width: 36, height: 36, background: C_PRIMARY_05,
+                  borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <PiSealCheckLight size={20} color={C_SECONDARY_700} />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-neutral-900 text-base">
+                  <p style={{
+                    color: C_PNEUTRAL_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                    fontWeight: 600, lineHeight: "22px", margin: 0,
+                  }}>
                     {activeCertDoc.certificationName || activeCertDoc.label || `Certificate ${activeCertDoc.certificationId}`}
-                  </h3>
-                  <p className="text-xs text-neutral-400">Certification Document</p>
+                  </p>
+                  <p style={{
+                    color: C_PNEUTRAL_500, fontSize: 12, fontFamily: FONT_OPEN_SANS,
+                    fontWeight: 400, lineHeight: "18px", margin: 0,
+                  }}>
+                    Certification Document
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={activeCertDoc.certificateUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 text-sm text-purple-700 hover:text-purple-900 font-medium px-3 py-1.5 rounded-lg hover:bg-purple-50 transition"
-                >
-                  <ExternalLink size={14} />
-                  Open
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <a href={activeCertDoc.certificateUrl} target="_blank" rel="noreferrer" style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  color: C_SECONDARY_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
+                  fontWeight: 600, lineHeight: "20px", textDecoration: "none",
+                  padding: "6px 12px", borderRadius: 8,
+                }}>
+                  <ExternalLink size={14} /> Open
                 </a>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowCertModal(false);
-                    setActiveCertDoc(null);
+                  onClick={() => { setShowCertModal(false); setActiveCertDoc(null); }}
+                  style={{
+                    width: 32, height: 32, borderRadius: 8, border: "none",
+                    background: "transparent", cursor: "pointer",
+                    color: C_PNEUTRAL_500, fontSize: 20, display: "flex",
+                    alignItems: "center", justifyContent: "center",
                   }}
-                  className="text-neutral-400 hover:text-neutral-700 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-neutral-100 transition"
                 >
                   ×
                 </button>
               </div>
             </div>
 
-            {/* Modal body */}
-            <div className="flex-1 overflow-auto bg-neutral-50 p-4 flex items-center justify-center min-h-[400px]">
+            <div style={{
+              flex: 1, overflowY: "auto", background: C_PNEUTRAL_50,
+              padding: 16, display: "flex", alignItems: "center", justifyContent: "center",
+              minHeight: 400,
+            }}>
               {isImageUrl(activeCertDoc.certificateUrl) ? (
                 <img
                   src={activeCertDoc.certificateUrl}
-                  alt={activeCertDoc.certificationName || activeCertDoc.label || "Certificate"}
-                  className="max-w-full max-h-[600px] object-contain rounded-lg shadow"
+                  alt={activeCertDoc.certificationName || "Certificate"}
+                  style={{ maxWidth: "100%", maxHeight: 600, objectFit: "contain", borderRadius: 8 }}
                 />
               ) : isPdfUrl(activeCertDoc.certificateUrl) ? (
                 <iframe
                   src={activeCertDoc.certificateUrl}
-                  title={activeCertDoc.certificationName || "Certificate PDF"}
-                  className="w-full rounded-lg"
-                  style={{ height: "560px", border: "none" }}
+                  title="Certificate PDF"
+                  style={{ width: "100%", height: 560, border: "none", borderRadius: 8 }}
                 />
               ) : (
-                <div className="flex flex-col items-center gap-4 py-8">
-                  <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center">
-                    <FileText size={32} className="text-purple-700" />
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "32px 0" }}>
+                  <div style={{
+                    width: 64, height: 64, background: C_PRIMARY_05, borderRadius: 16,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <FileText size={32} color={C_SECONDARY_700} />
                   </div>
-                  <div className="text-center">
-                    <p className="font-medium text-neutral-800 mb-1">
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{
+                      color: C_PNEUTRAL_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
+                      fontWeight: 600, lineHeight: "22px", margin: "0 0 8px",
+                    }}>
                       {activeCertDoc.certificationName || activeCertDoc.label || `Certificate ${activeCertDoc.certificationId}`}
                     </p>
-                    <p className="text-sm text-neutral-500 mb-4">
+                    <p style={{
+                      color: C_PNEUTRAL_500, fontSize: 14, fontFamily: FONT_OPEN_SANS,
+                      fontWeight: 400, lineHeight: "20px", margin: "0 0 16px",
+                    }}>
                       This file cannot be previewed in the browser.
                     </p>
-                    <a
-                      href={activeCertDoc.certificateUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition"
-                    >
-                      <ExternalLink size={14} />
-                      Open / Download
+                    <a href={activeCertDoc.certificateUrl} target="_blank" rel="noreferrer" style={{
+                      display: "inline-flex", alignItems: "center", gap: 8,
+                      background: C_SECONDARY_700, color: C_WHITE,
+                      fontSize: 14, fontFamily: FONT_OPEN_SANS, fontWeight: 600,
+                      lineHeight: "20px", padding: "10px 20px", borderRadius: 8,
+                      textDecoration: "none",
+                    }}>
+                      <ExternalLink size={14} /> Open / Download
                     </a>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Footer: other certs quick-switch */}
             {certDocs.length > 1 && (
-              <div className="border-t border-neutral-100 px-6 py-3 flex items-center gap-2 overflow-x-auto">
-                <span className="text-xs text-neutral-400 flex-shrink-0">Other certs:</span>
+              <div style={{
+                borderTop: `1px ${C_BORDER} solid`,
+                padding: "12px 24px", display: "flex", alignItems: "center",
+                gap: 8, overflowX: "auto",
+              }}>
+                <span style={{
+                  color: C_PNEUTRAL_500, fontSize: 12, fontFamily: FONT_OPEN_SANS,
+                  fontWeight: 400, lineHeight: "18px", flexShrink: 0,
+                }}>
+                  Other certs:
+                </span>
                 {certDocs
                   .filter((c) => c.certificationId !== activeCertDoc.certificationId)
                   .map((cert) => (
@@ -754,7 +1003,13 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                       key={cert.certificationId}
                       type="button"
                       onClick={() => setActiveCertDoc(cert)}
-                      className="flex-shrink-0 flex items-center gap-1.5 text-xs text-purple-700 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-full transition font-medium"
+                      style={{
+                        flexShrink: 0, display: "flex", alignItems: "center", gap: 6,
+                        color: C_SECONDARY_700, background: C_SECONDARY_50,
+                        fontSize: 12, fontFamily: FONT_OPEN_SANS, fontWeight: 600,
+                        lineHeight: "18px", padding: "6px 12px", borderRadius: 9999,
+                        border: "none", cursor: "pointer",
+                      }}
                     >
                       <PiSealCheckLight size={12} />
                       {cert.certificationName || cert.label || `Cert ${cert.certificationId}`}

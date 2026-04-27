@@ -10,13 +10,29 @@ interface DashboardFiltersProps {
 }
 
 type ModalView   = "methods" | "excel" | "api" | "success";
-type ProductType = "drugs";
+type ProductType = "drugs" | "medical_devices_non_consumable" | "medical_devices_consumable";
+type MedicalDeviceSubType = "consumable" | "non_consumable";
 
 interface UploadedFile {
   file:      File;
   status:    "pending" | "uploading" | "done" | "error";
   error?:    string;
   progress?: number;
+}
+
+interface ValidationError {
+  rowNumber:    number;
+  productName:  string;
+  errorMessage: string;
+}
+
+interface UploadResult {
+  success:          boolean;
+  successCount:     number;
+  failureCount:     number;
+  totalRows:        number;
+  validationErrors: ValidationError[];
+  message?:         string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -84,6 +100,31 @@ const TEMPLATES: Record<ProductType, { name: string; xlsx: string; csv: string; 
     csv:  "/templates/drugs/CSV-Drugs Template.csv",
     xls:  "/templates/drugs/XLS-Drugs Template.xls",
   },
+  medical_devices_non_consumable: {
+    name: "medical_devices_non_consumable_template",
+    xlsx: "/templates/medical-devices/nonconsumable/XLSX-Non Consumable Template.xlsx",
+    csv:  "/templates/medical-devices/nonconsumable/CSV-Non Consumable Template.csv",
+    xls:  "/templates/medical-devices/nonconsumable/XLS-Non Consumable Template.xls",
+  },
+  medical_devices_consumable: {
+    name: "medical_devices_consumable_template",
+    xlsx: "/templates/medical-devices/consumable/XLSX-Consumable Template.xlsx",
+    csv:  "/templates/medical-devices/consumable/CSV-Consumable Template.csv",
+    xls:  "/templates/medical-devices/consumable/XLS-Consumable Template.xls",
+  },
+};
+
+// categoryId mapping (confirmed via Postman):
+//   Drugs                        → 1
+//   Medical Devices (Consumable) → 5
+//   Medical Devices (Non-Consumable) → 6
+const MEDICAL_DEVICE_CONSUMABLE_IDS     = [5];
+const MEDICAL_DEVICE_NON_CONSUMABLE_IDS = [6];
+
+const getCategoryId = (productType: ProductType): number => {
+  if (productType === "medical_devices_consumable")     return 5;
+  if (productType === "medical_devices_non_consumable") return 6;
+  return 1; // drugs
 };
 
 const fileKey = (f: File) => `${f.name}-${f.size}`;
@@ -107,6 +148,13 @@ const flex = (
 const XIcon = ({ size = 24, color = "#111827", strokeWidth = 2 }: { size?: number; color?: string; strokeWidth?: number }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24">
     <path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+  </svg>
+);
+
+const DownloadIcon = ({ color }: { color: string }) => (
+  <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+    <path d="M12 16l-4-4h3V4h2v8h3l-4 4z" fill={color}/>
+    <path d="M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
@@ -199,39 +247,217 @@ function FileRow({ uf, index, onRemove, submitting }: {
   );
 }
 
+// ─── MedicalDeviceSubTypePicker ───────────────────────────────────────────────
+// Consumable is shown FIRST, Non-Consumable second
+function MedicalDeviceSubTypePicker({
+  selected,
+  onChange,
+}: {
+  selected: MedicalDeviceSubType;
+  onChange: (v: MedicalDeviceSubType) => void;
+}) {
+  return (
+    <div style={{ ...flex("col", 8) }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", ...fontBase }}>
+        Select device type
+      </div>
+      <div style={{ ...flex("row", 10) }}>
+        {/* ── Consumable (first) ── */}
+        <button
+          onClick={() => onChange("consumable")}
+          style={{
+            flex: 1,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: `1.5px solid ${selected === "consumable" ? C.primary : "#E5E7EB"}`,
+            background: selected === "consumable" ? C.primaryLight : "#FAFAFA",
+            color: selected === "consumable" ? C.primary : "#374151",
+            fontWeight: selected === "consumable" ? 700 : 500,
+            fontSize: 12,
+            cursor: "pointer",
+            textAlign: "left",
+            ...fontBase,
+            transition: "all 0.15s",
+            ...flex("col", 3),
+          }}
+        >
+          <div style={{ ...flex("row", 6, "center") }}>
+            {selected === "consumable" && (
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
+                <path d="M2 6l3 3 5-5" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+            <span>Consumable</span>
+          </div>
+          <span style={{ fontSize: 10, color: selected === "consumable" ? "#7C3AED" : "#9CA3AF", fontWeight: 400 }}>
+            Single-use / disposable
+          </span>
+        </button>
+
+        {/* ── Non-Consumable (second) ── */}
+        <button
+          onClick={() => onChange("non_consumable")}
+          style={{
+            flex: 1,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: `1.5px solid ${selected === "non_consumable" ? C.primary : "#E5E7EB"}`,
+            background: selected === "non_consumable" ? C.primaryLight : "#FAFAFA",
+            color: selected === "non_consumable" ? C.primary : "#374151",
+            fontWeight: selected === "non_consumable" ? 700 : 500,
+            fontSize: 12,
+            cursor: "pointer",
+            textAlign: "left",
+            ...fontBase,
+            transition: "all 0.15s",
+            ...flex("col", 3),
+          }}
+        >
+          <div style={{ ...flex("row", 6, "center") }}>
+            {selected === "non_consumable" && (
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
+                <path d="M2 6l3 3 5-5" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+            <span>Non-Consumable</span>
+          </div>
+          <span style={{ fontSize: 10, color: selected === "non_consumable" ? "#7C3AED" : "#9CA3AF", fontWeight: 400 }}>
+            Durable / reusable devices
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ValidationErrorPanel ─────────────────────────────────────────────────────
+function ValidationErrorPanel({
+  errors,
+  successCount,
+  failureCount,
+  totalRows,
+  onDownload,
+  onDismiss,
+}: {
+  errors:       ValidationError[];
+  successCount: number;
+  failureCount: number;
+  totalRows:    number;
+  onDownload:   () => void;
+  onDismiss:    () => void;
+}) {
+  const allFailed = successCount === 0 && failureCount > 0;
+
+  return (
+    <div style={{ ...flex("col", 8), background: "#FFF8F8", border: "1px solid #FECACA", borderRadius: 12, padding: 14, overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ ...flex("row", 0, "center", "space-between") }}>
+        <div style={{ ...flex("row", 8, "center") }}>
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+            <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8"/>
+            <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#991B1B", ...fontBase }}>
+            {allFailed
+              ? `All ${totalRows} row(s) failed validation`
+              : `${failureCount} of ${totalRows} row(s) failed — ${successCount} added successfully`}
+          </span>
+        </div>
+        <button onClick={onDismiss} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}>
+          <XIcon size={13} color="#991B1B" />
+        </button>
+      </div>
+
+      {/* Summary pills */}
+      {!allFailed && (
+        <div style={{ ...flex("row", 6, "center") }}>
+          <span style={{ background: "#DCFCE7", color: "#166534", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 99, ...fontBase }}>
+            ✓ {successCount} added
+          </span>
+          <span style={{ background: "#FEE2E2", color: "#991B1B", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 99, ...fontBase }}>
+            ✗ {failureCount} failed
+          </span>
+        </div>
+      )}
+
+      {/* Error table */}
+      <div style={{ background: "#fff", border: "1px solid #FECACA", borderRadius: 8, overflow: "hidden", maxHeight: 200, overflowY: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, ...fontBase }}>
+          <thead style={{ background: "#FEF2F2", position: "sticky", top: 0, zIndex: 1 }}>
+            <tr>
+              <th style={{ padding: "7px 10px", textAlign: "left", fontWeight: 700, color: "#991B1B", width: 48, borderBottom: "1px solid #FECACA" }}>Row</th>
+              <th style={{ padding: "7px 10px", textAlign: "left", fontWeight: 700, color: "#991B1B", width: "35%", borderBottom: "1px solid #FECACA" }}>Product</th>
+              <th style={{ padding: "7px 10px", textAlign: "left", fontWeight: 700, color: "#991B1B", borderBottom: "1px solid #FECACA" }}>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {errors.map((err, idx) => (
+              <tr key={idx} style={{ background: idx % 2 === 0 ? "#fff" : "#FFF8F8" }}>
+                <td style={{ padding: "7px 10px", color: "#6B7280", fontWeight: 600, borderBottom: idx < errors.length - 1 ? "1px solid #FEE2E2" : "none" }}>
+                  {err.rowNumber}
+                </td>
+                <td style={{ padding: "7px 10px", color: "#374151", fontWeight: 500, borderBottom: idx < errors.length - 1 ? "1px solid #FEE2E2" : "none", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {err.productName || <em style={{ color: "#9CA3AF" }}>Unnamed</em>}
+                </td>
+                <td style={{ padding: "7px 10px", color: "#DC2626", borderBottom: idx < errors.length - 1 ? "1px solid #FEE2E2" : "none" }}>
+                  {err.errorMessage}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Download */}
+      <button
+        onClick={onDownload}
+        style={{ alignSelf: "flex-end", ...flex("row", 6, "center", "center"), padding: "6px 12px", background: "#fff", border: "1px solid #DC2626", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#DC2626", ...fontBase }}
+      >
+        <DownloadIcon color="#DC2626" />
+        Download Error Report (.csv)
+      </button>
+    </div>
+  );
+}
+
 // ─── ExcelUploadView ──────────────────────────────────────────────────────────
 function ExcelUploadView({ onBack, onSuccess }: {
-  onBack: () => void;
-  onSuccess: (type: ProductType, files: UploadedFile[]) => void;
+  onBack:     () => void;
+  onSuccess:  (type: ProductType, files: UploadedFile[], result: UploadResult) => void;
 }) {
-  const [productType, setProductType] = useState<ProductType>("drugs");
-  const [dragging, setDragging]       = useState(false);
-  const [files, setFiles]             = useState<UploadedFile[]>([]);
-  const [submitting, setSubmitting]   = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [validationErrors, setValidationErrors] = useState<Array<{ rowNumber: number; productName: string; errorMessage: string }>>([]);
-  const [fileFormatError, setFileFormatError] = useState<string | null>(null);
+  const [productType, setProductType]                 = useState<ProductType>("drugs");
+  // Default sub-type is now "consumable" (shown first in the picker)
+  const [medDevSubType, setMedDevSubType]             = useState<MedicalDeviceSubType>("consumable");
+  const [dragging, setDragging]                       = useState(false);
+  const [files, setFiles]                             = useState<UploadedFile[]>([]);
+  const [submitting, setSubmitting]                   = useState(false);
+  const [submitError, setSubmitError]                 = useState<string | null>(null);
+  const [uploadResult, setUploadResult]               = useState<UploadResult | null>(null);
+  const [fileFormatError, setFileFormatError]         = useState<string | null>(null);
   const [availableCategories, setAvailableCategories] = useState<Array<{ id: number; name: string }>>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingCategories, setLoadingCategories]     = useState(true);
   const inputRef  = useRef<HTMLInputElement>(null);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Derive the effective ProductType from (productType, medDevSubType)
+  const effectiveProductType: ProductType =
+    productType === "medical_devices_non_consumable"
+      ? medDevSubType === "consumable"
+        ? "medical_devices_consumable"
+        : "medical_devices_non_consumable"
+      : productType;
 
   const getUserId = useCallback((): number | null => {
     try {
       const userStr = localStorage.getItem("user");
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        return user.userId;
-      }
+      if (userStr) { const user = JSON.parse(userStr); return user.userId; }
       const token = localStorage.getItem("token");
       if (token) {
         const payload = JSON.parse(atob(token.split(".")[1]));
         return payload.userId || payload.user_id || payload.sub;
       }
       return null;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   }, []);
 
   useEffect(() => {
@@ -258,16 +484,11 @@ function ExcelUploadView({ onBack, onSuccess }: {
 
         if (response.ok) {
           const result = await response.json();
-          if (result?.data?.productTypes?.length) {
-            setAvailableCategories(
-              result.data.productTypes.map((pt: any) => ({
-                id: pt.productTypeId,
-                name: pt.productTypeName,
-              }))
-            );
-          } else {
-            setAvailableCategories(defaultCategories);
-          }
+          setAvailableCategories(
+            result?.data?.productTypes?.length
+              ? result.data.productTypes.map((pt: any) => ({ id: pt.productTypeId, name: pt.productTypeName }))
+              : defaultCategories
+          );
         } else {
           setAvailableCategories(defaultCategories);
         }
@@ -287,7 +508,27 @@ function ExcelUploadView({ onBack, onSuccess }: {
     fetchSellerCategories();
   }, [getUserId]);
 
-  const isSelectable = (id: number) => id === 1; // Only Drugs
+  const isMedDevCategory = (catId: number) =>
+    MEDICAL_DEVICE_CONSUMABLE_IDS.includes(catId) || MEDICAL_DEVICE_NON_CONSUMABLE_IDS.includes(catId);
+
+  const isCategorySelected = (catId: number) => {
+    if (catId === 1) return productType === "drugs";
+    if (isMedDevCategory(catId)) return productType === "medical_devices_non_consumable";
+    return false;
+  };
+
+  const isSelectable = (catId: number) =>
+    catId === 1 || MEDICAL_DEVICE_NON_CONSUMABLE_IDS.includes(catId) || MEDICAL_DEVICE_CONSUMABLE_IDS.includes(catId);
+
+  const handleCategorySelect = (catId: number) => {
+    if (catId === 1) setProductType("drugs");
+    else if (isMedDevCategory(catId)) {
+      setProductType("medical_devices_non_consumable");
+      // Reset to consumable (shown first) when re-entering Medical Devices
+      setMedDevSubType("consumable");
+    }
+    setFiles([]); setUploadResult(null); setSubmitError(null); setFileFormatError(null);
+  };
 
   const updateFile = (key: string, patch: Partial<UploadedFile>) =>
     setFiles((prev) => prev.map((f) => fileKey(f.file) === key ? { ...f, ...patch } : f));
@@ -296,9 +537,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
     let step = 0;
     const tick = () => {
       if (step >= PROGRESS_STEPS.length) {
-        setFiles((prev) =>
-          prev.map((f) => fileKey(f.file) === key ? { ...f, status: "done" as const, progress: 100 } : f)
-        );
+        setFiles((prev) => prev.map((f) => fileKey(f.file) === key ? { ...f, status: "done" as const, progress: 100 } : f));
         timersRef.current.delete(key);
         return;
       }
@@ -310,9 +549,9 @@ function ExcelUploadView({ onBack, onSuccess }: {
   };
 
   const addFiles = (newFiles: File[]) => {
-    setSubmitError(null); setValidationErrors([]); setFileFormatError(null);
+    setSubmitError(null); setUploadResult(null); setFileFormatError(null);
     const validFiles: File[] = [];
-    const errors: string[] = [];
+    const errors: string[]   = [];
     const maxSize = 10 * 1024 * 1024;
     const validExts = ["xlsx", "csv", "xls"];
 
@@ -322,30 +561,22 @@ function ExcelUploadView({ onBack, onSuccess }: {
         errors.push(`${file.name}: Invalid format. Please upload .xlsx, .csv, or .xls files only.`);
         return;
       }
-      if (file.size > maxSize) {
-        errors.push(`${file.name}: File size exceeds 10MB limit.`);
-        return;
-      }
-      if (file.size === 0) {
-        errors.push(`${file.name}: File is empty.`);
-        return;
-      }
+      if (file.size > maxSize) { errors.push(`${file.name}: File size exceeds 10MB limit.`); return; }
+      if (file.size === 0)     { errors.push(`${file.name}: File is empty — please use our template.`); return; }
       validFiles.push(file);
     });
 
     if (errors.length > 0) { setFileFormatError(errors.join(" ")); return; }
 
     setFiles((prev) => {
-      const filtered = validFiles.filter(
-        (f) => !prev.some((ex) => ex.file.name === f.name && ex.file.size === f.size)
-      );
+      const filtered = validFiles.filter((f) => !prev.some((ex) => ex.file.name === f.name && ex.file.size === f.size));
       return [...prev, ...filtered.map((f) => ({ file: f, status: "uploading" as const, progress: 0 }))];
     });
     validFiles.forEach((f) => setTimeout(() => runFakeProgress(fileKey(f)), 50));
   };
 
   const removeFile = (i: number) => {
-    setSubmitError(null); setValidationErrors([]); setFileFormatError(null);
+    setSubmitError(null); setUploadResult(null); setFileFormatError(null);
     setFiles((prev) => {
       const key = fileKey(prev[i].file);
       const timer = timersRef.current.get(key);
@@ -364,27 +595,64 @@ function ExcelUploadView({ onBack, onSuccess }: {
     if (e.target.files?.length) { addFiles(Array.from(e.target.files)); e.target.value = ""; }
   };
 
-  const downloadErrorReport = (errors: Array<{ rowNumber: number; productName: string; errorMessage: string }>) => {
+  const downloadErrorReport = (errors: ValidationError[]) => {
     if (!errors.length) return;
     const csvRows = [
       ["Row Number", "Product Name", "Error Message"].join(","),
       ...errors.map((e) =>
-        `"${e.rowNumber}","${e.productName.replace(/"/g, '""')}","${e.errorMessage.replace(/"/g, '""')}"`
+        `"${e.rowNumber}","${(e.productName ?? "").replace(/"/g, '""')}","${(e.errorMessage ?? "").replace(/"/g, '""')}"`
       ),
     ];
     const blob = new Blob(["\uFEFF" + csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `upload_errors_${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  };
+
+  // ── Parse & validate API response ─────────────────────────────────────────
+  const parseUploadResponse = async (res: Response): Promise<UploadResult> => {
+    let body: any;
+    try { body = await res.json(); } catch {
+      throw new Error(`Server error (${res.status}): Could not parse response.`);
+    }
+
+    if (!res.ok) {
+      // Prefer the most specific message available
+      const msg =
+        body?.data?.message ??
+        body?.message ??
+        body?.error ??
+        `Server error (${res.status})`;
+      throw new Error(msg);
+    }
+
+    const data = body?.data ?? body;
+
+    if (data?.status === "ERROR") throw new Error(data.message ?? "Upload failed");
+
+    const successCount: number = data?.successCount ?? 0;
+    const failureCount: number = data?.failureCount ?? data?.errorCount ?? 0;
+    const totalRows: number    = data?.totalRows ?? (successCount + failureCount);
+    const validationErrors: ValidationError[] = (data?.errors ?? []).map((e: any) => ({
+      rowNumber:    e.rowNumber    ?? e.row     ?? "?",
+      productName:  e.productName  ?? e.product ?? "",
+      errorMessage: e.errorMessage ?? e.message ?? e.error ?? "Unknown error",
+    }));
+
+    if (totalRows === 0 && successCount === 0 && failureCount === 0 && validationErrors.length === 0) {
+      throw new Error(
+        "No product rows found in the file. Please ensure your file has at least one data row below the header, using our template."
+      );
+    }
+
+    return { success: successCount > 0, successCount, failureCount, totalRows, validationErrors };
   };
 
   const handleSubmit = async () => {
     const readyFiles = files.filter((f) => f.status === "done");
     if (!readyFiles.length || submitting) return;
-    setSubmitting(true); setSubmitError(null); setValidationErrors([]); setFileFormatError(null);
+    setSubmitting(true); setSubmitError(null); setUploadResult(null); setFileFormatError(null);
 
     const token = localStorage.getItem("token");
     if (!token) {
@@ -393,10 +661,15 @@ function ExcelUploadView({ onBack, onSuccess }: {
       return;
     }
 
-    const results: { key: string; success: boolean; validationErrors?: any[] }[] = [];
+    // Resolve categoryId once for this session:
+    //   Drugs                             → 1
+    //   Medical Devices (Consumable)      → 5
+    //   Medical Devices (Non-Consumable)  → 6
+    const categoryId = getCategoryId(effectiveProductType);
 
-    for (const uf of files) {
-      if (uf.status !== "done") continue;
+    let lastResult: UploadResult | null = null;
+
+    for (const uf of readyFiles) {
       const key = fileKey(uf.file);
       updateFile(key, { status: "uploading", progress: 0 });
       try {
@@ -404,72 +677,76 @@ function ExcelUploadView({ onBack, onSuccess }: {
           await new Promise((r) => setTimeout(r, 200));
           updateFile(key, { progress: p });
         }
+
         const fd = new FormData();
         fd.append("file", uf.file);
+        // Only categoryId + file are sent — matches confirmed Postman payload
+        fd.append("categoryId", String(categoryId));
+
         const res = await fetch(IMPORT_API_URL, {
-          method: "POST", body: fd,
+          method: "POST",
+          body: fd,
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) {
-          let msg = `Server error (${res.status})`;
-          try { const b = await res.json(); msg = b?.data?.message ?? b?.message ?? msg; } catch {}
-          throw new Error(msg);
-        }
-        const body = await res.json();
-        if (body?.data?.status === "ERROR") throw new Error(body.data.message ?? "Upload failed");
 
-        const hasErrors = body?.data?.errors?.length > 0;
-        const successCount = body?.data?.successCount || 0;
-        const failureCount = body?.data?.failureCount || 0;
+        const result = await parseUploadResponse(res);
+        lastResult = result;
 
-        if (hasErrors) {
-          setValidationErrors(body.data.errors);
-          if (successCount === 0) {
-            updateFile(key, { status: "error", error: `All ${body.data.totalRows || 0} row(s) have validation errors.`, progress: 100 });
-            results.push({ key, success: false, validationErrors: body.data.errors });
-          } else {
-            updateFile(key, { status: "error", error: `Partial: ${successCount} succeeded, ${failureCount} failed.`, progress: 100 });
-            results.push({ key, success: false, validationErrors: body.data.errors });
-          }
+        if (result.validationErrors.length > 0) {
+          const errMsg = result.successCount > 0
+            ? `${result.failureCount} row(s) failed — see errors below`
+            : `All ${result.totalRows} row(s) failed validation`;
+          updateFile(key, { status: "error", error: errMsg, progress: 100 });
+          setUploadResult(result);
         } else {
           updateFile(key, { status: "done", progress: 100 });
-          results.push({ key, success: true });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Upload failed";
         updateFile(key, { status: "error", error: message });
-        results.push({ key, success: false });
+        setSubmitError(message);
+        lastResult = null;
       }
     }
 
     await new Promise((r) => setTimeout(r, 250));
     setSubmitting(false);
 
-    const anySuccess = results.some((r) => r.success);
-    const allFailed  = results.every((r) => !r.success);
-    const hasVErrors = validationErrors.length > 0;
-
-    if (hasVErrors) {
-      setSubmitError("Please fix the validation errors in your Excel file and re-upload.");
-    } else if (allFailed) {
-      setSubmitError("Upload failed. Please check the errors above and try again.");
-    } else if (anySuccess) {
-      onSuccess(productType, files);
+    if (lastResult && lastResult.success && !lastResult.validationErrors.length) {
+      onSuccess(effectiveProductType, files, lastResult);
+    } else if (lastResult && lastResult.success && lastResult.validationErrors.length > 0) {
+      setUploadResult(lastResult);
     }
   };
 
   const hasReadyFiles = files.some((f) => f.status === "done");
-  const template = TEMPLATES[productType];
+  const template      = TEMPLATES[effectiveProductType];
 
-  const DownloadIcon = ({ color }: { color: string }) => (
-    <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-      <path d="M12 16l-4-4h3V4h2v8h3l-4 4z" fill={color}/>
-      <path d="M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round"/>
-    </svg>
-  );
+  const templateLabel =
+    effectiveProductType === "medical_devices_consumable"
+      ? "Medical Devices (Consumable) Template"
+      : effectiveProductType === "medical_devices_non_consumable"
+      ? "Medical Devices (Non-Consumable) Template"
+      : "Drugs Template";
+
+  const renderCategories = () => {
+    const seen  = new Set<string>();
+    const tiles: Array<{ id: number; name: string; displayName: string; selectable: boolean }> = [];
+    availableCategories.forEach((cat) => {
+      if (isMedDevCategory(cat.id)) {
+        if (!seen.has("medical_devices")) {
+          seen.add("medical_devices");
+          tiles.push({ id: cat.id, name: cat.name, displayName: "Medical Devices", selectable: true });
+        }
+      } else {
+        tiles.push({ id: cat.id, name: cat.name, displayName: cat.name, selectable: isSelectable(cat.id) });
+      }
+    });
+    return tiles;
+  };
 
   return (
-    <div style={{ ...flex("col", 16) }}>
+    <div style={{ ...flex("col", 14) }}>
       {/* Back */}
       <button onClick={onBack} style={{ ...flex("row", 6, "center"), background: "none", border: "none", cursor: "pointer", color: C.primary, fontSize: 14, fontWeight: 600, padding: 0, ...fontBase, alignSelf: "flex-start" }}>
         <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
@@ -479,56 +756,50 @@ function ExcelUploadView({ onBack, onSuccess }: {
       </button>
 
       {/* Heading */}
-      <div style={{ ...flex("col", 4) }}>
-        <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", ...fontBase }}>Upload Excel / CSV</div>
-        <div style={{ fontSize: 13, color: "#6B7280", ...fontBase }}>Download our template, fill in product data, and upload</div>
+      <div style={{ ...flex("col", 3) }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#111827", ...fontBase }}>Upload Excel / CSV</div>
+        <div style={{ fontSize: 12, color: "#6B7280", ...fontBase }}>Download our template, fill in product data, and upload</div>
       </div>
 
-      {/* ── Category grid ── */}
-      <div style={{ ...flex("col", 10) }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#374151", ...fontBase }}>Select product category</div>
-
+      {/* Category grid */}
+      <div style={{ ...flex("col", 8) }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", ...fontBase }}>Select product category</div>
         {loadingCategories ? (
           <div style={{ ...flex("row", 8, "center") }}>
             <span style={{ width: 14, height: 14, border: "2px solid #E5E7EB", borderTopColor: C.primary, borderRadius: "50%", animation: "dfSpin 0.7s linear infinite", display: "inline-block" }}/>
-            <span style={{ fontSize: 13, color: "#6B7280", ...fontBase }}>Loading categories...</span>
+            <span style={{ fontSize: 12, color: "#6B7280", ...fontBase }}>Loading categories...</span>
           </div>
         ) : (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 8,
-          }}>
-            {availableCategories.map((cat) => {
-              const selectable = isSelectable(cat.id);
-              const selected   = selectable && productType === "drugs";
-
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+            {renderCategories().map((cat) => {
+              const selected = isCategorySelected(cat.id);
               return (
                 <button
                   key={cat.id}
-                  onClick={() => selectable && setProductType("drugs")}
-                  disabled={!selectable}
+                  onClick={() => cat.selectable && handleCategorySelect(cat.id)}
+                  disabled={!cat.selectable}
                   style={{
-                    padding: "10px 12px",
-                    borderRadius: 10,
+                    padding: "8px 10px",
+                    borderRadius: 8,
                     border: `1.5px solid ${selected ? C.primary : "#E5E7EB"}`,
-                    background: selected ? C.primaryLight : selectable ? "#FAFAFA" : "#F9FAFB",
-                    color: selected ? C.primary : selectable ? "#374151" : "#9CA3AF",
+                    background: selected ? C.primaryLight : cat.selectable ? "#FAFAFA" : "#F9FAFB",
+                    color: selected ? C.primary : cat.selectable ? "#374151" : "#9CA3AF",
                     fontWeight: selected ? 700 : 500,
-                    fontSize: 12,
-                    cursor: selectable ? "pointer" : "default",
+                    fontSize: 11,
+                    cursor: cat.selectable ? "pointer" : "default",
                     textAlign: "left",
                     ...fontBase,
                     transition: "all 0.15s",
-                    ...flex("row", 6, "center"),
+                    ...flex("row", 5, "center"),
+                    lineHeight: 1.3,
                   }}
                 >
                   {selected && (
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
                       <path d="M2 6l3 3 5-5" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )}
-                  <span style={{ lineHeight: 1.4 }}>{cat.name}</span>
+                  {cat.displayName}
                 </button>
               );
             })}
@@ -536,14 +807,25 @@ function ExcelUploadView({ onBack, onSuccess }: {
         )}
       </div>
 
-      {/* ── Template download ── */}
+      {/* Medical Devices Sub-Type Picker — Consumable first, Non-Consumable second */}
+      {productType === "medical_devices_non_consumable" && (
+        <MedicalDeviceSubTypePicker
+          selected={medDevSubType}
+          onChange={(v) => {
+            setMedDevSubType(v);
+            setFiles([]); setUploadResult(null); setSubmitError(null); setFileFormatError(null);
+          }}
+        />
+      )}
+
+      {/* Template download */}
       {template && (
-        <div style={{ ...flex("row", 0, "center", "space-between"), padding: "12px 14px", background: "#FAF5FF", border: "1px solid #E9D5FF", borderRadius: 12, gap: 12, flexWrap: "wrap" }}>
-          <div style={{ ...flex("col", 3), minWidth: 0 }}>
-            <div style={{ fontWeight: 600, color: "#5B21B6", fontSize: 13, ...fontBase }}>Drugs Template</div>
-            <div style={{ color: "#6B7280", fontSize: 12, ...fontBase }}>Download and fill before uploading</div>
+        <div style={{ ...flex("row", 0, "center", "space-between"), padding: "10px 12px", background: "#FAF5FF", border: "1px solid #E9D5FF", borderRadius: 10, gap: 10, flexWrap: "wrap" }}>
+          <div style={{ ...flex("col", 2), minWidth: 0 }}>
+            <div style={{ fontWeight: 600, color: "#5B21B6", fontSize: 12, ...fontBase }}>{templateLabel}</div>
+            <div style={{ color: "#6B7280", fontSize: 11, ...fontBase }}>Download and fill before uploading</div>
           </div>
-          <div style={{ ...flex("row", 8, "center"), flexShrink: 0 }}>
+          <div style={{ ...flex("row", 6, "center"), flexShrink: 0 }}>
             {[
               { href: template.csv,  label: ".CSV"  },
               { href: template.xlsx, label: ".XLSX" },
@@ -554,7 +836,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
                 href={href}
                 download
                 className="df-dl-btn"
-                style={{ background: "#9F75FC", color: "white", borderRadius: 8, padding: "0 12px", height: 34, ...flex("row", 5, "center", "center"), fontSize: 12, fontWeight: 700, textDecoration: "none", border: "none", ...fontBase, gap: 5, transition: "all 0.2s", cursor: "pointer" }}
+                style={{ background: "#9F75FC", color: "white", borderRadius: 6, padding: "0 10px", height: 30, ...flex("row", 4, "center", "center"), fontSize: 11, fontWeight: 700, textDecoration: "none", border: "none", ...fontBase, transition: "all 0.2s", cursor: "pointer" }}
               >
                 <DownloadIcon color="white" />
                 {label}
@@ -564,55 +846,49 @@ function ExcelUploadView({ onBack, onSuccess }: {
         </div>
       )}
 
-      {/* ── File format error ── */}
+      {/* File format error */}
       {fileFormatError && (
-        <div style={{ ...flex("row", 10, "center"), padding: "10px 14px", background: "#FEF2F2", borderRadius: 10, border: "1px solid #FECACA" }}>
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+        <div style={{ ...flex("row", 10, "center"), padding: "8px 12px", background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}>
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
             <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8"/>
             <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <span style={{ fontSize: 12, color: "#991B1B", flex: 1, ...fontBase }}>{fileFormatError}</span>
           <button onClick={() => setFileFormatError(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}>
-            <XIcon size={13} color="#991B1B" />
+            <XIcon size={12} color="#991B1B" />
           </button>
         </div>
       )}
 
-      {/* ── Drop zone ── */}
-      <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 16, padding: 10, ...flex("col", 10) }}>
+      {/* Drop zone */}
+      <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12, padding: 8, ...flex("col", 8) }}>
         <div
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
-          style={{ background: dragging ? "#F5F3FF" : "#F9FAFB", border: `2px dashed ${dragging ? C.primary : "#A78BFA"}`, borderRadius: 10, padding: "22px 16px", cursor: "pointer", ...flex("col", 12, "center", "center"), transition: "all 0.2s", minHeight: files.length ? 90 : 140 }}
+          style={{ background: dragging ? "#F5F3FF" : "#F9FAFB", border: `2px dashed ${dragging ? C.primary : "#A78BFA"}`, borderRadius: 8, padding: files.length ? "14px 16px" : "20px 16px", cursor: "pointer", ...flex("col", 10, "center", "center"), transition: "all 0.2s" }}
         >
           <input ref={inputRef} type="file" accept=".xlsx,.csv,.xls" multiple style={{ display: "none" }} onChange={handleFileInput}/>
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
             <path d="M32.5075 15.6583L9.43565 16.5154C8.67212 16.5154 8.22691 16.8012 8.0166 17.5353L3.2273 33.9198C3.02929 34.6161 2.08003 34.9419 1.41968 34.9419C0.759773 34.9419 0.219727 34.4019 0.219727 33.742V29.1503V10.3386V9.43986V6.68562C0.219727 5.76227 0.968328 5.01367 1.89168 5.01367H13.771C14.2144 5.01367 14.6394 5.18974 14.9529 5.50323L18.3995 8.94987C18.713 9.26336 19.1385 9.43942 19.5815 9.43942H30.8356C31.7589 9.43942 32.5075 10.188 32.5075 11.1114V11.6826V15.6583Z" fill="#E0AD31"/>
             <path d="M1.41968 34.9419C2.07959 34.9419 2.42162 34.4383 2.61964 33.7419L7.44757 16.8986C7.65788 16.1645 8.3292 15.6587 9.09317 15.6587H38.6768C39.3832 15.6587 39.8908 16.3375 39.6914 17.0154L34.9074 33.2721C34.6914 34.0409 34.2176 34.9485 33.2377 34.9419H1.41968Z" fill="#FFC843"/>
           </svg>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.primary, marginBottom: 4, ...fontBase }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.primary, marginBottom: 2, ...fontBase }}>
               {dragging ? "Drop files here!" : "Drag & drop your Excel / CSV"}
             </div>
-            <div style={{ fontSize: 11, color: "#9CA3AF", ...fontBase }}>or click to browse · .xlsx · .csv · .xls · Max 10MB</div>
+            <div style={{ fontSize: 10, color: "#9CA3AF", ...fontBase }}>or click to browse · .xlsx · .csv · .xls · Max 10MB</div>
           </div>
         </div>
 
-        {/* File list */}
         {files.length > 0 && (
-          <div style={{ ...flex("col", 8), marginTop: 4 }}>
-            <div style={{ ...flex("row", 0, "space-between", "center"), marginBottom: 2 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#374151", ...fontBase }}>
-                Files  ({files.length})
-              </span>
+          <div style={{ ...flex("col", 6) }}>
+            <div style={{ ...flex("row", 0, "center", "space-between") }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "#374151", ...fontBase }}>Files ({files.length})</span>
               {files.every((f) => f.status === "done" || f.status === "error") && (
-                <button
-                  onClick={() => { setFiles([]); setValidationErrors([]); setSubmitError(null); setFileFormatError(null); }}
-                  style={{ background: "none", border: "none", color: "#EF4444", fontSize: 11, cursor: "pointer", ...fontBase }}
-                >
-                    Clear all
+                <button onClick={() => { setFiles([]); setUploadResult(null); setSubmitError(null); setFileFormatError(null); }} style={{ background: "none", border: "none", color: "#EF4444", fontSize: 11, cursor: "pointer", ...fontBase }}>
+                  Clear all
                 </button>
               )}
             </div>
@@ -623,77 +899,47 @@ function ExcelUploadView({ onBack, onSuccess }: {
         )}
       </div>
 
-      {/* ── Validation error table ── */}
-      {validationErrors.length > 0 && (
-        <div style={{ ...flex("col", 8) }}>
-          <div style={{ ...flex("row", 8, "center"), padding: "10px 14px", background: "#FEF2F2", borderRadius: 8, borderLeft: "4px solid #DC2626" }}>
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8"/>
-              <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#991B1B", ...fontBase }}>
-              {validationErrors.length} validation error(s) found
-            </span>
-          </div>
-          <div style={{ background: "#fff", border: "1px solid #FECACA", borderRadius: 8, overflow: "hidden", maxHeight: 260, overflowY: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, ...fontBase }}>
-              <thead style={{ background: "#FEF2F2", borderBottom: "1px solid #FECACA" }}>
-                <tr>
-                  <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#991B1B", width: 60 }}>Row</th>
-                  <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#991B1B" }}>Product Name</th>
-                  <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#991B1B" }}>Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                {validationErrors.map((err, idx) => (
-                  <tr key={idx} style={{ borderBottom: idx < validationErrors.length - 1 ? "1px solid #FEE2E2" : "none" }}>
-                    <td style={{ padding: "8px 12px", color: "#374151", fontWeight: 500 }}>{err.rowNumber}</td>
-                    <td style={{ padding: "8px 12px", color: "#374151" }}>{err.productName}</td>
-                    <td style={{ padding: "8px 12px", color: "#DC2626" }}>{err.errorMessage}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <button
-            onClick={() => downloadErrorReport(validationErrors)}
-            style={{ alignSelf: "flex-end", ...flex("row", 6, "center", "center"), padding: "7px 14px", background: "#fff", border: "1px solid #DC2626", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#DC2626", ...fontBase }}
-          >
-            <DownloadIcon color="#DC2626" />
-            Download Error Report
-          </button>
-        </div>
+      {/* Validation error panel */}
+      {uploadResult && uploadResult.validationErrors.length > 0 && (
+        <ValidationErrorPanel
+          errors={uploadResult.validationErrors}
+          successCount={uploadResult.successCount}
+          failureCount={uploadResult.failureCount}
+          totalRows={uploadResult.totalRows}
+          onDownload={() => downloadErrorReport(uploadResult.validationErrors)}
+          onDismiss={() => setUploadResult(null)}
+        />
       )}
 
-      {/* ── Submit error ── */}
-      {submitError && !validationErrors.length && (
-        <div style={{ ...flex("row", 10, "center"), padding: "10px 14px", background: "#FEF2F2", borderRadius: 10, border: "1px solid #FECACA" }}>
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+      {/* Generic submit error */}
+      {submitError && (
+        <div style={{ ...flex("row", 10, "center"), padding: "10px 12px", background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}>
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
             <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8"/>
             <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
-          <span style={{ fontSize: 13, color: "#991B1B", flex: 1, ...fontBase }}>{submitError}</span>
+          <span style={{ fontSize: 12, color: "#991B1B", flex: 1, ...fontBase }}>{submitError}</span>
           <button onClick={() => setSubmitError(null)} style={{ background: "none", border: "none", cursor: "pointer" }}>
-            <XIcon size={13} color="#991B1B" />
+            <XIcon size={12} color="#991B1B" />
           </button>
         </div>
       )}
 
-      {/* ── Upload button ── */}
+      {/* Upload button */}
       <button
         onClick={handleSubmit}
         disabled={!hasReadyFiles || submitting}
-        style={{ width: "100%", height: 50, borderRadius: 10, border: "none", background: hasReadyFiles && !submitting ? "linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%)" : "#F3F4F6", cursor: hasReadyFiles && !submitting ? "pointer" : "not-allowed", ...flex("row", 10, "center", "center"), ...fontBase, boxShadow: hasReadyFiles && !submitting ? "0 4px 14px rgba(76,29,149,0.3)" : "none", transition: "all 0.2s" }}
+        style={{ width: "100%", height: 46, borderRadius: 10, border: "none", background: hasReadyFiles && !submitting ? "linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%)" : "#F3F4F6", cursor: hasReadyFiles && !submitting ? "pointer" : "not-allowed", ...flex("row", 10, "center", "center"), ...fontBase, boxShadow: hasReadyFiles && !submitting ? "0 4px 14px rgba(76,29,149,0.3)" : "none", transition: "all 0.2s" }}
       >
-        <span style={{ color: hasReadyFiles && !submitting ? "white" : "#9CA3AF", fontWeight: 700, fontSize: 15, ...fontBase, ...flex("row", 8, "center") }}>
+        <span style={{ color: hasReadyFiles && !submitting ? "white" : "#9CA3AF", fontWeight: 700, fontSize: 14, ...fontBase, ...flex("row", 8, "center") }}>
           {submitting ? (
             <>
-              <span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", animation: "dfSpin 0.7s linear infinite", display: "inline-block" }}/>
+              <span style={{ width: 15, height: 15, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", animation: "dfSpin 0.7s linear infinite", display: "inline-block" }}/>
               Processing...
             </>
           ) : (
             <>
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
                 <path d="M12 3v12m0 0l-3-3m3 3l3-3M5 21h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               Upload {files.length > 1 ? "Files" : "File"}
@@ -703,11 +949,11 @@ function ExcelUploadView({ onBack, onSuccess }: {
       </button>
 
       <div style={{ ...flex("row", 6, "center"), justifyContent: "center" }}>
-        <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+        <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9" stroke="#9CA3AF" strokeWidth="1.5"/>
           <path d="M12 8v4M12 16h.01" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
-        <span style={{ fontSize: 11, color: "#9CA3AF", ...fontBase }}>
+        <span style={{ fontSize: 10, color: "#9CA3AF", ...fontBase }}>
           Ensure your file follows the template format · Max 10MB per file
         </span>
       </div>
@@ -716,44 +962,69 @@ function ExcelUploadView({ onBack, onSuccess }: {
 }
 
 // ─── SuccessView ──────────────────────────────────────────────────────────────
-function SuccessView({ files, onClose }: {
+function SuccessView({ files, result, onClose }: {
   productType: ProductType;
-  files: UploadedFile[];
-  onReset: () => void;
-  onClose?: () => void;
+  files:       UploadedFile[];
+  result:      UploadResult;
+  onReset:     () => void;
+  onClose?:    () => void;
 }) {
-  const fileName = files?.[0]?.file?.name ?? "drug_products_template.xlsx";
+  const fileName = files?.[0]?.file?.name ?? "product_template.xlsx";
   return (
-    <div style={{ ...flex("col", 24, "center"), padding: "32px 24px", position: "relative" }}>
+    <div style={{ ...flex("col", 20, "center"), padding: "32px 24px", position: "relative" }}>
       {onClose && (
         <button onClick={onClose} style={{ position: "absolute", top: 10, right: 10, width: 28, height: 28, background: "none", border: "1.5px solid #1E1E1D", borderRadius: "50%", cursor: "pointer", ...flex("row", 0, "center", "center"), padding: 0 }}>
           <XIcon size={12} color="#1E1E1D" strokeWidth={2.5}/>
         </button>
       )}
-      <div style={{ padding: 24, background: "#DCF7CB", borderRadius: "50%", border: "1px solid #4EB300", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
+      <div style={{ padding: 20, background: "#DCF7CB", borderRadius: "50%", border: "1px solid #4EB300", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
         <svg width="32" height="32" fill="none" viewBox="0 0 24 24">
           <path d="M5 13l4 4L19 7" stroke="#378200" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
-      <div style={{ ...flex("col", 12, "center") }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#111827", ...fontBase, textAlign: "center" }}>Submitted Successfully!</div>
-        <div style={{ ...flex("col", 4, "center") }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "#378200", ...fontBase, textAlign: "center" }}>{fileName}</div>
-          <div style={{ fontSize: 13, color: "#374151", ...fontBase, textAlign: "center" }}>is being processed</div>
+
+      <div style={{ ...flex("col", 10, "center"), width: "100%" }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#111827", ...fontBase, textAlign: "center" }}>
+          Products Added Successfully!
+        </div>
+        <div style={{ fontSize: 13, color: "#374151", ...fontBase, textAlign: "center" }}>
+          <strong style={{ color: "#166534" }}>{result.successCount} product{result.successCount !== 1 ? "s" : ""}</strong> from <em>{fileName}</em> {result.successCount !== 1 ? "have" : "has"} been added to your catalogue.
         </div>
       </div>
+
+      {/* Stats */}
+      <div style={{ ...flex("row", 12, "center", "center"), width: "100%" }}>
+        <div style={{ flex: 1, background: "#DCFCE7", border: "1px solid #86EFAC", borderRadius: 10, padding: "12px 16px", ...flex("col", 4, "center") }}>
+          <span style={{ fontSize: 22, fontWeight: 800, color: "#166534", ...fontBase }}>{result.successCount}</span>
+          <span style={{ fontSize: 11, color: "#166534", fontWeight: 600, ...fontBase }}>Products Added</span>
+        </div>
+        <div style={{ flex: 1, background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 10, padding: "12px 16px", ...flex("col", 4, "center") }}>
+          <span style={{ fontSize: 22, fontWeight: 800, color: "#15803D", ...fontBase }}>{result.totalRows}</span>
+          <span style={{ fontSize: 11, color: "#15803D", fontWeight: 600, ...fontBase }}>Total Rows</span>
+        </div>
+      </div>
+
       <div style={{ background: "#DCF7CB", border: "1px solid #4EB300", borderRadius: 8, padding: "10px 16px", width: "100%", textAlign: "center" }}>
         <span style={{ fontSize: 12, color: "#378200", ...fontBase }}>
-          Processing usually takes 2–5 minutes for up to 500 products
+          Products are now live in your catalogue. Processing usually takes 2–5 minutes.
         </span>
       </div>
+
+      {onClose && (
+        <button
+          onClick={onClose}
+          style={{ width: "100%", height: 44, borderRadius: 10, border: "none", background: "linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%)", cursor: "pointer", ...flex("row", 0, "center", "center"), ...fontBase, boxShadow: "0 4px 14px rgba(76,29,149,0.3)", color: "white", fontWeight: 700, fontSize: 14 }}
+        >
+          View My Products
+        </button>
+      )}
     </div>
   );
 }
 
 // ─── OnboardingModal ──────────────────────────────────────────────────────────
 function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onManualEntry: () => void }) {
-  const [successData, setSuccessData]       = useState<{ type: ProductType; files: UploadedFile[] } | null>(null);
+  const [successData, setSuccessData]       = useState<{ type: ProductType; files: UploadedFile[]; result: UploadResult } | null>(null);
   const [hovered, setHovered]               = useState<string | null>(null);
   const [transitioning, setTransitioning]   = useState(false);
   const [displayView, setDisplayView]       = useState<ModalView>("methods");
@@ -802,6 +1073,9 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
         .df-modal-root, .df-modal-root * { font-family: 'Open Sans', sans-serif !important; -webkit-font-smoothing: antialiased; }
         .df-dl-btn { transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease !important; }
         .df-dl-btn:hover { background: #C4A4FD !important; transform: translateY(-1px) !important; }
+        .df-modal-scroll::-webkit-scrollbar { width: 4px; }
+        .df-modal-scroll::-webkit-scrollbar-track { background: transparent; }
+        .df-modal-scroll::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 99px; }
       `}</style>
 
       {/* Backdrop */}
@@ -825,72 +1099,96 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
       <div
         className="df-modal-root"
         onClick={(e) => e.stopPropagation()}
-        style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 1000, width: "90vw", maxWidth: 460, maxHeight: "92vh", overflowY: "auto", background: "white", borderRadius: 20, padding: isSuccess ? "0" : "24px", boxShadow: "0 24px 60px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.05)", animation: "dfModalIn 0.28s cubic-bezier(0.22,1,0.36,1) forwards", fontFamily: "'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif", transition: "padding 0.22s" }}
+        style={{
+          position: "fixed", top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 1000,
+          width: "90vw", maxWidth: 460,
+          height: "auto",
+          maxHeight: "92vh",
+          background: "white",
+          borderRadius: 20,
+          boxShadow: "0 24px 60px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.05)",
+          animation: "dfModalIn 0.28s cubic-bezier(0.22,1,0.36,1) forwards",
+          fontFamily: "'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+          display: "flex", flexDirection: "column",
+          overflow: "hidden",
+        }}
       >
-        <div style={{ opacity: contentVisible ? 1 : 0, transform: contentVisible ? "translateX(0)" : `translateX(${slideX})`, transition: contentVisible ? "opacity 0.2s, transform 0.2s" : "opacity 0.17s, transform 0.17s" }}>
+        <div
+          className="df-modal-scroll"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: isSuccess ? "0" : "22px",
+          }}
+        >
+          <div style={{ opacity: contentVisible ? 1 : 0, transform: contentVisible ? "translateX(0)" : `translateX(${slideX})`, transition: contentVisible ? "opacity 0.2s, transform 0.2s" : "opacity 0.17s, transform 0.17s" }}>
 
-          {/* ── Methods view ── */}
-          {displayView === "methods" && (
-            <>
-              <div style={{ marginBottom: 22, ...flex("col", 8) }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", ...fontBase }}>How would you like to add products?</div>
-                <div style={{ fontSize: 13, color: "#6B7280", ...fontBase }}>Choose the method that fits your workflow.</div>
-              </div>
-              <div style={{ ...flex("col", 10) }}>
-                {METHODS.map((m) => (
-                  <button
-                    key={m.id}
-                    className="df-card"
-                    onMouseEnter={() => m.ready && setHovered(m.id)}
-                    onMouseLeave={() => setHovered(null)}
-                    onClick={() => {
-                      if (!m.ready) return;
-                      if (m.id === "manual") { onManualEntry(); return; }
-                      if (m.id === "excel") changeView("excel", "left");
-                      if (m.id === "api") changeView("api", "left");
-                    }}
-                    style={{ ...flex("row", 12, "center"), padding: "14px 16px", borderRadius: 14, border: `1px solid ${hovered === m.id ? "#D1D5DB" : "#E5E7EB"}`, background: hovered === m.id ? "#FAFAFA" : "white", cursor: m.ready ? "pointer" : "default", textAlign: "left", width: "100%", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", opacity: m.ready ? 1 : 0.55 }}
-                  >
-                    <div style={{ width: 40, height: 40, borderRadius: 8, background: m.bg, border: "1px solid #E5E7EB", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
-                      {m.icon}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 15, color: "#111827", marginBottom: 2, ...fontBase }}>{m.label}</div>
-                      <div style={{ fontSize: 12, color: "#6B7280", ...fontBase }}>{m.desc}</div>
-                    </div>
-                    {m.ready ? (
-                      <div style={{ ...flex("row", 5, "center"), fontSize: 13, fontWeight: 600, color: m.accent, whiteSpace: "nowrap", flexShrink: 0, ...fontBase }}>
-                        Get Started
-                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-                          <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
+            {/* Methods view */}
+            {displayView === "methods" && (
+              <>
+                <div style={{ marginBottom: 16, ...flex("col", 4) }}>
+                  <div style={{ fontSize: 19, fontWeight: 700, color: "#111827", ...fontBase }}>How would you like to add products?</div>
+                  <div style={{ fontSize: 13, color: "#6B7280", ...fontBase }}>Choose the method that fits your workflow.</div>
+                </div>
+                <div style={{ ...flex("col", 8) }}>
+                  {METHODS.map((m) => (
+                    <button
+                      key={m.id}
+                      className="df-card"
+                      onMouseEnter={() => m.ready && setHovered(m.id)}
+                      onMouseLeave={() => setHovered(null)}
+                      onClick={() => {
+                        if (!m.ready) return;
+                        if (m.id === "manual") { onManualEntry(); return; }
+                        if (m.id === "excel") changeView("excel", "left");
+                        if (m.id === "api") changeView("api", "left");
+                      }}
+                      style={{ ...flex("row", 12, "center"), padding: "14px 16px", borderRadius: 14, border: `1px solid ${hovered === m.id ? "#D1D5DB" : "#E5E7EB"}`, background: hovered === m.id ? "#FAFAFA" : "white", cursor: m.ready ? "pointer" : "default", textAlign: "left", width: "100%", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", opacity: m.ready ? 1 : 0.55 }}
+                    >
+                      <div style={{ width: 40, height: 40, borderRadius: 8, background: m.bg, border: "1px solid #E5E7EB", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
+                        {m.icon}
                       </div>
-                    ) : (
-                      <div style={{ fontSize: 11, color: "#9CA3AF", ...fontBase, flexShrink: 0 }}>Soon</div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 15, color: "#111827", marginBottom: 2, ...fontBase }}>{m.label}</div>
+                        <div style={{ fontSize: 12, color: "#6B7280", ...fontBase }}>{m.desc}</div>
+                      </div>
+                      {m.ready ? (
+                        <div style={{ ...flex("row", 5, "center"), fontSize: 13, fontWeight: 600, color: m.accent, whiteSpace: "nowrap", flexShrink: 0, ...fontBase }}>
+                          Get Started
+                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: "#9CA3AF", ...fontBase, flexShrink: 0 }}>Soon</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
-          {/* ── Excel view ── */}
-          {displayView === "excel" && (
-            <ExcelUploadView
-              onBack={() => changeView("methods", "right")}
-              onSuccess={(type, files) => { setSuccessData({ type, files }); changeView("success", "left"); }}
-            />
-          )}
+            {/* Excel view */}
+            {displayView === "excel" && (
+              <ExcelUploadView
+                onBack={() => changeView("methods", "right")}
+                onSuccess={(type, files, result) => { setSuccessData({ type, files, result }); changeView("success", "left"); }}
+              />
+            )}
 
-          {/* ── Success view ── */}
-          {displayView === "success" && successData && (
-            <SuccessView
-              productType={successData.type}
-              files={successData.files}
-              onReset={() => { setSuccessData(null); changeView("excel", "right"); }}
-              onClose={onClose}
-            />
-          )}
+            {/* Success view */}
+            {displayView === "success" && successData && (
+              <SuccessView
+                productType={successData.type}
+                files={successData.files}
+                result={successData.result}
+                onReset={() => { setSuccessData(null); changeView("excel", "right"); }}
+                onClose={onClose}
+              />
+            )}
+          </div>
         </div>
       </div>
     </>
