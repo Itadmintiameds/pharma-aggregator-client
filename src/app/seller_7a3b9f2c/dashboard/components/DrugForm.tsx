@@ -8,6 +8,7 @@ import {
   getMoleculeStrengthByDosage,
   getPackTypesByDosageId,
   getProductById,
+  getStorageConditionsByCategoryId,
   getTherapeuticCategory,
   getTherapeuticSubcategory,
   updateProduct,
@@ -53,6 +54,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
     dosageId: number | "";
     strength: string;
+    storageConditionIds: number[];
 
     molecules: {
       moleculeId: string;
@@ -76,7 +78,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     manufacturingDate: Date | null;
     expiryDate: Date | null;
     dateOfStockEntry: Date;
-    storageCondition: string;
     stockQuantity: string;
     sellingPrice: string;
     mrp: string;
@@ -105,6 +106,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
     dosageId: "" as number | "",
     strength: "",
+    storageConditionIds: [],
 
     molecules: [
       {
@@ -130,7 +132,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     manufacturingDate: null as Date | null,
     expiryDate: null as Date | null,
     dateOfStockEntry: new Date(),
-    storageCondition: "",
     stockQuantity: "",
     sellingPrice: "",
     mrp: "",
@@ -157,6 +158,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
     dosageId: "",
     strength: "",
+    storageConditionIds: [],
 
     molecules: [
       {
@@ -181,9 +183,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     batchLotNumber: "",
     manufacturingDate: null,
     expiryDate: null,
-    dateOfStockEntry: new Date(), // ⚠️ dynamic field
-
-    storageCondition: "",
+    dateOfStockEntry: new Date(),
     stockQuantity: "",
     sellingPrice: "",
     mrp: "",
@@ -237,6 +237,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     null,
   );
   const isEditMode = mode === "edit";
+  const [storageConditionData, setStorageConditionData] = useState<any[]>([]);
+  const [loadingStorageConditions, setLoadingStorageConditions] =
+    useState(false);
 
   useEffect(() => {
     if (categoryId) {
@@ -269,12 +272,18 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     fetchTherapeuticCategories();
   }, []);
 
-  const getMinExpiryDate = () => {
-    const today = new Date();
-    today.setMonth(today.getMonth() + 3);
-    return today.toISOString().split("T")[0];
-  };
+  const getMinExpiryMonth = () => {
+    if (!form.manufacturingDate) return "";
 
+    const mfg = new Date(form.manufacturingDate);
+
+    const min = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
+
+    return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(
+      2,
+      "0",
+    )}`;
+  };
   const handleChange = (
     e:
       | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -353,48 +362,98 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           }
         }
 
+        // if (name === "expiryDate") {
+        //   if (value) {
+        //     const year = value.split("-")[0];
+
+        //     if (year.length > 4) {
+        //       newErrors.expiryDate = "Year must be 4 digits";
+        //       return newErrors;
+        //     }
+
+        //     const date = new Date(value);
+
+        //     if (isNaN(date.getTime())) {
+        //       newErrors.expiryDate = "Invalid date";
+        //       return newErrors;
+        //     }
+
+        //     const minDate = new Date();
+        //     minDate.setMonth(minDate.getMonth() + 3);
+        //     minDate.setHours(0, 0, 0, 0);
+
+        //     const normalized = new Date(date);
+        //     normalized.setHours(0, 0, 0, 0);
+
+        //     if (normalized < minDate) {
+        //       newErrors.expiryDate = "Expiry must be at least 3 months ahead";
+        //     } else {
+        //       delete newErrors.expiryDate;
+        //     }
+
+        //     // ✅ Set expiry date
+        //     updatedForm.expiryDate = date;
+
+        //     // ✅ Calculate Shelf Life ONLY if manufacturing date exists
+        //     if (updatedForm.manufacturingDate) {
+        //       const mfg = new Date(updatedForm.manufacturingDate);
+
+        //       const years = date.getFullYear() - mfg.getFullYear();
+        //       const months = date.getMonth() - mfg.getMonth();
+
+        //       const totalMonths = years * 12 + months;
+
+        //       // ✅ Prevent negative shelf life
+        //       if (totalMonths >= 0) {
+        //         updatedForm.shelfLifeMonths = totalMonths.toString();
+        //       } else {
+        //         updatedForm.shelfLifeMonths = "";
+        //         newErrors.expiryDate =
+        //           "Expiry cannot be before Manufacturing Date";
+        //       }
+        //     }
+        //   } else {
+        //     updatedForm.expiryDate = null;
+        //     updatedForm.shelfLifeMonths = ""; // ✅ reset shelf life
+        //   }
+        // }
+
         if (name === "expiryDate") {
           if (value) {
-            const year = value.split("-")[0];
+            const [year, month] = value.split("-").map(Number);
 
-            if (year.length > 4) {
-              newErrors.expiryDate = "Year must be 4 digits";
-              return newErrors;
-            }
+            // ✅ Normalize to month start
+            const date = new Date(year, month - 1, 1);
 
-            const date = new Date(value);
+            delete newErrors.expiryDate;
 
-            if (isNaN(date.getTime())) {
-              newErrors.expiryDate = "Invalid date";
-              return newErrors;
-            }
+            // ✅ Validate ONLY based on Manufacturing Date
+            if (updatedForm.manufacturingDate) {
+              const mfg = new Date(updatedForm.manufacturingDate);
 
-            const minDate = new Date();
-            minDate.setMonth(minDate.getMonth() + 3);
-            minDate.setHours(0, 0, 0, 0);
+              const minDate = new Date(
+                mfg.getFullYear(),
+                mfg.getMonth() + 3,
+                1,
+              );
 
-            const normalized = new Date(date);
-            normalized.setHours(0, 0, 0, 0);
-
-            if (normalized < minDate) {
-              newErrors.expiryDate = "Expiry must be at least 3 months ahead";
-            } else {
-              delete newErrors.expiryDate;
+              if (date < minDate) {
+                newErrors.expiryDate =
+                  "Expiry must be at least 3 months after Manufacturing Date";
+              }
             }
 
             // ✅ Set expiry date
             updatedForm.expiryDate = date;
 
-            // ✅ Calculate Shelf Life ONLY if manufacturing date exists
+            // ✅ Shelf life calculation (PURE month-based ✅)
             if (updatedForm.manufacturingDate) {
               const mfg = new Date(updatedForm.manufacturingDate);
 
-              const years = date.getFullYear() - mfg.getFullYear();
-              const months = date.getMonth() - mfg.getMonth();
+              const totalMonths =
+                (date.getFullYear() - mfg.getFullYear()) * 12 +
+                (date.getMonth() - mfg.getMonth());
 
-              const totalMonths = years * 12 + months;
-
-              // ✅ Prevent negative shelf life
               if (totalMonths >= 0) {
                 updatedForm.shelfLifeMonths = totalMonths.toString();
               } else {
@@ -405,10 +464,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             }
           } else {
             updatedForm.expiryDate = null;
-            updatedForm.shelfLifeMonths = ""; // ✅ reset shelf life
+            updatedForm.shelfLifeMonths = "";
           }
         }
-
         return newErrors;
       });
 
@@ -627,7 +685,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             batchLotNumber: form.batchLotNumber,
             manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
             expiryDate: toLocalDateTimeString(form.expiryDate),
-            storageCondition: form.storageCondition,
             stockQuantity: Number(form.stockQuantity),
             dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
             sellingPrice: Number(form.sellingPrice),
@@ -659,6 +716,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               dosageOptions.find((d) => d.value === form.dosageId)?.label || "",
 
             strength: form.strength,
+            storageConditionIds: form.storageConditionIds,
+
             molecules: form.molecules.map((m) => ({
               moleculeId: Number(m.moleculeId),
               strength: m.strength,
@@ -896,7 +955,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             batchLotNumber: form.batchLotNumber,
             manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
             expiryDate: toLocalDateTimeString(form.expiryDate),
-            storageCondition: form.storageCondition,
             stockQuantity: Number(form.stockQuantity),
             dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
 
@@ -931,6 +989,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               dosageOptions.find((d) => d.value === form.dosageId)?.label || "",
 
             strength: form.strength,
+            storageConditionIds: form.storageConditionIds,
 
             molecules: form.molecules.map((m) => ({
               moleculeId: Number(m.moleculeId),
@@ -957,19 +1016,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       alert("❌ Update failed");
     }
   };
-  // const handleDelete = async () => {
-  //   if (!form.productId) return;
-  //   const confirmed = confirm("Are you sure you want to delete this product?");
-  //   if (!confirmed) return;
-  //   try {
-  //     await drugProductDelete(form.productId);
-  //     alert("Product deleted successfully");
-  //     // setMode("create");
-  //     setSelectedProductId(null);
-  //   } catch (err: any) {
-  //     alert(err.message || "Delete failed");
-  //   }
-  // };
 
   const calculateFinalPrice = (
     mrp: string,
@@ -1010,11 +1056,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       appliedDiscount,
     };
   };
+
   const selectStyles = (errorKey: string) => ({
     control: (base: any, state: any) => ({
       ...base,
-      height: "56px",
       minHeight: "56px",
+      height: "auto",
       borderRadius: "16px",
       borderColor: errors[errorKey]
         ? "#FF3B3B"
@@ -1023,24 +1070,33 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           : "#737373",
       boxShadow: "none",
       cursor: "pointer",
+
+      // ✅ FIX: dynamic alignment
+      alignItems:
+        state.hasValue && state.selectProps.isMulti ? "flex-start" : "center",
+
       "&:hover": { borderColor: errors[errorKey] ? "#FF3B3B" : "#4B0082" },
     }),
+
     valueContainer: (base: any) => ({
       ...base,
-      padding: "0 16px",
-      cursor: "pointer",
+      padding: "8px 16px", // slight vertical padding for multi-line
+      flexWrap: "wrap", // ✅ enables wrapping
+      overflow: "visible",
     }),
+
     indicatorsContainer: (base: any) => ({
       ...base,
-      height: "56px",
-      cursor: "pointer",
+      height: "56px", // ✅ keep icon aligned like other fields
     }),
+
     dropdownIndicator: (base: any, state: any) => ({
       ...base,
       color: state.isFocused ? "#4B0082" : "#737373",
       cursor: "pointer",
       "&:hover": { color: "#4B0082" },
     }),
+
     option: (base: any, state: any) => ({
       ...base,
       backgroundColor: state.isSelected
@@ -1052,8 +1108,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       cursor: "pointer",
       "&:active": { backgroundColor: "#4B0082", color: "white" },
     }),
+
     placeholder: (base: any) => ({ ...base, color: "#A3A3A3" }),
     singleValue: (base: any) => ({ ...base, color: "#1E1E1E" }),
+
+    multiValue: (base: any) => ({
+      ...base,
+      margin: "2px", // neat spacing when wrapping
+    }),
   });
 
   const selectTheme = (theme: any) => ({
@@ -1179,6 +1241,33 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       molecules: updated,
     });
   };
+
+  useEffect(() => {
+    const fetchStorageConditions = async () => {
+      if (!form.categoryId) return;
+
+      try {
+        setLoadingStorageConditions(true);
+
+        const data = await getStorageConditionsByCategoryId(
+          Number(form.categoryId),
+        );
+
+        setStorageConditionData(data);
+      } catch (error) {
+        console.error("Failed to fetch storage conditions:", error);
+      } finally {
+        setLoadingStorageConditions(false);
+      }
+    };
+
+    fetchStorageConditions();
+  }, [form.categoryId]);
+
+  const storageConditionOptions = storageConditionData.map((item) => ({
+    value: item.storageConditionId,
+    label: item.conditionName,
+  }));
 
   return (
     <>
@@ -1318,58 +1407,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               )}
             </div>
 
-            {/* {form.molecules.map((molecule, index) => (
-              <div key={index} className="grid grid-cols-2 gap-4 col-span-2">
-                <div className="flex flex-col gap-1">
-                  <label className="text-label-l3 text-neutral-700 font-semibold">
-                    Molecule
-                    <span className="text-warning-500 font-semibold ml-1">
-                      *
-                    </span>
-                  </label>
-
-                  <Select
-                    options={moleculeOptions}
-                    isLoading={loadingMolecules}
-                    value={
-                      moleculeOptions.find(
-                        (o) => o.value.moleculeId === molecule.moleculeId,
-                      ) || null
-                    }
-                    onChange={(selected) =>
-                      handleMoleculeSelect(index, selected)
-                    }
-                    placeholder="Select molecule"
-                    // isDisabled={mode === "delete"}
-                    theme={selectTheme}
-                    styles={selectStyles("molecule")}
-                  />
-                  {errors[`molecules.${index}.moleculeId`] && (
-                    <p className="text-red-500 text-sm">
-                      {errors[`molecules.${index}.moleculeId`]}
-                    </p>
-                  )}
-                </div>
-
-                <Input
-                  label="Molecule Strength"
-                  name="strength"
-                  placeholder={strengthFormats.join(", ") || "Enter strength"}
-                  value={molecule.strength || ""}
-                  onChange={(e) => handleStrengthChange(index, e.target.value)}
-                  required
-                />
-
-                <button className="border-2 border-[#FF3B3B] w-11 h-10 rounded-lg text-[#FF3B3B] flex items-center justify-center">
-                  <img
-                    src="/icons/RedMinusIcon.svg"
-                    alt="upload"
-                    className="w-5 h-5 object-contain"
-                  />
-                </button>
-              </div>
-            ))} */}
-
             {form.molecules.map((molecule, index) => (
               <div
                 key={index}
@@ -1489,12 +1526,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
-
             <UploadInput
               onFileSelect={setManualFile}
               existingFile={existingManualFile || undefined}
             />
-            <Input
+            {/* <Input
               label="Storage Condition"
               name="storageCondition"
               id="storageCondition"
@@ -1503,7 +1539,42 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               onChange={handleChange}
               error={errors.storageCondition}
               required
-            />
+            /> */}
+
+            <div className="flex flex-col gap-1">
+              <label className="text-label-l3 text-neutral-700 font-semibold">
+                Storage Condition
+                <span className="text-warning-500 font-semibold ml-1">*</span>
+              </label>
+
+              <Select
+                options={storageConditionOptions}
+                isLoading={loadingStorageConditions}
+                isMulti // ✅ important for multi-select
+                value={storageConditionOptions.filter((o) =>
+                  form.storageConditionIds.includes(o.value),
+                )}
+                onChange={(selectedOptions) => {
+                  const ids = selectedOptions
+                    ? selectedOptions.map((opt: any) => opt.value)
+                    : [];
+
+                  setForm((prev) => ({
+                    ...prev,
+                    storageConditionIds: ids,
+                  }));
+                }}
+                placeholder="Select storage conditions"
+                theme={selectTheme}
+                styles={selectStyles("storageConditionIds")}
+              />
+
+              {errors.storageConditionIds && (
+                <p className="text-red-500 text-sm mt-1">
+                  {errors.storageConditionIds}
+                </p>
+              )}
+            </div>
 
             <Input
               label="Manufacturer Name"
@@ -1704,9 +1775,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
-            <Input
+            {/* <Input
               label="Manufacturing Date"
-              type="date"
+              type="month"
               name="manufacturingDate"
               id="manufacturingDate"
               placeholder=""
@@ -1797,9 +1868,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               }
               error={errors.manufacturingDate}
               required
-            />
+            /> */}
 
-            <Input
+            {/* <Input
               label="Expiry Date"
               type="date"
               name="expiryDate"
@@ -1814,11 +1885,87 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               // disabled={mode === "delete"}
               error={errors.expiryDate}
               required
+            /> */}
+
+
+            <Input
+              label="Manufacturing Date"
+              type="month"
+              name="manufacturingDate"
+              id="manufacturingDate"
+              readOnly={isEditMode}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (!value) return;
+
+                const [year, month] = value.split("-").map(Number);
+                const date = new Date(year, month - 1, 1);
+
+                const today = new Date();
+                const currentMonth = new Date(
+                  today.getFullYear(),
+                  today.getMonth(),
+                  1,
+                );
+
+                if (date > currentMonth) {
+                  setErrors({
+                    ...errors,
+                    manufacturingDate:
+                      "Manufacturing date cannot be in the future month",
+                  });
+                  return;
+                }
+
+                // ✅ Clear errors
+                setErrors((prev) => ({
+                  ...prev,
+                  manufacturingDate: "",
+                  expiryDate: "", // optional: clear expiry error too
+                }));
+
+                // 🔥 ALWAYS RESET expiry + shelf life
+                setForm({
+                  ...form,
+                  manufacturingDate: date,
+                  expiryDate: null, // ✅ cleared
+                  shelfLifeMonths: "", // ✅ cleared
+                });
+              }}
+              value={
+                form.manufacturingDate instanceof Date &&
+                !isNaN(form.manufacturingDate.getTime())
+                  ? `${form.manufacturingDate.getFullYear()}-${String(
+                      form.manufacturingDate.getMonth() + 1,
+                    ).padStart(2, "0")}`
+                  : ""
+              }
+              error={errors.manufacturingDate}
+              required
+            />
+
+            <Input
+              label="Expiry Date"
+              type="month" // ✅ changed
+              name="expiryDate"
+              value={
+                form.expiryDate instanceof Date &&
+                !isNaN(form.expiryDate.getTime())
+                  ? `${form.expiryDate.getFullYear()}-${String(
+                      form.expiryDate.getMonth() + 1,
+                    ).padStart(2, "0")}`
+                  : ""
+              }
+              readOnly={isEditMode}
+              onChange={handleChange}
+              min={getMinExpiryMonth()} // ✅ update this too
+              error={errors.expiryDate}
+              required
             />
 
             <Input
               type="number"
-              label="Shelf Life"
+              label="Shelf Life (In Months)"
               name="shelfLifeMonths"
               id="shelfLifeMonths"
               value={form.shelfLifeMonths}

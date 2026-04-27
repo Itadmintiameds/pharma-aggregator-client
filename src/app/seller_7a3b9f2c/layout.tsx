@@ -3,9 +3,6 @@ import "react-toastify/dist/ReactToastify.css";
 import { ToastProvider } from "./dashboard/commonComponent/ToastContext";
 
 
-
-
-
 export default function SellerLayout({
   children,
 }: {

@@ -17,6 +17,7 @@ export interface ProductAttributeDrugData {
   therapeuticCategoryId: string;
   therapeuticSubcategoryId: string;
   molecules?: { moleculeId: number; strength: string }[];
+  storageConditionIds: number[];
 }
 
 export interface ProductAttributeConsumableData {
@@ -74,7 +75,6 @@ export interface PricingData {
   manufacturingDate: string | null;
   expiryDate: string | null;
   dateOfStockEntry: string | null;
-  storageCondition?: string;
   stockQuantity: number;
   sellingPrice: number;
   mrp: number;
