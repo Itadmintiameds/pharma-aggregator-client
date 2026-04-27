@@ -1,29 +1,33 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Heart, Share2, FileText, ExternalLink, ChevronDown } from "lucide-react";
+import { FileText, ExternalLink } from "lucide-react";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { PiSealCheckLight } from "react-icons/pi";
-import { HiOutlineShoppingCart } from "react-icons/hi";
-import { SlHandbag } from "react-icons/sl";
-import { IoIosArrowBack } from "react-icons/io";
 import Image from "next/image";
 import { getDrugProductById } from "@/src/services/product/ProductService";
 
-/* ─────────────────── Types ─────────────────── */
+/* ─────────────────────────────────────────────────────────
+   TYPES
+───────────────────────────────────────────────────────── */
 
 interface ProductViewProps {
   productId: string | null;
+  /** Category id passed from ProductList — used for edit routing */
+  categoryId?: number | null;
   setCurrentView: (view: DashboardView) => void;
 }
+
 interface ProductImage {
   productImage?: string;
   imageUrl?: string;
   url?: string;
   imagePath?: string;
 }
+
 interface PackagingDetails {
   packSize?: number;
+  packId?: number;
   packType?: string;
   packTypeName?: string;
   minimumOrderQuantity?: number;
@@ -33,21 +37,46 @@ interface PackagingDetails {
   numberOfUnits?: number;
   numberOfPacks?: number;
 }
+
 interface PricingDetails {
-  finalPrice?: number;
+  finalPrice?: number | null;
+  sellingPrice?: number;
   mrp?: number;
   discountPercentage?: number;
   manufacturerName?: string;
-  batchLotNumber?: string;
+  batchLotNumber?: string | null;
   manufacturingDate?: string;
-  expiryDate?: string;
+  expiryDate?: string | null;
   stockQuantity?: number;
   additionalDiscounts?: AdditionalDiscount[];
+  gstPercentage?: string | number;
+  hsnCode?: string | number;
+  shelfLifeMonths?: number | null;
+  dateOfStockEntry?: string;
 }
+
 interface AdditionalDiscount {
+  additionalDiscountId?: string;
   minimumPurchaseQuantity?: number;
+  maximumPurchaseQuantity?: number;
   additionalDiscountPercentage?: number;
+  /** API field names */
+  effectiveStartDate?: string;
+  effectiveEndDate?: string;
+  /** legacy field names — fallback */
+  startDate?: string;
+  endDate?: string;
 }
+
+interface CertificateDocument {
+  certificationId: number;
+  certificateUrl: string;
+  certificationName?: string;
+  label?: string;
+  productCertificateDocumentId?: number;
+}
+
+/* ── Non-Consumable (categoryId = 6) ── */
 interface NonConsumableAttributes {
   brandName?: string;
   modelName?: string;
@@ -55,6 +84,7 @@ interface NonConsumableAttributes {
   warrantyPeriod?: string | number;
   deviceClassification?: string;
   amcAvailability?: boolean;
+  serviceAvailability?: boolean;
   keyFeaturesSpecifications?: string;
   udiNumber?: string;
   purpose?: string;
@@ -64,13 +94,14 @@ interface NonConsumableAttributes {
   storageConditionId?: number;
   certificateDocuments?: CertificateDocument[];
   brochurePath?: string;
+  deviceName?: string;
+  deviceSubCategoryName?: string;
+  countryName?: string;
+  materialTypes?: { materialTypeId: number; materialTypeName: string }[];
+  powerSourceName?: string;
 }
-interface CertificateDocument {
-  certificationId: number;
-  certificateUrl: string;
-  certificationName?: string;
-  label?: string;
-}
+
+/* ── Consumable (categoryId = 5) ── */
 interface ConsumableAttributes {
   brochurePath?: string;
   brochureType?: string;
@@ -85,8 +116,51 @@ interface ConsumableAttributes {
   sterileOrNonSterile?: string;
   disposalOrReusable?: string;
   shelfLife?: string;
+  safetyInstructions?: string;
+  dimensionSize?: string;
+  materialTypes?: { materialTypeId: number; materialTypeName: string }[];
 }
+
+/* ── Drug (categoryId = 1) ── */
+interface MoleculeDetail {
+  moleculeId?: number;
+  moleculeName?: string;
+  strength?: string | number;
+}
+
+interface DrugAttributeEntry {
+  productAttributeId?: string;
+  dosageForm?: string;
+  therapeuticCategoryId?: string | number;
+  therapeuticCategoryName?: string;
+  therapeuticSubcategoryId?: string | number;
+  therapeuticSubcategoryName?: string;
+  drugSchedule?: string;
+  mechanismOfAction?: string;
+  storageConditionIds?: number[] | null;
+  storageConditionName?: string;
+  storageCondition?: string;
+  primaryUse?: string;
+  purpose?: string;
+  manufacturerName?: string;
+  userManualUrl?: string;
+  brochurePath?: string;
+  warningsPrecautions?: string;
+  productDescription?: string;
+  molecules?: MoleculeDetail[];
+  /* legacy flat fields */
+  molecule1Name?: string;
+  molecule1Strength?: string | number;
+  molecule2Name?: string;
+  molecule2Strength?: string | number;
+  shelfLife?: string;
+  gstPercentage?: string | number;
+  hsnCode?: string;
+}
+
 interface ProductApiData {
+  productId?: string;
+  categoryId?: number;
   productName?: string;
   productDescription?: string;
   warningsPrecautions?: string;
@@ -96,217 +170,397 @@ interface ProductApiData {
   productImages?: ProductImage[];
   images?: string[];
   imageUrls?: string[];
-  /* packagingDetails can be array OR object depending on endpoint */
   packagingDetails?: PackagingDetails | PackagingDetails[];
   pricingDetails?: PricingDetails[];
   productAttributeNonConsumableMedicals?: NonConsumableAttributes[];
   nonConsumableAttributes?: NonConsumableAttributes;
   productAttributeConsumableMedicals?: ConsumableAttributes[];
+  productAttributeDrugs?: DrugAttributeEntry[];
+  drugAttributes?: DrugAttributeEntry; // legacy
   productMarketingUrl?: string;
+  therapeuticCategory?: string;
+  therapeuticSubcategory?: string;
+  drugSchedule?: string;
+  mechanismOfAction?: string;
+  gstPercentage?: string | number;
+  hsnCode?: string;
 }
 
-/* ─────────────────── Constants ─────────────────── */
+/* ─────────────────────────────────────────────────────────
+   CONSTANTS
+───────────────────────────────────────────────────────── */
 
 const PLACEHOLDER_IMAGE = "/assets/images/SellerMed.jpg";
 
-/* ─────────────────── Design tokens ─────────────────── */
-const C_PNEUTRAL_50  = "#F9F9F8";
-const C_PNEUTRAL_200 = "#D5D5D4";
-const C_PNEUTRAL_300 = "#C0C1BE";
-const C_PNEUTRAL_500 = "#969793";
-const C_PNEUTRAL_600 = "#787975";
-const C_PNEUTRAL_700 = "#5A5B58";
-const C_PNEUTRAL_800 = "#3C3D3A";
-const C_PNEUTRAL_900 = "#1E1E1D";
-const C_SECONDARY_50  = "#F8F5FF";
-const C_SECONDARY_700 = "#7D32FC";
-const C_SECONDARY_800 = "#4307A9";
-const C_PRIMARY_05    = "#E4D6FB";
-const C_PRIMARY_900   = "#4C0080";
-const C_SUCCESS_50  = "#DCF7CB";
-const C_SUCCESS_800 = "#409600";
-const C_WARNING_100 = "#FBD7D7";
-const C_WARNING_600 = "#BA2C2C";
-const C_WHITE       = "#FFFFFF";
-const C_RED_BADGE   = "#FB2C36";
-const C_BORDER      = "#E5E7EB";
-const FONT_OPEN_SANS = "'Open Sans', sans-serif";
-const FONT_INTER     = "'Inter', sans-serif";
-
-/* ─────────────────── Shared table-cell styles ─────────────────── */
-const CELL_WRAPPER: React.CSSProperties = {
-  padding: 12,
-  background: C_PNEUTRAL_50,
-  borderRadius: 10,
-  display: "flex",
-  flexDirection: "column",
-  gap: 4,
+/**
+ * Maps categoryId → DashboardView for that category's edit form.
+ * Keep in sync with ProductList's categoryViewMap.
+ */
+const CATEGORY_EDIT_VIEW: Record<number, DashboardView> = {
+  1: "editDrug" as DashboardView,
+  2: "editSupplement" as DashboardView,
+  3: "editFoodInfant" as DashboardView,
+  4: "editCosmetic" as DashboardView,
+  5: "editConsumable" as DashboardView,
+  6: "editNonConsumable" as DashboardView,
 };
 
-const CELL_LABEL: React.CSSProperties = {
-  color: C_PNEUTRAL_700,          // #5A5B58
-  fontSize: 12,
-  fontFamily: FONT_OPEN_SANS,
-  fontWeight: 400,
-  lineHeight: "18px",
-  wordWrap: "break-word",
+/* ─────────────────────────────────────────────────────────
+   SHARED STYLES
+───────────────────────────────────────────────────────── */
+
+const ROW: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  padding: "12px 16px",
+  borderBottom: "1px solid #D5D5D4",
+  gap: 16,
+};
+
+const ROW_LABEL: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 4,
+  flex: "1 1 0",
+  minWidth: 0,
+};
+
+const LABEL_TEXT: React.CSSProperties = {
+  color: "#5A5B58",
+  fontSize: 16,
+  fontFamily: "'Open Sans', sans-serif",
+  fontWeight: 600,
+  lineHeight: "22px",
   margin: 0,
 };
 
-const CELL_VALUE: React.CSSProperties = {
-  color: C_PNEUTRAL_900,          // #1E1E1D
+const REQUIRED_STAR: React.CSSProperties = {
+  color: "#FF3B3B",
   fontSize: 16,
-  fontFamily: FONT_OPEN_SANS,
+  fontFamily: "'Open Sans', sans-serif",
+  fontWeight: 600,
+  lineHeight: "22px",
+  flexShrink: 0,
+};
+
+const VALUE_TEXT: React.CSSProperties = {
+  color: "#3C3D3A",
+  fontSize: 16,
+  fontFamily: "'Open Sans', sans-serif",
   fontWeight: 400,
   lineHeight: "22px",
-  wordWrap: "break-word",
+  textAlign: "right",
+  flex: "1 1 0",
   margin: 0,
 };
 
-/* ─────────────────── Helper sub-component ─────────────────── */
-const PackagingCell = ({ label, value }: { label: string; value: string | number }) => (
-  <div style={CELL_WRAPPER}>
-    <p style={CELL_LABEL}>{label}</p>
-    <p style={CELL_VALUE}>{String(value)}</p>
+/* ─────────────────────────────────────────────────────────
+   SUB-COMPONENTS
+───────────────────────────────────────────────────────── */
+
+const FieldRow = ({
+  label,
+  value,
+  required = true,
+  valueNode,
+  multiline = false,
+}: {
+  label: string;
+  value?: string | number | null;
+  required?: boolean;
+  valueNode?: React.ReactNode;
+  multiline?: boolean;
+}) => (
+  <div style={{ ...ROW, alignItems: multiline ? "flex-start" : "center" }}>
+    <div style={ROW_LABEL}>
+      <span style={LABEL_TEXT}>{label}</span>
+      {required && <span style={REQUIRED_STAR}>*</span>}
+    </div>
+    {valueNode ? (
+      <div style={{ flex: "1 1 0", display: "flex", justifyContent: "flex-end" }}>
+        {valueNode}
+      </div>
+    ) : (
+      <p style={VALUE_TEXT}>{value ?? "—"}</p>
+    )}
   </div>
 );
 
-/* ─────────────────── Component ─────────────────── */
+const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ paddingTop: 8, paddingBottom: 8, borderBottom: "1px solid #D5D5D4" }}>
+    <h2
+      style={{
+        color: "#101828",
+        fontSize: 28,
+        fontFamily: "'Open Sans', sans-serif",
+        fontWeight: 600,
+        lineHeight: "32px",
+        margin: 0,
+      }}
+    >
+      {children}
+    </h2>
+  </div>
+);
 
-const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
+/* ─────────────────────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────────────────────── */
+
+/** "650mg" | 650 → "650 mg" */
+const formatStrength = (s?: string | number | null): string => {
+  if (s == null) return "—";
+  const str = String(s).trim();
+  const m = str.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z%µ]+)?$/);
+  if (m) return `${m[1]} ${m[2] ?? "mg"}`;
+  return str;
+};
+
+/** Returns null for blank / PENDING / NOT_UPLOADED values */
+const validUrl = (url?: string | null): string | null => {
+  if (!url) return null;
+  const t = url.trim().toUpperCase();
+  if (["", "PENDING", "NOT_UPLOADED"].includes(t)) return null;
+  return url.trim();
+};
+
+const isImageUrl = (url: string) =>
+  /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
+const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url);
+
+const formatDate = (dateStr?: string | null): string => {
+  if (!dateStr) return "—";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
+/* ─────────────────────────────────────────────────────────
+   MAIN COMPONENT
+───────────────────────────────────────────────────────── */
+
+const ProductView1 = ({
+  productId,
+  categoryId: categoryIdProp,
+  setCurrentView,
+}: ProductViewProps) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [quantity, setQuantity]                     = useState(1);
-  const [productData, setProductData]               = useState<ProductApiData | null>(null);
-  const [loading, setLoading]                       = useState(true);
-  const [pincode, setPincode]                       = useState("");
-  const [showCertModal, setShowCertModal]           = useState(false);
-  const [activeCertDoc, setActiveCertDoc]           = useState<CertificateDocument | null>(null);
-  const [showBrochureAccordion, setShowBrochureAccordion] = useState(false);
+  const [productData, setProductData] = useState<ProductApiData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showCertModal, setShowCertModal] = useState(false);
+  const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
 
-  /* ── helpers ── */
+  /* ── Fetch ── */
+  useEffect(() => {
+    if (!productId) return;
+    setLoading(true);
+    (async () => {
+      try {
+        const response = (await getDrugProductById(productId)) as ProductApiData;
+        setProductData(response);
+      } catch (err) {
+        console.error("Error fetching product details:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [productId]);
+
+  /* ── Derived attribute objects ── */
+  const packaging: PackagingDetails | undefined = Array.isArray(productData?.packagingDetails)
+    ? productData?.packagingDetails[0]
+    : productData?.packagingDetails;
+
+  const pricing = productData?.pricingDetails?.[0];
+
+  /** Non-consumable attributes (categoryId 6) */
+  const ncAttr: NonConsumableAttributes | null =
+    (productData?.productAttributeNonConsumableMedicals ?? []).length > 0
+      ? productData!.productAttributeNonConsumableMedicals![0]
+      : productData?.nonConsumableAttributes ?? null;
+
+  /** Consumable attributes (categoryId 5) */
+  const consAttr: ConsumableAttributes | null =
+    (productData?.productAttributeConsumableMedicals ?? []).length > 0
+      ? productData!.productAttributeConsumableMedicals![0]
+      : null;
+
+  /**
+   * Drug attributes (categoryId 1).
+   * New API: productAttributeDrugs[]
+   * Legacy fallback: drugAttributes object
+   */
+  const drugEntry: DrugAttributeEntry | null =
+    (productData?.productAttributeDrugs ?? []).length > 0
+      ? productData!.productAttributeDrugs![0]
+      : productData?.drugAttributes ?? null;
+
+  /* ── Category resolution — prefer API data, fallback to prop ── */
+  const resolvedCategoryId: number | null =
+    productData?.categoryId ?? categoryIdProp ?? null;
+
+  /* ── Molecules (drug) ── */
+  const molecules = drugEntry?.molecules ?? [];
+  const molecule1 = molecules[0] ?? null;
+  const molecule2 = molecules[1] ?? null;
+
+  /* ── Brochure URL (first valid value wins) ── */
+  const brochureUrl: string | null =
+    validUrl(drugEntry?.brochurePath) ??
+    validUrl(drugEntry?.userManualUrl) ??
+    validUrl(consAttr?.brochurePath) ??
+    validUrl(ncAttr?.brochurePath) ??
+    validUrl(productData?.productMarketingUrl);
+
+  /* ── Certificate documents (filter NOT_UPLOADED) ── */
+  const certDocs: CertificateDocument[] = [
+    ...(ncAttr?.certificateDocuments ?? []),
+    ...(consAttr?.certificateDocuments ?? []),
+  ].filter((c) => validUrl(c.certificateUrl) !== null);
+
+  /* ── Storage Condition ──
+     NonCons API: storageConditionName ✓ (e.g. "Avoid Sunlight")
+     Consumable API: storageConditionId present, name NOT in response
+       → fall back to "Condition #N" until backend sends name
+     Drug API: storageConditionIds array, optional name
+  */
+  const storageCondition: string | null =
+    drugEntry?.storageConditionName ??
+    drugEntry?.storageCondition ??
+    ncAttr?.storageConditionName ??
+    ncAttr?.storageCondition ??
+    consAttr?.storageConditionName ??
+    consAttr?.storageCondition ??
+    (consAttr?.storageConditionId != null
+      ? `Condition #${consAttr.storageConditionId}`
+      : null) ??
+    (ncAttr?.storageConditionId != null
+      ? `Condition #${ncAttr.storageConditionId}`
+      : null);
+
+  /* ── Field resolutions ── */
+  const dosageForm = drugEntry?.dosageForm ?? productData?.dosageForm ?? null;
+
+  const therapeuticCategory =
+    drugEntry?.therapeuticCategoryName ??
+    productData?.therapeuticCategory ??
+    (drugEntry?.therapeuticCategoryId != null
+      ? String(drugEntry.therapeuticCategoryId)
+      : null);
+
+  const therapeuticSubcategory =
+    drugEntry?.therapeuticSubcategoryName ??
+    productData?.therapeuticSubcategory ??
+    (drugEntry?.therapeuticSubcategoryId != null
+      ? String(drugEntry.therapeuticSubcategoryId)
+      : null);
+
+  const drugSchedule = drugEntry?.drugSchedule ?? productData?.drugSchedule ?? null;
+  const mechanismOfAction =
+    drugEntry?.mechanismOfAction ?? productData?.mechanismOfAction ?? null;
+
+  const primaryUse =
+    drugEntry?.primaryUse ??
+    drugEntry?.purpose ??
+    ncAttr?.purpose ??
+    consAttr?.purpose ??
+    null;
+
+  const manufacturerName =
+    drugEntry?.manufacturerName ??
+    pricing?.manufacturerName ??
+    productData?.manufacturerName ??
+    ncAttr?.manufacturerName ??
+    consAttr?.manufacturerName ??
+    null;
+
+  const warningsPrecautions =
+    drugEntry?.warningsPrecautions ?? productData?.warningsPrecautions ?? null;
+
+  const productDescription =
+    drugEntry?.productDescription ?? productData?.productDescription ?? null;
+
+  /* GST & HSN live in pricingDetails — not in drugAttributes */
+  const gstPercentage =
+    pricing?.gstPercentage ?? drugEntry?.gstPercentage ?? productData?.gstPercentage ?? null;
+  const hsnCode =
+    pricing?.hsnCode ?? drugEntry?.hsnCode ?? productData?.hsnCode ?? null;
+
+  /* Shelf life — pricingDetails.shelfLifeMonths OR consumable string field */
+  const shelfLifeDisplay =
+    pricing?.shelfLifeMonths != null
+      ? `${pricing.shelfLifeMonths} months`
+      : consAttr?.shelfLife ?? drugEntry?.shelfLife ?? null;
+
+  /* Additional discounts — API uses effectiveStartDate / effectiveEndDate */
+  const additionalDiscounts: AdditionalDiscount[] = (
+    pricing?.additionalDiscounts ?? []
+  ).filter((d) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage);
+
+  /* Pack size summary */
+  const unitsPerPack =
+    packaging?.unitPerPack ?? packaging?.unitsPerPack ?? packaging?.numberOfUnits;
+  const packSizeDisplay =
+    packaging?.numberOfPacks != null && unitsPerPack != null
+      ? `${packaging.numberOfPacks} packs × ${unitsPerPack} units = ${(
+          packaging.numberOfPacks * unitsPerPack
+        ).toLocaleString()} units`
+      : null;
+
+  /* Images */
   const resolveProductImages = (data: ProductApiData | null): string[] => {
     if (!data) return [];
     if (Array.isArray(data.productImages)) {
       const urls = data.productImages
         .map((img) => img?.productImage || img?.imageUrl || img?.url || img?.imagePath || "")
-        .filter((url) => url && url !== "PENDING");
-      if (urls.length > 0) return urls;
+        .filter((url) => validUrl(url) !== null);
+      if (urls.length) return urls;
     }
     if (Array.isArray(data.images)) {
-      const urls = data.images.filter((url) => url && url !== "PENDING");
-      if (urls.length > 0) return urls;
+      const urls = data.images.filter((u) => validUrl(u) !== null);
+      if (urls.length) return urls;
     }
     if (Array.isArray(data.imageUrls)) {
-      const urls = data.imageUrls.filter((url) => url && url !== "PENDING");
-      if (urls.length > 0) return urls;
+      const urls = data.imageUrls.filter((u) => validUrl(u) !== null);
+      if (urls.length) return urls;
     }
     return [];
   };
 
-  const getBrochureUrl = (data: ProductApiData | null): string | null => {
-    if (!data) return null;
-    const consumableAttrs = data.productAttributeConsumableMedicals?.[0];
-    if (consumableAttrs?.brochurePath && consumableAttrs.brochurePath !== "PENDING")
-      return consumableAttrs.brochurePath;
-    const ncAttributes = data.productAttributeNonConsumableMedicals?.[0] ?? data.nonConsumableAttributes;
-    if (ncAttributes?.brochurePath && ncAttributes.brochurePath !== "PENDING")
-      return ncAttributes.brochurePath;
-    if (data.productMarketingUrl && data.productMarketingUrl !== "PENDING")
-      return data.productMarketingUrl;
-    return null;
+  const productImages = resolveProductImages(productData);
+  const displayImages = productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
+
+  /* ── Navigation handlers ── */
+  /** Close → always back to dashboard list */
+  const handleClose = () => setCurrentView("dashboard" as DashboardView);
+
+  /**
+   * Edit → route to the category-specific edit form.
+   * categoryId is read from the fetched product data first,
+   * then falls back to the prop passed from ProductList.
+   */
+  const handleEdit = () => {
+    const catId = resolvedCategoryId;
+    const editView = catId != null ? CATEGORY_EDIT_VIEW[catId] : null;
+    setCurrentView(editView ?? ("editDrug" as DashboardView));
   };
 
-  useEffect(() => {
-    const fetchProductDetails = async () => {
-      if (!productId) return;
-      try {
-        const response = await getDrugProductById(productId) as ProductApiData;
-        setProductData(response);
-        const images = resolveProductImages(response);
-        if (images.length > 0) setSelectedImageIndex(0);
-        /* unpack packagingDetails array for MOQ */
-        const pkg = Array.isArray(response?.packagingDetails)
-          ? response.packagingDetails[0]
-          : response?.packagingDetails;
-        if (pkg?.minimumOrderQuantity) setQuantity(pkg.minimumOrderQuantity);
-      } catch (error) {
-        console.error("Error fetching product details:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProductDetails();
-  }, [productId]);
-
-  /* ── Derived data ── */
-
-  // packagingDetails is an array in the API — always unpack [0]
-  const packaging: PackagingDetails | undefined = Array.isArray(productData?.packagingDetails)
-    ? productData?.packagingDetails[0]
-    : productData?.packagingDetails;
-
-  const pricing         = productData?.pricingDetails?.[0];
-  const ncAttributes    = productData?.productAttributeNonConsumableMedicals?.[0]
-                          ?? productData?.nonConsumableAttributes
-                          ?? null;
-  const consumableAttrs = productData?.productAttributeConsumableMedicals?.[0] ?? null;
-
-  const certDocs: CertificateDocument[] = [
-    ...(ncAttributes?.certificateDocuments ?? []),
-    ...(consumableAttrs?.certificateDocuments ?? []),
-  ].filter((c) => c.certificateUrl && c.certificateUrl !== "PENDING");
-
-  const brochureUrl          = getBrochureUrl(productData);
-  const productImages        = resolveProductImages(productData);
-  const displayImages        = productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
-  const selectedImage        = displayImages[selectedImageIndex] ?? PLACEHOLDER_IMAGE;
-  const formattedProductName = productData?.productName || "Product Name";
-  const productDescription   = ncAttributes?.purpose || consumableAttrs?.purpose || productData?.productDescription;
-  const totalPrice           = pricing?.finalPrice != null ? pricing.finalPrice * quantity : 0;
-  const additionalDiscounts  = pricing?.additionalDiscounts?.filter(
-    (d) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage,
-  ) ?? [];
-
-  // storageConditionName — handle id-only case (consumable sends only storageConditionId)
-  const STORAGE_CONDITION_MAP: Record<number, string> = {
-    1: "Room Temperature",
-    2: "Refrigerated",
-    3: "Frozen",
-    4: "Cool & Dry",
-  };
-  const storageConditionName =
-    ncAttributes?.storageConditionName ||
-    ncAttributes?.storageCondition ||
-    consumableAttrs?.storageConditionName ||
-    consumableAttrs?.storageCondition ||
-    (ncAttributes?.storageConditionId != null
-      ? STORAGE_CONDITION_MAP[ncAttributes.storageConditionId] ?? `Condition ${ncAttributes.storageConditionId}`
-      : null) ||
-    (consumableAttrs?.storageConditionId != null
-      ? STORAGE_CONDITION_MAP[consumableAttrs.storageConditionId] ?? `Condition ${consumableAttrs.storageConditionId}`
-      : null) ||
-    null;
-
-  const formatDate = (dateStr?: string | null) => {
-    if (!dateStr) return "—";
-    try {
-      return new Date(dateStr).toLocaleDateString("en-IN", {
-        day: "2-digit", month: "2-digit", year: "numeric",
-      });
-    } catch { return dateStr; }
-  };
-
-  const isImageUrl = (url: string) => /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
-  const isPdfUrl   = (url: string) => /\.pdf(\?.*)?$/i.test(url);
-
-  /* ── Loading ── */
+  /* ── Loading skeleton ── */
   if (loading) {
     return (
-      <div style={{ width: "100%", background: C_WHITE, borderRadius: 10, padding: 24 }}>
+      <div
+        style={{ width: "100%", background: "var(--base-white)", borderRadius: 16, padding: 24 }}
+      >
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ height: 256, background: C_PNEUTRAL_50, borderRadius: 10 }} />
-          <div style={{ height: 24, background: C_PNEUTRAL_50, borderRadius: 6, width: "66%" }} />
-          <div style={{ height: 16, background: C_PNEUTRAL_50, borderRadius: 6, width: "50%" }} />
+          <div style={{ height: 256, background: "#F5F5F5", borderRadius: 12 }} />
+          <div style={{ height: 24, background: "#F5F5F5", borderRadius: 6, width: "66%" }} />
         </div>
       </div>
     );
@@ -314,617 +568,909 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
 
   if (!productData) {
     return (
-      <div style={{
-        width: "100%", background: C_WHITE, borderRadius: 10, padding: 24,
-        textAlign: "center", color: C_PNEUTRAL_500, fontFamily: FONT_OPEN_SANS, fontSize: 16,
-      }}>
+      <div
+        style={{
+          width: "100%",
+          background: "var(--base-white)",
+          borderRadius: 16,
+          padding: 24,
+          textAlign: "center",
+          color: "#5A5B58",
+          fontFamily: "'Open Sans', sans-serif",
+          fontSize: 16,
+          fontWeight: 400,
+        }}
+      >
         Product not found.
       </div>
     );
   }
 
-  /* ── Packaging grid rows ── */
-  const packagingRows: { label: string; value: string | number }[] = [
-    { label: "Packaging Unit",        value: packaging?.packType ?? packaging?.packTypeName ?? "—" },
-    { label: "Dosage Form",           value: productData?.dosageForm ?? ncAttributes?.deviceClassification ?? "—" },
-    { label: "No. of Units per Strip",value: packaging?.unitPerPack ?? packaging?.unitsPerPack ?? "—" },
-    { label: "No. of Strips per Pack",value: packaging?.numberOfPacks ?? "—" },
-    { label: "Strength per Unit",     value: productData?.strength ? `${productData.strength}mg` : "—" },
-    { label: "Storage Condition",     value: storageConditionName ?? "—" },
-    { label: "Batch / Lot Number",    value: pricing?.batchLotNumber || "—" },
-    { label: "Manufacturing Date",    value: formatDate(pricing?.manufacturingDate) },
-    { label: "Expiry Date",           value: formatDate(pricing?.expiryDate) },
-  ];
-
-  /* ─────────────────── Render ─────────────────── */
+  /* ─────────────────────────────────────────────────────
+     RENDER
+  ───────────────────────────────────────────────────── */
   return (
-    <div style={{
-      width: "100%",
-      paddingBottom: 32,
-      background: C_PNEUTRAL_50,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      gap: 32,
-      fontFamily: FONT_OPEN_SANS,
-    }}>
-
-      {/* ── Main card ── */}
-      <div style={{
-        width: 1216,
-        background: C_WHITE,
-        boxShadow: "0px 1px 3px rgba(0,0,0,0.10), 0px 1px 2px -1px rgba(0,0,0,0.10)",
-        borderRadius: 10,
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        paddingBottom: 24,
+        paddingLeft: 24,
+        paddingRight: 24,
+        background: "var(--base-white)",
+        overflow: "hidden",
+        borderRadius: 16,
+        outline: "1px #D5D5D4 solid",
+        outlineOffset: -1,
         display: "flex",
         flexDirection: "column",
-      }}>
+        gap: 24,
+        fontFamily: "'Open Sans', sans-serif",
+      }}
+    >
+      {/* ── HEADER ── */}
+      <div
+        style={{
+          alignSelf: "stretch",
+          paddingTop: 24,
+          background: "var(--base-white)",
+          borderBottom: "1px #D5D5D4 solid",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          paddingBottom: 16,
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <h1
+            style={{
+              color: "black",
+              fontSize: 38,
+              fontFamily: "'Open Sans', sans-serif",
+              fontWeight: 400,
+              lineHeight: "42px",
+              margin: 0,
+            }}
+          >
+            Product Preview
+          </h1>
+          <p
+            style={{
+              color: "#5A5B58",
+              fontSize: 16,
+              fontFamily: "'Open Sans', sans-serif",
+              fontWeight: 400,
+              lineHeight: "22px",
+              margin: 0,
+            }}
+          >
+            Complete product information
+          </p>
+        </div>
 
-        {/* Top two-column section */}
-        <div style={{ padding: 32, display: "flex", gap: 32, alignItems: "flex-start" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          {/* Close → dashboard */}
+          <button
+            onClick={handleClose}
+            style={{
+              height: 48,
+              minWidth: 108,
+              padding: "8px 16px",
+              borderRadius: 12,
+              outline: "2px #9F75FC solid",
+              outlineOffset: -1,
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              color: "#9F75FC",
+              fontSize: 16,
+              fontFamily: "'Open Sans', sans-serif",
+              fontWeight: 600,
+              lineHeight: "22px",
+            }}
+          >
+            Close
+          </button>
 
-          {/* ════ LEFT COLUMN ════ */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Edit → category-specific edit form */}
+          <button
+            onClick={handleEdit}
+            style={{
+              height: 48,
+              minWidth: 108,
+              padding: "12px 16px",
+              background: "var(--primary-900)",
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              color: "white",
+              fontSize: 16,
+              fontFamily: "'Open Sans', sans-serif",
+              fontWeight: 600,
+              lineHeight: "22px",
+            }}
+          >
+            Edit
+          </button>
+        </div>
+      </div>
 
-            {/* Main image */}
-            <div style={{
-              width: 560, height: 684,
-              position: "relative",
-              background: "#F3F4F6",
-              borderRadius: 10,
-              overflow: "hidden",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}>
-              <Image
-                src={selectedImage}
-                alt="Product Image"
-                fill
-                style={{ objectFit: "cover", borderRadius: 10 }}
-                unoptimized={selectedImage.startsWith("http")}
-                onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
-              />
+      {/* ── PRODUCT DETAILS ── */}
+      <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ paddingTop: 8, paddingBottom: 8, borderBottom: "1px #D5D5D4 solid" }}>
+          <h2
+            style={{
+              color: "#101828",
+              fontSize: 28,
+              fontFamily: "'Open Sans', sans-serif",
+              fontWeight: 600,
+              lineHeight: "32px",
+              margin: 0,
+            }}
+          >
+            Product Details
+          </h2>
+        </div>
 
-              {displayImages.length > 1 && (
-                <>
-                  <button
-                    onClick={() => setSelectedImageIndex((p) => (p - 1 + displayImages.length) % displayImages.length)}
-                    style={{
-                      position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)",
-                      background: "rgba(255,255,255,0.90)", borderRadius: "50%",
-                      width: 36, height: 36, border: "none", cursor: "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      boxShadow: "0px 10px 15px -3px rgba(0,0,0,0.10), 0px 4px 6px -4px rgba(0,0,0,0.10)",
-                      zIndex: 10,
-                    }}
-                  >
-                    <IoIosArrowBack size={20} color="#364153" />
-                  </button>
-                  <button
-                    onClick={() => setSelectedImageIndex((p) => (p + 1) % displayImages.length)}
-                    style={{
-                      position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)",
-                      background: "rgba(255,255,255,0.90)", borderRadius: "50%",
-                      width: 36, height: 36, border: "none", cursor: "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      boxShadow: "0px 10px 15px -3px rgba(0,0,0,0.10), 0px 4px 6px -4px rgba(0,0,0,0.10)",
-                      zIndex: 10,
-                    }}
-                  >
-                    <IoIosArrowBack size={20} color="#364153" style={{ transform: "rotate(180deg)" }} />
-                  </button>
-                </>
-              )}
+        {/* ── Images ── */}
+        <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
+          <p
+            style={{
+              color: "#1E1E1D",
+              fontSize: 18,
+              fontFamily: "'Open Sans', sans-serif",
+              fontWeight: 600,
+              lineHeight: "24px",
+              margin: 0,
+            }}
+          >
+            Product Images
+          </p>
 
-              {pricing?.discountPercentage != null && pricing.discountPercentage > 0 && (
-                <span style={{
-                  position: "absolute", left: 16, top: 20,
-                  background: C_RED_BADGE,
-                  color: C_WHITE, fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                  fontWeight: 400, lineHeight: "20px",
-                  padding: "4px 12px", borderRadius: 9999, zIndex: 10,
-                }}>
-                  {pricing.discountPercentage}% OFF
-                </span>
-              )}
-
-              <div style={{
-                position: "absolute", top: 16, right: 16,
-                display: "flex", gap: 8, zIndex: 10,
-              }}>
-                {[<Heart size={20} key="heart" />, <Share2 size={20} key="share" />].map((icon, i) => (
-                  <button key={i} style={{
-                    background: "rgba(255,255,255,0.90)", borderRadius: "50%",
-                    width: 36, height: 36, border: "none", cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    boxShadow: "0px 10px 15px -3px rgba(0,0,0,0.10), 0px 4px 6px -4px rgba(0,0,0,0.10)",
-                    color: "#364153",
-                  }}>{icon}</button>
-                ))}
-              </div>
-            </div>
-
-            {/* Thumbnail strip */}
-            {displayImages.length > 1 && (
-              <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
-                {displayImages.map((img, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => setSelectedImageIndex(idx)}
-                    style={{
-                      width: 127, height: 127, borderRadius: 10,
-                      background: "#F3F4F6", overflow: "hidden",
-                      flexShrink: 0, cursor: "pointer", position: "relative",
-                      outline: selectedImageIndex === idx ? `2px solid #2B7FFF` : "2px solid transparent",
-                      outlineOffset: -2,
-                    }}
-                  >
-                    <Image
-                      src={img} alt={`Thumbnail ${idx + 1}`} fill
-                      style={{ objectFit: "cover", borderRadius: 10 }}
-                      unoptimized={img.startsWith("http")}
-                      onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Brochure accordion */}
-            {brochureUrl && (
-              <div style={{
-                borderRadius: 8, overflow: "hidden",
-                outline: `1px ${C_PNEUTRAL_200} solid`, outlineOffset: -1,
-                background: C_SECONDARY_50,
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setShowBrochureAccordion((p) => !p)}
-                  style={{
-                    width: "100%", display: "flex", alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: 16, background: "transparent", border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  <span style={{
-                    color: C_PNEUTRAL_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                    fontWeight: 600, lineHeight: "22px",
-                    display: "flex", alignItems: "center", gap: 8,
-                  }}>
-                    Product URL/User Manual
-                  </span>
-                  <ChevronDown
-                    size={20} color={C_PNEUTRAL_800}
-                    style={{ transform: showBrochureAccordion ? "rotate(180deg)" : "none", transition: "transform .2s" }}
-                  />
-                </button>
-                {showBrochureAccordion && (
-                  <div style={{
-                    borderTop: `1px ${C_PNEUTRAL_200} solid`,
-                    padding: "8px 16px 12px",
-                  }}>
-                    <a href={brochureUrl} target="_blank" rel="noreferrer" style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      color: C_SECONDARY_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                      fontWeight: 400, lineHeight: "20px", textDecoration: "none",
-                    }}>
-                      <ExternalLink size={14} />
-                      View / Download Brochure
-                    </a>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ════ RIGHT COLUMN ════ */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
-
-            {/* Tags row */}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <span style={{
-                padding: "4px 8px", background: C_PRIMARY_05, borderRadius: 8,
-                color: C_SECONDARY_700, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 400, lineHeight: "22px",
-              }}>
-                Prescription Required
-              </span>
-
-              {certDocs.length > 0 ? (
-                certDocs.map((cert) => (
-                  <button
-                    key={cert.certificationId}
-                    type="button"
-                    onClick={() => { setActiveCertDoc(cert); setShowCertModal(true); }}
-                    style={{
-                      padding: "4px 8px", background: C_SUCCESS_50, borderRadius: 8,
-                      color: C_SUCCESS_800, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                      fontWeight: 400, lineHeight: "22px",
-                      border: "none", cursor: "pointer",
-                      display: "flex", alignItems: "center", gap: 8,
-                    }}
-                  >
-                    <PiSealCheckLight />
-                    {cert.certificationName || cert.label || `Certificate ${cert.certificationId}`}
-                  </button>
-                ))
-              ) : (
-                <span style={{
-                  padding: "4px 8px", background: C_SUCCESS_50, borderRadius: 8,
-                  color: C_SUCCESS_800, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                  fontWeight: 400, lineHeight: "22px",
-                  display: "flex", alignItems: "center", gap: 8,
-                }}>
-                  <PiSealCheckLight /> FDA Approved
-                </span>
-              )}
-
-              {ncAttributes?.amcAvailability && (
-                <span style={{
-                  padding: "4px 8px", background: C_PRIMARY_05, borderRadius: 8,
-                  color: C_SECONDARY_700, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                  fontWeight: 400, lineHeight: "22px",
-                }}>AMC Available</span>
-              )}
-              {ncAttributes?.deviceClassification && (
-                <span style={{
-                  padding: "4px 8px", background: C_PNEUTRAL_50, borderRadius: 8,
-                  color: C_PNEUTRAL_700, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                  fontWeight: 400, lineHeight: "22px",
-                }}>
-                  {ncAttributes.deviceClassification}
-                </span>
-              )}
-            </div>
-
-            {/* Product name */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <h1 style={{
-                color: C_PNEUTRAL_900, fontSize: 28, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 400, lineHeight: "32px", margin: 0,
-              }}>
-                {formattedProductName}
-              </h1>
-              <p style={{
-                color: C_PNEUTRAL_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 400, lineHeight: "20px", margin: 0, paddingTop: 4,
-              }}>
-                {productDescription}
-              </p>
-            </div>
-
-            {/* Price card */}
-            <div style={{
-              padding: 16, background: C_PNEUTRAL_50, borderRadius: 10,
-              display: "flex", flexDirection: "column", gap: 8,
-            }}>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
-                <span style={{
-                  color: C_PNEUTRAL_900, fontSize: 28, fontFamily: FONT_OPEN_SANS,
-                  fontWeight: 400, lineHeight: "32px",
-                }}>
-                  ₹{pricing?.finalPrice?.toFixed(2) ?? "—"}
-                </span>
-                {pricing?.mrp && (
-                  <span style={{
-                    color: C_PNEUTRAL_600, fontSize: 18, fontFamily: FONT_OPEN_SANS,
-                    fontWeight: 400, lineHeight: "24px", textDecoration: "line-through",
-                  }}>
-                    ₹{pricing.mrp.toFixed(2)}
-                  </span>
-                )}
-                {pricing?.discountPercentage != null && pricing.discountPercentage > 0 && (
-                  <span style={{
-                    padding: "4px 8px", background: C_WARNING_100, borderRadius: 8,
-                    color: C_WARNING_600, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                    fontWeight: 400, lineHeight: "22px",
-                  }}>
-                    Save {pricing.discountPercentage}%
-                  </span>
-                )}
-              </div>
-              <p style={{
-                color: C_PNEUTRAL_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 400, lineHeight: "20px", margin: 0,
-              }}>
-                Price per pack
-              </p>
-            </div>
-
-            {/* ── Packaging details grid ── */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <p style={{
-                color: C_PNEUTRAL_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 400, lineHeight: "22px", margin: 0,
-              }}>
-                Packaging Details
-              </p>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: 12,
-              }}>
-                {packagingRows.map(({ label, value }) => (
-                  <PackagingCell key={label} label={label} value={value} />
-                ))}
-              </div>
-            </div>
-
-            {/* Additional discounts */}
-            {additionalDiscounts.length > 0 && (
-              <div style={{
-                padding: 16, background: C_SECONDARY_50, borderRadius: 10,
-                outline: `1px ${C_PRIMARY_05} solid`, outlineOffset: -1,
-                display: "flex", flexDirection: "column", gap: 8,
-              }}>
-                <p style={{
-                  color: C_SECONDARY_800, fontSize: 13.2, fontFamily: FONT_INTER,
-                  fontWeight: 400, lineHeight: "20px", margin: 0,
-                }}>
-                  Additional Discounts Available
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {additionalDiscounts.map((d, i) => (
-                    <p key={`qty-${i}`} style={{
-                      color: C_SECONDARY_700, fontSize: 12, fontFamily: FONT_OPEN_SANS,
-                      fontWeight: 400, lineHeight: "18px", margin: 0,
-                    }}>
-                      Minimum Purchase Quantity - {d.minimumPurchaseQuantity} Packs
-                    </p>
-                  ))}
-                  {additionalDiscounts.map((d, i) => (
-                    <p key={`disc-${i}`} style={{
-                      color: C_SECONDARY_700, fontSize: 12, fontFamily: FONT_OPEN_SANS,
-                      fontWeight: 400, lineHeight: "18px", margin: 0,
-                    }}>
-                      Discount percentage - {d.additionalDiscountPercentage}%
-                    </p>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Check availability */}
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
-              <div style={{
-                minHeight: 40, padding: "6px 12px",
-                background: C_WHITE, borderRadius: 8,
-                outline: `1px ${C_PNEUTRAL_500} solid`, outlineOffset: -1,
-              }}>
-                <input
-                  type="text"
-                  value={pincode}
-                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="560079"
-                  style={{
-                    border: "none", outline: "none", background: "transparent",
-                    color: C_PNEUTRAL_500, fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                    fontWeight: 300, lineHeight: "20px", width: 80,
-                  }}
-                />
-              </div>
-              <button
-                type="button"
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            {displayImages.map((img, idx) => (
+              <div
+                key={idx}
+                onClick={() => setSelectedImageIndex(idx)}
                 style={{
-                  height: 40, minHeight: 40,
-                  padding: "6px 12px", background: "#9F75FC",
-                  borderRadius: 8, border: "none", cursor: "pointer",
-                  color: C_WHITE, fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                  fontWeight: 600, lineHeight: "20px",
+                  flex: "1 1 0",
+                  height: 276,
+                  position: "relative",
+                  boxShadow:
+                    "0px 2px 4px -2px rgba(0,0,0,0.10), 0px 4px 6px -1px rgba(0,0,0,0.10)",
+                  overflow: "hidden",
+                  borderRadius: 12,
+                  outline:
+                    idx === selectedImageIndex ? "2px var(--primary-300) solid" : "none",
+                  outlineOffset: -2,
+                  cursor: "pointer",
                 }}
               >
-                Check Availability
-              </button>
-            </div>
-
-            {/* Quantity + total */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <p style={{
-                color: "#364153", fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 400, lineHeight: "20px", margin: 0,
-              }}>
-                Quantity (Packs)
-              </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <div style={{
-                  borderRadius: 10, outline: `1px ${C_PNEUTRAL_300} solid`, outlineOffset: -1,
-                  display: "flex", alignItems: "center", overflow: "hidden",
-                }}>
-                  <button
-                    onClick={() => setQuantity(Math.max(packaging?.minimumOrderQuantity || 1, quantity - 1))}
+                <Image
+                  src={img}
+                  alt={`Product image ${idx + 1}`}
+                  fill
+                  style={{ objectFit: "cover" }}
+                  unoptimized={img.startsWith("http")}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
+                  }}
+                />
+                {idx === 0 && (
+                  <div
                     style={{
-                      padding: 12, background: C_WHITE, border: "none",
-                      borderRight: `1px ${C_PNEUTRAL_300} solid`, cursor: "pointer",
+                      position: "absolute",
+                      left: 10,
+                      top: 10,
+                      padding: "4px 8px",
+                      background: "var(--primary-300)",
+                      borderRadius: 4,
                     }}
                   >
-                    <svg width="20" height="20" viewBox="0 0 20 20">
-                      <path d="M4 10h12" stroke={C_PNEUTRAL_800} strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                  <div style={{
-                    width: 80, paddingTop: 12, paddingBottom: 12,
-                    borderLeft: `1px ${C_PNEUTRAL_300} solid`,
-                    borderRight: `1px ${C_PNEUTRAL_300} solid`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <span style={{
-                      color: C_PNEUTRAL_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                      fontWeight: 600, lineHeight: "22px",
-                    }}>
-                      {quantity}
+                    <span
+                      style={{
+                        color: "white",
+                        fontSize: 12,
+                        fontFamily: "'Open Sans', sans-serif",
+                        fontWeight: 600,
+                        lineHeight: "18px",
+                      }}
+                    >
+                      Primary
                     </span>
                   </div>
-                  <button
-                    onClick={() => setQuantity(Math.min(packaging?.maximumOrderQuantity || 1000, quantity + 1))}
-                    style={{
-                      padding: 12, background: C_WHITE, border: "none",
-                      borderLeft: `1px ${C_PNEUTRAL_300} solid`, cursor: "pointer",
-                    }}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 20 20">
-                      <path d="M4 10h12M10 4v12" stroke={C_PNEUTRAL_800} strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                </div>
-                <span style={{
-                  color: "#4A5565", fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                  fontWeight: 600, lineHeight: "20px",
-                }}>
-                  Total: ₹{totalPrice.toFixed(2)}
-                </span>
+                )}
               </div>
-              <p style={{
-                color: "#6A7282", fontSize: 12, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 400, lineHeight: "18px", paddingTop: 7, margin: 0,
-              }}>
-                Minimum order: {packaging?.minimumOrderQuantity ?? "—"} packs | Maximum: {packaging?.maximumOrderQuantity ?? "—"} packs
-              </p>
-            </div>
-
-            {/* CTA buttons */}
-            <div style={{ display: "flex", gap: 12 }}>
-              <button style={{
-                flex: 1, height: 56, minHeight: 56, minWidth: 130,
-                background: "#4B0082", borderRadius: 12, border: "none", cursor: "pointer",
-                color: C_WHITE, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 600, lineHeight: "22px",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              }}>
-                <SlHandbag size={24} />
-                Buy Now
-              </button>
-              <button style={{
-                flex: 1, height: 56, minHeight: 56, minWidth: 130,
-                background: "transparent", borderRadius: 12, cursor: "pointer",
-                outline: `3px ${C_PRIMARY_900} solid`, outlineOffset: -1.5,
-                border: "none",
-                color: C_PRIMARY_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 600, lineHeight: "22px",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              }}>
-                <HiOutlineShoppingCart size={24} />
-                Add to Cart
-              </button>
-            </div>
+            ))}
+            {/* Empty placeholder slots to fill up to 4 */}
+            {Array.from({ length: Math.max(0, 4 - displayImages.length) }).map((_, i) => (
+              <div
+                key={`empty-${i}`}
+                style={{
+                  flex: "1 1 0",
+                  height: 276,
+                  borderRadius: 12,
+                  background: "#F5F5F5",
+                  boxShadow: "0px 1px 2px -1px rgba(0,0,0,0.10)",
+                }}
+              />
+            ))}
           </div>
         </div>
 
-        {/* ── Product description section ── */}
-        <div style={{
-          borderTop: `1px ${C_BORDER} solid`,
-          padding: "32px 32px 48px",
-          display: "flex", flexDirection: "column", gap: 16,
-        }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* ── Two-column fields ── */}
+        <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <h2 style={{
-                color: "#101828", fontSize: 18, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 400, lineHeight: "24px", margin: 0,
-              }}>
-                Product Description
-              </h2>
-              <p style={{
-                color: "#4A5565", fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 400, lineHeight: "22px", margin: 0,
-              }}>
-                {productData?.productDescription}
+          {/* ── LEFT column ── */}
+          <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
+            <FieldRow label="Product Name" value={productData.productName} multiline />
+
+            {/* ── Drug-specific fields ── */}
+            {drugEntry && (
+              <>
+                <FieldRow label="Therapeutic Category" value={therapeuticCategory} />
+                <FieldRow label="Therapeutic Subcategory" value={therapeuticSubcategory} />
+                <FieldRow label="Dosage Form (Tablet, Syrup)" value={dosageForm} />
+
+                {/* Molecule 1 — from molecules[0].strength */}
+                <div style={{ ...ROW, alignItems: "center" }}>
+                  <div style={ROW_LABEL}>
+                    <span style={LABEL_TEXT}>Molecule 1:</span>
+                    <span style={REQUIRED_STAR}>*</span>
+                  </div>
+                  <div
+                    style={{
+                      flex: "1 1 0",
+                      display: "flex",
+                      gap: 16,
+                      justifyContent: "flex-end",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: "#3C3D3A",
+                        fontSize: 16,
+                        fontFamily: "'Open Sans', sans-serif",
+                        fontWeight: 400,
+                        lineHeight: "22px",
+                      }}
+                    >
+                      {molecule1?.moleculeName ?? drugEntry?.molecule1Name ?? "—"}
+                    </span>
+                    <span
+                      style={{
+                        color: "#3C3D3A",
+                        fontSize: 16,
+                        fontFamily: "'Open Sans', sans-serif",
+                        fontWeight: 700,
+                        lineHeight: "22px",
+                      }}
+                    >
+                      {molecule1?.strength != null
+                        ? formatStrength(molecule1.strength)
+                        : drugEntry?.molecule1Strength != null
+                        ? formatStrength(drugEntry.molecule1Strength)
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Molecule 2 — from molecules[1].strength */}
+                <div style={{ ...ROW, alignItems: "center" }}>
+                  <div style={ROW_LABEL}>
+                    <span style={LABEL_TEXT}>Molecule 2</span>
+                    <span style={REQUIRED_STAR}>*</span>
+                  </div>
+                  <div
+                    style={{
+                      flex: "1 1 0",
+                      display: "flex",
+                      gap: 16,
+                      justifyContent: "flex-end",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: "#3C3D3A",
+                        fontSize: 16,
+                        fontFamily: "'Open Sans', sans-serif",
+                        fontWeight: 400,
+                        lineHeight: "22px",
+                      }}
+                    >
+                      {molecule2?.moleculeName ?? drugEntry?.molecule2Name ?? "—"}
+                    </span>
+                    <span
+                      style={{
+                        color: "#3C3D3A",
+                        fontSize: 16,
+                        fontFamily: "'Open Sans', sans-serif",
+                        fontWeight: 700,
+                        lineHeight: "22px",
+                      }}
+                    >
+                      {molecule2?.strength != null
+                        ? formatStrength(molecule2.strength)
+                        : drugEntry?.molecule2Strength != null
+                        ? formatStrength(drugEntry.molecule2Strength)
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <FieldRow label="Drug Schedule" value={drugSchedule} />
+                <FieldRow
+                  label="Mechanism of Action (MoA)"
+                  value={mechanismOfAction}
+                  multiline
+                />
+              </>
+            )}
+
+            {/* ── Non-Consumable specific fields ── */}
+            {ncAttr && (
+              <>
+                <FieldRow label="Brand Name" value={ncAttr.brandName} />
+                <FieldRow label="Model Name" value={ncAttr.modelName} />
+                <FieldRow label="Model Number" value={ncAttr.modelNumber} />
+                <FieldRow label="Device Classification" value={ncAttr.deviceClassification} />
+                <FieldRow label="Device Category" value={ncAttr.deviceName} />
+                <FieldRow label="Device Sub-Category" value={ncAttr.deviceSubCategoryName} />
+                <FieldRow label="UDI Number" value={ncAttr.udiNumber} />
+                <FieldRow
+                  label="Warranty Period"
+                  value={
+                    ncAttr.warrantyPeriod != null ? `${ncAttr.warrantyPeriod} months` : null
+                  }
+                />
+                <FieldRow label="Country of Origin" value={ncAttr.countryName} />
+                <FieldRow label="Power Source" value={ncAttr.powerSourceName} />
+                <FieldRow
+                  label="Material Type"
+                  value={ncAttr.materialTypes?.map((m) => m.materialTypeName).join(", ")}
+                />
+                <FieldRow
+                  label="Key Features / Specifications"
+                  value={ncAttr.keyFeaturesSpecifications}
+                  multiline
+                />
+              </>
+            )}
+
+            {/* ── Consumable specific fields ── */}
+            {consAttr && (
+              <>
+                <FieldRow label="Brand Name" value={consAttr.brandName} />
+                <FieldRow label="Sterile / Non-Sterile" value={consAttr.sterileOrNonSterile} />
+                <FieldRow label="Disposal / Reusable" value={consAttr.disposalOrReusable} />
+                <FieldRow
+                  label="Material Type"
+                  value={consAttr.materialTypes?.map((m) => m.materialTypeName).join(", ")}
+                />
+                <FieldRow
+                  label="Key Features / Specifications"
+                  value={consAttr.keyFeaturesSpecifications}
+                  multiline
+                />
+                <FieldRow
+                  label="Safety Instructions"
+                  value={consAttr.safetyInstructions}
+                  multiline
+                />
+              </>
+            )}
+
+            {/* Storage Condition — universal field shown for all categories */}
+            <FieldRow label="Storage Condition" value={storageCondition} multiline />
+          </div>
+
+          {/* ── RIGHT column ── */}
+          <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
+            <FieldRow label="Primary Use" value={primaryUse} />
+            <FieldRow label="Manufacturer Name" value={manufacturerName} />
+
+            {/* Brochure */}
+            <div
+              style={{
+                padding: "12px 16px 8px",
+                borderBottom: "1px #D5D5D4 solid",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={LABEL_TEXT}>Uploaded Product Brochure</span>
+                <span style={REQUIRED_STAR}>*</span>
+              </div>
+              {brochureUrl ? (
+                <a
+                  href={brochureUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: 12,
+                    background: "#F5F5F5",
+                    borderRadius: 8,
+                    textDecoration: "none",
+                  }}
+                >
+                  <FileText size={24} color="#3C3D3A" />
+                  <span
+                    style={{
+                      color: "#3C3D3A",
+                      fontSize: 16,
+                      fontFamily: "'Open Sans', sans-serif",
+                      fontWeight: 400,
+                      lineHeight: "22px",
+                    }}
+                  >
+                    product-brochure.pdf
+                  </span>
+                </a>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: 12,
+                    background: "#F5F5F5",
+                    borderRadius: 8,
+                  }}
+                >
+                  <FileText size={24} color="#3C3D3A" />
+                  <span
+                    style={{
+                      color: "#5A5B58",
+                      fontSize: 16,
+                      fontFamily: "'Open Sans', sans-serif",
+                      fontWeight: 400,
+                      lineHeight: "22px",
+                    }}
+                  >
+                    No brochure uploaded
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Certificate Documents — rendered when certs exist (non-consumable / consumable) */}
+            {certDocs.length > 0 && (
+              <div
+                style={{
+                  padding: "12px 16px 8px",
+                  borderBottom: "1px #D5D5D4 solid",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={LABEL_TEXT}>Certificate Documents</span>
+                  <span style={REQUIRED_STAR}>*</span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {certDocs.map((cert) => (
+                    <button
+                      key={cert.certificationId}
+                      type="button"
+                      onClick={() => {
+                        setActiveCertDoc(cert);
+                        setShowCertModal(true);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 12px",
+                        background: "var(--secondary-50, #F3E8FF)",
+                        border: "1px solid var(--secondary-200, #D8B4FE)",
+                        borderRadius: 9999,
+                        cursor: "pointer",
+                        fontFamily: "'Open Sans', sans-serif",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "var(--secondary-700, #7E22CE)",
+                      }}
+                    >
+                      <PiSealCheckLight size={14} />
+                      {cert.certificationName ?? `Cert ${cert.certificationId}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Warnings & Precautions */}
+            <div
+              style={{
+                padding: "12px 16px 8px",
+                borderBottom: "1px #D5D5D4 solid",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={LABEL_TEXT}>Warnings &amp; Precautions</span>
+                <span style={REQUIRED_STAR}>*</span>
+              </div>
+              <p
+                style={{
+                  color: "#3C3D3A",
+                  fontSize: 16,
+                  fontFamily: "'Open Sans', sans-serif",
+                  fontWeight: 400,
+                  lineHeight: "22px",
+                  margin: 0,
+                }}
+              >
+                {warningsPrecautions ?? "—"}
               </p>
             </div>
 
-            <div style={{ height: 24 }} />
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <h2 style={{
-                color: "#101828", fontSize: 18, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 400, lineHeight: "24px", margin: 0,
-              }}>
-                Warnings &amp; Precautions:
-              </h2>
-              <p style={{
-                color: "#4A5565", fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 400, lineHeight: "22px", margin: 0,
-              }}>
-                {productData?.warningsPrecautions}
+            {/* Product Description */}
+            <div
+              style={{
+                padding: "12px 16px 8px",
+                borderBottom: "1px #D5D5D4 solid",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={LABEL_TEXT}>Product Description</span>
+                <span style={REQUIRED_STAR}>*</span>
+              </div>
+              <p
+                style={{
+                  color: "#3C3D3A",
+                  fontSize: 16,
+                  fontFamily: "'Open Sans', sans-serif",
+                  fontWeight: 400,
+                  lineHeight: "22px",
+                  margin: 0,
+                }}
+              >
+                {productDescription ?? "—"}
               </p>
             </div>
+          </div>
+        </div>
+      </div>
 
-            {ncAttributes?.udiNumber && (
-              <p style={{
-                color: C_PNEUTRAL_500, fontSize: 12, fontFamily: FONT_OPEN_SANS,
-                fontWeight: 300, lineHeight: "18px", marginTop: 8,
-              }}>
-                UDI / Serial: {ncAttributes.udiNumber}
-              </p>
+      {/* ── PACKAGING & ORDER DETAILS ── */}
+      <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
+        <SectionTitle>Packaging &amp; Order Details</SectionTitle>
+        <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
+          <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
+            <FieldRow
+              label="Pack Type"
+              value={packaging?.packTypeName ?? packaging?.packType}
+            />
+            <FieldRow
+              label="Number of Units per Pack Type"
+              value={
+                packaging?.numberOfUnits ?? packaging?.unitPerPack ?? packaging?.unitsPerPack
+              }
+            />
+            <FieldRow
+              label="Number of Packs"
+              value={
+                packaging?.numberOfPacks != null ? `${packaging.numberOfPacks} Box` : null
+              }
+            />
+            <FieldRow
+              label="Pack Size (No. of packs × No. of Units per pack type)"
+              value={packSizeDisplay}
+              multiline
+            />
+          </div>
+          <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "8px", borderBottom: "1px #D5D5D4 solid" }}>
+              <span
+                style={{
+                  color: "#1E1E1D",
+                  fontSize: 20,
+                  fontFamily: "'Open Sans', sans-serif",
+                  fontWeight: 600,
+                  lineHeight: "24px",
+                }}
+              >
+                Order Details
+              </span>
+            </div>
+            <FieldRow label="Min Order Qty" value={packaging?.minimumOrderQuantity} />
+            <FieldRow label="Max Order Qty" value={packaging?.maximumOrderQuantity} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── BATCH MANAGEMENT + PRICING ── */}
+      <div
+        style={{ display: "flex", gap: 36, alignItems: "flex-start", alignSelf: "stretch" }}
+      >
+        {/* Batch Management */}
+        <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column", gap: 16 }}>
+          <SectionTitle>Batch Management</SectionTitle>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <FieldRow label="Batch Number" value={pricing?.batchLotNumber} />
+            <FieldRow
+              label="Manufacturing Date"
+              value={formatDate(pricing?.manufacturingDate)}
+            />
+            <FieldRow label="Expiry Date" value={formatDate(pricing?.expiryDate)} />
+            <FieldRow
+              label="Stock Quantity (in terms of Pack Size)"
+              value={
+                pricing?.stockQuantity != null
+                  ? `${pricing.stockQuantity.toLocaleString()} units`
+                  : null
+              }
+            />
+            <FieldRow
+              label="Date of Stock Entry"
+              value={formatDate(pricing?.dateOfStockEntry)}
+            />
+            {/* Shelf life from pricingDetails.shelfLifeMonths OR consumable's shelfLife string */}
+            <FieldRow label="Shelf Life" value={shelfLifeDisplay} />
+          </div>
+        </div>
+
+        {/* Pricing */}
+        <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column", gap: 16 }}>
+          <SectionTitle>Pricing</SectionTitle>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <FieldRow
+              label="MRP (per Pack Size)"
+              value={
+                pricing?.mrp != null ? `₹${pricing.mrp.toLocaleString()}` : null
+              }
+            />
+            <FieldRow
+              label="Selling Price (per Pack Size)"
+              value={
+                pricing?.sellingPrice != null
+                  ? `₹${pricing.sellingPrice.toLocaleString()}`
+                  : null
+              }
+            />
+            <FieldRow
+              label="Discount Percentage"
+              value={
+                pricing?.discountPercentage != null
+                  ? `${pricing.discountPercentage}%`
+                  : null
+              }
+            />
+
+            {/* Additional Discounts */}
+            {additionalDiscounts.length > 0 && (
+              <>
+                <div style={{ padding: "12px 8px 8px" }}>
+                  <span
+                    style={{
+                      color: "#5A5B58",
+                      fontSize: 18,
+                      fontFamily: "'Open Sans', sans-serif",
+                      fontWeight: 600,
+                      lineHeight: "24px",
+                    }}
+                  >
+                    Additional Discounts Applied
+                  </span>
+                </div>
+                {additionalDiscounts.map((d, i) => {
+                  /* API uses effectiveStartDate / effectiveEndDate — legacy uses startDate/endDate */
+                  const startDate = d.effectiveStartDate ?? d.startDate;
+                  const endDate = d.effectiveEndDate ?? d.endDate;
+                  return (
+                    <div
+                      key={d.additionalDiscountId ?? i}
+                      style={{
+                        padding: 12,
+                        borderBottom: "1px #D5D5D4 solid",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-end",
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <p
+                          style={{
+                            color: "#5A5B58",
+                            fontSize: 14,
+                            fontFamily: "'Open Sans', sans-serif",
+                            fontWeight: 400,
+                            lineHeight: "20px",
+                            margin: 0,
+                          }}
+                        >
+                          Bulk order discount ({d.minimumPurchaseQuantity}
+                          {d.maximumPurchaseQuantity
+                            ? `-${d.maximumPurchaseQuantity}`
+                            : "+"}{" "}
+                          units)
+                          {startDate && endDate
+                            ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
+                            : ""}
+                        </p>
+                      </div>
+                      <span
+                        style={{
+                          color: "#3C3D3A",
+                          fontSize: 16,
+                          fontFamily: "'Open Sans', sans-serif",
+                          fontWeight: 600,
+                          lineHeight: "22px",
+                          textAlign: "right",
+                          flexShrink: 0,
+                          paddingLeft: 16,
+                        }}
+                      >
+                        {d.additionalDiscountPercentage}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── Certificate modal ── */}
+      {/* ── TAX & BILLING ── */}
+      <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
+        <SectionTitle>TAX &amp; BILLING</SectionTitle>
+        <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
+          <div style={{ flex: "1 1 0" }}>
+            {/* GST — from pricingDetails[0].gstPercentage */}
+            <FieldRow
+              label="GST %"
+              value={gstPercentage != null ? `${gstPercentage}%` : null}
+            />
+          </div>
+          <div style={{ flex: "1 1 0" }}>
+            {/* HSN — from pricingDetails[0].hsnCode */}
+            <FieldRow
+              label="HSN Code"
+              value={hsnCode != null ? String(hsnCode) : null}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── CERTIFICATE MODAL ── */}
       {showCertModal && activeCertDoc && (
         <div
-          onClick={() => { setShowCertModal(false); setActiveCertDoc(null); }}
+          onClick={() => {
+            setShowCertModal(false);
+            setActiveCertDoc(null);
+          }}
           style={{
-            position: "fixed", inset: 0, zIndex: 50,
-            display: "flex", alignItems: "center", justifyContent: "center",
+            position: "fixed",
+            inset: 0,
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             background: "rgba(0,0,0,0.50)",
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: C_WHITE, borderRadius: 16,
+              background: "white",
+              borderRadius: 16,
               boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
-              width: "100%", maxWidth: 672, margin: "0 16px",
-              overflow: "hidden", display: "flex", flexDirection: "column",
+              width: "100%",
+              maxWidth: 672,
+              margin: "0 16px",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
               maxHeight: "90vh",
             }}
           >
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "16px 24px", borderBottom: `1px ${C_BORDER} solid`,
-            }}>
+            {/* Modal header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 24px",
+                borderBottom: "1px #D5D5D4 solid",
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{
-                  width: 36, height: 36, background: C_PRIMARY_05,
-                  borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <PiSealCheckLight size={20} color={C_SECONDARY_700} />
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    background: "var(--primary-05)",
+                    borderRadius: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <PiSealCheckLight size={20} color="var(--secondary-700)" />
                 </div>
                 <div>
-                  <p style={{
-                    color: C_PNEUTRAL_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                    fontWeight: 600, lineHeight: "22px", margin: 0,
-                  }}>
-                    {activeCertDoc.certificationName || activeCertDoc.label || `Certificate ${activeCertDoc.certificationId}`}
+                  <p
+                    style={{
+                      color: "#1E1E1D",
+                      fontSize: 16,
+                      fontFamily: "'Open Sans', sans-serif",
+                      fontWeight: 600,
+                      lineHeight: "22px",
+                      margin: 0,
+                    }}
+                  >
+                    {activeCertDoc.certificationName ??
+                      activeCertDoc.label ??
+                      `Certificate ${activeCertDoc.certificationId}`}
                   </p>
-                  <p style={{
-                    color: C_PNEUTRAL_500, fontSize: 12, fontFamily: FONT_OPEN_SANS,
-                    fontWeight: 400, lineHeight: "18px", margin: 0,
-                  }}>
+                  <p
+                    style={{
+                      color: "#5A5B58",
+                      fontSize: 12,
+                      fontFamily: "'Open Sans', sans-serif",
+                      fontWeight: 400,
+                      lineHeight: "18px",
+                      margin: 0,
+                    }}
+                  >
                     Certification Document
                   </p>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <a href={activeCertDoc.certificateUrl} target="_blank" rel="noreferrer" style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  color: C_SECONDARY_700, fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                  fontWeight: 600, lineHeight: "20px", textDecoration: "none",
-                  padding: "6px 12px", borderRadius: 8,
-                }}>
+                <a
+                  href={activeCertDoc.certificateUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    color: "var(--secondary-700)",
+                    fontSize: 14,
+                    fontFamily: "'Open Sans', sans-serif",
+                    fontWeight: 600,
+                    lineHeight: "20px",
+                    textDecoration: "none",
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                  }}
+                >
                   <ExternalLink size={14} /> Open
                 </a>
                 <button
                   type="button"
-                  onClick={() => { setShowCertModal(false); setActiveCertDoc(null); }}
-                  style={{
-                    width: 32, height: 32, borderRadius: 8, border: "none",
-                    background: "transparent", cursor: "pointer",
-                    color: C_PNEUTRAL_500, fontSize: 20, display: "flex",
-                    alignItems: "center", justifyContent: "center",
+                  onClick={() => {
+                    setShowCertModal(false);
+                    setActiveCertDoc(null);
+                  }}
+                  style={{  
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    color: "#5A5B58",
+                    fontSize: 20,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
                   ×
@@ -932,16 +1478,29 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
               </div>
             </div>
 
-            <div style={{
-              flex: 1, overflowY: "auto", background: C_PNEUTRAL_50,
-              padding: 16, display: "flex", alignItems: "center", justifyContent: "center",
-              minHeight: 400,
-            }}>
+            {/* Modal body */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                background: "#F5F5F5",
+                padding: 16,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: 400,
+              }}
+            >
               {isImageUrl(activeCertDoc.certificateUrl) ? (
                 <img
                   src={activeCertDoc.certificateUrl}
                   alt={activeCertDoc.certificationName || "Certificate"}
-                  style={{ maxWidth: "100%", maxHeight: 600, objectFit: "contain", borderRadius: 8 }}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: 600,
+                    objectFit: "contain",
+                    borderRadius: 8,
+                  }}
                 />
               ) : isPdfUrl(activeCertDoc.certificateUrl) ? (
                 <iframe
@@ -950,33 +1509,74 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                   style={{ width: "100%", height: 560, border: "none", borderRadius: 8 }}
                 />
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "32px 0" }}>
-                  <div style={{
-                    width: 64, height: 64, background: C_PRIMARY_05, borderRadius: 16,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <FileText size={32} color={C_SECONDARY_700} />
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 16,
+                    padding: "32px 0",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 64,
+                      height: 64,
+                      background: "var(--primary-05)",
+                      borderRadius: 16,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <FileText size={32} color="var(--secondary-700)" />
                   </div>
                   <div style={{ textAlign: "center" }}>
-                    <p style={{
-                      color: C_PNEUTRAL_900, fontSize: 16, fontFamily: FONT_OPEN_SANS,
-                      fontWeight: 600, lineHeight: "22px", margin: "0 0 8px",
-                    }}>
-                      {activeCertDoc.certificationName || activeCertDoc.label || `Certificate ${activeCertDoc.certificationId}`}
+                    <p
+                      style={{
+                        color: "#1E1E1D",
+                        fontSize: 16,
+                        fontFamily: "'Open Sans', sans-serif",
+                        fontWeight: 600,
+                        lineHeight: "22px",
+                        margin: "0 0 8px",
+                      }}
+                    >
+                      {activeCertDoc.certificationName ??
+                        activeCertDoc.label ??
+                        `Certificate ${activeCertDoc.certificationId}`}
                     </p>
-                    <p style={{
-                      color: C_PNEUTRAL_500, fontSize: 14, fontFamily: FONT_OPEN_SANS,
-                      fontWeight: 400, lineHeight: "20px", margin: "0 0 16px",
-                    }}>
+                    <p
+                      style={{
+                        color: "#5A5B58",
+                        fontSize: 14,
+                        fontFamily: "'Open Sans', sans-serif",
+                        fontWeight: 400,
+                        lineHeight: "20px",
+                        margin: "0 0 16px",
+                      }}
+                    >
                       This file cannot be previewed in the browser.
                     </p>
-                    <a href={activeCertDoc.certificateUrl} target="_blank" rel="noreferrer" style={{
-                      display: "inline-flex", alignItems: "center", gap: 8,
-                      background: C_SECONDARY_700, color: C_WHITE,
-                      fontSize: 14, fontFamily: FONT_OPEN_SANS, fontWeight: 600,
-                      lineHeight: "20px", padding: "10px 20px", borderRadius: 8,
-                      textDecoration: "none",
-                    }}>
+                    <a
+                      href={activeCertDoc.certificateUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                        background: "var(--secondary-700)",
+                        color: "white",
+                        fontSize: 14,
+                        fontFamily: "'Open Sans', sans-serif",
+                        fontWeight: 600,
+                        lineHeight: "20px",
+                        padding: "10px 20px",
+                        borderRadius: 8,
+                        textDecoration: "none",
+                      }}
+                    >
                       <ExternalLink size={14} /> Open / Download
                     </a>
                   </div>
@@ -984,16 +1584,28 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
               )}
             </div>
 
+            {/* Other certs strip */}
             {certDocs.length > 1 && (
-              <div style={{
-                borderTop: `1px ${C_BORDER} solid`,
-                padding: "12px 24px", display: "flex", alignItems: "center",
-                gap: 8, overflowX: "auto",
-              }}>
-                <span style={{
-                  color: C_PNEUTRAL_500, fontSize: 12, fontFamily: FONT_OPEN_SANS,
-                  fontWeight: 400, lineHeight: "18px", flexShrink: 0,
-                }}>
+              <div
+                style={{
+                  borderTop: "1px #D5D5D4 solid",
+                  padding: "12px 24px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  overflowX: "auto",
+                }}
+              >
+                <span
+                  style={{
+                    color: "#5A5B58",
+                    fontSize: 12,
+                    fontFamily: "'Open Sans', sans-serif",
+                    fontWeight: 400,
+                    lineHeight: "18px",
+                    flexShrink: 0,
+                  }}
+                >
                   Other certs:
                 </span>
                 {certDocs
@@ -1004,15 +1616,26 @@ const ProductView1 = ({ productId, setCurrentView }: ProductViewProps) => {
                       type="button"
                       onClick={() => setActiveCertDoc(cert)}
                       style={{
-                        flexShrink: 0, display: "flex", alignItems: "center", gap: 6,
-                        color: C_SECONDARY_700, background: C_SECONDARY_50,
-                        fontSize: 12, fontFamily: FONT_OPEN_SANS, fontWeight: 600,
-                        lineHeight: "18px", padding: "6px 12px", borderRadius: 9999,
-                        border: "none", cursor: "pointer",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        color: "var(--secondary-700)",
+                        background: "var(--secondary-50)",
+                        fontSize: 12,
+                        fontFamily: "'Open Sans', sans-serif",
+                        fontWeight: 600,
+                        lineHeight: "18px",
+                        padding: "6px 12px",
+                        borderRadius: 9999,
+                        border: "none",
+                        cursor: "pointer",
                       }}
                     >
                       <PiSealCheckLight size={12} />
-                      {cert.certificationName || cert.label || `Cert ${cert.certificationId}`}
+                      {cert.certificationName ??
+                        cert.label ??
+                        `Cert ${cert.certificationId}`}
                     </button>
                   ))}
               </div>
