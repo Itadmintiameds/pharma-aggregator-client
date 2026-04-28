@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Building2, FileText } from "lucide-react";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { ProductTypeResponse } from "@/src/types/seller/SellerRegMasterData";
@@ -9,6 +9,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
+import { debounce } from "lodash";
 
 interface Props {
   formData: any;
@@ -185,8 +187,20 @@ export default function DocumentForm({
   const [uploadingGST, setUploadingGST] = useState(false);
   const [uploadingLicenses, setUploadingLicenses] = useState<Record<string, boolean>>({});
   const [licenseErrors, setLicenseErrors] = useState<Record<string, string>>({});
+  const [licenseExistsErrors, setLicenseExistsErrors] = useState<Record<string, string>>({});
+  const [checkingLicense, setCheckingLicense] = useState<Record<string, boolean>>({});
   const [showExpiredError, setShowExpiredError] = useState(false);
   const [dateErrors, setDateErrors] = useState<Record<string, string>>({});
+  
+  // ==================== GST VALIDATION STATES ====================
+  const [gstError, setGstError] = useState<string>("");
+  const [gstExistsError, setGstExistsError] = useState<string>("");
+  const [checkingGST, setCheckingGST] = useState(false);
+
+  // Create a ref for debounced functions
+  const debouncedCheckLicenseExists = useRef<Record<string, ReturnType<typeof debounce>>>({});
+  // Create a ref for debounced GST check - FIXED: initialize with null
+  const debouncedCheckGST = useRef<ReturnType<typeof debounce> | null>(null);
 
   // ✅ Year guard hook
   const { handleDateInputKeyDown, handleDateInputChange } = useDateYearGuard();
@@ -212,6 +226,49 @@ export default function DocumentForm({
     };
   };
 
+  // ==================== GST VALIDATION FUNCTIONS ====================
+  
+  // Function to check if GST number exists in the system
+  const checkGSTExists = async (gstNumber: string) => {
+    if (!gstNumber || gstNumber.length !== 15) {
+      setGstExistsError("");
+      return;
+    }
+
+    setCheckingGST(true);
+
+    try {
+      const exists = await sellerRegService.checkGSTNumber(gstNumber);
+
+      if (exists) {
+        setGstExistsError("This GST number already exists in the system");
+        toast.error(`GST number ${gstNumber} already exists`, { 
+          toastId: `gst-exists-${gstNumber}` 
+        });
+      } else {
+        setGstExistsError("");
+      }
+    } catch (error: any) {
+      console.error("Error checking GST:", error);
+      setGstExistsError("");
+    } finally {
+      setCheckingGST(false);
+    }
+  };
+
+  // Initialize debounced GST check
+  useEffect(() => {
+    if (!debouncedCheckGST.current) {
+      debouncedCheckGST.current = debounce((gstNumber: string) => {
+        checkGSTExists(gstNumber);
+      }, 800);
+    }
+
+    return () => {
+      debouncedCheckGST.current?.cancel();
+    };
+  }, []);
+
   const validateGSTFormat = (gstNumber: string) => {
     if (gstNumber.length === 15) {
       const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
@@ -224,6 +281,7 @@ export default function DocumentForm({
     }
   };
 
+  // Updated GST change handler with existence check
   const handleGSTChangeWithValidation = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.toUpperCase();
     value = value.replace(/[^0-9A-Z]/g, '');
@@ -235,9 +293,97 @@ export default function DocumentForm({
     } as React.ChangeEvent<HTMLInputElement>;
 
     onGSTChange(syntheticEvent);
-
-    if (value.length === 15) validateGSTFormat(value);
+    
+    // Validate GST format
+    if (value.length === 15) {
+      const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+      if (!gstRegex.test(value)) {
+        setGstError("Invalid GST number format");
+        setGstExistsError("");
+      } else {
+        setGstError("");
+        validateGSTFormat(value);
+        // Check if GST exists (debounced)
+        debouncedCheckGST.current?.(value);
+      }
+    } else if (value.length > 0 && value.length < 15) {
+      setGstError("GST number must be 15 characters");
+      setGstExistsError("");
+    } else {
+      setGstError("");
+      setGstExistsError("");
+    }
   };
+
+  // Handle GST blur for final validation
+  const handleGSTBlur = (value: string) => {
+    if (value.length === 15) {
+      const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+      if (gstRegex.test(value)) {
+        checkGSTExists(value);
+      }
+    }
+  };
+
+  // ==================== LICENSE VALIDATION FUNCTIONS ====================
+  
+  // Function to check if license number exists
+  const checkLicenseExists = async (licenseNumber: string, productName: string) => {
+    if (!licenseNumber || licenseNumber.length < 8) {
+      setLicenseExistsErrors(prev => ({ ...prev, [productName]: "" }));
+      return;
+    }
+
+    // Don't check if there's already a format error
+    if (licenseErrors[productName]) {
+      return;
+    }
+
+    setCheckingLicense(prev => ({ ...prev, [productName]: true }));
+
+    try {
+      const exists = await sellerRegService.checkDocumentExists(
+        "DRUG_LICENSE",
+        licenseNumber
+      );
+
+      if (exists) {
+        setLicenseExistsErrors(prev => ({ 
+          ...prev, 
+          [productName]: "This license number already exists in the system" 
+        }));
+        toast.error(`License number ${licenseNumber} already exists`, { 
+          toastId: `license-exists-${licenseNumber}` 
+        });
+      } else {
+        setLicenseExistsErrors(prev => ({ ...prev, [productName]: "" }));
+      }
+    } catch (error: any) {
+      console.error("Error checking license:", error);
+      // Don't show error to user for network issues, just log
+    } finally {
+      setCheckingLicense(prev => ({ ...prev, [productName]: false }));
+    }
+  };
+
+  // Initialize debounced functions for each product
+  useEffect(() => {
+    formData.productTypes.forEach((productName: string) => {
+      if (!debouncedCheckLicenseExists.current[productName]) {
+        debouncedCheckLicenseExists.current[productName] = debounce(
+          (licenseNumber: string) => checkLicenseExists(licenseNumber, productName),
+          800
+        );
+      }
+    });
+
+    // Cleanup debounced functions
+    return () => {
+      Object.values(debouncedCheckLicenseExists.current).forEach(debounced => {
+        debounced.cancel();
+      });
+    };
+  }, [formData.productTypes]);
 
   // Enhanced issue date change handler with validation
   const handleIssueDateChangeWithValidation = (date: Date | null, productName: string) => {
@@ -340,6 +486,19 @@ export default function DocumentForm({
     
     const error = validateDrugLicenseNumber(cleanedValue);
     setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
+    
+    // Clear existing existence error if format is invalid
+    if (error) {
+      setLicenseExistsErrors(prev => ({ ...prev, [productName]: "" }));
+      return;
+    }
+    
+    // Check if license exists (debounced)
+    if (cleanedValue.length >= 8) {
+      debouncedCheckLicenseExists.current[productName]?.(cleanedValue);
+    } else {
+      setLicenseExistsErrors(prev => ({ ...prev, [productName]: "" }));
+    }
   };
 
   // Handle key down to block invalid keys
@@ -359,6 +518,11 @@ export default function DocumentForm({
   const handleLicenseNumberBlur = (value: string, productName: string) => {
     const error = validateDrugLicenseNumber(value);
     setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
+    
+    // Also check on blur if not already checked and format is valid
+    if (value.length >= 8 && !error) {
+      checkLicenseExists(value, productName);
+    }
   };
 
   // Function to restrict input to alphanumeric characters and spaces only
@@ -421,14 +585,29 @@ export default function DocumentForm({
 
   // Handle continue button click with expired license check
   const handleContinue = () => {
+    // Check for expired licenses
     if (expiredProducts.length > 0) {
       setShowExpiredError(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     
+    // Check for gap errors
     if (invalidGapProducts.length > 0) {
       toast.error("Some licenses have validity period exceeding 5 years. Please correct them.");
+      return;
+    }
+    
+    // Check for any license existence errors
+    const hasLicenseExistsErrors = Object.values(licenseExistsErrors).some(error => error !== "");
+    if (hasLicenseExistsErrors) {
+      toast.error("Please fix duplicate license numbers before continuing.");
+      return;
+    }
+    
+    // Check for GST existence error
+    if (gstExistsError) {
+      toast.error("Please fix duplicate GST number before continuing.");
       return;
     }
     
@@ -520,6 +699,8 @@ export default function DocumentForm({
           const licenseFileName = licenseData.file?.name || "";
           const isUploading = uploadingLicenses[productName];
           const licenseError = licenseErrors[productName];
+          const licenseExistsError = licenseExistsErrors[productName];
+          const isCheckingLicense = checkingLicense[productName];
           const issueDateError = dateErrors[`${productName}_issue`];
           const expiryDateError = dateErrors[`${productName}_expiry`];
           const gapError = dateErrors[`${productName}_gap`];
@@ -585,14 +766,25 @@ export default function DocumentForm({
                       placeholder={licenseInfo.placeholder}
                       maxLength={30}
                       className={`w-full h-12 pl-10 pr-4 rounded-xl border focus:outline-none focus:border-[#4B0082] uppercase ${
-                        licenseError ? 'border-red-500 bg-red-50' : 'border-neutral-300 bg-neutral-50'
+                        licenseError || licenseExistsError ? 'border-red-500 bg-red-50' : 'border-neutral-300 bg-neutral-50'
                       }`}
                     />
+                    {isCheckingLicense && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                      </div>
+                    )}
                   </div>
                   {licenseError && (
                     <p className="mt-1 text-xs text-red-500 flex items-start">
                       <span className="mr-1">⚠️</span>
                       <span>{licenseError}</span>
+                    </p>
+                  )}
+                  {licenseExistsError && !licenseError && (
+                    <p className="mt-1 text-xs text-red-500 flex items-start">
+                      <span className="mr-1">⚠️</span>
+                      <span>{licenseExistsError}</span>
                     </p>
                   )}
                 </div>
@@ -806,7 +998,7 @@ export default function DocumentForm({
           );
         })}
 
-        {/* GST SECTION */}
+        {/* GST SECTION - UPDATED WITH EXISTENCE CHECK */}
         <div className="grid grid-cols-2 gap-6 mt-4">
 
           <div className="flex flex-col gap-1">
@@ -817,17 +1009,36 @@ export default function DocumentForm({
 
             <div className="relative">
               <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-
               <input
                 type="text"
                 name="gstNumber"
                 value={formData.gstNumber}
                 onChange={handleGSTChangeWithValidation}
+                onBlur={(e) => handleGSTBlur(e.target.value)}
                 placeholder="Enter GST number"
                 maxLength={15}
-                className="w-full h-12 pl-10 pr-4 rounded-xl border border-neutral-300 bg-neutral-50 focus:outline-none focus:border-[#4B0082] uppercase"
+                className={`w-full h-12 pl-10 pr-4 rounded-xl border focus:outline-none focus:border-[#4B0082] uppercase ${
+                  gstError || gstExistsError ? 'border-red-500 bg-red-50' : 'border-neutral-300 bg-neutral-50'
+                }`}
               />
+              {checkingGST && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                </div>
+              )}
             </div>
+            {gstError && (
+              <p className="mt-1 text-xs text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{gstError}</span>
+              </p>
+            )}
+            {gstExistsError && !gstError && (
+              <p className="mt-1 text-xs text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{gstExistsError}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -902,9 +1113,9 @@ export default function DocumentForm({
 
             <button
               onClick={handleContinue}
-              disabled={expiredProducts.length > 0 || invalidGapProducts.length > 0}
+              disabled={expiredProducts.length > 0 || invalidGapProducts.length > 0 || Object.values(licenseExistsErrors).some(error => error !== "") || !!gstExistsError}
               className={`flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 font-semibold transition ${
-                expiredProducts.length > 0 || invalidGapProducts.length > 0
+                expiredProducts.length > 0 || invalidGapProducts.length > 0 || Object.values(licenseExistsErrors).some(error => error !== "") || !!gstExistsError
                   ? "border-neutral-300 text-neutral-400 bg-neutral-100 cursor-not-allowed opacity-60"
                   : "border-primary-900 text-primary-900 hover:border-primary-100"
               }`}

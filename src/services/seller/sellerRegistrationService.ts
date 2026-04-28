@@ -227,6 +227,60 @@ async checkCoordinatorPhone(phone: string): Promise<boolean> {
   }
 }
 
+ // ==================== DOCUMENT CHECK SERVICES ====================
+async checkDocumentExists(documentType: string, documentNumber: string): Promise<boolean> {
+  try {
+    console.log(`📡 Checking if document exists: ${documentType} - ${documentNumber}`);
+    
+    // Fix: Use the correct parameter name 'documentnumber' (all lowercase)
+    const response = await api.get<any>('/temp-sellers/coordinator/check-document', {
+      params: { 
+        documentnumber: documentNumber  // Changed from 'documentNumber' to 'documentnumber'
+      }
+    });
+    
+    console.log("✅ Document check response:", response.data);
+    
+    // Adjust response parsing based on actual API response structure
+    // If the API returns { exists: true } or { data: true } or just boolean
+    return response.data?.data === true || response.data?.exists === true || response.data === true;
+  } catch (error: any) {
+    console.error('❌ Error checking document:', error);
+    
+    // Log more details for debugging
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
+    
+    // Return false on error to not block the user
+    return false;
+  }
+}
+
+// method for GST check
+async checkGSTNumber(gstNumber: string): Promise<boolean> {
+  try {
+    console.log(`📡 Checking if GST number exists: ${gstNumber}`);
+    
+    const response = await api.get<any>('/temp-sellers/coordinator/check-gstnumber', {
+      params: { 
+        gstnumber: gstNumber
+      }
+    });
+    
+    console.log("✅ GST check response:", response.data);
+    return response.data?.data === true || response.data?.exists === true || response.data === true;
+  } catch (error: any) {
+    console.error('❌ Error checking GST number:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
+    return false;
+  }
+}
+
   // ==================== SELLER APPROVAL ====================
 
   async approveSeller(data: SellerApprovalRequest): Promise<ApiResponse<any>> {
