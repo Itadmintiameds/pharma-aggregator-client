@@ -6,6 +6,7 @@ import { DashboardView } from "@/src/types/seller/dashboard";
 import { PiSealCheckLight } from "react-icons/pi";
 import Image from "next/image";
 import { getDrugProductById } from "@/src/services/product/ProductService";
+import { useRouter } from "next/navigation";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -539,7 +540,9 @@ const ProductView1 = ({
 
   /* ── Navigation handlers ── */
   /** Close → always back to dashboard list */
-  const handleClose = () => setCurrentView("dashboard" as DashboardView);
+  const router = useRouter();
+  const handleClose = () => router.push("/seller_7a3b9f2c/dashboard");
+
 
   /**
    * Edit → route to the category-specific edit form.
