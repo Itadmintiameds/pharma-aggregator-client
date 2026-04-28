@@ -5,6 +5,7 @@ import Select, { StylesConfig, Theme } from "react-select";
 import Drawer from "@/src/app/commonComponents/Drawer";
 import AdditionalDiscount from "./AdditionalDiscount";
 import PopupModal from "../commonComponent/PopupModal";
+import CommonModal from "../commonComponent/CommonModal";
 import { FileText, X, RefreshCw, AlertCircle } from "lucide-react";
 import { sellerAuthService } from "@/src/services/seller/authService";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
@@ -195,8 +196,10 @@ function getMasterStr(item: MasterItem, ...keys: string[]): string {
 
 const fieldLabel = "block mb-1.5 font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]";
 const requiredStar = <span className="text-red-500 ml-0.5">*</span>;
+
+// FIX #5 & #6: Placeholder color #969793, entered text color #3C3D3A
 const inputBase =
-  "w-full h-12 px-4 border border-gray-300 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#969793] placeholder:[color:#969793] focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors bg-white";
+  "w-full h-12 px-4 border border-gray-300 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors bg-white";
 const inputDisabled =
   "w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] bg-gray-50 cursor-default flex items-center";
 const inputError = "border-red-400 focus:border-red-400 focus:ring-red-100";
@@ -310,7 +313,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [uploadingBrochure, setUploadingBrochure] = useState(false);
   const [showCertDropdown, setShowCertDropdown] = useState(false);
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
-  const [showDiscountDrawer, setShowDiscountDrawer] = useState(false);
+
+  // FIX #2/#3: Use CommonModal for additional discount (like DrugForm), remove inline drawer
+  const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -421,7 +426,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const mfgDate = pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null;
       const expDate = pricing.expiryDate ? new Date(pricing.expiryDate) : null;
 
-      // Fetch pack type label from packId
       const packIdVal = String(packaging.packId || "");
       if (packIdVal) {
         try {
@@ -503,7 +507,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     } finally { setLoadingProduct(false); }
   }, [mode, productId, fetchDeviceSubCategories, authHeaders]);
 
-  // Resolve display labels after options load
   useEffect(() => {
     if (mode !== "edit") return;
     setDisplayLabels((prev) => ({
@@ -520,7 +523,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
   useEffect(() => {
     fetchDeviceCategories();
-    // Only fetch category ID in create mode
     if (mode === "create") {
       fetch(`${MASTERS}/categories`, { headers: authHeaders() })
         .then((r) => r.json())
@@ -963,6 +965,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     } finally { setSubmitting(false); }
   };
 
+  // FIX #6: singleValue text color changed to #3C3D3A for entered data
   const selectStyles = (errorKey: string): SelectStyles => ({
     control: (base, state) => ({
       ...base, height: "48px", minHeight: "48px", borderRadius: "12px",
@@ -979,7 +982,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       "&:active": { backgroundColor: "#7c3aed", color: "white" },
     }),
     placeholder: (base) => ({ ...base, color: "#969793", fontFamily: "'Open Sans', sans-serif", fontSize: "16px" }),
-    singleValue: (base) => ({ ...base, color: "#969793", fontFamily: "'Open Sans', sans-serif", fontSize: "16px" }),
+    // FIX #6: entered/selected value text should be #3C3D3A not placeholder grey
+    singleValue: (base) => ({ ...base, color: "#3C3D3A", fontFamily: "'Open Sans', sans-serif", fontSize: "16px" }),
   });
 
   const selectTheme = (theme: Theme) => ({
@@ -1010,6 +1014,26 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
       />
+
+      {/* FIX #2/#3: CommonModal for additional discount, matching DrugForm pattern */}
+      {showAdditionalDiscountModal && (
+        <CommonModal
+          onClose={() => setShowAdditionalDiscountModal(false)}
+          width="w-[600px]"
+        >
+          <div className="h-[80vh] overflow-hidden flex flex-col">
+            <AdditionalDiscount
+              initialData={convertToDiscountData(additionalDiscountSlabs)}
+              onSave={(slabs?: AdditionalDiscountData[]) => {
+                if (slabs) setAdditionalDiscountSlabs(convertToDiscountSlab(slabs));
+                setShowAdditionalDiscountModal(false);
+              }}
+              onClose={() => setShowAdditionalDiscountModal(false)}
+            />
+          </div>
+        </CommonModal>
+      )}
+
       <div className="flex flex-col gap-5 w-full">
         {apiError && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
@@ -1021,6 +1045,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         {/* ── Section 1: Product Details ─────────────────────────────────────────── */}
         <div className={sectionCard}>
           <h2 className={sectionTitle}>Product Details</h2>
+          {/* FIX #4: gap-y-5 (20px) for consistent field spacing */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
             {/* Product Name */}
@@ -1075,7 +1100,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 <label className={fieldLabel}>Material Type {requiredStar}</label>
                 <div className="relative" ref={materialDropdownRef}>
                   <div onClick={() => setShowMaterialDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.materialType ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
-                    <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: "#969793" }}>
+                    <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedMaterialTypes.length > 0 ? "#3C3D3A" : "#969793" }}>
                       {selectedMaterialTypes.length > 0 ? selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ") : "Select material types"}
                     </span>
                     <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showMaterialDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -1086,7 +1111,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                         materialTypeOptions.map((opt) => (
                           <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
                             <input type="checkbox" checked={selectedMaterialTypes.includes(opt.value)} onChange={() => handleMaterialCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
-                            <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#969793]">{opt.label}</span>
+                            <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
                           </label>
                         ))
                       )}
@@ -1118,7 +1143,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                   {sterileOptions.map((option) => (
                     <label key={option.value} className="flex items-center gap-2 cursor-pointer">
                       <input type="radio" name="sterileStatus" value={option.value} checked={form.sterileStatus === option.value} onChange={handleChange} className="accent-purple-700 w-4 h-4" />
-                      <span className="text-base [font-family:'Open_Sans',sans-serif] font-normal [color:#969793]">{option.label}</span>
+                      <span className="text-base [font-family:'Open_Sans',sans-serif] font-normal [color:#3C3D3A]">{option.label}</span>
                     </label>
                   ))}
                 </div>
@@ -1136,7 +1161,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                   {disposableOptions.map((option) => (
                     <label key={option.value} className="flex items-center gap-2 cursor-pointer">
                       <input type="radio" name="disposableType" value={option.value} checked={form.disposableType === option.value} onChange={handleChange} className="accent-purple-700 w-4 h-4" />
-                      <span className="text-base [font-family:'Open_Sans',sans-serif] font-normal [color:#969793]">{option.label}</span>
+                      <span className="text-base [font-family:'Open_Sans',sans-serif] font-normal [color:#3C3D3A]">{option.label}</span>
                     </label>
                   ))}
                 </div>
@@ -1144,14 +1169,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               </div>
             )}
 
-            {/* Intended Use — always editable */}
+            {/* Intended Use */}
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Intended Use / Purpose {requiredStar}</label>
               <input ref={setFieldRef("intendedUse")} name="intendedUse" value={form.intendedUse} onChange={handleChange} placeholder="e.g., For surgical procedures" className={`${inputBase} ${errors.intendedUse ? inputError : ""}`} />
               {errors.intendedUse && <p className={errorMsg}>{errors.intendedUse}</p>}
             </div>
 
-            {/* Certifications */}
+            {/* FIX #7: Certification upload — tag-chip style with purple left icon + tag code chip + upload text */}
             <div className="col-span-1 md:col-span-2" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {isEdit ? (
@@ -1161,7 +1186,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                     <label className={fieldLabel}>Certifications &amp; Compliance {requiredStar}</label>
                     <div className="relative" ref={dropdownRef}>
                       <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
-                        <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif] [color:#969793]">
+                        <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#969793" }}>
                           {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
                         </span>
                         <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -1172,7 +1197,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                             certificationMasterOptions.map((opt) => (
                               <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
                                 <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
-                                <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#969793]">{opt.label}</span>
+                                <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
                               </label>
                             ))
                           )}
@@ -1183,14 +1208,26 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                   </div>
                 )}
 
+                {/* FIX #7: Tag-chip style cert upload rows */}
                 {isEdit ? (
                   <div>
                     <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
                     <div className="flex flex-col gap-2">
                       {selectedCertifications.map((cert) => (
                         <div key={cert.id} className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50">
-                          <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-500" /></div>
-                          <span className="px-3 text-base [font-family:'Open_Sans',sans-serif] [color:#969793] truncate">{cert.existingUrl ? cert.label : `${cert.label} — pending`}</span>
+                          {/* Purple left icon section */}
+                          <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                            <FileText size={16} className="text-purple-500" />
+                          </div>
+                          {/* Tag code chip */}
+                          <div className="px-2 flex-shrink-0">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
+                              {cert.tagCode}
+                            </span>
+                          </div>
+                          <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">
+                            {cert.existingUrl ? cert.label : `${cert.label} — pending`}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -1200,7 +1237,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                     <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
                     {selectedCertifications.length === 0 ? (
                       <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
-                        <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
+                        <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                          <UploadCloudIcon />
+                        </div>
                         <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
                       </div>
                     ) : (
@@ -1208,27 +1247,59 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                         {selectedCertifications.map((cert) => (
                           <div key={cert.id}>
                             {cert.existingUrl && !cert.file ? (
+                              /* Existing uploaded cert — tag chip style */
                               <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                                <div className="flex-1 px-3 min-w-0"><p className="text-sm font-medium text-gray-800 truncate">{cert.label}</p><p className="text-xs text-gray-500">Existing certificate</p></div>
+                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                  <FileText size={16} className="text-purple-600" />
+                                </div>
+                                <div className="px-2 flex-shrink-0">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
+                                    {cert.tagCode}
+                                  </span>
+                                </div>
+                                <div className="flex-1 px-2 min-w-0">
+                                  <p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.label}</p>
+                                  <p className="text-xs text-gray-500">Existing certificate</p>
+                                </div>
                                 <div className="flex items-center gap-1 pr-3">
                                   <button type="button" title="Replace" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
                                   <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
                                 </div>
                               </div>
                             ) : cert.isUploaded && cert.file ? (
+                              /* File selected — tag chip style */
                               <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                                <div className="flex-1 px-3 min-w-0"><p className="text-sm font-medium text-gray-800 truncate">{cert.fileName}</p><p className="text-xs text-gray-500">{cert.label} · {(cert.file.size / 1024).toFixed(0)} KB</p></div>
+                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                  <FileText size={16} className="text-purple-600" />
+                                </div>
+                                <div className="px-2 flex-shrink-0">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
+                                    {cert.tagCode}
+                                  </span>
+                                </div>
+                                <div className="flex-1 px-2 min-w-0">
+                                  <p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.fileName}</p>
+                                  <p className="text-xs text-gray-500">{(cert.file.size / 1024).toFixed(0)} KB</p>
+                                </div>
                                 <div className="flex items-center gap-1 pr-3">
                                   <button type="button" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
                                   <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
                                 </div>
                               </div>
                             ) : (
+                              /* Pending upload — tag chip style with upload prompt */
                               <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()}>
-                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
-                                <span className="px-3 text-base [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">{cert.label} — click to upload</span>
+                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                  <UploadCloudIcon />
+                                </div>
+                                <div className="px-2 flex-shrink-0">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
+                                    {cert.tagCode}
+                                  </span>
+                                </div>
+                                <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">
+                                  {cert.label} — click to upload
+                                </span>
                                 <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
                               </div>
                             )}
@@ -1265,14 +1336,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               </div>
             )}
 
-            {/* Storage Condition — editable in both */}
+            {/* Storage Condition */}
             <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
               <label className={fieldLabel}>Storage Condition {requiredStar}</label>
               <Select options={storageConditionOptions} value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null} onChange={(sel) => handleSelectChange("storageCondition", sel)} placeholder="Select storage condition" theme={selectTheme} styles={selectStyles("storageCondition")} />
               {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
             </div>
 
-            {/* Product Brochure — editable in both */}
+            {/* Product Brochure */}
             <div ref={setFieldRef("brochure") as React.RefCallback<HTMLDivElement>}>
               <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
               {existingBrochureUrl && !brochureFile && (
@@ -1294,7 +1365,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               ) : (
                 <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
                   <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                  <div className="flex-1 px-3 min-w-0"><p className="text-sm font-medium text-gray-800 truncate">{brochureFile.name}</p><p className="text-xs text-gray-500">{(brochureFile.size / 1024).toFixed(1)} KB</p></div>
+                  <div className="flex-1 px-3 min-w-0">
+                    <p className="text-sm font-medium [color:#3C3D3A] truncate">{brochureFile.name}</p>
+                    <p className="text-xs text-gray-500">{(brochureFile.size / 1024).toFixed(1)} KB</p>
+                  </div>
                   <div className="flex items-center gap-1 pr-3">
                     <button type="button" onClick={() => brochureInputRef.current?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
                     <button type="button" onClick={() => { setBrochureFile(null); if (brochureInputRef.current) brochureInputRef.current.value = ""; }} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
@@ -1304,26 +1378,26 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               <input ref={brochureInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleBrochureUpload(e.target.files[0]); }} />
             </div>
 
-            {/* Safety Instructions & Key Features — always editable */}
+            {/* Safety Instructions & Key Features */}
             <div className="col-span-1 md:col-span-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className={fieldLabel}>Safety Instructions &amp; Precautions {requiredStar}</label>
-                  <textarea ref={setFieldRef("safetyInstructions") as React.RefCallback<HTMLTextAreaElement>} name="safetyInstructions" value={form.safetyInstructions} onChange={handleChange} rows={4} placeholder="Enter safety warnings, precautions, and handling instructions" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#969793] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.safetyInstructions ? "border-red-400" : "border-gray-300"}`} />
+                  <textarea ref={setFieldRef("safetyInstructions") as React.RefCallback<HTMLTextAreaElement>} name="safetyInstructions" value={form.safetyInstructions} onChange={handleChange} rows={4} placeholder="Enter safety warnings, precautions, and handling instructions" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.safetyInstructions ? "border-red-400" : "border-gray-300"}`} />
                   {errors.safetyInstructions && <p className={errorMsg}>{errors.safetyInstructions}</p>}
                 </div>
                 <div>
                   <label className={fieldLabel}>Key Features &amp; Specifications {requiredStar}</label>
-                  <textarea ref={setFieldRef("keyFeatures") as React.RefCallback<HTMLTextAreaElement>} name="keyFeatures" value={form.keyFeatures} onChange={handleChange} rows={4} placeholder="List key features, technical specifications" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#969793] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.keyFeatures ? "border-red-400" : "border-gray-300"}`} />
+                  <textarea ref={setFieldRef("keyFeatures") as React.RefCallback<HTMLTextAreaElement>} name="keyFeatures" value={form.keyFeatures} onChange={handleChange} rows={4} placeholder="List key features, technical specifications" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.keyFeatures ? "border-red-400" : "border-gray-300"}`} />
                   {errors.keyFeatures && <p className={errorMsg}>{errors.keyFeatures}</p>}
                 </div>
               </div>
             </div>
 
-            {/* Product Description — always editable */}
+            {/* Product Description */}
             <div className="col-span-1 md:col-span-2">
               <label className={fieldLabel}>Product Description {requiredStar}</label>
-              <textarea ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>} name="productDescription" value={form.productDescription} onChange={handleChange} rows={4} placeholder="Detailed product description" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#969793] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.productDescription ? "border-red-400" : "border-gray-300"}`} />
+              <textarea ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>} name="productDescription" value={form.productDescription} onChange={handleChange} rows={4} placeholder="Detailed product description" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.productDescription ? "border-red-400" : "border-gray-300"}`} />
               {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
             </div>
           </div>
@@ -1345,21 +1419,18 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               </div>
             )}
 
-            {/* Units per Pack */}
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Number of Units per Pack Type {requiredStar}</label>
               <input ref={setFieldRef("unitsPerPack")} name="unitsPerPack" value={form.unitsPerPack} onChange={handleChange} placeholder="e.g., 100" inputMode="numeric" className={`${inputBase} ${errors.unitsPerPack ? inputError : ""}`} />
               {errors.unitsPerPack && <p className={errorMsg}>{errors.unitsPerPack}</p>}
             </div>
 
-            {/* Number of Packs */}
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Number of Packs {requiredStar}</label>
               <input ref={setFieldRef("numberOfPacks")} name="numberOfPacks" value={form.numberOfPacks} onChange={handleChange} placeholder="e.g., 10" inputMode="numeric" className={`${inputBase} ${errors.numberOfPacks ? inputError : ""}`} />
               {errors.numberOfPacks && <p className={errorMsg}>{errors.numberOfPacks}</p>}
             </div>
 
-            {/* Pack Size */}
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Pack Size (No. of Units per Pack Type X No. of Packs)</label>
               <input name="packSize" value={form.packSize} readOnly className={`${inputBase} bg-gray-50 [color:#969793] cursor-not-allowed`} />
@@ -1465,20 +1536,21 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               {errors.discountPercentage && <p className={errorMsg}>{errors.discountPercentage}</p>}
             </div>
 
+            {/* FIX #2/#3: Open CommonModal instead of Drawer */}
             <div className="flex flex-col gap-1">
               <label className={`${fieldLabel} opacity-0`}>_</label>
-              <button type="button" onClick={() => setShowDiscountDrawer(true)} style={{ background: "#9F75FC", borderRadius: "8px" }} className="h-12 px-5 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] w-auto self-start hover:opacity-90 transition-opacity flex items-center gap-2">
+              <button type="button" onClick={() => setShowAdditionalDiscountModal(true)} style={{ background: "#9F75FC", borderRadius: "8px" }} className="h-12 px-5 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] w-auto self-start hover:opacity-90 transition-opacity flex items-center gap-2">
                 <span className="w-5 h-5 flex items-center justify-center"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="white" strokeWidth="2" strokeLinecap="round" /></svg></span>
                 Add Additional Discount
               </button>
             </div>
           </div>
 
-          {additionalDiscountSlabs.length > 0 && (
+          {/* {additionalDiscountSlabs.length > 0 && (
             <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-xl">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-purple-800">{additionalDiscountSlabs.length} Discount Slab{additionalDiscountSlabs.length > 1 ? "s" : ""} Added</span>
-                <button type="button" onClick={() => setShowDiscountDrawer(true)} className="text-xs text-purple-600 underline">Edit</button>
+                <button type="button" onClick={() => setShowAdditionalDiscountModal(true)} className="text-xs text-purple-600 underline">Edit</button>
               </div>
               {additionalDiscountSlabs.map((slab, idx) => (
                 <div key={idx} className="flex items-center justify-between text-xs text-purple-700 py-1.5 border-t border-purple-100">
@@ -1487,7 +1559,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 </div>
               ))}
             </div>
-          )}
+          )} */}
 
           <p className={subSectionTitle}>TAX &amp; BILLING</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
@@ -1524,48 +1596,97 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         </div>
 
         {/* ── Section 3: Product Photos ──────────────────────────────────────────── */}
-        <div className={sectionCard} ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
-          <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
-            Product Photos {mode === "create" && <span className="text-red-500">*</span>}
-          </h2>
+<div
+  className={sectionCard}
+  ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>}
+  data-field="images"
+>
+  <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
+    Product Photos {mode === "create" && <span className="text-red-500">*</span>}
+  </h2>
 
-          {existingImages.length > 0 && (
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-gray-600 mb-2">Current Images</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {existingImages.map((url, i) => (
-                  <img key={i} src={url} alt={`existing-${i}`} className="w-full aspect-square object-cover rounded-xl border-2 border-gray-200" />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all" onClick={() => document.getElementById("consumableFileInput")?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}>
-            <div className="flex flex-col items-center justify-center gap-2">
-              <div className="w-12 h-12 flex items-center justify-center">
-                <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
-              </div>
-              <div className="text-sm font-medium text-gray-600 text-center">Choose a file or drag &amp; drop it here</div>
-              <div className="text-xs text-gray-400 text-center">Click to browse PNG, JPG, and SVG</div>
-            </div>
+  {/* Existing Images (edit mode) */}
+  {existingImages.length > 0 && (
+    <div className="mb-4">
+      <p className="text-sm font-semibold text-gray-600 mb-2">Current Images</p>
+      <div className="flex flex-wrap gap-3">
+        {existingImages.map((url, i) => (
+          <div key={i} className="relative flex-shrink-0">
+            <img
+              src={url}
+              alt={`existing-${i}`}
+              className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200"
+            />
           </div>
-          <input id="consumableFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg,image/svg+xml" className="hidden" onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); }} />
+        ))}
+      </div>
+    </div>
+  )}
 
-          {images.length > 0 && (
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {images.map((file, i) => {
-                const url = URL.createObjectURL(file);
-                return (
-                  <div key={i} className="relative group">
-                    <img src={url} alt={`Product ${i + 1}`} className="w-full aspect-square object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
-                    <button type="button" onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><X size={12} /></button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {errors.images && <p className={`${errorMsg} mt-2`}>{errors.images}</p>}
-        </div>
+  {/* Drop Zone */}
+  <div
+    className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
+    onClick={() => document.getElementById("ncFileInput")?.click()}
+    onDragOver={(e) => e.preventDefault()}
+    onDrop={(e) => {
+      e.preventDefault();
+      if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files);
+    }}
+  >
+    <div className="flex flex-col items-center justify-center gap-2">
+      <div className="w-12 h-12 flex items-center justify-center">
+        <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
+      </div>
+      <div className="text-sm font-medium text-gray-600 text-center">
+        Choose a file or drag &amp; drop it here
+      </div>
+      <div className="text-xs text-gray-400 text-center">
+        Click to browse PNG, JPG, and SVG
+      </div>
+    </div>
+  </div>
+
+  <input
+    id="ncFileInput"
+    type="file"
+    multiple
+    accept="image/jpeg,image/png,image/jpg,image/svg+xml"
+    className="hidden"
+    onChange={(e) => {
+      if (e.target.files) handleImageFiles(e.target.files);
+    }}
+  />
+
+  {/* New Image Previews */}
+  {images.length > 0 && (
+    <div className="mt-4 flex flex-wrap gap-3">
+      {images.map((file, i) => {
+        const url = URL.createObjectURL(file);
+        return (
+          <div key={i} className="relative group flex-shrink-0">
+            <img
+              src={url}
+              alt={`Product ${i + 1}`}
+              className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                URL.revokeObjectURL(url);
+                setImages((p) => p.filter((_, idx) => idx !== i));
+              }}
+              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  )}
+
+  {errors.images && <p className={`${errorMsg} mt-2`}>{errors.images}</p>}
+</div>
 
         {/* ── Actions ─────────────────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
@@ -1581,18 +1702,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
           </button>
         </div>
-
-        {showDiscountDrawer && (
-          <Drawer setShowDrawer={setShowDiscountDrawer} title="Additional Discount">
-            <AdditionalDiscount
-              onSave={(slabs?: AdditionalDiscountData[]) => {
-                if (slabs) setAdditionalDiscountSlabs(convertToDiscountSlab(slabs));
-                setShowDiscountDrawer(false);
-              }}
-              initialData={convertToDiscountData(additionalDiscountSlabs)}
-            />
-          </Drawer>
-        )}
       </div>
     </>
   );
