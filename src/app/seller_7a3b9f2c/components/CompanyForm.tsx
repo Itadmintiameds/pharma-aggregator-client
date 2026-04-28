@@ -292,7 +292,7 @@ export default function CompanyForm({
   };
 
   return (
-    <div className="flex flex-col gap-5 bg-white">
+    <div className="flex flex-col gap-5 bg-white" >
       {/* Header Section */}
       <div className="text-black">
         <div className="text-h3 font-semibold">Company Details</div>
@@ -315,6 +315,7 @@ export default function CompanyForm({
               <input
                 type="text"
                 name="sellerName"
+                autoComplete="off"
                 value={formData.sellerName}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -680,7 +681,7 @@ export default function CompanyForm({
 
           {/* Row 5: City | Street */}
 
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1" >
             <label className="text-label-l3 text-neutral-700 font-semibold">
               City / Town / Village
               <span className="text-warning-500 font-semibold ml-1">*</span>
@@ -690,6 +691,7 @@ export default function CompanyForm({
               <input
                 type="text"
                 name="city"
+                autoComplete="new-password"
                 value={formData.city}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -716,6 +718,7 @@ export default function CompanyForm({
               <input
                 type="text"
                 name="street"
+                autoComplete="off"
                 value={formData.street}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -742,6 +745,7 @@ export default function CompanyForm({
               <input
                 type="text"
                 name="buildingNo"
+                autoComplete="off"
                 value={formData.buildingNo}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -766,6 +770,7 @@ export default function CompanyForm({
               <input
                 type="text"
                 name="pincode"
+                autoComplete="new-password"
                 value={formData.pincode}
                 onChange={(e) => onNumericInput(e, "pincode", 6)}
                 placeholder="Enter 6-Digit Pincode"
@@ -783,6 +788,7 @@ export default function CompanyForm({
             <input
               type="text"
               name="landmark"
+              autoComplete="off"
               value={formData.landmark}
               onChange={(e) => {
                 const value = e.target.value;
@@ -857,6 +863,7 @@ export default function CompanyForm({
                 <input
                   type="tel"
                   name="phone"
+                  autoComplete="new-password"
                   value={formData.phone}
                   onChange={handleCompanyPhoneChange}
                   onKeyDown={handlePhoneKeyDown}
@@ -887,6 +894,7 @@ export default function CompanyForm({
               <input
                 type="email"
                 name="email"
+                autoComplete="new-password"
                 value={formData.email}
                 onChange={onChange}
                 placeholder="Enter Company Email ID"
@@ -903,7 +911,8 @@ export default function CompanyForm({
               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
               <input
                 type="text"
-                name="website"
+                name="website_"
+                autoComplete="off"
                 value={formData.website}
                 onChange={onChange}
                 placeholder="URL:\\"

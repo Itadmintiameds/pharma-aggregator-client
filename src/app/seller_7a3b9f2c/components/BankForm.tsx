@@ -116,6 +116,7 @@ export default function BankForm({
               <input
                 type="text"
                 name="accountHolderName"
+                autoComplete="off"
                 value={formData.accountHolderName}
                 onChange={(e) => onAlphabetInput(e, "accountHolderName")}
                 placeholder="As per bank records"
@@ -136,6 +137,7 @@ export default function BankForm({
               <input
                 type="text"
                 name="ifscCode"
+                autoComplete="off"
                 value={formData.ifscCode}
                 onChange={handleIfscInput}
                 placeholder="e.g., SBIN0001234"
@@ -161,6 +163,7 @@ export default function BankForm({
               <input
                 type="text"
                 name="accountNumber"
+                autoComplete="off"
                 value={formData.accountNumber}
                 onChange={(e) => onNumericInput(e, "accountNumber", 18)}
                 placeholder="Enter Account number"
@@ -181,6 +184,7 @@ export default function BankForm({
               <input
                 type="text"
                 name="confirmAccountNumber"
+                autoComplete="off"
                 value={formData.confirmAccountNumber}
                 onChange={onChange}
                 placeholder="Re-enter account number"

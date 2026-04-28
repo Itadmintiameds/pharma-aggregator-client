@@ -758,6 +758,7 @@ export default function DocumentForm({
                     <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
                     <input
                       type="text"
+                      autoComplete="off"
                       name={`licenseNumber-${productName}`}
                       value={licenseData.number}
                       onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
@@ -965,6 +966,7 @@ export default function DocumentForm({
 
                     <input
                       type="text"
+                      autoComplete="off"
                       name={`issuingAuthority-${productName}`}
                       value={licenseData.issuingAuthority}
                       onChange={(e) => handleIssuingAuthorityInput(e, productName)}
@@ -1012,6 +1014,7 @@ export default function DocumentForm({
               <input
                 type="text"
                 name="gstNumber"
+                autoComplete="off"
                 value={formData.gstNumber}
                 onChange={handleGSTChangeWithValidation}
                 onBlur={(e) => handleGSTBlur(e.target.value)}

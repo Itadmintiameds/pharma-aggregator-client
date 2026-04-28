@@ -463,6 +463,7 @@ export default function CoordinatorForm({
               <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
               <input
                 type="text"
+                autoComplete="new-password"
                 value={coordinatorNameLocal}
                 onChange={handleCoordinatorNameChange}
                 placeholder="Enter coordinator name"
@@ -483,6 +484,7 @@ export default function CoordinatorForm({
               <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
               <input
                 type="text"
+                autoComplete="new-password"
                 value={coordinatorDesignationLocal}
                 onChange={handleCoordinatorDesignationChange}
                 placeholder="Enter designation"
@@ -545,6 +547,7 @@ export default function CoordinatorForm({
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
                   <input
                     type="tel"
+                    autoComplete="new-password"
                     value={formData.coordinatorMobile}
                     onChange={handlePhoneChange}
                     onKeyDown={handlePhoneKeyDown}
@@ -600,6 +603,7 @@ export default function CoordinatorForm({
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
                 <input
                   type="email"
+                  autoComplete="new-password"
                   value={formData.coordinatorEmail}
                   onChange={handleEmailChange}
                   placeholder="Enter email"
