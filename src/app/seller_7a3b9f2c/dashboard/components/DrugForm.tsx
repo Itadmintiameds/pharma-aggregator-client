@@ -208,10 +208,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   >([]);
   const [loadingTherapeuticCategories, setLoadingTherapeuticCategories] =
     useState(false);
-  // const [selectedProductId, setSelectedProductId] = useState<string | null>(
-  //   null,
-  // );
-  // const [mode, setMode] = useState<"create" | "edit" | "delete">("create");
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [subcategoryOptions, setSubcategoryOptions] = useState<SelectOption[]>(
     [],
@@ -240,6 +237,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [storageConditionData, setStorageConditionData] = useState<any[]>([]);
   const [loadingStorageConditions, setLoadingStorageConditions] =
     useState(false);
+
+  const [modalType, setModalType] = useState<"create" | "update">("create");
 
   useEffect(() => {
     if (categoryId) {
@@ -749,6 +748,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       if (images.length > 0) {
         await uploadProductImages(productId, images);
       }
+      setModalType("create");
       setShowSuccessModal(true);
 
       // alert("Product Saved successfully!");
@@ -771,8 +771,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleViewProduct = () => {
-    console.log("Go to product page");
-    // navigate(`/product/${productId}`) ← if using router
+    window.location.reload();
   };
 
   const handleContinueEditing = () => {
@@ -869,6 +868,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         ),
         dosageId: selectedDosage?.value || "",
         strength: String(attributeDrug.strength ?? ""),
+        storageConditionIds: attributeDrug.storageConditionIds || [],
+
         molecules,
         packId: String(packaging.packId || ""),
         packType: packaging.packType || "",
@@ -886,7 +887,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         dateOfStockEntry: pricing.dateOfStockEntry
           ? new Date(pricing.dateOfStockEntry)
           : new Date(),
-        storageCondition: pricing.storageCondition || "",
         stockQuantity: String(pricing.stockQuantity ?? ""),
         sellingPrice: String(pricing.sellingPrice ?? ""),
         mrp: String(pricing.mrp ?? ""),
@@ -1009,8 +1009,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         await uploadProductImages(form.productId, images);
       }
 
-      alert("✅ Product updated successfully!");
-      window.location.reload();
+      setModalType("update");
+      setShowSuccessModal(true);
     } catch (err) {
       console.error(err);
       alert("❌ Update failed");
@@ -1269,9 +1269,41 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     label: item.conditionName,
   }));
 
+  const selectedStorageConditions = React.useMemo(() => {
+    if (!storageConditionOptions.length) return [];
+
+    return storageConditionOptions.filter((o) =>
+      form.storageConditionIds?.includes(Number(o.value)),
+    );
+  }, [storageConditionOptions, form.storageConditionIds]);
+
   return (
     <>
       <PopupModal
+        isOpen={showSuccessModal}
+        title={
+          modalType === "update"
+            ? "Product Updated Successfully!"
+            : "Product Saved Successfully!"
+        }
+        description={
+          modalType === "update"
+            ? "Your product has been updated and is now live on the platform"
+            : "Your product has been saved and is now live on the platform"
+        }
+        primaryActionText="View Product"
+        secondaryActionText={
+          modalType === "update" ? "Continue Editing" : "Continue Adding"
+        }
+        tertiaryActionText="Back to Dashboard"
+        onPrimaryAction={handleViewProduct}
+        onSecondaryAction={
+          modalType === "update" ? handleContinueEditing : handleContinueAdding
+        }
+        onTertiaryAction={handleBackToDashboard}
+        onClose={() => setShowSuccessModal(false)}
+      />
+      {/* <PopupModal
         isOpen={showSuccessModal}
         title="Product Saved Successfully!"
         description="Your product has been saved and is now live on the platform"
@@ -1282,7 +1314,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         onSecondaryAction={handleContinueAdding}
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
-      />
+      /> */}
       {showAdditionalDiscount && (
         <CommonModal
           onClose={() => setShowAdditionalDiscount(false)}
@@ -1550,13 +1582,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               <Select
                 options={storageConditionOptions}
                 isLoading={loadingStorageConditions}
-                isMulti // ✅ important for multi-select
-                value={storageConditionOptions.filter((o) =>
-                  form.storageConditionIds.includes(o.value),
-                )}
+                isMulti
+                value={selectedStorageConditions}
                 onChange={(selectedOptions) => {
                   const ids = selectedOptions
-                    ? selectedOptions.map((opt: any) => opt.value)
+                    ? selectedOptions.map((opt: any) => Number(opt.value))
                     : [];
 
                   setForm((prev) => ({
@@ -1774,119 +1804,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               error={errors.batchLotNumber}
               required
             />
-
-            {/* <Input
-              label="Manufacturing Date"
-              type="month"
-              name="manufacturingDate"
-              id="manufacturingDate"
-              placeholder=""
-              readOnly={isEditMode}
-              onChange={(e) => {
-                const value = e.target.value;
-
-                // Prevent year > 4 digits
-                const year = value.split("-")[0];
-                if (year && year.length > 4) {
-                  setErrors({
-                    ...errors,
-                    manufacturingDate: "Year must be 4 digits",
-                  });
-                  return;
-                }
-
-                const date = new Date(value);
-
-                if (isNaN(date.getTime())) {
-                  setErrors({
-                    ...errors,
-                    manufacturingDate: "Invalid date",
-                  });
-                  return;
-                }
-
-                // ✅ NEW: Prevent future dates
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-
-                const normalized = new Date(date);
-                normalized.setHours(0, 0, 0, 0);
-
-                if (normalized > today) {
-                  setErrors({
-                    ...errors,
-                    manufacturingDate:
-                      "Manufacturing date cannot be in the future",
-                  });
-                  return;
-                }
-
-                // ✅ Clear error
-                setErrors({
-                  ...errors,
-                  manufacturingDate: "",
-                });
-
-                // ✅ Calculate Shelf Life if expiry exists
-                let newShelfLife = "";
-
-                if (form.expiryDate) {
-                  const exp = new Date(form.expiryDate);
-
-                  const years = exp.getFullYear() - date.getFullYear();
-                  const months = exp.getMonth() - date.getMonth();
-
-                  let totalMonths = years * 12 + months;
-
-                  if (exp.getDate() < date.getDate()) {
-                    totalMonths -= 1;
-                  }
-
-                  if (totalMonths >= 0) {
-                    newShelfLife = totalMonths.toString();
-                  } else {
-                    newShelfLife = "";
-                    setErrors((prev) => ({
-                      ...prev,
-                      manufacturingDate: "MFG cannot be after Expiry",
-                    }));
-                  }
-                }
-
-                // ✅ Update form
-                setForm({
-                  ...form,
-                  manufacturingDate: date,
-                  shelfLifeMonths: newShelfLife,
-                });
-              }}
-              value={
-                form.manufacturingDate &&
-                !isNaN(form.manufacturingDate.getTime())
-                  ? form.manufacturingDate.toISOString().split("T")[0]
-                  : ""
-              }
-              error={errors.manufacturingDate}
-              required
-            /> */}
-
-            {/* <Input
-              label="Expiry Date"
-              type="date"
-              name="expiryDate"
-              value={
-                form.expiryDate && !isNaN(form.expiryDate.getTime())
-                  ? form.expiryDate.toISOString().split("T")[0]
-                  : ""
-              }
-              readOnly={isEditMode}
-              onChange={handleChange}
-              min={getMinExpiryDate()}
-              // disabled={mode === "delete"}
-              error={errors.expiryDate}
-              required
-            /> */}
-
 
             <Input
               label="Manufacturing Date"
