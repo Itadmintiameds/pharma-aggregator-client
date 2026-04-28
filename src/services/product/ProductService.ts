@@ -61,6 +61,23 @@ export const getPackTypesByDosageId = async (dosageId: number) => {
   }
 };
 
+export const getStorageConditionsByCategoryId = async (categoryId: number) => {
+  try {
+    const response = await api.get(`/storageConditions/${categoryId}`);
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Storage Conditions:', error);
+
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Storage Conditions: ${error.message}`);
+    } else {
+      throw new Error(
+        'An unknown error occurred while fetching Storage Conditions.'
+      );
+    }
+  }
+};
+
 export const getMoleculeStrengthByDosage = async (dosageId: number) => {
   try {
     const response = await api.get(`dosageMolecule/strengthFormat/${dosageId}`);

@@ -26,10 +26,10 @@ import NonConsumableForm from "./NonConsumableForm";
 // }
 
 interface DashboardOverviewProps {
-  currentView: DashboardView; // ✅ ADD THIS
+  currentView: DashboardView; 
   setCurrentView: (view: DashboardView) => void;
   setSelectedProductId: (id: string) => void;
-  selectedProductId: string; // ✅ ADD THIS
+  selectedProductId: string; 
 }
 
 // const DashboardOverview = ( { setCurrentView }: DashboardOverviewProps) => {

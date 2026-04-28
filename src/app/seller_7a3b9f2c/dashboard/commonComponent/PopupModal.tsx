@@ -30,13 +30,6 @@ export default function PopupModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl w-125.25 h-90.5 p-6 shadow-xl relative">
-        {/* Close Button */}
-        {/* <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-        >
-          ✕
-        </button> */}
 
         {/* Icon */}
         <div className="flex justify-center mb-5">
@@ -65,7 +58,7 @@ export default function PopupModal({
           {primaryActionText && (
             <button
               onClick={onPrimaryAction}
-              className="w-100 h-12 bg-[#4B0082] text-white py-3 rounded-lg text-label-l3 font-semibold"
+              className="w-100 h-12 bg-[#4B0082] text-white py-3 rounded-lg text-label-l3 font-semibold cursor-pointer"
             >
               {primaryActionText}
             </button>
