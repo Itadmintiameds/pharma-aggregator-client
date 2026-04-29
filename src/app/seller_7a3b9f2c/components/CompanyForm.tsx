@@ -737,7 +737,7 @@ export default function CompanyForm({
 
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
-              Building / House No.
+              Building No.
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
             <div className="relative">

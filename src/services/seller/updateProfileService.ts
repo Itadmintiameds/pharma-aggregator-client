@@ -1,7 +1,7 @@
 import api from '@/src/lib/api';
 import { sellerAuthService } from './authService';
 import { sellerProfileService } from './sellerProfileService';
-import { 
+import {
   UpdateSellerProfileRequest,
   UpdateRequestResponse,
   CompanySectionUpdate,
@@ -77,18 +77,18 @@ class UpdateProfileService {
       if (selectedProductTypeIds.has(productTypeId)) {
         // Get license data from form (may contain updates)
         const licenseData = formData.licenses[productName];
-        
+
         documents.push({
           documentId: existingDoc.sellerDocumentsId,
           productTypeId: productTypeId,
           documentNumber: licenseData?.number || existingDoc.documentNumber || '',
           // For existing documents: send existing URL (will be replaced if new file uploaded)
           documentFileUrl: existingDoc.documentFileUrl || '',
-          licenseIssueDate: licenseData?.issueDate 
-            ? formatDate(licenseData.issueDate) 
+          licenseIssueDate: licenseData?.issueDate
+            ? formatDate(licenseData.issueDate)
             : existingDoc.licenseIssueDate || '',
-          licenseExpiryDate: licenseData?.expiryDate 
-            ? formatDate(licenseData.expiryDate) 
+          licenseExpiryDate: licenseData?.expiryDate
+            ? formatDate(licenseData.expiryDate)
             : existingDoc.licenseExpiryDate || '',
           licenseIssuingAuthority: licenseData?.issuingAuthority || existingDoc.licenseIssuingAuthority || '',
           licenseStatus: licenseData?.status === '----' ? 'InActive' : (licenseData?.status || existingDoc.licenseStatus || 'InActive')
@@ -110,11 +110,11 @@ class UpdateProfileService {
       // Only add if selected AND no existing document
       if (selectedProductTypeIds.has(productTypeId) && !hasExistingDoc) {
         // Only add if it has some data (or user has started filling it)
-        const hasData = licenseData?.number || 
-                       licenseData?.issueDate || 
-                       licenseData?.expiryDate || 
-                       licenseData?.issuingAuthority;
-        
+        const hasData = licenseData?.number ||
+          licenseData?.issueDate ||
+          licenseData?.expiryDate ||
+          licenseData?.issuingAuthority;
+
         if (hasData) {
           documents.push({
             documentId: undefined, // No ID for new documents
@@ -140,7 +140,7 @@ class UpdateProfileService {
       email: formData.email,
       website: formData.website || '',
       termsAccepted: true,
-      
+
       address: {
         stateId: formData.stateId,
         districtId: formData.districtId,
@@ -151,14 +151,14 @@ class UpdateProfileService {
         landmark: formData.landmark || '',
         pinCode: formData.pincode,
       },
-      
+
       coordinator: {
         name: formData.coordinatorName,
         designation: formData.coordinatorDesignation,
         email: formData.coordinatorEmail,
         mobile: formData.coordinatorMobile
       },
-      
+
       bankDetails: {
         bankName: formData.bankName,
         branch: formData.branch,
@@ -168,12 +168,12 @@ class UpdateProfileService {
         // Send existing URL (will be replaced if new file uploaded)
         bankDocumentFileUrl: currentProfile.bankDetails?.bankDocumentFileUrl || ''
       },
-      
+
       gstNumber: formData.gstNumber,
       // Send existing URL (will be replaced if new file uploaded)
       gstFileUrl: currentProfile.sellerGST?.gstFileUrl || '',
       companyRegistrationCertificateUrl: currentProfile.companyRegistrationCertificateUrl || '',
-      
+
       documents: documents
     };
   }
@@ -202,7 +202,7 @@ class UpdateProfileService {
       email: profile.email,
       website: profile.website || '',
       termsAccepted: profile.termsAccepted,
-      
+
       // Address - all fields required
       address: {
         stateId: profile.address?.state?.stateId || 0,
@@ -214,7 +214,7 @@ class UpdateProfileService {
         landmark: profile.address?.landmark || '',
         pinCode: profile.address?.pinCode || ''
       },
-      
+
       // Coordinator - all fields required
       coordinator: {
         name: profile.coordinator?.name || '',
@@ -222,7 +222,7 @@ class UpdateProfileService {
         email: profile.coordinator?.email || '',
         mobile: profile.coordinator?.mobile || ''
       },
-      
+
       // Bank Details - all fields required
       bankDetails: {
         bankName: profile.bankDetails?.bankName || '',
@@ -232,12 +232,12 @@ class UpdateProfileService {
         accountHolderName: profile.bankDetails?.accountHolderName || '',
         bankDocumentFileUrl: profile.bankDetails?.bankDocumentFileUrl || ''
       },
-      
+
       // GST fields
       gstNumber: profile.sellerGST?.gstNumber || '',
       gstFileUrl: profile.sellerGST?.gstFileUrl || '',
       companyRegistrationCertificateUrl: profile.companyRegistrationCertificateUrl || '',
-      
+
       // Documents - include all with proper fields
       documents: profile.documents.map((doc: SellerDocument) => ({
         documentId: doc.sellerDocumentsId, // Include existing ID for updates
@@ -249,7 +249,7 @@ class UpdateProfileService {
         licenseIssuingAuthority: doc.licenseIssuingAuthority || '',
         licenseStatus: doc.licenseStatus || 'InActive'
       })),
-      
+
       // Product Types
       productTypeId: profile.productTypes.map(pt => pt.productTypeId)
     };
@@ -289,27 +289,27 @@ class UpdateProfileService {
    * @param requestedBy - Email of the person requesting the update
    */
   async requestProfileUpdate(
-    updateData: UpdateSellerProfileRequest, 
+    updateData: UpdateSellerProfileRequest,
     requestedBy: string
   ): Promise<UpdateRequestResponse> {
     console.log('📝 Requesting seller profile update');
-    
+
     try {
       const currentUser = sellerAuthService.getCurrentUser();
       if (!currentUser) {
         throw new Error('Not authenticated');
       }
-      
+
       const profile = await sellerProfileService.getCurrentSellerProfile();
-      
+
       // Try string sellerId first (from controller analysis)
       const sellerId = profile.sellerId;
-      
+
       const token = sellerAuthService.getToken();
       if (!token) {
         throw new Error('Not authenticated');
       }
-      
+
       // Log the request details for debugging
       console.log('🔍 Request details:', {
         sellerId,
@@ -318,12 +318,12 @@ class UpdateProfileService {
         requestedBy,
         url: `${this.baseUrl}/${sellerId}/request-update?requestedBy=${encodeURIComponent(requestedBy)}`
       });
-      
+
       console.log('📦 Update payload:', JSON.stringify(updateData, null, 2));
-      
+
       // Validate required fields before sending
       this.validateUpdateRequest(updateData);
-      
+
       const response = await api.put<{ status: string; message: string; data: UpdateRequestResponse }>(
         `${this.baseUrl}/${sellerId}/request-update?requestedBy=${encodeURIComponent(requestedBy)}`,
         updateData,
@@ -334,20 +334,20 @@ class UpdateProfileService {
           }
         }
       );
-      
+
       console.log('✅ Update request response:', {
         status: response.data.status,
         message: response.data.message,
         data: response.data.data
       });
-      
+
       if (response.data.status === "SUCCESS" && response.data.data) {
         console.log('✅ Profile update requested successfully');
         return response.data.data;
       } else {
         throw new Error(response.data.message || 'Failed to request profile update');
       }
-      
+
     } catch (error: any) {
       console.error('❌ Error requesting profile update:', {
         message: error.message,
@@ -356,26 +356,26 @@ class UpdateProfileService {
         url: error.config?.url,
         data: error.config?.data
       });
-      
+
       // Handle specific error cases
       if (error.response?.status === 400) {
         const validationErrors = error.response?.data;
         console.error('Validation errors:', validationErrors);
         throw new Error(this.formatValidationErrors(validationErrors));
       }
-      
+
       if (error.response?.status === 401) {
         throw new Error('Session expired. Please login again.');
       }
-      
+
       if (error.response?.status === 403) {
         throw new Error('You do not have permission to update this profile');
       }
-      
+
       if (error.response?.status === 404) {
         throw new Error(`Seller profile not found with ID: ${error.config?.url?.split('/')[3]}`);
       }
-      
+
       throw error;
     }
   }
@@ -387,23 +387,23 @@ class UpdateProfileService {
     const required = [
       'sellerName', 'companyTypeId', 'sellerTypeId', 'phone', 'email', 'termsAccepted'
     ];
-    
+
     const missing = required.filter(field => !data[field as keyof UpdateSellerProfileRequest]);
-    
+
     if (missing.length > 0) {
       throw new Error(`Missing required fields: ${missing.join(', ')}`);
     }
-    
+
     // Validate address
     if (!data.address?.stateId || !data.address?.districtId || !data.address?.talukaId) {
       throw new Error('Address state, district, and taluka are required');
     }
-    
+
     // Validate coordinator
     if (!data.coordinator?.name || !data.coordinator?.email || !data.coordinator?.mobile) {
       throw new Error('Coordinator name, email, and mobile are required');
     }
-    
+
     // Validate bank details
     if (!data.bankDetails?.bankName || !data.bankDetails?.ifscCode || !data.bankDetails?.accountNumber) {
       throw new Error('Bank name, IFSC code, and account number are required');
@@ -423,67 +423,67 @@ class UpdateProfileService {
   }
 
 
-/**
- * Request full profile update
- */
-async updateFullProfile(
-  updateData: UpdateSellerProfileRequest,
-  requestedBy: string
-): Promise<UpdateRequestResponse> {
-  console.log('📦 Requesting full profile update');
-  
-  try {
-    const currentUser = sellerAuthService.getCurrentUser();
-    if (!currentUser) {
-      throw new Error('Not authenticated');
-    }
-    
-    const profile = await sellerProfileService.getCurrentSellerProfile();
-    const sellerId = profile.sellerId;
-    
-    const token = sellerAuthService.getToken();
-    if (!token) {
-      throw new Error('Not authenticated');
-    }
-    
-    console.log(`📤 Sending full update for seller ID: ${sellerId}`);
-    console.log('📦 Update payload:', JSON.stringify(updateData, null, 2));
-  
-    const response = await api.put<{ status: string; message: string; data: any }>(
-      `${this.baseUrl}/${sellerId}/request-update?requestedBy=${encodeURIComponent(requestedBy)}`,
-      updateData, 
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+  /**
+   * Request full profile update
+   */
+  async updateFullProfile(
+    updateData: UpdateSellerProfileRequest,
+    requestedBy: string
+  ): Promise<UpdateRequestResponse> {
+    console.log('📦 Requesting full profile update');
+
+    try {
+      const currentUser = sellerAuthService.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('Not authenticated');
       }
-    );
-    
-    console.log('✅ Full profile update response:', {
-      status: response.data.status,
-      message: response.data.message,
-      data: response.data.data
-    });
-    
-    if (response.data.status === "SUCCESS") {
-      console.log('✅ Full profile update requested successfully');
-      // Return the data object which contains pendingSellerId and other fields
-      // return response.data.data;
-      return {
+
+      const profile = await sellerProfileService.getCurrentSellerProfile();
+      const sellerId = profile.sellerId;
+
+      const token = sellerAuthService.getToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      console.log(`📤 Sending full update for seller ID: ${sellerId}`);
+      console.log('📦 Update payload:', JSON.stringify(updateData, null, 2));
+
+      const response = await api.put<{ status: string; message: string; data: any }>(
+        `${this.baseUrl}/${sellerId}/request-update?requestedBy=${encodeURIComponent(requestedBy)}`,
+        updateData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('✅ Full profile update response:', {
         status: response.data.status,
         message: response.data.message,
-        ...response.data.data
-      };
-    } else {
-      throw new Error(response.data.message || 'Failed to request profile update');
+        data: response.data.data
+      });
+
+      if (response.data.status === "SUCCESS") {
+        console.log('✅ Full profile update requested successfully');
+        // Return the data object which contains pendingSellerId and other fields
+        // return response.data.data;
+        return {
+          status: response.data.status,
+          message: response.data.message,
+          ...response.data.data
+        };
+      } else {
+        throw new Error(response.data.message || 'Failed to request profile update');
+      }
+
+    } catch (error: any) {
+      console.error('❌ Error in full profile update:', error);
+      throw error;
     }
-    
-  } catch (error: any) {
-    console.error('❌ Error in full profile update:', error);
-    throw error;
   }
-}
 
   /**
    * Request update for company section
@@ -493,11 +493,11 @@ async updateFullProfile(
     requestedBy: string
   ): Promise<UpdateRequestResponse> {
     console.log('🏢 Requesting company section update');
-    
+
     try {
       const currentProfile = await sellerProfileService.getCurrentSellerProfile();
       const fullUpdateData = this.transformProfileToUpdateRequest(currentProfile);
-      
+
       // Update company fields (only if provided)
       if (sectionData.sellerName !== undefined) fullUpdateData.sellerName = sectionData.sellerName;
       if (sectionData.companyTypeId !== undefined) fullUpdateData.companyTypeId = sectionData.companyTypeId;
@@ -506,7 +506,7 @@ async updateFullProfile(
       if (sectionData.phone !== undefined) fullUpdateData.phone = sectionData.phone;
       if (sectionData.email !== undefined) fullUpdateData.email = sectionData.email;
       if (sectionData.website !== undefined) fullUpdateData.website = sectionData.website;
-      
+
       // Update address if provided (partial update allowed)
       if (sectionData.address) {
         fullUpdateData.address = {
@@ -514,12 +514,12 @@ async updateFullProfile(
           ...sectionData.address
         };
       }
-      
+
       // Ensure termsAccepted is always true
       fullUpdateData.termsAccepted = true;
-      
+
       return this.requestProfileUpdate(fullUpdateData, requestedBy);
-      
+
     } catch (error) {
       console.error('❌ Error updating company section:', error);
       throw error;
@@ -534,19 +534,19 @@ async updateFullProfile(
     requestedBy: string
   ): Promise<UpdateRequestResponse> {
     console.log('👤 Requesting coordinator section update');
-    
+
     try {
       const currentProfile = await sellerProfileService.getCurrentSellerProfile();
       const fullUpdateData = this.transformProfileToUpdateRequest(currentProfile);
-      
+
       // Update coordinator fields (partial update allowed)
       fullUpdateData.coordinator = {
         ...fullUpdateData.coordinator,
         ...sectionData
       };
-      
+
       return this.requestProfileUpdate(fullUpdateData, requestedBy);
-      
+
     } catch (error) {
       console.error('❌ Error updating coordinator section:', error);
       throw error;
@@ -561,17 +561,17 @@ async updateFullProfile(
     requestedBy: string
   ): Promise<UpdateRequestResponse> {
     console.log('📄 Requesting GST section update');
-    
+
     try {
       const currentProfile = await sellerProfileService.getCurrentSellerProfile();
       const fullUpdateData = this.transformProfileToUpdateRequest(currentProfile);
-      
+
       // Update GST fields (partial update allowed)
       if (sectionData.gstNumber !== undefined) fullUpdateData.gstNumber = sectionData.gstNumber;
       if (sectionData.gstFileUrl !== undefined) fullUpdateData.gstFileUrl = sectionData.gstFileUrl;
-      
+
       return this.requestProfileUpdate(fullUpdateData, requestedBy);
-      
+
     } catch (error) {
       console.error('❌ Error updating GST section:', error);
       throw error;
@@ -586,19 +586,19 @@ async updateFullProfile(
     requestedBy: string
   ): Promise<UpdateRequestResponse> {
     console.log('🏦 Requesting bank section update');
-    
+
     try {
       const currentProfile = await sellerProfileService.getCurrentSellerProfile();
       const fullUpdateData = this.transformProfileToUpdateRequest(currentProfile);
-      
+
       // Update bank fields (partial update allowed)
       fullUpdateData.bankDetails = {
         ...fullUpdateData.bankDetails,
         ...sectionData
       };
-      
+
       return this.requestProfileUpdate(fullUpdateData, requestedBy);
-      
+
     } catch (error) {
       console.error('❌ Error updating bank section:', error);
       throw error;
@@ -614,16 +614,16 @@ async updateFullProfile(
     requestedBy: string
   ): Promise<UpdateRequestResponse> {
     console.log(`📋 Requesting license update for product type: ${productTypeId}`);
-    
+
     try {
       const currentProfile = await sellerProfileService.getCurrentSellerProfile();
       const fullUpdateData = this.transformProfileToUpdateRequest(currentProfile);
-      
+
       // Find and update the specific document
       const documentIndex = fullUpdateData.documents.findIndex(
         doc => doc.productTypeId === productTypeId
       );
-      
+
       if (documentIndex !== -1) {
         // Update existing document
         fullUpdateData.documents[documentIndex] = {
@@ -643,9 +643,9 @@ async updateFullProfile(
           licenseStatus: 'InActive' // ✅ Default status for new documents
         });
       }
-      
+
       return this.requestProfileUpdate(fullUpdateData, requestedBy);
-      
+
     } catch (error) {
       console.error('❌ Error updating license section:', error);
       throw error;
@@ -673,6 +673,233 @@ async updateFullProfile(
       return false;
     }
   }
+  /**
+  * Check if coordinator phone number already exists
+  * @param mobile - 10-digit mobile number
+  * @returns Promise<boolean> - true if phone exists, false if not
+  */
+  async checkCoordinatorPhone(mobile: string): Promise<boolean> {
+    try {
+      const cleanPhone = mobile.replace(/\D/g, '');
+
+      if (!cleanPhone || cleanPhone.length !== 10) {
+        return false;
+      }
+
+      const response = await api.get(`/temp-sellers/coordinator/check-profilephone`, {
+        params: { mobile: cleanPhone }
+      });
+
+      // Adjust based on your actual API response structure
+      const data = response.data;
+
+      if (data && typeof data === 'object') {
+        // Check common response patterns
+        if (data.exists === true) return true;
+        if (data.data?.exists === true) return true;
+        if (data.success === true && data.data?.exists === true) return true;
+        if (data.isRegistered === true) return true;
+        // If response is boolean directly
+        if (data === true) return true;
+      }
+
+      return false;
+
+    } catch (error: any) {
+      console.error('Error checking coordinator phone:', error);
+      // If API returns 404 or other error, assume phone doesn't exist
+      if (error.response?.status === 404) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  /**
+ * Check if coordinator email already exists
+ * @param email - Email address to check
+ * @returns Promise<boolean> - true if email exists, false if not
+ */
+  async checkCoordinatorEmail(email: string): Promise<boolean> {
+    try {
+      if (!email || !email.includes('@') || !email.includes('.')) {
+        return false;
+      }
+
+      const response = await api.get(`/temp-sellers/coordinator/check-profileemail`, {
+        params: { email: email }
+      });
+
+      // Adjust based on your actual API response structure
+      const data = response.data;
+
+      if (data && typeof data === 'object') {
+        // Check common response patterns
+        if (data.exists === true) return true;
+        if (data.data?.exists === true) return true;
+        if (data.success === true && data.data?.exists === true) return true;
+        if (data.isRegistered === true) return true;
+        // If response is boolean directly
+        if (data === true) return true;
+      }
+
+      return false;
+
+    } catch (error: any) {
+      console.error('Error checking coordinator email:', error);
+      // If API returns 404 or other error, assume email doesn't exist
+      if (error.response?.status === 404) {
+        return false;
+      }
+      throw error;
+    }
+  }
+  /**
+   * Check if license document number already exists
+   * @param documentNumber - License document number to check
+   * @returns Promise<boolean> - true if document number exists, false if not
+   */
+  async checkLicenseDocumentNumber(documentNumber: string): Promise<boolean> {
+    try {
+      if (!documentNumber || documentNumber.length < 8) {
+        console.log('License number too short, skipping check:', documentNumber);
+        return false;
+      }
+
+      console.log('🔍 Checking license document number:', documentNumber);
+
+      const response = await api.get(`/temp-sellers/coordinator/check-profiledocument`, {
+        params: { documentnumber: documentNumber }
+      });
+
+      console.log('📡 License check response:', response.data);
+
+      // The response structure: { status: "SUCCESS", message: "...", data: true/false }
+      const data = response.data;
+
+      // Check if the response has data field which contains boolean
+      if (data && typeof data === 'object') {
+        // Our API returns { status: "SUCCESS", data: true/false }
+        if (data.data === true) {
+          console.log('License exists (data: true)');
+          return true;
+        }
+        if (data.data === false) {
+          console.log('License does not exist (data: false)');
+          return false;
+        }
+
+        // Also check other possible formats for backward compatibility
+        if (data.exists === true) {
+          console.log('License exists (exists: true)');
+          return true;
+        }
+        if (data.status === 'EXISTS' || data.status === 'DUPLICATE') {
+          console.log('License exists (status:', data.status, ')');
+          return true;
+        }
+      }
+
+      // If data is directly boolean
+      if (typeof data === 'boolean') {
+        console.log('License exists (direct boolean):', data);
+        return data;
+      }
+
+      console.log('License does not exist');
+      return false;
+
+    } catch (error: any) {
+      console.error('Error checking license document number:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+
+      // If API returns 404, document doesn't exist
+      if (error.response?.status === 404) {
+        console.log('License not found (404)');
+        return false;
+      }
+
+      // Don't throw error for existence check - just return false
+      // This prevents the UI from breaking if the API is not ready
+      console.warn('License check failed, assuming not exists');
+      return false;
+    }
+  }
+
+  /**
+ * Check if GST number already exists
+ * @param gstNumber - GST number to check
+ * @returns Promise<boolean> - true if GST number exists, false if not
+ */
+async checkGSTNumber(gstNumber: string): Promise<boolean> {
+  try {
+    if (!gstNumber || gstNumber.length < 15) {
+      console.log('GST number too short, skipping check:', gstNumber);
+      return false;
+    }
+    
+    console.log('🔍 Checking GST number:', gstNumber);
+    
+    const response = await api.get(`/temp-sellers/coordinator/check-profilegstnumber`, {
+      params: { gstnumber: gstNumber }
+    });
+    
+    console.log('📡 GST check response:', response.data);
+    
+    // The response structure: { status: "SUCCESS", message: "...", data: true/false }
+    const data = response.data;
+    
+    // Check if the response has data field which contains boolean
+    if (data && typeof data === 'object') {
+      // Our API returns { status: "SUCCESS", data: true/false }
+      if (data.data === true) {
+        console.log('GST exists (data: true)');
+        return true;
+      }
+      if (data.data === false) {
+        console.log('GST does not exist (data: false)');
+        return false;
+      }
+      
+      // Also check other possible formats for backward compatibility
+      if (data.exists === true) {
+        console.log('GST exists (exists: true)');
+        return true;
+      }
+      if (data.status === 'EXISTS' || data.status === 'DUPLICATE') {
+        console.log('GST exists (status:', data.status, ')');
+        return true;
+      }
+    }
+    
+    // If data is directly boolean
+    if (typeof data === 'boolean') {
+      console.log('GST exists (direct boolean):', data);
+      return data;
+    }
+    
+    console.log('GST does not exist');
+    return false;
+    
+  } catch (error: any) {
+    console.error('Error checking GST number:', error);
+    console.error('Error response:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    
+    // If API returns 404, GST doesn't exist
+    if (error.response?.status === 404) {
+      console.log('GST not found (404)');
+      return false;
+    }
+    
+    // Don't throw error for existence check - just return false
+    console.warn('GST check failed, assuming not exists');
+    return false;
+  }
+}
+
+
 }
 
 export const updateProfileService = new UpdateProfileService();
