@@ -11,6 +11,8 @@ interface InputProps {
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onInput?: (e: React.FormEvent<HTMLInputElement>) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
   disabled?: boolean;
   error?: string;
   readOnly?: boolean;
@@ -32,6 +34,8 @@ const Input: React.FC<InputProps> = ({
   value,
   onChange,
   onInput,
+  onKeyDown,
+  onFocus,
   disabled = false,
   error,
   readOnly,
@@ -73,7 +77,9 @@ const Input: React.FC<InputProps> = ({
               e.preventDefault();
             }
           }
+          onKeyDown?.(e);
         }}
+        onFocus={onFocus}
         className={`px-4 w-full h-14 rounded-2xl
           border ${
             error

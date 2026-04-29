@@ -22,6 +22,7 @@ import CommonModal from "../commonComponent/CommonModal";
 import AdditionalDiscount from "./AdditionalDiscount";
 import UploadInput from "../commonComponent/UploadInput";
 import PopupModal from "../commonComponent/PopupModal";
+import AddDiscNew from "./AddDiscNew";
 
 interface SelectOption {
   value: string;
@@ -239,6 +240,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     useState(false);
 
   const [modalType, setModalType] = useState<"create" | "update">("create");
+  const [productAttributeId, setProductAttributeId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (categoryId) {
@@ -318,7 +322,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         const newErrors = { ...prevErrors };
 
         // ✅ Max > Min
-        if (maxQty && minQty && maxQty <= minQty) {
+        if (maxQty && minQty && maxQty < minQty) {
           newErrors.maximumOrderQuantity =
             "Max Order Qty must be greater than Min Order Qty";
         } else {
@@ -360,62 +364,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             delete newErrors.hsnCode;
           }
         }
-
-        // if (name === "expiryDate") {
-        //   if (value) {
-        //     const year = value.split("-")[0];
-
-        //     if (year.length > 4) {
-        //       newErrors.expiryDate = "Year must be 4 digits";
-        //       return newErrors;
-        //     }
-
-        //     const date = new Date(value);
-
-        //     if (isNaN(date.getTime())) {
-        //       newErrors.expiryDate = "Invalid date";
-        //       return newErrors;
-        //     }
-
-        //     const minDate = new Date();
-        //     minDate.setMonth(minDate.getMonth() + 3);
-        //     minDate.setHours(0, 0, 0, 0);
-
-        //     const normalized = new Date(date);
-        //     normalized.setHours(0, 0, 0, 0);
-
-        //     if (normalized < minDate) {
-        //       newErrors.expiryDate = "Expiry must be at least 3 months ahead";
-        //     } else {
-        //       delete newErrors.expiryDate;
-        //     }
-
-        //     // ✅ Set expiry date
-        //     updatedForm.expiryDate = date;
-
-        //     // ✅ Calculate Shelf Life ONLY if manufacturing date exists
-        //     if (updatedForm.manufacturingDate) {
-        //       const mfg = new Date(updatedForm.manufacturingDate);
-
-        //       const years = date.getFullYear() - mfg.getFullYear();
-        //       const months = date.getMonth() - mfg.getMonth();
-
-        //       const totalMonths = years * 12 + months;
-
-        //       // ✅ Prevent negative shelf life
-        //       if (totalMonths >= 0) {
-        //         updatedForm.shelfLifeMonths = totalMonths.toString();
-        //       } else {
-        //         updatedForm.shelfLifeMonths = "";
-        //         newErrors.expiryDate =
-        //           "Expiry cannot be before Manufacturing Date";
-        //       }
-        //     }
-        //   } else {
-        //     updatedForm.expiryDate = null;
-        //     updatedForm.shelfLifeMonths = ""; // ✅ reset shelf life
-        //   }
-        // }
 
         if (name === "expiryDate") {
           if (value) {
@@ -815,6 +763,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             )
           : {};
       const attributeDrug = data.productAttributeDrugs?.[0] || {};
+      setProductAttributeId(attributeDrug.productAttributeId || null);
       const dosageForm = attributeDrug.dosageForm || "";
       const selectedDosage = dosageOptions.find(
         (option) => option.label === dosageForm,
@@ -1004,6 +953,25 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       };
 
       await updateProduct(form.productId, payload);
+
+      console.log(
+        "productAttributeId---------------------------",
+        productAttributeId,
+      );
+
+      if (productAttributeId && manualFile) {
+        await uploadProductUserManual(productAttributeId, manualFile);
+      }
+
+      // ✅ Then images
+      if (images.length > 0) {
+        await uploadProductImages(form.productId, images);
+      }
+
+      // ✅ Then images upload
+      if (images.length > 0) {
+        await uploadProductImages(form.productId, images);
+      }
 
       if (images.length > 0) {
         await uploadProductImages(form.productId, images);
@@ -1303,18 +1271,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
       />
-      {/* <PopupModal
-        isOpen={showSuccessModal}
-        title="Product Saved Successfully!"
-        description="Your product has been saved and is now live on the platform"
-        primaryActionText="View Product"
-        secondaryActionText="Continue Adding"
-        tertiaryActionText="Back to Dashboard"
-        onPrimaryAction={handleViewProduct}
-        onSecondaryAction={handleContinueAdding}
-        onTertiaryAction={handleBackToDashboard}
-        onClose={() => setShowSuccessModal(false)}
-      /> */}
+
       {showAdditionalDiscount && (
         <CommonModal
           onClose={() => setShowAdditionalDiscount(false)}
@@ -1323,6 +1280,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           <div className="h-[80vh] overflow-hidden flex flex-col">
             <AdditionalDiscount
               initialData={form.additionalDiscount}
+              baseDiscountPercentage={Number(form.discountPercentage) || 0}
+              baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
               onSave={(data) => {
                 setForm((prev) => {
                   const result = calculateFinalPrice(
@@ -1335,7 +1294,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
                   return {
                     ...prev,
-                    additionalDiscount: data || [], // ✅ persist slabs
+                    additionalDiscount: data || [],
                     finalPrice: result?.finalPerUnit || "",
                   };
                 });
@@ -1345,6 +1304,17 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
         </CommonModal>
       )}
+
+      {/* {showAdditionalDiscount && (
+        <CommonModal
+          onClose={() => setShowAdditionalDiscount(false)}
+          width="w-[600px]" // optional
+        >
+          <div className="h-[80vh] overflow-hidden flex flex-col">
+           <AddDiscNew/>
+          </div>
+        </CommonModal>
+      )} */}
       <div>
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
           <div className="text-h4 font-semibold">Product Details</div>
@@ -1841,7 +1811,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   expiryDate: "", // optional: clear expiry error too
                 }));
 
-                // 🔥 ALWAYS RESET expiry + shelf life
                 setForm({
                   ...form,
                   manufacturingDate: date,
@@ -1863,7 +1832,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
             <Input
               label="Expiry Date"
-              type="month" // ✅ changed
+              type="month"
               name="expiryDate"
               value={
                 form.expiryDate instanceof Date &&
@@ -1875,6 +1844,15 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               }
               readOnly={isEditMode}
               onChange={handleChange}
+              onFocus={() => {
+                if (form.manufacturingDate) {
+                  setErrors((prev) => ({
+                    ...prev,
+                    expiryDate:
+                      "Expiry must be at least 3 months after Manufacturing Date",
+                  }));
+                }
+              }}
               min={getMinExpiryMonth()} // ✅ update this too
               error={errors.expiryDate}
               required
@@ -1937,7 +1915,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.mrp}
               onChange={handleChange}
-              // disabled={mode === "delete"}
+              onKeyDown={(e) => {
+                if (e.key === "0" && form.mrp === "") {
+                  e.preventDefault();
+                }
+              }}
               min={1}
               step={1}
               error={errors.mrp}
