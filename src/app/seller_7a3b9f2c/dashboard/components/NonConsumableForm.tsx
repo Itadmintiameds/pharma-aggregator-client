@@ -1521,12 +1521,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             )}
           </div>
 
-          <div className="flex justify-end mt-5">
+          {/* <div className="flex justify-end mt-5">
             <button type="button" onClick={handleSubmit} disabled={submitting} style={{ background: "#9F75FC", borderRadius: "8px" }} className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
               {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {submitting ? "Saving..." : "Save"}
             </button>
-          </div>
+          </div> */}
         </div>
 
         {/* ── Section 3: Product Photos ──────────────────────────────────────────── */}

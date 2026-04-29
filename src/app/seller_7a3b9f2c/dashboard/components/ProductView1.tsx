@@ -7,6 +7,13 @@ import { PiSealCheckLight } from "react-icons/pi";
 import Image from "next/image";
 import { getDrugProductById } from "@/src/services/product/ProductService";
 import { useRouter } from "next/navigation";
+import { getPackTypeById } from "@/src/services/product/PackType";
+import { getStorageConditionById } from "@/src/services/product/StorageCondition";
+import {
+  getTherapeuticCategoryById,
+  getTherapeuticSubcategoryById,
+} from "@/src/services/product/TherapeuticCategoryService";
+import { getAllMolecules } from "@/src/services/product/MoleculeService";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -14,7 +21,6 @@ import { useRouter } from "next/navigation";
 
 interface ProductViewProps {
   productId: string | null;
-  /** Category id passed from ProductList — used for edit routing */
   categoryId?: number | null;
   setCurrentView: (view: DashboardView) => void;
 }
@@ -61,10 +67,8 @@ interface AdditionalDiscount {
   minimumPurchaseQuantity?: number;
   maximumPurchaseQuantity?: number;
   additionalDiscountPercentage?: number;
-  /** API field names */
   effectiveStartDate?: string;
   effectiveEndDate?: string;
-  /** legacy field names — fallback */
   startDate?: string;
   endDate?: string;
 }
@@ -77,7 +81,6 @@ interface CertificateDocument {
   productCertificateDocumentId?: number;
 }
 
-/* ── Non-Consumable (categoryId = 6) ── */
 interface NonConsumableAttributes {
   brandName?: string;
   modelName?: string;
@@ -102,7 +105,6 @@ interface NonConsumableAttributes {
   powerSourceName?: string;
 }
 
-/* ── Consumable (categoryId = 5) ── */
 interface ConsumableAttributes {
   brochurePath?: string;
   brochureType?: string;
@@ -122,7 +124,6 @@ interface ConsumableAttributes {
   materialTypes?: { materialTypeId: number; materialTypeName: string }[];
 }
 
-/* ── Drug (categoryId = 1) ── */
 interface MoleculeDetail {
   moleculeId?: number;
   moleculeName?: string;
@@ -149,7 +150,6 @@ interface DrugAttributeEntry {
   warningsPrecautions?: string;
   productDescription?: string;
   molecules?: MoleculeDetail[];
-  /* legacy flat fields */
   molecule1Name?: string;
   molecule1Strength?: string | number;
   molecule2Name?: string;
@@ -177,7 +177,7 @@ interface ProductApiData {
   nonConsumableAttributes?: NonConsumableAttributes;
   productAttributeConsumableMedicals?: ConsumableAttributes[];
   productAttributeDrugs?: DrugAttributeEntry[];
-  drugAttributes?: DrugAttributeEntry; // legacy
+  drugAttributes?: DrugAttributeEntry;
   productMarketingUrl?: string;
   therapeuticCategory?: string;
   therapeuticSubcategory?: string;
@@ -188,15 +188,35 @@ interface ProductApiData {
 }
 
 /* ─────────────────────────────────────────────────────────
+   RESOLVED LOOKUPS STATE
+───────────────────────────────────────────────────────── */
+
+interface ResolvedLookups {
+  packTypeName: string | null;
+  storageConditionName: string | null;
+  therapeuticCategoryName: string | null;
+  therapeuticSubcategoryName: string | null;
+  moleculeMap: Record<number, string>;
+  moleculeDetailMap: Record<number, { drugSchedule?: string; mechanismOfAction?: string; primaryUse?: string }>;
+  loading: boolean;
+}
+
+const INITIAL_LOOKUPS: ResolvedLookups = {
+  packTypeName: null,
+  storageConditionName: null,
+  therapeuticCategoryName: null,
+  therapeuticSubcategoryName: null,
+  moleculeMap: {},
+  moleculeDetailMap: {},
+  loading: false,
+};
+
+/* ─────────────────────────────────────────────────────────
    CONSTANTS
 ───────────────────────────────────────────────────────── */
 
 const PLACEHOLDER_IMAGE = "/assets/images/SellerMed.jpg";
 
-/**
- * Maps categoryId → DashboardView for that category's edit form.
- * Keep in sync with ProductList's categoryViewMap.
- */
 const CATEGORY_EDIT_VIEW: Record<number, DashboardView> = {
   1: "editDrug" as DashboardView,
   2: "editSupplement" as DashboardView,
@@ -228,32 +248,77 @@ const ROW_LABEL: React.CSSProperties = {
 };
 
 const LABEL_TEXT: React.CSSProperties = {
-  color: "#5A5B58",
+  color: "var(--Colors-Primary-Neutral-pneutral-700, #5A5B58)",
   fontSize: 16,
   fontFamily: "'Open Sans', sans-serif",
   fontWeight: 600,
   lineHeight: "22px",
+  wordWrap: "break-word",
   margin: 0,
 };
 
 const REQUIRED_STAR: React.CSSProperties = {
-  color: "#FF3B3B",
+  color: "var(--Colors-Warning-warning-500, #FF3B3B)",
   fontSize: 16,
   fontFamily: "'Open Sans', sans-serif",
   fontWeight: 600,
   lineHeight: "22px",
+  wordWrap: "break-word",
   flexShrink: 0,
 };
 
 const VALUE_TEXT: React.CSSProperties = {
-  color: "#3C3D3A",
+  color: "var(--Colors-Primary-Neutral-pneutral-800, #3C3D3A)",
   fontSize: 16,
   fontFamily: "'Open Sans', sans-serif",
   fontWeight: 400,
   lineHeight: "22px",
+  wordWrap: "break-word",
   textAlign: "right",
   flex: "1 1 0",
   margin: 0,
+};
+
+/* ─────────────────────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────────────────────── */
+
+const formatStrength = (s?: string | number | null): string => {
+  if (s == null) return "—";
+  const str = String(s).trim();
+  const m = str.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z%µ]+)?$/);
+  if (m) return `${m[1]} ${m[2] ?? "mg"}`;
+  return str;
+};
+
+const validUrl = (url?: string | null): string | null => {
+  if (!url) return null;
+  const t = url.trim().toUpperCase();
+  if (["", "PENDING", "NOT_UPLOADED"].includes(t)) return null;
+  return url.trim();
+};
+
+const isImageUrl = (url: string) =>
+  /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
+
+const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url);
+
+const formatDate = (dateStr?: string | null): string => {
+  if (!dateStr) return "—";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
+const toPositiveInt = (val: unknown): number | null => {
+  const n = Number(val);
+  return Number.isFinite(n) && n > 0 && Number.isInteger(n) ? n : null;
 };
 
 /* ─────────────────────────────────────────────────────────
@@ -306,44 +371,6 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 );
 
 /* ─────────────────────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────────────────────── */
-
-/** "650mg" | 650 → "650 mg" */
-const formatStrength = (s?: string | number | null): string => {
-  if (s == null) return "—";
-  const str = String(s).trim();
-  const m = str.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z%µ]+)?$/);
-  if (m) return `${m[1]} ${m[2] ?? "mg"}`;
-  return str;
-};
-
-/** Returns null for blank / PENDING / NOT_UPLOADED values */
-const validUrl = (url?: string | null): string | null => {
-  if (!url) return null;
-  const t = url.trim().toUpperCase();
-  if (["", "PENDING", "NOT_UPLOADED"].includes(t)) return null;
-  return url.trim();
-};
-
-const isImageUrl = (url: string) =>
-  /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
-const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url);
-
-const formatDate = (dateStr?: string | null): string => {
-  if (!dateStr) return "—";
-  try {
-    return new Date(dateStr).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
-};
-
-/* ─────────────────────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────────────────────── */
 
@@ -357,122 +384,402 @@ const ProductView1 = ({
   const [loading, setLoading] = useState(true);
   const [showCertModal, setShowCertModal] = useState(false);
   const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
+  const [lookups, setLookups] = useState<ResolvedLookups>(INITIAL_LOOKUPS);
 
-  /* ── Fetch ── */
+  /* ── 1. Fetch product ── */
   useEffect(() => {
     if (!productId) return;
     setLoading(true);
+    setLookups(INITIAL_LOOKUPS);
     (async () => {
       try {
         const response = (await getDrugProductById(productId)) as ProductApiData;
+        console.log("[ProductView] Product data fetched:", response);
         setProductData(response);
       } catch (err) {
-        console.error("Error fetching product details:", err);
+        console.error("[ProductView] Error fetching product:", err);
       } finally {
         setLoading(false);
       }
     })();
   }, [productId]);
 
-  /* ── Derived attribute objects ── */
+  /* ── 2. All secondary lookups — one effect, all parallel ── */
+  useEffect(() => {
+    if (!productData) return;
+
+    const packaging: PackagingDetails | undefined = Array.isArray(productData.packagingDetails)
+      ? productData.packagingDetails[0]
+      : productData.packagingDetails;
+
+    const drugEntry: DrugAttributeEntry | null =
+      (productData.productAttributeDrugs ?? []).length > 0
+        ? productData.productAttributeDrugs![0]
+        : productData.drugAttributes ?? null;
+
+    const consAttr: ConsumableAttributes | null =
+      (productData.productAttributeConsumableMedicals ?? []).length > 0
+        ? productData.productAttributeConsumableMedicals![0]
+        : null;
+
+    const ncAttr: NonConsumableAttributes | null =
+      (productData.productAttributeNonConsumableMedicals ?? []).length > 0
+        ? productData.productAttributeNonConsumableMedicals![0]
+        : productData.nonConsumableAttributes ?? null;
+
+    setLookups((prev) => ({ ...prev, loading: true }));
+
+    /* ── a) Pack Type ── */
+    const packId = toPositiveInt(packaging?.packId);
+    const inlinePackName =
+      packaging?.packTypeName?.trim() ||
+      packaging?.packType?.trim() ||
+      null;
+
+    const fetchPackType = async (): Promise<Partial<ResolvedLookups>> => {
+      if (inlinePackName) {
+        console.log("[PackType] Using inline name:", inlinePackName);
+        return { packTypeName: inlinePackName };
+      }
+      
+      if (packId === null) {
+        console.log("[PackType] No pack ID available");
+        return {};
+      }
+      
+      try {
+        console.log("[PackType] Fetching for ID:", packId);
+        const data = await getPackTypeById(packId);
+        console.log("[PackType] API response:", data);
+        
+        const name =
+          data?.packType ??
+          data?.packTypeName ??
+          data?.name ??
+          null;
+        
+        console.log("[PackType] Extracted name:", name);
+        return { packTypeName: name ? String(name).trim() : null };
+      } catch (err) {
+        console.error(`[ProductView] getPackTypeById(${packId}) failed:`, err);
+        return {};
+      }
+    };
+
+    /* ── b) Storage Condition ── */
+    const inlineStorageName =
+      drugEntry?.storageConditionName?.trim() ||
+      drugEntry?.storageCondition?.trim() ||
+      ncAttr?.storageConditionName?.trim() ||
+      ncAttr?.storageCondition?.trim() ||
+      consAttr?.storageConditionName?.trim() ||
+      consAttr?.storageCondition?.trim() ||
+      null;
+
+    const rawStorageId =
+      consAttr?.storageConditionId ??
+      ncAttr?.storageConditionId ??
+      (Array.isArray(drugEntry?.storageConditionIds) &&
+      (drugEntry?.storageConditionIds?.length ?? 0) > 0
+        ? drugEntry!.storageConditionIds![0]
+        : undefined);
+    const storageId = toPositiveInt(rawStorageId);
+
+    const fetchStorageCondition = async (): Promise<Partial<ResolvedLookups>> => {
+      if (inlineStorageName) {
+        console.log("[StorageCondition] Using inline name:", inlineStorageName);
+        return { storageConditionName: inlineStorageName };
+      }
+      
+      if (storageId === null) {
+        console.log("[StorageCondition] No storage ID available");
+        return {};
+      }
+      
+      try {
+        console.log("[StorageCondition] Fetching for ID:", storageId);
+        const data = await getStorageConditionById(storageId);
+        console.log("[StorageCondition] API response:", data);
+        
+        const name =
+          data?.conditionName ??
+          data?.storageConditionName ??
+          data?.name ??
+          data?.condition ??
+          null;
+        
+        console.log("[StorageCondition] Extracted name:", name);
+        return { storageConditionName: name ? String(name).trim() : null };
+      } catch (err) {
+        console.error(`[ProductView] getStorageConditionById(${storageId}) failed:`, err);
+        return {};
+      }
+    };
+
+    /* ── c) Therapeutic Category ── */
+    const catId = toPositiveInt(drugEntry?.therapeuticCategoryId);
+    const inlineCatName =
+      drugEntry?.therapeuticCategoryName?.trim() ||
+      productData.therapeuticCategory?.trim() ||
+      null;
+
+    const fetchTherapeuticCategory = async (): Promise<Partial<ResolvedLookups>> => {
+      if (inlineCatName) {
+        console.log("[TherapeuticCategory] Using inline name:", inlineCatName);
+        return { therapeuticCategoryName: inlineCatName };
+      }
+      
+      if (!drugEntry || catId === null) {
+        console.log("[TherapeuticCategory] No category ID available");
+        return {};
+      }
+      
+      try {
+        console.log("[TherapeuticCategory] Fetching for ID:", catId);
+        const data = await getTherapeuticCategoryById(String(catId));
+        console.log("[TherapeuticCategory] API response:", data);
+        
+        const name =
+          data?.therapeuticCategory ??
+          data?.therapeuticCategoryName ??
+          data?.categoryName ??
+          data?.name ??
+          null;
+        
+        console.log("[TherapeuticCategory] Extracted name:", name);
+        return { therapeuticCategoryName: name ? String(name).trim() : null };
+      } catch (err) {
+        console.error(`[ProductView] getTherapeuticCategoryById(${catId}) failed:`, err);
+        return {};
+      }
+    };
+
+    /* ── d) Therapeutic Subcategory ── */
+    const subId = toPositiveInt(drugEntry?.therapeuticSubcategoryId);
+    const inlineSubName =
+      drugEntry?.therapeuticSubcategoryName?.trim() ||
+      productData.therapeuticSubcategory?.trim() ||
+      null;
+
+    const fetchTherapeuticSubcategory = async (): Promise<Partial<ResolvedLookups>> => {
+      if (inlineSubName) {
+        console.log("[TherapeuticSubcategory] Using inline name:", inlineSubName);
+        return { therapeuticSubcategoryName: inlineSubName };
+      }
+      
+      if (!drugEntry || subId === null) {
+        console.log("[TherapeuticSubcategory] No subcategory ID available");
+        return {};
+      }
+      
+      try {
+        console.log("[TherapeuticSubcategory] Fetching for ID:", subId);
+        const data = await getTherapeuticSubcategoryById(String(subId));
+        console.log("[TherapeuticSubcategory] API response:", data);
+        
+        const name =
+          data?.therapeuticSubcategory ??
+          data?.therapeuticSubcategoryName ??
+          data?.subcategoryName ??
+          data?.name ??
+          null;
+        
+        console.log("[TherapeuticSubcategory] Extracted name:", name);
+        return { therapeuticSubcategoryName: name ? String(name).trim() : null };
+      } catch (err) {
+        console.error(`[ProductView] getTherapeuticSubcategoryById(${subId}) failed:`, err);
+        return {};
+      }
+    };
+
+    /* ── e) Molecules ── */
+    const moleculesInEntry = drugEntry?.molecules ?? [];
+    const needsMoleculeData =
+      drugEntry != null && moleculesInEntry.some((m) => m.moleculeId != null);
+
+    const fetchMolecules = async (): Promise<Partial<ResolvedLookups>> => {
+      if (!needsMoleculeData) {
+        console.log("[Molecules] No molecule data needed");
+        return {};
+      }
+      
+      try {
+        console.log("[Molecules] Fetching all molecules");
+        const allMolecules: {
+          moleculeId: number;
+          moleculeName: string;
+          drugSchedule?: string;
+          mechanismOfAction?: string;
+          primaryUse?: string;
+        }[] = await getAllMolecules();
+        
+        console.log("[Molecules] Fetched count:", allMolecules?.length ?? 0);
+
+        const moleculeMap = {} as Record<number, string>;
+        const moleculeDetailMap = {} as Record<number, { drugSchedule?: string; mechanismOfAction?: string; primaryUse?: string }>;
+
+        (allMolecules ?? []).forEach((m) => {
+          if (m.moleculeId != null) {
+            moleculeMap[m.moleculeId] = m.moleculeName;
+            moleculeDetailMap[m.moleculeId] = {
+              drugSchedule: m.drugSchedule,
+              mechanismOfAction: m.mechanismOfAction,
+              primaryUse: m.primaryUse,
+            };
+          }
+        });
+
+        return { moleculeMap, moleculeDetailMap };
+      } catch (err) {
+        console.error("[ProductView] getAllMolecules() failed:", err);
+        return {};
+      }
+    };
+
+    /* ── Fire all in parallel, merge results ── */
+    Promise.all([
+      fetchPackType(),
+      fetchStorageCondition(),
+      fetchTherapeuticCategory(),
+      fetchTherapeuticSubcategory(),
+      fetchMolecules(),
+    ]).then((results) => {
+      console.log("[ProductView] All lookups resolved:", results);
+      const merged = results.reduce(
+        (acc, partial) => ({ ...acc, ...partial }),
+        {} as Partial<ResolvedLookups>,
+      );
+      console.log("[ProductView] Merged lookups:", merged);
+      setLookups((prev) => ({ ...prev, ...merged, loading: false }));
+    });
+  }, [productData]);
+
+  /* ─────────────────────────────────────────────────────
+     DERIVED VALUES
+  ───────────────────────────────────────────────────── */
+
   const packaging: PackagingDetails | undefined = Array.isArray(productData?.packagingDetails)
     ? productData?.packagingDetails[0]
     : productData?.packagingDetails;
 
-  const pricing = productData?.pricingDetails?.[0];
+  const pricing: PricingDetails | undefined = productData?.pricingDetails?.[0];
 
-  /** Non-consumable attributes (categoryId 6) */
   const ncAttr: NonConsumableAttributes | null =
     (productData?.productAttributeNonConsumableMedicals ?? []).length > 0
       ? productData!.productAttributeNonConsumableMedicals![0]
       : productData?.nonConsumableAttributes ?? null;
 
-  /** Consumable attributes (categoryId 5) */
   const consAttr: ConsumableAttributes | null =
     (productData?.productAttributeConsumableMedicals ?? []).length > 0
       ? productData!.productAttributeConsumableMedicals![0]
       : null;
 
-  /**
-   * Drug attributes (categoryId 1).
-   * New API: productAttributeDrugs[]
-   * Legacy fallback: drugAttributes object
-   */
   const drugEntry: DrugAttributeEntry | null =
     (productData?.productAttributeDrugs ?? []).length > 0
       ? productData!.productAttributeDrugs![0]
       : productData?.drugAttributes ?? null;
 
-  /* ── Category resolution — prefer API data, fallback to prop ── */
   const resolvedCategoryId: number | null =
     productData?.categoryId ?? categoryIdProp ?? null;
 
-  /* ── Molecules (drug) ── */
-  const molecules = drugEntry?.molecules ?? [];
-  const molecule1 = molecules[0] ?? null;
-  const molecule2 = molecules[1] ?? null;
+  const primaryMoleculeId: number | null =
+    (drugEntry?.molecules ?? [])[0]?.moleculeId ?? null;
 
-  /* ── Brochure URL (first valid value wins) ── */
-  const brochureUrl: string | null =
-    validUrl(drugEntry?.brochurePath) ??
-    validUrl(drugEntry?.userManualUrl) ??
-    validUrl(consAttr?.brochurePath) ??
-    validUrl(ncAttr?.brochurePath) ??
-    validUrl(productData?.productMarketingUrl);
+  const molecules = (drugEntry?.molecules ?? []).map((m, idx) => {
+    const id = m.moleculeId;
+    const name =
+      m.moleculeName ??
+      (id != null ? lookups.moleculeMap[id] : undefined) ??
+      (idx === 0 ? drugEntry?.molecule1Name : drugEntry?.molecule2Name) ??
+      null;
+    const strength =
+      m.strength != null
+        ? m.strength
+        : idx === 0
+        ? drugEntry?.molecule1Strength
+        : drugEntry?.molecule2Strength;
+    return {
+      ...m,
+      resolvedName: name ?? "—",
+      resolvedStrength: formatStrength(strength),
+    };
+  });
 
-  /* ── Certificate documents (filter NOT_UPLOADED) ── */
-  const certDocs: CertificateDocument[] = [
-    ...(ncAttr?.certificateDocuments ?? []),
-    ...(consAttr?.certificateDocuments ?? []),
-  ].filter((c) => validUrl(c.certificateUrl) !== null);
+  const moleculesToDisplay =
+    molecules.length > 0
+      ? molecules
+      : (
+          [
+            drugEntry?.molecule1Name || drugEntry?.molecule1Strength
+              ? {
+                  resolvedName: drugEntry?.molecule1Name ?? "—",
+                  resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
+                }
+              : null,
+            drugEntry?.molecule2Name || drugEntry?.molecule2Strength
+              ? {
+                  resolvedName: drugEntry?.molecule2Name ?? "—",
+                  resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
+                }
+              : null,
+          ].filter(Boolean) as { resolvedName: string; resolvedStrength: string }[]
+        );
 
-  /* ── Storage Condition ──
-     NonCons API: storageConditionName ✓ (e.g. "Avoid Sunlight")
-     Consumable API: storageConditionId present, name NOT in response
-       → fall back to "Condition #N" until backend sends name
-     Drug API: storageConditionIds array, optional name
-  */
-  const storageCondition: string | null =
-    drugEntry?.storageConditionName ??
-    drugEntry?.storageCondition ??
-    ncAttr?.storageConditionName ??
-    ncAttr?.storageCondition ??
-    consAttr?.storageConditionName ??
-    consAttr?.storageCondition ??
-    (consAttr?.storageConditionId != null
-      ? `Condition #${consAttr.storageConditionId}`
+  const drugSchedule =
+    drugEntry?.drugSchedule ??
+    productData?.drugSchedule ??
+    (primaryMoleculeId != null
+      ? lookups.moleculeDetailMap[primaryMoleculeId]?.drugSchedule
       : null) ??
-    (ncAttr?.storageConditionId != null
-      ? `Condition #${ncAttr.storageConditionId}`
-      : null);
+    null;
 
-  /* ── Field resolutions ── */
-  const dosageForm = drugEntry?.dosageForm ?? productData?.dosageForm ?? null;
-
-  const therapeuticCategory =
-    drugEntry?.therapeuticCategoryName ??
-    productData?.therapeuticCategory ??
-    (drugEntry?.therapeuticCategoryId != null
-      ? String(drugEntry.therapeuticCategoryId)
-      : null);
-
-  const therapeuticSubcategory =
-    drugEntry?.therapeuticSubcategoryName ??
-    productData?.therapeuticSubcategory ??
-    (drugEntry?.therapeuticSubcategoryId != null
-      ? String(drugEntry.therapeuticSubcategoryId)
-      : null);
-
-  const drugSchedule = drugEntry?.drugSchedule ?? productData?.drugSchedule ?? null;
   const mechanismOfAction =
-    drugEntry?.mechanismOfAction ?? productData?.mechanismOfAction ?? null;
+    drugEntry?.mechanismOfAction ??
+    productData?.mechanismOfAction ??
+    (primaryMoleculeId != null
+      ? lookups.moleculeDetailMap[primaryMoleculeId]?.mechanismOfAction
+      : null) ??
+    null;
 
   const primaryUse =
     drugEntry?.primaryUse ??
     drugEntry?.purpose ??
     ncAttr?.purpose ??
     consAttr?.purpose ??
+    (primaryMoleculeId != null
+      ? lookups.moleculeDetailMap[primaryMoleculeId]?.primaryUse
+      : null) ??
     null;
+
+  const resolvedPackType =
+    lookups.packTypeName ||
+    packaging?.packTypeName?.trim() ||
+    packaging?.packType?.trim() ||
+    (lookups.loading ? "Loading…" : packaging?.packId != null ? `Pack #${packaging.packId}` : null);
+
+  const storageCondition: string | null =
+    lookups.storageConditionName ??
+    drugEntry?.storageConditionName ??
+    drugEntry?.storageCondition ??
+    ncAttr?.storageConditionName ??
+    ncAttr?.storageCondition ??
+    consAttr?.storageConditionName ??
+    consAttr?.storageCondition ??
+    (lookups.loading ? "Loading…" : null);
+
+  const therapeuticCategory =
+    lookups.therapeuticCategoryName ??
+    drugEntry?.therapeuticCategoryName ??
+    productData?.therapeuticCategory ??
+    (lookups.loading ? "Loading…" : null);
+
+  const therapeuticSubcategory =
+    lookups.therapeuticSubcategoryName ??
+    drugEntry?.therapeuticSubcategoryName ??
+    productData?.therapeuticSubcategory ??
+    (lookups.loading ? "Loading…" : null);
+
+  const dosageForm = drugEntry?.dosageForm ?? productData?.dosageForm ?? null;
 
   const manufacturerName =
     drugEntry?.manufacturerName ??
@@ -488,26 +795,24 @@ const ProductView1 = ({
   const productDescription =
     drugEntry?.productDescription ?? productData?.productDescription ?? null;
 
-  /* GST & HSN live in pricingDetails — not in drugAttributes */
   const gstPercentage =
     pricing?.gstPercentage ?? drugEntry?.gstPercentage ?? productData?.gstPercentage ?? null;
+
   const hsnCode =
     pricing?.hsnCode ?? drugEntry?.hsnCode ?? productData?.hsnCode ?? null;
 
-  /* Shelf life — pricingDetails.shelfLifeMonths OR consumable string field */
   const shelfLifeDisplay =
     pricing?.shelfLifeMonths != null
       ? `${pricing.shelfLifeMonths} months`
       : consAttr?.shelfLife ?? drugEntry?.shelfLife ?? null;
 
-  /* Additional discounts — API uses effectiveStartDate / effectiveEndDate */
   const additionalDiscounts: AdditionalDiscount[] = (
     pricing?.additionalDiscounts ?? []
   ).filter((d) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage);
 
-  /* Pack size summary */
   const unitsPerPack =
     packaging?.unitPerPack ?? packaging?.unitsPerPack ?? packaging?.numberOfUnits;
+
   const packSizeDisplay =
     packaging?.numberOfPacks != null && unitsPerPack != null
       ? `${packaging.numberOfPacks} packs × ${unitsPerPack} units = ${(
@@ -515,7 +820,6 @@ const ProductView1 = ({
         ).toLocaleString()} units`
       : null;
 
-  /* Images */
   const resolveProductImages = (data: ProductApiData | null): string[] => {
     if (!data) return [];
     if (Array.isArray(data.productImages)) {
@@ -538,29 +842,36 @@ const ProductView1 = ({
   const productImages = resolveProductImages(productData);
   const displayImages = productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
 
-  /* ── Navigation handlers ── */
-  /** Close → always back to dashboard list */
+  const certDocs: CertificateDocument[] = [
+    ...(ncAttr?.certificateDocuments ?? []),
+    ...(consAttr?.certificateDocuments ?? []),
+  ].filter((c) => validUrl(c.certificateUrl) !== null);
+
+  const brochureUrl: string | null =
+    validUrl(drugEntry?.brochurePath) ??
+    validUrl(drugEntry?.userManualUrl) ??
+    validUrl(consAttr?.brochurePath) ??
+    validUrl(ncAttr?.brochurePath) ??
+    validUrl(productData?.productMarketingUrl);
+
   const router = useRouter();
-  const handleClose = () => router.push("/seller_7a3b9f2c/dashboard");
+  const handleClose = () => {
+  window.location.href = "/seller_7a3b9f2c/dashboard";
+};
 
-
-  /**
-   * Edit → route to the category-specific edit form.
-   * categoryId is read from the fetched product data first,
-   * then falls back to the prop passed from ProductList.
-   */
   const handleEdit = () => {
-    const catId = resolvedCategoryId;
-    const editView = catId != null ? CATEGORY_EDIT_VIEW[catId] : null;
+    const editView =
+      resolvedCategoryId != null ? CATEGORY_EDIT_VIEW[resolvedCategoryId] : null;
     setCurrentView(editView ?? ("editDrug" as DashboardView));
   };
 
-  /* ── Loading skeleton ── */
+  /* ─────────────────────────────────────────────────────
+     LOADING / EMPTY STATES
+  ───────────────────────────────────────────────────── */
+
   if (loading) {
     return (
-      <div
-        style={{ width: "100%", background: "var(--base-white)", borderRadius: 16, padding: 24 }}
-      >
+      <div style={{ width: "100%", background: "var(--base-white)", borderRadius: 16, padding: 24 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ height: 256, background: "#F5F5F5", borderRadius: 12 }} />
           <div style={{ height: 24, background: "#F5F5F5", borderRadius: 6, width: "66%" }} />
@@ -650,9 +961,7 @@ const ProductView1 = ({
             Complete product information
           </p>
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          {/* Close → dashboard */}
           <button
             onClick={handleClose}
             style={{
@@ -674,8 +983,6 @@ const ProductView1 = ({
           >
             Close
           </button>
-
-          {/* Edit → category-specific edit form */}
           <button
             onClick={handleEdit}
             style={{
@@ -715,7 +1022,7 @@ const ProductView1 = ({
           </h2>
         </div>
 
-        {/* ── Images ── */}
+        {/* Images */}
         <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
           <p
             style={{
@@ -729,7 +1036,6 @@ const ProductView1 = ({
           >
             Product Images
           </p>
-
           <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
             {displayImages.map((img, idx) => (
               <div
@@ -785,7 +1091,6 @@ const ProductView1 = ({
                 )}
               </div>
             ))}
-            {/* Empty placeholder slots to fill up to 4 */}
             {Array.from({ length: Math.max(0, 4 - displayImages.length) }).map((_, i) => (
               <div
                 key={`empty-${i}`}
@@ -801,118 +1106,69 @@ const ProductView1 = ({
           </div>
         </div>
 
-        {/* ── Two-column fields ── */}
+        {/* Two-column fields */}
         <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
 
-          {/* ── LEFT column ── */}
+          {/* ── LEFT COLUMN ── */}
           <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
             <FieldRow label="Product Name" value={productData.productName} multiline />
 
-            {/* ── Drug-specific fields ── */}
             {drugEntry && (
               <>
                 <FieldRow label="Therapeutic Category" value={therapeuticCategory} />
                 <FieldRow label="Therapeutic Subcategory" value={therapeuticSubcategory} />
                 <FieldRow label="Dosage Form (Tablet, Syrup)" value={dosageForm} />
 
-                {/* Molecule 1 — from molecules[0].strength */}
-                <div style={{ ...ROW, alignItems: "center" }}>
-                  <div style={ROW_LABEL}>
-                    <span style={LABEL_TEXT}>Molecule 1:</span>
-                    <span style={REQUIRED_STAR}>*</span>
-                  </div>
-                  <div
-                    style={{
-                      flex: "1 1 0",
-                      display: "flex",
-                      gap: 16,
-                      justifyContent: "flex-end",
-                      alignItems: "center",
-                    }}
-                  >
-                    <span
+                {moleculesToDisplay.map((mol, idx) => (
+                  <div key={idx} style={{ ...ROW, alignItems: "center" }}>
+                    <div style={ROW_LABEL}>
+                      <span style={LABEL_TEXT}>
+                        {moleculesToDisplay.length === 1 ? "Molecule" : `Molecule ${idx + 1}`}
+                      </span>
+                      <span style={REQUIRED_STAR}>*</span>
+                    </div>
+                    <div
                       style={{
-                        color: "#3C3D3A",
-                        fontSize: 16,
-                        fontFamily: "'Open Sans', sans-serif",
-                        fontWeight: 400,
-                        lineHeight: "22px",
+                        flex: "1 1 0",
+                        display: "flex",
+                        gap: 16,
+                        justifyContent: "flex-end",
+                        alignItems: "center",
                       }}
                     >
-                      {molecule1?.moleculeName ?? drugEntry?.molecule1Name ?? "—"}
-                    </span>
-                    <span
-                      style={{
-                        color: "#3C3D3A",
-                        fontSize: 16,
-                        fontFamily: "'Open Sans', sans-serif",
-                        fontWeight: 700,
-                        lineHeight: "22px",
-                      }}
-                    >
-                      {molecule1?.strength != null
-                        ? formatStrength(molecule1.strength)
-                        : drugEntry?.molecule1Strength != null
-                        ? formatStrength(drugEntry.molecule1Strength)
-                        : "—"}
-                    </span>
+                      <span
+                        style={{
+                          color: "var(--Colors-Primary-Neutral-pneutral-800, #3C3D3A)",
+                          fontSize: 16,
+                          fontFamily: "'Open Sans', sans-serif",
+                          fontWeight: 400,
+                          lineHeight: "22px",
+                          wordWrap: "break-word",
+                        }}
+                      >
+                        {lookups.loading && !mol.resolvedName ? "Loading…" : mol.resolvedName}
+                      </span>
+                      <span
+                        style={{
+                          color: "var(--Colors-Primary-Neutral-pneutral-800, #3C3D3A)",
+                          fontSize: 16,
+                          fontFamily: "'Open Sans', sans-serif",
+                          fontWeight: 700,
+                          lineHeight: "22px",
+                          wordWrap: "break-word",
+                        }}
+                      >
+                        {mol.resolvedStrength}
+                      </span>
+                    </div>
                   </div>
-                </div>
-
-                {/* Molecule 2 — from molecules[1].strength */}
-                <div style={{ ...ROW, alignItems: "center" }}>
-                  <div style={ROW_LABEL}>
-                    <span style={LABEL_TEXT}>Molecule 2</span>
-                    <span style={REQUIRED_STAR}>*</span>
-                  </div>
-                  <div
-                    style={{
-                      flex: "1 1 0",
-                      display: "flex",
-                      gap: 16,
-                      justifyContent: "flex-end",
-                      alignItems: "center",
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "#3C3D3A",
-                        fontSize: 16,
-                        fontFamily: "'Open Sans', sans-serif",
-                        fontWeight: 400,
-                        lineHeight: "22px",
-                      }}
-                    >
-                      {molecule2?.moleculeName ?? drugEntry?.molecule2Name ?? "—"}
-                    </span>
-                    <span
-                      style={{
-                        color: "#3C3D3A",
-                        fontSize: 16,
-                        fontFamily: "'Open Sans', sans-serif",
-                        fontWeight: 700,
-                        lineHeight: "22px",
-                      }}
-                    >
-                      {molecule2?.strength != null
-                        ? formatStrength(molecule2.strength)
-                        : drugEntry?.molecule2Strength != null
-                        ? formatStrength(drugEntry.molecule2Strength)
-                        : "—"}
-                    </span>
-                  </div>
-                </div>
+                ))}
 
                 <FieldRow label="Drug Schedule" value={drugSchedule} />
-                <FieldRow
-                  label="Mechanism of Action (MoA)"
-                  value={mechanismOfAction}
-                  multiline
-                />
+                <FieldRow label="Mechanism of Action (MoA)" value={mechanismOfAction} multiline />
               </>
             )}
 
-            {/* ── Non-Consumable specific fields ── */}
             {ncAttr && (
               <>
                 <FieldRow label="Brand Name" value={ncAttr.brandName} />
@@ -924,9 +1180,7 @@ const ProductView1 = ({
                 <FieldRow label="UDI Number" value={ncAttr.udiNumber} />
                 <FieldRow
                   label="Warranty Period"
-                  value={
-                    ncAttr.warrantyPeriod != null ? `${ncAttr.warrantyPeriod} months` : null
-                  }
+                  value={ncAttr.warrantyPeriod != null ? `${ncAttr.warrantyPeriod} months` : null}
                 />
                 <FieldRow label="Country of Origin" value={ncAttr.countryName} />
                 <FieldRow label="Power Source" value={ncAttr.powerSourceName} />
@@ -942,7 +1196,6 @@ const ProductView1 = ({
               </>
             )}
 
-            {/* ── Consumable specific fields ── */}
             {consAttr && (
               <>
                 <FieldRow label="Brand Name" value={consAttr.brandName} />
@@ -957,19 +1210,14 @@ const ProductView1 = ({
                   value={consAttr.keyFeaturesSpecifications}
                   multiline
                 />
-                <FieldRow
-                  label="Safety Instructions"
-                  value={consAttr.safetyInstructions}
-                  multiline
-                />
+                <FieldRow label="Safety Instructions" value={consAttr.safetyInstructions} multiline />
               </>
             )}
 
-            {/* Storage Condition — universal field shown for all categories */}
             <FieldRow label="Storage Condition" value={storageCondition} multiline />
           </div>
 
-          {/* ── RIGHT column ── */}
+          {/* ── RIGHT COLUMN ── */}
           <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
             <FieldRow label="Primary Use" value={primaryUse} />
             <FieldRow label="Manufacturer Name" value={manufacturerName} />
@@ -1006,11 +1254,12 @@ const ProductView1 = ({
                   <FileText size={24} color="#3C3D3A" />
                   <span
                     style={{
-                      color: "#3C3D3A",
+                      color: "var(--Colors-Primary-Neutral-pneutral-800, #3C3D3A)",
                       fontSize: 16,
                       fontFamily: "'Open Sans', sans-serif",
                       fontWeight: 400,
                       lineHeight: "22px",
+                      wordWrap: "break-word",
                     }}
                   >
                     product-brochure.pdf
@@ -1043,7 +1292,7 @@ const ProductView1 = ({
               )}
             </div>
 
-            {/* Certificate Documents — rendered when certs exist (non-consumable / consumable) */}
+            {/* Certificate Documents */}
             {certDocs.length > 0 && (
               <div
                 style={{
@@ -1106,11 +1355,12 @@ const ProductView1 = ({
               </div>
               <p
                 style={{
-                  color: "#3C3D3A",
+                  color: "var(--Colors-Primary-Neutral-pneutral-800, #3C3D3A)",
                   fontSize: 16,
                   fontFamily: "'Open Sans', sans-serif",
                   fontWeight: 400,
                   lineHeight: "22px",
+                  wordWrap: "break-word",
                   margin: 0,
                 }}
               >
@@ -1134,11 +1384,12 @@ const ProductView1 = ({
               </div>
               <p
                 style={{
-                  color: "#3C3D3A",
+                  color: "var(--Colors-Primary-Neutral-pneutral-800, #3C3D3A)",
                   fontSize: 16,
                   fontFamily: "'Open Sans', sans-serif",
                   fontWeight: 400,
                   lineHeight: "22px",
+                  wordWrap: "break-word",
                   margin: 0,
                 }}
               >
@@ -1154,21 +1405,14 @@ const ProductView1 = ({
         <SectionTitle>Packaging &amp; Order Details</SectionTitle>
         <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
           <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-            <FieldRow
-              label="Pack Type"
-              value={packaging?.packTypeName ?? packaging?.packType}
-            />
+            <FieldRow label="Pack Type" value={resolvedPackType} />
             <FieldRow
               label="Number of Units per Pack Type"
-              value={
-                packaging?.numberOfUnits ?? packaging?.unitPerPack ?? packaging?.unitsPerPack
-              }
+              value={packaging?.numberOfUnits ?? packaging?.unitPerPack ?? packaging?.unitsPerPack}
             />
             <FieldRow
               label="Number of Packs"
-              value={
-                packaging?.numberOfPacks != null ? `${packaging.numberOfPacks} Box` : null
-              }
+              value={packaging?.numberOfPacks != null ? `${packaging.numberOfPacks} Box` : null}
             />
             <FieldRow
               label="Pack Size (No. of packs × No. of Units per pack type)"
@@ -1197,18 +1441,12 @@ const ProductView1 = ({
       </div>
 
       {/* ── BATCH MANAGEMENT + PRICING ── */}
-      <div
-        style={{ display: "flex", gap: 36, alignItems: "flex-start", alignSelf: "stretch" }}
-      >
-        {/* Batch Management */}
+      <div style={{ display: "flex", gap: 36, alignItems: "flex-start", alignSelf: "stretch" }}>
         <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column", gap: 16 }}>
           <SectionTitle>Batch Management</SectionTitle>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <FieldRow label="Batch Number" value={pricing?.batchLotNumber} />
-            <FieldRow
-              label="Manufacturing Date"
-              value={formatDate(pricing?.manufacturingDate)}
-            />
+            <FieldRow label="Manufacturing Date" value={formatDate(pricing?.manufacturingDate)} />
             <FieldRow label="Expiry Date" value={formatDate(pricing?.expiryDate)} />
             <FieldRow
               label="Stock Quantity (in terms of Pack Size)"
@@ -1218,43 +1456,27 @@ const ProductView1 = ({
                   : null
               }
             />
-            <FieldRow
-              label="Date of Stock Entry"
-              value={formatDate(pricing?.dateOfStockEntry)}
-            />
-            {/* Shelf life from pricingDetails.shelfLifeMonths OR consumable's shelfLife string */}
+            <FieldRow label="Date of Stock Entry" value={formatDate(pricing?.dateOfStockEntry)} />
             <FieldRow label="Shelf Life" value={shelfLifeDisplay} />
           </div>
         </div>
 
-        {/* Pricing */}
         <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column", gap: 16 }}>
           <SectionTitle>Pricing</SectionTitle>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <FieldRow
               label="MRP (per Pack Size)"
-              value={
-                pricing?.mrp != null ? `₹${pricing.mrp.toLocaleString()}` : null
-              }
+              value={pricing?.mrp != null ? `₹${pricing.mrp.toLocaleString()}` : null}
             />
             <FieldRow
               label="Selling Price (per Pack Size)"
-              value={
-                pricing?.sellingPrice != null
-                  ? `₹${pricing.sellingPrice.toLocaleString()}`
-                  : null
-              }
+              value={pricing?.sellingPrice != null ? `₹${pricing.sellingPrice.toLocaleString()}` : null}
             />
             <FieldRow
               label="Discount Percentage"
-              value={
-                pricing?.discountPercentage != null
-                  ? `${pricing.discountPercentage}%`
-                  : null
-              }
+              value={pricing?.discountPercentage != null ? `${pricing.discountPercentage}%` : null}
             />
 
-            {/* Additional Discounts */}
             {additionalDiscounts.length > 0 && (
               <>
                 <div style={{ padding: "12px 8px 8px" }}>
@@ -1271,7 +1493,6 @@ const ProductView1 = ({
                   </span>
                 </div>
                 {additionalDiscounts.map((d, i) => {
-                  /* API uses effectiveStartDate / effectiveEndDate — legacy uses startDate/endDate */
                   const startDate = d.effectiveStartDate ?? d.startDate;
                   const endDate = d.effectiveEndDate ?? d.endDate;
                   return (
@@ -1296,19 +1517,18 @@ const ProductView1 = ({
                             margin: 0,
                           }}
                         >
-                          Bulk order discount ({d.minimumPurchaseQuantity}
-                          {d.maximumPurchaseQuantity
-                            ? `-${d.maximumPurchaseQuantity}`
-                            : "+"}{" "}
-                          units)
-                          {startDate && endDate
-                            ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
-                            : ""}
+                          {`Bulk order discount (${d.minimumPurchaseQuantity}${
+                            d.maximumPurchaseQuantity ? `-${d.maximumPurchaseQuantity}` : "+"
+                          } units)${
+                            startDate && endDate
+                              ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
+                              : ""
+                          }`}
                         </p>
                       </div>
                       <span
                         style={{
-                          color: "#3C3D3A",
+                          color: "var(--Colors-Primary-Neutral-pneutral-800, #3C3D3A)",
                           fontSize: 16,
                           fontFamily: "'Open Sans', sans-serif",
                           fontWeight: 600,
@@ -1334,14 +1554,12 @@ const ProductView1 = ({
         <SectionTitle>TAX &amp; BILLING</SectionTitle>
         <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
           <div style={{ flex: "1 1 0" }}>
-            {/* GST — from pricingDetails[0].gstPercentage */}
             <FieldRow
               label="GST %"
               value={gstPercentage != null ? `${gstPercentage}%` : null}
             />
           </div>
           <div style={{ flex: "1 1 0" }}>
-            {/* HSN — from pricingDetails[0].hsnCode */}
             <FieldRow
               label="HSN Code"
               value={hsnCode != null ? String(hsnCode) : null}
@@ -1351,12 +1569,9 @@ const ProductView1 = ({
       </div>
 
       {/* ── CERTIFICATE MODAL ── */}
-      {showCertModal && activeCertDoc && (
+      {showCertModal && activeCertDoc !== null && (
         <div
-          onClick={() => {
-            setShowCertModal(false);
-            setActiveCertDoc(null);
-          }}
+          onClick={() => { setShowCertModal(false); setActiveCertDoc(null); }}
           style={{
             position: "fixed",
             inset: 0,
@@ -1458,11 +1673,8 @@ const ProductView1 = ({
                 </a>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowCertModal(false);
-                    setActiveCertDoc(null);
-                  }}
-                  style={{  
+                  onClick={() => { setShowCertModal(false); setActiveCertDoc(null); }}
+                  style={{
                     width: 32,
                     height: 32,
                     borderRadius: 8,
@@ -1497,13 +1709,8 @@ const ProductView1 = ({
               {isImageUrl(activeCertDoc.certificateUrl) ? (
                 <img
                   src={activeCertDoc.certificateUrl}
-                  alt={activeCertDoc.certificationName || "Certificate"}
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: 600,
-                    objectFit: "contain",
-                    borderRadius: 8,
-                  }}
+                  alt={activeCertDoc.certificationName ?? "Certificate"}
+                  style={{ maxWidth: "100%", maxHeight: 600, objectFit: "contain", borderRadius: 8 }}
                 />
               ) : isPdfUrl(activeCertDoc.certificateUrl) ? (
                 <iframe
@@ -1636,9 +1843,7 @@ const ProductView1 = ({
                       }}
                     >
                       <PiSealCheckLight size={12} />
-                      {cert.certificationName ??
-                        cert.label ??
-                        `Cert ${cert.certificationId}`}
+                      {cert.certificationName ?? cert.label ?? `Cert ${cert.certificationId}`}
                     </button>
                   ))}
               </div>
