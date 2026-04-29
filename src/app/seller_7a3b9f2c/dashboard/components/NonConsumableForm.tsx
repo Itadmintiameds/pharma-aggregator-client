@@ -180,7 +180,6 @@ function getMasterStr(item: MasterItem, ...keys: string[]): string {
 const fieldLabel = "block mb-1.5 font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]";
 const requiredStar = <span className="text-red-500 ml-0.5">*</span>;
 
-// FIX #5 & #6: Placeholder color #969793, entered text color #3C3D3A
 const inputBase =
   "w-full h-12 px-4 border border-gray-300 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors bg-white";
 const inputDisabled =
@@ -302,7 +301,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
 
-  // FIX #2/#3: Use CommonModal for additional discount (like DrugForm), remove Drawer
   const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -406,7 +404,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (!data) throw new Error("Product not found");
 
       const attribute = data.productAttributeNonConsumableMedicals?.[0] || {};
-      const packaging = data.packagingDetails || {};
+      // ── FIX: packagingDetails is an array — always take the first element ──
+      const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) || {};
       const pricing = data.pricingDetails?.[0] || {};
 
       setResolvedProductId(data.productId || productId);
@@ -955,7 +954,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     } finally { setSubmitting(false); }
   };
 
-  // FIX #6: singleValue text color changed to #3C3D3A for entered/selected data
   const selectStyles = (errorKey: string): SelectStyles => ({
     control: (base, state) => ({
       ...base, height: "48px", minHeight: "48px", borderRadius: "12px",
@@ -972,7 +970,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       "&:active": { backgroundColor: "#7c3aed", color: "white" },
     }),
     placeholder: (base) => ({ ...base, color: "#969793", fontFamily: "'Open Sans', sans-serif", fontSize: "16px" }),
-    // FIX #6: entered/selected value text should be #3C3D3A not placeholder grey
     singleValue: (base) => ({ ...base, color: "#3C3D3A", fontFamily: "'Open Sans', sans-serif", fontSize: "16px" }),
   });
 
@@ -1005,7 +1002,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         onClose={() => setShowSuccessModal(false)}
       />
 
-      {/* FIX #2/#3: CommonModal for additional discount, matching DrugForm pattern */}
       {showAdditionalDiscountModal && (
         <CommonModal
           onClose={() => setShowAdditionalDiscountModal(false)}
@@ -1035,7 +1031,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         {/* ── Section 1: Product Details ─────────────────────────────────────────── */}
         <div className={sectionCard}>
           <h2 className={sectionTitle}>Product Details</h2>
-          {/* FIX #4: gap-y-5 (20px) for consistent field spacing */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
             {isEdit ? <NonEditableField label="Product Name" value={form.productName} required /> : (
@@ -1102,14 +1097,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {/* Intended Use — always editable */}
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Intended Use / Purpose {requiredStar}</label>
               <input ref={setFieldRef("intendedUse")} name="intendedUse" value={form.intendedUse} onChange={handleChange} placeholder="e.g., Blood pressure monitoring" className={`${inputBase} ${errors.intendedUse ? inputError : ""}`} />
               {errors.intendedUse && <p className={errorMsg}>{errors.intendedUse}</p>}
             </div>
 
-            {/* Material / Build Type */}
             {isEdit ? (
               <NonEditableField label="Material / Build Type (Plastic, Metal, Steel)" value={selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")} required />
             ) : (
@@ -1139,7 +1132,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {/* FIX #7: Certification upload — tag-chip style */}
             <div className="col-span-1 md:col-span-2" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {isEdit ? (
@@ -1171,7 +1163,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                   </div>
                 )}
 
-                {/* FIX #7: Tag-chip style cert upload rows */}
                 {isEdit ? (
                   <div>
                     <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
@@ -1208,7 +1199,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                         {selectedCertifications.map((cert) => (
                           <div key={cert.id}>
                             {cert.existingUrl && !cert.file ? (
-                              /* Existing uploaded cert — tag chip style */
                               <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
                                 <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                                   <FileText size={16} className="text-purple-600" />
@@ -1228,7 +1218,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                                 </div>
                               </div>
                             ) : cert.isUploaded && cert.file ? (
-                              /* File selected — tag chip style */
                               <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
                                 <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                                   <FileText size={16} className="text-purple-600" />
@@ -1248,7 +1237,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                                 </div>
                               </div>
                             ) : (
-                              /* Pending upload — tag chip style with upload prompt */
                               <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()}>
                                 <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                                   <UploadCloudIcon />
@@ -1275,7 +1263,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             </div>
 
-            {/* Power Source */}
             {isEdit ? <NonEditableSelect label="Power Source" value={displayLabels.powerSourceLabel} /> : (
               <div className="flex flex-col gap-1">
                 <label className={fieldLabel}>Power Source</label>
@@ -1283,7 +1270,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {/* Warranty Period */}
             {isEdit ? <NonEditableField label="Warranty Period (months)" value={form.warrantyPeriod} /> : (
               <div className="flex flex-col gap-1">
                 <label className={fieldLabel}>Warranty Period (months)</label>
@@ -1292,7 +1278,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {/* AMC */}
             {isEdit ? <NonEditableSelect label="AMC / Service Availability" value={displayLabels.amcLabel} required /> : (
               <div className="flex flex-col gap-1" ref={setFieldRef("amcAvailability") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>AMC / Service Availability {requiredStar}</label>
@@ -1301,7 +1286,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {/* Country of Origin */}
             {isEdit ? <NonEditableSelect label="Country of Origin" value={displayLabels.countryLabel} required /> : (
               <div className="flex flex-col gap-1" ref={setFieldRef("countryOfOrigin") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Country of Origin {requiredStar}</label>
@@ -1310,7 +1294,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {/* Manufacturer Name */}
             {isEdit ? <NonEditableField label="Manufacturer Name" value={form.manufacturerName} required /> : (
               <div className="flex flex-col gap-1">
                 <label className={fieldLabel}>Manufacturer Name {requiredStar}</label>
@@ -1319,13 +1302,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {/* Storage Condition — always editable */}
             <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
               <label className={fieldLabel}>Storage Condition (If applicable)</label>
               <Select options={storageConditionOptions} value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null} onChange={(sel) => handleSelectChange("storageCondition", sel)} placeholder="Select storage condition" theme={selectTheme} styles={selectStyles("storageCondition")} isClearable />
             </div>
 
-            {/* Brochure — always editable */}
             <div ref={setFieldRef("brochure") as React.RefCallback<HTMLDivElement>}>
               <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
               {existingBrochureUrl && !brochureFile && (
@@ -1360,7 +1341,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               <input ref={brochureInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleBrochureUpload(e.target.files[0]); }} />
             </div>
 
-            {/* Safety Instructions & Key Features */}
             <div className="col-span-1 md:col-span-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -1376,7 +1356,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             </div>
 
-            {/* Product Description */}
             <div className="col-span-1 md:col-span-2">
               <label className={fieldLabel}>Product Description {requiredStar}</label>
               <textarea ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>} name="productDescription" value={form.productDescription} onChange={handleChange} rows={4} placeholder="Detailed product description" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.productDescription ? "border-red-400" : "border-gray-300"}`} />
@@ -1476,7 +1455,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               {errors.discountPercentage && <p className={errorMsg}>{errors.discountPercentage}</p>}
             </div>
 
-            {/* FIX #2/#3: Open CommonModal instead of Drawer */}
             <div className="flex flex-col gap-1">
               <label className={`${fieldLabel} opacity-0`}>_</label>
               <button type="button" onClick={() => setShowAdditionalDiscountModal(true)} style={{ background: "#9F75FC", borderRadius: "8px" }} className="h-12 px-5 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] w-auto self-start hover:opacity-90 transition-opacity flex items-center gap-2">
@@ -1485,21 +1463,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </button>
             </div>
           </div>
-
-          {/* {additionalDiscountSlabs.length > 0 && (
-            <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-purple-800">{additionalDiscountSlabs.length} Discount Slab{additionalDiscountSlabs.length > 1 ? "s" : ""} Added</span>
-                <button type="button" onClick={() => setShowAdditionalDiscountModal(true)} className="text-xs text-purple-600 underline">Edit</button>
-              </div>
-              {additionalDiscountSlabs.map((slab, idx) => (
-                <div key={idx} className="flex items-center justify-between text-xs text-purple-700 py-1.5 border-t border-purple-100">
-                  <span>Min Qty: {slab.minimumPurchaseQuantity} — {slab.additionalDiscountPercentage}% off</span>
-                  <button type="button" onClick={() => setAdditionalDiscountSlabs((p) => p.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 ml-3"><X size={12} /></button>
-                </div>
-              ))}
-            </div>
-          )} */}
 
           <p className={subSectionTitle}>TAX &amp; BILLING</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
@@ -1520,107 +1483,66 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
           </div>
-
-          {/* <div className="flex justify-end mt-5">
-            <button type="button" onClick={handleSubmit} disabled={submitting} style={{ background: "#9F75FC", borderRadius: "8px" }} className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
-              {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {submitting ? "Saving..." : "Save"}
-            </button>
-          </div> */}
         </div>
 
         {/* ── Section 3: Product Photos ──────────────────────────────────────────── */}
-<div
-  className={sectionCard}
-  ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>}
-  data-field="images"
->
-  <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
-    Product Photos {mode === "create" && <span className="text-red-500">*</span>}
-  </h2>
+        <div
+          className={sectionCard}
+          ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>}
+          data-field="images"
+        >
+          <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
+            Product Photos {mode === "create" && <span className="text-red-500">*</span>}
+          </h2>
 
-  {/* Existing Images (edit mode) */}
-  {existingImages.length > 0 && (
-    <div className="mb-4">
-      <p className="text-sm font-semibold text-gray-600 mb-2">Current Images</p>
-      <div className="flex flex-wrap gap-3">
-        {existingImages.map((url, i) => (
-          <div key={i} className="relative flex-shrink-0">
-            <img
-              src={url}
-              alt={`existing-${i}`}
-              className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200"
-            />
+          {existingImages.length > 0 && (
+            <div className="mb-4">
+              <p className="text-sm font-semibold text-gray-600 mb-2">Current Images</p>
+              <div className="flex flex-wrap gap-3">
+                {existingImages.map((url, i) => (
+                  <div key={i} className="relative flex-shrink-0">
+                    <img src={url} alt={`existing-${i}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div
+            className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
+            onClick={() => document.getElementById("ncFileInput")?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}
+          >
+            <div className="flex flex-col items-center justify-center gap-2">
+              <div className="w-12 h-12 flex items-center justify-center">
+                <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
+              </div>
+              <div className="text-sm font-medium text-gray-600 text-center">Choose a file or drag &amp; drop it here</div>
+              <div className="text-xs text-gray-400 text-center">Click to browse PNG, JPG, and SVG</div>
+            </div>
           </div>
-        ))}
-      </div>
-    </div>
-  )}
 
-  {/* Drop Zone */}
-  <div
-    className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
-    onClick={() => document.getElementById("ncFileInput")?.click()}
-    onDragOver={(e) => e.preventDefault()}
-    onDrop={(e) => {
-      e.preventDefault();
-      if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files);
-    }}
-  >
-    <div className="flex flex-col items-center justify-center gap-2">
-      <div className="w-12 h-12 flex items-center justify-center">
-        <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
-      </div>
-      <div className="text-sm font-medium text-gray-600 text-center">
-        Choose a file or drag &amp; drop it here
-      </div>
-      <div className="text-xs text-gray-400 text-center">
-        Click to browse PNG, JPG, and SVG
-      </div>
-    </div>
-  </div>
+          <input id="ncFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg,image/svg+xml" className="hidden" onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); }} />
 
-  <input
-    id="ncFileInput"
-    type="file"
-    multiple
-    accept="image/jpeg,image/png,image/jpg,image/svg+xml"
-    className="hidden"
-    onChange={(e) => {
-      if (e.target.files) handleImageFiles(e.target.files);
-    }}
-  />
+          {images.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-3">
+              {images.map((file, i) => {
+                const url = URL.createObjectURL(file);
+                return (
+                  <div key={i} className="relative group flex-shrink-0">
+                    <img src={url} alt={`Product ${i + 1}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
+                    <button type="button" onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                      <X size={12} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
-  {/* New Image Previews */}
-  {images.length > 0 && (
-    <div className="mt-4 flex flex-wrap gap-3">
-      {images.map((file, i) => {
-        const url = URL.createObjectURL(file);
-        return (
-          <div key={i} className="relative group flex-shrink-0">
-            <img
-              src={url}
-              alt={`Product ${i + 1}`}
-              className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                URL.revokeObjectURL(url);
-                setImages((p) => p.filter((_, idx) => idx !== i));
-              }}
-              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-            >
-              <X size={12} />
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  )}
-
-  {errors.images && <p className={`${errorMsg} mt-2`}>{errors.images}</p>}
-</div>
+          {errors.images && <p className={`${errorMsg} mt-2`}>{errors.images}</p>}
+        </div>
 
         {/* ── Actions ─────────────────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
