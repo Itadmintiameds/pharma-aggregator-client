@@ -31,21 +31,10 @@ interface FormState {
   alwaysActive: boolean;
 }
 
-// interface AdditionalDiscountData {
-//   minimumPurchaseQuantity: number;
-//   additionalDiscountPercentage: number;
-//   effectiveStartDate: string;
-//   effectiveStartTime: string;
-//   effectiveEndDate: string;
-//   effectiveEndTime: string;
-// }
-
-// interface AdditionalDiscountProps {
-//   onSave?: (slabs?: AdditionalDiscountData[]) => void;
-// }
-
 interface AdditionalDiscountProps {
   initialData?: AdditionalDiscountData[];
+  baseDiscountPercentage?: number;
+  baseMinimumOrderQuantity?: number;
   onSave?: (slabs?: AdditionalDiscountData[]) => void;
   onClose?: () => void;
 }
@@ -490,48 +479,14 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
   onSave,
   initialData,
   onClose,
+  baseDiscountPercentage,
+  baseMinimumOrderQuantity,
 }) => {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const [slabs, setSlabs] = useState<AdditionalDiscountData[]>(
     initialData || [],
   );
-
-  // const [form, setForm] = useState<FormState>(() => {
-  //   if (initialData && initialData.length > 0) {
-  //     const d = initialData[0];
-
-  //     return {
-  //       minimumPurchaseQuantity: String(d.minimumPurchaseQuantity),
-  //       maximumPurchaseQuantity: "",
-  //       discountPercentage: String(d.additionalDiscountPercentage),
-  //       startDate: d.effectiveStartDate || "",
-  //       startTime: d.effectiveStartTime || "",
-  //       endDate: d.effectiveEndDate || "",
-  //       endTime: d.effectiveEndTime || "",
-  //       alwaysActive: !d.effectiveStartDate,
-  //     };
-  //   }
-
-  //   return EMPTY_FORM;
-  // });
-
-  // useEffect(() => {
-  //   if (initialData && initialData.length > 0) {
-  //     const d = initialData[0];
-
-  //     setForm({
-  //       minimumPurchaseQuantity: String(d.minimumPurchaseQuantity),
-  //       maximumPurchaseQuantity: "",
-  //       discountPercentage: String(d.additionalDiscountPercentage),
-  //       startDate: d.effectiveStartDate || "",
-  //       startTime: d.effectiveStartTime || "",
-  //       endDate: d.effectiveEndDate || "",
-  //       endTime: d.effectiveEndTime || "",
-  //       alwaysActive: !d.effectiveStartDate,
-  //     });
-  //   }
-  // }, [initialData]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showTimePicker, setShowTimePicker] = useState<
@@ -706,6 +661,13 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
     const discount = Number(updatedForm.discountPercentage);
 
     if (name === "minimumPurchaseQuantity") {
+      const baseMPQ = Number(baseMinimumOrderQuantity || 0);
+
+      if (Number(value) <= baseMPQ) {
+        newErrors.minimumPurchaseQuantity = `Must be greater than base quantity (${baseMPQ})`;
+        setErrors(newErrors);
+        return;
+      }
       if (value === "") {
         newErrors.minimumPurchaseQuantity =
           "Minimum Purchase Quantity is required";
@@ -735,6 +697,14 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
     }
 
     if (name === "discountPercentage") {
+      const baseDiscount = Number(baseDiscountPercentage || 0);
+
+      if (Number(value) <= baseDiscount) {
+        newErrors.discountPercentage = `Must be greater than base discount (${baseDiscount}%)`;
+        setErrors(newErrors);
+        return;
+      }
+
       if (value === "") {
         newErrors.discountPercentage = "Discount is required";
       } else if (isNaN(Number(value))) {
@@ -822,30 +792,97 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
     setForm((prev) => ({ ...prev, alwaysActive: !prev.alwaysActive }));
   };
 
+  // const validateForm = (): boolean => {
+  //   const newErrors: Record<string, string> = {};
+  //   if (!form.minimumPurchaseQuantity.trim())
+  //     newErrors.minimumPurchaseQuantity =
+  //       "Minimum Purchase Quantity is required";
+  //   if (!form.discountPercentage.trim()) {
+  //     newErrors.discountPercentage = "Discount percentage is required";
+  //   } else if (isNaN(Number(form.discountPercentage))) {
+  //     newErrors.discountPercentage = "Please enter a valid number";
+  //   } else if (Number(form.discountPercentage) > 100) {
+  //     newErrors.discountPercentage = "Discount cannot exceed 100%";
+  //   }
+  //   if (!form.alwaysActive) {
+  //     if (!form.startDate) newErrors.startDate = "Start Date is required";
+  //     if (!form.startTime) newErrors.startTime = "Start Time is required";
+  //     if (!form.endDate) newErrors.endDate = "End Date is required";
+  //     if (!form.endTime) newErrors.endTime = "End Time is required";
+  //   }
+  //   setErrors(newErrors);
+  //   return Object.keys(newErrors).length === 0;
+  // };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!form.minimumPurchaseQuantity.trim())
+
+    const mpq = Number(form.minimumPurchaseQuantity);
+    const discount = Number(form.discountPercentage);
+    const baseMPQ = Number(baseMinimumOrderQuantity || 0);
+    const baseDiscount = Number(baseDiscountPercentage || 0);
+
+    // ✅ MPQ validation
+    if (!form.minimumPurchaseQuantity.trim()) {
       newErrors.minimumPurchaseQuantity =
         "Minimum Purchase Quantity is required";
+    } else if (isNaN(mpq)) {
+      newErrors.minimumPurchaseQuantity = "Enter a valid number";
+    } else if (mpq <= 0) {
+      newErrors.minimumPurchaseQuantity = "Must be greater than 0";
+    } else if (mpq <= baseMPQ) {
+      newErrors.minimumPurchaseQuantity = `Must be greater than base quantity (${baseMPQ})`;
+    } else if (slabs.length > 0) {
+      const lastSlab = slabs[slabs.length - 1];
+
+      if (mpq <= lastSlab.minimumPurchaseQuantity) {
+        newErrors.minimumPurchaseQuantity =
+          "Must be greater than previous slab";
+      } else if (slabs.some((s) => s.minimumPurchaseQuantity === mpq)) {
+        newErrors.minimumPurchaseQuantity = "This value is already entered";
+      }
+    }
+
+    // ✅ Discount validation
     if (!form.discountPercentage.trim()) {
       newErrors.discountPercentage = "Discount percentage is required";
-    } else if (isNaN(Number(form.discountPercentage))) {
-      newErrors.discountPercentage = "Please enter a valid number";
-    } else if (Number(form.discountPercentage) > 100) {
+    } else if (isNaN(discount)) {
+      newErrors.discountPercentage = "Enter a valid number";
+    } else if (discount <= 0) {
+      newErrors.discountPercentage = "Must be greater than 0";
+    } else if (discount > 100) {
       newErrors.discountPercentage = "Discount cannot exceed 100%";
+    } else if (discount <= baseDiscount) {
+      newErrors.discountPercentage = `Must be greater than base discount (${baseDiscount}%)`;
+    } else if (slabs.length > 0) {
+      const lastSlab = slabs[slabs.length - 1];
+
+      if (discount <= lastSlab.additionalDiscountPercentage) {
+        newErrors.discountPercentage = "Must be greater than previous slab";
+      } else if (
+        slabs.some((s) => s.additionalDiscountPercentage === discount)
+      ) {
+        newErrors.discountPercentage = "This discount already exists";
+      }
     }
+
+    // ✅ Date validation
     if (!form.alwaysActive) {
       if (!form.startDate) newErrors.startDate = "Start Date is required";
       if (!form.startTime) newErrors.startTime = "Start Time is required";
       if (!form.endDate) newErrors.endDate = "End Date is required";
       if (!form.endTime) newErrors.endTime = "End Time is required";
     }
+
     setErrors(newErrors);
+
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = () => {
-    if (!validateForm()) return;
+    const isValid = validateForm();
+
+    if (!isValid) return;
 
     const slab: AdditionalDiscountData = {
       minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
@@ -856,19 +893,44 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
       effectiveEndTime: form.alwaysActive ? "" : form.endTime,
     };
 
-    // ✅ CREATE updatedSlabs FIRST
     const updatedSlabs = [...slabs, slab];
 
-    // ✅ update local state
     setSlabs(updatedSlabs);
-
-    // ✅ send to parent
     onSave?.(updatedSlabs);
 
-    // ✅ reset form
     setForm(EMPTY_FORM);
     setErrors({});
   };
+
+  // const handleSubmit = () => {
+  //   if (!validateForm()) return;
+
+  //    if (!isValid || Object.keys(errors).length > 0) {
+  //   return;
+  // }
+
+  //   const slab: AdditionalDiscountData = {
+  //     minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
+  //     additionalDiscountPercentage: Number(form.discountPercentage),
+  //     effectiveStartDate: form.alwaysActive ? "" : form.startDate,
+  //     effectiveStartTime: form.alwaysActive ? "" : form.startTime,
+  //     effectiveEndDate: form.alwaysActive ? "" : form.endDate,
+  //     effectiveEndTime: form.alwaysActive ? "" : form.endTime,
+  //   };
+
+  //   // ✅ CREATE updatedSlabs FIRST
+  //   const updatedSlabs = [...slabs, slab];
+
+  //   // ✅ update local state
+  //   setSlabs(updatedSlabs);
+
+  //   // ✅ send to parent
+  //   onSave?.(updatedSlabs);
+
+  //   // ✅ reset form
+  //   setForm(EMPTY_FORM);
+  //   setErrors({});
+  // };
 
   useEffect(() => {
     setSlabs(initialData || []);
