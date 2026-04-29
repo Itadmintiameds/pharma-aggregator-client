@@ -32,7 +32,7 @@ import { sellerRegService } from "@/src/services/seller/sellerRegistrationServic
 import { fetchBankDetails } from "@/src/services/seller/IFSCService";
 import { type SellerProfile, type SellerDocument } from "@/src/types/seller/SellerProfileData";
 import { uploadSellerDocuments, deleteUpdateRequest } from "@/src/services/seller/UpdateSellerProfileDoc";
-import { 
+import {
   CompanyTypeResponse,
   SellerTypeResponse,
   ProductTypeResponse,
@@ -41,7 +41,7 @@ import {
   TalukaResponse,
 } from "@/src/types/seller/SellerRegMasterData";
 
-import { 
+import {
   UpdateSellerProfileRequest
 } from "@/src/types/seller/UpdateProfileData";
 
@@ -56,37 +56,37 @@ const calculateLicenseStatus = (issueDate: Date | null, expiryDate: Date | null)
   if (!issueDate || !expiryDate) {
     return 'InActive';
   }
-  
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const expDate = new Date(expiryDate);
   expDate.setHours(0, 0, 0, 0);
-  
+
   // Check if expired
   if (expDate < today) {
     return 'InActive';
   }
-  
+
   return 'Active';
 };
 
 // Drug License Number validation functions
 const validateDrugLicenseNumber = (value: string): string | null => {
   const cleaned = value.trim().toUpperCase();
-  
+
   if (!cleaned) {
     return "Drug License Number is required";
   }
-  
+
   // Check length (minimum 8, maximum 30 characters)
   if (cleaned.length < 8) {
     return "Must be at least 8 characters";
   }
-  
+
   if (cleaned.length > 30) {
     return "Cannot exceed 30 characters";
   }
-  
+
   // Pattern validation for common Drug License formats
   const patterns = [
     /^[A-Z]{2}\/[A-Z]{3}\/\d{2}[A-Z]?-\d{3,10}$/,      // TN/CBE/20B-12345
@@ -98,13 +98,13 @@ const validateDrugLicenseNumber = (value: string): string | null => {
     /^[A-Z]{2}\/\d{2,3}\/\d{4,10}$/,                    // MH/27/123456
     /^[A-Z]{2}[A-Z0-9]{2,4}\d{4,10}$/,                  // TN20B12345
   ];
-  
+
   const isValid = patterns.some(pattern => pattern.test(cleaned));
-  
+
   if (!isValid) {
     return "Invalid format";
   }
-  
+
   return null;
 };
 
@@ -119,20 +119,20 @@ const formatLicenseNumber = (value: string): string => {
 // Indian Mobile Number validation function
 const validateIndianMobileNumber = (value: string): string | null => {
   const cleaned = value.replace(/\D/g, '');
-  
+
   if (!cleaned) {
     return null;
   }
-  
+
   if (cleaned.length !== 10) {
     return "Mobile number must be exactly 10 digits";
   }
-  
+
   const firstDigit = cleaned.charAt(0);
   if (!['6', '7', '8', '9'].includes(firstDigit)) {
     return "Mobile number must start with 6, 7, 8, or 9";
   }
-  
+
   return null;
 };
 
@@ -162,7 +162,7 @@ export default function SellerProfile() {
   const [profileData, setProfileData] = useState<SellerProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [reviewSections, setReviewSections] = useState<string[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -189,7 +189,7 @@ export default function SellerProfile() {
   const [states, setStates] = useState<StateResponse[]>([]);
   const [districts, setDistricts] = useState<DistrictResponse[]>([]);
   const [talukas, setTalukas] = useState<TalukaResponse[]>([]);
-  
+
   const [changedFiles, setChangedFiles] = useState<{
     gstFile: File | null;
     companyCertFile: File | null;
@@ -230,7 +230,7 @@ export default function SellerProfile() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inactiveLicenses, setInactiveLicenses] = useState<string[]>([]);
   const [showInactiveError, setShowInactiveError] = useState(false);
-  
+
   // GST check states
   const [isCheckingGST, setIsCheckingGST] = useState(false);
   const [gstExistsError, setGSTExistsError] = useState("");
@@ -266,8 +266,8 @@ export default function SellerProfile() {
     gstFileUrl: "",
     companyRegistrationCertificateFile: null as File | null,
     companyRegistrationCertificateUrl: "",
-    licenses: {} as Record<string, { 
-      number: string; 
+    licenses: {} as Record<string, {
+      number: string;
       file: File | null;
       fileUrl: string;
       issueDate: Date | null;
@@ -453,7 +453,7 @@ export default function SellerProfile() {
           const issueDate = doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null;
           const expiryDate = doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null;
           const calculatedStatus = calculateLicenseStatus(issueDate, expiryDate);
-          
+
           licenses[productName] = {
             documentId: doc.sellerDocumentsId,
             number: doc.documentNumber || "",
@@ -511,7 +511,7 @@ export default function SellerProfile() {
         cancelledChequeFile: null,
         cancelledChequeFileUrl: profileData.bankDetails?.bankDocumentFileUrl || '',
       });
-      
+
       setLicenseErrors({});
       setLicenseExistsError({});
       setGSTExistsError("");
@@ -636,7 +636,7 @@ export default function SellerProfile() {
   // Function to check if GST number already exists
   const checkGSTNumberExists = async (gstNumber: string): Promise<boolean> => {
     console.log(`🔍 Checking GST number:`, gstNumber);
-    
+
     if (!gstNumber || gstNumber.length < 15) {
       setGSTExistsError("");
       return false;
@@ -655,7 +655,7 @@ export default function SellerProfile() {
     try {
       const exists = await updateProfileService.checkGSTNumber(gstNumber);
       console.log(`GST check result for ${gstNumber}:`, exists);
-      
+
       if (exists) {
         console.log(`GST number ${gstNumber} already exists!`);
         setGSTExistsError("⚠️ This GST number is already registered. Please use a different GST number.");
@@ -684,7 +684,7 @@ export default function SellerProfile() {
     const existingDoc = profileData?.documents.find(
       doc => doc.productTypes?.productTypeName === productName
     );
-    
+
     // If this is the same license number as currently in the database for this seller, skip check
     if (existingDoc?.documentNumber?.toUpperCase() === licenseNumber.toUpperCase()) {
       setLicenseExistsError(prev => ({ ...prev, [productName]: "" }));
@@ -697,9 +697,9 @@ export default function SellerProfile() {
     try {
       const exists = await updateProfileService.checkLicenseDocumentNumber(licenseNumber);
       if (exists) {
-        setLicenseExistsError(prev => ({ 
-          ...prev, 
-          [productName]: "This license number is already registered. Please use a different license number." 
+        setLicenseExistsError(prev => ({
+          ...prev,
+          [productName]: "This license number is already registered. Please use a different license number."
         }));
         return true;
       }
@@ -708,9 +708,9 @@ export default function SellerProfile() {
     } catch (error: any) {
       console.error("Error checking license number:", error);
       if (error.response?.status !== 404) {
-        setLicenseExistsError(prev => ({ 
-          ...prev, 
-          [productName]: "Failed to verify license number. Please try again." 
+        setLicenseExistsError(prev => ({
+          ...prev,
+          [productName]: "Failed to verify license number. Please try again."
         }));
       }
       return false;
@@ -724,10 +724,10 @@ export default function SellerProfile() {
       try {
         setIsLoading(true);
         setError(null);
-        
+
         const data = await sellerProfileService.getCurrentSellerProfile();
         setProfileData(data);
-        
+
         if (data) {
           const licenses: Record<string, any> = {};
           data.documents.forEach((doc: SellerDocument) => {
@@ -736,7 +736,7 @@ export default function SellerProfile() {
               const issueDate = doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null;
               const expiryDate = doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null;
               const calculatedStatus = calculateLicenseStatus(issueDate, expiryDate);
-              
+
               licenses[productName] = {
                 number: doc.documentNumber || "",
                 file: null,
@@ -801,7 +801,7 @@ export default function SellerProfile() {
             fetchTalukasByDistrict(data.address.district.districtId);
           }
         }
-        
+
         console.log('✅ Profile data loaded successfully');
       } catch (err: any) {
         console.error('❌ Failed to load profile:', err);
@@ -816,8 +816,8 @@ export default function SellerProfile() {
   }, []);
 
   const handleGSTFileChange = (file: File) => {
-    setFormData(prev => ({ 
-      ...prev, 
+    setFormData(prev => ({
+      ...prev,
       gstFile: file,
       gstFileUrl: "PENDING"
     }));
@@ -826,8 +826,8 @@ export default function SellerProfile() {
   };
 
   const handleCompanyCertFileChange = (file: File) => {
-    setFormData(prev => ({ 
-      ...prev, 
+    setFormData(prev => ({
+      ...prev,
       companyRegistrationCertificateFile: file,
       companyRegistrationCertificateUrl: "PENDING"
     }));
@@ -836,8 +836,8 @@ export default function SellerProfile() {
   };
 
   const handleBankFileChange = (file: File) => {
-    setFormData(prev => ({ 
-      ...prev, 
+    setFormData(prev => ({
+      ...prev,
       cancelledChequeFile: file,
       cancelledChequeFileUrl: "PENDING"
     }));
@@ -857,7 +857,7 @@ export default function SellerProfile() {
         },
       },
     }));
-    
+
     setChangedFiles(prev => ({
       ...prev,
       licenses: [
@@ -871,15 +871,15 @@ export default function SellerProfile() {
   const handleLicenseNumberChangeWithValidation = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
     let value = e.target.value;
     const cleanedValue = formatLicenseNumber(value);
-    
+
     if (cleanedValue !== value) {
       return;
     }
-    
+
     if (cleanedValue.length > 30) {
       return;
     }
-    
+
     setFormData(prev => ({
       ...prev,
       licenses: {
@@ -890,22 +890,22 @@ export default function SellerProfile() {
         },
       },
     }));
-    
+
     const formatError = validateDrugLicenseNumber(cleanedValue);
     setLicenseErrors(prev => ({ ...prev, [productName]: formatError || "" }));
-    
+
     // Clear previous existence error
     if (licenseExistsError[productName]) {
       setLicenseExistsError(prev => ({ ...prev, [productName]: "" }));
     }
-    
+
     // Check existence if format is valid and has minimum length
     if (!formatError && cleanedValue.length >= 8) {
       // Clear existing timeout
       if (licenseCheckTimeoutRef.current[productName]) {
         clearTimeout(licenseCheckTimeoutRef.current[productName]!);
       }
-      
+
       // Set new timeout for debounced check
       licenseCheckTimeoutRef.current[productName] = setTimeout(async () => {
         await checkLicenseNumberExists(cleanedValue, productName);
@@ -919,7 +919,7 @@ export default function SellerProfile() {
     if (allowedKeys.includes(e.key)) {
       return;
     }
-    
+
     const allowedChars = /^[A-Za-z0-9\/\-]$/;
     if (!allowedChars.test(e.key)) {
       e.preventDefault();
@@ -934,7 +934,7 @@ export default function SellerProfile() {
     if (cleanedText.length > 30) {
       cleanedText = cleanedText.substring(0, 30);
     }
-    
+
     setFormData(prev => ({
       ...prev,
       licenses: {
@@ -945,10 +945,10 @@ export default function SellerProfile() {
         },
       },
     }));
-    
+
     const formatError = validateDrugLicenseNumber(cleanedText);
     setLicenseErrors(prev => ({ ...prev, [productName]: formatError || "" }));
-    
+
     if (!formatError && cleanedText.length >= 8) {
       await checkLicenseNumberExists(cleanedText, productName);
     }
@@ -957,7 +957,7 @@ export default function SellerProfile() {
   const handleLicenseNumberBlur = async (value: string, productName: string) => {
     const formatError = validateDrugLicenseNumber(value);
     setLicenseErrors(prev => ({ ...prev, [productName]: formatError || "" }));
-    
+
     if (!formatError && value.length >= 8) {
       await checkLicenseNumberExists(value, productName);
     }
@@ -965,7 +965,7 @@ export default function SellerProfile() {
 
   const handleProductTypeToggle = (product: ProductTypeResponse) => {
     if (!product) return;
-    
+
     setFormData(prev => {
       let newProductTypeIds = [...prev.productTypeIds];
       let newProductTypes = [...prev.productTypes];
@@ -989,16 +989,16 @@ export default function SellerProfile() {
       } else {
         newProductTypeIds.push(product.productTypeId);
         newProductTypes.push(product.productTypeName);
-        
+
         const existingDoc = profileData?.documents.find(
           doc => doc.productTypes?.productTypeId === product.productTypeId
         );
-        
+
         if (existingDoc) {
           const issueDate = existingDoc.licenseIssueDate ? new Date(existingDoc.licenseIssueDate) : null;
           const expiryDate = existingDoc.licenseExpiryDate ? new Date(existingDoc.licenseExpiryDate) : null;
           const calculatedStatus = calculateLicenseStatus(issueDate, expiryDate);
-          
+
           newLicenses[product.productTypeName] = {
             documentId: existingDoc.sellerDocumentsId,
             number: existingDoc.documentNumber || "",
@@ -1011,8 +1011,8 @@ export default function SellerProfile() {
             productTypeId: product.productTypeId
           };
         } else {
-          newLicenses[product.productTypeName] = { 
-            number: "", 
+          newLicenses[product.productTypeName] = {
+            number: "",
             file: null,
             fileUrl: "",
             issueDate: null,
@@ -1035,7 +1035,7 @@ export default function SellerProfile() {
 
   const handleSelectAllProductTypes = () => {
     if (!productTypes.length) return;
-    
+
     if (formData.productTypes.length === productTypes.length) {
       setFormData(prev => ({
         ...prev,
@@ -1048,22 +1048,22 @@ export default function SellerProfile() {
     } else {
       const allIds = productTypes.map(p => p.productTypeId);
       const allNames = productTypes.map(p => p.productTypeName);
-      
+
       const newLicenses: Record<string, any> = {};
-      
+
       allNames.forEach(name => {
         const product = productTypes.find(p => p.productTypeName === name);
         if (!product) return;
-        
+
         const existingDoc = profileData?.documents.find(
           doc => doc.productTypes?.productTypeId === product.productTypeId
         );
-        
+
         if (existingDoc) {
           const issueDate = existingDoc.licenseIssueDate ? new Date(existingDoc.licenseIssueDate) : null;
           const expiryDate = existingDoc.licenseExpiryDate ? new Date(existingDoc.licenseExpiryDate) : null;
           const calculatedStatus = calculateLicenseStatus(issueDate, expiryDate);
-          
+
           newLicenses[name] = {
             documentId: existingDoc.sellerDocumentsId,
             number: existingDoc.documentNumber || "",
@@ -1076,19 +1076,19 @@ export default function SellerProfile() {
             productTypeId: product.productTypeId
           };
         } else {
-          newLicenses[name] = { 
-            number: "", 
+          newLicenses[name] = {
+            number: "",
             file: null,
             fileUrl: "",
             issueDate: null,
             expiryDate: null,
             issuingAuthority: "",
-            status: 'InActive', 
+            status: 'InActive',
             productTypeId: product.productTypeId
           };
         }
       });
-      
+
       setFormData(prev => ({
         ...prev,
         productTypeIds: allIds,
@@ -1101,7 +1101,7 @@ export default function SellerProfile() {
   const handleStateChange = (selected: any) => {
     const selectedId = selected ? parseInt(selected.value) : 0;
     const selectedState = states.find(s => s.stateId === selectedId);
-    
+
     setFormData(prev => ({
       ...prev,
       stateId: selectedId,
@@ -1111,10 +1111,10 @@ export default function SellerProfile() {
       talukaId: 0,
       taluka: "",
     }));
-    
+
     setDistricts([]);
     setTalukas([]);
-    
+
     if (selectedId) {
       fetchDistrictsByState(selectedId);
     }
@@ -1123,7 +1123,7 @@ export default function SellerProfile() {
   const handleDistrictChange = (selected: any) => {
     const selectedId = selected ? parseInt(selected.value) : 0;
     const selectedDistrict = districts.find(d => d.districtId === selectedId);
-    
+
     setFormData(prev => ({
       ...prev,
       districtId: selectedId,
@@ -1131,9 +1131,9 @@ export default function SellerProfile() {
       talukaId: 0,
       taluka: "",
     }));
-    
+
     setTalukas([]);
-    
+
     if (selectedId) {
       fetchTalukasByDistrict(selectedId);
     }
@@ -1142,7 +1142,7 @@ export default function SellerProfile() {
   const handleTalukaChange = (selected: any) => {
     const selectedId = selected ? parseInt(selected.value) : 0;
     const selectedTaluka = talukas.find(t => t.talukaId === selectedId);
-    
+
     setFormData(prev => ({
       ...prev,
       talukaId: selectedId,
@@ -1153,7 +1153,7 @@ export default function SellerProfile() {
   const handleCompanyTypeChange = (selected: any) => {
     const selectedId = selected ? parseInt(selected.value) : 0;
     const selectedCompany = companyTypes.find(c => c.companyTypeId === selectedId);
-    
+
     setFormData(prev => ({
       ...prev,
       companyTypeId: selectedId,
@@ -1164,7 +1164,7 @@ export default function SellerProfile() {
   const handleSellerTypeChange = (selected: any) => {
     const selectedId = selected ? parseInt(selected.value) : 0;
     const selectedSeller = sellerTypes.find(s => s.sellerTypeId === selectedId);
-    
+
     setFormData(prev => ({
       ...prev,
       sellerTypeId: selectedId,
@@ -1177,23 +1177,23 @@ export default function SellerProfile() {
     value = value.replace(/[^0-9A-Z]/g, '');
     if (value.length > 15) value = value.slice(0, 15);
     setFormData(prev => ({ ...prev, gstNumber: value }));
-    
+
     // Clear previous error
     if (gstExistsError) {
       setGSTExistsError("");
     }
-    
+
     // Clear existing timeout
     if (gstCheckTimeoutRef.current) {
       clearTimeout(gstCheckTimeoutRef.current);
     }
-    
+
     // Skip check if it's the same as existing GST number
     if (profileData?.sellerGST?.gstNumber?.toUpperCase() === value.toUpperCase()) {
       setGSTExistsError("");
       return;
     }
-    
+
     // Check existence if GST number has 15 characters (valid length)
     if (value.length === 15) {
       gstCheckTimeoutRef.current = setTimeout(async () => {
@@ -1205,17 +1205,17 @@ export default function SellerProfile() {
 
   const handleGSTBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    
+
     if (!value || value.length !== 15) {
       return;
     }
-    
+
     // Skip check if it's the same as existing GST number
     if (profileData?.sellerGST?.gstNumber?.toUpperCase() === value.toUpperCase()) {
       setGSTExistsError("");
       return;
     }
-    
+
     await checkGSTNumberExists(value);
   };
 
@@ -1223,7 +1223,7 @@ export default function SellerProfile() {
     let value = e.target.value.replace(/\D/g, '');
     if (value.length > 10) value = value.slice(0, 10);
     setFormData(prev => ({ ...prev, phone: value }));
-    
+
     const error = validateIndianMobileNumber(value);
     setCompanyPhoneError(error || "");
   };
@@ -1237,22 +1237,22 @@ export default function SellerProfile() {
     let value = e.target.value.replace(/\D/g, '');
     if (value.length > 10) value = value.slice(0, 10);
     setFormData(prev => ({ ...prev, coordinatorMobile: value }));
-    
+
     const error = validateIndianMobileNumber(value);
     setCoordinatorPhoneError(error || "");
-    
+
     if (phoneExistsError) {
       setPhoneExistsError("");
     }
-    
+
     if (phoneCheckTimeoutRef.current) {
       clearTimeout(phoneCheckTimeoutRef.current);
     }
-    
+
     if (profileData?.coordinator?.mobile === value) {
       return;
     }
-    
+
     if (value.length === 10 && !error) {
       phoneCheckTimeoutRef.current = setTimeout(async () => {
         await checkCoordinatorPhoneExists(value);
@@ -1263,14 +1263,14 @@ export default function SellerProfile() {
 
   const handleCoordinatorPhoneBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    
+
     if (profileData?.coordinator?.mobile === value) {
       return;
     }
-    
+
     const error = validateIndianMobileNumber(value);
     setCoordinatorPhoneError(error || "");
-    
+
     if (value.length === 10 && !error && !phoneExistsError) {
       await checkCoordinatorPhoneExists(value);
     }
@@ -1279,21 +1279,21 @@ export default function SellerProfile() {
   const handleCoordinatorEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setFormData(prev => ({ ...prev, coordinatorEmail: value }));
-    
+
     if (emailExistsError) {
       setEmailExistsError("");
     }
-    
+
     if (emailCheckTimeoutRef.current) {
       clearTimeout(emailCheckTimeoutRef.current);
     }
-    
+
     if (profileData?.coordinator?.email === value) {
       return;
     }
-    
+
     const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-    
+
     if (isValidEmail && value) {
       emailCheckTimeoutRef.current = setTimeout(async () => {
         if (formData.coordinatorEmail === value) {
@@ -1306,13 +1306,13 @@ export default function SellerProfile() {
 
   const handleCoordinatorEmailBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    
+
     if (profileData?.coordinator?.email === value) {
       return;
     }
-    
+
     const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-    
+
     if (isValidEmail && value && !emailExistsError) {
       await checkCoordinatorEmailExists(value);
     }
@@ -1375,15 +1375,15 @@ export default function SellerProfile() {
       setEmailExistsError("");
       return false;
     }
-    
+
     if (profileData?.coordinator?.email === email) {
       setEmailExistsError("");
       return false;
     }
-    
+
     setIsCheckingEmail(true);
     setEmailExistsError("");
-    
+
     try {
       const exists = await sellerRegService.checkCoordinatorEmail(email);
       if (exists) {
@@ -1405,25 +1405,25 @@ export default function SellerProfile() {
 
   const checkCoordinatorPhoneExists = async (phone: string): Promise<boolean> => {
     const cleanPhone = phone.replace(/\D/g, '');
-    
+
     if (profileData?.coordinator?.mobile === cleanPhone) {
       setPhoneExistsError("");
       return false;
     }
-    
+
     const validationError = validateIndianMobileNumber(cleanPhone);
     if (validationError) {
       setPhoneExistsError(validationError);
       return false;
     }
-    
+
     if (!cleanPhone || cleanPhone.length !== 10) {
       setPhoneExistsError("");
       return false;
     }
-    
+
     setIsCheckingPhone(true);
-    
+
     try {
       const exists = await sellerRegService.checkCoordinatorPhone(cleanPhone);
       if (exists) {
@@ -1448,7 +1448,7 @@ export default function SellerProfile() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       date.setHours(0, 0, 0, 0);
-      
+
       if (date > today) {
         toast.error("Issue date cannot be greater than today's date");
         return;
@@ -1518,7 +1518,7 @@ export default function SellerProfile() {
   const isPendingRequestError = (responseData: any): { isError: boolean; message: string; requestId: string } => {
     let errorMessage = '';
     let pendingRequestId = '';
-    
+
     if (responseData?.data?.data?.message) {
       errorMessage = responseData.data.data.message;
     } else if (responseData?.data?.message) {
@@ -1526,13 +1526,13 @@ export default function SellerProfile() {
     } else if (responseData?.message) {
       errorMessage = responseData.message;
     }
-    
+
     if (errorMessage && errorMessage.toLowerCase().includes('pending update request already exists')) {
       const pendingIdMatch = errorMessage.match(/Pending Request ID:\s*(\d+)/i);
       pendingRequestId = pendingIdMatch ? pendingIdMatch[1] : '';
       return { isError: true, message: errorMessage, requestId: pendingRequestId };
     }
-    
+
     return { isError: false, message: '', requestId: '' };
   };
 
@@ -1598,8 +1598,8 @@ export default function SellerProfile() {
               const doc = profileData?.documents[index];
               if (doc && sectionData && Object.keys(sectionData).length > 0) {
                 response = await updateProfileService.updateLicenseSection(
-                  doc.productTypes.productTypeId, 
-                  sectionData, 
+                  doc.productTypes.productTypeId,
+                  sectionData,
                   requestedBy
                 );
               } else {
@@ -1613,11 +1613,11 @@ export default function SellerProfile() {
 
       if (response) {
         console.log('✅ Update successful:', response);
-        
+
         const pendingError = isPendingRequestError(response);
         if (pendingError.isError) {
           scrollToTop();
-          
+
           setPendingRequestError(
             `⚠️ Update Request Already Pending\n\n` +
             `Your previous update request (ID: ${pendingError.requestId || 'N/A'}) is still under review.\n\n` +
@@ -1631,7 +1631,7 @@ export default function SellerProfile() {
           );
           return;
         }
-        
+
         if (response.message && response.message.includes('auto-approved')) {
           toast.success(response.message);
           scrollToTop();
@@ -1645,9 +1645,9 @@ export default function SellerProfile() {
           setSavedSection(section);
           setShowSuccess(true);
         }
-        
+
         setEditingSection(null);
-        
+
         if (!response.message || !response.message.includes('auto-approved')) {
           setReviewSections((prev) => {
             if (!prev.includes(section)) {
@@ -1661,10 +1661,10 @@ export default function SellerProfile() {
     } catch (error: any) {
       console.error('❌ Error saving section:', error);
       console.error('❌ Error response:', error.response?.data);
-      
+
       let errorMessage = '';
       let pendingRequestId = '';
-      
+
       if (error.response?.data?.data?.data?.message) {
         errorMessage = error.response.data.data.data.message;
       } else if (error.response?.data?.data?.message) {
@@ -1674,20 +1674,20 @@ export default function SellerProfile() {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       if (errorMessage.toLowerCase().includes('pending update request already exists')) {
         const pendingIdMatch = errorMessage.match(/Pending Request ID:\s*(\d+)/i);
         pendingRequestId = pendingIdMatch ? pendingIdMatch[1] : '';
-        
+
         scrollToTop();
-        
+
         setPendingRequestError(
           `⚠️ Update Request Already Pending\n\n` +
           `Your previous update request (ID: ${pendingRequestId || 'N/A'}) is still under review.\n\n` +
           `Please wait for admin approval before submitting new changes.\n\n` +
           `You will be notified once your changes are approved.`
         );
-        
+
         toast.error(
           `⚠️ Update Request Already Pending\n\n` +
           `Your previous update request (ID: ${pendingRequestId || 'N/A'}) is still under review.`,
@@ -1703,10 +1703,10 @@ export default function SellerProfile() {
       setSavedSection(null);
     }, 21000);
   };
-  
+
   const handleOtpVerified = async (verified: { email: boolean; phone: boolean }) => {
     setShowOtpModal(false);
-    
+
     if (pendingSection && pendingSectionData) {
       if (pendingSection === 'all' && pendingSectionData.completeData && pendingSectionData.filesToUpload) {
         try {
@@ -1715,16 +1715,16 @@ export default function SellerProfile() {
             toast.error('User email not found');
             return;
           }
-          
+
           const response = await updateProfileService.updateFullProfile(
-            pendingSectionData.completeData, 
+            pendingSectionData.completeData,
             requestedBy
           );
-          
+
           const pendingError = isPendingRequestError(response);
           if (pendingError.isError) {
             scrollToTop();
-            
+
             setPendingRequestError(
               `⚠️ Update Request Already Pending\n\n` +
               `Your previous update request (ID: ${pendingError.requestId || 'N/A'}) is still under review.\n\n` +
@@ -1738,25 +1738,25 @@ export default function SellerProfile() {
             );
             return;
           }
-          
+
           let pendingSellerId: number | null = null;
           let isAutoApproved: boolean = false;
           let documentsList: UpdateProfileResponse['documents'] = [];
-          
+
           if (response) {
             if (response.message && response.message.includes('auto-approved')) {
               isAutoApproved = true;
             }
-            
+
             if (response.pendingSellerId) {
               pendingSellerId = response.pendingSellerId;
             }
-            
+
             if (response.documents && Array.isArray(response.documents)) {
               documentsList = response.documents;
             }
           }
-          
+
           if (isAutoApproved || (!pendingSellerId && response && response.message)) {
             toast.success(response.message || 'Changes applied successfully!');
             scrollToTop();
@@ -1767,30 +1767,30 @@ export default function SellerProfile() {
             setShowSuccess(true);
             return;
           }
-          
+
           if (pendingSellerId) {
             console.log('✅ OTP Flow - Step 1 complete. Pending Seller ID:', pendingSellerId);
-            
+
             const pendingDocumentIdMap = new Map<number, number>();
-            
+
             if (documentsList && Array.isArray(documentsList)) {
               documentsList.forEach((pendingDoc: any) => {
                 const productTypeId = pendingDoc.productTypeId || pendingDoc.productType?.productTypeId;
                 const pendingDocId = pendingDoc.pendingSellerDocumentId || pendingDoc.id;
-                
+
                 if (productTypeId && pendingDocId) {
                   pendingDocumentIdMap.set(productTypeId, pendingDocId);
                   console.log(`📋 OTP Flow - Product Type ${productTypeId} → Pending Document ID: ${pendingDocId}`);
                 }
               });
             }
-            
+
             const filesToUpload = pendingSectionData.filesToUpload;
             const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.licenses.length > 0;
-            
+
             if (hasFilesToUpload) {
               console.log('📤 OTP Flow - Step 2: Uploading documents...');
-              
+
               const licensesWithIds = filesToUpload.licenses.map((license: any) => {
                 const pendingDocumentId = pendingDocumentIdMap.get(license.productTypeId);
                 if (!pendingDocumentId) {
@@ -1802,26 +1802,26 @@ export default function SellerProfile() {
                   documentId: pendingDocumentId
                 };
               });
-              
+
               await uploadSellerDocuments(pendingSellerId, {
                 gstFile: filesToUpload.gstFile || undefined,
                 bankFile: filesToUpload.bankFile || undefined,
                 companyRegistrationCertificate: filesToUpload.companyCertFile || undefined,
                 licenses: licensesWithIds
               });
-              
+
               console.log('✅ OTP Flow - Document upload successful');
             }
-            
+
             toast.success('Changes submitted for admin review.');
             scrollToTop();
             setEditingSection(null);
-            
+
             const sectionsToMark = ['company', 'coordinator', 'gst', 'bank'];
             formData.productTypes.forEach((_, index) => {
               sectionsToMark.push(`license-${index}`);
             });
-            
+
             setReviewSections((prev) => {
               const newSections = [...prev];
               sectionsToMark.forEach(section => {
@@ -1831,10 +1831,10 @@ export default function SellerProfile() {
               });
               return newSections;
             });
-            
+
             setSavedSection('all');
             setShowSuccess(true);
-            
+
             setFormData(prev => ({
               ...prev,
               gstFile: null,
@@ -1844,24 +1844,24 @@ export default function SellerProfile() {
                 Object.entries(prev.licenses).map(([key, value]: [string, any]) => [key, { ...value, file: null }])
               )
             }));
-            
+
             setChangedFiles({
               gstFile: null,
               companyCertFile: null,
               bankFile: null,
               licenses: []
             });
-            
+
           } else {
             throw new Error('No pendingSellerId received from server');
           }
-          
+
         } catch (error: any) {
           console.error('❌ Error in OTP flow:', error);
-          
+
           let errorMessage = '';
           let pendingRequestId = '';
-          
+
           if (error.response?.data?.data?.data?.message) {
             errorMessage = error.response.data.data.data.message;
           } else if (error.response?.data?.data?.message) {
@@ -1871,20 +1871,20 @@ export default function SellerProfile() {
           } else if (error.message) {
             errorMessage = error.message;
           }
-          
+
           if (errorMessage.toLowerCase().includes('pending update request already exists')) {
             const pendingIdMatch = errorMessage.match(/Pending Request ID:\s*(\d+)/i);
             pendingRequestId = pendingIdMatch ? pendingIdMatch[1] : '';
-            
+
             scrollToTop();
-            
+
             setPendingRequestError(
               `⚠️ Update Request Already Pending\n\n` +
               `Your previous update request (ID: ${pendingRequestId || 'N/A'}) is still under review.\n\n` +
               `Please wait for admin approval before submitting new changes.\n\n` +
               `You will be notified once your changes are approved.`
             );
-            
+
             toast.error(
               `⚠️ Update Request Already Pending\n\n` +
               `Your previous update request (ID: ${pendingRequestId || 'N/A'}) is still under review.`,
@@ -1898,7 +1898,7 @@ export default function SellerProfile() {
         await performSave(pendingSection, pendingSectionData);
       }
     }
-    
+
     setPendingEmail(undefined);
     setPendingPhone(undefined);
     setPendingSectionData(null);
@@ -1908,11 +1908,11 @@ export default function SellerProfile() {
   const handleSaveAll = async () => {
     setIsSubmitting(true);
     setPendingRequestError(null);
-    
+
     // Check for license existence errors - SCROLL TO ERROR
     const hasLicenseExistsError = Object.values(licenseExistsError).some(error => error !== "");
     const hasLicenseFormatError = Object.values(licenseErrors).some(error => error !== "");
-    
+
     if (hasLicenseExistsError) {
       // Find which license has the existence error
       const errorProductName = Object.entries(licenseExistsError).find(([_, error]) => error !== "")?.[0];
@@ -1924,7 +1924,7 @@ export default function SellerProfile() {
       setIsSubmitting(false);
       return;
     }
-    
+
     if (hasLicenseFormatError) {
       // Find which license has the format error
       const errorProductName = Object.entries(licenseErrors).find(([_, error]) => error !== "")?.[0];
@@ -1936,35 +1936,35 @@ export default function SellerProfile() {
       setIsSubmitting(false);
       return;
     }
-    
+
     if (hasInactiveLicenses()) {
       setShowInactiveError(true);
       scrollToError('inactive-license');
       setIsSubmitting(false);
       return;
     }
-    
+
     // Check for GST existence error
     if (gstExistsError) {
       scrollToError('gst');
       setIsSubmitting(false);
       return;
     }
-    
+
     // Check for email existence error
     if (emailExistsError) {
       scrollToError('email');
       setIsSubmitting(false);
       return;
     }
-    
+
     // Check for phone existence error
     if (phoneExistsError) {
       scrollToError('phone');
       setIsSubmitting(false);
       return;
     }
-    
+
     // Check for empty license numbers
     const hasEmptyLicenseNumbers = Object.entries(formData.licenses).some(([productName, licenseData]: [string, any]) => {
       const isProductSelected = formData.productTypeIds.includes(licenseData.productTypeId);
@@ -1973,7 +1973,7 @@ export default function SellerProfile() {
       }
       return false;
     });
-    
+
     if (hasEmptyLicenseNumbers) {
       // Find which license has empty number
       const emptyProductName = Object.entries(formData.licenses).find(([productName, licenseData]: [string, any]) => {
@@ -1988,24 +1988,24 @@ export default function SellerProfile() {
       setIsSubmitting(false);
       return;
     }
-    
+
     const companyPhoneValidationError = validateIndianMobileNumber(formData.phone);
     const coordinatorPhoneValidationError = validateIndianMobileNumber(formData.coordinatorMobile);
-    
+
     if (companyPhoneValidationError) {
       setCompanyPhoneError(companyPhoneValidationError);
       scrollToTop();
       setIsSubmitting(false);
       return;
     }
-    
+
     if (coordinatorPhoneValidationError) {
       setCoordinatorPhoneError(coordinatorPhoneValidationError);
       scrollToTop();
       setIsSubmitting(false);
       return;
     }
-    
+
     if (formData.coordinatorEmail && !emailExistsError && profileData?.coordinator?.email !== formData.coordinatorEmail) {
       const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.coordinatorEmail);
       if (isValidEmail) {
@@ -2017,7 +2017,7 @@ export default function SellerProfile() {
         }
       }
     }
-    
+
     if (formData.coordinatorMobile && !phoneExistsError && !coordinatorPhoneError && profileData?.coordinator?.mobile !== formData.coordinatorMobile) {
       const exists = await checkCoordinatorPhoneExists(formData.coordinatorMobile);
       if (exists) {
@@ -2026,7 +2026,7 @@ export default function SellerProfile() {
         return;
       }
     }
-    
+
     try {
       let needsEmailVerification = false;
       let needsPhoneVerification = false;
@@ -2068,14 +2068,14 @@ export default function SellerProfile() {
 
       const currentDocs = profileData?.documents || [];
       const selectedProductTypeIds = new Set(formData.productTypeIds);
-      
+
       const documentsToSend = [];
       const processedProductTypeIds = new Set<number>();
 
       for (const existingDoc of currentDocs) {
         const productTypeId = existingDoc.productTypes?.productTypeId;
         const productName = existingDoc.productTypes?.productTypeName;
-        
+
         if (!productTypeId || !productName) {
           console.warn('⚠️ Skipping document with missing product info:', existingDoc);
           continue;
@@ -2083,7 +2083,7 @@ export default function SellerProfile() {
 
         if (selectedProductTypeIds.has(productTypeId)) {
           const licenseData = formData.licenses[productName] || {};
-          
+
           if (licenseData.file) {
             filesToUpload.licenses.push({
               productName: productName,
@@ -2091,24 +2091,24 @@ export default function SellerProfile() {
               file: licenseData.file
             });
           }
-          
+
           const documentFileUrl = licenseData.fileUrl === "PENDING" ? "PENDING" : (existingDoc.documentFileUrl || '');
-          
+
           documentsToSend.push({
             documentId: existingDoc.sellerDocumentsId,
             productTypeId: productTypeId,
             documentNumber: licenseData.number || existingDoc.documentNumber || '',
             documentFileUrl: documentFileUrl,
-            licenseIssueDate: licenseData.issueDate 
-              ? formatDate(licenseData.issueDate) 
+            licenseIssueDate: licenseData.issueDate
+              ? formatDate(licenseData.issueDate)
               : existingDoc.licenseIssueDate || '',
-            licenseExpiryDate: licenseData.expiryDate 
-              ? formatDate(licenseData.expiryDate) 
+            licenseExpiryDate: licenseData.expiryDate
+              ? formatDate(licenseData.expiryDate)
               : existingDoc.licenseExpiryDate || '',
             licenseIssuingAuthority: licenseData.issuingAuthority || existingDoc.licenseIssuingAuthority || '',
             licenseStatus: licenseData.status || existingDoc.licenseStatus || 'InActive'
           });
-          
+
           processedProductTypeIds.add(productTypeId);
         } else {
           console.log(`🗑️ Document for product ${productTypeId} will be REMOVED`);
@@ -2118,10 +2118,10 @@ export default function SellerProfile() {
       Object.entries(formData.licenses).forEach(([productName, licenseData]: [string, any]) => {
         const productType = productTypes.find(pt => pt.productTypeName === productName);
         if (!productType) return;
-        
-        if (selectedProductTypeIds.has(productType.productTypeId) && 
-            !processedProductTypeIds.has(productType.productTypeId)) {
-          
+
+        if (selectedProductTypeIds.has(productType.productTypeId) &&
+          !processedProductTypeIds.has(productType.productTypeId)) {
+
           if (licenseData.file) {
             filesToUpload.licenses.push({
               productName: productName,
@@ -2129,15 +2129,15 @@ export default function SellerProfile() {
               file: licenseData.file
             });
           }
-          
-          const hasData = licenseData.number || 
-                         licenseData.issueDate || 
-                         licenseData.expiryDate || 
-                         licenseData.issuingAuthority;
-          
+
+          const hasData = licenseData.number ||
+            licenseData.issueDate ||
+            licenseData.expiryDate ||
+            licenseData.issuingAuthority;
+
           if (hasData) {
             const documentFileUrl = licenseData.fileUrl === "PENDING" ? "PENDING" : '';
-            
+
             documentsToSend.push({
               productTypeId: productType.productTypeId,
               documentNumber: licenseData.number || '',
@@ -2147,7 +2147,7 @@ export default function SellerProfile() {
               licenseIssuingAuthority: licenseData.issuingAuthority || '',
               licenseStatus: licenseData.status || 'InActive'
             });
-            
+
             processedProductTypeIds.add(productType.productTypeId);
           }
         }
@@ -2164,7 +2164,7 @@ export default function SellerProfile() {
         email: formData.email,
         website: formData.website || '',
         termsAccepted: profileData?.termsAccepted || true,
-        
+
         address: {
           stateId: formData.stateId,
           districtId: formData.districtId,
@@ -2175,14 +2175,14 @@ export default function SellerProfile() {
           landmark: formData.landmark || '',
           pinCode: formData.pincode,
         },
-        
+
         coordinator: {
           name: formData.coordinatorName,
           designation: formData.coordinatorDesignation,
           email: formData.coordinatorEmail,
           mobile: formData.coordinatorMobile
         },
-        
+
         bankDetails: {
           bankName: formData.bankName,
           branch: formData.branch,
@@ -2191,11 +2191,11 @@ export default function SellerProfile() {
           accountHolderName: formData.accountHolderName,
           bankDocumentFileUrl: formData.cancelledChequeFileUrl === "PENDING" ? "PENDING" : (profileData?.bankDetails?.bankDocumentFileUrl || '')
         },
-        
+
         gstNumber: formData.gstNumber,
         gstFileUrl: formData.gstFileUrl === "PENDING" ? "PENDING" : (profileData?.sellerGST?.gstFileUrl || ''),
         companyRegistrationCertificateUrl: formData.companyRegistrationCertificateUrl === "PENDING" ? "PENDING" : (profileData?.companyRegistrationCertificateUrl || ''),
-        
+
         documents: documentsToSend
       };
 
@@ -2242,7 +2242,7 @@ export default function SellerProfile() {
       }
 
       console.log('💾 Sending JSON data...');
-      
+
       const requestedBy = updateProfileService.getCurrentUserEmail();
       if (!requestedBy) {
         toast.error('User email not found');
@@ -2250,11 +2250,11 @@ export default function SellerProfile() {
       }
 
       const response = await updateProfileService.updateFullProfile(completeData, requestedBy);
-      
+
       const pendingError = isPendingRequestError(response);
       if (pendingError.isError) {
         scrollToTop();
-        
+
         setPendingRequestError(
           `⚠️ Update Request Already Pending\n\n` +
           `Your previous update request (ID: ${pendingError.requestId || 'N/A'}) is still under review.\n\n` +
@@ -2264,32 +2264,32 @@ export default function SellerProfile() {
         setIsSubmitting(false);
         return;
       }
-      
+
       let pendingSellerId: number | null = null;
       let isAutoApproved: boolean = false;
       let documentsList: UpdateProfileResponse['documents'] = [];
-      
+
       if (response) {
         if (response.message && response.message.includes('auto-approved')) {
           isAutoApproved = true;
         }
-        
+
         if (response.pendingSellerId) {
           pendingSellerId = response.pendingSellerId;
         }
-        
+
         if (response.documents && Array.isArray(response.documents)) {
           documentsList = response.documents;
         }
       }
-      
+
       if ((isAutoApproved || (!pendingSellerId && response && response.message)) && !hasDocumentChanges) {
         toast.success(response.message || 'Changes applied successfully!');
         scrollToTop();
-        
+
         const updatedProfile = await sellerProfileService.getCurrentSellerProfile();
         setProfileData(updatedProfile);
-        
+
         if (updatedProfile) {
           const updatedLicenses: Record<string, any> = {};
           updatedProfile.documents.forEach((doc: SellerDocument) => {
@@ -2298,7 +2298,7 @@ export default function SellerProfile() {
               const issueDate = doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null;
               const expiryDate = doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null;
               const calculatedStatus = calculateLicenseStatus(issueDate, expiryDate);
-              
+
               updatedLicenses[productName] = {
                 documentId: doc.sellerDocumentsId,
                 number: doc.documentNumber || "",
@@ -2312,7 +2312,7 @@ export default function SellerProfile() {
               };
             }
           });
-          
+
           setFormData(prev => ({
             ...prev,
             sellerName: updatedProfile.sellerName,
@@ -2341,21 +2341,21 @@ export default function SellerProfile() {
             licenses: updatedLicenses,
           }));
         }
-        
+
         setEditingSection(null);
         setSavedSection('all');
         setShowSuccess(true);
         setHasDocumentChanges(false);
-        
+
         setTimeout(() => {
           setShowSuccess(false);
           setSavedSection(null);
         }, 5000);
-        
+
         setIsSubmitting(false);
         return;
       }
-      
+
       if (pendingSellerId || hasDocumentChanges) {
         if (!pendingSellerId) {
           console.error('❌ No pendingSellerId found but document changes exist');
@@ -2363,22 +2363,22 @@ export default function SellerProfile() {
           setIsSubmitting(false);
           return;
         }
-        
+
         const pendingDocumentIdMap = new Map<number, number>();
-        
+
         if (documentsList && Array.isArray(documentsList)) {
           documentsList.forEach((pendingDoc: any) => {
             const productTypeId = pendingDoc.productTypeId || pendingDoc.productType?.productTypeId;
             const pendingDocId = pendingDoc.pendingSellerDocumentId || pendingDoc.id;
-            
+
             if (productTypeId && pendingDocId) {
               pendingDocumentIdMap.set(productTypeId, pendingDocId);
             }
           });
         }
-        
+
         const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.licenses.length > 0;
-        
+
         if (hasFilesToUpload) {
           try {
             const licensesWithIds = filesToUpload.licenses.map(license => {
@@ -2392,7 +2392,7 @@ export default function SellerProfile() {
                 documentId: pendingDocumentId
               };
             });
-            
+
             await uploadSellerDocuments(pendingSellerId, {
               gstFile: filesToUpload.gstFile || undefined,
               bankFile: filesToUpload.bankFile || undefined,
@@ -2401,7 +2401,7 @@ export default function SellerProfile() {
             });
             toast.success('Changes submitted for admin review.');
             scrollToTop();
-            
+
           } catch (uploadError: any) {
             console.error('❌ Upload failed, rolling back...', uploadError);
             await deleteUpdateRequest(pendingSellerId);
@@ -2413,14 +2413,14 @@ export default function SellerProfile() {
           toast.success('Changes submitted for admin review.');
           scrollToTop();
         }
-        
+
         setEditingSection(null);
-        
+
         const sectionsToMark = ['company', 'coordinator', 'gst', 'bank'];
         formData.productTypes.forEach((_, index) => {
           sectionsToMark.push(`license-${index}`);
         });
-        
+
         setReviewSections((prev) => {
           const newSections = [...prev];
           sectionsToMark.forEach(section => {
@@ -2430,10 +2430,10 @@ export default function SellerProfile() {
           });
           return newSections;
         });
-        
+
         setSavedSection('all');
         setShowSuccess(true);
-        
+
         setFormData(prev => ({
           ...prev,
           gstFile: null,
@@ -2443,17 +2443,17 @@ export default function SellerProfile() {
             Object.entries(prev.licenses).map(([key, value]: [string, any]) => [key, { ...value, file: null }])
           )
         }));
-        
+
         setChangedFiles({
           gstFile: null,
           companyCertFile: null,
           bankFile: null,
           licenses: []
         });
-        
+
         setHasDocumentChanges(false);
         setIsSubmitting(false);
-        
+
       } else {
         console.error('❌ Unexpected response structure:', response);
         toast.error('Unexpected server response. Please contact support.');
@@ -2464,10 +2464,10 @@ export default function SellerProfile() {
     } catch (error: any) {
       console.error('❌ Error in handleSaveAll:', error);
       console.error('❌ Error response:', error.response?.data);
-      
+
       let errorMessage = '';
       let pendingRequestId = '';
-      
+
       if (error.response?.data) {
         if (error.response.data.data?.data?.message) {
           errorMessage = error.response.data.data.data.message;
@@ -2477,17 +2477,17 @@ export default function SellerProfile() {
           errorMessage = error.response.data.message;
         }
       }
-      
+
       if (!errorMessage && error.message) {
         errorMessage = error.message;
       }
-      
+
       if (errorMessage.toLowerCase().includes('pending update request already exists')) {
         const pendingIdMatch = errorMessage.match(/Pending Request ID:\s*(\d+)/i);
         pendingRequestId = pendingIdMatch ? pendingIdMatch[1] : '';
-        
+
         scrollToTop();
-        
+
         setPendingRequestError(
           `⚠️ Update Request Already Pending\n\n` +
           `Your previous update request (ID: ${pendingRequestId || 'N/A'}) is still under review.\n\n` +
@@ -2517,34 +2517,34 @@ export default function SellerProfile() {
       toast.error('File is pending upload. Please wait for admin approval.');
       return;
     }
-    
+
     try {
       toast.loading('Downloading...', { id: 'download' });
-      
+
       const response = await fetch(fileUrl, {
         mode: 'cors',
         credentials: 'omit',
       });
-      
+
       if (!response.ok) {
         throw new Error('Download failed');
       }
-      
+
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
-      
+
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = fileName; 
-      
+      link.download = fileName;
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       window.URL.revokeObjectURL(blobUrl);
-      
+
       toast.success('Download complete!', { id: 'download' });
-      
+
     } catch (error) {
       console.error('Download failed:', error);
       toast.error('Failed to download file. Please try again.', { id: 'download' });
@@ -2579,7 +2579,7 @@ export default function SellerProfile() {
       <div className="bg-secondary-50 min-h-screen w-full p-6 space-y-6">
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-red-600 mb-4">{error || 'Failed to load profile'}</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="bg-primary-900 text-white px-4 py-2 rounded-lg hover:bg-primary-800"
           >
@@ -2674,7 +2674,7 @@ export default function SellerProfile() {
                 {savedSection === 'all' && savedSection ? 'Changes Submitted Successfully!' : 'Changes Applied!'}
               </p>
               <p className="text-sm text-success-800">
-                {savedSection === 'all' && savedSection ? 
+                {savedSection === 'all' && savedSection ?
                   'Your changes have been saved and submitted for admin review. You\'ll receive a notification once they are approved.' :
                   'Your changes have been applied successfully.'}
               </p>
@@ -2711,7 +2711,7 @@ export default function SellerProfile() {
                 Seller Company Details
               </h2>
             </div>
-            
+
             {!editingSection ? (
               <button
                 onClick={() => setEditingSection("editing")}
@@ -2741,7 +2741,7 @@ export default function SellerProfile() {
               <hr />
 
               <div className="grid grid-cols-2 gap-6">
-                <Input 
+                <Input
                   label="Seller Name/Company Name"
                   value={formData.sellerName}
                   editable={!!editingSection}
@@ -2765,21 +2765,17 @@ export default function SellerProfile() {
                       Product Category
                       <span className="text-warning-500">*</span>
                     </label>
-                    <div className="relative" ref={productDropdownRef}>
+                    <div className="relative" >
+
                       <div
-                        className={`w-full h-14 px-4 rounded-xl border flex items-center justify-between cursor-pointer
-                          ${editingSection 
-                            ? "bg-white border-secondary-200 hover:border-primary-900" 
-                            : "bg-neutral-50 border-neutral-100 cursor-not-allowed"
-                          }`}
-                        onClick={() => editingSection && setIsProductDropdownOpen(!isProductDropdownOpen)}
+                        className={`w-full h-14 px-4 rounded-xl border flex items-center justify-between bg-neutral-50 border-neutral-100 cursor-not-allowed `}
                       >
                         <span className={`${formData.productTypes.length === 0 ? "text-neutral-500" : "text-neutral-900"}`}>
                           {loadingStates.productTypes
                             ? "Loading product types..."
                             : formData.productTypes.length > 0
-                            ? formData.productTypes.join(", ")
-                            : "Select Product Types"}
+                              ? formData.productTypes.join(", ")
+                              : "Select Product Types"}
                         </span>
                         <ChevronDown className={`w-5 h-5 text-neutral-500 transition-transform ${isProductDropdownOpen ? 'rotate-180' : ''}`} />
                       </div>
@@ -2800,7 +2796,8 @@ export default function SellerProfile() {
                                 <input
                                   type="checkbox"
                                   checked={productTypes.length > 0 && formData.productTypes.length === productTypes.length}
-                                  onChange={() => {}}
+                                  onChange={() => { }}
+                                  disabled
                                   className="h-4 w-4 text-[#4B0082] rounded border-neutral-300 focus:ring-purple-200"
                                 />
                                 <label className="ml-3 text-sm font-medium text-[#4B0082] cursor-pointer">
@@ -2818,7 +2815,7 @@ export default function SellerProfile() {
                                 <input
                                   type="checkbox"
                                   checked={formData.productTypeIds.includes(product.productTypeId)}
-                                  onChange={() => {}}
+                                  onChange={() => { }}
                                   className="h-4 w-4 text-[#4B0082] rounded border-neutral-300 focus:ring-purple-200"
                                 />
                                 <label className="ml-3 text-sm text-neutral-900 cursor-pointer">
@@ -2861,7 +2858,7 @@ export default function SellerProfile() {
                   fileUrl={formData.companyRegistrationCertificateUrl}
                   editable={!!editingSection}
                   onDownload={() => handleDownload(
-                    formData.companyRegistrationCertificateUrl || '#', 
+                    formData.companyRegistrationCertificateUrl || '#',
                     formData.companyRegistrationCertificateUrl?.split('/').pop() || 'company_registration_certificate.pdf'
                   )}
                   onView={() => handleViewInNewTab(formData.companyRegistrationCertificateUrl || '#')}
@@ -2911,38 +2908,38 @@ export default function SellerProfile() {
                     isDisabled={!formData.districtId}
                   />
 
-                  <Input 
-                    label="City/Town/Village" 
-                    value={formData.city} 
+                  <Input
+                    label="City/Town/Village"
+                    value={formData.city}
                     editable={!!editingSection}
                     onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
                   />
 
-                  <Input 
-                    label="Street/Road/Lane" 
-                    value={formData.street} 
+                  <Input
+                    label="Street/Road/Lane"
+                    value={formData.street}
                     editable={!!editingSection}
                     onChange={(e) => setFormData(prev => ({ ...prev, street: e.target.value }))}
                   />
 
-                  <Input 
-                    label="Building/House Number" 
-                    value={formData.buildingNo} 
+                  <Input
+                    label="Building/House Number"
+                    value={formData.buildingNo}
                     editable={!!editingSection}
                     onChange={(e) => setFormData(prev => ({ ...prev, buildingNo: e.target.value }))}
                   />
 
-                  <Input 
-                    label="Landmark" 
-                    value={formData.landmark} 
+                  <Input
+                    label="Landmark"
+                    value={formData.landmark}
                     editable={!!editingSection}
                     onChange={(e) => setFormData(prev => ({ ...prev, landmark: e.target.value }))}
                     hideAsterisk={true}
                   />
 
-                  <Input 
-                    label="Pin Code" 
-                    value={formData.pincode} 
+                  <Input
+                    label="Pin Code"
+                    value={formData.pincode}
                     editable={!!editingSection}
                     onChange={(e) => handleNumericInput(e, 'pincode', 6)}
                     maxLength={6}
@@ -3030,18 +3027,18 @@ export default function SellerProfile() {
             underReview={reviewSections.includes("coordinator")}
           >
             <div className="grid grid-cols-2 gap-6">
-              <Input 
-                label="Coordinator Name" 
-                value={formData.coordinatorName} 
+              <Input
+                label="Coordinator Name"
+                value={formData.coordinatorName}
                 editable={!!editingSection}
                 maxLength={100}
                 icon={<FaRegUser />}
                 onChange={(e) => handleAlphanumericInput(e, 'coordinatorName')}
               />
-              
-              <Input 
+
+              <Input
                 label="Coordinator Designation"
-                value={formData.coordinatorDesignation} 
+                value={formData.coordinatorDesignation}
                 editable={!!editingSection}
                 maxLength={100}
                 onChange={(e) => handleAlphanumericInput(e, 'coordinatorDesignation')}
@@ -3179,8 +3176,8 @@ export default function SellerProfile() {
           const hasLicenseError = licenseExistsError[productName] || licenseErrors[productName];
 
           return (
-            <div 
-              key={productName} 
+            <div
+              key={productName}
               id={`license-section-${productName.replace(/\s/g, '-')}`}
               className={`${hasLicenseError ? 'border-2 border-red-300 rounded-xl' : ''}`}
             >
@@ -3367,9 +3364,8 @@ export default function SellerProfile() {
                       License Status
                     </label>
                     <div className="flex items-center h-14 px-4 rounded-xl bg-neutral-50 border border-neutral-100">
-                      <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${
-                        currentStatus === 'Active' ? 'bg-success-50 text-success-700' : 'bg-red-50 text-red-700'
-                      }`}>
+                      <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${currentStatus === 'Active' ? 'bg-success-50 text-success-700' : 'bg-red-50 text-red-700'
+                        }`}>
                         <GoCheckCircle size={16} />
                         <span className="text-sm font-medium">
                           {!licenseData.issueDate || !licenseData.expiryDate ? 'Pending' : currentStatus}
@@ -3441,7 +3437,7 @@ export default function SellerProfile() {
               </div>
 
               <FileField
-                key={formData.gstFileUrl} 
+                key={formData.gstFileUrl}
                 label="GST Certificate"
                 file={formData.gstFileUrl?.split('/').pop() || 'gst_certificate.pdf'}
                 fileUrl={formData.gstFileUrl}
@@ -3465,21 +3461,21 @@ export default function SellerProfile() {
           >
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-6">
-                <Input 
-                  label="Bank Name" 
-                  value={formData.bankName} 
+                <Input
+                  label="Bank Name"
+                  value={formData.bankName}
                   editable={false}
                 />
 
-                <Input 
-                  label="Branch" 
-                  value={formData.branch} 
+                <Input
+                  label="Branch"
+                  value={formData.branch}
                   editable={false}
                 />
 
-                <Input 
-                  label="Account Number" 
-                  value={formData.accountNumber} 
+                <Input
+                  label="Account Number"
+                  value={formData.accountNumber}
                   editable={!!editingSection}
                   onChange={(e) => handleNumericInput(e, 'accountNumber', 18)}
                   maxLength={18}
@@ -3487,9 +3483,9 @@ export default function SellerProfile() {
               </div>
 
               <div className="space-y-6">
-                <Input 
-                  label="IFSC Code" 
-                  value={formData.ifscCode} 
+                <Input
+                  label="IFSC Code"
+                  value={formData.ifscCode}
                   editable={!!editingSection}
                   onChange={(e) => handleIfscChange(e.target.value)}
                   maxLength={11}
@@ -3538,9 +3534,8 @@ export default function SellerProfile() {
                   await handleSaveAll();
                 }}
                 disabled={isSubmitting}
-                className={`flex items-center gap-2 bg-primary-900 font-semibold text-white text-md px-6 py-3 rounded-lg transition-colors ${
-                  isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-primary-800'
-                }`}
+                className={`flex items-center gap-2 bg-primary-900 font-semibold text-white text-md px-6 py-3 rounded-lg transition-colors ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-primary-800'
+                  }`}
               >
                 {isSubmitting ? (
                   <>
@@ -3618,11 +3613,11 @@ interface InputProps {
   placeholder?: string;
 }
 
-function Input({ 
-  label, 
-  value, 
-  editable, 
-  icon, 
+function Input({
+  label,
+  value,
+  editable,
+  icon,
   onChange,
   maxLength,
   type = "text",
@@ -3651,9 +3646,9 @@ function Input({
         placeholder={placeholder}
         className={`w-full h-14 px-4 rounded-xl text-[16px] ${className}
         ${editable
-          ? "bg-white border border-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          : "bg-neutral-50 border border-neutral-100 cursor-not-allowed"
-        }
+            ? "bg-white border border-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            : "bg-neutral-50 border border-neutral-100 cursor-not-allowed"
+          }
         ${error ? "border-red-500 focus:ring-red-500" : ""}`}
       />
       {error && (
@@ -3710,9 +3705,9 @@ function SelectField({
         <div
           className={`w-full h-14 px-4 rounded-xl border flex items-center justify-between cursor-pointer overflow-hidden
             ${editable && !isDisabled
-              ? "bg-white border-secondary-200 hover:border-primary-900" 
+              ? "bg-white border-secondary-200 hover:border-primary-900"
               : "bg-neutral-50 border-neutral-100 cursor-not-allowed"
-          }`}
+            }`}
           onClick={() => {
             if (editable && !isDisabled && !isLoading) {
               setIsOpen(!isOpen);
@@ -3725,8 +3720,8 @@ function SelectField({
               {isLoading ? "Loading..." : displayValue}
             </span>
           </div>
-          <ChevronDown 
-            className={`w-5 h-5 text-neutral-500 transition-transform shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`} 
+          <ChevronDown
+            className={`w-5 h-5 text-neutral-500 transition-transform shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`}
           />
         </div>
 
@@ -3769,7 +3764,7 @@ function FileField({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const prevEditableRef = useRef(editable);
-  
+
   useEffect(() => {
     if (prevEditableRef.current === true && editable === false) {
       setSelectedFile(null);
@@ -3786,12 +3781,12 @@ function FileField({
     if (!files || !files[0]) return;
 
     const file = files[0];
-    
+
     if (file.size > 5 * 1024 * 1024) {
       toast.error("File size should be less than 5MB");
       return;
     }
-    
+
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
     if (!allowedTypes.includes(file.type)) {
       toast.error("Only PDF, JPG, JPEG, and PNG files are allowed");
@@ -3808,8 +3803,8 @@ function FileField({
     fileInputRef.current?.click();
   };
 
-  const displayFileName = selectedFile 
-    ? selectedFile.name 
+  const displayFileName = selectedFile
+    ? selectedFile.name
     : (file || (fileUrl && fileUrl !== "PENDING" ? fileUrl.split('/').pop() : 'No file chosen'));
 
   const isPending = fileUrl === "PENDING";
@@ -3821,7 +3816,7 @@ function FileField({
           {label} <span className="text-warning-500">*</span>
         </label>
       )}
-      
+
       {editable ? (
         <div className="flex items-center justify-between h-14 px-3 rounded-xl border-2 border-dashed border-primary-50 bg-primary-05">
           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -3840,7 +3835,7 @@ function FileField({
           >
             Click to replace
           </button>
-          
+
           <input
             ref={fileInputRef}
             type="file"
@@ -3866,16 +3861,16 @@ function FileField({
           </div>
 
           <div className="flex items-center gap-3 shrink-0 ml-3">
-            <button 
-              onClick={onDownload} 
+            <button
+              onClick={onDownload}
               className={`transition-colors ${isPending ? 'text-gray-400 cursor-not-allowed' : 'text-primary-900 hover:text-primary-700'}`}
               title="Download file"
               disabled={isPending}
             >
               <Download size={20} />
             </button>
-            <button 
-              onClick={onView} 
+            <button
+              onClick={onView}
               className={`transition-colors ${isPending ? 'text-gray-400 cursor-not-allowed' : 'text-neutral-900 hover:text-neutral-700'}`}
               title="Open in new tab"
               disabled={isPending}
