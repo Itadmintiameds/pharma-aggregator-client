@@ -19,6 +19,8 @@ import Input from "@/src/app/commonComponents/Input";
 import UploadInput from "../commonComponent/UploadInput";
 import CommonModal from "../commonComponent/CommonModal";
 import AdditionalDiscount from "./AdditionalDiscount";
+import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes } from "@/src/services/product/SupplementService";
+import { getTherapeuticCategory, getTherapeuticSubcategory } from "@/src/services/product/TherapeuticCategoryService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,53 +55,15 @@ const UploadCloudIcon = () => (
 
 // ─── Static Options ────────────────────────────────────────────────────────────
 
-const therapeuticCategoryOptions: SelectOption[] = [
-  { value: "vitamins", label: "Vitamins & Minerals" },
-  { value: "herbal", label: "Herbal Supplements" },
-  { value: "sports", label: "Sports Nutrition" },
-  { value: "weight", label: "Weight Management" },
-];
+// Removed static therapeuticCategoryOptions and subCategoryOptions
 
-const subCategoryOptions: Record<string, SelectOption[]> = {
-  vitamins: [
-    { value: "multivitamins", label: "Multivitamins" },
-    { value: "vitamin_c", label: "Vitamin C" },
-    { value: "vitamin_d", label: "Vitamin D" },
-  ],
-  herbal: [
-    { value: "ashwagandha", label: "Ashwagandha" },
-    { value: "ginseng", label: "Ginseng" },
-  ],
-  sports: [
-    { value: "whey_protein", label: "Whey Protein" },
-    { value: "creatine", label: "Creatine" },
-    { value: "bcaa", label: "BCAA" },
-  ],
-  weight: [
-    { value: "fat_burners", label: "Fat Burners" },
-    { value: "meal_replacements", label: "Meal Replacements" },
-  ],
-};
-
-const dosageFormOptions: SelectOption[] = [
-  { value: "tablet", label: "Tablet" },
-  { value: "capsule", label: "Capsule" },
-  { value: "powder", label: "Powder" },
-  { value: "liquid", label: "Liquid" },
-  { value: "gummies", label: "Gummies" },
-];
 
 const nutritionalInfoOptions: SelectOption[] = [
   { value: "label", label: "As per the label" },
   { value: "image", label: "Image upload" },
 ];
 
-const ageGroupOptions: SelectOption[] = [
-  { value: "adults", label: "Adults" },
-  { value: "children", label: "Children" },
-  { value: "seniors", label: "Seniors" },
-  { value: "all", label: "All Ages" },
-];
+
 
 const genderOptions: SelectOption[] = [
   { value: "male", label: "Male" },
@@ -107,22 +71,9 @@ const genderOptions: SelectOption[] = [
   { value: "unisex", label: "Unisex" },
 ];
 
-const flavourOptions: SelectOption[] = [
-  { value: "unflavoured", label: "Unflavoured" },
-  { value: "chocolate", label: "Chocolate" },
-  { value: "vanilla", label: "Vanilla" },
-  { value: "strawberry", label: "Strawberry" },
-  { value: "orange", label: "Orange" },
-  { value: "lemon", label: "Lemon" },
-];
 
-const storageOptions: SelectOption[] = [
-  { value: "1", label: "Cool & Dry Place" },
-  { value: "2", label: "Room Temperature" },
-  { value: "3", label: "Refrigerate (2–8°C)" },
-  { value: "4", label: "Avoid Direct Sunlight" },
-  { value: "5", label: "Below 25°C" },
-];
+
+
 
 const countryOptions: SelectOption[] = [
   { value: "1", label: "India" },
@@ -132,20 +83,9 @@ const countryOptions: SelectOption[] = [
   { value: "5", label: "Australia" },
 ];
 
-const certificationOptions = [
-  { value: "1", label: "FSSAI License", tagCode: "FSSAI" },
-  { value: "2", label: "GMP Certified", tagCode: "GMP" },
-  { value: "3", label: "ISO 9001", tagCode: "ISO" },
-  { value: "4", label: "FDA Registered", tagCode: "FDA" },
-  { value: "5", label: "Organic Certified", tagCode: "ORG" },
-];
 
-const packTypeOptions: SelectOption[] = [
-  { value: "1", label: "Bottle" },
-  { value: "2", label: "Blister Pack" },
-  { value: "3", label: "Jar" },
-  { value: "4", label: "Box" },
-];
+
+// Removed static packTypeOptions
 
 const gstOptions: SelectOption[] = [
   { value: "0", label: "0%" },
@@ -157,7 +97,11 @@ const gstOptions: SelectOption[] = [
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
-const SupplementForm = () => {
+interface SupplementFormProps {
+  categoryId?: number | string;
+}
+
+const SupplementForm = ({ categoryId }: SupplementFormProps) => {
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   const setFieldRef =
     (name: string) => (el: HTMLElement | null) => { fieldRefs.current[name] = el; };
@@ -220,6 +164,232 @@ const SupplementForm = () => {
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
   const isEditMode = false; // Mock edit mode variable for JSX validation
 
+  const [therapeuticCategoryOptions, setTherapeuticCategoryOptions] = useState<SelectOption[]>([]);
+  const [subCategoryOptions, setSubCategoryOptions] = useState<SelectOption[]>([]);
+  const [dosageFormOptions, setDosageFormOptions] = useState<SelectOption[]>([]);
+  const [ageGroupOptions, setAgeGroupOptions] = useState<SelectOption[]>([]);
+  const [flavourOptions, setFlavourOptions] = useState<SelectOption[]>([]);
+  const [storageOptions, setStorageOptions] = useState<SelectOption[]>([]);
+  const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
+  const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
+  const [certificationOptions, setCertificationOptions] = useState<any[]>([]);
+
+  const [loadingTherapeuticCategories, setLoadingTherapeuticCategories] = useState(false);
+  const [loadingSubcategories, setLoadingSubcategories] = useState(false);
+  const [loadingDosageForms, setLoadingDosageForms] = useState(false);
+  const [loadingAgeGroups, setLoadingAgeGroups] = useState(false);
+  const [loadingFlavours, setLoadingFlavours] = useState(false);
+  const [loadingStorageConditions, setLoadingStorageConditions] = useState(false);
+  const [loadingCertifications, setLoadingCertifications] = useState(false);
+  const [loadingCountries, setLoadingCountries] = useState(false);
+  const [loadingPackTypes, setLoadingPackTypes] = useState(false);
+
+  useEffect(() => {
+    if (!categoryId) return;
+    const fetchTherapeuticCategories = async () => {
+      setLoadingTherapeuticCategories(true);
+      try {
+        const data = await getTherapeuticCategory(categoryId);
+        const options = data.map((cat: any) => ({
+          value: cat.therapeuticCategoryId,
+          label: cat.therapeuticCategory,
+        }));
+        setTherapeuticCategoryOptions(options);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingTherapeuticCategories(false);
+      }
+    };
+    fetchTherapeuticCategories();
+  }, [categoryId]);
+
+  useEffect(() => {
+    if (!form.therapeuticCategory) {
+      setSubCategoryOptions([]);
+      return;
+    }
+    const fetchSubcategories = async () => {
+      setLoadingSubcategories(true);
+      try {
+        const data = await getTherapeuticSubcategory(form.therapeuticCategory);
+        const options = data.map((sub: any) => ({
+          value: sub.therapeuticSubcategoryId,
+          label: sub.therapeuticSubcategory,
+        }));
+        setSubCategoryOptions(options);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingSubcategories(false);
+      }
+    };
+    fetchSubcategories();
+  }, [form.therapeuticCategory]);
+
+  useEffect(() => {
+    if (!categoryId) return;
+    const fetchDosageForms = async () => {
+      setLoadingDosageForms(true);
+      try {
+        const data = await getSupplementDosageForms(categoryId);
+        const options = data.map((item: any) => ({
+          value: String(item.dosageId),
+          label: item.dosageName || "Unknown",
+        }));
+        setDosageFormOptions(options);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingDosageForms(false);
+      }
+    };
+    fetchDosageForms();
+  }, [categoryId]);
+
+  useEffect(() => {
+    const fetchAgeGroups = async () => {
+      setLoadingAgeGroups(true);
+      try {
+        const data = await getSupplementAgeGroups();
+        const options = data.map((item: any) => ({
+          value: String(item.ageGroupId),
+          label: item.ageGroup || "Unknown",
+        }));
+        setAgeGroupOptions(options);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingAgeGroups(false);
+      }
+    };
+    fetchAgeGroups();
+  }, []);
+
+  useEffect(() => {
+    const fetchFlavours = async () => {
+      setLoadingFlavours(true);
+      try {
+        const data = await getSupplementFlavours();
+        const options = data.map((item: any) => ({
+          value: String(item.flavourId),
+          label: item.flavourName || "Unknown",
+        }));
+        setFlavourOptions(options);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingFlavours(false);
+      }
+    };
+    fetchFlavours();
+  }, []);
+
+  useEffect(() => {
+    if (!categoryId) return;
+    const fetchStorageConditions = async () => {
+      setLoadingStorageConditions(true);
+      try {
+        const data = await getSupplementStorageConditions(categoryId);
+        const options = data.map((item: any) => ({
+          value: String(item.storageConditionId),
+          label: item.conditionName || "Unknown",
+        }));
+        setStorageOptions(options);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingStorageConditions(false);
+      }
+    };
+    fetchStorageConditions();
+  }, [categoryId]);
+
+  useEffect(() => {
+    if (!categoryId) return;
+    const fetchCertifications = async () => {
+      setLoadingCertifications(true);
+      try {
+        const data = await getSupplementCertifications(categoryId);
+        const options = data.map((item: any) => ({
+          value: String(item.certificationId),
+          label: item.certificationName || "Unknown",
+          tagCode: (item.certificationName || "").split(' ')[0].toUpperCase() || "CERT",
+        }));
+        setCertificationOptions(options);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingCertifications(false);
+      }
+    };
+    fetchCertifications();
+  }, [categoryId]);
+
+  useEffect(() => {
+    const fetchCountries = async () => {
+      setLoadingCountries(true);
+      try {
+        const data = await getCountries();
+        const options = data.map((item: any) => ({
+          value: String(item.countryId),
+          label: item.countryName || "Unknown",
+        }));
+        setCountryOptions(options);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingCountries(false);
+      }
+    };
+    fetchCountries();
+  }, []);
+
+  useEffect(() => {
+    if (!form.dosageForm) {
+      setPackTypeApiOptions([]);
+      return;
+    }
+    const fetchPackTypes = async () => {
+      setLoadingPackTypes(true);
+      try {
+        const data = await getSupplementPackTypes(form.dosageForm);
+        const options = data.map((item: any) => ({
+          value: String(item.packId),
+          label: item.packType || "Unknown",
+        }));
+        setPackTypeApiOptions(options);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingPackTypes(false);
+      }
+    };
+    fetchPackTypes();
+  }, [form.dosageForm]);
+
+  useEffect(() => {
+    const units = parseFloat(form.unitPerPack) || 0;
+    const packs = parseFloat(form.numberOfPacks) || 0;
+    const total = units * packs;
+    setForm((prev) => ({
+      ...prev,
+      packSize: total > 0 ? total.toString() : "",
+    }));
+  }, [form.unitPerPack, form.numberOfPacks]);
+
+  useEffect(() => {
+    if (form.manufacturingDate instanceof Date && form.expiryDate instanceof Date) {
+      const mfg = form.manufacturingDate;
+      const exp = form.expiryDate;
+      const totalMonths = (exp.getFullYear() - mfg.getFullYear()) * 12 + (exp.getMonth() - mfg.getMonth());
+      setForm((prev) => ({
+        ...prev,
+        shelfLifeMonths: totalMonths > 0 ? totalMonths.toString() : "",
+      }));
+    }
+  }, [form.manufacturingDate, form.expiryDate]);
+
   const nutritionalInputRef = useRef<HTMLInputElement>(null);
   const brochureInputRef = useRef<HTMLInputElement>(null);
   const certDropdownRef = useRef<HTMLDivElement>(null);
@@ -234,29 +404,36 @@ const SupplementForm = () => {
         ? "#FF3B3B"
         : state.isFocused
           ? "#4B0082"
-          : "#737373", // neutral-500
+          : "#737373",
       boxShadow: "none",
       cursor: "pointer",
+
+      // ✅ FIX: dynamic alignment
       alignItems:
         state.hasValue && state.selectProps.isMulti ? "flex-start" : "center",
+
       "&:hover": { borderColor: errors[errorKey] ? "#FF3B3B" : "#4B0082" },
     }),
+
     valueContainer: (base: any) => ({
       ...base,
-      padding: "8px 16px",
-      flexWrap: "wrap",
+      padding: "8px 16px", // slight vertical padding for multi-line
+      flexWrap: "wrap", // ✅ enables wrapping
       overflow: "visible",
     }),
+
     indicatorsContainer: (base: any) => ({
       ...base,
-      height: "56px",
+      height: "56px", // ✅ keep icon aligned like other fields
     }),
+
     dropdownIndicator: (base: any, state: any) => ({
       ...base,
       color: state.isFocused ? "#4B0082" : "#737373",
       cursor: "pointer",
       "&:hover": { color: "#4B0082" },
     }),
+
     option: (base: any, state: any) => ({
       ...base,
       backgroundColor: state.isSelected
@@ -264,16 +441,17 @@ const SupplementForm = () => {
         : state.isFocused
           ? "#F3E8FF"
           : "white",
-      color: state.isSelected ? "white" : "#1E1E1D",
+      color: state.isSelected ? "white" : "#1E1E1E",
       cursor: "pointer",
-      fontFamily: "'Open_Sans', sans-serif",
       "&:active": { backgroundColor: "#4B0082", color: "white" },
     }),
-    placeholder: (base: any) => ({ ...base, color: "#969793", fontFamily: "'Open_Sans', sans-serif" }),
-    singleValue: (base: any) => ({ ...base, color: "#3C3D3A", fontFamily: "'Open_Sans', sans-serif" }),
+
+    placeholder: (base: any) => ({ ...base, color: "#A3A3A3" }),
+    singleValue: (base: any) => ({ ...base, color: "#1E1E1E" }),
+
     multiValue: (base: any) => ({
       ...base,
-      margin: "2px",
+      margin: "2px", // neat spacing when wrapping
     }),
   });
 
@@ -326,6 +504,16 @@ const SupplementForm = () => {
       prev.map((c) =>
         c.id === certId
           ? { ...c, file, fileName: file.name, isUploaded: true, existingUrl: undefined }
+          : c,
+      ),
+    );
+  };
+
+  const handleCertRemove = (certId: string) => {
+    setSelectedCertifications((prev) =>
+      prev.map((c) =>
+        c.id === certId
+          ? { ...c, file: null, fileName: "", isUploaded: false }
           : c,
       ),
     );
@@ -414,9 +602,6 @@ const SupplementForm = () => {
     setShowSuccess(true);
   };
 
-  const currentSubCategories =
-    form.therapeuticCategory && subCategoryOptions[form.therapeuticCategory] ? subCategoryOptions[form.therapeuticCategory] : [];
-
   return (
     <>
       {showAdditionalDiscount && (
@@ -486,7 +671,8 @@ const SupplementForm = () => {
               <label className={fieldLabel}>Therapeutic Category {requiredStar}</label>
               <Select
                 options={therapeuticCategoryOptions}
-                value={therapeuticCategoryOptions.find(o => o.value === form.therapeuticCategory) || null}
+                isLoading={loadingTherapeuticCategories}
+                value={therapeuticCategoryOptions.find(o => String(o.value) === String(form.therapeuticCategory)) || null}
                 onChange={(selected) => {
                   setForm((p) => ({ ...p, therapeuticCategory: selected ? selected.value : "", therapeuticSubcategory: "" }));
                   if (errors.therapeuticCategory) setErrors((p) => { const n = { ...p }; delete n.therapeuticCategory; return n; });
@@ -503,8 +689,9 @@ const SupplementForm = () => {
             <div className="flex flex-col gap-1" data-field="therapeuticSubcategory">
               <label className={fieldLabel}>Therapeutic Subcategory {requiredStar}</label>
               <Select
-                options={currentSubCategories}
-                value={currentSubCategories.find(o => o.value === form.therapeuticSubcategory) || null}
+                options={subCategoryOptions}
+                isLoading={loadingSubcategories}
+                value={subCategoryOptions.find(o => String(o.value) === String(form.therapeuticSubcategory)) || null}
                 onChange={(selected) => {
                   setForm((p) => ({ ...p, therapeuticSubcategory: selected ? selected.value : "" }));
                   if (errors.therapeuticSubcategory) setErrors((p) => { const n = { ...p }; delete n.therapeuticSubcategory; return n; });
@@ -554,9 +741,10 @@ const SupplementForm = () => {
                   setForm((p) => ({ ...p, dosageForm: selected ? selected.value : "" }));
                   if (errors.dosageForm) setErrors((p) => { const n = { ...p }; delete n.dosageForm; return n; });
                 }}
-                placeholder="Select dosage form"
+                placeholder={loadingDosageForms ? "Loading..." : "Select dosage form"}
                 theme={selectTheme}
                 styles={selectStyles("dosageForm")}
+                isDisabled={loadingDosageForms}
               />
               {errors.dosageForm && <p className={errorMsg}>{errors.dosageForm}</p>}
             </div>
@@ -698,9 +886,10 @@ const SupplementForm = () => {
                   setForm((p) => ({ ...p, ageGroup: selected ? selected.value : "" }));
                   if (errors.ageGroup) setErrors((p) => { const n = { ...p }; delete n.ageGroup; return n; });
                 }}
-                placeholder="Select age group"
+                placeholder={loadingAgeGroups ? "Loading..." : "Select age group"}
                 theme={selectTheme}
                 styles={selectStyles("ageGroup")}
+                isDisabled={loadingAgeGroups}
               />
               {errors.ageGroup && <p className={errorMsg}>{errors.ageGroup}</p>}
             </div>
@@ -760,9 +949,10 @@ const SupplementForm = () => {
                   setForm((p) => ({ ...p, flavour: selected ? selected.value : "" }));
                   if (errors.flavour) setErrors((p) => { const n = { ...p }; delete n.flavour; return n; });
                 }}
-                placeholder="Select flavour"
+                placeholder={loadingFlavours ? "Loading..." : "Select flavour"}
                 theme={selectTheme}
                 styles={selectStyles("flavour")}
+                isDisabled={loadingFlavours}
               />
               {errors.flavour && <p className={errorMsg}>{errors.flavour}</p>}
             </div>
@@ -791,9 +981,10 @@ const SupplementForm = () => {
                   setForm((p) => ({ ...p, storageCondition: selected ? selected.value : "" }));
                   if (errors.storageCondition) setErrors((p) => { const n = { ...p }; delete n.storageCondition; return n; });
                 }}
-                placeholder="Select storage condition"
+                placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
                 theme={selectTheme}
                 styles={selectStyles("storageCondition")}
+                isDisabled={loadingStorageConditions}
               />
               {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
             </div>
@@ -813,42 +1004,120 @@ const SupplementForm = () => {
             </div>
 
             {/* ROW 11 */}
-            {/* Certifications / Compliance */}
+            {/* Certifications / Compliance Checkbox Dropdown */}
             <div className="flex flex-col gap-1" data-field="certifications">
               <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
-              <Select
-                isMulti
-                options={certificationOptions}
-                value={certificationOptions.filter(o => selectedCertifications.some(c => c.id === o.value))}
-                onChange={(selected: any) => {
-                  const newCerts = selected.map((opt: any) => {
-                    const existing = selectedCertifications.find(c => c.id === opt.value);
-                    if (existing) return existing;
-                    return {
-                      id: opt.value,
-                      label: opt.label,
-                      tagCode: certificationOptions.find(c => c.value === opt.value)?.tagCode || opt.label.slice(0, 3).toUpperCase(),
-                      isUploaded: false,
-                      file: null,
-                      fileName: "",
-                    };
-                  });
-                  setSelectedCertifications(newCerts);
-                  if (errors.certifications) setErrors(p => { const n = { ...p }; delete n.certifications; return n; });
-                }}
-                placeholder="Select certifications"
-                theme={selectTheme}
-                styles={selectStyles("certifications")}
-              />
+              <div className="relative" ref={certDropdownRef}>
+                <div
+                  onClick={() => setShowCertDropdown((p) => !p)}
+                  className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${
+                    errors.certifications ? "border-[#FF3B3B]" : "border-neutral-500 hover:border-[#4B0082]"
+                  }`}
+                >
+                  <span
+                    className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
+                    style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#A3A3A3" }}
+                  >
+                    {selectedCertifications.length > 0
+                      ? selectedCertifications.map((c) => c.label).join(", ")
+                      : "Select certifications"}
+                  </span>
+                  <svg
+                    className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${
+                      showCertDropdown ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+                {showCertDropdown && (
+                  <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
+                    {loadingCertifications ? (
+                      <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
+                    ) : (
+                      certificationOptions.map((opt) => (
+                        <label
+                          key={opt.value}
+                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCertifications.some((c) => c.id === opt.value)}
+                            onChange={() => handleCertCheckbox(opt)}
+                            className="accent-purple-600 w-4 h-4"
+                          />
+                          <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">
+                            {opt.label}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
               {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
-            {/* Upload Certifications / Compliance */}
-            <div>
-              <UploadInput onFileSelect={(file) => {
-                setSelectedCertifications((prev) =>
-                  prev.map(c => ({ ...c, file, fileName: file ? file.name : "", isUploaded: !!file }))
-                );
-              }} />
+
+            {/* Upload Certifications / Compliance List */}
+            <div className="flex flex-col gap-1">
+              <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
+              {selectedCertifications.length === 0 ? (
+                <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
+                  <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
+                    <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
+                    <span className="text-[#969793]">Select certifications first</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {selectedCertifications.map((cert) => (
+                    <div key={cert.id} className="flex flex-col gap-1">
+                      <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
+                        <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
+                          <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
+                        </div>
+
+                        <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
+                          {cert.isUploaded ? (
+                            <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
+                              <span className="truncate">{cert.fileName}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCertRemove(cert.id)}
+                                className="ml-2"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[#969793]">Upload the {cert.label}</span>
+                          )}
+                        </div>
+
+                        {!cert.isUploaded && (
+                          <label className="cursor-pointer px-4">
+                            <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleCertFileSelect(cert.id, file);
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* ROW 12 */}
@@ -862,9 +1131,10 @@ const SupplementForm = () => {
                   setForm((p) => ({ ...p, countryOfOrigin: selected ? selected.value : "" }));
                   if (errors.countryOfOrigin) setErrors((p) => { const n = { ...p }; delete n.countryOfOrigin; return n; });
                 }}
-                placeholder="Select country"
+                placeholder={loadingCountries ? "Loading..." : "Select country"}
                 theme={selectTheme}
                 styles={selectStyles("countryOfOrigin")}
+                isDisabled={loadingCountries}
               />
               {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
             </div>
@@ -918,9 +1188,9 @@ const SupplementForm = () => {
               </label>
 
               <Select
-                options={packTypeOptions}
+                options={packTypeApiOptions}
                 value={
-                  packTypeOptions.find(
+                  packTypeApiOptions.find(
                     (o: any) => String(o.value) === String(form.packId),
                   ) || null
                 }
@@ -931,8 +1201,8 @@ const SupplementForm = () => {
                     packType: selected?.label || "",
                   }))
                 }
-                placeholder="Select Pack Type"
-                isDisabled={isEditMode}
+                placeholder={loadingPackTypes ? "Loading..." : "Select Pack Type"}
+                isDisabled={isEditMode || loadingPackTypes}
                 theme={selectTheme}
                 styles={selectStyles("packId")}
               />
@@ -1064,22 +1334,22 @@ const SupplementForm = () => {
                 setErrors((prev) => ({
                   ...prev,
                   manufacturingDate: "",
-                  expiryDate: "", 
+                  expiryDate: "",
                 }));
 
                 setForm({
                   ...form,
                   manufacturingDate: date,
-                  expiryDate: null, 
-                  shelfLifeMonths: "", 
+                  expiryDate: null,
+                  shelfLifeMonths: "",
                 });
               }}
               value={
                 form.manufacturingDate instanceof Date &&
-                !isNaN(form.manufacturingDate.getTime())
+                  !isNaN(form.manufacturingDate.getTime())
                   ? `${form.manufacturingDate.getFullYear()}-${String(
-                      form.manufacturingDate.getMonth() + 1,
-                    ).padStart(2, "0")}`
+                    form.manufacturingDate.getMonth() + 1,
+                  ).padStart(2, "0")}`
                   : ""
               }
               error={errors.manufacturingDate}
@@ -1092,14 +1362,22 @@ const SupplementForm = () => {
               name="expiryDate"
               value={
                 form.expiryDate instanceof Date &&
-                !isNaN(form.expiryDate.getTime())
+                  !isNaN(form.expiryDate.getTime())
                   ? `${form.expiryDate.getFullYear()}-${String(
-                      form.expiryDate.getMonth() + 1,
-                    ).padStart(2, "0")}`
+                    form.expiryDate.getMonth() + 1,
+                  ).padStart(2, "0")}`
                   : ""
               }
               readOnly={isEditMode}
-              onChange={handleChange}
+               onChange={(e) => {
+                const value = e.target.value;
+                if (!value) return;
+                const [year, month] = value.split("-").map(Number);
+                const date = new Date(year, month - 1, 1);
+                setForm({ ...form, expiryDate: date });
+                if (errors.expiryDate)
+                  setErrors((prev) => ({ ...prev, expiryDate: "" }));
+              }}
               onFocus={() => {
                 if (form.manufacturingDate) {
                   setErrors((prev) => ({
@@ -1109,7 +1387,7 @@ const SupplementForm = () => {
                   }));
                 }
               }}
-              min={getMinExpiryMonth()} 
+              min={getMinExpiryMonth()}
               error={errors.expiryDate}
               required
             />
@@ -1245,9 +1523,9 @@ const SupplementForm = () => {
                   gstOptions.find((o) => o.value === form.gstPercentage) ||
                   (form.gstPercentage
                     ? {
-                        value: form.gstPercentage,
-                        label: `${form.gstPercentage}%`,
-                      }
+                      value: form.gstPercentage,
+                      label: `${form.gstPercentage}%`,
+                    }
                     : null)
                 }
                 onChange={(selected: any) =>

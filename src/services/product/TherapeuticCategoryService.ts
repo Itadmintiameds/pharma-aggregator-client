@@ -50,3 +50,33 @@ export const getTherapeuticSubcategoryById = async (therapeuticSubcategoryId: st
     }
   }
 };
+
+export const getTherapeuticCategory = async (categoryId: string | number) => {
+  try {
+    if (!categoryId) throw new Error("Category ID is required");
+    const response = await api.get(`therapeutic/therapeuticCategories/categoryId/${categoryId}`);
+    return response.data?.data ?? response.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Therapeutic Category:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Therapeutic Category: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Therapeutic Category.');
+    }
+  }
+};
+
+export const getTherapeuticSubcategory = async (categoryId: string | number) => {
+  try {
+    if (!categoryId) throw new Error("Category ID is required");
+    const response = await api.get(`therapeutic/therapeuticSubcategories/${categoryId}`);
+    return response.data?.data ?? response.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Therapeutic Subcategory:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Therapeutic Subcategory: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Therapeutic Subcategory.');
+    }
+  }
+};
