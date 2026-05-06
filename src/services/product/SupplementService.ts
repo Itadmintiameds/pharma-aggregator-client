@@ -132,3 +132,74 @@ export const getSupplementPackTypes = async (dosageId: string | number) => {
     }
   }
 };
+
+export const createSupplementProduct = async (payload: any) => {
+  try {
+    const response = await api.post('/products/create', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error creating Supplement Product', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+    throw new Error(
+      error.response?.data?.message || error.message || 'Error creating Supplement Product'
+    );
+  }
+};
+
+export const uploadSupplementProductImages = async (productId: string, files: File[]) => {
+  try {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('images', file));
+    const response = await api.post(`/product-images/${productId}`, formData);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error uploading Supplement Product Images', error);
+    throw new Error(
+      error.response?.data?.message || error.message || 'Error uploading Supplement Product Images'
+    );
+  }
+};
+
+export const uploadSupplementBrochure = async (productAttributeId: string, file: File) => {
+  try {
+    const formData = new FormData();
+    formData.append('brochureFile', file);
+    const response = await api.post(
+      `/product-documents/supplements/${productAttributeId}/brochure`,
+      formData
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error uploading Supplement Brochure', error);
+    throw new Error(
+      error.response?.data?.message || error.message || 'Error uploading Supplement Brochure'
+    );
+  }
+};
+
+export const uploadSupplementCertifications = async (
+  productAttributeId: string,
+  documentIds: number[],
+  files: File[]
+) => {
+  try {
+    const formData = new FormData();
+    documentIds.forEach((id) => formData.append('documentIds', String(id)));
+    files.forEach((file) => formData.append('certificateFiles', file));
+    const response = await api.post(
+      `/product-documents/supplements/${productAttributeId}/certificates`,
+      formData
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error uploading Supplement Certifications', error);
+    throw new Error(
+      error.response?.data?.message || error.message || 'Error uploading Supplement Certifications'
+    );
+  }
+};

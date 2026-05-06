@@ -14,6 +14,7 @@ import {
   getTherapeuticSubcategoryById,
 } from "@/src/services/product/TherapeuticCategoryService";
 import { getAllMolecules } from "@/src/services/product/MoleculeService";
+import SupplementDetailsView from "./SupplementDetailsView";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -178,6 +179,7 @@ interface ProductApiData {
   productAttributeConsumableMedicals?: ConsumableAttributes[];
   productAttributeDrugs?: DrugAttributeEntry[];
   drugAttributes?: DrugAttributeEntry;
+  productAttributeSupplementsOrNutraceuticals?: any[];
   productMarketingUrl?: string;
   therapeuticCategory?: string;
   therapeuticSubcategory?: string;
@@ -441,23 +443,23 @@ const ProductView1 = ({
         console.log("[PackType] Using inline name:", inlinePackName);
         return { packTypeName: inlinePackName };
       }
-      
+
       if (packId === null) {
         console.log("[PackType] No pack ID available");
         return {};
       }
-      
+
       try {
         console.log("[PackType] Fetching for ID:", packId);
         const data = await getPackTypeById(packId);
         console.log("[PackType] API response:", data);
-        
+
         const name =
           data?.packType ??
           data?.packTypeName ??
           data?.name ??
           null;
-        
+
         console.log("[PackType] Extracted name:", name);
         return { packTypeName: name ? String(name).trim() : null };
       } catch (err) {
@@ -480,7 +482,7 @@ const ProductView1 = ({
       consAttr?.storageConditionId ??
       ncAttr?.storageConditionId ??
       (Array.isArray(drugEntry?.storageConditionIds) &&
-      (drugEntry?.storageConditionIds?.length ?? 0) > 0
+        (drugEntry?.storageConditionIds?.length ?? 0) > 0
         ? drugEntry!.storageConditionIds![0]
         : undefined);
     const storageId = toPositiveInt(rawStorageId);
@@ -490,24 +492,24 @@ const ProductView1 = ({
         console.log("[StorageCondition] Using inline name:", inlineStorageName);
         return { storageConditionName: inlineStorageName };
       }
-      
+
       if (storageId === null) {
         console.log("[StorageCondition] No storage ID available");
         return {};
       }
-      
+
       try {
         console.log("[StorageCondition] Fetching for ID:", storageId);
         const data = await getStorageConditionById(storageId);
         console.log("[StorageCondition] API response:", data);
-        
+
         const name =
           data?.conditionName ??
           data?.storageConditionName ??
           data?.name ??
           data?.condition ??
           null;
-        
+
         console.log("[StorageCondition] Extracted name:", name);
         return { storageConditionName: name ? String(name).trim() : null };
       } catch (err) {
@@ -528,24 +530,24 @@ const ProductView1 = ({
         console.log("[TherapeuticCategory] Using inline name:", inlineCatName);
         return { therapeuticCategoryName: inlineCatName };
       }
-      
+
       if (!drugEntry || catId === null) {
         console.log("[TherapeuticCategory] No category ID available");
         return {};
       }
-      
+
       try {
         console.log("[TherapeuticCategory] Fetching for ID:", catId);
         const data = await getTherapeuticCategoryById(String(catId));
         console.log("[TherapeuticCategory] API response:", data);
-        
+
         const name =
           data?.therapeuticCategory ??
           data?.therapeuticCategoryName ??
           data?.categoryName ??
           data?.name ??
           null;
-        
+
         console.log("[TherapeuticCategory] Extracted name:", name);
         return { therapeuticCategoryName: name ? String(name).trim() : null };
       } catch (err) {
@@ -566,24 +568,24 @@ const ProductView1 = ({
         console.log("[TherapeuticSubcategory] Using inline name:", inlineSubName);
         return { therapeuticSubcategoryName: inlineSubName };
       }
-      
+
       if (!drugEntry || subId === null) {
         console.log("[TherapeuticSubcategory] No subcategory ID available");
         return {};
       }
-      
+
       try {
         console.log("[TherapeuticSubcategory] Fetching for ID:", subId);
         const data = await getTherapeuticSubcategoryById(String(subId));
         console.log("[TherapeuticSubcategory] API response:", data);
-        
+
         const name =
           data?.therapeuticSubcategory ??
           data?.therapeuticSubcategoryName ??
           data?.subcategoryName ??
           data?.name ??
           null;
-        
+
         console.log("[TherapeuticSubcategory] Extracted name:", name);
         return { therapeuticSubcategoryName: name ? String(name).trim() : null };
       } catch (err) {
@@ -602,7 +604,7 @@ const ProductView1 = ({
         console.log("[Molecules] No molecule data needed");
         return {};
       }
-      
+
       try {
         console.log("[Molecules] Fetching all molecules");
         const allMolecules: {
@@ -612,7 +614,7 @@ const ProductView1 = ({
           mechanismOfAction?: string;
           primaryUse?: string;
         }[] = await getAllMolecules();
-        
+
         console.log("[Molecules] Fetched count:", allMolecules?.length ?? 0);
 
         const moleculeMap = {} as Record<number, string>;
@@ -679,6 +681,11 @@ const ProductView1 = ({
       ? productData!.productAttributeDrugs![0]
       : productData?.drugAttributes ?? null;
 
+  const suppAttr: any | null =
+    (productData?.productAttributeSupplementsOrNutraceuticals ?? []).length > 0
+      ? productData!.productAttributeSupplementsOrNutraceuticals![0]
+      : null;
+
   const resolvedCategoryId: number | null =
     productData?.categoryId ?? categoryIdProp ?? null;
 
@@ -696,8 +703,8 @@ const ProductView1 = ({
       m.strength != null
         ? m.strength
         : idx === 0
-        ? drugEntry?.molecule1Strength
-        : drugEntry?.molecule2Strength;
+          ? drugEntry?.molecule1Strength
+          : drugEntry?.molecule2Strength;
     return {
       ...m,
       resolvedName: name ?? "—",
@@ -709,21 +716,21 @@ const ProductView1 = ({
     molecules.length > 0
       ? molecules
       : (
-          [
-            drugEntry?.molecule1Name || drugEntry?.molecule1Strength
-              ? {
-                  resolvedName: drugEntry?.molecule1Name ?? "—",
-                  resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
-                }
-              : null,
-            drugEntry?.molecule2Name || drugEntry?.molecule2Strength
-              ? {
-                  resolvedName: drugEntry?.molecule2Name ?? "—",
-                  resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
-                }
-              : null,
-          ].filter(Boolean) as { resolvedName: string; resolvedStrength: string }[]
-        );
+        [
+          drugEntry?.molecule1Name || drugEntry?.molecule1Strength
+            ? {
+              resolvedName: drugEntry?.molecule1Name ?? "—",
+              resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
+            }
+            : null,
+          drugEntry?.molecule2Name || drugEntry?.molecule2Strength
+            ? {
+              resolvedName: drugEntry?.molecule2Name ?? "—",
+              resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
+            }
+            : null,
+        ].filter(Boolean) as { resolvedName: string; resolvedStrength: string }[]
+      );
 
   const drugSchedule =
     drugEntry?.drugSchedule ??
@@ -746,6 +753,7 @@ const ProductView1 = ({
     drugEntry?.purpose ??
     ncAttr?.purpose ??
     consAttr?.purpose ??
+    suppAttr?.intendedUse ??
     (primaryMoleculeId != null
       ? lookups.moleculeDetailMap[primaryMoleculeId]?.primaryUse
       : null) ??
@@ -765,6 +773,8 @@ const ProductView1 = ({
     ncAttr?.storageCondition ??
     consAttr?.storageConditionName ??
     consAttr?.storageCondition ??
+    suppAttr?.storageConditionName ??
+    suppAttr?.storageCondition ??
     (lookups.loading ? "Loading…" : null);
 
   const therapeuticCategory =
@@ -787,13 +797,14 @@ const ProductView1 = ({
     productData?.manufacturerName ??
     ncAttr?.manufacturerName ??
     consAttr?.manufacturerName ??
+    suppAttr?.manufacturerName ??
     null;
 
   const warningsPrecautions =
-    drugEntry?.warningsPrecautions ?? productData?.warningsPrecautions ?? null;
+    drugEntry?.warningsPrecautions ?? productData?.warningsPrecautions ?? suppAttr?.warningsPrecautions ?? null;
 
   const productDescription =
-    drugEntry?.productDescription ?? productData?.productDescription ?? null;
+    drugEntry?.productDescription ?? productData?.productDescription ?? suppAttr?.productDescription ?? null;
 
   const gstPercentage =
     pricing?.gstPercentage ?? drugEntry?.gstPercentage ?? productData?.gstPercentage ?? null;
@@ -816,8 +827,8 @@ const ProductView1 = ({
   const packSizeDisplay =
     packaging?.numberOfPacks != null && unitsPerPack != null
       ? `${packaging.numberOfPacks} packs × ${unitsPerPack} units = ${(
-          packaging.numberOfPacks * unitsPerPack
-        ).toLocaleString()} units`
+        packaging.numberOfPacks * unitsPerPack
+      ).toLocaleString()} units`
       : null;
 
   const resolveProductImages = (data: ProductApiData | null): string[] => {
@@ -845,6 +856,7 @@ const ProductView1 = ({
   const certDocs: CertificateDocument[] = [
     ...(ncAttr?.certificateDocuments ?? []),
     ...(consAttr?.certificateDocuments ?? []),
+    ...(suppAttr?.certificateDocuments ?? []),
   ].filter((c) => validUrl(c.certificateUrl) !== null);
 
   const brochureUrl: string | null =
@@ -852,12 +864,13 @@ const ProductView1 = ({
     validUrl(drugEntry?.userManualUrl) ??
     validUrl(consAttr?.brochurePath) ??
     validUrl(ncAttr?.brochurePath) ??
+    validUrl(suppAttr?.brochurePath) ??
     validUrl(productData?.productMarketingUrl);
 
   const router = useRouter();
   const handleClose = () => {
-  window.location.href = "/seller_7a3b9f2c/dashboard";
-};
+    window.location.href = "/seller_7a3b9f2c/dashboard";
+  };
 
   const handleEdit = () => {
     const editView =
@@ -1214,6 +1227,8 @@ const ProductView1 = ({
               </>
             )}
 
+            {suppAttr && <SupplementDetailsView data={suppAttr} />}
+
             <FieldRow label="Storage Condition" value={storageCondition} multiline />
           </div>
 
@@ -1517,13 +1532,11 @@ const ProductView1 = ({
                             margin: 0,
                           }}
                         >
-                          {`Bulk order discount (${d.minimumPurchaseQuantity}${
-                            d.maximumPurchaseQuantity ? `-${d.maximumPurchaseQuantity}` : "+"
-                          } units)${
-                            startDate && endDate
+                          {`Bulk order discount (${d.minimumPurchaseQuantity}${d.maximumPurchaseQuantity ? `-${d.maximumPurchaseQuantity}` : "+"
+                            } units)${startDate && endDate
                               ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
                               : ""
-                          }`}
+                            }`}
                         </p>
                       </div>
                       <span
