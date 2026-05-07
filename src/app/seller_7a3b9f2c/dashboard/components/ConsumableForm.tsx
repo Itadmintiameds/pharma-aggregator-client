@@ -2,14 +2,28 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Select, { StylesConfig, Theme } from "react-select";
-import Drawer from "@/src/app/commonComponents/Drawer";
+import Input from "@/src/app/commonComponents/Input";
+import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscount from "./AdditionalDiscount";
 import PopupModal from "../commonComponent/PopupModal";
 import CommonModal from "../commonComponent/CommonModal";
-import { FileText, X, RefreshCw, AlertCircle } from "lucide-react";
-import { sellerAuthService } from "@/src/services/seller/authService";
+import { X, RefreshCw, AlertCircle, FileText } from "lucide-react";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
+import {
+  getConsumableDeviceCategories,
+  getConsumableDeviceSubCategories,
+  getConsumableMaterialTypes,
+  getConsumableStorageConditions,
+  getConsumableCountries,
+  getConsumableCertifications,
+  getConsumablePackTypes,
+  createConsumableProduct,
+  uploadConsumableCertificate,
+  uploadConsumableBrochure,
+} from "@/src/services/product/ConsumbaleService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface SelectOption { value: string; label: string; }
 
@@ -54,10 +68,7 @@ interface ApiResponseData { [key: string]: unknown; }
 
 type SelectStyles = StylesConfig<SelectOption, false>;
 
-const API_BASE = "https://api-test-aggreator.tiameds.ai/api/v1";
-const MASTERS = `${API_BASE}/masters`;
-
-// ─── Validation helpers ────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isFutureDate(date: Date | null): boolean {
   if (!date) return false;
@@ -131,87 +142,25 @@ function extractProductAttributeId(data: ApiResponseData): string | undefined {
   return undefined;
 }
 
-async function uploadSingleCertificate(
-  attributeId: string,
-  headers: Record<string, string>,
-  cert: CertificationTag,
-): Promise<{ success: boolean; certId: string; message?: string }> {
-  if (!cert.file) return { success: false, certId: cert.id, message: "No file attached" };
-  const formData = new FormData();
-  formData.append("documentIds", String(cert.productCertificateDocumentId));
-  formData.append("certificateFiles", cert.file, cert.file.name);
-  const url = `${API_BASE}/product-documents/consumable/${attributeId}/certificates`;
-  try {
-    const response = await fetch(url, { method: "POST", headers, body: formData });
-    if (!response.ok) {
-      const errorText = await response.text();
-      return { success: false, certId: cert.id, message: `HTTP ${response.status}: ${errorText}` };
-    }
-    return { success: true, certId: cert.id };
-  } catch (error) {
-    return { success: false, certId: cert.id, message: error instanceof Error ? error.message : "Unknown error" };
-  }
-}
-
-async function uploadAllCertificates(
-  attributeId: string,
-  headers: Record<string, string>,
-  certificates: CertificationTag[],
-): Promise<{ allSuccess: boolean; failures: string[] }> {
-  const certsWithFiles = certificates.filter((c) => c.file && !c.existingUrl);
-  if (certsWithFiles.length === 0) return { allSuccess: true, failures: [] };
-  const failures: string[] = [];
-  for (const cert of certsWithFiles) {
-    const result = await uploadSingleCertificate(attributeId, headers, cert);
-    if (!result.success) failures.push(`${cert.label}: ${result.message || "Upload failed"}`);
-  }
-  return { allSuccess: failures.length === 0, failures };
-}
-
-async function uploadBrochure(
-  baseUrl: string,
-  headers: Record<string, string>,
-  file: File,
-): Promise<{ success: boolean; message?: string }> {
-  const formData = new FormData();
-  formData.append("brochureFile", file);
-  try {
-    const response = await fetch(baseUrl, { method: "POST", headers, body: formData });
-    if (!response.ok) {
-      const errorText = await response.text();
-      return { success: false, message: `HTTP ${response.status}: ${errorText}` };
-    }
-    return { success: true };
-  } catch (error) {
-    return { success: false, message: error instanceof Error ? error.message : "Unknown error" };
-  }
-}
-
 function getMasterStr(item: MasterItem, ...keys: string[]): string {
   for (const key of keys) { const v = item[key]; if (v != null) return String(v); }
   return "";
 }
 
-// ─── Styles ────────────────────────────────────────────────────────────────────
+// ─── Style constants ──────────────────────────────────────────────────────────
 
 const fieldLabel = "block mb-1.5 font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]";
 const requiredStar = <span className="text-red-500 ml-0.5">*</span>;
-
-const inputBase =
-  "w-full h-12 px-4 border border-gray-300 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors bg-white";
-const inputDisabled =
-  "w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] bg-gray-50 cursor-default flex items-center";
-const inputError = "border-red-400 focus:border-red-400 focus:ring-red-100";
 const errorMsg = "text-red-500 text-xs mt-1";
 const sectionCard = "bg-white border border-gray-200 rounded-2xl p-6 shadow-sm";
 const sectionTitle = "mb-4 pb-3 border-b border-gray-100 text-[28px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D]";
 const subSectionTitle = "mb-3 mt-5 pb-2 border-b border-gray-100 text-[21px] [font-family:'Open_Sans',sans-serif] font-normal leading-6 [color:#1E1E1D]";
+const inputDisabled = "w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] bg-gray-50 cursor-default flex items-center";
 
 const UploadCloudIcon = () => (
   <img src="/icons/upload-cloud.svg" alt="upload" className="w-5 h-5 object-contain" />
 );
 
-// ─── Non-editable field wrappers ──────────────────────────────────────────────
 const NonEditableField = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
   <div className="flex flex-col gap-1">
     <label className={fieldLabel}>{label} {required && requiredStar}</label>
@@ -226,7 +175,7 @@ const NonEditableSelect = ({ label, value, required }: { label: string; value: s
   </div>
 );
 
-// ─── Component ─────────────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: ConsumableFormProps) => {
   const todayStr = new Date().toISOString().split("T")[0];
@@ -274,7 +223,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [productAttributeId, setProductAttributeId] = useState("");
   const [packagingId, setPackagingId] = useState("");
   const [pricingId, setPricingId] = useState("");
-  const [productCategoryId, setProductCategoryId] = useState<number>(5);
+  // Consumable category ID is always 5 — no dynamic lookup needed
+  const productCategoryId = 5;
 
   const [displayLabels, setDisplayLabels] = useState({
     deviceCategoryLabel: "",
@@ -292,13 +242,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
   const [materialTypeOptions, setMaterialTypeOptions] = useState<SelectOption[]>([]);
-  const [loadingMaterialTypes, setLoadingMaterialTypes] = useState(false);
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
   const materialDropdownRef = useRef<HTMLDivElement>(null);
 
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
+  const [loadingMaterialTypes, setLoadingMaterialTypes] = useState(false);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(false);
@@ -307,9 +257,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
+  // brochure is now handled by UploadInput via this state
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
-  const [uploadingBrochure, setUploadingBrochure] = useState(false);
   const [showCertDropdown, setShowCertDropdown] = useState(false);
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
 
@@ -318,7 +268,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const brochureInputRef = useRef<HTMLInputElement>(null);
 
   const sterileOptions: SelectOption[] = [
     { value: "sterile", label: "Sterile" },
@@ -335,11 +284,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     { value: "18", label: "18%" },
   ];
 
-  const authHeaders = useCallback((): Record<string, string> => {
-    const token = sellerAuthService.getToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, []);
-
   const convertToDiscountSlab = (data: AdditionalDiscountData[]): AdditionalDiscountSlab[] =>
     data.map((item) => ({
       minimumPurchaseQuantity: item.minimumPurchaseQuantity,
@@ -353,57 +297,44 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const convertToDiscountData = (slabs: AdditionalDiscountSlab[]): AdditionalDiscountData[] =>
     slabs.map((s) => ({ ...s }));
 
-  const fetchList = useCallback(async (
-    url: string,
-    setter: (v: SelectOption[]) => void,
-    idKey: string[],
-    labelKey: string[],
-    fallback?: SelectOption[],
-  ) => {
-    try {
-      const res = await fetch(url, { headers: authHeaders() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
-      const mapped = items
-        .map((item) => ({ value: getMasterStr(item, ...idKey), label: getMasterStr(item, ...labelKey) || "Unknown" }))
-        .filter((o) => o.value);
-      setter(mapped);
-    } catch { if (fallback) setter(fallback); }
-  }, [authHeaders]);
+  // ─── Data fetching via service ─────────────────────────────────────────────
 
   const fetchDeviceCategories = useCallback(async () => {
-    setLoadingCategories(true); setApiError(null);
+    setLoadingCategories(true);
+    setApiError(null);
     try {
-      const res = await fetch(`${MASTERS}/device-categories/consumable`, { headers: authHeaders() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
+      const items: MasterItem[] = await getConsumableDeviceCategories();
       setDeviceCategoryOptions(
-        items.map((i) => ({ value: getMasterStr(i, "deviceCatId", "id"), label: getMasterStr(i, "deviceName", "name") || "Unknown" }))
+        items
+          .map((i) => ({ value: getMasterStr(i, "deviceCatId", "id"), label: getMasterStr(i, "deviceName", "name") || "Unknown" }))
           .filter((o) => o.value),
       );
     } catch (err) {
       setApiError(`Failed to load device categories: ${err instanceof Error ? err.message : String(err)}`);
-    } finally { setLoadingCategories(false); }
-  }, [authHeaders]);
+    } finally {
+      setLoadingCategories(false);
+    }
+  }, []);
 
   const fetchDeviceSubCategories = useCallback(async (categoryId: string) => {
     if (!categoryId) { setDeviceSubCategoryOptions([]); return; }
     setLoadingSubCategories(true);
     try {
-      const res = await fetch(`${MASTERS}/device-sub-categories/${categoryId}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
+      const items: MasterItem[] = await getConsumableDeviceSubCategories(categoryId);
       setDeviceSubCategoryOptions(
-        items.map((i) => ({
-          value: getMasterStr(i, "deviceSubCatId", "subCategoryId", "id"),
-          label: getMasterStr(i, "deviceSubCatName", "subCategoryName", "name") || "Unknown",
-        })).filter((o) => o.value),
+        items
+          .map((i) => ({
+            value: getMasterStr(i, "deviceSubCatId", "subCategoryId", "id"),
+            label: getMasterStr(i, "deviceSubCatName", "subCategoryName", "name") || "Unknown",
+          }))
+          .filter((o) => o.value),
       );
-    } catch { setDeviceSubCategoryOptions([]); } finally { setLoadingSubCategories(false); }
-  }, [authHeaders]);
+    } catch {
+      setDeviceSubCategoryOptions([]);
+    } finally {
+      setLoadingSubCategories(false);
+    }
+  }, []);
 
   const fetchProductData = useCallback(async () => {
     if (mode !== "edit" || !productId) return;
@@ -414,7 +345,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
       setResolvedProductId(data.productId || productId);
       const attribute = data.productAttributeConsumableMedicals?.[0] || {};
-      // ── FIX: packagingDetails is an array — always take the first element ──
       const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) || {};
       const pricing = data.pricingDetails?.[0] || {};
 
@@ -425,20 +355,17 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const mfgDate = pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null;
       const expDate = pricing.expiryDate ? new Date(pricing.expiryDate) : null;
 
+      // Fetch pack types for edit label resolution
       const packIdVal = String(packaging.packId || "");
       if (packIdVal) {
         try {
-          const packRes = await fetch(`${API_BASE}/dosage/packType/category/5`, { headers: authHeaders() });
-          if (packRes.ok) {
-            const packData = await packRes.json();
-            const packItems: MasterItem[] = Array.isArray(packData) ? packData : (packData.data ?? []);
-            const mapped = packItems
-              .map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") }))
-              .filter((o) => o.value);
-            setPackTypeApiOptions(mapped);
-            const found = mapped.find((o) => o.value === packIdVal);
-            setDisplayLabels((prev) => ({ ...prev, packTypeLabel: found?.label || packIdVal }));
-          }
+          const packItems: MasterItem[] = await getConsumablePackTypes(5);
+          const mapped = packItems
+            .map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") }))
+            .filter((o) => o.value);
+          setPackTypeApiOptions(mapped);
+          const found = mapped.find((o) => o.value === packIdVal);
+          setDisplayLabels((prev) => ({ ...prev, packTypeLabel: found?.label || packIdVal }));
         } catch { /* ignore */ }
       }
 
@@ -503,8 +430,79 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     } catch (err) {
       console.error("Error fetching product:", err);
       setApiError("Failed to load product data. Please refresh and try again.");
-    } finally { setLoadingProduct(false); }
-  }, [mode, productId, fetchDeviceSubCategories, authHeaders]);
+    } finally {
+      setLoadingProduct(false);
+    }
+  }, [mode, productId, fetchDeviceSubCategories]);
+
+  // ─── Effects ──────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    fetchDeviceCategories();
+
+    getConsumableCountries()
+      .then((items: MasterItem[]) =>
+        setCountryOptions(
+          items.map((i) => ({ value: getMasterStr(i, "countryId", "id"), label: getMasterStr(i, "countryName", "name") || "Unknown" })).filter((o) => o.value),
+        ),
+      )
+      .catch(() => {});
+
+    getConsumableStorageConditions()
+      .then((items: MasterItem[]) =>
+        setStorageConditionOptions(
+          items.map((i) => ({ value: getMasterStr(i, "storageConditionId", "id"), label: getMasterStr(i, "conditionName", "name") || "Unknown" })).filter((o) => o.value),
+        ),
+      )
+      .catch(() => {});
+
+    if (mode === "create") {
+      getConsumablePackTypes(5)
+        .then((items: MasterItem[]) =>
+          setPackTypeApiOptions(
+            items.map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") })).filter((o) => o.value),
+          ),
+        )
+        .catch(() => {});
+    }
+
+    setLoadingMaterialTypes(true);
+    getConsumableMaterialTypes()
+      .then((items: MasterItem[]) =>
+        setMaterialTypeOptions(
+          items.map((i) => ({ value: getMasterStr(i, "materialTypeId", "id"), label: getMasterStr(i, "materialTypeName", "name") || "Unknown" })).filter((o) => o.value),
+        ),
+      )
+      .catch(() => {})
+      .finally(() => setLoadingMaterialTypes(false));
+
+    setLoadingCertifications(true);
+    getConsumableCertifications()
+      .then((items: MasterItem[]) =>
+        setCertificationMasterOptions(
+          items.map((item, idx) => ({
+            value: getMasterStr(item, "certificationId", "id"),
+            label: getMasterStr(item, "certificationName", "name") || "Unknown",
+            certificationId: Number(getMasterStr(item, "certificationId", "id") || String(idx + 1)),
+            tagCode: `Tag ${String(idx + 1).padStart(2, "0")}`,
+          })).filter((o) => o.value),
+        ),
+      )
+      .catch(() =>
+        setCertificationMasterOptions([
+          { value: "1", label: "CDSCO Registration", certificationId: 1, tagCode: "Tag 01" },
+          { value: "2", label: "ISO 13485", certificationId: 2, tagCode: "Tag 02" },
+          { value: "3", label: "CE Certification", certificationId: 3, tagCode: "Tag 03" },
+          { value: "4", label: "BIS Certification", certificationId: 4, tagCode: "Tag 04" },
+        ]),
+      )
+      .finally(() => setLoadingCertifications(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (mode === "edit" && productId) fetchProductData();
+  }, [mode, productId, fetchProductData]);
 
   useEffect(() => {
     if (mode !== "edit") return;
@@ -519,59 +517,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, deviceCategoryOptions, deviceSubCategoryOptions, countryOptions, storageConditionOptions,
       form.deviceCategoryId, form.deviceSubCategoryId, form.countryOfOrigin, form.storageCondition, form.gstPercentage]);
-
-  useEffect(() => {
-    fetchDeviceCategories();
-    if (mode === "create") {
-      fetch(`${MASTERS}/categories`, { headers: authHeaders() })
-        .then((r) => r.json())
-        .then((data) => {
-          const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
-          const consumable = items.find((i) => {
-            const name = getMasterStr(i, "categoryName", "name").toLowerCase();
-            return name.includes("consumable") && !name.includes("non-consumable");
-          });
-          setProductCategoryId(consumable ? Number(getMasterStr(consumable, "categoryId", "id") || "5") : 5);
-        })
-        .catch(() => setProductCategoryId(5));
-    }
-
-    fetchList(`${MASTERS}/countries`, setCountryOptions, ["countryId", "id"], ["countryName", "name"]);
-    fetchList(`${MASTERS}/storagecondition`, setStorageConditionOptions, ["storageConditionId", "id"], ["conditionName", "name"]);
-
-    if (mode === "create") {
-      fetchList(`${API_BASE}/dosage/packType/category/5`, setPackTypeApiOptions, ["packId"], ["packType"]);
-    }
-
-    setLoadingMaterialTypes(true);
-    fetchList(`${MASTERS}/consumable-material-types`, setMaterialTypeOptions, ["materialTypeId", "id"], ["materialTypeName", "name"])
-      .finally(() => setLoadingMaterialTypes(false));
-
-    setLoadingCertifications(true);
-    fetch(`${MASTERS}/certifications`, { headers: authHeaders() })
-      .then((r) => r.json())
-      .then((data) => {
-        const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
-        setCertificationMasterOptions(items.map((item, idx) => ({
-          value: getMasterStr(item, "certificationId", "id"),
-          label: getMasterStr(item, "certificationName", "name") || "Unknown",
-          certificationId: Number(getMasterStr(item, "certificationId", "id") || String(idx + 1)),
-          tagCode: `Tag ${String(idx + 1).padStart(2, "0")}`,
-        })).filter((o) => o.value));
-      })
-      .catch(() => setCertificationMasterOptions([
-        { value: "1", label: "CDSCO Registration", certificationId: 1, tagCode: "Tag 01" },
-        { value: "2", label: "ISO 13485", certificationId: 2, tagCode: "Tag 02" },
-        { value: "3", label: "CE Certification", certificationId: 3, tagCode: "Tag 03" },
-        { value: "4", label: "BIS Certification", certificationId: 4, tagCode: "Tag 04" },
-      ]))
-      .finally(() => setLoadingCertifications(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (mode === "edit" && productId) fetchProductData();
-  }, [mode, productId, fetchProductData]);
 
   useEffect(() => {
     if (form.deviceCategoryId && mode === "create") {
@@ -619,7 +564,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ─── Handlers ─────────────────────────────────────────────────────────────────
+  // ─── Handlers ─────────────────────────────────────────────────────────────
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -681,14 +626,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
   };
 
-  const handleBrochureUpload = async (file: File) => {
-    if (file.type !== "application/pdf") { alert("Only PDF files are allowed for the brochure / user manual"); return; }
-    if (file.size > 5 * 1024 * 1024) { alert("Brochure file size must be less than 5 MB"); return; }
-    setUploadingBrochure(true);
-    await new Promise((r) => setTimeout(r, 300));
-    setBrochureFile(file); setExistingBrochureUrl(""); setUploadingBrochure(false);
-  };
-
   const handleImageFiles = (files: FileList | File[]) => {
     const fileArr = Array.from(files);
     const allowedFormats = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml"];
@@ -706,7 +643,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const handleContinueAdding = () => { setShowSuccessModal(false); window.location.reload(); };
   const handleBackToDashboard = () => { window.location.reload(); };
 
-  // ─── Validation ───────────────────────────────────────────────────────────────
+  // ─── Validation ───────────────────────────────────────────────────────────
 
   const validate = (): Record<string, string> => {
     const e: Record<string, string> = {};
@@ -818,11 +755,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     if (errorKeys.length === 0) return;
     for (const key of errorKeys) {
       const ref = fieldRefs.current[key];
-      if (ref) {
-        ref.scrollIntoView({ behavior: "smooth", block: "center" });
-        if (ref instanceof HTMLInputElement || ref instanceof HTMLTextAreaElement) ref.focus();
-        return;
-      }
+      if (ref) { ref.scrollIntoView({ behavior: "smooth", block: "center" }); if (ref instanceof HTMLInputElement || ref instanceof HTMLTextAreaElement) ref.focus(); return; }
       const el = document.querySelector<HTMLElement>(`[name="${key}"], [data-field="${key}"]`);
       if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.focus?.(); return; }
     }
@@ -834,6 +767,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     const combined = new Date(date.getFullYear(), date.getMonth(), date.getDate(), now.getHours(), now.getMinutes(), now.getSeconds());
     return combined.toISOString().slice(0, 19);
   };
+
+  // ─── Submit ───────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
     const validationErrors = validate();
@@ -847,12 +782,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     setApiError(null);
 
     try {
-      const token = sellerAuthService.getToken();
-      if (!token) throw new Error("Authentication required. Please log in again.");
-
-      const authOnlyHeaders: Record<string, string> = { Authorization: `Bearer ${token}` };
-      const jsonHeaders: Record<string, string> = { ...authOnlyHeaders, "Content-Type": "application/json" };
-
       const payload = {
         productName: form.productName,
         warningsPrecautions: form.safetyInstructions,
@@ -915,26 +844,23 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       let certsToUpload: CertificationTag[] = [...selectedCertifications];
 
       if (mode === "edit" && currentProductId) {
-        await updateProduct(currentProductId, payload);
+        await updateProduct(currentProductId, payload as any);
         if (images.length > 0) await uploadProductImages(currentProductId, images);
         if (currentAttributeId) {
-          const { allSuccess, failures } = await uploadAllCertificates(currentAttributeId, authOnlyHeaders, certsToUpload);
-          if (!allSuccess) setApiError(`Warning: Some certificate files could not be uploaded:\n${failures.join("\n")}`);
+          for (const cert of certsToUpload.filter((c) => c.file && !c.existingUrl)) {
+            const result = await uploadConsumableCertificate(currentAttributeId, cert.productCertificateDocumentId, cert.file!);
+            if (!result.success) setApiError(`Warning: Could not upload certificate "${cert.label}": ${result.message}`);
+          }
           if (brochureFile) {
-            const r = await uploadBrochure(`${API_BASE}/product-documents/consumable/${currentAttributeId}/brochure`, authOnlyHeaders, brochureFile);
-            if (!r.success && !apiError) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
+            const r = await uploadConsumableBrochure(currentAttributeId, brochureFile);
+            if (!r.success) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
           }
         }
         alert("Product updated successfully!");
         if (onSubmitSuccess) onSubmitSuccess();
         else window.location.reload();
       } else {
-        const createRes = await fetch(`${API_BASE}/products/create`, { method: "POST", headers: jsonHeaders, body: JSON.stringify(payload) });
-        const rawText = await createRes.text();
-        let createData: ApiResponseData;
-        try { createData = JSON.parse(rawText) as ApiResponseData; }
-        catch { throw new Error(`Invalid server response: ${rawText.substring(0, 200)}`); }
-        if (!createRes.ok) throw new Error(String((createData?.data as ApiResponseData)?.message ?? createData?.message ?? `HTTP ${createRes.status}`));
+        const createData: ApiResponseData = await createConsumableProduct(payload as Record<string, unknown>);
         const dataInner = createData?.data as ApiResponseData | undefined;
         currentProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
         if (!currentProductId || currentProductId === "undefined") throw new Error("Product ID not returned from server");
@@ -943,16 +869,21 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
         const certDocIdMap = extractCertDocumentIdMap(createData);
         if (certDocIdMap.size > 0) {
-          certsToUpload = certsToUpload.map((c) => { const serverDocId = certDocIdMap.get(c.productCertificateDocumentId); return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c; });
+          certsToUpload = certsToUpload.map((c) => {
+            const serverDocId = certDocIdMap.get(c.productCertificateDocumentId);
+            return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
+          });
         }
 
         if (images.length > 0) await uploadProductImages(currentProductId, images);
         if (currentAttributeId) {
-          const { allSuccess, failures } = await uploadAllCertificates(currentAttributeId, authOnlyHeaders, certsToUpload);
-          if (!allSuccess) setApiError(`Warning: Some certificate files could not be uploaded:\n${failures.join("\n")}`);
+          for (const cert of certsToUpload.filter((c) => c.file && !c.existingUrl)) {
+            const result = await uploadConsumableCertificate(currentAttributeId, cert.productCertificateDocumentId, cert.file!);
+            if (!result.success) setApiError(`Warning: Could not upload certificate "${cert.label}": ${result.message}`);
+          }
           if (brochureFile) {
-            const r = await uploadBrochure(`${API_BASE}/product-documents/consumable/${currentAttributeId}/brochure`, authOnlyHeaders, brochureFile);
-            if (!r.success && !apiError) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
+            const r = await uploadConsumableBrochure(currentAttributeId, brochureFile);
+            if (!r.success) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
           }
         }
         setShowSuccessModal(true);
@@ -961,8 +892,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
       setApiError(errorMessage);
       alert(`Failed to ${mode === "edit" ? "update" : "create"} product: ${errorMessage}`);
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  // ─── Select styles ────────────────────────────────────────────────────────
 
   const selectStyles = (errorKey: string): SelectStyles => ({
     control: (base, state) => ({
@@ -1013,10 +948,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       />
 
       {showAdditionalDiscountModal && (
-        <CommonModal
-          onClose={() => setShowAdditionalDiscountModal(false)}
-          width="w-[600px]"
-        >
+        <CommonModal onClose={() => setShowAdditionalDiscountModal(false)} width="w-[600px]">
           <div className="h-[80vh] overflow-hidden flex flex-col">
             <AdditionalDiscount
               initialData={convertToDiscountData(additionalDiscountSlabs)}
@@ -1038,7 +970,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           </div>
         )}
 
-        {/* ── Section 1: Product Details ─────────────────────────────────────────── */}
+        {/* ── Section 1: Product Details ───────────────────────────────────────── */}
         <div className={sectionCard}>
           <h2 className={sectionTitle}>Product Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
@@ -1046,11 +978,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Product Name" value={form.productName} required />
             ) : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Product Name {requiredStar}</label>
-                <input ref={setFieldRef("productName")} name="productName" value={form.productName} onChange={handleChange} placeholder="e.g., Surgical Mask, Syringe" className={`${inputBase} ${errors.productName ? inputError : ""}`} />
-                {errors.productName && <p className={errorMsg}>{errors.productName}</p>}
-              </div>
+              <Input
+                label="Product Name"
+                name="productName"
+                placeholder="e.g., Surgical Mask, Syringe"
+                value={form.productName}
+                onChange={handleChange}
+                error={errors.productName}
+                required
+              />
             )}
 
             {isEdit ? (
@@ -1076,15 +1012,23 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Brand Name" value={form.brandName} required />
             ) : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Brand Name {requiredStar}</label>
-                <input ref={setFieldRef("brandName")} name="brandName" value={form.brandName} onChange={handleChange} placeholder="e.g., 3M, Johnson & Johnson" className={`${inputBase} ${errors.brandName ? inputError : ""}`} />
-                {errors.brandName && <p className={errorMsg}>{errors.brandName}</p>}
-              </div>
+              <Input
+                label="Brand Name"
+                name="brandName"
+                placeholder="e.g., 3M, Johnson & Johnson"
+                value={form.brandName}
+                onChange={handleChange}
+                error={errors.brandName}
+                required
+              />
             )}
 
             {isEdit ? (
-              <NonEditableField label="Material Type" value={selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")} required />
+              <NonEditableField
+                label="Material Type"
+                value={selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")}
+                required
+              />
             ) : (
               <div className="flex flex-col gap-1" data-field="materialType">
                 <label className={fieldLabel}>Material Type {requiredStar}</label>
@@ -1115,11 +1059,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Size / Dimension / Gauge" value={form.sizeDimension} required />
             ) : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Size / Dimension / Gauge {requiredStar}</label>
-                <input ref={setFieldRef("sizeDimension")} name="sizeDimension" value={form.sizeDimension} onChange={handleChange} placeholder="e.g., Size M, 22G, 5ml" className={`${inputBase} ${errors.sizeDimension ? inputError : ""}`} />
-                {errors.sizeDimension && <p className={errorMsg}>{errors.sizeDimension}</p>}
-              </div>
+              <Input
+                label="Size / Dimension / Gauge"
+                name="sizeDimension"
+                placeholder="e.g., Size M, 22G, 5ml"
+                value={form.sizeDimension}
+                onChange={handleChange}
+                error={errors.sizeDimension}
+                required
+              />
             )}
 
             {isEdit ? (
@@ -1156,12 +1104,17 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               </div>
             )}
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Intended Use / Purpose {requiredStar}</label>
-              <input ref={setFieldRef("intendedUse")} name="intendedUse" value={form.intendedUse} onChange={handleChange} placeholder="e.g., For surgical procedures" className={`${inputBase} ${errors.intendedUse ? inputError : ""}`} />
-              {errors.intendedUse && <p className={errorMsg}>{errors.intendedUse}</p>}
-            </div>
+            <Input
+              label="Intended Use / Purpose"
+              name="intendedUse"
+              placeholder="e.g., For surgical procedures"
+              value={form.intendedUse}
+              onChange={handleChange}
+              error={errors.intendedUse}
+              required
+            />
 
+            {/* Certifications */}
             <div className="col-span-1 md:col-span-2" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {isEdit ? (
@@ -1193,103 +1146,52 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                   </div>
                 )}
 
-                {isEdit ? (
-                  <div>
-                    <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
+                <div>
+                  <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
+                  {selectedCertifications.length === 0 ? (
+                    <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
+                      <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
+                      <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
+                    </div>
+                  ) : (
                     <div className="flex flex-col gap-2">
                       {selectedCertifications.map((cert) => (
-                        <div key={cert.id} className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50">
-                          <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                            <FileText size={16} className="text-purple-500" />
-                          </div>
-                          <div className="px-2 flex-shrink-0">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
-                              {cert.tagCode}
-                            </span>
-                          </div>
-                          <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">
-                            {cert.existingUrl ? cert.label : `${cert.label} — pending`}
-                          </span>
+                        <div key={cert.id}>
+                          {cert.existingUrl && !cert.file ? (
+                            <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
+                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
+                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
+                              <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.label}</p><p className="text-xs text-gray-500">Existing certificate</p></div>
+                              <div className="flex items-center gap-1 pr-3">
+                                <button type="button" title="Replace" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
+                                <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
+                              </div>
+                            </div>
+                          ) : cert.isUploaded && cert.file ? (
+                            <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
+                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
+                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
+                              <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.fileName}</p><p className="text-xs text-gray-500">{(cert.file.size / 1024).toFixed(0)} KB</p></div>
+                              <div className="flex items-center gap-1 pr-3">
+                                <button type="button" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
+                                <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()}>
+                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
+                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
+                              <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">{cert.label} — click to upload</span>
+                              <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
+                            </div>
+                          )}
+                          <input id={`consumable-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
                         </div>
                       ))}
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
-                    {selectedCertifications.length === 0 ? (
-                      <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
-                        <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                          <UploadCloudIcon />
-                        </div>
-                        <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        {selectedCertifications.map((cert) => (
-                          <div key={cert.id}>
-                            {cert.existingUrl && !cert.file ? (
-                              <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                                  <FileText size={16} className="text-purple-600" />
-                                </div>
-                                <div className="px-2 flex-shrink-0">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
-                                    {cert.tagCode}
-                                  </span>
-                                </div>
-                                <div className="flex-1 px-2 min-w-0">
-                                  <p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.label}</p>
-                                  <p className="text-xs text-gray-500">Existing certificate</p>
-                                </div>
-                                <div className="flex items-center gap-1 pr-3">
-                                  <button type="button" title="Replace" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                                  <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                                </div>
-                              </div>
-                            ) : cert.isUploaded && cert.file ? (
-                              <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                                  <FileText size={16} className="text-purple-600" />
-                                </div>
-                                <div className="px-2 flex-shrink-0">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
-                                    {cert.tagCode}
-                                  </span>
-                                </div>
-                                <div className="flex-1 px-2 min-w-0">
-                                  <p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.fileName}</p>
-                                  <p className="text-xs text-gray-500">{(cert.file.size / 1024).toFixed(0)} KB</p>
-                                </div>
-                                <div className="flex items-center gap-1 pr-3">
-                                  <button type="button" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                                  <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()}>
-                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                                  <UploadCloudIcon />
-                                </div>
-                                <div className="px-2 flex-shrink-0">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
-                                    {cert.tagCode}
-                                  </span>
-                                </div>
-                                <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">
-                                  {cert.label} — click to upload
-                                </span>
-                                <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
-                              </div>
-                            )}
-                            <input id={`consumable-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file. Files are uploaded on Save.</p>
-                  </div>
-                )}
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file. Files are uploaded on Save.</p>
+                </div>
               </div>
             </div>
 
@@ -1306,11 +1208,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Manufacturer Name" value={form.manufacturerName} required />
             ) : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Manufacturer Name {requiredStar}</label>
-                <input ref={setFieldRef("manufacturerName")} name="manufacturerName" value={form.manufacturerName} onChange={handleChange} placeholder="Manufacturer company name" className={`${inputBase} ${errors.manufacturerName ? inputError : ""}`} />
-                {errors.manufacturerName && <p className={errorMsg}>{errors.manufacturerName}</p>}
-              </div>
+              <Input
+                label="Manufacturer Name"
+                name="manufacturerName"
+                placeholder="Manufacturer company name"
+                value={form.manufacturerName}
+                onChange={handleChange}
+                error={errors.manufacturerName}
+                required
+              />
             )}
 
             <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
@@ -1319,38 +1225,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
             </div>
 
+            {/* Brochure — now using UploadInput component */}
             <div ref={setFieldRef("brochure") as React.RefCallback<HTMLDivElement>}>
-              <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
-              {existingBrochureUrl && !brochureFile && (
-                <div className="mb-2 flex items-center gap-2 text-sm text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
-                  <FileText size={15} />
-                  <a href={existingBrochureUrl} target="_blank" rel="noreferrer" className="underline truncate">Current brochure</a>
-                  <button type="button" onClick={() => setExistingBrochureUrl("")} className="ml-auto text-gray-400 hover:text-red-500"><X size={13} /></button>
-                </div>
-              )}
-              {!brochureFile ? (
-                <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => brochureInputRef.current?.click()}>
-                  <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                    {uploadingBrochure ? <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" /> : <UploadCloudIcon />}
-                  </div>
-                  <span className="px-3 text-base [font-family:'Open_Sans',sans-serif] [color:#969793]">
-                    {uploadingBrochure ? "Processing..." : existingBrochureUrl ? "Upload to replace" : "Upload PDF (max 5 MB)"}
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                  <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                  <div className="flex-1 px-3 min-w-0">
-                    <p className="text-sm font-medium [color:#3C3D3A] truncate">{brochureFile.name}</p>
-                    <p className="text-xs text-gray-500">{(brochureFile.size / 1024).toFixed(1)} KB</p>
-                  </div>
-                  <div className="flex items-center gap-1 pr-3">
-                    <button type="button" onClick={() => brochureInputRef.current?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                    <button type="button" onClick={() => { setBrochureFile(null); if (brochureInputRef.current) brochureInputRef.current.value = ""; }} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                  </div>
-                </div>
-              )}
-              <input ref={brochureInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleBrochureUpload(e.target.files[0]); }} />
+              <UploadInput
+                onFileSelect={(file) => setBrochureFile(file)}
+                existingFile={existingBrochureUrl || undefined}
+              />
             </div>
 
             <div className="col-span-1 md:col-span-2">
@@ -1376,7 +1256,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           </div>
         </div>
 
-        {/* ── Section 2: Packaging & Order Details ──────────────────────────────── */}
+        {/* ── Section 2: Packaging & Order Details ─────────────────────────────── */}
         <div className={sectionCard}>
           <h2 className={sectionTitle}>Packaging &amp; Order Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
@@ -1391,36 +1271,54 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               </div>
             )}
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Number of Units per Pack Type {requiredStar}</label>
-              <input ref={setFieldRef("unitsPerPack")} name="unitsPerPack" value={form.unitsPerPack} onChange={handleChange} placeholder="e.g., 100" inputMode="numeric" className={`${inputBase} ${errors.unitsPerPack ? inputError : ""}`} />
-              {errors.unitsPerPack && <p className={errorMsg}>{errors.unitsPerPack}</p>}
-            </div>
+            <Input
+              label="Number of Units per Pack Type"
+              name="unitsPerPack"
+              placeholder="e.g., 100"
+              value={form.unitsPerPack}
+              onChange={handleChange}
+              error={errors.unitsPerPack}
+              required
+            />
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Number of Packs {requiredStar}</label>
-              <input ref={setFieldRef("numberOfPacks")} name="numberOfPacks" value={form.numberOfPacks} onChange={handleChange} placeholder="e.g., 10" inputMode="numeric" className={`${inputBase} ${errors.numberOfPacks ? inputError : ""}`} />
-              {errors.numberOfPacks && <p className={errorMsg}>{errors.numberOfPacks}</p>}
-            </div>
+            <Input
+              label="Number of Packs"
+              name="numberOfPacks"
+              placeholder="e.g., 10"
+              value={form.numberOfPacks}
+              onChange={handleChange}
+              error={errors.numberOfPacks}
+              required
+            />
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Pack Size (No. of Units per Pack Type X No. of Packs)</label>
-              <input name="packSize" value={form.packSize} readOnly className={`${inputBase} bg-gray-50 [color:#969793] cursor-not-allowed`} />
-            </div>
+            <Input
+              label="Pack Size (No. of Units per Pack Type X No. of Packs)"
+              name="packSize"
+              value={form.packSize}
+              readOnly
+            />
           </div>
 
           <p className={subSectionTitle}>Order Details</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Min Order Qty {requiredStar}</label>
-              <input ref={setFieldRef("minimumOrderQuantity")} name="minimumOrderQuantity" value={form.minimumOrderQuantity} onChange={handleChange} placeholder="e.g., 1" inputMode="numeric" className={`${inputBase} ${errors.minimumOrderQuantity ? inputError : ""}`} />
-              {errors.minimumOrderQuantity && <p className={errorMsg}>{errors.minimumOrderQuantity}</p>}
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Max Order Qty {requiredStar}</label>
-              <input ref={setFieldRef("maximumOrderQuantity")} name="maximumOrderQuantity" value={form.maximumOrderQuantity} onChange={handleChange} placeholder="e.g., 100" inputMode="numeric" className={`${inputBase} ${errors.maximumOrderQuantity ? inputError : ""}`} />
-              {errors.maximumOrderQuantity && <p className={errorMsg}>{errors.maximumOrderQuantity}</p>}
-            </div>
+            <Input
+              label="Min Order Qty"
+              name="minimumOrderQuantity"
+              placeholder="e.g., 1"
+              value={form.minimumOrderQuantity}
+              onChange={handleChange}
+              error={errors.minimumOrderQuantity}
+              required
+            />
+            <Input
+              label="Max Order Qty"
+              name="maximumOrderQuantity"
+              placeholder="e.g., 100"
+              value={form.maximumOrderQuantity}
+              onChange={handleChange}
+              error={errors.maximumOrderQuantity}
+              required
+            />
           </div>
 
           <p className={subSectionTitle}>Batch Management</p>
@@ -1429,11 +1327,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Batch Number" value={form.batchLotNumber} required />
             ) : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Batch Number {requiredStar}</label>
-                <input ref={setFieldRef("batchLotNumber")} name="batchLotNumber" value={form.batchLotNumber} onChange={handleChange} placeholder="Alphanumeric only" className={`${inputBase} ${errors.batchLotNumber ? inputError : ""}`} />
-                {errors.batchLotNumber && <p className={errorMsg}>{errors.batchLotNumber}</p>}
-              </div>
+              <Input
+                label="Batch Number"
+                name="batchLotNumber"
+                placeholder="Alphanumeric only"
+                value={form.batchLotNumber}
+                onChange={handleChange}
+                error={errors.batchLotNumber}
+                required
+              />
             )}
 
             {isEdit ? (
@@ -1441,7 +1343,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <div className="flex flex-col gap-1">
                 <label className={fieldLabel}>Manufacturing Date {requiredStar}</label>
-                <input ref={setFieldRef("manufacturingDate")} type="date" name="manufacturingDate" max={todayStr} onChange={(e) => setForm((p) => ({ ...p, manufacturingDate: e.target.value ? new Date(e.target.value) : null }))} value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""} className={`${inputBase} ${errors.manufacturingDate ? inputError : ""}`} />
+                <input
+                  ref={setFieldRef("manufacturingDate")}
+                  type="date"
+                  name="manufacturingDate"
+                  max={todayStr}
+                  onChange={(e) => setForm((p) => ({ ...p, manufacturingDate: e.target.value ? new Date(e.target.value) : null }))}
+                  value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""}
+                  className={`w-full h-12 px-4 border rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.manufacturingDate ? "border-red-400" : "border-gray-300"}`}
+                />
                 {errors.manufacturingDate && <p className={errorMsg}>{errors.manufacturingDate}</p>}
               </div>
             )}
@@ -1451,9 +1361,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <div className="flex flex-col gap-1">
                 <label className={fieldLabel}>Expiry Date {requiredStar}</label>
-                <input ref={setFieldRef("expiryDate")} type="date" name="expiryDate"
+                <input
+                  ref={setFieldRef("expiryDate")}
+                  type="date"
+                  name="expiryDate"
                   min={form.manufacturingDate ? (() => { const d = new Date(form.manufacturingDate!); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })() : undefined}
-                  onChange={(e) => setForm((p) => ({ ...p, expiryDate: e.target.value ? new Date(e.target.value) : null }))} value={form.expiryDate ? form.expiryDate.toISOString().split("T")[0] : ""} className={`${inputBase} ${errors.expiryDate ? inputError : ""}`} />
+                  onChange={(e) => setForm((p) => ({ ...p, expiryDate: e.target.value ? new Date(e.target.value) : null }))}
+                  value={form.expiryDate ? form.expiryDate.toISOString().split("T")[0] : ""}
+                  className={`w-full h-12 px-4 border rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.expiryDate ? "border-red-400" : "border-gray-300"}`}
+                />
                 {errors.expiryDate && <p className={errorMsg}>{errors.expiryDate}</p>}
               </div>
             )}
@@ -1468,39 +1384,54 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Stock Quantity (in units)" value={form.stockQuantity} required />
             ) : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Stock Quantity (in units) {requiredStar}</label>
-                <input ref={setFieldRef("stockQuantity")} name="stockQuantity" value={form.stockQuantity} onChange={handleChange} placeholder="e.g., 10" inputMode="numeric" className={`${inputBase} ${errors.stockQuantity ? inputError : ""}`} />
-                {errors.stockQuantity && <p className={errorMsg}>{errors.stockQuantity}</p>}
-              </div>
+              <Input
+                label="Stock Quantity (in units)"
+                name="stockQuantity"
+                placeholder="e.g., 10"
+                value={form.stockQuantity}
+                onChange={handleChange}
+                error={errors.stockQuantity}
+                required
+              />
             )}
 
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Date of Stock Entry {requiredStar}</label>
-              <input type="date" name="dateOfStockEntry" value={todayStr} readOnly className={`${inputBase} bg-gray-50 [color:#969793] cursor-not-allowed`} />
+              <input type="date" name="dateOfStockEntry" value={todayStr} readOnly className="w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
             </div>
           </div>
 
           <p className={subSectionTitle}>Pricing</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>MRP (per Pack Size) {requiredStar}</label>
-              <input ref={setFieldRef("mrp")} name="mrp" value={form.mrp} onChange={handleChange} placeholder="e.g., 500" inputMode="decimal" className={`${inputBase} ${errors.mrp ? inputError : ""}`} />
-              {errors.mrp && <p className={errorMsg}>{errors.mrp}</p>}
-            </div>
+            <Input
+              label="MRP (per Pack Size)"
+              name="mrp"
+              placeholder="e.g., 500"
+              value={form.mrp}
+              onChange={handleChange}
+              error={errors.mrp}
+              required
+            />
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Selling Price (per Pack Size) {requiredStar}</label>
-              <input ref={setFieldRef("sellingPricePerPack")} name="sellingPricePerPack" value={form.sellingPricePerPack} onChange={handleChange} placeholder="e.g., 450" inputMode="decimal" className={`${inputBase} ${errors.sellingPricePerPack ? inputError : ""}`} />
-              {errors.sellingPricePerPack && <p className={errorMsg}>{errors.sellingPricePerPack}</p>}
-            </div>
+            <Input
+              label="Selling Price (per Pack Size)"
+              name="sellingPricePerPack"
+              placeholder="e.g., 450"
+              value={form.sellingPricePerPack}
+              onChange={handleChange}
+              error={errors.sellingPricePerPack}
+              required
+            />
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Discount Percentage (%)</label>
-              <input ref={setFieldRef("discountPercentage")} name="discountPercentage" value={form.discountPercentage} onChange={handleChange} placeholder="0–100" inputMode="decimal" className={`${inputBase} ${errors.discountPercentage ? inputError : ""}`} />
-              {errors.discountPercentage && <p className={errorMsg}>{errors.discountPercentage}</p>}
-            </div>
+            <Input
+              label="Discount Percentage (%)"
+              name="discountPercentage"
+              placeholder="0–100"
+              value={form.discountPercentage}
+              onChange={handleChange}
+              error={errors.discountPercentage}
+            />
 
             <div className="flex flex-col gap-1">
               <label className={`${fieldLabel} opacity-0`}>_</label>
@@ -1527,21 +1458,22 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="HSN Code" value={form.hsnCode} required />
             ) : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>HSN Code {requiredStar}</label>
-                <input ref={setFieldRef("hsnCode")} type="text" name="hsnCode" value={form.hsnCode} onChange={handleChange} placeholder="4, 6, or 8 digit numeric code" maxLength={8} inputMode="numeric" className={`${inputBase} ${errors.hsnCode ? inputError : ""}`} />
-                {errors.hsnCode && <p className={errorMsg}>{errors.hsnCode}</p>}
-              </div>
+              <Input
+                label="HSN Code"
+                name="hsnCode"
+                placeholder="4, 6, or 8 digit numeric code"
+                value={form.hsnCode}
+                onChange={handleChange}
+                maxLength={8}
+                error={errors.hsnCode}
+                required
+              />
             )}
           </div>
         </div>
 
-        {/* ── Section 3: Product Photos ──────────────────────────────────────────── */}
-        <div
-          className={sectionCard}
-          ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>}
-          data-field="images"
-        >
+        {/* ── Section 3: Product Photos ─────────────────────────────────────────── */}
+        <div className={sectionCard} ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
           <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
             Product Photos {mode === "create" && <span className="text-red-500">*</span>}
           </h2>
@@ -1595,7 +1527,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           {errors.images && <p className={`${errorMsg} mt-2`}>{errors.images}</p>}
         </div>
 
-        {/* ── Actions ─────────────────────────────────────────────────────────────── */}
+        {/* ── Actions ──────────────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
           <div className="flex gap-3">
             <button type="button" onClick={() => onSubmitSuccess ? onSubmitSuccess() : window.location.reload()} className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">Cancel</button>

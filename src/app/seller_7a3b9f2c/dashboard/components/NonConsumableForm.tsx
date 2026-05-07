@@ -2,13 +2,30 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Select, { StylesConfig, Theme } from "react-select";
+import Input from "@/src/app/commonComponents/Input";
+import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscount from "./AdditionalDiscount";
 import PopupModal from "../commonComponent/PopupModal";
 import CommonModal from "../commonComponent/CommonModal";
 import { FileText, X, RefreshCw, AlertCircle } from "lucide-react";
-import { sellerAuthService } from "@/src/services/seller/authService";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
+import {
+  getNonConsumableDeviceCategories,
+  getNonConsumableDeviceSubCategories,
+  getNonConsumableMaterialTypes,
+  getNonConsumableStorageConditions,
+  getNonConsumableCountries,
+  getNonConsumableCertifications,
+  getNonConsumablePackTypes,
+  getNonConsumablePowerSources,
+  getNonConsumableProductCategories,
+  createNonConsumableProduct,
+  uploadNonConsumableCertificate,
+  uploadNonConsumableBrochure,
+} from "@/src/services/product/NonConsumbaleService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface SelectOption { value: string; label: string; }
 
@@ -52,10 +69,7 @@ interface ApiResponseData { [key: string]: unknown; }
 
 type SelectStyles = StylesConfig<SelectOption, false>;
 
-const API_BASE = "https://api-test-aggreator.tiameds.ai/api/v1";
-const MASTERS = `${API_BASE}/masters`;
-
-// ─── Validation helpers ────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isFutureDate(date: Date | null): boolean {
   if (!date) return false;
@@ -114,87 +128,28 @@ function extractProductAttributeId(data: ApiResponseData): string | undefined {
   return undefined;
 }
 
-async function uploadSingleCertificate(
-  attributeId: string,
-  headers: Record<string, string>,
-  cert: CertificationTag,
-): Promise<{ success: boolean; certId: string; message?: string }> {
-  if (!cert.file) return { success: false, certId: cert.id, message: "No file attached" };
-  const formData = new FormData();
-  formData.append("documentIds", String(cert.productCertificateDocumentId));
-  formData.append("certificateFiles", cert.file, cert.file.name);
-  const url = `${API_BASE}/product-documents/non-consumable/${attributeId}/certificates`;
-  try {
-    const response = await fetch(url, { method: "POST", headers, body: formData });
-    if (!response.ok) {
-      const errorText = await response.text();
-      return { success: false, certId: cert.id, message: `HTTP ${response.status}: ${errorText}` };
-    }
-    return { success: true, certId: cert.id };
-  } catch (error) {
-    return { success: false, certId: cert.id, message: error instanceof Error ? error.message : "Unknown error" };
-  }
-}
-
-async function uploadAllCertificates(
-  attributeId: string,
-  headers: Record<string, string>,
-  certificates: CertificationTag[],
-): Promise<{ allSuccess: boolean; failures: string[] }> {
-  const certsWithFiles = certificates.filter((c) => c.file && !c.existingUrl);
-  if (certsWithFiles.length === 0) return { allSuccess: true, failures: [] };
-  const failures: string[] = [];
-  for (const cert of certsWithFiles) {
-    const result = await uploadSingleCertificate(attributeId, headers, cert);
-    if (!result.success) failures.push(`${cert.label}: ${result.message || "Upload failed"}`);
-  }
-  return { allSuccess: failures.length === 0, failures };
-}
-
-async function uploadBrochure(
-  baseUrl: string,
-  headers: Record<string, string>,
-  file: File,
-): Promise<{ success: boolean; message?: string }> {
-  const formData = new FormData();
-  formData.append("brochureFile", file);
-  try {
-    const response = await fetch(baseUrl, { method: "POST", headers, body: formData });
-    if (!response.ok) {
-      const errorText = await response.text();
-      return { success: false, message: `HTTP ${response.status}: ${errorText}` };
-    }
-    return { success: true };
-  } catch (error) {
-    return { success: false, message: error instanceof Error ? error.message : "Unknown error" };
-  }
-}
-
 function getMasterStr(item: MasterItem, ...keys: string[]): string {
   for (const key of keys) { const v = item[key]; if (v != null) return String(v); }
   return "";
 }
 
-// ─── Styles ────────────────────────────────────────────────────────────────────
+// ─── Style constants ──────────────────────────────────────────────────────────
 
 const fieldLabel = "block mb-1.5 font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]";
 const requiredStar = <span className="text-red-500 ml-0.5">*</span>;
-
-const inputBase =
-  "w-full h-12 px-4 border border-gray-300 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors bg-white";
-const inputDisabled =
-  "w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] bg-gray-50 cursor-default flex items-center";
-const inputError = "border-red-400 focus:border-red-400 focus:ring-red-100";
+const inputDisabled = "w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] bg-gray-50 cursor-default flex items-center";
 const errorMsg = "text-red-500 text-xs mt-1";
 const sectionCard = "bg-white border border-gray-200 rounded-2xl p-6 shadow-sm";
 const sectionTitle = "mb-4 pb-3 border-b border-gray-100 text-[28px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D]";
 const subSectionTitle = "mb-3 mt-5 pb-2 border-b border-gray-100 text-[21px] [font-family:'Open_Sans',sans-serif] font-normal leading-6 [color:#1E1E1D]";
 
+// Input className to match the existing design (passed as className to <Input>)
+// const inputClass = "!h-12 !rounded-xl border-gray-300 focus:border-purple-600 [font-family:'Open_Sans',sans-serif] text-base font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793]";
+
 const UploadCloudIcon = () => (
   <img src="/icons/upload-cloud.svg" alt="upload" className="w-5 h-5 object-contain" />
 );
 
-// ─── Non-editable field wrappers ──────────────────────────────────────────────
 const NonEditableField = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
   <div className="flex flex-col gap-1">
     <label className={fieldLabel}>{label} {required && requiredStar}</label>
@@ -295,7 +250,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
-  const [uploadingBrochure, setUploadingBrochure] = useState(false);
   const [showCertDropdown, setShowCertDropdown] = useState(false);
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
@@ -307,7 +261,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const materialDropdownRef = useRef<HTMLDivElement>(null);
-  const brochureInputRef = useRef<HTMLInputElement>(null);
 
   const deviceClassOptions: SelectOption[] = [
     { value: "Class A", label: "Class A" },
@@ -326,11 +279,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     { value: "false", label: "No" },
   ];
 
-  const authHeaders = useCallback((): Record<string, string> => {
-    const token = sellerAuthService.getToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, []);
-
   const convertToDiscountSlab = (data: AdditionalDiscountData[]): AdditionalDiscountSlab[] =>
     data.map((item) => ({
       minimumPurchaseQuantity: item.minimumPurchaseQuantity,
@@ -344,57 +292,44 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const convertToDiscountData = (slabs: AdditionalDiscountSlab[]): AdditionalDiscountData[] =>
     slabs.map((s) => ({ ...s }));
 
-  const fetchList = useCallback(async (
-    url: string,
-    setter: (v: SelectOption[]) => void,
-    idKey: string[],
-    labelKey: string[],
-    fallback?: SelectOption[],
-  ) => {
-    try {
-      const res = await fetch(url, { headers: authHeaders() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
-      const mapped = items
-        .map((i) => ({ value: getMasterStr(i, ...idKey), label: getMasterStr(i, ...labelKey) || "Unknown" }))
-        .filter((o) => o.value);
-      setter(mapped);
-    } catch { if (fallback) setter(fallback); }
-  }, [authHeaders]);
+  // ─── Data fetching via service ─────────────────────────────────────────────
 
   const fetchDeviceCategories = useCallback(async () => {
-    setLoadingCategories(true); setApiError(null);
+    setLoadingCategories(true);
+    setApiError(null);
     try {
-      const res = await fetch(`${MASTERS}/device-categories/non-consumable`, { headers: authHeaders() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
+      const items: MasterItem[] = await getNonConsumableDeviceCategories();
       setDeviceCategoryOptions(
-        items.map((i) => ({ value: getMasterStr(i, "deviceCatId", "id"), label: getMasterStr(i, "deviceName", "name") || "Unknown" }))
+        items
+          .map((i) => ({ value: getMasterStr(i, "deviceCatId", "id"), label: getMasterStr(i, "deviceName", "name") || "Unknown" }))
           .filter((o) => o.value),
       );
     } catch (err) {
       setApiError(`Failed to load device categories: ${err instanceof Error ? err.message : String(err)}`);
-    } finally { setLoadingCategories(false); }
-  }, [authHeaders]);
+    } finally {
+      setLoadingCategories(false);
+    }
+  }, []);
 
   const fetchDeviceSubCategories = useCallback(async (catId: string) => {
     if (!catId) { setDeviceSubCategoryOptions([]); return; }
     setLoadingSubCategories(true);
     try {
-      const res = await fetch(`${MASTERS}/device-sub-categories/${catId}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
+      const items: MasterItem[] = await getNonConsumableDeviceSubCategories(catId);
       setDeviceSubCategoryOptions(
-        items.map((i) => ({
-          value: getMasterStr(i, "deviceSubCatId", "subCategoryId", "id"),
-          label: getMasterStr(i, "deviceSubCatName", "subCategoryName", "name") || "Unknown",
-        })).filter((o) => o.value),
+        items
+          .map((i) => ({
+            value: getMasterStr(i, "deviceSubCatId", "subCategoryId", "id"),
+            label: getMasterStr(i, "deviceSubCatName", "subCategoryName", "name") || "Unknown",
+          }))
+          .filter((o) => o.value),
       );
-    } catch { setDeviceSubCategoryOptions([]); } finally { setLoadingSubCategories(false); }
-  }, [authHeaders]);
+    } catch {
+      setDeviceSubCategoryOptions([]);
+    } finally {
+      setLoadingSubCategories(false);
+    }
+  }, []);
 
   const fetchProductData = useCallback(async () => {
     if (mode !== "edit" || !productId) return;
@@ -404,7 +339,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (!data) throw new Error("Product not found");
 
       const attribute = data.productAttributeNonConsumableMedicals?.[0] || {};
-      // ── FIX: packagingDetails is an array — always take the first element ──
       const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) || {};
       const pricing = data.pricingDetails?.[0] || {};
 
@@ -416,17 +350,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const packIdVal = String(packaging.packId || "");
       if (packIdVal) {
         try {
-          const packRes = await fetch(`${API_BASE}/dosage/packType/category/6`, { headers: authHeaders() });
-          if (packRes.ok) {
-            const packData = await packRes.json();
-            const packItems: MasterItem[] = Array.isArray(packData) ? packData : (packData.data ?? []);
-            const mapped = packItems
-              .map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") }))
-              .filter((o) => o.value);
-            setPackTypeApiOptions(mapped);
-            const found = mapped.find((o) => o.value === packIdVal);
-            setDisplayLabels((prev) => ({ ...prev, packTypeLabel: found?.label || packIdVal }));
-          }
+          const packItems: MasterItem[] = await getNonConsumablePackTypes(6);
+          const mapped = packItems
+            .map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") }))
+            .filter((o) => o.value);
+          setPackTypeApiOptions(mapped);
+          const found = mapped.find((o) => o.value === packIdVal);
+          setDisplayLabels((prev) => ({ ...prev, packTypeLabel: found?.label || packIdVal }));
         } catch { /* ignore */ }
       }
 
@@ -494,8 +424,107 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     } catch (err) {
       console.error("Error fetching product:", err);
       setApiError("Failed to load product data. Please refresh and try again.");
-    } finally { setLoadingProduct(false); }
-  }, [mode, productId, fetchDeviceSubCategories, authHeaders]);
+    } finally {
+      setLoadingProduct(false);
+    }
+  }, [mode, productId, fetchDeviceSubCategories]);
+
+  // ─── Effects ──────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    fetchDeviceCategories();
+
+    if (mode === "create") {
+      getNonConsumableProductCategories()
+        .then((items: MasterItem[]) => {
+          const nonConsumable = items.find((i) => {
+            const name = getMasterStr(i, "categoryName", "name").toLowerCase();
+            return name.includes("non-consumable") || name.includes("nonconsumable");
+          });
+          setProductCategoryId(nonConsumable ? Number(getMasterStr(nonConsumable, "categoryId", "id") || "6") : 6);
+        })
+        .catch(() => setProductCategoryId(6));
+    }
+
+    getNonConsumableCountries()
+      .then((items: MasterItem[]) =>
+        setCountryOptions(
+          items.map((i) => ({ value: getMasterStr(i, "countryId", "id"), label: getMasterStr(i, "countryName", "name") || "Unknown" })).filter((o) => o.value),
+        ),
+      )
+      .catch(() => {});
+
+    getNonConsumableStorageConditions()
+      .then((items: MasterItem[]) =>
+        setStorageConditionOptions(
+          items.map((i) => ({ value: getMasterStr(i, "storageConditionId", "id"), label: getMasterStr(i, "conditionName", "name") || "Unknown" })).filter((o) => o.value),
+        ),
+      )
+      .catch(() => {});
+
+    getNonConsumablePowerSources()
+      .then((items: MasterItem[]) =>
+        setPowerSourceOptions(
+          items.map((i) => ({ value: getMasterStr(i, "powerSourceId", "id"), label: getMasterStr(i, "powerSourceName", "name") || "Unknown" })).filter((o) => o.value),
+        ),
+      )
+      .catch(() =>
+        setPowerSourceOptions([
+          { value: "1", label: "Battery Operated" },
+          { value: "2", label: "Rechargeable" },
+          { value: "3", label: "Electric" },
+          { value: "4", label: "USB Powered" },
+          { value: "5", label: "Manual" },
+        ]),
+      );
+
+    if (mode === "create") {
+      getNonConsumablePackTypes(6)
+        .then((items: MasterItem[]) =>
+          setPackTypeApiOptions(
+            items.map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") })).filter((o) => o.value),
+          ),
+        )
+        .catch(() => {});
+    }
+
+    setLoadingMaterialTypes(true);
+    getNonConsumableMaterialTypes()
+      .then((items: MasterItem[]) =>
+        setMaterialTypeOptions(
+          items.map((i) => ({ value: getMasterStr(i, "materialTypeId", "id"), label: getMasterStr(i, "materialTypeName", "name") || "Unknown" })).filter((o) => o.value),
+        ),
+      )
+      .catch(() => {})
+      .finally(() => setLoadingMaterialTypes(false));
+
+    setLoadingCertifications(true);
+    getNonConsumableCertifications()
+      .then((items: MasterItem[]) =>
+        setCertificationMasterOptions(
+          items.map((item, idx) => ({
+            value: getMasterStr(item, "certificationId", "id"),
+            label: getMasterStr(item, "certificationName", "name") || "Unknown",
+            certificationId: Number(getMasterStr(item, "certificationId", "id") || String(idx + 1)),
+            tagCode: `Tag ${String(idx + 1).padStart(2, "0")}`,
+          })).filter((o) => o.value),
+        ),
+      )
+      .catch(() =>
+        setCertificationMasterOptions([
+          { value: "1", label: "CDSCO License Number", certificationId: 1, tagCode: "CDSCO" },
+          { value: "2", label: "ISO Certificate", certificationId: 2, tagCode: "Tag 02" },
+          { value: "3", label: "CE Certification", certificationId: 3, tagCode: "Tag 03" },
+          { value: "4", label: "BIS Certification", certificationId: 4, tagCode: "Tag 04" },
+        ]),
+      )
+      .finally(() => setLoadingCertifications(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (mode === "edit" && productId) fetchProductData();
+  }, [mode, productId, fetchProductData]);
 
   useEffect(() => {
     if (mode !== "edit") return;
@@ -512,62 +541,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, deviceCategoryOptions, deviceSubCategoryOptions, countryOptions, powerSourceOptions, storageConditionOptions,
-      form.deviceCategoryId, form.deviceSubCategoryId, form.countryOfOrigin, form.powerSourceId, form.storageCondition, form.amcAvailability, form.deviceClassification, form.gstPercentage]);
-
-  useEffect(() => {
-    fetchDeviceCategories();
-    if (mode === "create") {
-      fetch(`${MASTERS}/categories`, { headers: authHeaders() })
-        .then((r) => r.json())
-        .then((data) => {
-          const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
-          const nonConsumable = items.find((i) => {
-            const name = getMasterStr(i, "categoryName", "name").toLowerCase();
-            return name.includes("non-consumable") || name.includes("nonconsumable");
-          });
-          setProductCategoryId(nonConsumable ? Number(getMasterStr(nonConsumable, "categoryId", "id") || "6") : 6);
-        })
-        .catch(() => setProductCategoryId(6));
-    }
-
-    fetchList(`${MASTERS}/countries`, setCountryOptions, ["countryId", "id"], ["countryName", "name"]);
-    fetchList(`${MASTERS}/storagecondition`, setStorageConditionOptions, ["storageConditionId", "id"], ["conditionName", "name"]);
-    fetchList(`${MASTERS}/power-sources`, setPowerSourceOptions, ["powerSourceId", "id"], ["powerSourceName", "name"],
-      [{ value: "1", label: "Battery Operated" }, { value: "2", label: "Rechargeable" }, { value: "3", label: "Electric" }, { value: "4", label: "USB Powered" }, { value: "5", label: "Manual" }]);
-
-    if (mode === "create") {
-      fetchList(`${API_BASE}/dosage/packType/category/6`, setPackTypeApiOptions, ["packId"], ["packType"]);
-    }
-
-    setLoadingMaterialTypes(true);
-    fetchList(`${MASTERS}/non-consumable-material-types`, setMaterialTypeOptions, ["materialTypeId", "id"], ["materialTypeName", "name"])
-      .finally(() => setLoadingMaterialTypes(false));
-
-    setLoadingCertifications(true);
-    fetch(`${MASTERS}/certifications`, { headers: authHeaders() })
-      .then((r) => r.json())
-      .then((data) => {
-        const items: MasterItem[] = Array.isArray(data) ? data : (data.data ?? []);
-        setCertificationMasterOptions(items.map((item, idx) => ({
-          value: getMasterStr(item, "certificationId", "id"),
-          label: getMasterStr(item, "certificationName", "name") || "Unknown",
-          certificationId: Number(getMasterStr(item, "certificationId", "id") || String(idx + 1)),
-          tagCode: `Tag ${String(idx + 1).padStart(2, "0")}`,
-        })).filter((o) => o.value));
-      })
-      .catch(() => setCertificationMasterOptions([
-        { value: "1", label: "CDSCO License Number", certificationId: 1, tagCode: "CDSCO" },
-        { value: "2", label: "ISO Certificate", certificationId: 2, tagCode: "Tag 02" },
-        { value: "3", label: "CE Certification", certificationId: 3, tagCode: "Tag 03" },
-        { value: "4", label: "BIS Certification", certificationId: 4, tagCode: "Tag 04" },
-      ]))
-      .finally(() => setLoadingCertifications(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (mode === "edit" && productId) fetchProductData();
-  }, [mode, productId, fetchProductData]);
+      form.deviceCategoryId, form.deviceSubCategoryId, form.countryOfOrigin, form.powerSourceId, form.storageCondition,
+      form.amcAvailability, form.deviceClassification, form.gstPercentage]);
 
   useEffect(() => {
     if (form.deviceCategoryId) {
@@ -603,7 +578,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ─── Handlers ─────────────────────────────────────────────────────────────────
+  // ─── Handlers ─────────────────────────────────────────────────────────────
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -665,12 +640,18 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
   };
 
-  const handleBrochureUpload = async (file: File) => {
+  // ─── Brochure handler wired to UploadInput's onFileSelect callback ─────────
+  const handleBrochureFileSelect = (file: File | null) => {
+    if (!file) {
+      // User removed the file (either new or existing)
+      setBrochureFile(null);
+      setExistingBrochureUrl("");
+      return;
+    }
     if (file.type !== "application/pdf") { alert("Only PDF files are allowed for the brochure / user manual"); return; }
     if (file.size > 5 * 1024 * 1024) { alert("Brochure file size must be less than 5 MB"); return; }
-    setUploadingBrochure(true);
-    await new Promise((r) => setTimeout(r, 300));
-    setBrochureFile(file); setExistingBrochureUrl(""); setUploadingBrochure(false);
+    setBrochureFile(file);
+    setExistingBrochureUrl("");
   };
 
   const handleImageFiles = (files: FileList | File[]) => {
@@ -690,7 +671,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const handleContinueAdding = () => { setShowSuccessModal(false); window.location.reload(); };
   const handleBackToDashboard = () => { window.location.reload(); };
 
-  // ─── Validation ───────────────────────────────────────────────────────────────
+  // ─── Validation ───────────────────────────────────────────────────────────
 
   const validate = (): Record<string, string> => {
     const e: Record<string, string> = {};
@@ -799,11 +780,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (errorKeys.length === 0) return;
     for (const key of errorKeys) {
       const ref = fieldRefs.current[key];
-      if (ref) {
-        ref.scrollIntoView({ behavior: "smooth", block: "center" });
-        if (ref instanceof HTMLInputElement || ref instanceof HTMLTextAreaElement) ref.focus();
-        return;
-      }
+      if (ref) { ref.scrollIntoView({ behavior: "smooth", block: "center" }); if (ref instanceof HTMLInputElement || ref instanceof HTMLTextAreaElement) ref.focus(); return; }
       const el = document.querySelector<HTMLElement>(`[name="${key}"], [data-field="${key}"]`);
       if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.focus?.(); return; }
     }
@@ -816,6 +793,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     return combined.toISOString().slice(0, 19);
   };
 
+  // ─── Submit ───────────────────────────────────────────────────────────────
+
   const handleSubmit = async () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) {
@@ -826,10 +805,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     setErrors({}); setSubmitting(true); setApiError(null);
 
     try {
-      const token = sellerAuthService.getToken();
-      if (!token) throw new Error("Authentication required. Please log in again.");
-      const authOnlyHeaders: Record<string, string> = { Authorization: `Bearer ${token}` };
-      const jsonHeaders: Record<string, string> = { ...authOnlyHeaders, "Content-Type": "application/json" };
       const amcValue = form.amcAvailability === "true";
 
       const payload = {
@@ -905,26 +880,24 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       let certsToUpload: CertificationTag[] = [...selectedCertifications];
 
       if (mode === "edit" && currentProductId) {
-        await updateProduct(currentProductId, payload);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await updateProduct(currentProductId, payload as any);
         if (images.length > 0) await uploadProductImages(currentProductId, images);
         if (currentAttributeId) {
-          const { allSuccess, failures } = await uploadAllCertificates(currentAttributeId, authOnlyHeaders, certsToUpload);
-          if (!allSuccess) setApiError(`Warning: Some certificate files could not be uploaded:\n${failures.join("\n")}`);
+          for (const cert of certsToUpload.filter((c) => c.file && !c.existingUrl)) {
+            const result = await uploadNonConsumableCertificate(currentAttributeId, cert.productCertificateDocumentId, cert.file!);
+            if (!result.success) setApiError(`Warning: Could not upload certificate "${cert.label}": ${result.message}`);
+          }
           if (brochureFile) {
-            const r = await uploadBrochure(`${API_BASE}/product-documents/non-consumable/${currentAttributeId}/brochure`, authOnlyHeaders, brochureFile);
-            if (!r.success && !apiError) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
+            const r = await uploadNonConsumableBrochure(currentAttributeId, brochureFile);
+            if (!r.success) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
           }
         }
         alert("Product updated successfully!");
         if (onSubmitSuccess) onSubmitSuccess();
         else window.location.reload();
       } else {
-        const createRes = await fetch(`${API_BASE}/products/create`, { method: "POST", headers: jsonHeaders, body: JSON.stringify(payload) });
-        const rawText = await createRes.text();
-        let createData: ApiResponseData;
-        try { createData = JSON.parse(rawText) as ApiResponseData; }
-        catch { throw new Error(`Invalid server response: ${rawText.substring(0, 200)}`); }
-        if (!createRes.ok) throw new Error(String((createData?.data as ApiResponseData)?.message ?? createData?.message ?? `HTTP ${createRes.status}`));
+        const createData: ApiResponseData = await createNonConsumableProduct(payload as Record<string, unknown>);
         const dataInner = createData?.data as ApiResponseData | undefined;
         currentProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
         if (!currentProductId || currentProductId === "undefined") throw new Error("Product ID not returned from server");
@@ -933,16 +906,21 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
         const certDocIdMap = extractCertDocumentIdMap(createData);
         if (certDocIdMap.size > 0) {
-          certsToUpload = certsToUpload.map((c) => { const serverDocId = certDocIdMap.get(Number(c.id)); return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c; });
+          certsToUpload = certsToUpload.map((c) => {
+            const serverDocId = certDocIdMap.get(Number(c.id));
+            return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
+          });
         }
 
         if (images.length > 0) await uploadProductImages(currentProductId, images);
         if (currentAttributeId) {
-          const { allSuccess, failures } = await uploadAllCertificates(currentAttributeId, authOnlyHeaders, certsToUpload);
-          if (!allSuccess) setApiError(`Warning: Some certificate files could not be uploaded:\n${failures.join("\n")}`);
+          for (const cert of certsToUpload.filter((c) => c.file && !c.existingUrl)) {
+            const result = await uploadNonConsumableCertificate(currentAttributeId, cert.productCertificateDocumentId, cert.file!);
+            if (!result.success) setApiError(`Warning: Could not upload certificate "${cert.label}": ${result.message}`);
+          }
           if (brochureFile) {
-            const r = await uploadBrochure(`${API_BASE}/product-documents/non-consumable/${currentAttributeId}/brochure`, authOnlyHeaders, brochureFile);
-            if (!r.success && !apiError) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
+            const r = await uploadNonConsumableBrochure(currentAttributeId, brochureFile);
+            if (!r.success) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
           }
         }
         setShowSuccessModal(true);
@@ -951,8 +929,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
       setApiError(errorMessage);
       alert(`Failed to ${mode === "edit" ? "update" : "create"} product: ${errorMessage}`);
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  // ─── Select styles ────────────────────────────────────────────────────────
 
   const selectStyles = (errorKey: string): SelectStyles => ({
     control: (base, state) => ({
@@ -1003,10 +985,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       />
 
       {showAdditionalDiscountModal && (
-        <CommonModal
-          onClose={() => setShowAdditionalDiscountModal(false)}
-          width="w-[600px]"
-        >
+        <CommonModal onClose={() => setShowAdditionalDiscountModal(false)} width="w-[600px]">
           <div className="h-[80vh] overflow-hidden flex flex-col">
             <AdditionalDiscount
               initialData={convertToDiscountData(additionalDiscountSlabs)}
@@ -1033,15 +1012,30 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           <h2 className={sectionTitle}>Product Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
-            {isEdit ? <NonEditableField label="Product Name" value={form.productName} required /> : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Product Name {requiredStar}</label>
-                <input ref={setFieldRef("productName")} name="productName" value={form.productName} onChange={handleChange} placeholder="e.g., Digital BP Monitor" className={`${inputBase} ${errors.productName ? inputError : ""}`} />
-                {errors.productName && <p className={errorMsg}>{errors.productName}</p>}
+            {/* Product Name */}
+            {isEdit ? (
+              <NonEditableField label="Product Name" value={form.productName} required />
+            ) : (
+              <div ref={setFieldRef("productName") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="Product Name"
+                  name="productName"
+                  value={form.productName}
+                  onChange={handleChange}
+                  placeholder="e.g., Digital BP Monitor"
+                  required
+                  error={errors.productName}
+                  maxLength={150}
+                  // className={inputClass}
+                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+                />
               </div>
             )}
 
-            {isEdit ? <NonEditableSelect label="Device Category" value={displayLabels.deviceCategoryLabel} required /> : (
+            {/* Device Category */}
+            {isEdit ? (
+              <NonEditableSelect label="Device Category" value={displayLabels.deviceCategoryLabel} required />
+            ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("deviceCategoryId") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Device Category {requiredStar}</label>
                 <Select options={deviceCategoryOptions} isLoading={loadingCategories} value={deviceCategoryOptions.find((o) => o.value === form.deviceCategoryId) || null} onChange={(sel) => handleSelectChange("deviceCategoryId", sel)} placeholder={loadingCategories ? "Loading..." : "Select category"} theme={selectTheme} styles={selectStyles("deviceCategoryId")} />
@@ -1049,7 +1043,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {isEdit ? <NonEditableSelect label="Device Sub-Category" value={displayLabels.deviceSubCategoryLabel} required /> : (
+            {/* Device Sub-Category */}
+            {isEdit ? (
+              <NonEditableSelect label="Device Sub-Category" value={displayLabels.deviceSubCategoryLabel} required />
+            ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("deviceSubCategoryId") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Device Sub-Category {requiredStar}</label>
                 <Select options={deviceSubCategoryOptions} isLoading={loadingSubCategories} isDisabled={!form.deviceCategoryId} value={deviceSubCategoryOptions.find((o) => o.value === form.deviceSubCategoryId) || null} onChange={(sel) => handleSelectChange("deviceSubCategoryId", sel)} placeholder={form.deviceCategoryId ? (loadingSubCategories ? "Loading..." : "Select sub-category") : "Select category first"} theme={selectTheme} styles={selectStyles("deviceSubCategoryId")} />
@@ -1057,31 +1054,70 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {isEdit ? <NonEditableField label="Brand Name" value={form.brandName} required /> : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Brand Name {requiredStar}</label>
-                <input ref={setFieldRef("brandName")} name="brandName" value={form.brandName} onChange={handleChange} placeholder="e.g., Omron, Philips" className={`${inputBase} ${errors.brandName ? inputError : ""}`} />
-                {errors.brandName && <p className={errorMsg}>{errors.brandName}</p>}
+            {/* Brand Name */}
+            {isEdit ? (
+              <NonEditableField label="Brand Name" value={form.brandName} required />
+            ) : (
+              <div ref={setFieldRef("brandName") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="Brand Name"
+                  name="brandName"
+                  value={form.brandName}
+                  onChange={handleChange}
+                  placeholder="e.g., Omron, Philips"
+                  required
+                  error={errors.brandName}
+                  maxLength={60}
+                  // className={inputClass}
+                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+                />
               </div>
             )}
 
-            {isEdit ? <NonEditableField label="Model Name" value={form.modelName} required /> : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Model Name {requiredStar}</label>
-                <input ref={setFieldRef("modelName")} name="modelName" value={form.modelName} onChange={handleChange} placeholder="e.g., Pro X" className={`${inputBase} ${errors.modelName ? inputError : ""}`} />
-                {errors.modelName && <p className={errorMsg}>{errors.modelName}</p>}
+            {/* Model Name */}
+            {isEdit ? (
+              <NonEditableField label="Model Name" value={form.modelName} required />
+            ) : (
+              <div ref={setFieldRef("modelName") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="Model Name"
+                  name="modelName"
+                  value={form.modelName}
+                  onChange={handleChange}
+                  placeholder="e.g., Pro X"
+                  required
+                  error={errors.modelName}
+                  maxLength={60}
+                  // className={inputClass}
+                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+                />
               </div>
             )}
 
-            {isEdit ? <NonEditableField label="Model Number" value={form.modelNumber} required /> : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Model Number {requiredStar}</label>
-                <input ref={setFieldRef("modelNumber")} name="modelNumber" value={form.modelNumber} onChange={handleChange} placeholder="e.g., ACX-200" className={`${inputBase} ${errors.modelNumber ? inputError : ""}`} />
-                {errors.modelNumber && <p className={errorMsg}>{errors.modelNumber}</p>}
+            {/* Model Number */}
+            {isEdit ? (
+              <NonEditableField label="Model Number" value={form.modelNumber} required />
+            ) : (
+              <div ref={setFieldRef("modelNumber") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="Model Number"
+                  name="modelNumber"
+                  value={form.modelNumber}
+                  onChange={handleChange}
+                  placeholder="e.g., ACX-200"
+                  required
+                  error={errors.modelNumber}
+                  maxLength={60}
+                  // className={inputClass}
+                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+                />
               </div>
             )}
 
-            {isEdit ? <NonEditableSelect label="Device Classification (Class A/B/C/D)" value={displayLabels.deviceClassLabel} required /> : (
+            {/* Device Classification */}
+            {isEdit ? (
+              <NonEditableSelect label="Device Classification (Class A/B/C/D)" value={displayLabels.deviceClassLabel} required />
+            ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("deviceClassification") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Device Classification (Class A/B/C/D) {requiredStar}</label>
                 <Select options={deviceClassOptions} value={deviceClassOptions.find((o) => o.value === form.deviceClassification) || null} onChange={(sel) => handleSelectChange("deviceClassification", sel)} placeholder="Select device classification" theme={selectTheme} styles={selectStyles("deviceClassification")} />
@@ -1089,22 +1125,47 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {isEdit ? <NonEditableField label="UDI (Unique Device Identifier) / Serial Number" value={form.udiNumber} /> : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>UDI (Unique Device Identifier) / Serial Number</label>
-                <input ref={setFieldRef("udiNumber")} name="udiNumber" value={form.udiNumber} onChange={handleChange} placeholder="Optional" className={`${inputBase} ${errors.udiNumber ? inputError : ""}`} />
-                {errors.udiNumber && <p className={errorMsg}>{errors.udiNumber}</p>}
+            {/* UDI Number */}
+            {isEdit ? (
+              <NonEditableField label="UDI (Unique Device Identifier) / Serial Number" value={form.udiNumber} />
+            ) : (
+              <div ref={setFieldRef("udiNumber") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="UDI (Unique Device Identifier) / Serial Number"
+                  name="udiNumber"
+                  value={form.udiNumber}
+                  onChange={handleChange}
+                  placeholder="Optional"
+                  error={errors.udiNumber}
+                  maxLength={60}
+                  // className={inputClass}
+                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+                />
               </div>
             )}
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Intended Use / Purpose {requiredStar}</label>
-              <input ref={setFieldRef("intendedUse")} name="intendedUse" value={form.intendedUse} onChange={handleChange} placeholder="e.g., Blood pressure monitoring" className={`${inputBase} ${errors.intendedUse ? inputError : ""}`} />
-              {errors.intendedUse && <p className={errorMsg}>{errors.intendedUse}</p>}
+            {/* Intended Use — editable in both modes */}
+            <div ref={setFieldRef("intendedUse") as React.RefCallback<HTMLDivElement>}>
+              <Input
+                label="Intended Use / Purpose"
+                name="intendedUse"
+                value={form.intendedUse}
+                onChange={handleChange}
+                placeholder="e.g., Blood pressure monitoring"
+                required
+                error={errors.intendedUse}
+                // className={inputClass}
+                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+              />
             </div>
 
+            {/* Material / Build Type */}
             {isEdit ? (
-              <NonEditableField label="Material / Build Type (Plastic, Metal, Steel)" value={selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")} required />
+              <NonEditableField
+                label="Material / Build Type (Plastic, Metal, Steel)"
+                value={selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")}
+                required
+              />
             ) : (
               <div className="flex flex-col gap-1" data-field="materialType">
                 <label className={fieldLabel}>Material / Build Type (Plastic, Metal, Steel) {requiredStar}</label>
@@ -1132,6 +1193,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
+            {/* Certifications */}
             <div className="col-span-1 md:col-span-2" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {isEdit ? (
@@ -1163,122 +1225,88 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                   </div>
                 )}
 
-                {isEdit ? (
-                  <div>
-                    <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
+                <div>
+                  <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
+                  {selectedCertifications.length === 0 ? (
+                    <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
+                      <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
+                      <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
+                    </div>
+                  ) : (
                     <div className="flex flex-col gap-2">
                       {selectedCertifications.map((cert) => (
-                        <div key={cert.id} className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50">
-                          <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                            <FileText size={16} className="text-purple-500" />
-                          </div>
-                          <div className="px-2 flex-shrink-0">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
-                              {cert.tagCode}
-                            </span>
-                          </div>
-                          <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">
-                            {cert.existingUrl ? cert.label : `${cert.label} — pending`}
-                          </span>
+                        <div key={cert.id}>
+                          {cert.existingUrl && !cert.file ? (
+                            <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
+                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
+                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
+                              <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.label}</p><p className="text-xs text-gray-500">Existing certificate</p></div>
+                              <div className="flex items-center gap-1 pr-3">
+                                <button type="button" title="Replace" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
+                                <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
+                              </div>
+                            </div>
+                          ) : cert.isUploaded && cert.file ? (
+                            <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
+                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
+                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
+                              <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.fileName}</p><p className="text-xs text-gray-500">{(cert.file.size / 1024).toFixed(0)} KB</p></div>
+                              <div className="flex items-center gap-1 pr-3">
+                                <button type="button" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
+                                <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()}>
+                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
+                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
+                              <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">{cert.label} — click to upload</span>
+                              <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
+                            </div>
+                          )}
+                          <input id={`nc-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
                         </div>
                       ))}
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
-                    {selectedCertifications.length === 0 ? (
-                      <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
-                        <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                          <UploadCloudIcon />
-                        </div>
-                        <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        {selectedCertifications.map((cert) => (
-                          <div key={cert.id}>
-                            {cert.existingUrl && !cert.file ? (
-                              <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                                  <FileText size={16} className="text-purple-600" />
-                                </div>
-                                <div className="px-2 flex-shrink-0">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
-                                    {cert.tagCode}
-                                  </span>
-                                </div>
-                                <div className="flex-1 px-2 min-w-0">
-                                  <p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.label}</p>
-                                  <p className="text-xs text-gray-500">Existing certificate</p>
-                                </div>
-                                <div className="flex items-center gap-1 pr-3">
-                                  <button type="button" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                                  <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                                </div>
-                              </div>
-                            ) : cert.isUploaded && cert.file ? (
-                              <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                                  <FileText size={16} className="text-purple-600" />
-                                </div>
-                                <div className="px-2 flex-shrink-0">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
-                                    {cert.tagCode}
-                                  </span>
-                                </div>
-                                <div className="flex-1 px-2 min-w-0">
-                                  <p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.fileName}</p>
-                                  <p className="text-xs text-gray-500">{(cert.file.size / 1024).toFixed(0)} KB</p>
-                                </div>
-                                <div className="flex items-center gap-1 pr-3">
-                                  <button type="button" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                                  <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()}>
-                                <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                                  <UploadCloudIcon />
-                                </div>
-                                <div className="px-2 flex-shrink-0">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">
-                                    {cert.tagCode}
-                                  </span>
-                                </div>
-                                <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">
-                                  {cert.label} — click to upload
-                                </span>
-                                <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
-                              </div>
-                            )}
-                            <input id={`nc-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file. Files are uploaded on Save.</p>
-                  </div>
-                )}
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file. Files are uploaded on Save.</p>
+                </div>
               </div>
             </div>
 
-            {isEdit ? <NonEditableSelect label="Power Source" value={displayLabels.powerSourceLabel} /> : (
+            {/* Power Source */}
+            {isEdit ? (
+              <NonEditableSelect label="Power Source" value={displayLabels.powerSourceLabel} />
+            ) : (
               <div className="flex flex-col gap-1">
                 <label className={fieldLabel}>Power Source</label>
                 <Select options={powerSourceOptions} value={powerSourceOptions.find((o) => o.value === form.powerSourceId) || null} onChange={(sel) => handleSelectChange("powerSourceId", sel)} placeholder="Select power source" theme={selectTheme} styles={selectStyles("powerSourceId")} isClearable />
               </div>
             )}
 
-            {isEdit ? <NonEditableField label="Warranty Period (months)" value={form.warrantyPeriod} /> : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Warranty Period (months)</label>
-                <input ref={setFieldRef("warrantyPeriod")} name="warrantyPeriod" value={form.warrantyPeriod} onChange={handleChange} placeholder="e.g., 12" className={`${inputBase} ${errors.warrantyPeriod ? inputError : ""}`} />
-                {errors.warrantyPeriod && <p className={errorMsg}>{errors.warrantyPeriod}</p>}
+            {/* Warranty Period */}
+            {isEdit ? (
+              <NonEditableField label="Warranty Period (months)" value={form.warrantyPeriod} />
+            ) : (
+              <div ref={setFieldRef("warrantyPeriod") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="Warranty Period (months)"
+                  name="warrantyPeriod"
+                  value={form.warrantyPeriod}
+                  onChange={handleChange}
+                  placeholder="e.g., 12"
+                  error={errors.warrantyPeriod}
+                  maxLength={3}
+                  // className={inputClass}
+                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+                />
               </div>
             )}
 
-            {isEdit ? <NonEditableSelect label="AMC / Service Availability" value={displayLabels.amcLabel} required /> : (
+            {/* AMC / Service Availability */}
+            {isEdit ? (
+              <NonEditableSelect label="AMC / Service Availability" value={displayLabels.amcLabel} required />
+            ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("amcAvailability") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>AMC / Service Availability {requiredStar}</label>
                 <Select options={amcOptions} value={amcOptions.find((o) => o.value === form.amcAvailability) || null} onChange={(sel) => handleSelectChange("amcAvailability", sel)} placeholder="Select Yes or No" theme={selectTheme} styles={selectStyles("amcAvailability")} />
@@ -1286,7 +1314,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {isEdit ? <NonEditableSelect label="Country of Origin" value={displayLabels.countryLabel} required /> : (
+            {/* Country of Origin */}
+            {isEdit ? (
+              <NonEditableSelect label="Country of Origin" value={displayLabels.countryLabel} required />
+            ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("countryOfOrigin") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Country of Origin {requiredStar}</label>
                 <Select options={countryOptions} value={countryOptions.find((o) => o.value === form.countryOfOrigin) || null} onChange={(sel) => handleSelectChange("countryOfOrigin", sel)} placeholder="Select country" theme={selectTheme} styles={selectStyles("countryOfOrigin")} />
@@ -1294,53 +1325,41 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {isEdit ? <NonEditableField label="Manufacturer Name" value={form.manufacturerName} required /> : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Manufacturer Name {requiredStar}</label>
-                <input ref={setFieldRef("manufacturerName")} name="manufacturerName" value={form.manufacturerName} onChange={handleChange} placeholder="Manufacturer company name" className={`${inputBase} ${errors.manufacturerName ? inputError : ""}`} />
-                {errors.manufacturerName && <p className={errorMsg}>{errors.manufacturerName}</p>}
+            {/* Manufacturer Name */}
+            {isEdit ? (
+              <NonEditableField label="Manufacturer Name" value={form.manufacturerName} required />
+            ) : (
+              <div ref={setFieldRef("manufacturerName") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="Manufacturer Name"
+                  name="manufacturerName"
+                  value={form.manufacturerName}
+                  onChange={handleChange}
+                  placeholder="Manufacturer company name"
+                  required
+                  error={errors.manufacturerName}
+                  maxLength={100}
+                  // className={inputClass}
+                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+                />
               </div>
             )}
 
+            {/* Storage Condition — editable in both modes */}
             <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
               <label className={fieldLabel}>Storage Condition (If applicable)</label>
               <Select options={storageConditionOptions} value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null} onChange={(sel) => handleSelectChange("storageCondition", sel)} placeholder="Select storage condition" theme={selectTheme} styles={selectStyles("storageCondition")} isClearable />
             </div>
 
+            {/* Brochure Upload — uses UploadInput component */}
             <div ref={setFieldRef("brochure") as React.RefCallback<HTMLDivElement>}>
-              <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
-              {existingBrochureUrl && !brochureFile && (
-                <div className="mb-2 flex items-center gap-2 text-sm text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
-                  <FileText size={15} />
-                  <a href={existingBrochureUrl} target="_blank" rel="noreferrer" className="underline truncate">Current brochure</a>
-                  <button type="button" onClick={() => setExistingBrochureUrl("")} className="ml-auto text-gray-400 hover:text-red-500"><X size={13} /></button>
-                </div>
-              )}
-              {!brochureFile ? (
-                <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => brochureInputRef.current?.click()}>
-                  <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                    {uploadingBrochure ? <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" /> : <UploadCloudIcon />}
-                  </div>
-                  <span className="px-3 text-base [font-family:'Open_Sans',sans-serif] [color:#969793]">
-                    {uploadingBrochure ? "Processing..." : existingBrochureUrl ? "Upload to replace" : "Upload PDF (max 5 MB)"}
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                  <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                  <div className="flex-1 px-3 min-w-0">
-                    <p className="text-sm font-medium [color:#3C3D3A] truncate">{brochureFile.name}</p>
-                    <p className="text-xs text-gray-500">{(brochureFile.size / 1024).toFixed(1)} KB</p>
-                  </div>
-                  <div className="flex items-center gap-1 pr-3">
-                    <button type="button" onClick={() => brochureInputRef.current?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                    <button type="button" onClick={() => { setBrochureFile(null); if (brochureInputRef.current) brochureInputRef.current.value = ""; }} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                  </div>
-                </div>
-              )}
-              <input ref={brochureInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleBrochureUpload(e.target.files[0]); }} />
+              <UploadInput
+                onFileSelect={handleBrochureFileSelect}
+                existingFile={existingBrochureUrl || undefined}
+              />
             </div>
 
+            {/* Safety Instructions & Key Features */}
             <div className="col-span-1 md:col-span-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -1356,6 +1375,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             </div>
 
+            {/* Product Description */}
             <div className="col-span-1 md:col-span-2">
               <label className={fieldLabel}>Product Description {requiredStar}</label>
               <textarea ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>} name="productDescription" value={form.productDescription} onChange={handleChange} rows={4} placeholder="Detailed product description" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.productDescription ? "border-red-400" : "border-gray-300"}`} />
@@ -1369,7 +1389,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           <h2 className={sectionTitle}>Packaging &amp; Order Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
-            {isEdit ? <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required /> : (
+            {/* Pack Type */}
+            {isEdit ? (
+              <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
+            ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("packType") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Pack Type {requiredStar}</label>
                 <Select options={packTypeApiOptions} value={packTypeApiOptions.find((o) => o.value === form.packType) || null} onChange={(sel) => handleSelectChange("packType", sel)} placeholder="Select pack type" theme={selectTheme} styles={selectStyles("packType")} />
@@ -1377,82 +1400,176 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Number of Units per Pack Type {requiredStar}</label>
-              <input ref={setFieldRef("unitPerPack")} name="unitPerPack" value={form.unitPerPack} onChange={handleChange} placeholder="e.g., 100" inputMode="numeric" className={`${inputBase} ${errors.unitPerPack ? inputError : ""}`} />
-              {errors.unitPerPack && <p className={errorMsg}>{errors.unitPerPack}</p>}
+            {/* Units per Pack */}
+            <div ref={setFieldRef("unitPerPack") as React.RefCallback<HTMLDivElement>}>
+              <Input
+                label="Number of Units per Pack Type"
+                name="unitPerPack"
+                value={form.unitPerPack}
+                onChange={handleChange}
+                placeholder="e.g., 100"
+                required
+                error={errors.unitPerPack}
+                // className={inputClass}
+                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+              />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Number of Packs {requiredStar}</label>
-              <input ref={setFieldRef("numberOfPacks")} name="numberOfPacks" value={form.numberOfPacks} onChange={handleChange} placeholder="e.g., 10" inputMode="numeric" className={`${inputBase} ${errors.numberOfPacks ? inputError : ""}`} />
-              {errors.numberOfPacks && <p className={errorMsg}>{errors.numberOfPacks}</p>}
+            {/* Number of Packs */}
+            <div ref={setFieldRef("numberOfPacks") as React.RefCallback<HTMLDivElement>}>
+              <Input
+                label="Number of Packs"
+                name="numberOfPacks"
+                value={form.numberOfPacks}
+                onChange={handleChange}
+                placeholder="e.g., 10"
+                required
+                error={errors.numberOfPacks}
+                // className={inputClass}
+                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+              />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Pack Size (No. of Units per Pack Type X No. of Packs)</label>
-              <input name="packSize" value={form.packSize} readOnly className={`${inputBase} bg-gray-50 [color:#969793] cursor-not-allowed`} />
+            {/* Pack Size — read-only, auto-computed */}
+            <div>
+              <Input
+                label="Pack Size (No. of Units per Pack Type X No. of Packs)"
+                name="packSize"
+                value={form.packSize}
+                readOnly
+                className="!h-12 !rounded-xl bg-gray-50 [color:#969793] cursor-not-allowed border-gray-300 [font-family:'Open_Sans',sans-serif] text-base"
+                labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+              />
             </div>
           </div>
 
           <p className={subSectionTitle}>Order Details</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Min Order Qty {requiredStar}</label>
-              <input ref={setFieldRef("minimumOrderQuantity")} name="minimumOrderQuantity" value={form.minimumOrderQuantity} onChange={handleChange} placeholder="e.g., 1" inputMode="numeric" className={`${inputBase} ${errors.minimumOrderQuantity ? inputError : ""}`} />
-              {errors.minimumOrderQuantity && <p className={errorMsg}>{errors.minimumOrderQuantity}</p>}
+            <div ref={setFieldRef("minimumOrderQuantity") as React.RefCallback<HTMLDivElement>}>
+              <Input
+                label="Min Order Qty"
+                name="minimumOrderQuantity"
+                value={form.minimumOrderQuantity}
+                onChange={handleChange}
+                placeholder="e.g., 1"
+                required
+                error={errors.minimumOrderQuantity}
+                // className={inputClass}
+                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+              />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Max Order Qty {requiredStar}</label>
-              <input ref={setFieldRef("maximumOrderQuantity")} name="maximumOrderQuantity" value={form.maximumOrderQuantity} onChange={handleChange} placeholder="e.g., 100" inputMode="numeric" className={`${inputBase} ${errors.maximumOrderQuantity ? inputError : ""}`} />
-              {errors.maximumOrderQuantity && <p className={errorMsg}>{errors.maximumOrderQuantity}</p>}
+            <div ref={setFieldRef("maximumOrderQuantity") as React.RefCallback<HTMLDivElement>}>
+              <Input
+                label="Max Order Qty"
+                name="maximumOrderQuantity"
+                value={form.maximumOrderQuantity}
+                onChange={handleChange}
+                placeholder="e.g., 100"
+                required
+                error={errors.maximumOrderQuantity}
+                // className={inputClass}
+                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+              />
             </div>
           </div>
 
           <p className={subSectionTitle}>Batch Management</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
-            {isEdit ? <NonEditableField label="Manufacturing Date" value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""} /> : (
+            {/* Manufacturing Date */}
+            {isEdit ? (
+              <NonEditableField label="Manufacturing Date" value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""} />
+            ) : (
               <div className="flex flex-col gap-1">
                 <label className={fieldLabel}>Manufacturing Date</label>
-                <input ref={setFieldRef("manufacturingDate")} type="date" name="manufacturingDate" max={todayStr} onChange={(e) => setForm((p) => ({ ...p, manufacturingDate: e.target.value ? new Date(e.target.value) : null }))} value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""} className={`${inputBase} ${errors.manufacturingDate ? inputError : ""}`} />
+                <input
+                  ref={setFieldRef("manufacturingDate")}
+                  type="date"
+                  name="manufacturingDate"
+                  max={todayStr}
+                  onChange={(e) => setForm((p) => ({ ...p, manufacturingDate: e.target.value ? new Date(e.target.value) : null }))}
+                  value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""}
+                  className={`w-full h-12 px-4 border border-gray-300 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors bg-white ${errors.manufacturingDate ? "border-red-400" : ""}`}
+                />
                 {errors.manufacturingDate && <p className={errorMsg}>{errors.manufacturingDate}</p>}
               </div>
             )}
 
-            {isEdit ? <NonEditableField label="Stock Quantity (in units)" value={form.stockQuantity} required /> : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Stock Quantity (in units) {requiredStar}</label>
-                <input ref={setFieldRef("stockQuantity")} name="stockQuantity" value={form.stockQuantity} onChange={handleChange} placeholder="e.g., 10" inputMode="numeric" className={`${inputBase} ${errors.stockQuantity ? inputError : ""}`} />
-                {errors.stockQuantity && <p className={errorMsg}>{errors.stockQuantity}</p>}
+            {/* Stock Quantity */}
+            {isEdit ? (
+              <NonEditableField label="Stock Quantity (in units)" value={form.stockQuantity} required />
+            ) : (
+              <div ref={setFieldRef("stockQuantity") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="Stock Quantity (in units)"
+                  name="stockQuantity"
+                  value={form.stockQuantity}
+                  onChange={handleChange}
+                  placeholder="e.g., 10"
+                  required
+                  error={errors.stockQuantity}
+                  // className={inputClass}
+                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+                />
               </div>
             )}
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Date of Stock Entry {requiredStar}</label>
-              <input type="date" name="dateOfStockEntry" value={todayStr} readOnly className={`${inputBase} bg-gray-50 [color:#969793] cursor-not-allowed`} />
+            {/* Date of Stock Entry — always read-only */}
+            <div>
+              <Input
+                label="Date of Stock Entry"
+                name="dateOfStockEntry"
+                value={todayStr}
+                readOnly
+                required
+                className="!h-12 !rounded-xl bg-gray-50 [color:#969793] cursor-not-allowed border-gray-300 [font-family:'Open_Sans',sans-serif] text-base"
+                labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+              />
             </div>
           </div>
 
           <p className={subSectionTitle}>Pricing</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Selling Price (per Pack Size) {requiredStar}</label>
-              <input ref={setFieldRef("sellingPrice")} name="sellingPrice" value={form.sellingPrice} onChange={handleChange} placeholder="e.g., 4500" inputMode="decimal" className={`${inputBase} ${errors.sellingPrice ? inputError : ""}`} />
-              {errors.sellingPrice && <p className={errorMsg}>{errors.sellingPrice}</p>}
+            <div ref={setFieldRef("sellingPrice") as React.RefCallback<HTMLDivElement>}>
+              <Input
+                label="Selling Price (per Pack Size)"
+                name="sellingPrice"
+                value={form.sellingPrice}
+                onChange={handleChange}
+                placeholder="e.g., 4500"
+                required
+                error={errors.sellingPrice}
+                // className={inputClass}
+                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+              />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>MRP (per Pack Size) {requiredStar}</label>
-              <input ref={setFieldRef("mrp")} name="mrp" value={form.mrp} onChange={handleChange} placeholder="e.g., 5000" inputMode="decimal" className={`${inputBase} ${errors.mrp ? inputError : ""}`} />
-              {errors.mrp && <p className={errorMsg}>{errors.mrp}</p>}
+            <div ref={setFieldRef("mrp") as React.RefCallback<HTMLDivElement>}>
+              <Input
+                label="MRP (per Pack Size)"
+                name="mrp"
+                value={form.mrp}
+                onChange={handleChange}
+                placeholder="e.g., 5000"
+                required
+                error={errors.mrp}
+                // className={inputClass}
+                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+              />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Discount Percentage (%)</label>
-              <input ref={setFieldRef("discountPercentage")} name="discountPercentage" value={form.discountPercentage} onChange={handleChange} placeholder="0–100" inputMode="decimal" className={`${inputBase} ${errors.discountPercentage ? inputError : ""}`} />
-              {errors.discountPercentage && <p className={errorMsg}>{errors.discountPercentage}</p>}
+            <div ref={setFieldRef("discountPercentage") as React.RefCallback<HTMLDivElement>}>
+              <Input
+                label="Discount Percentage (%)"
+                name="discountPercentage"
+                value={form.discountPercentage}
+                onChange={handleChange}
+                placeholder="0–100"
+                error={errors.discountPercentage}
+                // className={inputClass}
+                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+              />
             </div>
 
             <div className="flex flex-col gap-1">
@@ -1467,7 +1584,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           <p className={subSectionTitle}>TAX &amp; BILLING</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
-            {isEdit ? <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required /> : (
+            {/* GST % */}
+            {isEdit ? (
+              <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
+            ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>GST % {requiredStar}</label>
                 <Select options={gstOptions} value={gstOptions.find((o) => o.value === form.gstPercentage) || null} onChange={(sel) => handleSelectChange("gstPercentage", sel)} placeholder="Select GST" theme={selectTheme} styles={selectStyles("gstPercentage")} />
@@ -1475,22 +1595,30 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {isEdit ? <NonEditableField label="HSN Code" value={form.hsnCode} required /> : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>HSN Code {requiredStar}</label>
-                <input ref={setFieldRef("hsnCode")} type="text" name="hsnCode" value={form.hsnCode} onChange={handleChange} placeholder="4, 6, or 8 digit numeric code" maxLength={8} inputMode="numeric" className={`${inputBase} ${errors.hsnCode ? inputError : ""}`} />
-                {errors.hsnCode && <p className={errorMsg}>{errors.hsnCode}</p>}
+            {/* HSN Code */}
+            {isEdit ? (
+              <NonEditableField label="HSN Code" value={form.hsnCode} required />
+            ) : (
+              <div ref={setFieldRef("hsnCode") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="HSN Code"
+                  name="hsnCode"
+                  value={form.hsnCode}
+                  onChange={handleChange}
+                  placeholder="4, 6, or 8 digit numeric code"
+                  required
+                  error={errors.hsnCode}
+                  maxLength={8}
+                  // className={inputClass}
+                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+                />
               </div>
             )}
           </div>
         </div>
 
         {/* ── Section 3: Product Photos ──────────────────────────────────────────── */}
-        <div
-          className={sectionCard}
-          ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>}
-          data-field="images"
-        >
+        <div className={sectionCard} ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
           <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
             Product Photos {mode === "create" && <span className="text-red-500">*</span>}
           </h2>
