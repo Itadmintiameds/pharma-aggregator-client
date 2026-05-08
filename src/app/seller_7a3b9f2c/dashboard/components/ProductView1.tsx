@@ -233,9 +233,9 @@ const CATEGORY_EDIT_VIEW: Record<number, DashboardView> = {
 ───────────────────────────────────────────────────────── */
 
 const ROW: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+  alignItems: "center",
   padding: "12px 16px",
   borderBottom: "1px solid #D5D5D4",
   gap: 16,
@@ -1049,13 +1049,12 @@ const ProductView1 = ({
           >
             Product Images
           </p>
-          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16, alignItems: "center" }}>
             {displayImages.map((img, idx) => (
               <div
                 key={idx}
                 onClick={() => setSelectedImageIndex(idx)}
                 style={{
-                  flex: "1 1 0",
                   height: 276,
                   position: "relative",
                   boxShadow:

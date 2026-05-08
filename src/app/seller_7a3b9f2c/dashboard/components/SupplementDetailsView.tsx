@@ -1,9 +1,9 @@
 import React from "react";
 
 const ROW: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+  alignItems: "center",
   padding: "12px 16px",
   borderBottom: "1px solid #D5D5D4",
   gap: 16,
@@ -52,9 +52,44 @@ const FieldRow = ({
     <div style={ROW_LABEL}>
       <span style={LABEL_TEXT}>{label}</span>
     </div>
-    <p style={{ ...VALUE_TEXT, textAlign: multiline ? "left" : "right" }}>
+    <p style={VALUE_TEXT}>
       {value ?? "—"}
     </p>
+  </div>
+);
+
+/** Shows an image thumbnail + a link to view full size, or falls back to text. */
+const NutritionalInfoRow = ({
+  imageUrl,
+  textValue,
+}: {
+  imageUrl?: string | null;
+  textValue?: string | null;
+}) => (
+  <div style={{ ...ROW, alignItems: "flex-start" }}>
+    <div style={ROW_LABEL}>
+      <span style={LABEL_TEXT}>Nutritional Information</span>
+    </div>
+    <div style={{ flex: "1 1 0", display: "flex", justifyContent: "flex-end" }}>
+      {imageUrl ? (
+        <a href={imageUrl} target="_blank" rel="noopener noreferrer" title="View nutritional information image">
+          <img
+            src={imageUrl}
+            alt="Nutritional Information"
+            style={{
+              width: 80,
+              height: 80,
+              objectFit: "cover",
+              borderRadius: 8,
+              border: "1px solid #D5D5D4",
+              cursor: "pointer",
+            }}
+          />
+        </a>
+      ) : (
+        <p style={VALUE_TEXT}>{textValue ?? "—"}</p>
+      )}
+    </div>
   </div>
 );
 
@@ -88,10 +123,10 @@ export default function SupplementDetailsView({ data }: { data: any }) {
         multiline
       />
 
-      <FieldRow
-        label="Nutritional Information"
-        value={data.nutritionalInformation}
-        multiline
+      {/* Nutritional Information: shows image thumbnail if URL exists, else text */}
+      <NutritionalInfoRow
+        imageUrl={data.nutritionalInformationImageUrl}
+        textValue={data.nutritionalInformation}
       />
 
       <FieldRow

@@ -140,10 +140,11 @@ export const createSupplementProduct = async (payload: any) => {
     });
     return response.data;
   } catch (error: any) {
-    console.error('Error creating Supplement Product', {
+    console.error('Error creating Supplement Product:', {
       message: error.message,
-      response: error.response?.data,
+      data: error.response?.data,
       status: error.response?.status,
+      error: error
     });
     throw new Error(
       error.response?.data?.message || error.message || 'Error creating Supplement Product'
@@ -164,6 +165,34 @@ export const uploadSupplementProductImages = async (productId: string, files: Fi
     );
   }
 };
+
+/**
+ * Uploads the nutritional information image for a supplement product attribute.
+ * POST /nutritionalInformationImage/:productAttributeId
+ * Body (form-data): categoryId (text), images (file)
+ */
+export const uploadNutritionalInformationImage = async (
+  productAttributeId: string,
+  categoryId: string | number,
+  file: File
+) => {
+  try {
+    const formData = new FormData();
+    formData.append('categoryId', String(categoryId));
+    formData.append('images', file);
+    const response = await api.post(
+      `/nutritionalInformationImage/${productAttributeId}`,
+      formData
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error uploading Nutritional Information Image', error);
+    throw new Error(
+      error.response?.data?.message || error.message || 'Error uploading Nutritional Information Image'
+    );
+  }
+};
+
 
 export const uploadSupplementBrochure = async (productAttributeId: string, file: File) => {
   try {

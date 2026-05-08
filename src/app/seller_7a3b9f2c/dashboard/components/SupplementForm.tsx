@@ -20,8 +20,10 @@ import UploadInput from "../commonComponent/UploadInput";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
 import AdditionalDiscount from "./AdditionalDiscount";
-import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadSupplementBrochure, uploadSupplementCertifications } from "@/src/services/product/SupplementService";
+import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications } from "@/src/services/product/SupplementService";
+
 import { getTherapeuticCategory, getTherapeuticSubcategory } from "@/src/services/product/TherapeuticCategoryService";
+import { supplementProductSchema } from "@/src/schema/product/SupplementProductSchema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -478,8 +480,141 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setForm((p) => ({ ...p, [name]: value }));
-    if (errors[name]) setErrors((p) => { const n = { ...p }; delete n[name]; return n; });
+
+    setForm((prev) => {
+      const updated = { ...prev, [name]: value };
+
+      // Auto-calculate packSize
+      const unitPerPack = Number(updated.unitPerPack) || 0;
+      const numberOfPacks = Number(updated.numberOfPacks) || 0;
+      updated.packSize = String(unitPerPack * numberOfPacks);
+
+      // Bidirectional calculation: MRP, Discount, Selling Price
+      const mrp = Number(updated.mrp) || 0;
+      const disc = Number(updated.discountPercentage) || 0;
+      const sp = Number(updated.sellingPrice) || 0;
+
+      if (name === "sellingPrice") {
+        // User is editing Selling Price directly
+        if (mrp > 0) {
+          const calculatedDisc = ((mrp - sp) / mrp) * 100;
+          updated.discountPercentage = calculatedDisc >= 0 ? calculatedDisc.toFixed(2) : "0";
+        }
+      } else if (name === "mrp" || name === "discountPercentage") {
+        // User is editing MRP or Discount
+        if (mrp > 0) {
+          updated.sellingPrice = (mrp - (mrp * disc) / 100).toFixed(2);
+        }
+      }
+
+      // Auto-calculate finalPrice from sellingPrice & gst
+      const currentSP = Number(updated.sellingPrice) || 0;
+      const gst = Number(updated.gstPercentage) || 0;
+      if (currentSP > 0) {
+        updated.finalPrice = (currentSP + (currentSP * gst) / 100).toFixed(2);
+      }
+
+      setErrors((prevErrors) => {
+        const newErrors = { ...prevErrors };
+
+        // Clear the field's own error as user types
+        if (newErrors[name]) delete newErrors[name];
+
+        // ── Cross-field: maxQty >= minQty ────────────────────────────────────
+        const minQty = Number(updated.minimumOrderQuantity) || 0;
+        const maxQty = Number(updated.maximumOrderQuantity) || 0;
+        if (maxQty && minQty && maxQty < minQty) {
+          newErrors.maximumOrderQuantity = "Max Order Qty must be ≥ Min Order Qty";
+        } else {
+          delete newErrors.maximumOrderQuantity;
+        }
+
+        // ── Cross-field: sellingPrice < mrp ──────────────────────────────────
+        const sellingPrice = Number(updated.sellingPrice) || 0;
+        const mrpVal = Number(updated.mrp) || 0;
+        if (sellingPrice && mrpVal && sellingPrice >= mrpVal) {
+          newErrors.sellingPrice = "Selling Price must be less than MRP";
+        } else {
+          delete newErrors.sellingPrice;
+        }
+
+        // ── Discount 0–100 ───────────────────────────────────────────────────
+        if (name === "discountPercentage") {
+          const d = Number(value);
+          if (value !== "" && (isNaN(d) || d < 0 || d > 100)) {
+            newErrors.discountPercentage = "Discount must be between 0 and 100";
+          } else {
+            delete newErrors.discountPercentage;
+          }
+        }
+
+        // ── HSN Code: 4/6/8 digits ───────────────────────────────────────────
+        if (name === "hsnCode" && value) {
+          const isValid = /^\d+$/.test(value) && [4, 6, 8].includes(value.length);
+          if (!isValid) {
+            newErrors.hsnCode = "HSN Code must be 4, 6, or 8 digits";
+          } else {
+            delete newErrors.hsnCode;
+          }
+        }
+
+        // ── Brand Name: alphanum + space + hyphen ────────────────────────────
+        if (name === "brandName" && value) {
+          if (!/^[a-zA-Z0-9\s\-]*$/.test(value)) {
+            newErrors.brandName = "Brand Name allows alphabets, numbers, spaces, hyphens only";
+          } else if (value.length > 60) {
+            newErrors.brandName = "Brand Name must not exceed 60 characters";
+          } else {
+            delete newErrors.brandName;
+          }
+        }
+
+        // ── Product Name: max 150 ───────────────────────────────────────────
+        if (name === "productName") {
+          if (value.length > 150) {
+            newErrors.productName = "Product Name must not exceed 150 characters";
+          } else {
+            delete newErrors.productName;
+          }
+        }
+
+        // ── Manufacturer Name: max 100 ───────────────────────────────────────
+        if (name === "manufacturerName" && value.length > 100) {
+          newErrors.manufacturerName = "Manufacturer Name must not exceed 100 characters";
+        }
+
+        // ── Intended Use: min 10 ────────────────────────────────────────────
+        if (name === "intendedUse") {
+          if (value.length > 0 && value.trim().length < 10) {
+            newErrors.intendedUse = "Intended Use must be at least 10 characters";
+          } else {
+            delete newErrors.intendedUse;
+          }
+        }
+
+        // ── Allergen Info: min 3 ────────────────────────────────────────────
+        if (name === "allergenInfo") {
+          if (value.length > 0 && value.trim().length < 3) {
+            newErrors.allergenInfo = "Allergen Information must be at least 3 characters";
+          } else {
+            delete newErrors.allergenInfo;
+          }
+        }
+
+        // ── Product Description: min 10 ──────────────────────────────────────
+        if (name === "productDescription") {
+          if (value.length > 0 && value.trim().length < 10) {
+            newErrors.productDescription = "Product Description must be at least 10 characters";
+          } else {
+            delete newErrors.productDescription;
+          }
+        }
+
+        return newErrors;
+      });
+
+      return updated;
+    });
   };
 
   const handleRadioChange = (name: string, value: string) => {
@@ -555,37 +690,35 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
   };
 
   const validate = (): Record<string, string> => {
-    const e: Record<string, string> = {};
-    if (!form.productName.trim()) e.productName = "Product Name is required";
-    if (!form.therapeuticCategory) e.therapeuticCategory = "Therapeutic Category is required";
-    if (!form.therapeuticSubcategory) e.therapeuticSubcategory = "Therapeutic Subcategory is required";
-    if (!form.brandName.trim()) e.brandName = "Brand Name is required";
-    if (!form.dosageForm) e.dosageForm = "Dosage Form is required";
-    if (!form.netQuantity.trim()) e.netQuantity = "Net Quantity is required";
-    if (!form.strength.trim()) e.strength = "Strength / Composition is required";
-    if (!form.activeIngredients.trim()) e.activeIngredients = "Active Ingredients is required";
-    if (!form.nutritionalInfoType) e.nutritionalInfoType = "Nutritional Information is required";
-    if (form.nutritionalInfoType === "image" && !nutritionalImage) e.nutritionalImage = "Nutritional Image is required";
-    if (!form.intendedUse.trim() || form.intendedUse.length < 10) e.intendedUse = "Intended Use must be at least 10 characters";
-    if (!form.ageGroup) e.ageGroup = "Age Group is required";
-    if (!form.gender) e.gender = "Gender is required";
-    if (!form.vegNonVeg) e.vegNonVeg = "Veg / Non-Veg Indicator is required";
-    if (!form.allergenInfo.trim() || form.allergenInfo.length < 3) e.allergenInfo = "Allergen Information must be at least 3 characters";
-    if (!form.flavour) e.flavour = "Flavour is required";
-    if (!form.productClaims.trim()) e.productClaims = "Product Claims is required";
-    if (!form.warningsPrecautions.trim()) e.warningsPrecautions = "Warnings / Precautions is required";
-    if (!form.productDescription.trim() || form.productDescription.length < 10) e.productDescription = "Product Description must be at least 10 characters";
-    if (!form.storageCondition) e.storageCondition = "Storage Condition is required";
-    if (!form.manufacturerName.trim()) e.manufacturerName = "Manufacturer Name is required";
-    if (!form.countryOfOrigin) e.countryOfOrigin = "Country of Origin is required";
+    // ── Zod schema validation ─────────────────────────────────────────────────
+    const result = supplementProductSchema.safeParse({
+      ...form,
+      // manufacturingDate/expiryDate must be Date objects; guard against null
+      manufacturingDate: form.manufacturingDate instanceof Date ? form.manufacturingDate : new Date("invalid"),
+      expiryDate: form.expiryDate instanceof Date ? form.expiryDate : new Date("invalid"),
+    });
 
+    const e: Record<string, string> = {};
+
+    if (!result.success) {
+      result.error.issues.forEach((issue) => {
+        const key = issue.path.join(".");
+        if (!e[key]) e[key] = issue.message; // keep first error per field
+      });
+    }
+
+    // ── Extra validations not in Zod (file state) ─────────────────────────────
+    if (!form.nutritionalInfoType) e.nutritionalInfoType = "Nutritional Information selection is required";
+    if (form.nutritionalInfoType === "image" && !nutritionalImage) e.nutritionalImage = "Nutritional Image is required";
     if (images.length === 0) e.images = "At least one product image is required";
+    if (images.length > 5) e.images = "Maximum 5 images allowed";
     if (!brochureFile) e.brochureFile = "Brochure / User Manual is required";
     if (selectedCertifications.length === 0) e.certifications = "At least one certification is required";
     else {
       const missing = selectedCertifications.find((c) => !c.file && !c.existingUrl);
       if (missing) e.certifications = `Please upload the file for "${missing.label}"`;
     }
+
     return e;
   };
 
@@ -663,7 +796,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
             activeIngredients: form.activeIngredients,
             otherIngredients: form.excipients,
             nutritionalInformation: form.nutritionalInfoType === "label" ? "As per the label." : "",
-            nutritionalInformationImageUrl: "", // TODO: upload nutritional image
+            nutritionalInformationImageUrl: "", // Will be updated in Step 2.5 after product creation
             intendedUse: form.intendedUse,
             ageGroupId: Number(form.ageGroup),
             gender: form.gender,
@@ -688,6 +821,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
       };
 
       // ─── STEP 1: Create Product ───────────────────────────────────────────────
+      console.log("🚀 Sending Supplement Payload:", payload);
       const response = await createSupplementProduct(payload);
       const productId = response?.data?.productId;
       const productAttributeId = response?.data?.productAttributeSupplementsOrNutraceuticals?.[0]?.productAttributeId;
@@ -697,6 +831,15 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
       // ─── STEP 2: Upload Product Images ────────────────────────────────────────
       if (images.length > 0) {
         await uploadSupplementProductImages(productId, images);
+      }
+
+      // ─── STEP 2.5: Upload Nutritional Information Image ───────────────────────
+      if (nutritionalImage && productAttributeId) {
+        try {
+          await uploadNutritionalInformationImage(productAttributeId, categoryId ?? 0, nutritionalImage);
+        } catch (nutritionalErr: any) {
+          console.warn("⚠️ Nutritional image upload failed:", nutritionalErr.message);
+        }
       }
 
       // ─── STEP 3: Upload Brochure ──────────────────────────────────────────────
@@ -806,6 +949,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 value={form.productName}
                 error={errors.productName}
                 required
+                maxLength={150}
               />
             </div>
             {/* Therapeutic Category */}
@@ -1053,18 +1197,31 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
             </div>
 
             {/* ROW 8 */}
-            {/* Veg / Non-Veg Indicator */}
-            <div data-field="vegNonVeg">
-              <Input
-                label="Veg / Non-Veg Indicator"
-                name="vegNonVeg"
-                id="vegNonVeg"
-                placeholder="e.g., Veg, Non-Veg"
-                onChange={handleChange}
-                value={form.vegNonVeg}
-                error={errors.vegNonVeg}
-                required
-              />
+            {/* Veg / Non-Veg Indicator — Radio Buttons */}
+            <div data-field="vegNonVeg" className="flex flex-col gap-1.5">
+              <label className={`${fieldLabel} flex items-center gap-1`}>
+                Veg / Non-Veg Indicator
+                <span className="text-warning-500 font-semibold">*</span>
+              </label>
+              <div className="flex items-center gap-6 h-14 px-4 rounded-2xl border border-neutral-500 bg-white">
+                {(["Veg", "Non-Veg"] as const).map((option) => (
+                  <label
+                    key={option}
+                    className="flex items-center gap-2 cursor-pointer select-none"
+                  >
+                    <input
+                      type="radio"
+                      name="vegNonVeg"
+                      value={option}
+                      checked={form.vegNonVeg === option}
+                      onChange={() => handleRadioChange("vegNonVeg", option)}
+                      className="w-4 h-4 accent-[#4B0082] cursor-pointer"
+                    />
+                    <span className="text-neutral-800 font-medium text-sm">{option}</span>
+                  </label>
+                ))}
+              </div>
+              {errors.vegNonVeg && <p className={errorMsg}>{errors.vegNonVeg}</p>}
             </div>
             {/* Allergen Information */}
             <div data-field="allergenInfo">
@@ -1294,6 +1451,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 value={form.warningsPrecautions}
                 onChange={handleChange}
                 placeholder="e.g., Not for pregnant women"
+                maxLength={255}
                 className={`w-full h-36 px-4 rounded-2xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none overflow-y-auto border bg-white focus:outline-none focus:ring-0 transition-colors duration-200 ${errors.warningsPrecautions ? "border-[#FF3B3B] focus:border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082]"}`}
               />
               {errors.warningsPrecautions && <p className={errorMsg}>{errors.warningsPrecautions}</p>}
@@ -1307,6 +1465,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 value={form.productDescription}
                 onChange={handleChange}
                 placeholder="Provide a detailed description of the product (Min 10 chars)"
+                maxLength={255}
                 className={`w-full h-36 px-4 rounded-2xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none overflow-y-auto border bg-white focus:outline-none focus:ring-0 transition-colors duration-200 ${errors.productDescription ? "border-[#FF3B3B] focus:border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082]"}`}
               />
               {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
@@ -1441,6 +1600,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
               readOnly={isEditMode}
               error={errors.batchLotNumber}
               required
+              maxLength={20}
             />
 
             <Input
