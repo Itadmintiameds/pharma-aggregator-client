@@ -1,5 +1,5 @@
 "use client";
-
+import { useRouter } from "next/navigation";
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Plus } from "lucide-react";
 import { DashboardView } from "@/src/types/seller/dashboard";
@@ -1197,7 +1197,9 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
 
 // ─── DashboardFilters ─────────────────────────────────────────────────────────
 const DashboardFilters = ({ setCurrentView }: DashboardFiltersProps) => {
+  const router = useRouter();  // ← add this
   const [showModal, setShowModal] = useState(false);
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-4">
@@ -1222,7 +1224,10 @@ const DashboardFilters = ({ setCurrentView }: DashboardFiltersProps) => {
       {showModal && (
         <OnboardingModal
           onClose={() => setShowModal(false)}
-          onManualEntry={() => { setShowModal(false); setCurrentView("addProduct"); }}
+          onManualEntry={() => {
+            setShowModal(false);
+            router.push("/seller_7a3b9f2c/products/add");  // ← router is now in scope
+          }}
         />
       )}
     </>

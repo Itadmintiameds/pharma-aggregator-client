@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import Table, { Column } from "@/src/app/commonComponents/Table";
 import { getProductList } from "@/src/services/product/ProductService";
@@ -74,6 +75,7 @@ const ProductList = ({
     string | null
   >(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const router = useRouter();
 
   const fetchProducts = async () => {
     try {
@@ -155,43 +157,44 @@ const ProductList = ({
           data={filteredData}
           loading={loading}
           actions={(row) => (
-            <div className="flex items-center gap-3">
-              <img
-                src="/icons/EditIcon.svg"
-                alt="edit"
-                className="w-5 h-5 rounded-md object-cover cursor-pointer"
-                onClick={() => {
-                  const view = categoryViewMap[row.categoryId as number];
-                  if (!view) return;
-
-                  // ✅ FIX: ensure ID is set BEFORE view
-                  setSelectedProductId(row.productId ?? "");
-
-                  // ⏳ Delay view change (critical)
-                  setTimeout(() => {
-                    setCurrentView(view);
-                  }, 0);
-                }}
-              />
-              <img
-                src="/icons/ViewIcon.svg"
-                className="w-5 h-5 cursor-pointer"
-                onClick={() => {
-                  setSelectedProductId(row.productId ?? "");
-                  setCurrentView("productView");
-                }}
-              />
-              <img
-                src="/icons/DeleteIcon.svg"
-                alt="delete"
-                className="w-5 h-5 rounded-md object-cover cursor-pointer"
-                onClick={() => {
-                  setSelectedProductIdLocal(row.productId);
-                  setOpenDeleteModal(true);
-                }}
-              />
-            </div>
-          )}
+  <div className="flex items-center gap-3">
+    <img
+      src="/icons/EditIcon.svg"
+      alt="edit"
+      className="w-5 h-5 rounded-md object-cover cursor-pointer"
+      onClick={() => {
+        const categoryViewMap: Record<number, string> = {
+          1: "editDrug",
+          2: "editSupplement",
+          3: "editFoodInfant",
+          4: "editCosmetic",
+          5: "editConsumable",
+          6: "editNonConsumable",
+        };
+        const category = categoryViewMap[row.categoryId as number];
+        if (!category || !row.productId) return;
+        router.push(`/seller_7a3b9f2c/products/edit/${row.productId}?category=${category}`);
+      }}
+    />
+    <img
+      src="/icons/ViewIcon.svg"
+      className="w-5 h-5 cursor-pointer"
+      onClick={() => {
+        if (!row.productId) return;
+        router.push(`/seller_7a3b9f2c/products/view/${row.productId}`);
+      }}
+    />
+    <img
+      src="/icons/DeleteIcon.svg"
+      alt="delete"
+      className="w-5 h-5 rounded-md object-cover cursor-pointer"
+      onClick={() => {
+        setSelectedProductIdLocal(row.productId);
+        setOpenDeleteModal(true);
+      }}
+    />
+  </div>
+)}
         />
       </div>
       {openDeleteModal && selectedProductIdLocal && (

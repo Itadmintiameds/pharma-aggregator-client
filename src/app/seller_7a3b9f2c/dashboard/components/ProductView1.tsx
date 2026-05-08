@@ -856,7 +856,7 @@ const ProductView1 = ({
 
   const router = useRouter();
   const handleClose = () => {
-  window.location.href = "/seller_7a3b9f2c/dashboard";
+  setCurrentView("overview" as DashboardView);
 };
 
   const handleEdit = () => {
