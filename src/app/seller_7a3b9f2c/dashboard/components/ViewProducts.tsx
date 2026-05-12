@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { 
   Search, 
@@ -170,6 +171,7 @@ const ViewProducts = () => {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const router = useRouter();
 
   const itemsPerPage = 5;
 
@@ -197,15 +199,14 @@ const ViewProducts = () => {
 
   // Handle view product
   const handleView = (product: any) => {
-    setSelectedProduct(product);
-    setShowViewModal(true);
-  };
+  router.push(`/seller_7a3b9f2c/products/view/${product.id}`);
+};
+
 
   // Handle edit product
   const handleEdit = (product: any) => {
-    toast.success(`Editing ${product.name}`);
-    // Navigate to edit page or open edit modal
-  };
+  router.push(`/seller_7a3b9f2c/products/edit/${product.id}?category=editDrug`);
+};
 
   // Handle delete product
   const handleDelete = (product: any) => {

@@ -3,34 +3,58 @@
 import React from "react";
 import CommonModal from "./CommonModal";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface Props {
   onClose: () => void;
   onViewProduct: () => void;
   onContinueEditing: () => void;
   onBackToDashboard: () => void;
+  productId?: string;
 }
 
 const UpdateSuccessModal = ({
   onClose,
   onViewProduct,
-  onContinueEditing, 
+  onContinueEditing,
   onBackToDashboard,
+  productId,
 }: Props) => {
+  const router = useRouter();
+
+  const handleViewProduct = () => {
+    onClose();
+    if (productId) {
+      router.push(`/seller_7a3b9f2c/products/view/${productId}`);
+    } else {
+      onViewProduct();
+    }
+  };
+
+  const handleContinueEditing = () => {
+    onClose();
+    onContinueEditing();
+  };
+
+  const handleBackToDashboard = () => {
+    onClose();
+    router.push("/seller_7a3b9f2c/dashboard");
+  };
+
   return (
     <CommonModal onClose={onClose} width="w-[520px]">
       <div className="flex flex-col items-center text-center gap-4">
 
         {/* Icon */}
         <div className="w-20 h-20 bg-success-100 rounded-full flex items-center justify-center">
-  <Image
-    src="/icons/updatesuccess.png"
-    alt="success"
-    width={80}
-    height={80}
-    className="object-contain"
-  />
-</div>
+          <Image
+            src="/icons/updatesuccess.png"
+            alt="success"
+            width={80}
+            height={80}
+            className="object-contain"
+          />
+        </div>
 
         {/* Title */}
         <h2 className="text-h4 font-bold text-neutral-900">
@@ -44,7 +68,7 @@ const UpdateSuccessModal = ({
 
         {/* Primary Button */}
         <button
-          onClick={onViewProduct}
+          onClick={handleViewProduct}
           className="w-full bg-primary-900 h-12 rounded-lg text-white py-3 font-semibold mt-2"
         >
           View Product
@@ -53,14 +77,14 @@ const UpdateSuccessModal = ({
         {/* Secondary Buttons */}
         <div className="flex gap-4 w-full mt-2">
           <button
-            onClick={onContinueEditing}
+            onClick={handleContinueEditing}
             className="w-1/2 border-2 border-neutral-200 py-3 rounded-xl font-medium text-neutral-900"
           >
             Continue Editing
           </button>
 
           <button
-            onClick={onBackToDashboard}
+            onClick={handleBackToDashboard}
             className="w-1/2 border-2 border-primary-900 text-primary-900 py-3 rounded-xl font-medium"
           >
             Back to Dashboard

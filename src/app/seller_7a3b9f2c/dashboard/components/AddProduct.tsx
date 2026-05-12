@@ -316,7 +316,7 @@ const AddProduct = () => {
             <DrugForm categoryId={productTypeMap["Drugs"]} />
           )}
           {selectedCategory === "Supplements/ Nutraceuticals" && (
-            <SupplementForm />
+            <SupplementForm categoryId={productTypeMap["Supplements/ Nutraceuticals"]} />
           )}
           {selectedCategory === "Food & Infant Nutrition" && (
             <FoodInfantForm />

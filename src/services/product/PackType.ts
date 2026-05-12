@@ -8,7 +8,7 @@ export const getPackTypeById = async (packTypeId: number) => {
     }
 
     const response = await api.get(
-      `packTypeById/${packTypeId}`
+      `/packType/packTypeById/${packTypeId}`
     );
 
     return response.data?.data ?? response.data;
