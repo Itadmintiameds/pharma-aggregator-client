@@ -22,7 +22,8 @@ import CommonModal from "../commonComponent/CommonModal";
 import AdditionalDiscount from "./AdditionalDiscount";
 import UploadInput from "../commonComponent/UploadInput";
 import PopupModal from "../commonComponent/PopupModal";
-import AddDiscNew from "./AddDiscNew";
+import AddDiscNew from "./AdditionalDiscountNew";
+import AdditionalDiscountType from "./AdditionalDiscountType";
 
 interface SelectOption {
   value: string;
@@ -1272,7 +1273,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         onClose={() => setShowSuccessModal(false)}
       />
 
-      {showAdditionalDiscount && (
+      {/* {showAdditionalDiscount && (
         <CommonModal
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]" // optional
@@ -1299,22 +1300,27 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   };
                 });
               }}
-              onClose={() => setShowAdditionalDiscount(false)} // ✅ NEW
+              onClose={() => setShowAdditionalDiscount(false)}
+            />
+          </div>
+        </CommonModal>
+      )} */}
+
+      {showAdditionalDiscount && (
+        <CommonModal
+          onClose={() => setShowAdditionalDiscount(false)}
+          width="w-[600px]"
+        >
+          <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
+            <AdditionalDiscountType
+              onClose={() => setShowAdditionalDiscount(false)}
+              initialData={form.additionalDiscount}
+              baseDiscountPercentage={Number(form.discountPercentage) || 0}
+              baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
             />
           </div>
         </CommonModal>
       )}
-
-      {/* {showAdditionalDiscount && (
-        <CommonModal
-          onClose={() => setShowAdditionalDiscount(false)}
-          width="w-[600px]" // optional
-        >
-          <div className="h-[80vh] overflow-hidden flex flex-col">
-           <AddDiscNew/>
-          </div>
-        </CommonModal>
-      )} */}
       <div>
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
           <div className="text-h4 font-semibold">Product Details</div>
