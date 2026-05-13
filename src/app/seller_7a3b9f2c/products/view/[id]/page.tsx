@@ -10,7 +10,7 @@ export default function ProductViewPage() {
   const productId = params.id as string;
 
   const handleSetCurrentView = (view: DashboardView) => {
-    if (view === "editDrug" || view === "editConsumable" || view === "editNonConsumable") {
+    if (view === "editDrug" || view === "editConsumable" || view === "editNonConsumable" || view === "editSupplement" || view === "editFoodInfant" || view === "editCosmetic") {
       router.push(`/seller_7a3b9f2c/products/edit/${productId}?category=${view}`);
     } else {
       router.push("/seller_7a3b9f2c/products");

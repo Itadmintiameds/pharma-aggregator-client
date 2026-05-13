@@ -10,9 +10,13 @@ import {
   getTherapeuticSubcategoryById,
 } from "@/src/services/product/TherapeuticCategoryService";
 import { getAllMolecules } from "@/src/services/product/MoleculeService";
+import {
+  getConsumableDeviceCategories,
+  getConsumableDeviceSubCategories,
+} from "@/src/services/product/ConsumbaleService";
 import SupplementDetailsView from "./SupplementDetailsView";
 import ConsumableView from "./ConsumableView";
-// import CosmeticPersonalCareView from "./CosmeticView";
+import CosmeticPersonalCareView from "./CosmeticView";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -124,18 +128,26 @@ interface ConsumableAttributes {
   deviceCategoryName?: string;
   deviceSubCategoryName?: string;
   usageType?: string;
+  // Raw IDs returned by API — used for lookup
+  deviceCatId?: number | string;
+  deviceSubCatId?: number | string;
 }
 
 export interface CosmeticAttributes {
   productType?: string;
   productSubtype?: string;
+  productSubType?: string;
   brandName?: string;
   variantName?: string;
   gender?: string;
   intendedUseArea?: string;
+  intendedUseAreas?: string | string[];
   skinHairType?: string;
+  skinTypes?: string | string[];
+  hairTypes?: string | string[];
   ageGroup?: string;
   netQuantityStrength?: string;
+  netQuantity?: string;
   activeIngredients?: string;
   productClaims?: string;
   storageCondition?: string;
@@ -143,6 +155,7 @@ export interface CosmeticAttributes {
   storageConditionId?: number;
   manufacturerName?: string;
   countryOfOrigin?: string;
+  countryName?: string;
   brochurePath?: string;
   certificateDocuments?: CertificateDocument[];
   productDescription?: string;
@@ -204,7 +217,10 @@ interface ProductApiData {
   productAttributeDrugs?: DrugAttributeEntry[];
   drugAttributes?: DrugAttributeEntry;
   productAttributeSupplementsOrNutraceuticals?: any[];
+  // The API may return any of these keys for cosmetic attributes:
+  productAttributeCosmeticAndPersonalUse?: CosmeticAttributes[];
   productAttributeCosmeticPersonalCare?: CosmeticAttributes[];
+  productAttributeCosmetics?: CosmeticAttributes[];
   cosmeticAttributes?: CosmeticAttributes;
   productMarketingUrl?: string;
   therapeuticCategory?: string;
@@ -241,6 +257,9 @@ interface ResolvedLookups {
     number,
     { drugSchedule?: string; mechanismOfAction?: string; primaryUse?: string }
   >;
+  // Consumable device names resolved from IDs
+  deviceCategoryName: string | null;
+  deviceSubCategoryName: string | null;
   loading: boolean;
 }
 
@@ -251,6 +270,8 @@ const INITIAL_LOOKUPS: ResolvedLookups = {
   therapeuticSubcategoryName: null,
   moleculeMap: {},
   moleculeDetailMap: {},
+  deviceCategoryName: null,
+  deviceSubCategoryName: null,
   loading: false,
 };
 
@@ -378,6 +399,25 @@ const resolveProductImages = (data: ProductApiData | null): string[] => {
   return [];
 };
 
+/**
+ * Extract cosmetic attributes from API response.
+ * The API may return them under different keys depending on the backend version.
+ * Priority mirrors CosmeticForm: productAttributeCosmeticAndPersonalUse first.
+ */
+const extractCosmeticAttr = (data: ProductApiData): CosmeticAttributes | null => {
+  const arr =
+    (data.productAttributeCosmeticAndPersonalUse ?? []).length > 0
+      ? data.productAttributeCosmeticAndPersonalUse!
+      : (data.productAttributeCosmeticPersonalCare ?? []).length > 0
+      ? data.productAttributeCosmeticPersonalCare!
+      : (data.productAttributeCosmetics ?? []).length > 0
+      ? data.productAttributeCosmetics!
+      : null;
+
+  if (arr && arr.length > 0) return arr[0];
+  return data.cosmeticAttributes ?? null;
+};
+
 /* ─────────────────────────────────────────────────────────
    SUB-COMPONENTS
 ───────────────────────────────────────────────────────── */
@@ -451,13 +491,7 @@ const SpecialOffersSection = ({ offers }: { offers: SpecialOffer[] }) => {
   return (
     <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
       <SectionTitle>Special Offers &amp; Promotional Schemes</SectionTitle>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: 16,
-        }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
         {offers.map((offer, idx) => {
           const type = offer.offerType ?? "bogo";
           const colors = OFFER_COLORS[type] ?? OFFER_COLORS.bogo;
@@ -465,10 +499,6 @@ const SpecialOffersSection = ({ offers }: { offers: SpecialOffer[] }) => {
           const validText =
             offer.validFrom && offer.validTo
               ? `Valid: ${formatDate(offer.validFrom)} - ${formatDate(offer.validTo)}`
-              : offer.validTo
-              ? `Valid: Ongoing`
-              : offer.validFrom
-              ? `Valid: Ongoing`
               : null;
 
           return (
@@ -511,30 +541,11 @@ const SpecialOffersSection = ({ offers }: { offers: SpecialOffer[] }) => {
                   {offer.title}
                 </span>
               </div>
-              <p
-                style={{
-                  color: "#3C3D3A",
-                  fontSize: 13,
-                  fontFamily: "'Noto Sans', sans-serif",
-                  fontWeight: 400,
-                  lineHeight: "20px",
-                  margin: 0,
-                }}
-              >
+              <p style={{ color: "#3C3D3A", fontSize: 13, fontFamily: "'Noto Sans', sans-serif", fontWeight: 400, lineHeight: "20px", margin: 0 }}>
                 {offer.description}
               </p>
               {validText && (
-                <p
-                  style={{
-                    color: colors.titleColor,
-                    fontSize: 12,
-                    fontFamily: "'Noto Sans', sans-serif",
-                    fontWeight: 400,
-                    lineHeight: "18px",
-                    margin: 0,
-                    opacity: 0.8,
-                  }}
-                >
+                <p style={{ color: colors.titleColor, fontSize: 12, fontFamily: "'Noto Sans', sans-serif", fontWeight: 400, lineHeight: "18px", margin: 0, opacity: 0.8 }}>
                   {validText}
                 </p>
               )}
@@ -599,13 +610,12 @@ const ProductView1 = ({
         ? productData.productAttributeNonConsumableMedicals![0]
         : productData.nonConsumableAttributes ?? null;
 
-    const cosAttr: CosmeticAttributes | null =
-      (productData.productAttributeCosmeticPersonalCare ?? []).length > 0
-        ? productData.productAttributeCosmeticPersonalCare![0]
-        : productData.cosmeticAttributes ?? null;
+    // Use the unified extractor so we get the right attribute regardless of API key
+    const cosAttr: CosmeticAttributes | null = extractCosmeticAttr(productData);
 
     setLookups((prev) => ({ ...prev, loading: true }));
 
+    // ── Pack type ──
     const packId = toPositiveInt(packaging?.packId);
     const inlinePackName = packaging?.packTypeName?.trim() || packaging?.packType?.trim() || null;
 
@@ -621,6 +631,7 @@ const ProductView1 = ({
       }
     };
 
+    // ── Storage condition ──
     const inlineStorageName =
       drugEntry?.storageConditionName?.trim() ||
       drugEntry?.storageCondition?.trim() ||
@@ -655,6 +666,7 @@ const ProductView1 = ({
       }
     };
 
+    // ── Therapeutic category ──
     const catId = toPositiveInt(drugEntry?.therapeuticCategoryId);
     const inlineCatName = drugEntry?.therapeuticCategoryName?.trim() || productData.therapeuticCategory?.trim() || null;
 
@@ -671,6 +683,7 @@ const ProductView1 = ({
       }
     };
 
+    // ── Therapeutic subcategory ──
     const subId = toPositiveInt(drugEntry?.therapeuticSubcategoryId);
     const inlineSubName = drugEntry?.therapeuticSubcategoryName?.trim() || productData.therapeuticSubcategory?.trim() || null;
 
@@ -687,6 +700,7 @@ const ProductView1 = ({
       }
     };
 
+    // ── Molecules ──
     const moleculesInEntry = drugEntry?.molecules ?? [];
     const needsMoleculeData = drugEntry != null && moleculesInEntry.some((m) => m.moleculeId != null);
 
@@ -712,14 +726,75 @@ const ProductView1 = ({
       }
     };
 
+    // ── Consumable: device category & subcategory ──
+    // First try inline name fields on the attribute object, then fall back to ID lookup.
+    const inlineDeviceCatName =
+      consAttr?.deviceCategoryName?.trim() || null;
+    const inlineDeviceSubCatName =
+      consAttr?.deviceSubCategoryName?.trim() || null;
+
+    const deviceCatId = toPositiveInt(consAttr?.deviceCatId);
+    const deviceSubCatId = toPositiveInt(consAttr?.deviceSubCatId);
+
+    const fetchDeviceNames = async (): Promise<Partial<ResolvedLookups>> => {
+      if (!consAttr) return {};
+
+      let deviceCategoryName: string | null = inlineDeviceCatName;
+      let deviceSubCategoryName: string | null = inlineDeviceSubCatName;
+
+      // Look up category name from ID if we don't have the inline name
+      if (!deviceCategoryName && deviceCatId !== null) {
+        try {
+          const cats: any[] = await getConsumableDeviceCategories();
+          const found = cats.find(
+            (c) =>
+              Number(c.deviceCatId ?? c.id) === deviceCatId,
+          );
+          if (found) {
+            deviceCategoryName =
+              String(found.deviceName ?? found.name ?? "").trim() || null;
+          }
+        } catch {
+          // ignore — leave as null
+        }
+      }
+
+      // Look up subcategory name from ID if we don't have the inline name
+      if (!deviceSubCategoryName && deviceCatId !== null && deviceSubCatId !== null) {
+        try {
+          const subCats: any[] = await getConsumableDeviceSubCategories(
+            String(deviceCatId),
+          );
+          const found = subCats.find(
+            (s) =>
+              Number(s.deviceSubCatId ?? s.subCategoryId ?? s.id) === deviceSubCatId,
+          );
+          if (found) {
+            deviceSubCategoryName =
+              String(
+                found.deviceSubCatName ?? found.subCategoryName ?? found.name ?? "",
+              ).trim() || null;
+          }
+        } catch {
+          // ignore — leave as null
+        }
+      }
+
+      return { deviceCategoryName, deviceSubCategoryName };
+    };
+
     Promise.all([
       fetchPackType(),
       fetchStorageCondition(),
       fetchTherapeuticCategory(),
       fetchTherapeuticSubcategory(),
       fetchMolecules(),
+      fetchDeviceNames(),
     ]).then((results) => {
-      const merged = results.reduce((acc, partial) => ({ ...acc, ...partial }), {} as Partial<ResolvedLookups>);
+      const merged = results.reduce(
+        (acc, partial) => ({ ...acc, ...partial }),
+        {} as Partial<ResolvedLookups>,
+      );
       setLookups((prev) => ({ ...prev, ...merged, loading: false }));
     });
   }, [productData]);
@@ -754,23 +829,38 @@ const ProductView1 = ({
       ? productData!.productAttributeSupplementsOrNutraceuticals![0]
       : null;
 
-  const cosAttr: CosmeticAttributes | null =
-    (productData?.productAttributeCosmeticPersonalCare ?? []).length > 0
-      ? productData!.productAttributeCosmeticPersonalCare![0]
-      : productData?.cosmeticAttributes ?? null;
+  // Use the unified extractor — same priority as CosmeticForm
+  const cosAttr: CosmeticAttributes | null = productData
+    ? extractCosmeticAttr(productData)
+    : null;
 
   const resolvedCategoryId: number | null = productData?.categoryId ?? categoryIdProp ?? null;
 
-  const isConsumable = resolvedCategoryId === 5 || consAttr !== null;
-  const isNonConsumable = resolvedCategoryId === 6 || (ncAttr !== null && !isConsumable);
+  // Category detection: explicit categoryId takes precedence; fall back to attribute presence
+  const isConsumable =
+    resolvedCategoryId === 5 ||
+    (resolvedCategoryId == null && consAttr !== null);
+  const isNonConsumable =
+    resolvedCategoryId === 6 ||
+    (resolvedCategoryId == null && ncAttr !== null && !isConsumable);
   const isCosmetic =
-    resolvedCategoryId === 4 || (cosAttr !== null && !isConsumable && !isNonConsumable);
+    resolvedCategoryId === 4 ||
+    (resolvedCategoryId == null && cosAttr !== null && !isConsumable && !isNonConsumable);
   const isDrug =
     resolvedCategoryId === 1 ||
-    (drugEntry !== null && !isConsumable && !isNonConsumable && !isCosmetic);
+    (resolvedCategoryId == null &&
+      drugEntry !== null &&
+      !isConsumable &&
+      !isNonConsumable &&
+      !isCosmetic);
   const isSupplement =
     resolvedCategoryId === 2 ||
-    (suppAttr !== null && !isConsumable && !isNonConsumable && !isDrug && !isCosmetic);
+    (resolvedCategoryId == null &&
+      suppAttr !== null &&
+      !isConsumable &&
+      !isNonConsumable &&
+      !isDrug &&
+      !isCosmetic);
 
   const primaryMoleculeId: number | null = (drugEntry?.molecules ?? [])[0]?.moleculeId ?? null;
 
@@ -923,6 +1013,17 @@ const ProductView1 = ({
     validUrl(productData?.productMarketingUrl);
 
   const specialOffers: SpecialOffer[] = productData?.specialOffers ?? [];
+
+  // Resolved device names for ConsumableView
+  const resolvedDeviceCategoryName: string | null =
+    lookups.deviceCategoryName ??
+    consAttr?.deviceCategoryName ??
+    (lookups.loading ? "Loading…" : null);
+
+  const resolvedDeviceSubCategoryName: string | null =
+    lookups.deviceSubCategoryName ??
+    consAttr?.deviceSubCategoryName ??
+    (lookups.loading ? "Loading…" : null);
 
   const handleClose = () => setCurrentView("overview" as DashboardView);
   const handleEdit = () => {
@@ -1080,25 +1181,27 @@ const ProductView1 = ({
           productDescription={productDescription}
           displayImages={displayImages}
           consAttr={consAttr}
-          storageConditionName={lookups.loading && !storageCondition ? "Loading…" : storageCondition}
+          storageConditionName={storageCondition}
+          deviceCategoryName={resolvedDeviceCategoryName}
+          deviceSubCategoryName={resolvedDeviceSubCategoryName}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
         />
       )}
 
       {/* Cosmetic & Personal Care (category 4) */}
-      {/* {isCosmetic && (
+      {isCosmetic && (
         <CosmeticPersonalCareView
           productName={productData.productName}
           productDescription={productDescription}
           warningsPrecautions={warningsPrecautions}
           displayImages={displayImages}
           cosAttr={cosAttr}
-          storageConditionName={lookups.loading && !storageCondition ? "Loading…" : storageCondition}
+          storageConditionName={storageCondition}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
         />
-      )} */}
+      )}
 
       {/* Drug (category 1) */}
       {isDrug && (
