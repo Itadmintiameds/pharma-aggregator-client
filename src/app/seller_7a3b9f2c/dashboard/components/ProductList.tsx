@@ -170,7 +170,7 @@ const ProductList = ({
                   // ⏳ Delay view change (critical)
                   setTimeout(() => {
                     setCurrentView(view);
-                  }, 0);
+                  }, 50);
                 }}
               />
               <img
