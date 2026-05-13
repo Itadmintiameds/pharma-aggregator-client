@@ -18,6 +18,7 @@ type AdditionalDiscountNewProps = {
   initialData: AdditionalDiscountData[];
   baseDiscountPercentage: number;
   baseMinimumOrderQuantity: number;
+  onSave: (data: AdditionalDiscountData[]) => void;
 };
 
 type AdditionalDiscountForm = {
@@ -43,6 +44,7 @@ const AdditionalDiscountNew = forwardRef<
       initialData,
       baseDiscountPercentage,
       baseMinimumOrderQuantity,
+      onSave,
     }: AdditionalDiscountNewProps,
     ref,
   ) => {
@@ -438,6 +440,7 @@ const AdditionalDiscountNew = forwardRef<
       const updatedSlabs = [...slabs, slab];
 
       setSlabs(updatedSlabs);
+      onSave(updatedSlabs);
       setForm(EMPTY_FORM);
       setErrors({});
     };

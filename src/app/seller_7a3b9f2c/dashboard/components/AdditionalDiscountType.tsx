@@ -84,6 +84,7 @@ type AdditionalDiscountTypeProps = {
   initialData: AdditionalDiscountData[];
   baseDiscountPercentage: number;
   baseMinimumOrderQuantity: number;
+  onSaveAdditionalDiscount: (data: AdditionalDiscountData[]) => void;
 };
 
 const AdditionalDiscountType = ({
@@ -91,6 +92,7 @@ const AdditionalDiscountType = ({
   initialData,
   baseDiscountPercentage,
   baseMinimumOrderQuantity,
+  onSaveAdditionalDiscount,
 }: AdditionalDiscountTypeProps) => {
   const [selectedOption, setSelectedOption] = useState<OptionType | null>(null);
 
@@ -131,6 +133,7 @@ const AdditionalDiscountType = ({
                 initialData={initialData}
                 baseDiscountPercentage={baseDiscountPercentage}
                 baseMinimumOrderQuantity={baseMinimumOrderQuantity}
+                onSave={onSaveAdditionalDiscount}
               />
             )}
             {selectedOption?.value === "special_schemes" && (
