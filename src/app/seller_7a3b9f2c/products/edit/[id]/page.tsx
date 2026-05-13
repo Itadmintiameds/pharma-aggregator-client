@@ -27,12 +27,12 @@ export default function EditProductPage() {
         return <ConsumableForm productId={productId} mode="edit" />;
       case "editNonConsumable":
         return <NonConsumableForm productId={productId} mode="edit" />;
-    //   case "editSupplement":
-    //     return <SupplementForm productId={productId} mode="edit" />;
-    //   case "editFoodInfant":
-    //     return <FoodInfantForm productId={productId} mode="edit" />;
-    //   case "editCosmetic":
-    //     return <CosmeticForm productId={productId} mode="edit" />;
+      case "editSupplement":
+        return <SupplementForm productId={productId} mode="edit" />;
+      // case "editFoodInfant":
+      //   return <FoodInfantForm productId={productId} mode="edit" />;
+      // case "editCosmetic":
+      //   return <CosmeticForm productId={productId} mode="edit" />;
       default:
         return <DrugForm productId={productId} mode="edit" />;
     }

@@ -21,6 +21,7 @@ import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
 import AdditionalDiscount from "./AdditionalDiscount";
 import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications } from "@/src/services/product/SupplementService";
+import { getProductById, updateProduct } from "@/src/services/product/ProductService";
 
 import { getTherapeuticCategory, getTherapeuticSubcategory } from "@/src/services/product/TherapeuticCategoryService";
 import { supplementProductSchema } from "@/src/schema/product/SupplementProductSchema";
@@ -37,6 +38,7 @@ interface CertificationTag {
   fileName: string;
   isUploaded: boolean;
   existingUrl?: string;
+  documentId?: number;
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
@@ -102,14 +104,24 @@ const gstOptions: SelectOption[] = [
 
 interface SupplementFormProps {
   categoryId?: number | string;
+  productId?: string;
+  mode?: "create" | "edit";
 }
 
-const SupplementForm = ({ categoryId }: SupplementFormProps) => {
+const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) => {
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   const setFieldRef =
     (name: string) => (el: HTMLElement | null) => { fieldRefs.current[name] = el; };
 
+  const isEditMode = mode === "edit";
+
   const [form, setForm] = useState({
+    // Internal IDs needed for update
+    productId: "",
+    pricingId: "",
+    productAttributeId: "",
+    packagingId: "",
+
     productName: "",
     therapeuticCategory: "",
     therapeuticSubcategory: "",
@@ -157,6 +169,9 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [images, setImages] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [existingBrochureUrl, setExistingBrochureUrl] = useState<string | null>(null);
+  const [existingNutritionalImageUrl, setExistingNutritionalImageUrl] = useState<string | null>(null);
   const [nutritionalImage, setNutritionalImage] = useState<File | null>(null);
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
 
@@ -164,8 +179,35 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
   const [showCertDropdown, setShowCertDropdown] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [modalType, setModalType] = useState<"create" | "update">("create");
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
-  const isEditMode = false; // Mock edit mode variable for JSX validation
+
+  const handleViewProduct = () => {
+    window.location.reload();
+  };
+
+  const handleContinueEditing = () => {
+    setShowSuccess(false);
+  };
+
+  const handleContinueAdding = () => {
+    setShowSuccess(false);
+    // window.location.reload(); or resetForm()
+    window.location.reload();
+  };
+
+  const handleBackToDashboard = () => {
+    window.location.reload();
+  };
+
+  // In create mode, use the prop. In edit mode, this is set from the fetched product.
+  const [effectiveCategoryId, setEffectiveCategoryId] = useState<number | string | undefined>(categoryId);
+
+  // Tracks how many certs were loaded from the server — these are mandatory in edit mode
+  const [mandatoryCertCount, setMandatoryCertCount] = useState(0);
+
+  // true when stock > 0; used to conditionally lock pack/storage fields
+  const hasStock = isEditMode && Number(form.stockQuantity) > 0;
 
   const [therapeuticCategoryOptions, setTherapeuticCategoryOptions] = useState<SelectOption[]>([]);
   const [subCategoryOptions, setSubCategoryOptions] = useState<SelectOption[]>([]);
@@ -188,11 +230,11 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
   const [loadingPackTypes, setLoadingPackTypes] = useState(false);
 
   useEffect(() => {
-    if (!categoryId) return;
+    if (!effectiveCategoryId) return;
     const fetchTherapeuticCategories = async () => {
       setLoadingTherapeuticCategories(true);
       try {
-        const data = await getTherapeuticCategory(categoryId);
+        const data = await getTherapeuticCategory(effectiveCategoryId);
         const options = data.map((cat: any) => ({
           value: cat.therapeuticCategoryId,
           label: cat.therapeuticCategory,
@@ -205,7 +247,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
       }
     };
     fetchTherapeuticCategories();
-  }, [categoryId]);
+  }, [effectiveCategoryId]);
 
   useEffect(() => {
     if (!form.therapeuticCategory) {
@@ -231,11 +273,11 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
   }, [form.therapeuticCategory]);
 
   useEffect(() => {
-    if (!categoryId) return;
+    if (!effectiveCategoryId) return;
     const fetchDosageForms = async () => {
       setLoadingDosageForms(true);
       try {
-        const data = await getSupplementDosageForms(categoryId);
+        const data = await getSupplementDosageForms(effectiveCategoryId);
         const options = data.map((item: any) => ({
           value: String(item.dosageId),
           label: item.dosageName || "Unknown",
@@ -248,7 +290,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
       }
     };
     fetchDosageForms();
-  }, [categoryId]);
+  }, [effectiveCategoryId]);
 
   useEffect(() => {
     const fetchAgeGroups = async () => {
@@ -289,11 +331,11 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
   }, []);
 
   useEffect(() => {
-    if (!categoryId) return;
+    if (!effectiveCategoryId) return;
     const fetchStorageConditions = async () => {
       setLoadingStorageConditions(true);
       try {
-        const data = await getSupplementStorageConditions(categoryId);
+        const data = await getSupplementStorageConditions(effectiveCategoryId);
         const options = data.map((item: any) => ({
           value: String(item.storageConditionId),
           label: item.conditionName || "Unknown",
@@ -306,14 +348,14 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
       }
     };
     fetchStorageConditions();
-  }, [categoryId]);
+  }, [effectiveCategoryId]);
 
   useEffect(() => {
-    if (!categoryId) return;
+    if (!effectiveCategoryId) return;
     const fetchCertifications = async () => {
       setLoadingCertifications(true);
       try {
-        const data = await getSupplementCertifications(categoryId);
+        const data = await getSupplementCertifications(effectiveCategoryId);
         const options = data.map((item: any) => ({
           value: String(item.certificationId),
           label: item.certificationName || "Unknown",
@@ -327,7 +369,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
       }
     };
     fetchCertifications();
-  }, [categoryId]);
+  }, [effectiveCategoryId]);
 
   useEffect(() => {
     const fetchCountries = async () => {
@@ -625,6 +667,13 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
   const handleCertCheckbox = (opt: typeof certificationOptions[0]) => {
     const exists = selectedCertifications.some((c) => c.id === opt.value);
     if (exists) {
+      // In edit mode, block removing certs that were loaded from the server (mandatory)
+      const isMandatory = isEditMode &&
+        selectedCertifications.findIndex((c) => c.id === opt.value) < mandatoryCertCount;
+      if (isMandatory) {
+        alert(`"${opt.label}" is a mandatory certificate and cannot be removed. You may re-upload a new file for it instead.`);
+        return;
+      }
       setSelectedCertifications((p) => p.filter((c) => c.id !== opt.value));
     } else {
       setSelectedCertifications((p) => [
@@ -682,7 +731,119 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
     setBrochureFile(file);
   };
 
+  // ── Edit mode: fetch and populate form ──────────────────────────────────────
+  useEffect(() => {
+    if (mode === "edit" && productId) {
+      fetchProductByIdAndFillForm(productId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, productId]);
+
+  const fetchProductByIdAndFillForm = async (id: string) => {
+    try {
+      const data = await getProductById(id);
+      if (!data) throw new Error("Product not found");
+
+      // Get the latest pricing and packaging entries
+      const pricing = data.pricingDetails?.length > 0
+        ? data.pricingDetails.reduce((latest: any, curr: any) =>
+          new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest)
+        : {};
+      const packaging = data.packagingDetails?.length > 0
+        ? data.packagingDetails.reduce((latest: any, curr: any) =>
+          new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest)
+        : {};
+      const attr = data.productAttributeSupplementsOrNutraceuticals?.[0] || {};
+
+      // ✅ KEY FIX: set categoryId from the product so all dropdowns load in edit mode
+      if (data.categoryId) {
+        setEffectiveCategoryId(data.categoryId);
+      }
+
+      // Existing files (URLs, not new File objects)
+      setExistingImages(data.productImages?.map((img: any) => img.productImage) || []);
+      setExistingBrochureUrl(attr.brochurePath || null);
+      setExistingNutritionalImageUrl(attr.nutritionalInformationImageUrl || null);
+
+      // Re-populate certifications from existing data
+      if (attr.certificateDocuments?.length > 0) {
+        const mappedCerts: CertificationTag[] = attr.certificateDocuments.map((cert: any) => ({
+          id: String(cert.certificationId),
+          label: cert.certificationName || `Cert ${cert.certificationId}`,
+          tagCode: (cert.certificationName || "").split(" ")[0].toUpperCase() || "CERT",
+          file: null,
+          fileName: "",
+          isUploaded: false,
+          existingUrl: cert.certificateUrl || undefined,
+          documentId: cert.productCertificateDocumentId,
+        }));
+        setSelectedCertifications(mappedCerts);
+        // Lock these certs as mandatory — they must be kept or re-uploaded
+        setMandatoryCertCount(mappedCerts.length);
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        productId: data.productId || "",
+        pricingId: pricing.pricingId || "",
+        productAttributeId: attr.productAttributeId || "",
+
+        productName: data.productName || "",
+        warningsPrecautions: data.warningsPrecautions || "",
+        productDescription: data.productDescription || "",
+        manufacturerName: data.manufacturerName || "",
+
+        therapeuticCategory: String(attr.therapeuticCategoryId || ""),
+        therapeuticSubcategory: String(attr.therapeuticSubCategoryId || ""),
+        brandName: attr.brandName || "",
+        variantName: attr.variantName || "",
+        dosageForm: String(attr.dosageFormId || ""),
+        netQuantity: attr.netQuantity || "",
+        strength: attr.strength || "",
+        activeIngredients: attr.activeIngredients || "",
+        excipients: attr.otherIngredients || "",
+        nutritionalInfoType: attr.nutritionalInformationImageUrl ? "image" : "label",
+        intendedUse: attr.intendedUse || "",
+        ageGroup: String(attr.ageGroupId || ""),
+        gender: attr.gender || "",
+        vegNonVeg: attr.vegOrNonVegIndicator || "",
+        allergenInfo: attr.allergenInformation || "",
+        flavour: String(attr.flavourId || ""),
+        productClaims: attr.productClaims || "",
+        storageCondition: String(attr.storageConditionId || ""),
+        countryOfOrigin: String(attr.countryId || ""),
+
+        packagingId: String(packaging.packagingId || ""),
+        packId: String(packaging.packId || ""),
+        packType: packaging.packType || "",
+        unitPerPack: String(packaging.unitPerPack ?? ""),
+        numberOfPacks: String(packaging.numberOfPacks ?? ""),
+        packSize: String(packaging.packSize ?? ""),
+        minimumOrderQuantity: String(packaging.minimumOrderQuantity ?? ""),
+        maximumOrderQuantity: String(packaging.maximumOrderQuantity ?? ""),
+
+        batchLotNumber: pricing.batchLotNumber || "",
+        manufacturingDate: pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null,
+        expiryDate: pricing.expiryDate ? new Date(pricing.expiryDate) : null,
+        dateOfStockEntry: pricing.dateOfStockEntry ? new Date(pricing.dateOfStockEntry) : new Date(),
+        stockQuantity: String(pricing.stockQuantity ?? ""),
+        sellingPrice: String(pricing.sellingPrice ?? ""),
+        mrp: String(pricing.mrp ?? ""),
+        gstPercentage: pricing.gstPercentage != null ? String(pricing.gstPercentage) : "",
+        discountPercentage: String(pricing.discountPercentage ?? ""),
+        finalPrice: String(pricing.finalPrice ?? ""),
+        hsnCode: String(pricing.hsnCode ?? ""),
+        shelfLifeMonths: String(pricing.shelfLifeMonths ?? ""),
+        additionalDiscount: pricing.additionalDiscounts || [],
+      }));
+    } catch (err) {
+      console.error("Failed to load supplement product:", err);
+      alert("Failed to load product data");
+    }
+  };
+
   const getMinExpiryMonth = () => {
+
     if (!form.manufacturingDate) return "";
     const minDate = new Date(form.manufacturingDate);
     minDate.setMonth(minDate.getMonth() + 3);
@@ -709,20 +870,35 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
 
     // ── Extra validations not in Zod (file state) ─────────────────────────────
     if (!form.nutritionalInfoType) e.nutritionalInfoType = "Nutritional Information selection is required";
-    if (form.nutritionalInfoType === "image" && !nutritionalImage) e.nutritionalImage = "Nutritional Image is required";
-    if (images.length === 0) e.images = "At least one product image is required";
+    if (form.nutritionalInfoType === "image" && !nutritionalImage && !existingNutritionalImageUrl)
+      e.nutritionalImage = "Nutritional Image is required";
+    // In edit mode, existing images/brochures count as valid
+    if (images.length === 0 && existingImages.length === 0)
+      e.images = "At least one product image is required";
     if (images.length > 5) e.images = "Maximum 5 images allowed";
-    if (!brochureFile) e.brochureFile = "Brochure / User Manual is required";
-    if (selectedCertifications.length === 0) e.certifications = "At least one certification is required";
-    else {
+    if (!brochureFile && !existingBrochureUrl)
+      e.brochureFile = "Brochure / User Manual is required";
+    if (selectedCertifications.length === 0) {
+      e.certifications = "At least one certification is required";
+    } else {
+      // Every cert must have either an existing URL or a newly uploaded file
       const missing = selectedCertifications.find((c) => !c.file && !c.existingUrl);
       if (missing) e.certifications = `Please upload the file for "${missing.label}"`;
+      // In edit mode, mandatory certs (originally on the product) must still all be present
+      if (isEditMode && selectedCertifications.length < mandatoryCertCount) {
+        e.certifications = `You must keep all ${mandatoryCertCount} original certifications. Please re-add any removed ones.`;
+      }
     }
 
     return e;
   };
 
   const handleSubmit = async () => {
+    if (isEditMode) {
+      await handleUpdate();
+      return;
+    }
+
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
@@ -885,6 +1061,175 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
     }
   };
 
+  // ── handleUpdate: called when mode === "edit" ────────────────────────────────
+  const handleUpdate = async () => {
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      console.warn("⚠️ Validation failed during update:", errs);
+      setErrors(errs);
+      const firstKey = Object.keys(errs)[0];
+      const el = fieldRefs.current[firstKey] || document.querySelector<HTMLElement>(`[data-field="${firstKey}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        productId: form.productId,
+        productName: form.productName,
+        warningsPrecautions: form.warningsPrecautions,
+        productDescription: form.productDescription,
+        manufacturerName: form.manufacturerName,
+        categoryId: Number(effectiveCategoryId),
+
+        packagingDetails: [
+          {
+            packId: Number(form.packId),
+            unitPerPack: Number(form.unitPerPack),
+            numberOfPacks: Number(form.numberOfPacks),
+            packSize: Number(form.packSize),
+            minimumOrderQuantity: Number(form.minimumOrderQuantity),
+            maximumOrderQuantity: Number(form.maximumOrderQuantity),
+          },
+        ],
+
+        pricingDetails: [
+          {
+            pricingId: form.pricingId || undefined, // ✅ Prevents duplicate rows
+            batchLotNumber: form.batchLotNumber,
+            manufacturingDate: form.manufacturingDate instanceof Date
+              ? form.manufacturingDate.toISOString().split("T")[0] + "T00:00:00" : null,
+            expiryDate: form.expiryDate instanceof Date
+              ? form.expiryDate.toISOString().split("T")[0] + "T00:00:00" : null,
+            shelfLifeMonths: Number(form.shelfLifeMonths),
+            stockQuantity: Number(form.stockQuantity),
+            dateOfStockEntry: form.dateOfStockEntry instanceof Date
+              ? form.dateOfStockEntry.toISOString().split("T")[0] + "T00:00:00" : null,
+            discountPercentage: Number(form.discountPercentage),
+            sellingPrice: Number(form.sellingPrice),
+            mrp: Number(form.mrp),
+            gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : 0,
+            finalPrice: Number(form.finalPrice),
+            hsnCode: Number(form.hsnCode),
+            additionalDiscounts: form.additionalDiscount.map((d: any) => ({
+              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
+              additionalDiscountPercentage: d.additionalDiscountPercentage,
+              effectiveStartDate: d.effectiveStartDate,
+              effectiveStartTime: d.effectiveStartTime,
+              effectiveEndDate: d.effectiveEndDate,
+              effectiveEndTime: d.effectiveEndTime,
+            })),
+          },
+        ],
+
+        productAttributeSupplementsOrNutraceuticals: [
+          {
+            productAttributeId: form.productAttributeId,
+            therapeuticCategoryId: form.therapeuticCategory,
+            therapeuticSubCategoryId: form.therapeuticSubcategory,
+            brandName: form.brandName,
+            variantName: form.variantName,
+            dosageFormId: Number(form.dosageForm),
+            netQuantity: form.netQuantity,
+            strength: form.strength,
+            activeIngredients: form.activeIngredients,
+            otherIngredients: form.excipients,
+            nutritionalInformation: form.nutritionalInfoType === "label" ? "As per the label." : "",
+            intendedUse: form.intendedUse,
+            ageGroupId: Number(form.ageGroup),
+            gender: form.gender,
+            vegOrNonVegIndicator: form.vegNonVeg,
+            allergenInformation: form.allergenInfo,
+            flavourId: Number(form.flavour),
+            productClaims: form.productClaims,
+            storageConditionId: Number(form.storageCondition),
+            countryId: Number(form.countryOfOrigin),
+            certificateDocuments: selectedCertifications.map((cert) => ({
+              productCertificateDocumentId: cert.documentId || undefined,
+              certificationId: Number(cert.id),
+              certificateUrl: cert.existingUrl || "PENDING",
+            })),
+            brochurePath: existingBrochureUrl || "PENDING",
+          },
+        ],
+      };
+
+      console.log("🚀 Sending update payload:", payload);
+
+      // ─── STEP 1: Update core product JSON ────────────────────────────────────
+      const response = await updateProduct(form.productId, payload);
+
+      console.log("✅ Update successful response:", response);
+
+      const attrId = form.productAttributeId;
+
+      // ─── STEP 2: Upload new product images (if any new ones selected) ─────────
+      if (images.length > 0) {
+        await uploadSupplementProductImages(form.productId, images);
+      }
+
+      // ─── STEP 3: Upload new nutritional image (if replaced) ──────────────────
+      if (nutritionalImage && attrId) {
+        try {
+          await uploadNutritionalInformationImage(attrId, Number(effectiveCategoryId) || 0, nutritionalImage);
+        } catch (e: any) {
+          console.warn("⚠️ Nutritional image upload failed:", e.message);
+        }
+      }
+
+      // ─── STEP 4: Upload new brochure (if replaced) ───────────────────────────
+      if (brochureFile && attrId) {
+        try {
+          await uploadSupplementBrochure(attrId, brochureFile);
+        } catch (e: any) {
+          console.warn("⚠️ Brochure upload failed:", e.message);
+        }
+      }
+
+      // ─── STEP 5: Upload new cert files (only newly added ones) ───────────────
+      if (attrId && response?.data) {
+        // Extract the latest certificate documents from the response to get their real DB IDs
+        const responseSuppAttr = response.data.productAttributeSupplementsOrNutraceuticals?.[0];
+        const responseCerts = responseSuppAttr?.certificateDocuments || [];
+
+        const newCerts = selectedCertifications.filter((c) => c.file && !c.existingUrl);
+        if (newCerts.length > 0) {
+          try {
+            const documentIds: number[] = [];
+            const certFiles: File[] = [];
+
+            newCerts.forEach((cert) => {
+              // Match by certificationId (the master ID) to find the new productCertificateDocumentId
+              const matched = responseCerts.find(
+                (rc: any) => Number(rc.certificationId) === Number(cert.id)
+              );
+              if (matched?.productCertificateDocumentId) {
+                documentIds.push(matched.productCertificateDocumentId);
+                certFiles.push(cert.file as File);
+              }
+            });
+
+            if (documentIds.length > 0) {
+              console.log("📂 Uploading cert files for DB IDs:", documentIds);
+              await uploadSupplementCertifications(attrId, documentIds, certFiles);
+            }
+          } catch (e: any) {
+            console.warn("⚠️ Cert upload failed:", e.message);
+          }
+        }
+      }
+
+      setModalType(isEditMode ? "update" : "create");
+      setShowSuccess(true);
+    } catch (err) {
+      console.error("❌ Update Error:", err);
+      alert("❌ Failed to update supplement product");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <>
       <PopupModal
@@ -950,6 +1295,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 error={errors.productName}
                 required
                 maxLength={150}
+                readOnly={isEditMode}
               />
             </div>
             {/* Therapeutic Category */}
@@ -966,6 +1312,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 placeholder="Select category"
                 theme={selectTheme}
                 styles={selectStyles("therapeuticCategory")}
+                isDisabled={isEditMode}
               />
               {errors.therapeuticCategory && <p className={errorMsg}>{errors.therapeuticCategory}</p>}
             </div>
@@ -983,7 +1330,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                   if (errors.therapeuticSubcategory) setErrors((p) => { const n = { ...p }; delete n.therapeuticSubcategory; return n; });
                 }}
                 placeholder={form.therapeuticCategory ? "Select sub-category" : "Select category first"}
-                isDisabled={!form.therapeuticCategory}
+                isDisabled={isEditMode || !form.therapeuticCategory}
                 theme={selectTheme}
                 styles={selectStyles("therapeuticSubcategory")}
               />
@@ -1001,6 +1348,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 maxLength={60}
                 error={errors.brandName}
                 required
+                readOnly={isEditMode}
               />
             </div>
 
@@ -1030,7 +1378,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 placeholder={loadingDosageForms ? "Loading..." : "Select dosage form"}
                 theme={selectTheme}
                 styles={selectStyles("dosageForm")}
-                isDisabled={loadingDosageForms}
+                isDisabled={isEditMode || loadingDosageForms}
               />
               {errors.dosageForm && <p className={errorMsg}>{errors.dosageForm}</p>}
             </div>
@@ -1048,6 +1396,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 maxLength={20}
                 error={errors.netQuantity}
                 required
+                readOnly={isEditMode}
               />
             </div>
             {/* Strength / Composition */}
@@ -1061,6 +1410,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 value={form.strength}
                 error={errors.strength}
                 required
+                readOnly={isEditMode}
               />
             </div>
 
@@ -1076,6 +1426,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 value={form.activeIngredients}
                 error={errors.activeIngredients}
                 required
+                readOnly={isEditMode}
               />
             </div>
             {/* Excipients / Other Ingredients */}
@@ -1175,7 +1526,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 placeholder={loadingAgeGroups ? "Loading..." : "Select age group"}
                 theme={selectTheme}
                 styles={selectStyles("ageGroup")}
-                isDisabled={loadingAgeGroups}
+                isDisabled={isEditMode || loadingAgeGroups}
               />
               {errors.ageGroup && <p className={errorMsg}>{errors.ageGroup}</p>}
             </div>
@@ -1203,7 +1554,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 Veg / Non-Veg Indicator
                 <span className="text-warning-500 font-semibold">*</span>
               </label>
-              <div className="flex items-center gap-6 h-14 px-4 rounded-2xl border border-neutral-500 bg-white">
+              <div className={`flex items-center gap-6 h-14 px-4 rounded-2xl border border-neutral-500 bg-white ${isEditMode ? "opacity-60 pointer-events-none" : ""}`}>
                 {(["Veg", "Non-Veg"] as const).map((option) => (
                   <label
                     key={option}
@@ -1214,8 +1565,9 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                       name="vegNonVeg"
                       value={option}
                       checked={form.vegNonVeg === option}
-                      onChange={() => handleRadioChange("vegNonVeg", option)}
+                      onChange={() => !isEditMode && handleRadioChange("vegNonVeg", option)}
                       className="w-4 h-4 accent-[#4B0082] cursor-pointer"
+                      disabled={isEditMode}
                     />
                     <span className="text-neutral-800 font-medium text-sm">{option}</span>
                   </label>
@@ -1283,7 +1635,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
                 theme={selectTheme}
                 styles={selectStyles("storageCondition")}
-                isDisabled={loadingStorageConditions}
+                isDisabled={hasStock || loadingStorageConditions}
               />
               {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
             </div>
@@ -1299,6 +1651,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 maxLength={100}
                 error={errors.manufacturerName}
                 required
+                readOnly={isEditMode}
               />
             </div>
 
@@ -1431,19 +1784,34 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
                 placeholder={loadingCountries ? "Loading..." : "Select country"}
                 theme={selectTheme}
                 styles={selectStyles("countryOfOrigin")}
-                isDisabled={loadingCountries}
+                isDisabled={isEditMode || loadingCountries}
               />
               {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
             </div>
             {/* Upload Brochure */}
             <div data-field="brochureFile">
+              {/* Existing brochure (edit mode) */}
+              {existingBrochureUrl && !brochureFile && (
+                <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50 mb-2">
+                  <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <FileText size={16} className="text-purple-600" />
+                  </div>
+                  <div className="flex-1 px-3 min-w-0">
+                    <p className="text-sm font-medium text-gray-700 truncate">Current brochure (saved)</p>
+                  </div>
+                  <a href={existingBrochureUrl} target="_blank" rel="noreferrer" className="px-3 text-purple-600 text-xs underline">View</a>
+                  <button type="button" onClick={() => setExistingBrochureUrl(null)} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400 mr-2">
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
               <UploadInput onFileSelect={handleBrochureUpload} />
               {errors.brochureFile && <p className={errorMsg}>{errors.brochureFile}</p>}
             </div>
 
             {/* ROW 13 */}
             {/* Warnings / Precautions */}
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1" data-field="warningsPrecautions">
               <label className={fieldLabel}>Warnings / Precautions {requiredStar}</label>
               <textarea
                 ref={setFieldRef("warningsPrecautions") as React.RefCallback<HTMLTextAreaElement>}
@@ -1457,7 +1825,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
               {errors.warningsPrecautions && <p className={errorMsg}>{errors.warningsPrecautions}</p>}
             </div>
             {/* Product Description */}
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1" data-field="productDescription">
               <label className={fieldLabel}>Product Description {requiredStar}</label>
               <textarea
                 ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>}
@@ -1523,6 +1891,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
               required
               min={1}
               step={1}
+              readOnly={hasStock}
             />
 
             <Input
@@ -1537,6 +1906,7 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
               required
               min={1}
               step={1}
+              readOnly={hasStock}
             />
 
             <Input
@@ -1877,55 +2247,93 @@ const SupplementForm = ({ categoryId }: SupplementFormProps) => {
             <span className="text-warning-500 font-semibold ml-1">*</span>
           </div>
 
-          {/* Drop Zone */}
           <div
-            className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer mt-4"
-            onClick={() => document.getElementById("supFileInput")?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}
+            className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer"
+            onClick={() => {
+              if (!isEditMode || mode === "edit") {
+                document.getElementById("supFileInput")?.click();
+              }
+            }}
           >
-            <div className="flex flex-col items-center justify-center gap-2">
-              <div className="w-12 h-12 flex items-center justify-center">
-                <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
+            <input
+              id="supFileInput"
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) {
+                  const newFiles = Array.from(e.target.files);
+                  const totalFiles = images.length + existingImages.length + newFiles.length;
+                  if (totalFiles > 5) {
+                    setErrors((prev) => ({ ...prev, images: "Maximum 5 images are allowed" }));
+                    const remainingSlots = 5 - (images.length + existingImages.length);
+                    const allowedFiles = newFiles.slice(0, remainingSlots);
+                    if (allowedFiles.length > 0) setImages((prev) => [...prev, ...allowedFiles]);
+                    return;
+                  }
+                  setErrors((prev) => ({ ...prev, images: "" }));
+                  setImages((prev) => [...prev, ...newFiles]);
+                }
+              }}
+            />
+
+            <div className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg">
+              <div className="w-285 h-34.5 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center">
+                <div className="flex flex-col items-center justify-center">
+                  <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 rounded-md object-cover" />
+                  <div className="text-label-l2 font-normal mt-4">Choose a file or drag &amp; drop it here</div>
+                  <div className="text-label-l1 font-normal text-neutral-400">or click to browse JPEG, PNG, and SVG</div>
+                </div>
               </div>
-              <div className="text-sm font-medium text-gray-600 text-center">Choose a file or drag &amp; drop it here</div>
-              <div className="text-xs text-gray-400 text-center">Click to browse PNG, JPG, and SVG (Min 1, Max 5 images)</div>
             </div>
           </div>
 
-          <input
-            id="supFileInput"
-            type="file"
-            multiple
-            accept="image/jpeg,image/png,image/jpg,image/svg+xml"
-            className="hidden"
-            onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); }}
-          />
-          {errors.images && <p className={errorMsg}>{errors.images}</p>}
+          {errors.images && (
+            <div className="text-red-500 text-sm mt-2">{errors.images}</div>
+          )}
 
-          {images.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {images.map((file, i) => {
-                const url = URL.createObjectURL(file);
-                return (
-                  <div key={i} className="relative group flex-shrink-0">
+          <div className="flex gap-4">
+            {existingImages.length > 0 && (
+              <div className="flex flex-wrap gap-3 mt-4">
+                {existingImages.map((img, index) => (
+                  <div key={index} className="relative w-24 h-24 flex-shrink-0">
                     <img
-                      src={url}
-                      alt={`Product ${i + 1}`}
-                      className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition"
+                      src={img}
+                      alt="product"
+                      className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
                     />
                     <button
-                      type="button"
-                      onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                      onClick={() => setExistingImages(existingImages.filter((_, i) => i !== index))}
+                      className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
                     >
-                      <X size={12} />
+                      ✕
                     </button>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+
+            {images.length > 0 && (
+              <div className="flex flex-wrap gap-3 mt-4">
+                {images.map((file, index) => (
+                  <div key={index} className="relative w-24 h-24 flex-shrink-0">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt="preview"
+                      className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
+                    />
+                    <button
+                      onClick={() => setImages(images.filter((_, i) => i !== index))}
+                      className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-between mt-6 col-span-2 mb-6">
