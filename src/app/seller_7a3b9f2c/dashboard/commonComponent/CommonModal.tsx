@@ -13,7 +13,6 @@ const CommonModal = ({
   onClose,
   width = "w-[448px]",
 }: CommonModalProps) => {
-
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -26,21 +25,11 @@ const CommonModal = ({
   }, [onClose]);
 
   return (
-    // <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
-
       <div
-        className={`bg-white rounded-2xl p-6 shadow-xl ${width} relative`}
-        onClick={(e) => e.stopPropagation()} 
+        className="bg-white w-125.25 h-full overflow-y-auto overflow-x-hidden  shadow-xl relative"
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-900 text-xl"
-        >
-          ✕
-        </button> */}
-
         {children}
       </div>
     </div>

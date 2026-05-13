@@ -33,6 +33,7 @@ export const getTherapeuticSubcategory = async (therapeuticCategoryId: string) =
   }
 };
 
+//OLD 
 export const getDosage = async () => {
   try {
     const response = await api.get('dosage/allDosage');

@@ -90,6 +90,19 @@ export interface AdditionalDiscountData {
   additionalDiscountId?: string;
   minimumPurchaseQuantity: number;
   additionalDiscountPercentage: number;
+  discountPercentage?: number;
+  effectiveStartDate: string | null;
+  effectiveStartTime: string | null;
+  effectiveEndDate: string | null;
+  effectiveEndTime: string | null;
+}
+
+export interface SpecialSchemesData {
+  specialSchemesId?: string;
+  schemeName: string;
+  schemeType: string;
+  buyQuantity: number;
+  freeQuantity: number;
   effectiveStartDate: string | null;
   effectiveStartTime: string | null;
   effectiveEndDate: string | null;
