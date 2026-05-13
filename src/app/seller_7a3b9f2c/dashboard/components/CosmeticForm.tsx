@@ -619,127 +619,201 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
   // ─── Load product for edit mode ───────────────────────────────────────────────
   const fetchProductData = useCallback(async (
-    currentProductTypeOptions: SelectOption[],
-    currentAgeGroupOptions: SelectOption[],
-    currentStorageConditionOptions: SelectOption[],
-    currentCountryOptions: SelectOption[],
-    currentPackTypeOptions: SelectOption[],
-  ) => {
-    if (mode !== "edit" || !productId) return;
-    setLoadingProduct(true);
-    try {
-      const data = await getProductById(productId);
-      if (!data) throw new Error("Product not found");
+  currentProductTypeOptions: SelectOption[],
+  currentAgeGroupOptions: SelectOption[],
+  currentStorageConditionOptions: SelectOption[],
+  currentCountryOptions: SelectOption[],
+  currentPackTypeOptions: SelectOption[],
+) => {
+  if (mode !== "edit" || !productId) return;
+  setLoadingProduct(true);
+  try {
+    const data = await getProductById(productId);
+    if (!data) throw new Error("Product not found");
 
-      setResolvedProductId(data.productId || productId);
+    setResolvedProductId(data.productId || productId);
 
-      const attribute = data.productAttributeCosmeticAndPersonalUse?.[0]
-                     ?? data.productAttributeCosmetics?.[0]
-                     ?? {};
-      const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) ?? {};
-      const pricing   = data.pricingDetails?.[0] ?? {};
+    // Fix: Better extraction of attribute data - handle both naming conventions
+    const attribute = data.productAttributeCosmeticAndPersonalUse?.[0]
+                   ?? data.productAttributeCosmetics?.[0]
+                   ?? {};
+    
+    const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) ?? {};
+    const pricing = data.pricingDetails?.[0] ?? {};
 
-      setProductAttributeId(String(attribute.productAttributeId || ""));
-      setPackagingId(String(packaging.packagingId || ""));
-      setPricingId(String(pricing.pricingId || ""));
+    console.log("Attribute data:", attribute);
+    console.log("Pricing data:", pricing);
+    console.log("Packaging data:", packaging);
 
-      const mfgDate = pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null;
-      const expDate = pricing.expiryDate ? new Date(pricing.expiryDate) : null;
+    setProductAttributeId(String(attribute.productAttributeId || ""));
+    setPackagingId(String(packaging.packagingId || ""));
+    setPricingId(String(pricing.pricingId || ""));
 
-      const productTypeIdStr = String(attribute.productCategoryId ?? attribute.productTypeId ?? "");
-      const productSubTypeIdStr = String(attribute.productSubcategoryId ?? attribute.productSubTypeId ?? "");
-      const ageGroupIdStr = String(attribute.ageGroupId || "");
-      const storageCondIdStr = String(attribute.storageConditionId || "");
-      const countryIdStr = String(attribute.countryId || "");
-      const packIdStr = String(packaging.packId || "");
-      const gstVal = String(pricing.gstPercentage ?? "");
+    const mfgDate = pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null;
+    const expDate = pricing.expiryDate ? new Date(pricing.expiryDate) : null;
 
-      // Fetch sub-categories for this category
-      let resolvedSubCats = productSubTypeOptions;
-      if (productTypeIdStr && resolvedSubCats.length === 0) {
-        resolvedSubCats = await fetchSubTypes(productTypeIdStr);
-      }
+    // Fix: Get correct field names from API - handle both cases
+    const productTypeIdStr = String(attribute.productCategoryId ?? attribute.productTypeId ?? "");
+    const productSubTypeIdStr = String(attribute.productSubcategoryId ?? attribute.productSubTypeId ?? "");
+    const ageGroupIdStr = String(attribute.ageGroupId || "");
+    const storageCondIdStr = String(attribute.storageConditionId || "");
+    const countryIdStr = String(attribute.countryId || "");
+    const packIdStr = String(packaging.packId || "");
+    const gstVal = String(pricing.gstPercentage ?? "");
 
-      setDisplayLabels({
-        productTypeLabel: currentProductTypeOptions.find((o) => o.value === productTypeIdStr)?.label || productTypeIdStr,
-        productSubTypeLabel: resolvedSubCats.find((o) => o.value === productSubTypeIdStr)?.label || productSubTypeIdStr,
-        ageGroupLabel: currentAgeGroupOptions.find((o) => o.value === ageGroupIdStr)?.label || ageGroupIdStr,
-        storageConditionLabel: currentStorageConditionOptions.find((o) => o.value === storageCondIdStr)?.label || storageCondIdStr,
-        countryLabel: currentCountryOptions.find((o) => o.value === countryIdStr)?.label || countryIdStr,
-        packTypeLabel: currentPackTypeOptions.find((o) => o.value === packIdStr)?.label || packIdStr,
-        gstLabel: gstOptions.find((o) => o.value === gstVal)?.label || (gstVal ? `${gstVal}%` : ""),
-        genderLabel: genderOptions.find((o) => o.value === (attribute.gender?.toLowerCase() || ""))?.label || attribute.gender || "",
-      });
+    // Fix: Handle case-sensitive field names
+    const brandNameValue = attribute.brandName || "";
+    const variantNameValue = attribute.VariantName || attribute.variantName || "";
+    const genderValue = (attribute.Gender || attribute.gender || "").toLowerCase();
+    const activeIngredientsValue = attribute.ActiveIngredients || attribute.activeIngredients || "";
+    const netQuantityValue = attribute.NetQuantityStrength || attribute.netQuantityStrength || attribute.netQuantity || "";
+    const productClaimsValue = attribute.ProductClaims || attribute.productClaims || "";
+    
+    // For warnings/precautions - check both locations
+    const warningsValue = data.warningsPrecautions ?? attribute.WarningsPrecautions ?? attribute.warningsPrecautions ?? "";
+    
+    // For product description
+    const descriptionValue = data.productDescription || "";
 
-      setForm({
-        productName:          data.productName || "",
-        productTypeId:        productTypeIdStr,
-        productSubTypeId:     productSubTypeIdStr,
-        brandName:            attribute.brandName            || "",
-        variantName:          attribute.variantName          || "",
-        gender:               attribute.gender?.toLowerCase() || "",
-        activeIngredients:    attribute.activeIngredients    || "",
-        netQuantity:          attribute.netQuantityStrength  ?? attribute.netQuantity ?? "",
-        ageGroupId:           ageGroupIdStr,
-        productClaims:        attribute.productClaims        || "",
-        warningsPrecautions:  data.warningsPrecautions       ?? attribute.warningsPrecautions ?? "",
-        productDescription:   data.productDescription        || "",
-        storageConditionId:   storageCondIdStr,
-        manufacturerName:     data.manufacturerName          ?? attribute.manufacturerName ?? "",
-        countryOfOriginId:    countryIdStr,
-        packTypeId:           packIdStr,
-        unitsPerPack:         String(packaging.unitPerPack   || ""),
-        numberOfPacks:        String(packaging.numberOfPacks || ""),
-        packSize:             String(packaging.packSize      || ""),
-        minimumOrderQuantity: String(packaging.minimumOrderQuantity || ""),
-        maximumOrderQuantity: String(packaging.maximumOrderQuantity || ""),
-        batchNumber:          pricing.batchLotNumber ?? pricing.batchNumber ?? "",
-        manufacturingDate:    mfgDate,
-        expiryDate:           expDate,
-        stockQuantity:        String(pricing.stockQuantity   || ""),
-        dateOfStockEntry:     pricing.dateOfStockEntry ? new Date(pricing.dateOfStockEntry) : new Date(),
-        sellingPrice:         String(pricing.sellingPrice    || ""),
-        mrp:                  String(pricing.mrp             || ""),
-        discountPercentage:   String(pricing.discountPercentage || ""),
-        gstPercentage:        gstVal,
-        hsnCode:              String(pricing.hsnCode         || ""),
-        finalPrice:           String(pricing.finalPrice      || ""),
-      });
-
-      setShelfLifeDisplay(computeShelfLife(mfgDate, expDate));
-
-      if (attribute.intendedUseAreaIds?.length) setSelectedIntendedUseAreas(attribute.intendedUseAreaIds.map(String));
-      if (attribute.skinTypeIds?.length) setSelectedSkinTypes(attribute.skinTypeIds.map(String));
-      if (attribute.hairTypeIds?.length) setSelectedHairTypes(attribute.hairTypeIds.map(String));
-      if (pricing.additionalDiscounts?.length) setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
-      if (data.productImages?.length) setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
-      if (attribute.brochurePath && attribute.brochurePath !== "PENDING") setExistingBrochureUrl(attribute.brochurePath);
-
-      if (attribute.certificateDocuments?.length) {
-        setSelectedCertifications(attribute.certificateDocuments.map((cert: any) => ({
-          id: String(cert.certificationId),
-          label: cert.certificationName || `Certificate ${cert.certificationId}`,
-          tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
-          file: null,
-          fileName: cert.certificateUrl && cert.certificateUrl !== "PENDING"
-            ? cert.certificateUrl.split("/").pop() || ""
-            : "",
-          uploading: false,
-          isUploaded: !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
-          previewUrl: null,
-          productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-          existingUrl: cert.certificateUrl && cert.certificateUrl !== "PENDING"
-            ? cert.certificateUrl
-            : undefined,
-        })));
-      }
-    } catch (err) {
-      console.error("Error fetching cosmetic product:", err);
-      setApiError("Failed to load product data. Please refresh and try again.");
-    } finally {
-      setLoadingProduct(false);
+    // Fetch sub-categories if needed
+    let resolvedSubCats = productSubTypeOptions;
+    if (productTypeIdStr && resolvedSubCats.length === 0) {
+      resolvedSubCats = await fetchSubTypes(productTypeIdStr);
     }
-  }, [mode, productId, fetchSubTypes, productSubTypeOptions]);
+
+    // Set display labels for non-editable fields in edit mode
+    setDisplayLabels({
+      productTypeLabel: currentProductTypeOptions.find((o) => o.value === productTypeIdStr)?.label || productTypeIdStr,
+      productSubTypeLabel: resolvedSubCats.find((o) => o.value === productSubTypeIdStr)?.label || productSubTypeIdStr,
+      ageGroupLabel: currentAgeGroupOptions.find((o) => o.value === ageGroupIdStr)?.label || ageGroupIdStr,
+      storageConditionLabel: currentStorageConditionOptions.find((o) => o.value === storageCondIdStr)?.label || storageCondIdStr,
+      countryLabel: currentCountryOptions.find((o) => o.value === countryIdStr)?.label || countryIdStr,
+      packTypeLabel: currentPackTypeOptions.find((o) => o.value === packIdStr)?.label || packIdStr,
+      gstLabel: gstOptions.find((o) => o.value === gstVal)?.label || (gstVal ? `${gstVal}%` : ""),
+      genderLabel: genderOptions.find((o) => o.value === genderValue)?.label || genderValue,
+    });
+
+    // Set form state with all data
+    setForm({
+      productName: data.productName || "",
+      productTypeId: productTypeIdStr,
+      productSubTypeId: productSubTypeIdStr,
+      brandName: brandNameValue,
+      variantName: variantNameValue,
+      gender: genderValue,
+      activeIngredients: activeIngredientsValue,
+      netQuantity: netQuantityValue,
+      ageGroupId: ageGroupIdStr,
+      productClaims: productClaimsValue,
+      warningsPrecautions: warningsValue,
+      productDescription: descriptionValue,
+      storageConditionId: storageCondIdStr,
+      manufacturerName: data.manufacturerName ?? attribute.manufacturerName ?? "",
+      countryOfOriginId: countryIdStr,
+      packTypeId: packIdStr,
+      unitsPerPack: String(packaging.unitPerPack || packaging.unitPerPackType || ""),
+      numberOfPacks: String(packaging.numberOfPacks || ""),
+      packSize: String(packaging.packSize || ""),
+      minimumOrderQuantity: String(packaging.minimumOrderQuantity || ""),
+      maximumOrderQuantity: String(packaging.maximumOrderQuantity || ""),
+      batchNumber: pricing.batchLotNumber ?? pricing.batchNumber ?? "",
+      manufacturingDate: mfgDate,
+      expiryDate: expDate,
+      stockQuantity: String(pricing.stockQuantity || ""),
+      dateOfStockEntry: pricing.dateOfStockEntry ? new Date(pricing.dateOfStockEntry) : new Date(),
+      sellingPrice: String(pricing.sellingPrice || ""),
+      mrp: String(pricing.mrp || ""),
+      discountPercentage: String(pricing.discountPercentage || ""),
+      gstPercentage: gstVal,
+      hsnCode: String(pricing.hsnCode || ""),
+      finalPrice: String(pricing.finalPrice || ""),
+    });
+
+    setShelfLifeDisplay(computeShelfLife(mfgDate, expDate));
+
+    // Fix: Handle arrays properly with correct field names
+    // API uses inconsistent casing and key names for array fields
+    let rawIntended: unknown[] = [];
+    let rawSkin: unknown[] = [];
+    let rawHair: unknown[] = [];
+
+    // Handle intendedUseAreaIds - try multiple possible field names
+    if (Array.isArray(attribute.intendedUseAreaIds)) {
+      rawIntended = attribute.intendedUseAreaIds;
+    } else if (Array.isArray(attribute.useAreaId)) {
+      rawIntended = attribute.useAreaId;
+    } else if (Array.isArray(attribute.intendedarea)) {
+      rawIntended = attribute.intendedarea;
+    } else if (Array.isArray(attribute.intendedUseAreas)) {
+      rawIntended = attribute.intendedUseAreas;
+    }
+
+    // Handle skinTypeIds - try multiple possible field names
+    if (Array.isArray(attribute.skinTypeIds)) {
+      rawSkin = attribute.skinTypeIds;
+    } else if (Array.isArray(attribute.skintypeId)) {
+      rawSkin = attribute.skintypeId;
+    } else if (Array.isArray(attribute.skinType)) {
+      rawSkin = attribute.skinType;
+    } else if (Array.isArray(attribute.skinTypes)) {
+      rawSkin = attribute.skinTypes;
+    }
+
+    // Handle hairTypeIds - try multiple possible field names
+    if (Array.isArray(attribute.hairTypeIds)) {
+      rawHair = attribute.hairTypeIds;
+    } else if (Array.isArray(attribute.hairType)) {
+      rawHair = attribute.hairType;
+    } else if (Array.isArray(attribute.hairTypes)) {
+      rawHair = attribute.hairTypes;
+    }
+
+    if (rawIntended.length) setSelectedIntendedUseAreas(rawIntended.map(String));
+    if (rawSkin.length) setSelectedSkinTypes(rawSkin.map(String));
+    if (rawHair.length) setSelectedHairTypes(rawHair.map(String));
+    
+    // Handle additional discounts
+    if (pricing.additionalDiscounts?.length) {
+      setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
+    }
+    
+    // Handle product images
+    if (data.productImages?.length) {
+      setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
+    }
+    
+    // Handle brochure path - check both cases
+    const brochurePath = attribute.brochurePath || attribute.BrochurePath || "";
+    if (brochurePath && brochurePath !== "PENDING") {
+      setExistingBrochureUrl(brochurePath);
+    }
+
+    // Handle certificates
+    if (attribute.certificateDocuments?.length) {
+      setSelectedCertifications(attribute.certificateDocuments.map((cert: any) => ({
+        id: String(cert.certificationId),
+        label: cert.certificationName || `Certificate ${cert.certificationId}`,
+        tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
+        file: null,
+        fileName: cert.certificateUrl && cert.certificateUrl !== "PENDING"
+          ? cert.certificateUrl.split("/").pop() || ""
+          : "",
+        uploading: false,
+        isUploaded: !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
+        previewUrl: null,
+        productCertificateDocumentId: Number(cert.productCertificateDocumentId),
+        existingUrl: cert.certificateUrl && cert.certificateUrl !== "PENDING"
+          ? cert.certificateUrl
+          : undefined,
+      })));
+    }
+  } catch (err) {
+    console.error("Error fetching cosmetic product:", err);
+    setApiError("Failed to load product data. Please refresh and try again.");
+  } finally {
+    setLoadingProduct(false);
+  }
+}, [mode, productId, fetchSubTypes, productSubTypeOptions]);
 
   // ─── Load all master data, then product (sequenced) ──────────────────────────
   useEffect(() => {
@@ -943,14 +1017,18 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   }, [form.productTypeId, mode, fetchSubTypes]);
 
   // Update skin/hair visibility rule
+  // Update skin/hair visibility rule
   useEffect(() => {
-    if (initialLoading) return;
+    if (!form.productTypeId || productTypeOptions.length === 0) return;
     const label = productTypeOptions.find((o) => o.value === form.productTypeId)?.label || "";
     const rule = getSkinHairRule(label);
     setSkinHairRule(rule);
-    if (rule.skinType === "hidden") setSelectedSkinTypes([]);
-    if (rule.hairType === "hidden") setSelectedHairTypes([]);
-  }, [form.productTypeId, productTypeOptions, initialLoading]);
+    // Only clear selections in create mode — in edit mode the saved values must be preserved
+    if (mode === "create") {
+      if (rule.skinType === "hidden") setSelectedSkinTypes([]);
+      if (rule.hairType === "hidden") setSelectedHairTypes([]);
+    }
+  }, [form.productTypeId, productTypeOptions, mode]);
 
   // Auto-calculate pack size
   useEffect(() => {
@@ -1253,69 +1331,77 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     setSubmitSteps(initialSteps);
     setSubmitting(true);
 
-    const payload = {
-      productName: form.productName,
-      warningsPrecautions: form.warningsPrecautions,
-      productDescription: form.productDescription,
-      manufacturerName: form.manufacturerName,
-      categoryId: productCategoryId,
+    // In the handleSubmit function, update the payload structure:
+const payload = {
+  productName: form.productName,
+  warningsPrecautions: form.warningsPrecautions,
+  productDescription: form.productDescription,
+  manufacturerName: form.manufacturerName,
+  categoryId: productCategoryId,
 
-      packagingDetails: [{
-        ...(packagingId ? { packagingId } : {}),
-        packId: Number(form.packTypeId),
-        unitPerPack: Number(form.unitsPerPack),
-        numberOfPacks: Number(form.numberOfPacks),
-        packSize: Number(form.packSize),
-        minimumOrderQuantity: Number(form.minimumOrderQuantity),
-        maximumOrderQuantity: Number(form.maximumOrderQuantity),
-      }],
+  packagingDetails: [{
+    ...(packagingId ? { packagingId } : {}),
+    packId: Number(form.packTypeId),
+    unitPerPack: Number(form.unitsPerPack),
+    numberOfPacks: Number(form.numberOfPacks),
+    packSize: Number(form.packSize),
+    minimumOrderQuantity: Number(form.minimumOrderQuantity),
+    maximumOrderQuantity: Number(form.maximumOrderQuantity),
+  }],
 
-      pricingDetails: [{
-        ...(pricingId ? { pricingId } : {}),
-        batchLotNumber: form.batchNumber,
-        manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-        expiryDate: toLocalDateTimeString(form.expiryDate),
-        shelfLife: shelfLifeDisplay,
-        stockQuantity: Number(form.stockQuantity),
-        dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-        sellingPrice: Number(form.sellingPrice),
-        mrp: Number(form.mrp),
-        discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
-        gstPercentage: Number(form.gstPercentage),
-        finalPrice: Number(form.finalPrice),
-        hsnCode: Number(form.hsnCode),
-        additionalDiscounts: additionalDiscountSlabs,
-      }],
+  pricingDetails: [{
+    ...(pricingId ? { pricingId } : {}),
+    batchLotNumber: form.batchNumber,
+    manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
+    expiryDate: toLocalDateTimeString(form.expiryDate),
+    shelfLife: shelfLifeDisplay,
+    stockQuantity: Number(form.stockQuantity),
+    dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
+    sellingPrice: Number(form.sellingPrice),
+    mrp: Number(form.mrp),
+    discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
+    gstPercentage: Number(form.gstPercentage),
+    finalPrice: Number(form.finalPrice),
+    hsnCode: Number(form.hsnCode),
+    additionalDiscounts: additionalDiscountSlabs.map(slab => ({
+      minimumPurchaseQuantity: slab.minimumPurchaseQuantity,
+      additionalDiscountPercentage: slab.additionalDiscountPercentage,
+      effectiveStartDate: slab.effectiveStartDate,
+      effectiveStartTime: slab.effectiveStartTime,
+      effectiveEndDate: slab.effectiveEndDate,
+      effectiveEndTime: slab.effectiveEndTime,
+    })),
+  }],
 
-      productAttributeCosmeticAndPersonalUse: [{
-        ...(productAttributeId ? { productAttributeId } : {}),
-        productCategoryId: Number(form.productTypeId),
-        productSubcategoryId: Number(form.productSubTypeId),
-        brandName: form.brandName,
-        variantName: form.variantName || null,
-        gender: form.gender,
-        intendedUseAreaIds: selectedIntendedUseAreas.map(Number),
-        skinTypeIds: skinHairRule.skinType !== "hidden" ? selectedSkinTypes.map(Number) : [],
-        hairTypeIds: skinHairRule.hairType !== "hidden" ? selectedHairTypes.map(Number) : [],
-        activeIngredients: form.activeIngredients,
-        netQuantityStrength: form.netQuantity,
-        ageGroupId: Number(form.ageGroupId),
-        productClaims: form.productClaims,
-        warningsPrecautions: form.warningsPrecautions,
-        storageConditionId: Number(form.storageConditionId),
-        countryId: Number(form.countryOfOriginId),
-        manufacturerName: form.manufacturerName,
-        brochureType: "PDF",
-        brochurePath: existingBrochureUrl || "PENDING",
-        brochurePathStatus: existingBrochureUrl || brochureFile ? "TO_UPLOAD" : "PENDING",
-        certificateDocuments: selectedCertifications.map((c) => ({
-          certificationId: Number(c.id),
-          certificateUrl: c.existingUrl || "PENDING",
-        })),
-      }],
+  productAttributeCosmeticAndPersonalUse: [{
+    ...(productAttributeId ? { productAttributeId } : {}),
+    productCategoryId: Number(form.productTypeId),
+    productSubcategoryId: Number(form.productSubTypeId),
+    brandName: form.brandName,
+    variantName: form.variantName || null,
+    Gender: form.gender, // Note: API expects capital G
+    useAreaId: selectedIntendedUseAreas.map(Number), // API expects useAreaId
+    skintypeId: skinHairRule.skinType !== "hidden" ? selectedSkinTypes.map(Number) : [],
+    hairTypeId: skinHairRule.hairType !== "hidden" ? selectedHairTypes.map(Number) : [],
+    ActiveIngredients: form.activeIngredients,
+    NetQuantityStrength: form.netQuantity,
+    ageGroupId: Number(form.ageGroupId),
+    ProductClaims: form.productClaims,
+    WarningsPrecautions: form.warningsPrecautions,
+    storageConditionId: Number(form.storageConditionId),
+    countryId: Number(form.countryOfOriginId),
+    manufacturerName: form.manufacturerName,
+    brochureType: "PDF",
+    brochurePath: existingBrochureUrl || "PENDING",
+    brochurePathStatus: existingBrochureUrl || brochureFile ? "TO_UPLOAD" : "PENDING",
+    certificateDocuments: selectedCertifications.map((c) => ({
+      certificationId: Number(c.id),
+      certificateUrl: c.existingUrl || "PENDING",
+    })),
+  }],
 
-      productImages: images.map(() => ({ productImage: "PENDING" })),
-    };
+  productImages: images.map(() => ({ productImage: "PENDING" })),
+};
 
     // ── EDIT MODE ──────────────────────────────────────────────────────────────
     if (mode === "edit") {
