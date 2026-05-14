@@ -1,35 +1,35 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
-import Select from "react-select";
-import { FileText, X, RefreshCw, AlertCircle } from "lucide-react";
 import Input from "@/src/app/commonComponents/Input";
-import UploadInput from "../commonComponent/UploadInput";
-import PopupModal from "../commonComponent/PopupModal";
-import CommonModal from "../commonComponent/CommonModal";
-import AdditionalDiscountType from "./AdditionalDiscountType";
 import {
-  getProductById,
-  uploadProductImages,
-  updateProduct,
-  deleteProduct,
-} from "@/src/services/product/ProductService";
-import {
-  getCosmeticProductTypes,
-  getCosmeticProductSubTypes,
-  getCosmeticSkinTypes,
-  getCosmeticHairTypes,
-  getCosmeticAgeGroups,
-  getCosmeticIntendedUseAreas,
-  getCosmeticStorageConditions,
-  getCosmeticCountries,
-  getCosmeticCertifications,
-  getCosmeticPackTypes,
   createCosmeticProduct,
-  uploadCosmeticCertificate,
+  getCosmeticAgeGroups,
+  getCosmeticCertificationsByCategoryId,
+  getCosmeticCountries,
+  getCosmeticHairTypes,
+  getCosmeticIntendedUseAreas,
+  getCosmeticPackTypes,
+  getCosmeticProductSubTypes,
+  getCosmeticProductTypes,
+  getCosmeticSkinTypes,
+  getStorageConditionsByCategoryId,
   uploadCosmeticBrochure,
+  uploadCosmeticCertificate
 } from "@/src/services/product/CosmeticService";
+import {
+  deleteProduct,
+  getProductById,
+  updateProduct,
+  uploadProductImages,
+} from "@/src/services/product/ProductService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
+import { AlertCircle, FileText, RefreshCw, X } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import Select from "react-select";
+import CommonModal from "../commonComponent/CommonModal";
+import PopupModal from "../commonComponent/PopupModal";
+import UploadInput from "../commonComponent/UploadInput";
+import AdditionalDiscountType from "./AdditionalDiscountType";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -121,20 +121,18 @@ function validateHSNCode(hsnCode: string): string | null {
     return "HSN code must be 4, 6, or 8 digits";
   return null;
 }
+function computeShelfLife(mfgDate: Date | null, expDate: Date | null): number | null {
+  if (!mfgDate || !expDate) return null;
 
-function computeShelfLife(mfgDate: Date | null, expDate: Date | null): string {
-  if (!mfgDate || !expDate) return "";
   const diffMs = expDate.getTime() - mfgDate.getTime();
-  if (diffMs <= 0) return "";
-  const days    = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const years   = Math.floor(days / 365);
-  const months  = Math.floor((days % 365) / 30);
-  const remDays = days % 30;
-  const parts: string[] = [];
-  if (years  > 0) parts.push(`${years} Year${years > 1 ? "s" : ""}`);
-  if (months > 0) parts.push(`${months} Month${months > 1 ? "s" : ""}`);
-  if (remDays > 0 && years === 0) parts.push(`${remDays} Day${remDays > 1 ? "s" : ""}`);
-  return parts.join(" ");
+  if (diffMs <= 0) return null;
+
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  // Convert total days to months
+  const months = Math.floor(days / 30);
+
+  return months;
 }
 
 function getMasterStr(item: MasterItem, ...keys: string[]): string {
@@ -503,7 +501,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     additionalDiscount:   [] as AdditionalDiscountData[],
   });
 
-  const [shelfLifeDisplay, setShelfLifeDisplay] = useState("");
+  const [shelfLifeDisplay, setShelfLifeDisplay] = useState<number | null>(null);
   const [resolvedProductId, setResolvedProductId] = useState("");
   const [productAttributeId, setProductAttributeId] = useState("");
   const [packagingId, setPackagingId] = useState("");
@@ -785,10 +783,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         getCosmeticHairTypes(),
         getCosmeticAgeGroups(),
         getCosmeticIntendedUseAreas(),
-        getCosmeticStorageConditions(),
+        getStorageConditionsByCategoryId(productCategoryId),
         getCosmeticCountries(),
         getCosmeticPackTypes(productCategoryId),
-        getCosmeticCertifications(),
+        getCosmeticCertificationsByCategoryId(productCategoryId),
       ]);
 
       if (!mounted) return;
@@ -1238,7 +1236,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         batchLotNumber:     form.batchNumber,
         manufacturingDate:  toLocalDateTimeString(form.manufacturingDate),
         expiryDate:         toLocalDateTimeString(form.expiryDate),
-        shelfLife:          shelfLifeDisplay,
+        shelfLifeMonths: shelfLifeDisplay ?? 0,
         stockQuantity:      Number(form.stockQuantity),
         dateOfStockEntry:   toLocalDateTimeString(form.dateOfStockEntry),
         sellingPrice:       Number(form.sellingPrice),
@@ -1263,11 +1261,11 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         productCategoryId:    Number(form.productTypeId),
         productSubcategoryId: Number(form.productSubTypeId),
         brandName:            form.brandName,
-        variantName:          form.variantName || null,
+        VariantName:          form.variantName || null,
         Gender:               form.gender,
         useAreaId:            selectedIntendedUseAreas.map(Number),
         skintypeId:           skinHairRule.skinType !== "hidden" ? selectedSkinTypes.map(Number) : [],
-        hairTypeId:           skinHairRule.hairType !== "hidden" ? selectedHairTypes.map(Number) : [],
+        typeId:           skinHairRule.hairType !== "hidden" ? selectedHairTypes.map(Number) : [],
         ActiveIngredients:    form.activeIngredients,
         NetQuantityStrength:  form.netQuantity,
         ageGroupId:           Number(form.ageGroupId),
