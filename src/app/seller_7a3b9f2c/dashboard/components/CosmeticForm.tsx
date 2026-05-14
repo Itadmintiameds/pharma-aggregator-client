@@ -5,9 +5,9 @@ import Select from "react-select";
 import { FileText, X, RefreshCw, AlertCircle } from "lucide-react";
 import Input from "@/src/app/commonComponents/Input";
 import UploadInput from "../commonComponent/UploadInput";
-import AdditionalDiscount from "./AdditionalDiscount";
 import PopupModal from "../commonComponent/PopupModal";
 import CommonModal from "../commonComponent/CommonModal";
+import AdditionalDiscountType from "./AdditionalDiscountType";
 import {
   getProductById,
   uploadProductImages,
@@ -49,15 +49,6 @@ interface CertificationTag {
   previewUrl: string | null;
   productCertificateDocumentId: number;
   existingUrl?: string;
-}
-
-interface AdditionalDiscountSlab {
-  minimumPurchaseQuantity: number;
-  additionalDiscountPercentage: number;
-  effectiveStartDate: string;
-  effectiveStartTime: string;
-  effectiveEndDate: string;
-  effectiveEndTime: string;
 }
 
 interface CosmeticFormProps {
@@ -508,6 +499,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     finalPrice:           "",
     gstPercentage:        "",
     hsnCode:              "",
+    // ✅ additionalDiscount stored directly as AdditionalDiscountData[] — same as DrugForm
+    additionalDiscount:   [] as AdditionalDiscountData[],
   });
 
   const [shelfLifeDisplay, setShelfLifeDisplay] = useState("");
@@ -562,25 +555,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
   const [showCertDropdown, setShowCertDropdown] = useState(false);
-  const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
-  const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
+  // ✅ Renamed to match DrugForm's state variable name exactly
+  const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const certDropdownRef = useRef<HTMLDivElement>(null);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-  const convertToDiscountSlab = (data: AdditionalDiscountData[]): AdditionalDiscountSlab[] =>
-    data.map((item) => ({
-      minimumPurchaseQuantity:      item.minimumPurchaseQuantity,
-      additionalDiscountPercentage: item.additionalDiscountPercentage,
-      effectiveStartDate:           item.effectiveStartDate || "",
-      effectiveStartTime:           item.effectiveStartTime || "",
-      effectiveEndDate:             item.effectiveEndDate   || "",
-      effectiveEndTime:             item.effectiveEndTime   || "",
-    }));
-
-  const convertToDiscountData = (slabs: AdditionalDiscountSlab[]): AdditionalDiscountData[] =>
-    slabs.map((s) => ({ ...s }));
 
   const toLocalDateTimeString = (date: Date | null): string | null => {
     if (!date) return null;
@@ -592,7 +572,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     return combined.toISOString().slice(0, 19);
   };
 
-  // ─── Fetch sub-types (returns Promise<SelectOption[]>) ────────────────────────
+  // ─── Fetch sub-types ─────────────────────────────────────────────────────────
   const fetchSubTypes = useCallback(async (typeId: string): Promise<SelectOption[]> => {
     if (!typeId) {
       setProductSubTypeOptions([]);
@@ -619,203 +599,162 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
   // ─── Load product for edit mode ───────────────────────────────────────────────
   const fetchProductData = useCallback(async (
-  currentProductTypeOptions: SelectOption[],
-  currentAgeGroupOptions: SelectOption[],
-  currentStorageConditionOptions: SelectOption[],
-  currentCountryOptions: SelectOption[],
-  currentPackTypeOptions: SelectOption[],
-) => {
-  if (mode !== "edit" || !productId) return;
-  setLoadingProduct(true);
-  try {
-    const data = await getProductById(productId);
-    if (!data) throw new Error("Product not found");
+    currentProductTypeOptions: SelectOption[],
+    currentAgeGroupOptions: SelectOption[],
+    currentStorageConditionOptions: SelectOption[],
+    currentCountryOptions: SelectOption[],
+    currentPackTypeOptions: SelectOption[],
+  ) => {
+    if (mode !== "edit" || !productId) return;
+    setLoadingProduct(true);
+    try {
+      const data = await getProductById(productId);
+      if (!data) throw new Error("Product not found");
 
-    setResolvedProductId(data.productId || productId);
+      setResolvedProductId(data.productId || productId);
 
-    // Fix: Better extraction of attribute data - handle both naming conventions
-    const attribute = data.productAttributeCosmeticAndPersonalUse?.[0]
-                   ?? data.productAttributeCosmetics?.[0]
-                   ?? {};
-    
-    const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) ?? {};
-    const pricing = data.pricingDetails?.[0] ?? {};
+      const attribute = data.productAttributeCosmeticAndPersonalUse?.[0]
+                     ?? data.productAttributeCosmetics?.[0]
+                     ?? {};
 
-    console.log("Attribute data:", attribute);
-    console.log("Pricing data:", pricing);
-    console.log("Packaging data:", packaging);
+      const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) ?? {};
+      const pricing = data.pricingDetails?.[0] ?? {};
 
-    setProductAttributeId(String(attribute.productAttributeId || ""));
-    setPackagingId(String(packaging.packagingId || ""));
-    setPricingId(String(pricing.pricingId || ""));
+      setProductAttributeId(String(attribute.productAttributeId || ""));
+      setPackagingId(String(packaging.packagingId || ""));
+      setPricingId(String(pricing.pricingId || ""));
 
-    const mfgDate = pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null;
-    const expDate = pricing.expiryDate ? new Date(pricing.expiryDate) : null;
+      const mfgDate = pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null;
+      const expDate = pricing.expiryDate ? new Date(pricing.expiryDate) : null;
 
-    // Fix: Get correct field names from API - handle both cases
-    const productTypeIdStr = String(attribute.productCategoryId ?? attribute.productTypeId ?? "");
-    const productSubTypeIdStr = String(attribute.productSubcategoryId ?? attribute.productSubTypeId ?? "");
-    const ageGroupIdStr = String(attribute.ageGroupId || "");
-    const storageCondIdStr = String(attribute.storageConditionId || "");
-    const countryIdStr = String(attribute.countryId || "");
-    const packIdStr = String(packaging.packId || "");
-    const gstVal = String(pricing.gstPercentage ?? "");
+      const productTypeIdStr    = String(attribute.productCategoryId ?? attribute.productTypeId ?? "");
+      const productSubTypeIdStr = String(attribute.productSubcategoryId ?? attribute.productSubTypeId ?? "");
+      const ageGroupIdStr       = String(attribute.ageGroupId || "");
+      const storageCondIdStr    = String(attribute.storageConditionId || "");
+      const countryIdStr        = String(attribute.countryId || "");
+      const packIdStr           = String(packaging.packId || "");
+      const gstVal              = String(pricing.gstPercentage ?? "");
 
-    // Fix: Handle case-sensitive field names
-    const brandNameValue = attribute.brandName || "";
-    const variantNameValue = attribute.VariantName || attribute.variantName || "";
-    const genderValue = (attribute.Gender || attribute.gender || "").toLowerCase();
-    const activeIngredientsValue = attribute.ActiveIngredients || attribute.activeIngredients || "";
-    const netQuantityValue = attribute.NetQuantityStrength || attribute.netQuantityStrength || attribute.netQuantity || "";
-    const productClaimsValue = attribute.ProductClaims || attribute.productClaims || "";
-    
-    // For warnings/precautions - check both locations
-    const warningsValue = data.warningsPrecautions ?? attribute.WarningsPrecautions ?? attribute.warningsPrecautions ?? "";
-    
-    // For product description
-    const descriptionValue = data.productDescription || "";
+      const brandNameValue        = attribute.brandName || "";
+      const variantNameValue      = attribute.VariantName || attribute.variantName || "";
+      const genderValue           = (attribute.Gender || attribute.gender || "").toLowerCase();
+      const activeIngredientsValue = attribute.ActiveIngredients || attribute.activeIngredients || "";
+      const netQuantityValue      = attribute.NetQuantityStrength || attribute.netQuantityStrength || attribute.netQuantity || "";
+      const productClaimsValue    = attribute.ProductClaims || attribute.productClaims || "";
+      const warningsValue         = data.warningsPrecautions ?? attribute.WarningsPrecautions ?? attribute.warningsPrecautions ?? "";
+      const descriptionValue      = data.productDescription || "";
 
-    // Fetch sub-categories if needed
-    let resolvedSubCats = productSubTypeOptions;
-    if (productTypeIdStr && resolvedSubCats.length === 0) {
-      resolvedSubCats = await fetchSubTypes(productTypeIdStr);
+      let resolvedSubCats = productSubTypeOptions;
+      if (productTypeIdStr && resolvedSubCats.length === 0) {
+        resolvedSubCats = await fetchSubTypes(productTypeIdStr);
+      }
+
+      setDisplayLabels({
+        productTypeLabel:      currentProductTypeOptions.find((o) => o.value === productTypeIdStr)?.label || productTypeIdStr,
+        productSubTypeLabel:   resolvedSubCats.find((o) => o.value === productSubTypeIdStr)?.label || productSubTypeIdStr,
+        ageGroupLabel:         currentAgeGroupOptions.find((o) => o.value === ageGroupIdStr)?.label || ageGroupIdStr,
+        storageConditionLabel: currentStorageConditionOptions.find((o) => o.value === storageCondIdStr)?.label || storageCondIdStr,
+        countryLabel:          currentCountryOptions.find((o) => o.value === countryIdStr)?.label || countryIdStr,
+        packTypeLabel:         currentPackTypeOptions.find((o) => o.value === packIdStr)?.label || packIdStr,
+        gstLabel:              gstOptions.find((o) => o.value === gstVal)?.label || (gstVal ? `${gstVal}%` : ""),
+        genderLabel:           genderOptions.find((o) => o.value === genderValue)?.label || genderValue,
+      });
+
+      setForm({
+        productName:          data.productName || "",
+        productTypeId:        productTypeIdStr,
+        productSubTypeId:     productSubTypeIdStr,
+        brandName:            brandNameValue,
+        variantName:          variantNameValue,
+        gender:               genderValue,
+        activeIngredients:    activeIngredientsValue,
+        netQuantity:          netQuantityValue,
+        ageGroupId:           ageGroupIdStr,
+        productClaims:        productClaimsValue,
+        warningsPrecautions:  warningsValue,
+        productDescription:   descriptionValue,
+        storageConditionId:   storageCondIdStr,
+        manufacturerName:     data.manufacturerName ?? attribute.manufacturerName ?? "",
+        countryOfOriginId:    countryIdStr,
+        packTypeId:           packIdStr,
+        unitsPerPack:         String(packaging.unitPerPack || packaging.unitPerPackType || ""),
+        numberOfPacks:        String(packaging.numberOfPacks || ""),
+        packSize:             String(packaging.packSize || ""),
+        minimumOrderQuantity: String(packaging.minimumOrderQuantity || ""),
+        maximumOrderQuantity: String(packaging.maximumOrderQuantity || ""),
+        batchNumber:          pricing.batchLotNumber ?? pricing.batchNumber ?? "",
+        manufacturingDate:    mfgDate,
+        expiryDate:           expDate,
+        stockQuantity:        String(pricing.stockQuantity || ""),
+        dateOfStockEntry:     pricing.dateOfStockEntry ? new Date(pricing.dateOfStockEntry) : new Date(),
+        sellingPrice:         String(pricing.sellingPrice || ""),
+        mrp:                  String(pricing.mrp || ""),
+        discountPercentage:   String(pricing.discountPercentage || ""),
+        gstPercentage:        gstVal,
+        hsnCode:              String(pricing.hsnCode || ""),
+        finalPrice:           String(pricing.finalPrice || ""),
+        // ✅ Load additionalDiscount directly — same shape as DrugForm
+        additionalDiscount:   Array.isArray(pricing.additionalDiscounts) ? pricing.additionalDiscounts : [],
+      });
+
+      setShelfLifeDisplay(computeShelfLife(mfgDate, expDate));
+
+      let rawIntended: unknown[] = [];
+      let rawSkin: unknown[]     = [];
+      let rawHair: unknown[]     = [];
+
+      if (Array.isArray(attribute.intendedUseAreaIds))  rawIntended = attribute.intendedUseAreaIds;
+      else if (Array.isArray(attribute.useAreaId))      rawIntended = attribute.useAreaId;
+      else if (Array.isArray(attribute.intendedarea))   rawIntended = attribute.intendedarea;
+      else if (Array.isArray(attribute.intendedUseAreas)) rawIntended = attribute.intendedUseAreas;
+
+      if (Array.isArray(attribute.skinTypeIds))   rawSkin = attribute.skinTypeIds;
+      else if (Array.isArray(attribute.skintypeId)) rawSkin = attribute.skintypeId;
+      else if (Array.isArray(attribute.skinType))  rawSkin = attribute.skinType;
+      else if (Array.isArray(attribute.skinTypes)) rawSkin = attribute.skinTypes;
+
+      if (Array.isArray(attribute.hairTypeIds))   rawHair = attribute.hairTypeIds;
+      else if (Array.isArray(attribute.hairType))  rawHair = attribute.hairType;
+      else if (Array.isArray(attribute.hairTypes)) rawHair = attribute.hairTypes;
+
+      if (rawIntended.length) setSelectedIntendedUseAreas(rawIntended.map(String));
+      if (rawSkin.length)     setSelectedSkinTypes(rawSkin.map(String));
+      if (rawHair.length)     setSelectedHairTypes(rawHair.map(String));
+
+      if (data.productImages?.length) {
+        setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
+      }
+
+      const brochurePath = attribute.brochurePath || attribute.BrochurePath || "";
+      if (brochurePath && brochurePath !== "PENDING") {
+        setExistingBrochureUrl(brochurePath);
+      }
+
+      if (attribute.certificateDocuments?.length) {
+        setSelectedCertifications(attribute.certificateDocuments.map((cert: any) => ({
+          id:                           String(cert.certificationId),
+          label:                        cert.certificationName || `Certificate ${cert.certificationId}`,
+          tagCode:                      `Tag ${String(cert.certificationId).padStart(2, "0")}`,
+          file:                         null,
+          fileName:                     cert.certificateUrl && cert.certificateUrl !== "PENDING"
+                                          ? cert.certificateUrl.split("/").pop() || "" : "",
+          uploading:                    false,
+          isUploaded:                   !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
+          previewUrl:                   null,
+          productCertificateDocumentId: Number(cert.productCertificateDocumentId),
+          existingUrl:                  cert.certificateUrl && cert.certificateUrl !== "PENDING"
+                                          ? cert.certificateUrl : undefined,
+        })));
+      }
+    } catch (err) {
+      console.error("Error fetching cosmetic product:", err);
+      setApiError("Failed to load product data. Please refresh and try again.");
+    } finally {
+      setLoadingProduct(false);
     }
+  }, [mode, productId, fetchSubTypes, productSubTypeOptions]);
 
-    // Set display labels for non-editable fields in edit mode
-    setDisplayLabels({
-      productTypeLabel: currentProductTypeOptions.find((o) => o.value === productTypeIdStr)?.label || productTypeIdStr,
-      productSubTypeLabel: resolvedSubCats.find((o) => o.value === productSubTypeIdStr)?.label || productSubTypeIdStr,
-      ageGroupLabel: currentAgeGroupOptions.find((o) => o.value === ageGroupIdStr)?.label || ageGroupIdStr,
-      storageConditionLabel: currentStorageConditionOptions.find((o) => o.value === storageCondIdStr)?.label || storageCondIdStr,
-      countryLabel: currentCountryOptions.find((o) => o.value === countryIdStr)?.label || countryIdStr,
-      packTypeLabel: currentPackTypeOptions.find((o) => o.value === packIdStr)?.label || packIdStr,
-      gstLabel: gstOptions.find((o) => o.value === gstVal)?.label || (gstVal ? `${gstVal}%` : ""),
-      genderLabel: genderOptions.find((o) => o.value === genderValue)?.label || genderValue,
-    });
-
-    // Set form state with all data
-    setForm({
-      productName: data.productName || "",
-      productTypeId: productTypeIdStr,
-      productSubTypeId: productSubTypeIdStr,
-      brandName: brandNameValue,
-      variantName: variantNameValue,
-      gender: genderValue,
-      activeIngredients: activeIngredientsValue,
-      netQuantity: netQuantityValue,
-      ageGroupId: ageGroupIdStr,
-      productClaims: productClaimsValue,
-      warningsPrecautions: warningsValue,
-      productDescription: descriptionValue,
-      storageConditionId: storageCondIdStr,
-      manufacturerName: data.manufacturerName ?? attribute.manufacturerName ?? "",
-      countryOfOriginId: countryIdStr,
-      packTypeId: packIdStr,
-      unitsPerPack: String(packaging.unitPerPack || packaging.unitPerPackType || ""),
-      numberOfPacks: String(packaging.numberOfPacks || ""),
-      packSize: String(packaging.packSize || ""),
-      minimumOrderQuantity: String(packaging.minimumOrderQuantity || ""),
-      maximumOrderQuantity: String(packaging.maximumOrderQuantity || ""),
-      batchNumber: pricing.batchLotNumber ?? pricing.batchNumber ?? "",
-      manufacturingDate: mfgDate,
-      expiryDate: expDate,
-      stockQuantity: String(pricing.stockQuantity || ""),
-      dateOfStockEntry: pricing.dateOfStockEntry ? new Date(pricing.dateOfStockEntry) : new Date(),
-      sellingPrice: String(pricing.sellingPrice || ""),
-      mrp: String(pricing.mrp || ""),
-      discountPercentage: String(pricing.discountPercentage || ""),
-      gstPercentage: gstVal,
-      hsnCode: String(pricing.hsnCode || ""),
-      finalPrice: String(pricing.finalPrice || ""),
-    });
-
-    setShelfLifeDisplay(computeShelfLife(mfgDate, expDate));
-
-    // Fix: Handle arrays properly with correct field names
-    // API uses inconsistent casing and key names for array fields
-    let rawIntended: unknown[] = [];
-    let rawSkin: unknown[] = [];
-    let rawHair: unknown[] = [];
-
-    // Handle intendedUseAreaIds - try multiple possible field names
-    if (Array.isArray(attribute.intendedUseAreaIds)) {
-      rawIntended = attribute.intendedUseAreaIds;
-    } else if (Array.isArray(attribute.useAreaId)) {
-      rawIntended = attribute.useAreaId;
-    } else if (Array.isArray(attribute.intendedarea)) {
-      rawIntended = attribute.intendedarea;
-    } else if (Array.isArray(attribute.intendedUseAreas)) {
-      rawIntended = attribute.intendedUseAreas;
-    }
-
-    // Handle skinTypeIds - try multiple possible field names
-    if (Array.isArray(attribute.skinTypeIds)) {
-      rawSkin = attribute.skinTypeIds;
-    } else if (Array.isArray(attribute.skintypeId)) {
-      rawSkin = attribute.skintypeId;
-    } else if (Array.isArray(attribute.skinType)) {
-      rawSkin = attribute.skinType;
-    } else if (Array.isArray(attribute.skinTypes)) {
-      rawSkin = attribute.skinTypes;
-    }
-
-    // Handle hairTypeIds - try multiple possible field names
-    if (Array.isArray(attribute.hairTypeIds)) {
-      rawHair = attribute.hairTypeIds;
-    } else if (Array.isArray(attribute.hairType)) {
-      rawHair = attribute.hairType;
-    } else if (Array.isArray(attribute.hairTypes)) {
-      rawHair = attribute.hairTypes;
-    }
-
-    if (rawIntended.length) setSelectedIntendedUseAreas(rawIntended.map(String));
-    if (rawSkin.length) setSelectedSkinTypes(rawSkin.map(String));
-    if (rawHair.length) setSelectedHairTypes(rawHair.map(String));
-    
-    // Handle additional discounts
-    if (pricing.additionalDiscounts?.length) {
-      setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
-    }
-    
-    // Handle product images
-    if (data.productImages?.length) {
-      setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
-    }
-    
-    // Handle brochure path - check both cases
-    const brochurePath = attribute.brochurePath || attribute.BrochurePath || "";
-    if (brochurePath && brochurePath !== "PENDING") {
-      setExistingBrochureUrl(brochurePath);
-    }
-
-    // Handle certificates
-    if (attribute.certificateDocuments?.length) {
-      setSelectedCertifications(attribute.certificateDocuments.map((cert: any) => ({
-        id: String(cert.certificationId),
-        label: cert.certificationName || `Certificate ${cert.certificationId}`,
-        tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
-        file: null,
-        fileName: cert.certificateUrl && cert.certificateUrl !== "PENDING"
-          ? cert.certificateUrl.split("/").pop() || ""
-          : "",
-        uploading: false,
-        isUploaded: !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
-        previewUrl: null,
-        productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-        existingUrl: cert.certificateUrl && cert.certificateUrl !== "PENDING"
-          ? cert.certificateUrl
-          : undefined,
-      })));
-    }
-  } catch (err) {
-    console.error("Error fetching cosmetic product:", err);
-    setApiError("Failed to load product data. Please refresh and try again.");
-  } finally {
-    setLoadingProduct(false);
-  }
-}, [mode, productId, fetchSubTypes, productSubTypeOptions]);
-
-  // ─── Load all master data, then product (sequenced) ──────────────────────────
+  // ─── Load all master data ─────────────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
 
@@ -854,95 +793,62 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
       if (!mounted) return;
 
-      // Process product types
       const resolvedProductTypes: SelectOption[] =
         productTypesResult.status === "fulfilled"
           ? (productTypesResult.value as MasterItem[])
-              .map((i) => ({
-                value: getMasterStr(i, "categoryId", "productTypeId", "id"),
-                label: getMasterStr(i, "categoryName", "productTypeName", "name") || "Unknown",
-              }))
+              .map((i) => ({ value: getMasterStr(i, "categoryId", "productTypeId", "id"), label: getMasterStr(i, "categoryName", "productTypeName", "name") || "Unknown" }))
               .filter((o) => o.value)
           : [];
 
-      // Process skin types
       const resolvedSkinTypes: SelectOption[] =
         skinTypesResult.status === "fulfilled"
           ? (skinTypesResult.value as MasterItem[])
-              .map((i) => ({
-                value: getMasterStr(i, "skinTypeId", "id"),
-                label: getMasterStr(i, "skinTypeName", "name") || "Unknown",
-              }))
+              .map((i) => ({ value: getMasterStr(i, "skinTypeId", "id"), label: getMasterStr(i, "skinTypeName", "name") || "Unknown" }))
               .filter((o) => o.value)
           : [];
 
-      // Process hair types
       const resolvedHairTypes: SelectOption[] =
         hairTypesResult.status === "fulfilled"
           ? (hairTypesResult.value as MasterItem[])
-              .map((i) => ({
-                value: getMasterStr(i, "hairTypeId", "id"),
-                label: getMasterStr(i, "hairTypeName", "name") || "Unknown",
-              }))
+              .map((i) => ({ value: getMasterStr(i, "hairTypeId", "id"), label: getMasterStr(i, "hairTypeName", "name") || "Unknown" }))
               .filter((o) => o.value)
           : [];
 
-      // Process age groups
       const resolvedAgeGroups: SelectOption[] =
         ageGroupsResult.status === "fulfilled"
           ? (ageGroupsResult.value as MasterItem[])
-              .map((i) => ({
-                value: getMasterStr(i, "ageGroupId", "id"),
-                label: getMasterStr(i, "ageGroupName", "name") || "Unknown",
-              }))
+              .map((i) => ({ value: getMasterStr(i, "ageGroupId", "id"), label: getMasterStr(i, "ageGroupName", "name") || "Unknown" }))
               .filter((o) => o.value)
           : [];
 
-      // Process intended use areas
       const resolvedIntendedUseAreas: SelectOption[] =
         intendedUseAreasResult.status === "fulfilled"
           ? (intendedUseAreasResult.value as MasterItem[])
-              .map((i) => ({
-                value: getMasterStr(i, "useAreaId", "id"),
-                label: getMasterStr(i, "useAreaName", "name") || "Unknown",
-              }))
+              .map((i) => ({ value: getMasterStr(i, "useAreaId", "id"), label: getMasterStr(i, "useAreaName", "name") || "Unknown" }))
               .filter((o) => o.value)
           : [];
 
-      // Process storage conditions
       const resolvedStorageConditions: SelectOption[] =
         storageConditionsResult.status === "fulfilled"
           ? (storageConditionsResult.value as MasterItem[])
-              .map((i) => ({
-                value: getMasterStr(i, "storageConditionId", "id"),
-                label: getMasterStr(i, "conditionName", "name") || "Unknown",
-              }))
+              .map((i) => ({ value: getMasterStr(i, "storageConditionId", "id"), label: getMasterStr(i, "conditionName", "name") || "Unknown" }))
               .filter((o) => o.value)
           : [];
 
-      // Process countries
       const resolvedCountries: SelectOption[] =
         countriesResult.status === "fulfilled"
           ? (countriesResult.value as MasterItem[])
-              .map((i) => ({
-                value: getMasterStr(i, "countryId", "id"),
-                label: getMasterStr(i, "countryName", "name") || "Unknown",
-              }))
+              .map((i) => ({ value: getMasterStr(i, "countryId", "id"), label: getMasterStr(i, "countryName", "name") || "Unknown" }))
               .filter((o) => o.value)
           : [];
 
-      // Process pack types
       const resolvedPackTypes: SelectOption[] =
         packTypesResult.status === "fulfilled"
           ? (packTypesResult.value as MasterItem[])
-              .map((i) => ({
-                value: getMasterStr(i, "packId"),
-                label: getMasterStr(i, "packType"),
-              }))
+              .map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") }))
               .filter((o) => o.value)
           : [];
 
-      // Process certifications (with fallback)
       const fallbackCerts: CertificationMasterOption[] = [
         { value: "1", label: "ISO Certification", certificationId: 1, tagCode: "Tag 01" },
         { value: "2", label: "GMP (Good Manufacturing Practice)", certificationId: 2, tagCode: "Tag 02" },
@@ -966,7 +872,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               .filter((o) => o.value)
           : fallbackCerts;
 
-      // Set all master options
       setProductTypeOptions(resolvedProductTypes);
       setSkinTypeOptions(resolvedSkinTypes);
       setHairTypeOptions(resolvedHairTypes);
@@ -987,7 +892,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       setLoadingPackTypes(false);
       setLoadingCertifications(false);
 
-      // If in edit mode, fetch product AFTER all masters are loaded
       if (mode === "edit" && productId) {
         await fetchProductData(
           resolvedProductTypes,
@@ -997,16 +901,14 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           resolvedPackTypes,
         );
       }
-      
+
       setInitialLoading(false);
     };
 
     loadAllMasters();
-
     return () => { mounted = false; };
   }, [mode, productId, fetchProductData]);
 
-  // Fetch sub-types when product type changes (create mode only)
   useEffect(() => {
     if (!form.productTypeId || mode !== "create") {
       if (!form.productTypeId) setProductSubTypeOptions([]);
@@ -1016,38 +918,32 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     setForm((p) => ({ ...p, productSubTypeId: "" }));
   }, [form.productTypeId, mode, fetchSubTypes]);
 
-  // Update skin/hair visibility rule
-  // Update skin/hair visibility rule
   useEffect(() => {
     if (!form.productTypeId || productTypeOptions.length === 0) return;
     const label = productTypeOptions.find((o) => o.value === form.productTypeId)?.label || "";
     const rule = getSkinHairRule(label);
     setSkinHairRule(rule);
-    // Only clear selections in create mode — in edit mode the saved values must be preserved
     if (mode === "create") {
       if (rule.skinType === "hidden") setSelectedSkinTypes([]);
       if (rule.hairType === "hidden") setSelectedHairTypes([]);
     }
   }, [form.productTypeId, productTypeOptions, mode]);
 
-  // Auto-calculate pack size
   useEffect(() => {
     const u = parseFloat(form.unitsPerPack), p = parseFloat(form.numberOfPacks);
     if (!isNaN(u) && !isNaN(p) && u > 0 && p > 0)
       setForm((prev) => ({ ...prev, packSize: (u * p).toString() }));
   }, [form.unitsPerPack, form.numberOfPacks]);
 
-  // Auto-calculate shelf life
   useEffect(() => {
     const sl = computeShelfLife(form.manufacturingDate, form.expiryDate);
     setShelfLifeDisplay(sl);
     if (sl && errors.expiryDate) setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
   }, [form.manufacturingDate, form.expiryDate]);
 
-  // Auto-calculate final price
   useEffect(() => {
     const selling = parseFloat(form.sellingPrice);
-    const disc = parseFloat(form.discountPercentage);
+    const disc    = parseFloat(form.discountPercentage);
     setForm((prev) => ({
       ...prev,
       finalPrice: !isNaN(selling) && selling > 0
@@ -1056,7 +952,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }));
   }, [form.sellingPrice, form.discountPercentage]);
 
-  // Close cert dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (certDropdownRef.current && !certDropdownRef.current.contains(e.target as Node))
@@ -1115,15 +1010,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       setSelectedCertifications((p) => [
         ...p,
         {
-          id: option.value,
-          label: option.label,
-          tagCode: option.tagCode,
+          id: option.value, label: option.label, tagCode: option.tagCode,
           productCertificateDocumentId: option.certificationId,
-          file: null,
-          fileName: "",
-          uploading: false,
-          isUploaded: false,
-          previewUrl: null,
+          file: null, fileName: "", uploading: false, isUploaded: false, previewUrl: null,
         },
       ]);
     }
@@ -1137,11 +1026,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     setSelectedCertifications((prev) =>
       prev.map((c) =>
         c.id === certId
-          ? {
-              ...c, file, fileName: file.name, uploading: false, isUploaded: true,
+          ? { ...c, file, fileName: file.name, uploading: false, isUploaded: true,
               previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
-              existingUrl: undefined,
-            }
+              existingUrl: undefined }
           : c,
       ),
     );
@@ -1151,9 +1038,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const handleCertRemove = (certId: string) =>
     setSelectedCertifications((prev) =>
       prev.map((c) =>
-        c.id === certId
-          ? { ...c, file: null, fileName: "", isUploaded: false, existingUrl: undefined }
-          : c,
+        c.id === certId ? { ...c, file: null, fileName: "", isUploaded: false, existingUrl: undefined } : c,
       ),
     );
 
@@ -1331,81 +1216,81 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     setSubmitSteps(initialSteps);
     setSubmitting(true);
 
-    // In the handleSubmit function, update the payload structure:
-const payload = {
-  productName: form.productName,
-  warningsPrecautions: form.warningsPrecautions,
-  productDescription: form.productDescription,
-  manufacturerName: form.manufacturerName,
-  categoryId: productCategoryId,
+    const payload = {
+      productName:          form.productName,
+      warningsPrecautions:  form.warningsPrecautions,
+      productDescription:   form.productDescription,
+      manufacturerName:     form.manufacturerName,
+      categoryId:           productCategoryId,
 
-  packagingDetails: [{
-    ...(packagingId ? { packagingId } : {}),
-    packId: Number(form.packTypeId),
-    unitPerPack: Number(form.unitsPerPack),
-    numberOfPacks: Number(form.numberOfPacks),
-    packSize: Number(form.packSize),
-    minimumOrderQuantity: Number(form.minimumOrderQuantity),
-    maximumOrderQuantity: Number(form.maximumOrderQuantity),
-  }],
+      packagingDetails: [{
+        ...(packagingId ? { packagingId } : {}),
+        packId:               Number(form.packTypeId),
+        unitPerPack:          Number(form.unitsPerPack),
+        numberOfPacks:        Number(form.numberOfPacks),
+        packSize:             Number(form.packSize),
+        minimumOrderQuantity: Number(form.minimumOrderQuantity),
+        maximumOrderQuantity: Number(form.maximumOrderQuantity),
+      }],
 
-  pricingDetails: [{
-    ...(pricingId ? { pricingId } : {}),
-    batchLotNumber: form.batchNumber,
-    manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-    expiryDate: toLocalDateTimeString(form.expiryDate),
-    shelfLife: shelfLifeDisplay,
-    stockQuantity: Number(form.stockQuantity),
-    dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-    sellingPrice: Number(form.sellingPrice),
-    mrp: Number(form.mrp),
-    discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
-    gstPercentage: Number(form.gstPercentage),
-    finalPrice: Number(form.finalPrice),
-    hsnCode: Number(form.hsnCode),
-    additionalDiscounts: additionalDiscountSlabs.map(slab => ({
-      minimumPurchaseQuantity: slab.minimumPurchaseQuantity,
-      additionalDiscountPercentage: slab.additionalDiscountPercentage,
-      effectiveStartDate: slab.effectiveStartDate,
-      effectiveStartTime: slab.effectiveStartTime,
-      effectiveEndDate: slab.effectiveEndDate,
-      effectiveEndTime: slab.effectiveEndTime,
-    })),
-  }],
+      pricingDetails: [{
+        ...(pricingId ? { pricingId } : {}),
+        batchLotNumber:     form.batchNumber,
+        manufacturingDate:  toLocalDateTimeString(form.manufacturingDate),
+        expiryDate:         toLocalDateTimeString(form.expiryDate),
+        shelfLife:          shelfLifeDisplay,
+        stockQuantity:      Number(form.stockQuantity),
+        dateOfStockEntry:   toLocalDateTimeString(form.dateOfStockEntry),
+        sellingPrice:       Number(form.sellingPrice),
+        mrp:                Number(form.mrp),
+        discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
+        gstPercentage:      Number(form.gstPercentage),
+        finalPrice:         Number(form.finalPrice),
+        hsnCode:            Number(form.hsnCode),
+        // ✅ Map additionalDiscount exactly as DrugForm does
+        additionalDiscounts: form.additionalDiscount.map((d) => ({
+          minimumPurchaseQuantity:      d.minimumPurchaseQuantity,
+          additionalDiscountPercentage: d.additionalDiscountPercentage,
+          effectiveStartDate:           d.effectiveStartDate,
+          effectiveStartTime:           d.effectiveStartTime,
+          effectiveEndDate:             d.effectiveEndDate,
+          effectiveEndTime:             d.effectiveEndTime,
+        })),
+      }],
 
-  productAttributeCosmeticAndPersonalUse: [{
-    ...(productAttributeId ? { productAttributeId } : {}),
-    productCategoryId: Number(form.productTypeId),
-    productSubcategoryId: Number(form.productSubTypeId),
-    brandName: form.brandName,
-    variantName: form.variantName || null,
-    Gender: form.gender, // Note: API expects capital G
-    useAreaId: selectedIntendedUseAreas.map(Number), // API expects useAreaId
-    skintypeId: skinHairRule.skinType !== "hidden" ? selectedSkinTypes.map(Number) : [],
-    hairTypeId: skinHairRule.hairType !== "hidden" ? selectedHairTypes.map(Number) : [],
-    ActiveIngredients: form.activeIngredients,
-    NetQuantityStrength: form.netQuantity,
-    ageGroupId: Number(form.ageGroupId),
-    ProductClaims: form.productClaims,
-    WarningsPrecautions: form.warningsPrecautions,
-    storageConditionId: Number(form.storageConditionId),
-    countryId: Number(form.countryOfOriginId),
-    manufacturerName: form.manufacturerName,
-    brochureType: "PDF",
-    brochurePath: existingBrochureUrl || "PENDING",
-    brochurePathStatus: existingBrochureUrl || brochureFile ? "TO_UPLOAD" : "PENDING",
-    certificateDocuments: selectedCertifications.map((c) => ({
-      certificationId: Number(c.id),
-      certificateUrl: c.existingUrl || "PENDING",
-    })),
-  }],
+      productAttributeCosmeticAndPersonalUse: [{
+        ...(productAttributeId ? { productAttributeId } : {}),
+        productCategoryId:    Number(form.productTypeId),
+        productSubcategoryId: Number(form.productSubTypeId),
+        brandName:            form.brandName,
+        variantName:          form.variantName || null,
+        Gender:               form.gender,
+        useAreaId:            selectedIntendedUseAreas.map(Number),
+        skintypeId:           skinHairRule.skinType !== "hidden" ? selectedSkinTypes.map(Number) : [],
+        hairTypeId:           skinHairRule.hairType !== "hidden" ? selectedHairTypes.map(Number) : [],
+        ActiveIngredients:    form.activeIngredients,
+        NetQuantityStrength:  form.netQuantity,
+        ageGroupId:           Number(form.ageGroupId),
+        ProductClaims:        form.productClaims,
+        WarningsPrecautions:  form.warningsPrecautions,
+        storageConditionId:   Number(form.storageConditionId),
+        countryId:            Number(form.countryOfOriginId),
+        manufacturerName:     form.manufacturerName,
+        brochureType:         "PDF",
+        brochurePath:         existingBrochureUrl || "PENDING",
+        brochurePathStatus:   existingBrochureUrl || brochureFile ? "TO_UPLOAD" : "PENDING",
+        certificateDocuments: selectedCertifications.map((c) => ({
+          certificationId: Number(c.id),
+          certificateUrl:  c.existingUrl || "PENDING",
+        })),
+      }],
 
-  productImages: images.map(() => ({ productImage: "PENDING" })),
-};
+      productImages: images.map(() => ({ productImage: "PENDING" })),
+    };
 
     // ── EDIT MODE ──────────────────────────────────────────────────────────────
     if (mode === "edit") {
-      const currentProductId = resolvedProductId || productId || "";
+      const currentProductId  = resolvedProductId || productId || "";
       const currentAttributeId = productAttributeId;
 
       try {
@@ -1457,14 +1342,13 @@ const payload = {
     }
 
     // ── CREATE MODE ────────────────────────────────────────────────────────────
-    let createdProductId = "";
+    let createdProductId  = "";
     let createdAttributeId = "";
 
     const rollback = async () => {
       if (!createdProductId) return;
       try {
         await deleteProduct(createdProductId);
-        console.info(`[CosmeticForm] Rolled back product ${createdProductId}`);
       } catch (rollbackErr) {
         console.error(`[CosmeticForm] Rollback failed for product ${createdProductId}:`, rollbackErr);
       }
@@ -1485,13 +1369,9 @@ const payload = {
       createdAttributeId = extractProductAttributeId(createData) || "";
 
       if (!createdAttributeId) {
-        console.info("[CosmeticForm] Attribute ID not in create response, fetching product to resolve…");
         try {
           const fetchedProduct = await getProductById(createdProductId) as ApiResponseData;
           createdAttributeId = extractAttributeIdFromProduct(fetchedProduct);
-          if (createdAttributeId) {
-            console.info(`[CosmeticForm] Resolved attribute ID via fetch: ${createdAttributeId}`);
-          }
         } catch (fetchErr) {
           console.warn("[CosmeticForm] Could not fetch product after create:", fetchErr);
         }
@@ -1548,7 +1428,7 @@ const payload = {
           const result = await uploadCosmeticBrochure(createdAttributeId, brochureFile!);
           if (!result.success) throw new Error(result.message);
           updateStep("brochure", "done");
-        } catch (brochureErr) {
+        } catch {
           updateStep("brochure", "error");
           await rollback();
           throw new Error(`Brochure upload failed`);
@@ -1699,16 +1579,24 @@ const payload = {
         onClose={() => setShowSuccessModal(false)}
       />
 
-      {showAdditionalDiscountModal && (
-        <CommonModal onClose={() => setShowAdditionalDiscountModal(false)} width="w-[600px]">
-          <div className="h-[80vh] overflow-hidden flex flex-col">
-            <AdditionalDiscount
-              initialData={convertToDiscountData(additionalDiscountSlabs)}
-              onSave={(slabs?: AdditionalDiscountData[]) => {
-                if (slabs) setAdditionalDiscountSlabs(convertToDiscountSlab(slabs));
-                setShowAdditionalDiscountModal(false);
-              }}
-              onClose={() => setShowAdditionalDiscountModal(false)}
+      {/* ✅ Additional Discount Modal — identical pattern to DrugForm */}
+      {showAdditionalDiscount && (
+        <CommonModal
+          onClose={() => setShowAdditionalDiscount(false)}
+          width="w-[600px]"
+        >
+          <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
+            <AdditionalDiscountType
+              onClose={() => setShowAdditionalDiscount(false)}
+              initialData={form.additionalDiscount}
+              baseDiscountPercentage={Number(form.discountPercentage) || 0}
+              baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
+              onSaveAdditionalDiscount={(data) =>
+                setForm((prev) => ({
+                  ...prev,
+                  additionalDiscount: data,
+                }))
+              }
             />
           </div>
         </CommonModal>
@@ -2137,14 +2025,24 @@ const payload = {
             <Input label="Selling Price (per Pack Size)" name="sellingPrice" placeholder="e.g., 499"
               value={form.sellingPrice} onChange={handleChange} error={errors.sellingPrice} required />
 
-            <div className="flex items-end gap-4 col-span-2">
+            {/* ✅ Discount + Add Special Discount button — identical layout to DrugForm */}
+            <div className="col-span-2 flex items-end gap-4">
               <div className="w-1/2">
-                <Input label="Discount Percentage (%)" name="discountPercentage" placeholder="0–100"
-                  value={form.discountPercentage} onChange={handleChange} error={errors.discountPercentage} />
+                <Input
+                  label="Discount Percentage"
+                  name="discountPercentage"
+                  placeholder="0–100"
+                  value={form.discountPercentage}
+                  onChange={handleChange}
+                  error={errors.discountPercentage}
+                />
               </div>
-              <div className="mb-1">
-                <button type="button" onClick={() => setShowAdditionalDiscountModal(true)}
-                  className="h-12 px-6 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap hover:opacity-90 transition-opacity">
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAdditionalDiscount(true)}
+                  className="w-55.5 h-10.5 px-6 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
+                >
                   <img src="/icons/PlusIcon.svg" alt="add" className="w-[12.5px] h-[12.5px]" />
                   Add Special Discount
                 </button>
