@@ -43,10 +43,10 @@ interface CertificationTag {
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
-const fieldLabel = "text-label-l3 text-neutral-700 font-semibold";
-const requiredStar = <span className="text-warning-500 font-semibold ml-1">*</span>;
+const fieldLabel = "text-label-l3 text-[#1E1E1D] font-semibold";
+const requiredStar = <span className="text-[#FF3B3B] font-semibold ml-1">*</span>;
 
-const errorMsg = "text-red-500 text-sm mt-1";
+const errorMsg = "text-xs px-1 font-medium text-[#FF3B3B]";
 
 // ─── Upload Icon ───────────────────────────────────────────────────────────────
 
