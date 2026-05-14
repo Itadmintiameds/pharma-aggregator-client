@@ -16,6 +16,7 @@ import {
 } from "@/src/services/product/ConsumbaleService";
 import SupplementDetailsView from "./SupplementDetailsView";
 import ConsumableView from "./ConsumableView";
+import NonConsumableView from "./NonConsumableView";
 import CosmeticPersonalCareView from "./CosmeticView";
 
 /* ─────────────────────────────────────────────────────────
@@ -85,27 +86,58 @@ interface CertificateDocument {
 }
 
 interface NonConsumableAttributes {
+  // ── Identity
   brandName?: string;
   modelName?: string;
   modelNumber?: string;
-  warrantyPeriod?: string | number;
+ 
+  // ── Classification
   deviceClassification?: string;
+ 
+  // ── Device category inline strings (API sometimes returns names directly)
+  deviceName?: string;
+  deviceCategoryName?: string;
+  deviceSubCategoryName?: string;
+ 
+  // ── Identifiers
+  udiNumber?: string;
+  udi?: string;                    // alias used by older API versions
+ 
+  // ── Purpose / content
+  purpose?: string;
+  keyFeaturesSpecifications?: string;
+  safetyInstructions?: string;     // ← was missing; needed by NonConsumableView
+ 
+  // ── AMC — three shapes the API can return
   amcAvailability?: boolean;
   serviceAvailability?: boolean;
-  keyFeaturesSpecifications?: string;
-  udiNumber?: string;
-  purpose?: string;
+  amcServiceAvailability?: string; // "Yes" / "No" string variant
+ 
+  // ── Warranty
+  warrantyPeriod?: string | number;
+ 
+  // ── Manufacturer / origin
   manufacturerName?: string;
+  countryName?: string;
+  countryOfOrigin?: string;        // alias
+ 
+  // ── Storage
   storageCondition?: string;
   storageConditionName?: string;
   storageConditionId?: number;
+ 
+  // ── Materials — two shapes the API can return
+  materialTypes?: { materialTypeId: number; materialTypeName: string }[];
+  materialBuildType?: string;      // flat string alias
+ 
+  // ── Power
+  powerSourceName?: string;
+  powerSource?: string;            // alias
+ 
+  // ── Documents
   certificateDocuments?: CertificateDocument[];
   brochurePath?: string;
-  deviceName?: string;
-  deviceSubCategoryName?: string;
-  countryName?: string;
-  materialTypes?: { materialTypeId: number; materialTypeName: string }[];
-  powerSourceName?: string;
+  userManualUrl?: string;
 }
 
 interface ConsumableAttributes {
@@ -1188,6 +1220,33 @@ const ProductView1 = ({
           placeholderImage={PLACEHOLDER_IMAGE}
         />
       )}
+
+{/* Non-Consumable Medical (category 6) */}
+      {isNonConsumable && (
+  <NonConsumableView
+    productName={productData.productName}
+    productDescription={productDescription}
+    displayImages={displayImages}
+    nonConsAttr={
+      ncAttr
+        ? {
+            ...ncAttr,
+            // Ensure safetyInstructions is populated even when the API stores
+            // it under warningsPrecautions at the top-level product object.
+            safetyInstructions:
+              ncAttr.safetyInstructions ??
+              productData.warningsPrecautions ??
+              undefined,
+          }
+        : null
+    }
+    storageConditionName={storageCondition}
+    deviceCategoryName={resolvedDeviceCategoryName}
+    deviceSubCategoryName={resolvedDeviceSubCategoryName}
+    brochureUrl={brochureUrl}
+    placeholderImage={PLACEHOLDER_IMAGE}
+  />
+)}
 
       {/* Cosmetic & Personal Care (category 4) */}
       {isCosmetic && (
