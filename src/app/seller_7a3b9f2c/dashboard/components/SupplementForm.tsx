@@ -16,10 +16,9 @@ import React, { useEffect, useState, useRef } from "react";
 import { FileText, X, RefreshCw } from "lucide-react";
 import Select from "react-select";
 import Input from "@/src/app/commonComponents/Input";
-import UploadInput from "../commonComponent/UploadInput";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
-import AdditionalDiscount from "./AdditionalDiscount";
+import AdditionalDiscountType from "./AdditionalDiscountType";
 import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications } from "@/src/services/product/SupplementService";
 import { getProductById, updateProduct } from "@/src/services/product/ProductService";
 
@@ -1076,7 +1075,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     setSubmitting(true);
     try {
       const payload = {
-        productId: form.productId,
         productName: form.productName,
         warningsPrecautions: form.warningsPrecautions,
         productDescription: form.productDescription,
@@ -1096,7 +1094,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
         pricingDetails: [
           {
-            pricingId: form.pricingId || undefined, // ✅ Prevents duplicate rows
             batchLotNumber: form.batchLotNumber,
             manufacturingDate: form.manufacturingDate instanceof Date
               ? form.manufacturingDate.toISOString().split("T")[0] + "T00:00:00" : null,
@@ -1125,7 +1122,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
         productAttributeSupplementsOrNutraceuticals: [
           {
-            productAttributeId: form.productAttributeId,
             therapeuticCategoryId: form.therapeuticCategory,
             therapeuticSubCategoryId: form.therapeuticSubcategory,
             brandName: form.brandName,
@@ -1146,12 +1142,16 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             storageConditionId: Number(form.storageCondition),
             countryId: Number(form.countryOfOrigin),
             certificateDocuments: selectedCertifications.map((cert) => ({
-              productCertificateDocumentId: cert.documentId || undefined,
               certificationId: Number(cert.id),
               certificateUrl: cert.existingUrl || "PENDING",
             })),
             brochurePath: existingBrochureUrl || "PENDING",
           },
+        ],
+
+        productImages: [
+          ...existingImages.map((url) => ({ productImage: url })),
+          ...images.map((img) => ({ productImage: img.name })),
         ],
       };
 
@@ -1257,18 +1257,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]"
         >
-          <div className="h-[80vh] overflow-hidden flex flex-col">
-            <AdditionalDiscount
+          <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
+            <AdditionalDiscountType
+              onClose={() => setShowAdditionalDiscount(false)}
               initialData={form.additionalDiscount}
               baseDiscountPercentage={Number(form.discountPercentage) || 0}
               baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
-              onSave={(data: any) => {
+              onSaveAdditionalDiscount={(data: any) => {
                 setForm((prev) => ({
                   ...prev,
                   additionalDiscount: data || [],
                 }));
               }}
-              onClose={() => setShowAdditionalDiscount(false)}
             />
           </div>
         </CommonModal>
@@ -1465,36 +1465,61 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               {errors.nutritionalInfoType && <p className={errorMsg}>{errors.nutritionalInfoType}</p>}
 
               {form.nutritionalInfoType === "image" && (
-                <div className="mt-2">
-                  <label className={fieldLabel}>Upload Nutritional Image {requiredStar}</label>
-                  {!nutritionalImage ? (
-                    <div
-                      className={`flex items-center border ${errors.nutritionalImage ? "border-red-400" : "border-gray-200"} rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition`}
-                      onClick={() => nutritionalInputRef.current?.click()}
-                    >
-                      <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <UploadCloudIcon />
-                      </div>
-                      <span className="px-3 text-base [font-family:'Open_Sans',sans-serif] [color:#969793]">
-                        Upload Image (JPG, PNG) max 5MB
-                      </span>
+                <div className="mt-2 flex flex-col gap-1">
+                  <label className={fieldLabel}>Upload Nutritional Information {requiredStar}</label>
+
+                  <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
+                    <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
+                      <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                     </div>
-                  ) : (
-                    <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                      <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <FileText size={16} className="text-purple-600" />
-                      </div>
-                      <div className="flex-1 px-3 min-w-0">
-                        <p className="text-sm font-medium [color:#3C3D3A] truncate">{nutritionalImage.name}</p>
-                      </div>
-                      <div className="flex items-center gap-1 pr-3">
-                        <button type="button" onClick={() => nutritionalInputRef.current?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                        <button type="button" onClick={() => { setNutritionalImage(null); if (nutritionalInputRef.current) nutritionalInputRef.current.value = ""; }} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                      </div>
+
+                    <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
+                      {nutritionalImage || (existingNutritionalImageUrl && !nutritionalImage) ? (
+                        <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
+                          <span className="truncate">
+                            {nutritionalImage ? nutritionalImage.name : "Current Nutritional Image"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (nutritionalImage) {
+                                setNutritionalImage(null);
+                                if (nutritionalInputRef.current) nutritionalInputRef.current.value = "";
+                              } else {
+                                setExistingNutritionalImageUrl(null);
+                              }
+                            }}
+                            className="ml-2"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[#969793]">Upload the Nutritional Information Image</span>
+                      )}
                     </div>
-                  )}
+
+                    {existingNutritionalImageUrl && !nutritionalImage && (
+                      <a href={existingNutritionalImageUrl} target="_blank" rel="noreferrer" className="text-purple-600 text-xs underline px-2">View</a>
+                    )}
+
+                    {!nutritionalImage && (!existingNutritionalImageUrl || nutritionalImage === null) && (
+                      <label className="cursor-pointer px-4">
+                        <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
+                        <input
+                          ref={nutritionalInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/jpg"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleNutritionalUpload(file);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
                   {errors.nutritionalImage && <p className={errorMsg}>{errors.nutritionalImage}</p>}
-                  <input ref={nutritionalInputRef} type="file" accept="image/jpeg,image/png,image/jpg,image/svg+xml" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleNutritionalUpload(e.target.files[0]); }} />
                 </div>
               )}
             </div>
@@ -1733,9 +1758,11 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                         </div>
 
                         <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                          {cert.isUploaded ? (
+                          {cert.isUploaded || cert.existingUrl ? (
                             <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
-                              <span className="truncate">{cert.fileName}</span>
+                              <span className="truncate">
+                                {cert.isUploaded ? cert.fileName : "Current Certificate"}
+                              </span>
                               <button
                                 type="button"
                                 onClick={() => handleCertRemove(cert.id)}
@@ -1748,6 +1775,17 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                             <span className="text-[#969793]">Upload the {cert.label}</span>
                           )}
                         </div>
+
+                        {cert.existingUrl && !cert.isUploaded && (
+                          <a
+                            href={cert.existingUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-purple-600 text-xs underline px-2"
+                          >
+                            View
+                          </a>
+                        )}
 
                         {!cert.isUploaded && (
                           <label className="cursor-pointer px-4">
@@ -1789,23 +1827,64 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
             </div>
             {/* Upload Brochure */}
-            <div data-field="brochureFile">
-              {/* Existing brochure (edit mode) */}
-              {existingBrochureUrl && !brochureFile && (
-                <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50 mb-2">
-                  <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                    <FileText size={16} className="text-purple-600" />
-                  </div>
-                  <div className="flex-1 px-3 min-w-0">
-                    <p className="text-sm font-medium text-gray-700 truncate">Current brochure (saved)</p>
-                  </div>
-                  <a href={existingBrochureUrl} target="_blank" rel="noreferrer" className="px-3 text-purple-600 text-xs underline">View</a>
-                  <button type="button" onClick={() => setExistingBrochureUrl(null)} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400 mr-2">
-                    <X size={13} />
-                  </button>
+            <div className="flex flex-col gap-1" data-field="brochureFile">
+              <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
+              <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
+                <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
+                  <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                 </div>
-              )}
-              <UploadInput onFileSelect={handleBrochureUpload} />
+
+                <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
+                  {brochureFile || (existingBrochureUrl && !brochureFile) ? (
+                    <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
+                      <span className="truncate">
+                        {brochureFile ? brochureFile.name : "Current Brochure"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (brochureFile) {
+                            setBrochureFile(null);
+                          } else {
+                            setExistingBrochureUrl(null);
+                          }
+                        }}
+                        className="ml-2"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[#969793]">Upload the Product Brochure</span>
+                  )}
+                </div>
+
+                {existingBrochureUrl && !brochureFile && (
+                  <a
+                    href={existingBrochureUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-purple-600 text-xs underline px-2"
+                  >
+                    View
+                  </a>
+                )}
+
+                {!brochureFile && (!existingBrochureUrl || brochureFile === null) && (
+                  <label className="cursor-pointer px-4">
+                    <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleBrochureUpload(file);
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
               {errors.brochureFile && <p className={errorMsg}>{errors.brochureFile}</p>}
             </div>
 
@@ -2102,7 +2181,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               value={form.stockQuantity}
               onChange={handleChange}
               readOnly={isEditMode}
-              min={1}
+              min={0}
               step={1}
               error={errors.stockQuantity}
               required

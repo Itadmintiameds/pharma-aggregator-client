@@ -1247,14 +1247,17 @@ const ProductView1 = ({
 
       {/* Supplement / Nutraceutical (category 2) */}
       {isSupplement && suppAttr && (
-        <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ paddingTop: 8, paddingBottom: 8, borderBottom: "1px #D5D5D4 solid" }}>
-            <h2 style={{ color: "#1E1E1D", fontSize: 28, fontFamily: "'Work Sans', sans-serif", fontWeight: 500, lineHeight: "36px", margin: 0 }}>
-              Product Details
-            </h2>
-          </div>
-          <SupplementDetailsView data={suppAttr} />
-        </div>
+        <SupplementDetailsView
+          productName={productData.productName}
+          productDescription={productDescription}
+          warningsPrecautions={warningsPrecautions}
+          displayImages={displayImages}
+          suppAttr={suppAttr}
+          storageConditionName={storageCondition}
+          placeholderImage={PLACEHOLDER_IMAGE}
+          manufacturerName={manufacturerName}
+          brochureUrl={brochureUrl}
+        />
       )}
 
       {/* ── SPECIAL OFFERS (if any) ── */}
