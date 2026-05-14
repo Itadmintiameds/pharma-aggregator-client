@@ -15,12 +15,12 @@ interface ProductListProps {
 }
 
 const categoryMap: Record<number, string> = {
-  1: "Drug",
-  2: "Supplement",
-  3: "Infant Food",
-  4: "Cosmetic",
-  5: "Consumable Medical Device",
-  6: "Non-Consumable Medical Device",
+  1: "Drugs",
+  2: "Supplements/ Nutraceuticals",
+  3: "Food & Infant Nutrition",
+  4: "Cosmetic & Personal Care",
+  5: "Consumable Medical Devices & Equipment",
+  6: "Non-Consumable Medical Devices & Equipment",
 };
 
 const columns: Column<ProductListData>[] = [

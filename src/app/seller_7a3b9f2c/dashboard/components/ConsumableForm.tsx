@@ -164,14 +164,14 @@ const UploadCloudIcon = () => (
 const NonEditableField = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
   <div className="flex flex-col gap-1">
     <label className={fieldLabel}>{label} {required && requiredStar}</label>
-    <div className={inputDisabled} style={{ color: "#5A5B58" }}>{value}</div>
+    <div className={inputDisabled} style={{ color: "#5A5B58" }}>{value || "—"}</div>
   </div>
 );
 
 const NonEditableSelect = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
   <div className="flex flex-col gap-1">
     <label className={fieldLabel}>{label} {required && requiredStar}</label>
-    <div className={inputDisabled} style={{ color: "#5A5B58" }}>{value}</div>
+    <div className={inputDisabled} style={{ color: "#5A5B58" }}>{value || "—"}</div>
   </div>
 );
 
@@ -223,9 +223,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [productAttributeId, setProductAttributeId] = useState("");
   const [packagingId, setPackagingId] = useState("");
   const [pricingId, setPricingId] = useState("");
-  // Consumable category ID is always 5 — no dynamic lookup needed
   const productCategoryId = 5;
 
+  // Display labels for edit mode (non-editable fields)
   const [displayLabels, setDisplayLabels] = useState({
     deviceCategoryLabel: "",
     deviceSubCategoryLabel: "",
@@ -233,8 +233,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     countryLabel: "",
     storageConditionLabel: "",
     gstLabel: "",
+    materialTypesLabel: "",
   });
 
+  // Master option lists
   const [deviceCategoryOptions, setDeviceCategoryOptions] = useState<SelectOption[]>([]);
   const [deviceSubCategoryOptions, setDeviceSubCategoryOptions] = useState<SelectOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
@@ -246,18 +248,17 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
   const materialDropdownRef = useRef<HTMLDivElement>(null);
 
+  const [loadingProduct, setLoadingProduct] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
   const [loadingMaterialTypes, setLoadingMaterialTypes] = useState(false);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [loadingProduct, setLoadingProduct] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
-  // brochure is now handled by UploadInput via this state
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
   const [showCertDropdown, setShowCertDropdown] = useState(false);
@@ -297,46 +298,39 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const convertToDiscountData = (slabs: AdditionalDiscountSlab[]): AdditionalDiscountData[] =>
     slabs.map((s) => ({ ...s }));
 
-  // ─── Data fetching via service ─────────────────────────────────────────────
+  // ─── Sub-category fetch ────────────────────────────────────────────────────
 
-  const fetchDeviceCategories = useCallback(async () => {
-    setLoadingCategories(true);
-    setApiError(null);
-    try {
-      const items: MasterItem[] = await getConsumableDeviceCategories();
-      setDeviceCategoryOptions(
-        items
-          .map((i) => ({ value: getMasterStr(i, "deviceCatId", "id"), label: getMasterStr(i, "deviceName", "name") || "Unknown" }))
-          .filter((o) => o.value),
-      );
-    } catch (err) {
-      setApiError(`Failed to load device categories: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setLoadingCategories(false);
-    }
-  }, []);
-
-  const fetchDeviceSubCategories = useCallback(async (categoryId: string) => {
-    if (!categoryId) { setDeviceSubCategoryOptions([]); return; }
+  const fetchDeviceSubCategories = useCallback(async (categoryId: string): Promise<SelectOption[]> => {
+    if (!categoryId) { setDeviceSubCategoryOptions([]); return []; }
     setLoadingSubCategories(true);
     try {
       const items: MasterItem[] = await getConsumableDeviceSubCategories(categoryId);
-      setDeviceSubCategoryOptions(
-        items
-          .map((i) => ({
-            value: getMasterStr(i, "deviceSubCatId", "subCategoryId", "id"),
-            label: getMasterStr(i, "deviceSubCatName", "subCategoryName", "name") || "Unknown",
-          }))
-          .filter((o) => o.value),
-      );
+      const opts = items
+        .map((i) => ({
+          value: getMasterStr(i, "deviceSubCatId", "subCategoryId", "id"),
+          label: getMasterStr(i, "deviceSubCatName", "subCategoryName", "name") || "Unknown",
+        }))
+        .filter((o) => o.value);
+      setDeviceSubCategoryOptions(opts);
+      return opts;
     } catch {
       setDeviceSubCategoryOptions([]);
+      return [];
     } finally {
       setLoadingSubCategories(false);
     }
   }, []);
 
-  const fetchProductData = useCallback(async () => {
+  // ─── Load product for edit (called after all masters are ready) ────────────
+
+  const fetchProductData = useCallback(async (
+    currentCategoryOptions: SelectOption[],
+    currentSubCategoryOptions: SelectOption[],
+    currentCountryOptions: SelectOption[],
+    currentStorageOptions: SelectOption[],
+    currentPackTypeOptions: SelectOption[],
+    currentMaterialTypeOptions: SelectOption[],
+  ) => {
     if (mode !== "edit" || !productId) return;
     setLoadingProduct(true);
     try {
@@ -352,40 +346,62 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       setPackagingId(String(packaging.packagingId || ""));
       setPricingId(String(pricing.pricingId || ""));
 
-      const mfgDate = pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null;
-      const expDate = pricing.expiryDate ? new Date(pricing.expiryDate) : null;
+      const mfgRaw = String(pricing.manufacturingDate || "");
+      const expRaw = String(pricing.expiryDate || "");
+      const mfgDate = mfgRaw ? new Date(mfgRaw.split("T")[0]) : null;
+      const expDate = expRaw ? new Date(expRaw.split("T")[0]) : null;
 
-      // Fetch pack types for edit label resolution
-      const packIdVal = String(packaging.packId || "");
-      if (packIdVal) {
-        try {
-          const packItems: MasterItem[] = await getConsumablePackTypes(5);
-          const mapped = packItems
-            .map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") }))
-            .filter((o) => o.value);
-          setPackTypeApiOptions(mapped);
-          const found = mapped.find((o) => o.value === packIdVal);
-          setDisplayLabels((prev) => ({ ...prev, packTypeLabel: found?.label || packIdVal }));
-        } catch { /* ignore */ }
+      const deviceCatIdStr = String(attribute.deviceCatId || "");
+      const deviceSubCatIdStr = String(attribute.deviceSubCatId || "");
+      const countryIdStr = String(attribute.countryId || "");
+      const storageCondIdStr = String(attribute.storageConditionId || "");
+      const packIdStr = String(packaging.packId || "");
+      const gstVal = String(pricing.gstPercentage ?? "");
+
+      // Fetch sub-categories for this category so we can resolve the label
+      let resolvedSubCats = currentSubCategoryOptions;
+      if (deviceCatIdStr && resolvedSubCats.length === 0) {
+        resolvedSubCats = await fetchDeviceSubCategories(deviceCatIdStr);
       }
+
+      // Resolve material type labels
+      const materialTypeIds: string[] = Array.isArray(attribute.materialTypeId)
+        ? attribute.materialTypeId.map(String)
+        : [];
+      const materialTypesLabel = materialTypeIds
+        .map((id) => currentMaterialTypeOptions.find((o) => o.value === id)?.label || id)
+        .filter(Boolean)
+        .join(", ");
+
+      setDisplayLabels({
+        deviceCategoryLabel: currentCategoryOptions.find((o) => o.value === deviceCatIdStr)?.label || deviceCatIdStr,
+        deviceSubCategoryLabel: resolvedSubCats.find((o) => o.value === deviceSubCatIdStr)?.label || deviceSubCatIdStr,
+        packTypeLabel: currentPackTypeOptions.find((o) => o.value === packIdStr)?.label || packIdStr,
+        countryLabel: currentCountryOptions.find((o) => o.value === countryIdStr)?.label || countryIdStr,
+        storageConditionLabel: currentStorageOptions.find((o) => o.value === storageCondIdStr)?.label || storageCondIdStr,
+        gstLabel: gstOptions.find((o) => o.value === gstVal)?.label || (gstVal ? `${gstVal}%` : ""),
+        materialTypesLabel,
+      });
+
+      setSelectedMaterialTypes(materialTypeIds);
 
       setForm({
         productName: data.productName || "",
-        deviceCategoryId: String(attribute.deviceCatId || ""),
-        deviceSubCategoryId: String(attribute.deviceSubCatId || ""),
+        deviceCategoryId: deviceCatIdStr,
+        deviceSubCategoryId: deviceSubCatIdStr,
         brandName: attribute.brandName || "",
         sizeDimension: attribute.dimensionSize || "",
-        sterileStatus: attribute.sterileOrNonSterile?.toLowerCase() === "sterile" ? "sterile" : "non-sterile",
-        disposableType: attribute.disposalOrReusable?.toLowerCase() === "disposable" ? "disposable" : "reusable",
+        sterileStatus: (attribute.sterileOrNonSterile || "").toLowerCase() === "sterile" ? "sterile" : "non-sterile",
+        disposableType: (attribute.disposalOrReusable || "").toLowerCase() === "disposable" ? "disposable" : "reusable",
         intendedUse: attribute.purpose || "",
         keyFeatures: attribute.keyFeaturesSpecifications || "",
         safetyInstructions: attribute.safetyInstructions || data.warningsPrecautions || "",
-        countryOfOrigin: String(attribute.countryId || ""),
-        manufacturerName: data.manufacturerName || "",
-        storageCondition: String(attribute.storageConditionId || ""),
+        countryOfOrigin: countryIdStr,
+        manufacturerName: data.manufacturerName || attribute.manufacturerName || "",
+        storageCondition: storageCondIdStr,
         productDescription: data.productDescription || "",
         brochureUrl: data.productMarketingUrl || "",
-        packType: packIdVal,
+        packType: packIdStr,
         unitsPerPack: String(packaging.unitPerPack || ""),
         numberOfPacks: String(packaging.numberOfPacks || ""),
         packSize: String(packaging.packSize || ""),
@@ -399,136 +415,187 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         mrp: String(pricing.mrp || ""),
         sellingPricePerPack: String(pricing.sellingPrice || ""),
         discountPercentage: String(pricing.discountPercentage || ""),
-        gstPercentage: String(pricing.gstPercentage ?? ""),
+        gstPercentage: gstVal,
         hsnCode: String(pricing.hsnCode || ""),
         finalPrice: String(pricing.finalPrice || ""),
       });
 
       setShelfLifeDisplay(computeShelfLife(mfgDate, expDate));
-      if (pricing.additionalDiscounts?.length) setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
-      if (attribute.materialTypeId?.length) setSelectedMaterialTypes(attribute.materialTypeId.map(String));
-      if (data.productImages?.length) setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
-      if (attribute.brochurePath && attribute.brochurePath !== "PENDING") setExistingBrochureUrl(attribute.brochurePath);
 
-      if (attribute.certificateDocuments?.length) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setSelectedCertifications(attribute.certificateDocuments.map((cert: any) => ({
-          id: String(cert.certificationId),
-          label: cert.certificationName || `Certificate ${cert.certificationId}`,
-          tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
-          file: null,
-          fileName: cert.certificateUrl && cert.certificateUrl !== "PENDING" ? cert.certificateUrl.split("/").pop() || "" : "",
-          uploading: false,
-          isUploaded: !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
-          previewUrl: null,
-          productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-          existingUrl: cert.certificateUrl && cert.certificateUrl !== "PENDING" ? cert.certificateUrl : undefined,
-        })));
+      if (pricing.additionalDiscounts?.length) {
+        setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
       }
 
-      if (attribute.deviceCatId) await fetchDeviceSubCategories(String(attribute.deviceCatId));
+      if (data.productImages?.length) {
+        setExistingImages(
+          data.productImages.map((img: { productImage?: string; imageUrl?: string }) =>
+            img.productImage || img.imageUrl || "",
+          ).filter(Boolean),
+        );
+      }
+
+      if (attribute.brochurePath && attribute.brochurePath !== "PENDING") {
+        setExistingBrochureUrl(attribute.brochurePath);
+      }
+
+      if (attribute.certificateDocuments?.length) {
+        setSelectedCertifications(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          attribute.certificateDocuments.map((cert: any) => ({
+            id: String(cert.certificationId),
+            label: cert.certificationName || `Certificate ${cert.certificationId}`,
+            tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
+            file: null,
+            fileName:
+              cert.certificateUrl && cert.certificateUrl !== "PENDING"
+                ? cert.certificateUrl.split("/").pop() || ""
+                : "",
+            uploading: false,
+            isUploaded: !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
+            previewUrl: null,
+            productCertificateDocumentId: Number(cert.productCertificateDocumentId),
+            existingUrl:
+              cert.certificateUrl && cert.certificateUrl !== "PENDING"
+                ? cert.certificateUrl
+                : undefined,
+          })),
+        );
+      }
     } catch (err) {
       console.error("Error fetching product:", err);
       setApiError("Failed to load product data. Please refresh and try again.");
     } finally {
       setLoadingProduct(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, productId, fetchDeviceSubCategories]);
 
-  // ─── Effects ──────────────────────────────────────────────────────────────
+  // ─── Load all masters, then product (sequenced like CosmeticForm) ──────────
 
   useEffect(() => {
-    fetchDeviceCategories();
+    let mounted = true;
 
-    getConsumableCountries()
-      .then((items: MasterItem[]) =>
-        setCountryOptions(
-          items.map((i) => ({ value: getMasterStr(i, "countryId", "id"), label: getMasterStr(i, "countryName", "name") || "Unknown" })).filter((o) => o.value),
-        ),
-      )
-      .catch(() => {});
+    const loadAll = async () => {
+      setLoadingCategories(true);
+      setLoadingMaterialTypes(true);
+      setLoadingCertifications(true);
 
-    getConsumableStorageConditions()
-      .then((items: MasterItem[]) =>
-        setStorageConditionOptions(
-          items.map((i) => ({ value: getMasterStr(i, "storageConditionId", "id"), label: getMasterStr(i, "conditionName", "name") || "Unknown" })).filter((o) => o.value),
-        ),
-      )
-      .catch(() => {});
+      const [
+        categoriesResult,
+        countriesResult,
+        storageResult,
+        packTypesResult,
+        materialTypesResult,
+        certificationsResult,
+      ] = await Promise.allSettled([
+        getConsumableDeviceCategories(),
+        getConsumableCountries(),
+        getConsumableStorageConditions(),
+        getConsumablePackTypes(productCategoryId),
+        getConsumableMaterialTypes(),
+        getConsumableCertifications(),
+      ]);
 
-    if (mode === "create") {
-      getConsumablePackTypes(5)
-        .then((items: MasterItem[]) =>
-          setPackTypeApiOptions(
-            items.map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") })).filter((o) => o.value),
-          ),
-        )
-        .catch(() => {});
-    }
+      if (!mounted) return;
 
-    setLoadingMaterialTypes(true);
-    getConsumableMaterialTypes()
-      .then((items: MasterItem[]) =>
-        setMaterialTypeOptions(
-          items.map((i) => ({ value: getMasterStr(i, "materialTypeId", "id"), label: getMasterStr(i, "materialTypeName", "name") || "Unknown" })).filter((o) => o.value),
-        ),
-      )
-      .catch(() => {})
-      .finally(() => setLoadingMaterialTypes(false));
+      const resolvedCategories: SelectOption[] =
+        categoriesResult.status === "fulfilled"
+          ? (categoriesResult.value as MasterItem[])
+              .map((i) => ({ value: getMasterStr(i, "deviceCatId", "id"), label: getMasterStr(i, "deviceName", "name") || "Unknown" }))
+              .filter((o) => o.value)
+          : [];
 
-    setLoadingCertifications(true);
-    getConsumableCertifications()
-      .then((items: MasterItem[]) =>
-        setCertificationMasterOptions(
-          items.map((item, idx) => ({
-            value: getMasterStr(item, "certificationId", "id"),
-            label: getMasterStr(item, "certificationName", "name") || "Unknown",
-            certificationId: Number(getMasterStr(item, "certificationId", "id") || String(idx + 1)),
-            tagCode: `Tag ${String(idx + 1).padStart(2, "0")}`,
-          })).filter((o) => o.value),
-        ),
-      )
-      .catch(() =>
-        setCertificationMasterOptions([
-          { value: "1", label: "CDSCO Registration", certificationId: 1, tagCode: "Tag 01" },
-          { value: "2", label: "ISO 13485", certificationId: 2, tagCode: "Tag 02" },
-          { value: "3", label: "CE Certification", certificationId: 3, tagCode: "Tag 03" },
-          { value: "4", label: "BIS Certification", certificationId: 4, tagCode: "Tag 04" },
-        ]),
-      )
-      .finally(() => setLoadingCertifications(false));
+      const resolvedCountries: SelectOption[] =
+        countriesResult.status === "fulfilled"
+          ? (countriesResult.value as MasterItem[])
+              .map((i) => ({ value: getMasterStr(i, "countryId", "id"), label: getMasterStr(i, "countryName", "name") || "Unknown" }))
+              .filter((o) => o.value)
+          : [];
+
+      const resolvedStorage: SelectOption[] =
+        storageResult.status === "fulfilled"
+          ? (storageResult.value as MasterItem[])
+              .map((i) => ({ value: getMasterStr(i, "storageConditionId", "id"), label: getMasterStr(i, "conditionName", "name") || "Unknown" }))
+              .filter((o) => o.value)
+          : [];
+
+      const resolvedPackTypes: SelectOption[] =
+        packTypesResult.status === "fulfilled"
+          ? (packTypesResult.value as MasterItem[])
+              .map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") }))
+              .filter((o) => o.value)
+          : [];
+
+      const resolvedMaterialTypes: SelectOption[] =
+        materialTypesResult.status === "fulfilled"
+          ? (materialTypesResult.value as MasterItem[])
+              .map((i) => ({ value: getMasterStr(i, "materialTypeId", "id"), label: getMasterStr(i, "materialTypeName", "name") || "Unknown" }))
+              .filter((o) => o.value)
+          : [];
+
+      const fallbackCerts: CertificationMasterOption[] = [
+        { value: "1", label: "CDSCO Registration", certificationId: 1, tagCode: "Tag 01" },
+        { value: "2", label: "ISO 13485", certificationId: 2, tagCode: "Tag 02" },
+        { value: "3", label: "CE Certification", certificationId: 3, tagCode: "Tag 03" },
+        { value: "4", label: "BIS Certification", certificationId: 4, tagCode: "Tag 04" },
+      ];
+
+      const resolvedCerts: CertificationMasterOption[] =
+        certificationsResult.status === "fulfilled"
+          ? (certificationsResult.value as MasterItem[])
+              .map((item, idx) => ({
+                value: getMasterStr(item, "certificationId", "id"),
+                label: getMasterStr(item, "certificationName", "name") || "Unknown",
+                certificationId: Number(getMasterStr(item, "certificationId", "id") || String(idx + 1)),
+                tagCode: `Tag ${String(idx + 1).padStart(2, "0")}`,
+              }))
+              .filter((o) => o.value)
+          : fallbackCerts;
+
+      setDeviceCategoryOptions(resolvedCategories);
+      setCountryOptions(resolvedCountries);
+      setStorageConditionOptions(resolvedStorage);
+      setPackTypeApiOptions(resolvedPackTypes);
+      setMaterialTypeOptions(resolvedMaterialTypes);
+      setCertificationMasterOptions(resolvedCerts.length ? resolvedCerts : fallbackCerts);
+
+      setLoadingCategories(false);
+      setLoadingMaterialTypes(false);
+      setLoadingCertifications(false);
+
+      // Fetch product AFTER all masters are ready — so label resolution works
+      if (mode === "edit" && productId) {
+        await fetchProductData(
+          resolvedCategories,
+          [], // sub-categories fetched inside fetchProductData based on deviceCatId
+          resolvedCountries,
+          resolvedStorage,
+          resolvedPackTypes,
+          resolvedMaterialTypes,
+        );
+      }
+    };
+
+    loadAll();
+
+    return () => { mounted = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fetch sub-categories when product type changes (create mode only)
   useEffect(() => {
-    if (mode === "edit" && productId) fetchProductData();
-  }, [mode, productId, fetchProductData]);
-
-  useEffect(() => {
-    if (mode !== "edit") return;
-    setDisplayLabels((prev) => ({
-      ...prev,
-      deviceCategoryLabel: deviceCategoryOptions.find((o) => o.value === form.deviceCategoryId)?.label || form.deviceCategoryId,
-      deviceSubCategoryLabel: deviceSubCategoryOptions.find((o) => o.value === form.deviceSubCategoryId)?.label || form.deviceSubCategoryId,
-      countryLabel: countryOptions.find((o) => o.value === form.countryOfOrigin)?.label || form.countryOfOrigin,
-      storageConditionLabel: storageConditionOptions.find((o) => o.value === form.storageCondition)?.label || form.storageCondition,
-      gstLabel: gstOptions.find((o) => o.value === form.gstPercentage)?.label || (form.gstPercentage ? `${form.gstPercentage}%` : ""),
-    }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, deviceCategoryOptions, deviceSubCategoryOptions, countryOptions, storageConditionOptions,
-      form.deviceCategoryId, form.deviceSubCategoryId, form.countryOfOrigin, form.storageCondition, form.gstPercentage]);
-
-  useEffect(() => {
-    if (form.deviceCategoryId && mode === "create") {
+    if (!form.deviceCategoryId) {
+      setDeviceSubCategoryOptions([]);
+      return;
+    }
+    if (mode === "create") {
       fetchDeviceSubCategories(form.deviceCategoryId);
       setForm((p) => ({ ...p, deviceSubCategoryId: "" }));
-    } else if (form.deviceCategoryId && mode === "edit") {
-      fetchDeviceSubCategories(form.deviceCategoryId);
-    } else {
-      setDeviceSubCategoryOptions([]);
     }
-  }, [form.deviceCategoryId, mode, fetchDeviceSubCategories]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.deviceCategoryId, mode]);
 
+  // Auto-compute pack size
   useEffect(() => {
     const u = parseFloat(form.unitsPerPack), p = parseFloat(form.numberOfPacks);
     if (!isNaN(u) && !isNaN(p) && u > 0 && p > 0) {
@@ -536,14 +603,16 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }
   }, [form.unitsPerPack, form.numberOfPacks]);
 
+  // Auto-compute shelf life
   useEffect(() => {
     const sl = computeShelfLife(form.manufacturingDate, form.expiryDate);
     setShelfLifeDisplay(sl);
     if (sl && errors.expiryDate) {
       setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
     }
-  }, [form.manufacturingDate, form.expiryDate]);
+  }, [form.manufacturingDate, form.expiryDate, errors.expiryDate]);
 
+  // Auto-compute final price
   useEffect(() => {
     const selling = parseFloat(form.sellingPricePerPack);
     const disc = parseFloat(form.discountPercentage);
@@ -555,6 +624,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }));
   }, [form.sellingPricePerPack, form.discountPercentage]);
 
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowCertDropdown(false);
@@ -573,8 +643,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
+    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, sizeDimension: 20, manufacturerName: 100, productDescription: 1000 };
+    if (name in maxLengths && value.length > maxLengths[name]) return;
+
     setForm((p) => ({ ...p, [name]: value }));
     if (errors[name]) setErrors((p) => { const n = { ...p }; delete n[name]; return n; });
+
     if (name === "hsnCode" && value.trim()) {
       const hsnError = validateHSNCode(value);
       if (hsnError) setErrors((p) => ({ ...p, hsnCode: hsnError }));
@@ -585,8 +659,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (isNaN(v) || v < 0 || v > 100) setErrors((p) => ({ ...p, discountPercentage: "Discount must be between 0 and 100" }));
       else setErrors((p) => { const n = { ...p }; delete n.discountPercentage; return n; });
     }
-    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, sizeDimension: 20, manufacturerName: 100, productDescription: 1000 };
-    if (name in maxLengths && value.length > maxLengths[name]) return;
   };
 
   const handleSelectChange = (field: string, sel: SelectOption | null) => {
@@ -630,10 +702,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     const fileArr = Array.from(files);
     const allowedFormats = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml"];
     const maxSizeBytes = 5 * 1024 * 1024;
-    const invalid = fileArr.find((f) => !allowedFormats.includes(f.type));
-    if (invalid) { setErrors((p) => ({ ...p, images: "Unsupported image format. Only JPG, JPEG, PNG are allowed." })); return; }
-    const oversized = fileArr.find((f) => f.size > maxSizeBytes);
-    if (oversized) { setErrors((p) => ({ ...p, images: "Image file size exceeds the maximum limit." })); return; }
+    if (fileArr.find((f) => !allowedFormats.includes(f.type))) { setErrors((p) => ({ ...p, images: "Unsupported image format. Only JPG, JPEG, PNG are allowed." })); return; }
+    if (fileArr.find((f) => f.size > maxSizeBytes)) { setErrors((p) => ({ ...p, images: "Image file size exceeds the maximum limit." })); return; }
     if (images.length + fileArr.length > 5) { setErrors((p) => ({ ...p, images: "Maximum 5 images allowed" })); return; }
     setImages((p) => [...p, ...fileArr]);
     setErrors((p) => { const n = { ...p }; delete n.images; return n; });
@@ -841,7 +911,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
       let currentProductId = resolvedProductId || productId || "";
       let currentAttributeId = productAttributeId;
-      let certsToUpload: CertificationTag[] = [...selectedCertifications];
+      const certsToUpload: CertificationTag[] = [...selectedCertifications];
 
       if (mode === "edit" && currentProductId) {
         await updateProduct(currentProductId, payload as any);
@@ -868,16 +938,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         if (!currentAttributeId) throw new Error("Product attribute ID not returned from server — cannot upload certificates");
 
         const certDocIdMap = extractCertDocumentIdMap(createData);
-        if (certDocIdMap.size > 0) {
-          certsToUpload = certsToUpload.map((c) => {
-            const serverDocId = certDocIdMap.get(c.productCertificateDocumentId);
-            return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
-          });
-        }
+        const finalCertsToUpload = certsToUpload.map((c) => {
+          const serverDocId = certDocIdMap.get(c.productCertificateDocumentId);
+          return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
+        });
 
         if (images.length > 0) await uploadProductImages(currentProductId, images);
         if (currentAttributeId) {
-          for (const cert of certsToUpload.filter((c) => c.file && !c.existingUrl)) {
+          for (const cert of finalCertsToUpload.filter((c) => c.file && !c.existingUrl)) {
             const result = await uploadConsumableCertificate(currentAttributeId, cert.productCertificateDocumentId, cert.file!);
             if (!result.success) setApiError(`Warning: Could not upload certificate "${cert.label}": ${result.message}`);
           }
@@ -922,6 +990,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     ...theme, colors: { ...theme.colors, primary: "#7c3aed", primary25: "#f3f0ff", primary50: "#ede9fe" },
   });
 
+  // ─── Loading guard ────────────────────────────────────────────────────────
+
   if (loadingProduct) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -931,6 +1001,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   }
 
   const isEdit = mode === "edit";
+
+  // Resolved display for material types multi-select in edit mode
+  const materialTypesDisplayValue = isEdit
+    ? displayLabels.materialTypesLabel ||
+      selectedMaterialTypes
+        .map((v) => materialTypeOptions.find((o) => o.value === v)?.label || v)
+        .filter(Boolean)
+        .join(", ")
+    : "";
 
   return (
     <>
@@ -978,15 +1057,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Product Name" value={form.productName} required />
             ) : (
-              <Input
-                label="Product Name"
-                name="productName"
-                placeholder="e.g., Surgical Mask, Syringe"
-                value={form.productName}
-                onChange={handleChange}
-                error={errors.productName}
-                required
-              />
+              <Input label="Product Name" name="productName" placeholder="e.g., Surgical Mask, Syringe"
+                value={form.productName} onChange={handleChange} error={errors.productName} required />
             )}
 
             {isEdit ? (
@@ -994,7 +1066,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("deviceCategoryId") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Device Category {requiredStar}</label>
-                <Select options={deviceCategoryOptions} isLoading={loadingCategories} value={deviceCategoryOptions.find((o) => o.value === form.deviceCategoryId) || null} onChange={(sel) => handleSelectChange("deviceCategoryId", sel)} placeholder={loadingCategories ? "Loading..." : "Select category"} theme={selectTheme} styles={selectStyles("deviceCategoryId")} />
+                <Select options={deviceCategoryOptions} isLoading={loadingCategories}
+                  value={deviceCategoryOptions.find((o) => o.value === form.deviceCategoryId) || null}
+                  onChange={(sel) => handleSelectChange("deviceCategoryId", sel)}
+                  placeholder={loadingCategories ? "Loading..." : "Select category"}
+                  theme={selectTheme} styles={selectStyles("deviceCategoryId")} />
                 {errors.deviceCategoryId && <p className={errorMsg}>{errors.deviceCategoryId}</p>}
               </div>
             )}
@@ -1004,7 +1080,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("deviceSubCategoryId") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Device Sub-Category {requiredStar}</label>
-                <Select options={deviceSubCategoryOptions} isLoading={loadingSubCategories} isDisabled={!form.deviceCategoryId} value={deviceSubCategoryOptions.find((o) => o.value === form.deviceSubCategoryId) || null} onChange={(sel) => handleSelectChange("deviceSubCategoryId", sel)} placeholder={form.deviceCategoryId ? (loadingSubCategories ? "Loading..." : "Select sub-category") : "Select category first"} theme={selectTheme} styles={selectStyles("deviceSubCategoryId")} />
+                <Select options={deviceSubCategoryOptions} isLoading={loadingSubCategories} isDisabled={!form.deviceCategoryId}
+                  value={deviceSubCategoryOptions.find((o) => o.value === form.deviceSubCategoryId) || null}
+                  onChange={(sel) => handleSelectChange("deviceSubCategoryId", sel)}
+                  placeholder={form.deviceCategoryId ? (loadingSubCategories ? "Loading..." : "Select sub-category") : "Select category first"}
+                  theme={selectTheme} styles={selectStyles("deviceSubCategoryId")} />
                 {errors.deviceSubCategoryId && <p className={errorMsg}>{errors.deviceSubCategoryId}</p>}
               </div>
             )}
@@ -1012,30 +1092,22 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Brand Name" value={form.brandName} required />
             ) : (
-              <Input
-                label="Brand Name"
-                name="brandName"
-                placeholder="e.g., 3M, Johnson & Johnson"
-                value={form.brandName}
-                onChange={handleChange}
-                error={errors.brandName}
-                required
-              />
+              <Input label="Brand Name" name="brandName" placeholder="e.g., 3M, Johnson & Johnson"
+                value={form.brandName} onChange={handleChange} error={errors.brandName} required />
             )}
 
+            {/* Material Type */}
             {isEdit ? (
-              <NonEditableField
-                label="Material Type"
-                value={selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")}
-                required
-              />
+              <NonEditableField label="Material Type" value={materialTypesDisplayValue} required />
             ) : (
               <div className="flex flex-col gap-1" data-field="materialType">
                 <label className={fieldLabel}>Material Type {requiredStar}</label>
                 <div className="relative" ref={materialDropdownRef}>
                   <div onClick={() => setShowMaterialDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.materialType ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
                     <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedMaterialTypes.length > 0 ? "#3C3D3A" : "#969793" }}>
-                      {selectedMaterialTypes.length > 0 ? selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ") : "Select material types"}
+                      {selectedMaterialTypes.length > 0
+                        ? selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")
+                        : "Select material types"}
                     </span>
                     <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showMaterialDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </div>
@@ -1059,19 +1131,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Size / Dimension / Gauge" value={form.sizeDimension} required />
             ) : (
-              <Input
-                label="Size / Dimension / Gauge"
-                name="sizeDimension"
-                placeholder="e.g., Size M, 22G, 5ml"
-                value={form.sizeDimension}
-                onChange={handleChange}
-                error={errors.sizeDimension}
-                required
-              />
+              <Input label="Size / Dimension / Gauge" name="sizeDimension" placeholder="e.g., Size M, 22G, 5ml"
+                value={form.sizeDimension} onChange={handleChange} error={errors.sizeDimension} required />
             )}
 
+            {/* Sterile status */}
             {isEdit ? (
-              <NonEditableField label="Sterile / Non-Sterile" value={form.sterileStatus === "sterile" ? "Sterile" : "Non-Sterile"} required />
+              <NonEditableField label="Sterile / Non-Sterile" value={form.sterileStatus === "sterile" ? "Sterile" : form.sterileStatus ? "Non-Sterile" : "—"} required />
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("sterileStatus") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Sterile / Non-Sterile {requiredStar}</label>
@@ -1087,8 +1153,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               </div>
             )}
 
+            {/* Disposable type */}
             {isEdit ? (
-              <NonEditableField label="Disposable / Reusable" value={form.disposableType === "disposable" ? "Disposable" : "Reusable"} required />
+              <NonEditableField label="Disposable / Reusable" value={form.disposableType === "disposable" ? "Disposable" : form.disposableType ? "Reusable" : "—"} required />
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("disposableType") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Disposable / Reusable {requiredStar}</label>
@@ -1104,21 +1171,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               </div>
             )}
 
-            <Input
-              label="Intended Use / Purpose"
-              name="intendedUse"
-              placeholder="e.g., For surgical procedures"
-              value={form.intendedUse}
-              onChange={handleChange}
-              error={errors.intendedUse}
-              required
-            />
+            <Input label="Intended Use / Purpose" name="intendedUse" placeholder="e.g., For surgical procedures"
+              value={form.intendedUse} onChange={handleChange} error={errors.intendedUse} required />
 
             {/* Certifications */}
             <div className="col-span-1 md:col-span-2" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {isEdit ? (
-                  <NonEditableField label="Certifications & Compliance" value={selectedCertifications.map((c) => c.label).join(", ")} required />
+                  <NonEditableField label="Certifications & Compliance"
+                    value={selectedCertifications.map((c) => c.label).join(", ")} required />
                 ) : (
                   <div>
                     <label className={fieldLabel}>Certifications &amp; Compliance {requiredStar}</label>
@@ -1185,22 +1246,27 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                               <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
                             </div>
                           )}
-                          <input id={`consumable-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
+                          <input id={`consumable-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+                            onClick={(e) => { (e.target as HTMLInputElement).value = ""; }}
+                            onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
                         </div>
                       ))}
                     </div>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file. Files are uploaded on Save.</p>
+                  <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file.</p>
                 </div>
               </div>
             </div>
 
+            {/* Country of Origin */}
             {isEdit ? (
               <NonEditableSelect label="Country of Origin" value={displayLabels.countryLabel} required />
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("countryOfOrigin") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Country of Origin {requiredStar}</label>
-                <Select options={countryOptions} value={countryOptions.find((o) => o.value === form.countryOfOrigin) || null} onChange={(sel) => handleSelectChange("countryOfOrigin", sel)} placeholder="Select country" theme={selectTheme} styles={selectStyles("countryOfOrigin")} />
+                <Select options={countryOptions} value={countryOptions.find((o) => o.value === form.countryOfOrigin) || null}
+                  onChange={(sel) => handleSelectChange("countryOfOrigin", sel)}
+                  placeholder="Select country" theme={selectTheme} styles={selectStyles("countryOfOrigin")} />
                 {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
               </div>
             )}
@@ -1208,41 +1274,44 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Manufacturer Name" value={form.manufacturerName} required />
             ) : (
-              <Input
-                label="Manufacturer Name"
-                name="manufacturerName"
-                placeholder="Manufacturer company name"
-                value={form.manufacturerName}
-                onChange={handleChange}
-                error={errors.manufacturerName}
-                required
-              />
+              <Input label="Manufacturer Name" name="manufacturerName" placeholder="Manufacturer company name"
+                value={form.manufacturerName} onChange={handleChange} error={errors.manufacturerName} required />
             )}
 
+            {/* Storage Condition — editable in both modes */}
             <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
               <label className={fieldLabel}>Storage Condition {requiredStar}</label>
-              <Select options={storageConditionOptions} value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null} onChange={(sel) => handleSelectChange("storageCondition", sel)} placeholder="Select storage condition" theme={selectTheme} styles={selectStyles("storageCondition")} />
+              <Select
+                options={storageConditionOptions}
+                value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null}
+                onChange={(sel) => handleSelectChange("storageCondition", sel)}
+                placeholder="Select storage condition"
+                theme={selectTheme} styles={selectStyles("storageCondition")}
+              />
               {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
             </div>
 
-            {/* Brochure — now using UploadInput component */}
+            {/* Brochure */}
             <div ref={setFieldRef("brochure") as React.RefCallback<HTMLDivElement>}>
-              <UploadInput
-                onFileSelect={(file) => setBrochureFile(file)}
-                existingFile={existingBrochureUrl || undefined}
-              />
+              <UploadInput onFileSelect={(file) => setBrochureFile(file)} existingFile={existingBrochureUrl || undefined} />
             </div>
 
             <div className="col-span-1 md:col-span-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className={fieldLabel}>Safety Instructions &amp; Precautions {requiredStar}</label>
-                  <textarea ref={setFieldRef("safetyInstructions") as React.RefCallback<HTMLTextAreaElement>} name="safetyInstructions" value={form.safetyInstructions} onChange={handleChange} rows={4} placeholder="Enter safety warnings, precautions, and handling instructions" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.safetyInstructions ? "border-red-400" : "border-gray-300"}`} />
+                  <textarea ref={setFieldRef("safetyInstructions") as React.RefCallback<HTMLTextAreaElement>}
+                    name="safetyInstructions" value={form.safetyInstructions} onChange={handleChange} rows={4}
+                    placeholder="Enter safety warnings, precautions, and handling instructions"
+                    className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.safetyInstructions ? "border-red-400" : "border-gray-300"}`} />
                   {errors.safetyInstructions && <p className={errorMsg}>{errors.safetyInstructions}</p>}
                 </div>
                 <div>
                   <label className={fieldLabel}>Key Features &amp; Specifications {requiredStar}</label>
-                  <textarea ref={setFieldRef("keyFeatures") as React.RefCallback<HTMLTextAreaElement>} name="keyFeatures" value={form.keyFeatures} onChange={handleChange} rows={4} placeholder="List key features, technical specifications" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.keyFeatures ? "border-red-400" : "border-gray-300"}`} />
+                  <textarea ref={setFieldRef("keyFeatures") as React.RefCallback<HTMLTextAreaElement>}
+                    name="keyFeatures" value={form.keyFeatures} onChange={handleChange} rows={4}
+                    placeholder="List key features, technical specifications"
+                    className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.keyFeatures ? "border-red-400" : "border-gray-300"}`} />
                   {errors.keyFeatures && <p className={errorMsg}>{errors.keyFeatures}</p>}
                 </div>
               </div>
@@ -1250,7 +1319,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
             <div className="col-span-1 md:col-span-2">
               <label className={fieldLabel}>Product Description {requiredStar}</label>
-              <textarea ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>} name="productDescription" value={form.productDescription} onChange={handleChange} rows={4} placeholder="Detailed product description" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.productDescription ? "border-red-400" : "border-gray-300"}`} />
+              <textarea ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>}
+                name="productDescription" value={form.productDescription} onChange={handleChange} rows={4}
+                placeholder="Detailed product description"
+                className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.productDescription ? "border-red-400" : "border-gray-300"}`} />
               {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
             </div>
           </div>
@@ -1266,59 +1338,29 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("packType") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Pack Type {requiredStar}</label>
-                <Select options={packTypeApiOptions} value={packTypeApiOptions.find((o) => o.value === form.packType) || null} onChange={(sel) => handleSelectChange("packType", sel)} placeholder="Select pack type" theme={selectTheme} styles={selectStyles("packType")} />
+                <Select options={packTypeApiOptions} value={packTypeApiOptions.find((o) => o.value === form.packType) || null}
+                  onChange={(sel) => handleSelectChange("packType", sel)}
+                  placeholder="Select pack type" theme={selectTheme} styles={selectStyles("packType")} />
                 {errors.packType && <p className={errorMsg}>{errors.packType}</p>}
               </div>
             )}
 
-            <Input
-              label="Number of Units per Pack Type"
-              name="unitsPerPack"
-              placeholder="e.g., 100"
-              value={form.unitsPerPack}
-              onChange={handleChange}
-              error={errors.unitsPerPack}
-              required
-            />
+            <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 100"
+              value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
 
-            <Input
-              label="Number of Packs"
-              name="numberOfPacks"
-              placeholder="e.g., 10"
-              value={form.numberOfPacks}
-              onChange={handleChange}
-              error={errors.numberOfPacks}
-              required
-            />
+            <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 10"
+              value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
 
-            <Input
-              label="Pack Size (No. of Units per Pack Type X No. of Packs)"
-              name="packSize"
-              value={form.packSize}
-              readOnly
-            />
+            <Input label="Pack Size (No. of Units per Pack Type X No. of Packs)" name="packSize"
+              value={form.packSize} readOnly />
           </div>
 
           <p className={subSectionTitle}>Order Details</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-            <Input
-              label="Min Order Qty"
-              name="minimumOrderQuantity"
-              placeholder="e.g., 1"
-              value={form.minimumOrderQuantity}
-              onChange={handleChange}
-              error={errors.minimumOrderQuantity}
-              required
-            />
-            <Input
-              label="Max Order Qty"
-              name="maximumOrderQuantity"
-              placeholder="e.g., 100"
-              value={form.maximumOrderQuantity}
-              onChange={handleChange}
-              error={errors.maximumOrderQuantity}
-              required
-            />
+            <Input label="Min Order Qty" name="minimumOrderQuantity" placeholder="e.g., 1"
+              value={form.minimumOrderQuantity} onChange={handleChange} error={errors.minimumOrderQuantity} required />
+            <Input label="Max Order Qty" name="maximumOrderQuantity" placeholder="e.g., 100"
+              value={form.maximumOrderQuantity} onChange={handleChange} error={errors.maximumOrderQuantity} required />
           </div>
 
           <p className={subSectionTitle}>Batch Management</p>
@@ -1327,49 +1369,35 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Batch Number" value={form.batchLotNumber} required />
             ) : (
-              <Input
-                label="Batch Number"
-                name="batchLotNumber"
-                placeholder="Alphanumeric only"
-                value={form.batchLotNumber}
-                onChange={handleChange}
-                error={errors.batchLotNumber}
-                required
-              />
+              <Input label="Batch Number" name="batchLotNumber" placeholder="Alphanumeric only"
+                value={form.batchLotNumber} onChange={handleChange} error={errors.batchLotNumber} required />
             )}
 
             {isEdit ? (
-              <NonEditableField label="Manufacturing Date" value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""} required />
+              <NonEditableField label="Manufacturing Date"
+                value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : "—"} required />
             ) : (
               <div className="flex flex-col gap-1">
                 <label className={fieldLabel}>Manufacturing Date {requiredStar}</label>
-                <input
-                  ref={setFieldRef("manufacturingDate")}
-                  type="date"
-                  name="manufacturingDate"
-                  max={todayStr}
+                <input ref={setFieldRef("manufacturingDate")} type="date" name="manufacturingDate" max={todayStr}
                   onChange={(e) => setForm((p) => ({ ...p, manufacturingDate: e.target.value ? new Date(e.target.value) : null }))}
                   value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""}
-                  className={`w-full h-12 px-4 border rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.manufacturingDate ? "border-red-400" : "border-gray-300"}`}
-                />
+                  className={`w-full h-12 px-4 border rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.manufacturingDate ? "border-red-400" : "border-gray-300"}`} />
                 {errors.manufacturingDate && <p className={errorMsg}>{errors.manufacturingDate}</p>}
               </div>
             )}
 
             {isEdit ? (
-              <NonEditableField label="Expiry Date" value={form.expiryDate ? form.expiryDate.toISOString().split("T")[0] : ""} required />
+              <NonEditableField label="Expiry Date"
+                value={form.expiryDate ? form.expiryDate.toISOString().split("T")[0] : "—"} required />
             ) : (
               <div className="flex flex-col gap-1">
                 <label className={fieldLabel}>Expiry Date {requiredStar}</label>
-                <input
-                  ref={setFieldRef("expiryDate")}
-                  type="date"
-                  name="expiryDate"
+                <input ref={setFieldRef("expiryDate")} type="date" name="expiryDate"
                   min={form.manufacturingDate ? (() => { const d = new Date(form.manufacturingDate!); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })() : undefined}
                   onChange={(e) => setForm((p) => ({ ...p, expiryDate: e.target.value ? new Date(e.target.value) : null }))}
                   value={form.expiryDate ? form.expiryDate.toISOString().split("T")[0] : ""}
-                  className={`w-full h-12 px-4 border rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.expiryDate ? "border-red-400" : "border-gray-300"}`}
-                />
+                  className={`w-full h-12 px-4 border rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.expiryDate ? "border-red-400" : "border-gray-300"}`} />
                 {errors.expiryDate && <p className={errorMsg}>{errors.expiryDate}</p>}
               </div>
             )}
@@ -1384,59 +1412,33 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="Stock Quantity (in units)" value={form.stockQuantity} required />
             ) : (
-              <Input
-                label="Stock Quantity (in units)"
-                name="stockQuantity"
-                placeholder="e.g., 10"
-                value={form.stockQuantity}
-                onChange={handleChange}
-                error={errors.stockQuantity}
-                required
-              />
+              <Input label="Stock Quantity (in units)" name="stockQuantity" placeholder="e.g., 10"
+                value={form.stockQuantity} onChange={handleChange} error={errors.stockQuantity} required />
             )}
 
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Date of Stock Entry {requiredStar}</label>
-              <input type="date" name="dateOfStockEntry" value={todayStr} readOnly className="w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
+              <input type="date" name="dateOfStockEntry" value={todayStr} readOnly
+                className="w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
             </div>
           </div>
 
           <p className={subSectionTitle}>Pricing</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-
-            <Input
-              label="MRP (per Pack Size)"
-              name="mrp"
-              placeholder="e.g., 500"
-              value={form.mrp}
-              onChange={handleChange}
-              error={errors.mrp}
-              required
-            />
-
-            <Input
-              label="Selling Price (per Pack Size)"
-              name="sellingPricePerPack"
-              placeholder="e.g., 450"
-              value={form.sellingPricePerPack}
-              onChange={handleChange}
-              error={errors.sellingPricePerPack}
-              required
-            />
-
-            <Input
-              label="Discount Percentage (%)"
-              name="discountPercentage"
-              placeholder="0–100"
-              value={form.discountPercentage}
-              onChange={handleChange}
-              error={errors.discountPercentage}
-            />
-
+            <Input label="MRP (per Pack Size)" name="mrp" placeholder="e.g., 500"
+              value={form.mrp} onChange={handleChange} error={errors.mrp} required />
+            <Input label="Selling Price (per Pack Size)" name="sellingPricePerPack" placeholder="e.g., 450"
+              value={form.sellingPricePerPack} onChange={handleChange} error={errors.sellingPricePerPack} required />
+            <Input label="Discount Percentage (%)" name="discountPercentage" placeholder="0–100"
+              value={form.discountPercentage} onChange={handleChange} error={errors.discountPercentage} />
             <div className="flex flex-col gap-1">
               <label className={`${fieldLabel} opacity-0`}>_</label>
-              <button type="button" onClick={() => setShowAdditionalDiscountModal(true)} style={{ background: "#9F75FC", borderRadius: "8px" }} className="h-12 px-5 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] w-auto self-start hover:opacity-90 transition-opacity flex items-center gap-2">
-                <span className="w-5 h-5 flex items-center justify-center"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="white" strokeWidth="2" strokeLinecap="round" /></svg></span>
+              <button type="button" onClick={() => setShowAdditionalDiscountModal(true)}
+                style={{ background: "#9F75FC", borderRadius: "8px" }}
+                className="h-12 px-5 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] w-auto self-start hover:opacity-90 transition-opacity flex items-center gap-2">
+                <span className="w-5 h-5 flex items-center justify-center">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="white" strokeWidth="2" strokeLinecap="round" /></svg>
+                </span>
                 Add Additional Discount
               </button>
             </div>
@@ -1444,13 +1446,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
           <p className={subSectionTitle}>TAX &amp; BILLING</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-
             {isEdit ? (
               <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>GST % {requiredStar}</label>
-                <Select options={gstOptions} value={gstOptions.find((o) => o.value === form.gstPercentage) || null} onChange={(sel) => handleSelectChange("gstPercentage", sel)} placeholder="Select GST" theme={selectTheme} styles={selectStyles("gstPercentage")} />
+                <Select options={gstOptions} value={gstOptions.find((o) => o.value === form.gstPercentage) || null}
+                  onChange={(sel) => handleSelectChange("gstPercentage", sel)}
+                  placeholder="Select GST" theme={selectTheme} styles={selectStyles("gstPercentage")} />
                 {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
               </div>
             )}
@@ -1458,16 +1461,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="HSN Code" value={form.hsnCode} required />
             ) : (
-              <Input
-                label="HSN Code"
-                name="hsnCode"
-                placeholder="4, 6, or 8 digit numeric code"
-                value={form.hsnCode}
-                onChange={handleChange}
-                maxLength={8}
-                error={errors.hsnCode}
-                required
-              />
+              <Input label="HSN Code" name="hsnCode" placeholder="4, 6, or 8 digit numeric code"
+                value={form.hsnCode} onChange={handleChange} maxLength={8} error={errors.hsnCode} required />
             )}
           </div>
         </div>
@@ -1491,12 +1486,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             </div>
           )}
 
-          <div
-            className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
+          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
             onClick={() => document.getElementById("ncFileInput")?.click()}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}
-          >
+            onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}>
             <div className="flex flex-col items-center justify-center gap-2">
               <div className="w-12 h-12 flex items-center justify-center">
                 <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
@@ -1506,7 +1499,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             </div>
           </div>
 
-          <input id="ncFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg,image/svg+xml" className="hidden" onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); }} />
+          <input id="ncFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg,image/svg+xml" className="hidden"
+            onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); }} />
 
           {images.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-3">
@@ -1515,7 +1509,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 return (
                   <div key={i} className="relative group flex-shrink-0">
                     <img src={url} alt={`Product ${i + 1}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
-                    <button type="button" onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                    <button type="button" onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                       <X size={12} />
                     </button>
                   </div>
@@ -1530,13 +1525,19 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         {/* ── Actions ──────────────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
           <div className="flex gap-3">
-            <button type="button" onClick={() => onSubmitSuccess ? onSubmitSuccess() : window.location.reload()} className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">Cancel</button>
-            <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }} className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
+            <button type="button" onClick={() => onSubmitSuccess ? onSubmitSuccess() : window.location.reload()}
+              className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
+              Cancel
+            </button>
+            <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }}
+              className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
               <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
               Save Draft
             </button>
           </div>
-          <button type="button" onClick={handleSubmit} disabled={submitting} style={{ background: "#4B0082", borderRadius: "8px" }} className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
+          <button type="button" onClick={handleSubmit} disabled={submitting}
+            style={{ background: "#4B0082", borderRadius: "8px" }}
+            className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
             {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
             {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
           </button>
