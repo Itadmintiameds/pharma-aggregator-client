@@ -4,7 +4,7 @@ import AdditionalDiscountNew, {
   AdditionalDiscountNewRef,
 } from "./AdditionalDiscountNew";
 import SpecialSchemes, { SpecialSchemesRef } from "./SpecialSchemes";
-import { AdditionalDiscountData } from "@/src/types/product/ProductData";
+import { AdditionalDiscountData, SpecialSchemesData } from "@/src/types/product/ProductData";
 
 type OptionType = {
   value: string;
@@ -85,6 +85,8 @@ type AdditionalDiscountTypeProps = {
   baseDiscountPercentage: number;
   baseMinimumOrderQuantity: number;
   onSaveAdditionalDiscount: (data: AdditionalDiscountData[]) => void;
+  initialSchemesData?: SpecialSchemesData[];
+  onSaveSpecialSchemes?: (data: SpecialSchemesData[]) => void;
 };
 
 const AdditionalDiscountType = ({
@@ -93,6 +95,8 @@ const AdditionalDiscountType = ({
   baseDiscountPercentage,
   baseMinimumOrderQuantity,
   onSaveAdditionalDiscount,
+  initialSchemesData,
+  onSaveSpecialSchemes,
 }: AdditionalDiscountTypeProps) => {
   const [selectedOption, setSelectedOption] = useState<OptionType | null>(null);
 
@@ -137,7 +141,11 @@ const AdditionalDiscountType = ({
               />
             )}
             {selectedOption?.value === "special_schemes" && (
-              <SpecialSchemes ref={specialSchemesRef} />
+              <SpecialSchemes 
+                ref={specialSchemesRef} 
+                initialData={initialSchemesData}
+                onSave={onSaveSpecialSchemes}
+              />
             )}
           </div>
         </div>

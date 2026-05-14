@@ -20,6 +20,8 @@ import {
   createConsumableProduct,
   uploadConsumableCertificate,
   uploadConsumableBrochure,
+  getStorageConditionsByCategoryId,
+  getConsumableCertificationsByCategoryId
 } from "@/src/services/product/ConsumbaleService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 
@@ -467,7 +469,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     } finally {
       setLoadingProduct(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, productId, fetchDeviceSubCategories]);
 
   // ─── Load all masters, then product (sequenced like CosmeticForm) ──────────
@@ -490,10 +492,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       ] = await Promise.allSettled([
         getConsumableDeviceCategories(),
         getConsumableCountries(),
-        getConsumableStorageConditions(),
+        getStorageConditionsByCategoryId(productCategoryId),
         getConsumablePackTypes(productCategoryId),
         getConsumableMaterialTypes(),
-        getConsumableCertifications(),
+        getConsumableCertificationsByCategoryId(productCategoryId),
       ]);
 
       if (!mounted) return;
@@ -501,36 +503,36 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const resolvedCategories: SelectOption[] =
         categoriesResult.status === "fulfilled"
           ? (categoriesResult.value as MasterItem[])
-              .map((i) => ({ value: getMasterStr(i, "deviceCatId", "id"), label: getMasterStr(i, "deviceName", "name") || "Unknown" }))
-              .filter((o) => o.value)
+            .map((i) => ({ value: getMasterStr(i, "deviceCatId", "id"), label: getMasterStr(i, "deviceName", "name") || "Unknown" }))
+            .filter((o) => o.value)
           : [];
 
       const resolvedCountries: SelectOption[] =
         countriesResult.status === "fulfilled"
           ? (countriesResult.value as MasterItem[])
-              .map((i) => ({ value: getMasterStr(i, "countryId", "id"), label: getMasterStr(i, "countryName", "name") || "Unknown" }))
-              .filter((o) => o.value)
+            .map((i) => ({ value: getMasterStr(i, "countryId", "id"), label: getMasterStr(i, "countryName", "name") || "Unknown" }))
+            .filter((o) => o.value)
           : [];
 
       const resolvedStorage: SelectOption[] =
         storageResult.status === "fulfilled"
           ? (storageResult.value as MasterItem[])
-              .map((i) => ({ value: getMasterStr(i, "storageConditionId", "id"), label: getMasterStr(i, "conditionName", "name") || "Unknown" }))
-              .filter((o) => o.value)
+            .map((i) => ({ value: getMasterStr(i, "storageConditionId", "id"), label: getMasterStr(i, "conditionName", "name") || "Unknown" }))
+            .filter((o) => o.value)
           : [];
 
       const resolvedPackTypes: SelectOption[] =
         packTypesResult.status === "fulfilled"
           ? (packTypesResult.value as MasterItem[])
-              .map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") }))
-              .filter((o) => o.value)
+            .map((i) => ({ value: getMasterStr(i, "packId"), label: getMasterStr(i, "packType") }))
+            .filter((o) => o.value)
           : [];
 
       const resolvedMaterialTypes: SelectOption[] =
         materialTypesResult.status === "fulfilled"
           ? (materialTypesResult.value as MasterItem[])
-              .map((i) => ({ value: getMasterStr(i, "materialTypeId", "id"), label: getMasterStr(i, "materialTypeName", "name") || "Unknown" }))
-              .filter((o) => o.value)
+            .map((i) => ({ value: getMasterStr(i, "materialTypeId", "id"), label: getMasterStr(i, "materialTypeName", "name") || "Unknown" }))
+            .filter((o) => o.value)
           : [];
 
       const fallbackCerts: CertificationMasterOption[] = [
@@ -543,13 +545,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const resolvedCerts: CertificationMasterOption[] =
         certificationsResult.status === "fulfilled"
           ? (certificationsResult.value as MasterItem[])
-              .map((item, idx) => ({
-                value: getMasterStr(item, "certificationId", "id"),
-                label: getMasterStr(item, "certificationName", "name") || "Unknown",
-                certificationId: Number(getMasterStr(item, "certificationId", "id") || String(idx + 1)),
-                tagCode: `Tag ${String(idx + 1).padStart(2, "0")}`,
-              }))
-              .filter((o) => o.value)
+            .map((item, idx) => ({
+              value: getMasterStr(item, "certificationId", "id"),
+              label: getMasterStr(item, "certificationName", "name") || "Unknown",
+              certificationId: Number(getMasterStr(item, "certificationId", "id") || String(idx + 1)),
+              tagCode: `Tag ${String(idx + 1).padStart(2, "0")}`,
+            }))
+            .filter((o) => o.value)
           : fallbackCerts;
 
       setDeviceCategoryOptions(resolvedCategories);
@@ -579,7 +581,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     loadAll();
 
     return () => { mounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch sub-categories when product type changes (create mode only)
@@ -592,7 +594,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       fetchDeviceSubCategories(form.deviceCategoryId);
       setForm((p) => ({ ...p, deviceSubCategoryId: "" }));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.deviceCategoryId, mode]);
 
   // Auto-compute pack size
@@ -1005,10 +1007,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   // Resolved display for material types multi-select in edit mode
   const materialTypesDisplayValue = isEdit
     ? displayLabels.materialTypesLabel ||
-      selectedMaterialTypes
-        .map((v) => materialTypeOptions.find((o) => o.value === v)?.label || v)
-        .filter(Boolean)
-        .join(", ")
+    selectedMaterialTypes
+      .map((v) => materialTypeOptions.find((o) => o.value === v)?.label || v)
+      .filter(Boolean)
+      .join(", ")
     : "";
 
   return (

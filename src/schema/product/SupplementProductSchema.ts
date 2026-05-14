@@ -8,6 +8,12 @@ const positiveInteger = z
   .min(1, "Required")
   .regex(/^[1-9]\d*$/, "Only positive integers are allowed");
 
+const nonNegativeInteger = z
+  .string()
+  .trim()
+  .min(1, "Required")
+  .regex(/^\d+$/, "Only non-negative integers are allowed");
+
 const numericPositive = z
   .string()
   .trim()
@@ -178,7 +184,7 @@ export const supplementProductSchema = z
         message: "Expiry Date is required",
       }),
 
-    stockQuantity: positiveInteger,
+    stockQuantity: nonNegativeInteger,
 
     mrp: numericPositive,
 

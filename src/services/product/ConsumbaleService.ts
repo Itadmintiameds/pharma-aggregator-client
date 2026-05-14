@@ -153,3 +153,31 @@ export const uploadConsumableBrochure = async (
     };
   }
 };
+
+export const getStorageConditionsByCategoryId = async (categoryId: number) => {
+  try {
+    const response = await api.get(`/storageConditions/${categoryId}`);
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Storage Conditions:', error);
+
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Storage Conditions: ${error.message}`);
+    } else {
+      throw new Error(
+        'An unknown error occurred while fetching Storage Conditions.'
+      );
+    }
+  }
+};
+
+export const getConsumableCertificationsByCategoryId = async (categoryId: number) => {
+  try {
+    const response = await api.get(`/masters/certifications/categoryId/${categoryId}`);
+    return response.data?.data ?? response.data ?? [];
+  } catch (error: unknown) {
+    console.error("Error fetching certifications:", error);
+    if (error instanceof Error) throw new Error(`Error fetching certifications: ${error.message}`);
+    throw new Error("An unknown error occurred while fetching certifications.");
+  }
+};

@@ -22,6 +22,8 @@ import {
   createNonConsumableProduct,
   uploadNonConsumableCertificate,
   uploadNonConsumableBrochure,
+  getStorageConditionsByCategoryId,
+  getNonConsumableCertificationsByCategoryId
 } from "@/src/services/product/NonConsumbaleService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 
@@ -434,17 +436,17 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   useEffect(() => {
     fetchDeviceCategories();
 
-    if (mode === "create") {
-      getNonConsumableProductCategories()
-        .then((items: MasterItem[]) => {
-          const nonConsumable = items.find((i) => {
-            const name = getMasterStr(i, "categoryName", "name").toLowerCase();
-            return name.includes("non-consumable") || name.includes("nonconsumable");
-          });
-          setProductCategoryId(nonConsumable ? Number(getMasterStr(nonConsumable, "categoryId", "id") || "6") : 6);
-        })
-        .catch(() => setProductCategoryId(6));
-    }
+    // if (mode === "create") {
+    //   getNonConsumableProductCategories()
+    //     .then((items: MasterItem[]) => {
+    //       const nonConsumable = items.find((i) => {
+    //         const name = getMasterStr(i, "categoryName", "name").toLowerCase();
+    //         return name.includes("non-consumable") || name.includes("nonconsumable");
+    //       });
+    //       setProductCategoryId(nonConsumable ? Number(getMasterStr(nonConsumable, "categoryId", "id") || "6") : 6);
+    //     })
+    //     .catch(() => setProductCategoryId(6));
+    // }
 
     getNonConsumableCountries()
       .then((items: MasterItem[]) =>
@@ -454,7 +456,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       )
       .catch(() => {});
 
-    getNonConsumableStorageConditions()
+    getStorageConditionsByCategoryId(productCategoryId)
       .then((items: MasterItem[]) =>
         setStorageConditionOptions(
           items.map((i) => ({ value: getMasterStr(i, "storageConditionId", "id"), label: getMasterStr(i, "conditionName", "name") || "Unknown" })).filter((o) => o.value),
@@ -499,7 +501,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       .finally(() => setLoadingMaterialTypes(false));
 
     setLoadingCertifications(true);
-    getNonConsumableCertifications()
+    getNonConsumableCertificationsByCategoryId(productCategoryId)
       .then((items: MasterItem[]) =>
         setCertificationMasterOptions(
           items.map((item, idx) => ({

@@ -51,7 +51,12 @@ export type SpecialSchemesRef = {
   submitForm: () => void;
 };
 
-const SpecialSchemes = forwardRef<SpecialSchemesRef>((props, ref) => {
+type SpecialSchemesProps = {
+  initialData?: SpecialSchemesData[];
+  onSave?: (data: SpecialSchemesData[]) => void;
+};
+
+const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(({ initialData, onSave }, ref) => {
   const [form, setForm] = useState<SpecialSchemesData>({
     schemeName: "",
     schemeType: "",
@@ -65,7 +70,13 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef>((props, ref) => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [tableData, setTableData] = useState<SpecialSchemesData[]>([]);
+  const [tableData, setTableData] = useState<SpecialSchemesData[]>(initialData || []);
+
+  React.useEffect(() => {
+    if (initialData) {
+      setTableData(initialData);
+    }
+  }, [initialData]);
 
   const columns: ColumnDef<SpecialSchemesData>[] = [
     {
@@ -252,7 +263,12 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef>((props, ref) => {
 
     if (Object.keys(validationErrors).length > 0) return;
 
-    setTableData((prev) => [...prev, form]);
+    const updatedTableData = [...tableData, form];
+    setTableData(updatedTableData);
+    
+    if (onSave) {
+      onSave(updatedTableData);
+    }
 
     setForm({
       schemeName: "",
