@@ -9,7 +9,6 @@ import {
   getPackTypesByDosageId,
   getProductById,
   getStorageConditionsByCategoryId,
-  getTherapeuticCategory,
   getTherapeuticSubcategory,
   updateProduct,
   uploadProductImages,
@@ -22,7 +21,10 @@ import CommonModal from "../commonComponent/CommonModal";
 import AdditionalDiscount from "./AdditionalDiscount";
 import UploadInput from "../commonComponent/UploadInput";
 import PopupModal from "../commonComponent/PopupModal";
-import AddDiscNew from "./AddDiscNew";
+import AddDiscNew from "./AdditionalDiscountNew";
+import AdditionalDiscountType from "./AdditionalDiscountType";
+import { getTherapeuticCategory } from "@/src/services/product/TherapeuticCategoryService";
+import { getSupplementDosageForms } from "@/src/services/product/SupplementService";
 
 interface SelectOption {
   value: string;
@@ -254,10 +256,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   }, [categoryId]);
 
   useEffect(() => {
-    const fetchTherapeuticCategories = async () => {
+    const fetchTherapeuticCategories = async (id: string | number) => {
       setLoadingTherapeuticCategories(true);
+
       try {
-        const data = await getTherapeuticCategory();
+        const data = await getTherapeuticCategory(id);
 
         const options = data.map((cat: any) => ({
           value: cat.therapeuticCategoryId,
@@ -272,8 +275,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       }
     };
 
-    fetchTherapeuticCategories();
-  }, []);
+    if (categoryId !== undefined) {
+      fetchTherapeuticCategories(categoryId);
+    }
+  }, [categoryId]);
 
   const getMinExpiryMonth = () => {
     if (!form.manufacturingDate) return "";
@@ -327,6 +332,16 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             "Max Order Qty must be greater than Min Order Qty";
         } else {
           delete newErrors.maximumOrderQuantity;
+        }
+
+        // ✅ Stock Qty >= Min Order Qty
+        const stockQty = Number(updatedForm.stockQuantity) || 0;
+
+        if (stockQty && minQty && stockQty < minQty) {
+          newErrors.stockQuantity =
+            "Stock Quantity must be greater than or equal to Min Order Qty";
+        } else {
+          delete newErrors.stockQuantity;
         }
 
         // ✅ Selling Price < MRP
@@ -954,11 +969,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
       await updateProduct(form.productId, payload);
 
-      console.log(
-        "productAttributeId---------------------------",
-        productAttributeId,
-      );
-
       if (productAttributeId && manualFile) {
         await uploadProductUserManual(productAttributeId, manualFile);
       }
@@ -1096,16 +1106,39 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     },
   });
 
+  // useEffect(() => {
+  //   const fetchDosage = async () => {
+  //     try {
+  //       setLoadingDosage(true);
+
+  //       const data = await getDosage();
+
+  //       const options = data.map((d: any) => ({
+  //         value: d.dosageId, // ✅ important
+  //         label: d.dosageName, // adjust if backend uses different key
+  //       }));
+
+  //       setDosageOptions(options);
+  //     } catch (error) {
+  //       console.error("Error fetching dosage:", error);
+  //     } finally {
+  //       setLoadingDosage(false);
+  //     }
+  //   };
+
+  //   fetchDosage();
+  // }, []);
+
   useEffect(() => {
-    const fetchDosage = async () => {
+    const fetchDosage = async (categoryId: string | number) => {
       try {
         setLoadingDosage(true);
 
-        const data = await getDosage();
+        const data = await getSupplementDosageForms(categoryId);
 
         const options = data.map((d: any) => ({
-          value: d.dosageId, // ✅ important
-          label: d.dosageName, // adjust if backend uses different key
+          value: d.dosageId,
+          label: d.dosageName,
         }));
 
         setDosageOptions(options);
@@ -1116,8 +1149,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       }
     };
 
-    fetchDosage();
-  }, []);
+    // ✅ avoid undefined issue
+    if (categoryId !== undefined) {
+      fetchDosage(categoryId);
+    }
+  }, [categoryId]);
 
   const handleDosageChange = async (selected: any) => {
     const dosageId = selected?.value;
@@ -1275,46 +1311,24 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       {showAdditionalDiscount && (
         <CommonModal
           onClose={() => setShowAdditionalDiscount(false)}
-          width="w-[600px]" // optional
+          width="w-[600px]"
         >
-          <div className="h-[80vh] overflow-hidden flex flex-col">
-            <AdditionalDiscount
+          <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
+            <AdditionalDiscountType
+              onClose={() => setShowAdditionalDiscount(false)}
               initialData={form.additionalDiscount}
               baseDiscountPercentage={Number(form.discountPercentage) || 0}
               baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
-              onSave={(data) => {
-                setForm((prev) => {
-                  const result = calculateFinalPrice(
-                    prev.mrp,
-                    prev.discountPercentage,
-                    prev.gstPercentage,
-                    Number(prev.minimumOrderQuantity || 1),
-                    data || [],
-                  );
-
-                  return {
-                    ...prev,
-                    additionalDiscount: data || [],
-                    finalPrice: result?.finalPerUnit || "",
-                  };
-                });
-              }}
-              onClose={() => setShowAdditionalDiscount(false)} // ✅ NEW
+              onSaveAdditionalDiscount={(data) =>
+                setForm((prev) => ({
+                  ...prev,
+                  additionalDiscount: data,
+                }))
+              }
             />
           </div>
         </CommonModal>
       )}
-
-      {/* {showAdditionalDiscount && (
-        <CommonModal
-          onClose={() => setShowAdditionalDiscount(false)}
-          width="w-[600px]" // optional
-        >
-          <div className="h-[80vh] overflow-hidden flex flex-col">
-           <AddDiscNew/>
-          </div>
-        </CommonModal>
-      )} */}
       <div>
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
           <div className="text-h4 font-semibold">Product Details</div>

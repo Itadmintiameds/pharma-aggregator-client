@@ -7,7 +7,7 @@ export const getStorageConditionById = async (storageConditionId: number) => {
     }
 
     const response = await api.get(
-      `storageConditionsById/${storageConditionId}`
+      `storageConditions/storageConditionsById/${storageConditionId}`
     );
 
     return response.data?.data ?? response.data;

@@ -39,7 +39,7 @@ export const getConsumableMaterialTypes = async () => {
 
 export const getConsumableStorageConditions = async () => {
   try {
-    const response = await api.get("masters/storagecondition");
+    const response = await api.get("storageconditions");
     return response.data?.data ?? response.data ?? [];
   } catch (error: unknown) {
     console.error("Error fetching storage conditions:", error);
