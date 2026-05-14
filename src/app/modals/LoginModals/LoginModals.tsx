@@ -371,7 +371,7 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
         }
         
         // Clear stored credentials after successful verification
-        clearCredentials();
+        // clearCredentials();
         console.log("🔒 Stored credentials cleared after successful verification");
         
         // Determine user role
@@ -541,7 +541,7 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
       console.log("📡 Calling resetPassword API...");
       await sellerAuthService.resetPassword({
         username: currentUser.username,
-        currentPassword: "", // For first-time login
+        currentPassword: tempCredentials?.password || "",
         newPassword: data.newPassword
       });
 
@@ -844,7 +844,7 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
           setStep("login");
           setUserRole(null);
           setOtp(Array(6).fill(""));
-          clearCredentials();
+          // clearCredentials();
         }}
         className="text-sm text-center mt-3 text-primary-700 hover:underline w-full"
         disabled={isLoading}
