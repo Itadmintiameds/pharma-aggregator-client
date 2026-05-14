@@ -25,3 +25,14 @@ export const getPackTypeById = async (packTypeId: number) => {
     }
   }
 };
+
+export const getPackTypesByCategory = async (categoryId: number) => {
+  try {
+    const response = await api.get(`/dosage/packType/category/${categoryId}`);
+    const array = response.data?.data ?? response.data;
+    return Array.isArray(array) ? array : [];
+  } catch (error) {
+    console.error("getPackTypesByCategory error", error);
+    return [];
+  }
+};

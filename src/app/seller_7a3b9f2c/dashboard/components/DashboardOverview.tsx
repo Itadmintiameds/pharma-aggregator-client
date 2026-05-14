@@ -62,6 +62,14 @@ const DashboardOverview = ({
   //   return <CosmeticForm productId={selectedProductId} mode="edit" />;
   // }
 
+
+  if (currentView === "editFoodInfant") {
+  if (!selectedProductId) {
+    return <div>Loading...</div>;
+  }
+  return <FoodInfantForm productId={selectedProductId} mode="edit" />;
+}
+
   if (currentView === "editConsumable") {
     if (!selectedProductId) {
       return <div>Loading...</div>;

@@ -755,7 +755,7 @@ export default function DocumentForm({
                   </label>
 
                   <div className="relative">
-                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+                    {/* <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" /> */}
                     <input
                       type="text"
                       autoComplete="off"
@@ -962,7 +962,7 @@ export default function DocumentForm({
                   </label>
 
                   <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+                    {/* <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" /> */}
 
                     <input
                       type="text"
@@ -1010,7 +1010,7 @@ export default function DocumentForm({
             </label>
 
             <div className="relative">
-              <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+              {/* <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" /> */}
               <input
                 type="text"
                 name="gstNumber"
