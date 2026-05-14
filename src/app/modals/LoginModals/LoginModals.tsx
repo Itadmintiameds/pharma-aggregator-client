@@ -407,7 +407,10 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
             // Navigate based on role
             if (role === "seller") {
               console.log("➡️ Navigating to seller dashboard at: /seller_7a3b9f2c/dashboard");
-              router.push("/seller_7a3b9f2c/dashboard");
+
+              // dont delete teh the below commented part --------------important----------------------
+              // router.push("/seller_7a3b9f2c/dashboard");
+              router.replace("/seller_7a3b9f2c/dashboard");
             } else if (role === "buyer") {
               console.log("➡️ Navigating to buyer dashboard at: /buyer_e8d45a1b");
               router.push("/buyer_e8d45a1b");
