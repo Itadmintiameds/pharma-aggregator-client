@@ -164,6 +164,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     hsnCode: "",
     shelfLifeMonths: "",
     additionalDiscount: [] as any[],
+    specialSchemes: [] as any[],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -834,6 +835,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         hsnCode: String(pricing.hsnCode ?? ""),
         shelfLifeMonths: String(pricing.shelfLifeMonths ?? ""),
         additionalDiscount: pricing.additionalDiscounts || [],
+        specialSchemes: pricing.specialSchemes || [],
       }));
     } catch (err) {
       console.error("Failed to load supplement product:", err);
@@ -956,6 +958,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               effectiveEndDate: d.effectiveEndDate,
               effectiveEndTime: d.effectiveEndTime,
             })),
+            specialSchemes: form.specialSchemes || [],
           },
         ],
 
@@ -1117,6 +1120,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               effectiveEndDate: d.effectiveEndDate,
               effectiveEndTime: d.effectiveEndTime,
             })),
+            specialSchemes: form.specialSchemes || [],
           },
         ],
 
@@ -1267,6 +1271,13 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 setForm((prev) => ({
                   ...prev,
                   additionalDiscount: data || [],
+                }));
+              }}
+              initialSchemesData={form.specialSchemes}
+              onSaveSpecialSchemes={(data: any) => {
+                setForm((prev) => ({
+                  ...prev,
+                  specialSchemes: data || [],
                 }));
               }}
             />

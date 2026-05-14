@@ -126,6 +126,7 @@ export interface PricingData {
   hsnCode: number;
   shelfLifeMonths?: number;
   additionalDiscounts: AdditionalDiscountData[];
+  specialSchemes?: SpecialSchemesData[];
 }
 
 export interface AdditionalDiscountData {
