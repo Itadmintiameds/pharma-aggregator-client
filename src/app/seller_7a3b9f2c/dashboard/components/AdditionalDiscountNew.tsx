@@ -1,0 +1,669 @@
+import { AdditionalDiscountData } from "@/src/types/product/ProductData";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import React, {
+  useEffect,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
+import { FormState } from "react-hook-form";
+import { formatDate } from "../commonComponent/DateFormat";
+
+type AdditionalDiscountNewProps = {
+  initialData: AdditionalDiscountData[];
+  baseDiscountPercentage: number;
+  baseMinimumOrderQuantity: number;
+  onSave: (data: AdditionalDiscountData[]) => void;
+};
+
+type AdditionalDiscountForm = {
+  minimumPurchaseQuantity: number;
+  discountPercentage: number;
+  effectiveStartDate: string;
+  effectiveStartTime: string;
+  effectiveEndDate: string;
+  effectiveEndTime: string;
+  alwaysActive: boolean;
+};
+
+export type AdditionalDiscountNewRef = {
+  submitForm: () => void;
+};
+
+const AdditionalDiscountNew = forwardRef<
+  AdditionalDiscountNewRef,
+  AdditionalDiscountNewProps
+>(
+  (
+    {
+      initialData,
+      baseDiscountPercentage,
+      baseMinimumOrderQuantity,
+      onSave,
+    }: AdditionalDiscountNewProps,
+    ref,
+  ) => {
+    const EMPTY_FORM: AdditionalDiscountForm = {
+      minimumPurchaseQuantity: 0,
+      discountPercentage: 0,
+      effectiveStartDate: "",
+      effectiveStartTime: "",
+      effectiveEndDate: "",
+      effectiveEndTime: "",
+      alwaysActive: false,
+    };
+
+    const [form, setForm] = useState<AdditionalDiscountForm>(EMPTY_FORM);
+    const [slabs, setSlabs] = useState<AdditionalDiscountData[]>(
+      initialData || [],
+    );
+
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+    const columns: ColumnDef<AdditionalDiscountData>[] = [
+      // {
+      //   id: "select",
+      //   header: "",
+      //   cell: () => (
+      //     <input type="checkbox" className="w-4 h-4 rounded border-gray-300" />
+      //   ),
+      // },
+      {
+        accessorKey: "minimumPurchaseQuantity",
+        header: "Min Qt",
+      },
+      {
+        accessorKey: "additionalDiscountPercentage",
+        header: "Disc %",
+        cell: (info) => `${info.getValue()}%`,
+      },
+      {
+        accessorKey: "effectiveStartDate",
+        header: "Start date",
+        cell: (info) => formatDate(info.getValue() as string),
+      },
+      {
+        accessorKey: "effectiveEndDate",
+        header: "End Date",
+        cell: (info) => formatDate(info.getValue() as string),
+      },
+      {
+        id: "actions",
+        header: "Action",
+        cell: () => (
+          <div className="flex gap-3">
+            <img
+              src="/icons/EditIcon.svg"
+              alt="edit"
+              className="w-4 h-4 rounded-md object-cover cursor-pointer"
+            />
+            <img
+              src="/icons/DeleteIcon.svg"
+              alt="delete"
+              className="w-4 h-4 rounded-md object-cover cursor-pointer"
+            />
+          </div>
+        ),
+      },
+    ];
+
+    const table = useReactTable({
+      data: slabs,
+      columns,
+      getCoreRowModel: getCoreRowModel(),
+    });
+
+    const validateDateTime = (
+      updatedForm: AdditionalDiscountForm,
+      touched: Record<string, boolean>,
+    ) => {
+      const errors: Record<string, string> = {};
+
+      if (updatedForm.alwaysActive) return errors;
+
+      const {
+        effectiveStartDate,
+        effectiveEndDate,
+        effectiveStartTime,
+        effectiveEndTime,
+      } = updatedForm;
+
+      // ✅ FIELD-LEVEL VALIDATION (only if touched)
+
+      if (touched.effectiveStartDate && !effectiveStartDate) {
+        errors.effectiveStartDate = "Start Date is required";
+      }
+
+      if (touched.effectiveEndDate && !effectiveEndDate) {
+        errors.effectiveEndDate = "End Date is required";
+      }
+
+      if (touched.effectiveStartTime && !effectiveStartTime) {
+        errors.effectiveStartTime = "Start Time is required";
+      }
+
+      if (touched.effectiveEndTime && !effectiveEndTime) {
+        errors.effectiveEndTime = "End Time is required";
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (effectiveStartDate) {
+        const sDate = new Date(effectiveStartDate);
+        sDate.setHours(0, 0, 0, 0);
+
+        if (sDate < today && touched.effectiveStartDate) {
+          errors.effectiveStartDate = "Start Date cannot be in the past";
+        }
+      }
+
+      if (effectiveEndDate) {
+        const eDate = new Date(effectiveEndDate);
+        eDate.setHours(0, 0, 0, 0);
+
+        if (eDate < today && touched.effectiveEndDate) {
+          errors.effectiveEndDate = "End Date cannot be in the past";
+        }
+      }
+
+      // ✅ DATE COMPARISON (only if BOTH values exist)
+      if (effectiveStartDate && effectiveEndDate) {
+        const sDate = new Date(effectiveStartDate);
+        const eDate = new Date(effectiveEndDate);
+
+        if (sDate > eDate) {
+          // Only show error if either field is touched
+          if (touched.effectiveStartDate) {
+            errors.effectiveStartDate = "Start Date must be ≤ End Date";
+          }
+          if (touched.effectiveEndDate) {
+            errors.effectiveEndDate = "End Date must be ≥ Start Date";
+          }
+        }
+      }
+
+      // ✅ TIME COMPARISON (only if same day + both exist)
+      if (
+        effectiveStartDate &&
+        effectiveEndDate &&
+        effectiveStartDate === effectiveEndDate &&
+        effectiveStartTime &&
+        effectiveEndTime
+      ) {
+        if (effectiveStartTime >= effectiveEndTime) {
+          if (touched.effectiveStartTime) {
+            errors.effectiveStartTime = "Start Time must be less than End Time";
+          }
+          if (touched.effectiveEndTime) {
+            errors.effectiveEndTime =
+              "End Time must be greater than Start Time";
+          }
+        }
+      }
+
+      return errors;
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
+
+      const updatedForm = { ...form, [name]: value };
+      setForm(updatedForm);
+
+      // ✅ Step 1: update touched FIRST (important)
+      const updatedTouched = {
+        ...touched,
+        [name]: true,
+      };
+      setTouched(updatedTouched);
+
+      let newErrors = { ...errors };
+
+      const mpq = Number(updatedForm.minimumPurchaseQuantity);
+      const discount = Number(updatedForm.discountPercentage);
+
+      if (name === "minimumPurchaseQuantity") {
+        const baseMPQ = Number(baseMinimumOrderQuantity || 0);
+
+        if (Number(value) <= baseMPQ) {
+          newErrors.minimumPurchaseQuantity = `Must be greater than base quantity (${baseMPQ})`;
+          setErrors(newErrors);
+          return;
+        }
+        if (value === "") {
+          newErrors.minimumPurchaseQuantity =
+            "Minimum Purchase Quantity is required";
+        } else if (isNaN(Number(value))) {
+          newErrors.minimumPurchaseQuantity = "Enter a valid number";
+        } else if (Number(value) <= 0) {
+          newErrors.minimumPurchaseQuantity = "Must be greater than 0";
+        } else {
+          // ✅ Only run slab validation if basic validation passes
+          if (slabs.length > 0) {
+            const lastSlab = slabs[slabs.length - 1];
+
+            if (Number(value) <= lastSlab.minimumPurchaseQuantity) {
+              newErrors.minimumPurchaseQuantity =
+                "Must be greater than previous slab";
+            } else if (
+              slabs.some((s) => s.minimumPurchaseQuantity === Number(value))
+            ) {
+              newErrors.minimumPurchaseQuantity =
+                "This value is already entered";
+            } else {
+              delete newErrors.minimumPurchaseQuantity;
+            }
+          } else {
+            delete newErrors.minimumPurchaseQuantity;
+          }
+        }
+      }
+
+      if (name === "discountPercentage") {
+        const baseDiscount = Number(baseDiscountPercentage || 0);
+
+        if (Number(value) <= baseDiscount) {
+          newErrors.discountPercentage = `Must be greater than base discount (${baseDiscount}%)`;
+          setErrors(newErrors);
+          return;
+        }
+
+        if (value === "") {
+          newErrors.discountPercentage = "Discount is required";
+        } else if (isNaN(Number(value))) {
+          newErrors.discountPercentage = "Enter a valid number";
+        } else if (Number(value) <= 0) {
+          newErrors.discountPercentage = "Must be greater than 0";
+        } else {
+          if (slabs.length > 0) {
+            const lastSlab = slabs[slabs.length - 1];
+
+            if (Number(value) <= lastSlab.additionalDiscountPercentage) {
+              newErrors.discountPercentage =
+                "Must be greater than previous slab";
+            } else if (
+              slabs.some(
+                (s) => s.additionalDiscountPercentage === Number(value),
+              )
+            ) {
+              newErrors.discountPercentage = "This value is already entered";
+            } else {
+              delete newErrors.discountPercentage;
+            }
+          } else {
+            delete newErrors.discountPercentage;
+          }
+        }
+
+        // ❗ STOP invalid values from entering state
+        if (Number(value) <= 0) {
+          setErrors(newErrors);
+          return;
+        }
+      }
+
+      if (slabs.length > 0) {
+        const lastSlab = slabs[slabs.length - 1];
+
+        if (name === "minimumPurchaseQuantity") {
+          if (mpq <= lastSlab.minimumPurchaseQuantity) {
+            newErrors.minimumPurchaseQuantity =
+              "Must be greater than previous slab";
+          }
+
+          if (slabs.some((s) => s.minimumPurchaseQuantity === mpq)) {
+            newErrors.minimumPurchaseQuantity = "This value is already entered";
+          }
+        }
+
+        if (name === "discountPercentage") {
+          if (discount <= lastSlab.additionalDiscountPercentage) {
+            newErrors.discountPercentage =
+              "Must be greater than previous slab discount";
+          }
+
+          if (slabs.some((s) => s.additionalDiscountPercentage === discount)) {
+            newErrors.discountPercentage = "This discount already exists";
+          }
+        }
+      }
+
+      // 🔥 CRITICAL FIX STARTS HERE
+
+      // ✅ Step 2: CLEAR old date-time errors (this fixes your issue)
+      delete newErrors.effectiveStartDate;
+      delete newErrors.effectiveEndDate;
+      delete newErrors.effectiveStartTime;
+      delete newErrors.effectiveEndTime;
+
+      const dateErrors = validateDateTime(updatedForm, updatedTouched);
+
+      // ✅ Step 4: apply fresh errors only
+      newErrors = {
+        ...newErrors,
+        ...dateErrors,
+      };
+
+      setErrors(newErrors);
+    };
+
+    const validateForm = (): boolean => {
+      const newErrors: Record<string, string> = {};
+
+      const mpq = Number(form.minimumPurchaseQuantity);
+      const discount = Number(form.discountPercentage);
+      const baseMPQ = Number(baseMinimumOrderQuantity || 0);
+      const baseDiscount = Number(baseDiscountPercentage || 0);
+
+      // ✅ MPQ validation
+      if (!form.minimumPurchaseQuantity) {
+        newErrors.minimumPurchaseQuantity =
+          "Minimum Purchase Quantity is required";
+      } else if (isNaN(mpq)) {
+        newErrors.minimumPurchaseQuantity = "Enter a valid number";
+      } else if (mpq <= 0) {
+        newErrors.minimumPurchaseQuantity = "Must be greater than 0";
+      } else if (mpq <= baseMPQ) {
+        newErrors.minimumPurchaseQuantity = `Must be greater than base quantity (${baseMPQ})`;
+      } else if (slabs.length > 0) {
+        const lastSlab = slabs[slabs.length - 1];
+
+        if (mpq <= lastSlab.minimumPurchaseQuantity) {
+          newErrors.minimumPurchaseQuantity =
+            "Must be greater than previous slab";
+        } else if (slabs.some((s) => s.minimumPurchaseQuantity === mpq)) {
+          newErrors.minimumPurchaseQuantity = "This value is already entered";
+        }
+      }
+
+      // ✅ Discount validation
+      if (!form.discountPercentage) {
+        newErrors.discountPercentage = "Discount percentage is required";
+      } else if (isNaN(discount)) {
+        newErrors.discountPercentage = "Enter a valid number";
+      } else if (discount <= 0) {
+        newErrors.discountPercentage = "Must be greater than 0";
+      } else if (discount > 100) {
+        newErrors.discountPercentage = "Discount cannot exceed 100%";
+      } else if (discount <= baseDiscount) {
+        newErrors.discountPercentage = `Must be greater than base discount (${baseDiscount}%)`;
+      } else if (slabs.length > 0) {
+        const lastSlab = slabs[slabs.length - 1];
+
+        if (discount <= lastSlab.additionalDiscountPercentage) {
+          newErrors.discountPercentage = "Must be greater than previous slab";
+        } else if (
+          slabs.some((s) => s.additionalDiscountPercentage === discount)
+        ) {
+          newErrors.discountPercentage = "This discount already exists";
+        }
+      }
+
+      // ✅ Date validation
+      if (!form.alwaysActive) {
+        if (!form.effectiveStartDate)
+          newErrors.effectiveStartDate = "Start Date is required";
+        if (!form.effectiveStartTime)
+          newErrors.effectiveStartTime = "Start Time is required";
+        if (!form.effectiveEndDate)
+          newErrors.effectiveEndDate = "End Date is required";
+        if (!form.effectiveEndTime)
+          newErrors.effectiveEndTime = "End Time is required";
+      }
+
+      setErrors(newErrors);
+
+      return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = () => {
+      const isValid = validateForm();
+
+      if (!isValid) return;
+
+      const slab: AdditionalDiscountData = {
+        minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
+        additionalDiscountPercentage: Number(form.discountPercentage),
+        effectiveStartDate: form.alwaysActive ? "" : form.effectiveStartDate,
+        effectiveStartTime: form.alwaysActive ? "" : form.effectiveStartTime,
+        effectiveEndDate: form.alwaysActive ? "" : form.effectiveEndDate,
+        effectiveEndTime: form.alwaysActive ? "" : form.effectiveEndTime,
+      };
+
+      const updatedSlabs = [...slabs, slab];
+
+      setSlabs(updatedSlabs);
+      onSave(updatedSlabs);
+      setForm(EMPTY_FORM);
+      setErrors({});
+    };
+
+    useImperativeHandle(ref, () => ({
+      submitForm: handleSubmit,
+    }));
+
+    useEffect(() => {
+      setSlabs(initialData || []);
+    }, [initialData]);
+
+    return (
+      <>
+        <div className="flex flex-col gap-7">
+          {slabs.length > 0 && (
+            <div className="space-y-3">
+              <div className="text-label-l4 font-semibold">
+                Use Existing Discounts
+              </div>
+
+              <div className="border rounded-xl border-neutral-300 overflow-hidden">
+                <table className="w-full text-sm border-collapse">
+                  {/* HEADER */}
+                  <thead>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <tr key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <th
+                            key={header.id}
+                            className="px-4 py-3 text-left text-lable-l2 font-semibold text-neutral-900 border border-neutral-300"
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+
+                  <tbody>
+                    {table.getRowModel().rows.map((row, index) => (
+                      <tr
+                        key={row.id}
+                        className={
+                          index % 2 === 0 ? "bg-white" : "bg-neutral-100"
+                        }
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <td
+                            key={cell.id}
+                            className="px-4 py-3 border border-neutral-300 text-center"
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="text-label-l4 font-semibold text-center m-8">
+                OR
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-4">
+            <div className="text-label-l4 font-medium">Purchase Conditions</div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="" className="text-label-l3 font-medium">
+                Minimum Purchase Quantity
+              </label>
+              <input
+                type="text"
+                name="minimumPurchaseQuantity"
+                id="minimumPurchaseQuantity"
+                value={form.minimumPurchaseQuantity || ""}
+                onChange={handleInputChange}
+                min={1}
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
+                className="w-113.25 h-12 border border-[#C0C1BE] rounded-lg p-4 focus:outline-none"
+              />
+              {errors.minimumPurchaseQuantity && (
+                <p className="text-red-500 text-xs">
+                  {errors.minimumPurchaseQuantity}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="text-label-l4 font-medium">DISCOUNT DETAILS</div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="" className="text-label-l3 font-medium">
+                Discount %
+              </label>
+              <input
+                type="text"
+                name="discountPercentage"
+                id="discountPercentage"
+                value={form.discountPercentage || ""}
+                onChange={handleInputChange}
+                min={1}
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
+                className="w-113.25 h-12 border border-[#C0C1BE] rounded-lg p-4 focus:outline-none"
+              />
+              {errors.discountPercentage && (
+                <p className="text-red-500 text-xs">
+                  {errors.discountPercentage}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="text-label-l4 font-medium">VALIDITY PERIOD</div>
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor=""
+                className="text-label-l3 font-medium text-[#5A5B58]"
+              >
+                Start Date
+              </label>
+              <div className="flex gap-3">
+                <div className="flex flex-col">
+                  <input
+                    type="date"
+                    name="effectiveStartDate"
+                    id="effectiveStartDate"
+                    value={form.effectiveStartDate}
+                    onChange={handleInputChange}
+                    className="w-[220.5px] h-12 border border-[#C0C1BE] rounded-lg p-4 focus:outline-none"
+                  />
+                  {errors.effectiveStartDate && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.effectiveStartDate}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-col">
+                  <input
+                    type="time"
+                    name="effectiveStartTime"
+                    id="effectiveStartTime"
+                    value={form.effectiveStartTime}
+                    onChange={handleInputChange}
+                    className="w-[220.5px] h-12 border border-[#C0C1BE] rounded-lg p-4 focus:outline-none"
+                  />
+                  {errors.effectiveStartTime && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.effectiveStartTime}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor=""
+                className="text-label-l3 font-medium text-[#5A5B58]"
+              >
+                End Date
+              </label>
+              <div className="flex gap-3">
+                <div className="flex flex-col">
+                  <input
+                    type="date"
+                    name="effectiveEndDate"
+                    id="effectiveEndDate"
+                    value={form.effectiveEndDate}
+                    onChange={handleInputChange}
+                    className="w-[220.5px] h-12 border border-[#C0C1BE] rounded-lg  p-4 focus:outline-none"
+                  />
+                  {errors.effectiveEndDate && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.effectiveEndDate}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col">
+                  <input
+                    type="time"
+                    name="effectiveEndTime"
+                    id="effectiveEndTime"
+                    value={form.effectiveEndTime}
+                    onChange={handleInputChange}
+                    className="w-[220.5px] h-12 border border-[#C0C1BE] rounded-lg p-4 focus:outline-none"
+                  />
+                  {errors.effectiveEndTime && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.effectiveEndTime}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-label-l2 font-normal text-neutral-700">
+            This discount will apply for orders above (MPQ to MXPQ) units from
+            (Start Date & Time to End Date & Time)
+          </div>
+        </div>
+      </>
+    );
+  },
+);
+
+export default AdditionalDiscountNew;

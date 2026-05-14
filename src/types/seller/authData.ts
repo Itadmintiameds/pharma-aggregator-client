@@ -34,7 +34,8 @@ export interface EmailOtpSendRequest {
 }
 
 export interface EmailOtpVerifyRequest {
-  email: string;
+  username?: string; 
+  email?: string; 
   otp: string;
 }
 

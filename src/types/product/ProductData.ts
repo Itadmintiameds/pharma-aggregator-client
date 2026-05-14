@@ -10,6 +10,48 @@ export interface CreateDrugProductRequest {
   productAttributeNonConsumableMedicals?: ProductAttributeNonConsumableData[];
 }
 
+export interface CreateProductRequest {
+  productName: string;
+  productDescription: string;
+  warningsPrecautions: string;
+  manufacturerName?: string;
+  categoryId: number;
+  packagingDetails: PackagingData[];
+  pricingDetails: PricingData[];
+  productAttributeFoodInfants?: ProductAttributeFoodInfantData[];
+}
+export interface ProductAttributeFoodInfantData {
+  productAttributeId?: string;
+  productCategoryId: number;
+  productSubcategoryId: number;
+  brandName: string;
+  variantName: string;
+  productFormId: number;
+  netQuantity: string;
+  servingSize: string;
+  ageGroupId: number;
+  vegNonvegIndicator: "veg" | "non-veg";  
+  allergenInformation: string;
+  nutritionalInformation: string;  
+  nutritionalInformationImageUrl?: string | null;  
+  activeIngredients: string;
+  additivesPreservatives: string;
+  productClaims: string;
+  storageConditionId: number;  
+  countryId: number;  
+  // certificationIds: number[];
+  certificationIds?: number[];      
+  certificateDocuments?: Array<{         
+    certificationId: number;
+    certificateUrl: string;
+  }>;  
+  productUserManual?: string | null;  
+  createdBy?: string;
+  modifiedBy?: string;
+  createdDate?: string;
+  modifiedDate?: string;
+}
+
 export interface ProductAttributeDrugData {
   productAttributeId?: string;
   dosageForm: string;
@@ -90,6 +132,19 @@ export interface AdditionalDiscountData {
   additionalDiscountId?: string;
   minimumPurchaseQuantity: number;
   additionalDiscountPercentage: number;
+  discountPercentage?: number;
+  effectiveStartDate: string | null;
+  effectiveStartTime: string | null;
+  effectiveEndDate: string | null;
+  effectiveEndTime: string | null;
+}
+
+export interface SpecialSchemesData {
+  specialSchemesId?: string;
+  schemeName: string;
+  schemeType: string;
+  buyQuantity: number;
+  freeQuantity: number;
   effectiveStartDate: string | null;
   effectiveStartTime: string | null;
   effectiveEndDate: string | null;
@@ -157,4 +212,12 @@ export interface ProductAttributeNonConsumableData {
   warrantyPeriod: string;
   udiNumber: string;
   serviceAvailability: boolean;
+}
+
+export interface ProductCertificateDocumentDto {
+  productCertificateDocumentId?: number;
+  certificationId: number;
+  certificationName?: string;
+  certificateUrl?: string;
+  documentType?: string;
 }

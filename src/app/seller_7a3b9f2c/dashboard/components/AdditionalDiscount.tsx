@@ -902,35 +902,6 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
     setErrors({});
   };
 
-  // const handleSubmit = () => {
-  //   if (!validateForm()) return;
-
-  //    if (!isValid || Object.keys(errors).length > 0) {
-  //   return;
-  // }
-
-  //   const slab: AdditionalDiscountData = {
-  //     minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
-  //     additionalDiscountPercentage: Number(form.discountPercentage),
-  //     effectiveStartDate: form.alwaysActive ? "" : form.startDate,
-  //     effectiveStartTime: form.alwaysActive ? "" : form.startTime,
-  //     effectiveEndDate: form.alwaysActive ? "" : form.endDate,
-  //     effectiveEndTime: form.alwaysActive ? "" : form.endTime,
-  //   };
-
-  //   // ✅ CREATE updatedSlabs FIRST
-  //   const updatedSlabs = [...slabs, slab];
-
-  //   // ✅ update local state
-  //   setSlabs(updatedSlabs);
-
-  //   // ✅ send to parent
-  //   onSave?.(updatedSlabs);
-
-  //   // ✅ reset form
-  //   setForm(EMPTY_FORM);
-  //   setErrors({});
-  // };
 
   useEffect(() => {
     setSlabs(initialData || []);
