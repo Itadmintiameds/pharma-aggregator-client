@@ -1,17 +1,18 @@
-"use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+"use client"
+import React from 'react';
+import SellerHome from './components/SellerHome';
 
-export default function SellerPage() {
-  const router = useRouter();
-  
-  useEffect(() => {
-    router.replace("/seller_7a3b9f2c/dashboard");
-  }, [router]);
-  
-  return null;
+const page = () => {
+  return (
+    <div>
+
+      <SellerHome/>
+      </div>
+  )
 }
+
+export default page;
 
 
 

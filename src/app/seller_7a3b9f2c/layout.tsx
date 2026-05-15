@@ -21,79 +21,97 @@ export default function SellerLayout({
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const hasPushedState = useRef(false);
 
+  // Define public routes that don't require authentication
+  const isPublicRoute = () => {
+    // The main seller page (registration/landing) is public
+    return pathname === "/seller_7a3b9f2c";
+  };
+
+  // Define protected routes that require authentication
+  const isProtectedRoute = () => {
+    const protectedPaths = [
+      "/seller_7a3b9f2c/dashboard",
+      "/seller_7a3b9f2c/products",
+      "/seller_7a3b9f2c/profile",
+      "/seller_7a3b9f2c/reports",
+    ];
+    return protectedPaths.some(protectedPath => pathname.startsWith(protectedPath));
+  };
+
   useEffect(() => {
     console.log("=========================================");
     console.log("🏪 SELLER LAYOUT INITIALIZED");
     console.log("📍 Current pathname:", pathname);
+    console.log("🔓 Is public route:", isPublicRoute());
+    console.log("🔒 Is protected route:", isProtectedRoute());
     
-    const token = localStorage.getItem('token');
-    const isAuthenticated = sellerAuthService.isAuthenticated();
-    
-    if (!token || !isAuthenticated) {
-      console.log("❌ Not authenticated, redirecting to login");
-      router.push('/?showLogin=true');
-      return;
+    // Only check authentication for protected routes
+    if (isProtectedRoute()) {
+      const token = localStorage.getItem('token');
+      const isAuthenticated = sellerAuthService.isAuthenticated();
+      
+      if (!token || !isAuthenticated) {
+        console.log("❌ Not authenticated, redirecting to login");
+        router.push('/?showLogin=true');
+        return;
+      }
+      console.log("✅ User authenticated for protected route");
+    } else {
+      console.log("📢 Public route - no authentication required");
     }
-    console.log("✅ User authenticated");
   }, [pathname, router]);
 
+  // Back navigation protection - ONLY for protected dashboard routes
+  useEffect(() => {
+    // Only apply back navigation protection on dashboard home
+    const isDashboardHome = pathname === "/seller_7a3b9f2c/dashboard";
+    
+    // Don't apply protection on public routes
+    if (isPublicRoute() || !isDashboardHome) {
+      hasPushedState.current = false;
+      return;
+    }
 
-useEffect(() => {
-  const isDashboardHome =
-    pathname === "/seller_7a3b9f2c/dashboard";
+    if (!hasPushedState.current) {
+      window.history.pushState(
+        { dashboardProtected: true },
+        "",
+        window.location.href
+      );
 
-  if (!isDashboardHome) {
-    hasPushedState.current = false;
-    return;
-  }
+      hasPushedState.current = true;
+    }
 
-  if (!hasPushedState.current) {
-    window.history.pushState(
-      { dashboardProtected: true },
-      "",
-      window.location.href
-    );
+    const onBackButton = () => {
+      setShowLogoutModal(true);
 
-    hasPushedState.current = true;
-  }
+      window.history.pushState(
+        { dashboardProtected: true },
+        "",
+        window.location.href
+      );
+    };
 
-  const onBackButton = () => {
-    setShowLogoutModal(true);
+    const timeout = setTimeout(() => {
+      window.addEventListener("popstate", onBackButton);
+    }, 0);
 
-    window.history.pushState(
-      { dashboardProtected: true },
-      "",
-      window.location.href
-    );
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("popstate", onBackButton);
+    };
+  }, [pathname]);
+
+  const handleConfirmLogout = () => {
+    setShowLogoutModal(false);
+    sellerAuthService.clearAuth();
+    toast.success("Logged out successfully");
+    router.replace("/?showLogin=true");
   };
 
-  const timeout = setTimeout(() => {
-    window.addEventListener("popstate", onBackButton);
-  }, 0);
-
-  return () => {
-    clearTimeout(timeout);
-
-    window.removeEventListener(
-      "popstate",
-      onBackButton
-    );
+  const handleCancelLogout = () => {
+    setShowLogoutModal(false);
   };
-}, [pathname]);
-
-const handleConfirmLogout = () => {
-  setShowLogoutModal(false);
-
-  sellerAuthService.clearAuth();
-
-  toast.success("Logged out successfully");
-
-  router.replace("/?showLogin=true");
-};
-
-const handleCancelLogout = () => {
-  setShowLogoutModal(false);
-};
 
   const getCurrentView = (path: string) => {
     if (path.includes("/products")) return "product";
@@ -103,6 +121,30 @@ const handleCancelLogout = () => {
   };
 
   const currentView = getCurrentView(pathname) as any;
+  
+  // For public routes (like /seller_7a3b9f2c), render without sidebar/header
+  if (isPublicRoute()) {
+    return (
+      <>
+        {children}
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+          style={{ zIndex: 9999 }}
+        />
+      </>
+    );
+  }
+
+  // For protected routes, render with sidebar and header
   return (
     <div className="min-h-screen bg-gray-50">
       <SellerSidebar
