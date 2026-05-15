@@ -167,3 +167,33 @@ export const getFoodInfantAttributes = async (productId: string) => {
     return null;
   }
 };
+
+
+export const uploadFoodInfantBrochure = async (productAttributeId: string, file: File) => {
+  try {
+    const formData = new FormData();
+    formData.append("brochureFile", file);
+    const response = await api.post(
+      `/product-documents/food-infant/${productAttributeId}/brochure`,
+      formData
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error uploading Food/Infant Brochure', error);
+    throw new Error(
+      error.response?.data?.message || error.message || 'Error uploading brochure'
+    );
+  }
+};
+
+export const updateFoodInfantBrochureUrl = async (productAttributeId: string, brochureUrl: string) => {
+  try {
+    const response = await api.patch(`/product-attributes/food-infant/${productAttributeId}/brochure`, {
+      productUserManual: brochureUrl
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error updating brochure URL', error);
+    throw new Error(error.response?.data?.message || error.message || 'Error updating brochure URL');
+  }
+};

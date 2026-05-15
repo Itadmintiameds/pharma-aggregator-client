@@ -26,16 +26,20 @@ import {
   getCertificationsByCategoryId,
   uploadFoodInfantUserManual,
   createFoodInfantProduct,
-  getFoodInfantAttributes
+  getFoodInfantAttributes,
+  uploadFoodInfantBrochure
 } from "@/src/services/product/FoodInfantService";
+
+import AdditionalDiscountType from "./AdditionalDiscountType";
+import CommonModal from "../commonComponent/CommonModal";
 
 import {
   CreateProductRequest,
   PackagingData,
   PricingData,
   AdditionalDiscountData,
+   SpecialSchemesData,
 } from "@/src/types/product/ProductData";
-import CommonModal from "../commonComponent/CommonModal";
 
 interface SelectOption {
   value: string;
@@ -132,20 +136,23 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
   const [packTypes, setPackTypes] = useState<SelectOption[]>([]);
   const [certificationsMaster, setCertificationsMaster] = useState<SelectOption[]>([]);
   const [resolvedProductId, setResolvedProductId] = useState<string>("");
+  const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
   
   // Certifications state
   const [selectedCertificationValues, setSelectedCertificationValues] = useState<string[]>([]);
   const [certificationsDetails, setCertificationsDetails] = useState<CertificationTag[]>([]);
 
   // Additional discounts
+
   const [additionalDiscounts, setAdditionalDiscounts] = useState<AdditionalDiscountData[]>([]);
+const [specialSchemes, setSpecialSchemes] = useState<SpecialSchemesData[]>([]);
 
   // UI state
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [existingManualFile, setExistingManualFile] = useState<string | null>(null);
-  const [showDiscountDrawer, setShowDiscountDrawer] = useState(false);
+  // const [showDiscountDrawer, setShowDiscountDrawer] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [modalType, setModalType] = useState<"create" | "update">("create");
   const [productAttributeId, setProductAttributeId] = useState<string | null>(null);
@@ -502,6 +509,7 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
           setExistingImages(prod.productImages?.map((img: any) => img.productImage) || []);
           setExistingManualFile((attr as any).productUserManual || null);
           setAdditionalDiscounts(pricing.additionalDiscounts || []);
+          setSpecialSchemes(pricing.specialSchemes || []); 
           setProductAttributeId((attr as any).productAttributeId || null);
           
           if ((attr as any).certificateDocuments?.length) {
@@ -579,6 +587,7 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
       hsnCode: Number(form.hsnCode) || 0,
       shelfLifeMonths: Number(form.shelfLifeMonths) || 0,
       additionalDiscounts: additionalDiscounts,
+      specialSchemes: specialSchemes,
     };
     
     const foodInfantAttr = {
@@ -605,7 +614,7 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
           certificationId: Number(c.id),
           certificateUrl: c.existingUrl || (c.file ? URL.createObjectURL(c.file) : ""),
         })),
-      productUserManual: form.manualFile ? form.manualFile.name : null,
+      productUserManual: existingManualFile || "PENDING",
     };
     
     const payload: CreateProductRequest = {
@@ -661,6 +670,13 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
         if (images.length > 0) {
           await uploadProductImages(productId, images);
         }
+        if (form.manualFile && productAttributeId) {
+    try {
+      await uploadFoodInfantBrochure(productAttributeId, form.manualFile);
+    } catch (err) {
+      console.warn("⚠️ Brochure upload failed:", err);
+    }
+  }
       } else {
         // Create mode
         response = await createFoodInfantProduct(payload);
@@ -688,6 +704,13 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
         if (form.manualFile && newAttrId) {
           await uploadFoodInfantUserManual(newAttrId, form.manualFile);
         }
+        if (form.manualFile && newAttrId) {
+    try {
+      await uploadFoodInfantBrochure(newAttrId, form.manualFile);
+    } catch (err) {
+      console.warn("⚠️ Brochure upload failed:", err);
+    }
+  }
       }
       setShowSuccessModal(true);
     } catch (err: any) {
@@ -1284,27 +1307,29 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
             />
 
             {/* Discount Percentage and Special Offers */}
-            <div className="col-span-2 flex gap-4">
-              <div className="w-1/2">
-                <Input
-                  type="number"
-                  label="Discount Percentage"
-                  name="discountPercentage"
-                  placeholder="e.g., 10"
-                  onChange={handleChange}
-                  value={form.discountPercentage}
-                  error={errors.discountPercentage}
-                />
-              </div>
-              <div className="flex items-end">
-                <button
-                  onClick={() => setShowDiscountDrawer(true)}
-                  className="px-4 py-2 h-14 bg-white text-[#7D32FC] border-2 border-[#7D32FC] rounded-xl font-semibold"
-                >
-                  + Add Special Offers
-                </button>
-              </div>
-            </div>
+         
+{/* Discount Percentage and Special Offers */}
+<div className="col-span-2 flex gap-4">
+  <div className="w-1/2">
+    <Input
+      type="number"
+      label="Discount Percentage"
+      name="discountPercentage"
+      placeholder="e.g., 10"
+      onChange={handleChange}
+      value={form.discountPercentage}
+      error={errors.discountPercentage}
+    />
+  </div>
+  <div className="flex items-end">
+    <button
+      onClick={() => setShowAdditionalDiscount(true)}
+      className="px-4 py-2 h-14 bg-white text-[#7D32FC] border-2 border-[#7D32FC] rounded-xl font-semibold"
+    >
+      + Add Special Offers
+    </button>
+  </div>
+</div>
 
             {/* TAX & BILLING */}
             <div className="col-span-2 text-h6 font-normal mt-2">TAX & BILLING</div>
@@ -1351,7 +1376,7 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
               accept="image/*"
               className="hidden"
               onChange={handleImageUpload}
-              disabled={isEditMode}
+              disabled={false}
             />
             <div className="border-2 border-dashed border-neutral-300 rounded-lg w-full h-full flex items-center justify-center">
               <div className="flex flex-col items-center">
@@ -1423,22 +1448,26 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
             />
           </Drawer>
         )} */}
-        {showDiscountDrawer && (
-  <CommonModal 
-    onClose={() => setShowDiscountDrawer(false)} 
+{showAdditionalDiscount && (
+  <CommonModal
+    onClose={() => setShowAdditionalDiscount(false)}
     width="w-[600px]"
   >
-    <div className="h-[80vh] overflow-hidden flex flex-col">
-      <AdditionalDiscount
+    <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
+      <AdditionalDiscountType
+        onClose={() => setShowAdditionalDiscount(false)}
         initialData={additionalDiscounts}
         baseDiscountPercentage={Number(form.discountPercentage) || 0}
         baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
-        onSave={(slabs?: AdditionalDiscountData[]) => {
-          // ✅ Handle optional slabs (undefined allowed)
-          setAdditionalDiscounts(slabs || []);
-          setShowDiscountDrawer(false);
+        onSaveAdditionalDiscount={(data: AdditionalDiscountData[]) => {
+          setAdditionalDiscounts(data || []);
+          setShowAdditionalDiscount(false);
         }}
-        onClose={() => setShowDiscountDrawer(false)}
+        initialSchemesData={specialSchemes}
+        onSaveSpecialSchemes={(data: SpecialSchemesData[]) => {
+          setSpecialSchemes(data || []);
+          setShowAdditionalDiscount(false);
+        }}
       />
     </div>
   </CommonModal>
