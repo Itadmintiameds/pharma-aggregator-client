@@ -25,6 +25,7 @@ import AddDiscNew from "./AdditionalDiscountNew";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import { getTherapeuticCategory } from "@/src/services/product/TherapeuticCategoryService";
 import { getSupplementDosageForms } from "@/src/services/product/SupplementService";
+import { useRouter } from "next/navigation";
 
 interface SelectOption {
   value: string;
@@ -206,6 +207,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     { value: "18", label: "18%" },
   ];
 
+  const router = useRouter();
   const [therapeuticCategories, setTherapeuticCategories] = useState<
     SelectOption[]
   >([]);
@@ -734,7 +736,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleViewProduct = () => {
-    window.location.reload();
+    router.push("/seller_7a3b9f2c/products");
   };
 
   const handleContinueEditing = () => {
@@ -743,11 +745,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
   const handleContinueAdding = () => {
     setShowSuccessModal(false);
-    resetForm();
+    window.location.reload();
   };
 
   const handleBackToDashboard = () => {
-    window.location.reload();
+    router.back();
   };
 
   useEffect(() => {
@@ -2183,7 +2185,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         <div className="flex justify-between mt-6 col-span-2">
           <div className="space-x-6 flex">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => router.back()}
               className="w-21 h-12 border-2 border-[#FF3B3B] rounded-lg text-label-l3 font-semibold text-[#FF3B3B] cursor-pointer"
             >
               Cancel
