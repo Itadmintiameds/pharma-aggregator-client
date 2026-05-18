@@ -137,8 +137,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   // 2. Size Mapping (Height, Padding, Text Size)
   const sizeStyles: Record<InputSize, string> = {
     sm: "h-10 px-3 text-sm rounded-xl",
-    md: "h-14 px-4 text-base rounded-2xl",
-    lg: "h-16 px-5 text-lg rounded-2xl",
+    md: "h-14 px-4 text-base rounded-xl",
+    lg: "h-16 px-5 text-lg rounded-xl",
   };
 
   // 3. State Mapping (Borders, Backgrounds, Text Colors)

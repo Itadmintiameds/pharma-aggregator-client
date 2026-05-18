@@ -229,6 +229,16 @@ export const supplementProductSchema = z
       });
     }
 
+    // Cross-field: stockQuantity >= minimumOrderQuantity
+    const stockQty = Number(data.stockQuantity) || 0;
+    if (stockQty && minQty && stockQty < minQty) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["stockQuantity"],
+        message: "Stock Quantity must be greater than or equal to Min Order Qty",
+      });
+    }
+
     // Cross-field: sellingPrice < mrp
     const mrp = Number(data.mrp) || 0;
     const selling = Number(data.sellingPrice) || 0;

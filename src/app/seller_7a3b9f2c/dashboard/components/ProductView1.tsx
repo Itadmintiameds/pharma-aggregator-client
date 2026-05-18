@@ -448,10 +448,10 @@ const extractCosmeticAttr = (data: ProductApiData): CosmeticAttributes | null =>
     (data.productAttributeCosmeticAndPersonalUse ?? []).length > 0
       ? data.productAttributeCosmeticAndPersonalUse!
       : (data.productAttributeCosmeticPersonalCare ?? []).length > 0
-      ? data.productAttributeCosmeticPersonalCare!
-      : (data.productAttributeCosmetics ?? []).length > 0
-      ? data.productAttributeCosmetics!
-      : null;
+        ? data.productAttributeCosmeticPersonalCare!
+        : (data.productAttributeCosmetics ?? []).length > 0
+          ? data.productAttributeCosmetics!
+          : null;
 
   if (arr && arr.length > 0) return arr[0];
   return data.cosmeticAttributes ?? null;
@@ -532,9 +532,9 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 ───────────────────────────────────────────────────────── */
 
 const OFFER_COLORS: Record<string, { bg: string; border: string; titleColor: string; iconBg: string }> = {
-  bogo:     { bg: "#F0FDF4", border: "#86EFAC", titleColor: "#15803D", iconBg: "#DCFCE7" },
-  bulk:     { bg: "#FAF5FF", border: "#D8B4FE", titleColor: "#7E22CE", iconBg: "#F3E8FF" },
-  bundle:   { bg: "#FFFBEB", border: "#FCD34D", titleColor: "#92400E", iconBg: "#FEF3C7" },
+  bogo: { bg: "#F0FDF4", border: "#86EFAC", titleColor: "#15803D", iconBg: "#DCFCE7" },
+  bulk: { bg: "#FAF5FF", border: "#D8B4FE", titleColor: "#7E22CE", iconBg: "#F3E8FF" },
+  bundle: { bg: "#FFFBEB", border: "#FCD34D", titleColor: "#92400E", iconBg: "#FEF3C7" },
   seasonal: { bg: "#EFF6FF", border: "#93C5FD", titleColor: "#1D4ED8", iconBg: "#DBEAFE" },
 };
 
@@ -602,12 +602,12 @@ const ProductView1 = ({
   categoryId: categoryIdProp,
   setCurrentView,
 }: ProductViewProps) => {
-  const [productData, setProductData]           = useState<ProductApiData | null>(null);
-  const [loading, setLoading]                   = useState(true);
-  const [lookups, setLookups]                   = useState<ResolvedLookups>(INITIAL_LOOKUPS);
+  const [productData, setProductData] = useState<ProductApiData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [lookups, setLookups] = useState<ResolvedLookups>(INITIAL_LOOKUPS);
   // Holds the fully-resolved cosmetic attribute object (IDs → labels)
-  const [resolvedCosAttr, setResolvedCosAttr]   = useState<CosmeticAttributes | null>(null);
-  const [cosAttrLoading, setCosAttrLoading]     = useState(false);
+  const [resolvedCosAttr, setResolvedCosAttr] = useState<CosmeticAttributes | null>(null);
+  const [cosAttrLoading, setCosAttrLoading] = useState(false);
 
   /* ── 1. Fetch product ── */
   useEffect(() => {
@@ -690,7 +690,7 @@ const ProductView1 = ({
       ncAttr?.storageConditionId ??
       cosAttrRaw?.storageConditionId ??
       (Array.isArray(drugEntry?.storageConditionIds) &&
-      (drugEntry?.storageConditionIds?.length ?? 0) > 0
+        (drugEntry?.storageConditionIds?.length ?? 0) > 0
         ? drugEntry!.storageConditionIds![0]
         : undefined);
 
@@ -785,14 +785,14 @@ const ProductView1 = ({
     };
 
     // ── Consumable: device category & subcategory ──
-    const inlineDeviceCatName    = consAttr?.deviceCategoryName?.trim() || null;
+    const inlineDeviceCatName = consAttr?.deviceCategoryName?.trim() || null;
     const inlineDeviceSubCatName = consAttr?.deviceSubCategoryName?.trim() || null;
-    const deviceCatId    = toPositiveInt(consAttr?.deviceCatId);
+    const deviceCatId = toPositiveInt(consAttr?.deviceCatId);
     const deviceSubCatId = toPositiveInt(consAttr?.deviceSubCatId);
 
     const fetchDeviceNames = async (): Promise<Partial<ResolvedLookups>> => {
       if (!consAttr) return {};
-      let deviceCategoryName: string | null    = inlineDeviceCatName;
+      let deviceCategoryName: string | null = inlineDeviceCatName;
       let deviceSubCategoryName: string | null = inlineDeviceSubCatName;
 
       if (!deviceCategoryName && deviceCatId !== null) {
@@ -867,7 +867,7 @@ const ProductView1 = ({
           ""
         );
         const ageGroupIdStr = String((cosAttrRaw as any).ageGroupId ?? "");
-        const countryIdStr  = String(
+        const countryIdStr = String(
           (cosAttrRaw as any).countryId ??
           (cosAttrRaw as any).countryOfOriginId ??
           ""
@@ -989,25 +989,25 @@ const ProductView1 = ({
         const intendedUseArea =
           rawIntendedIds.length > 0
             ? rawIntendedIds
-                .map((id) => intendedOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => intendedOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const skinPart =
           rawSkinIds.length > 0
             ? rawSkinIds
-                .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const hairPart =
           rawHairIds.length > 0
             ? rawHairIds
-                .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const skinHairType = [skinPart, hairPart].filter(Boolean).join(", ") || null;
@@ -1049,21 +1049,21 @@ const ProductView1 = ({
           // Spread raw attr first so nothing is accidentally dropped
           ...cosAttrRaw,
           // Overwrite with resolved label strings
-          productType:      productTypeLabel      ?? cosAttrRaw.productType,
-          productSubtype:   productSubTypeLabel   ?? cosAttrRaw.productSubtype,
-          ageGroup:         ageGroupOpts.find((o) => o.value === ageGroupIdStr)?.label ?? cosAttrRaw.ageGroup,
-          intendedUseArea:  intendedUseArea       ?? cosAttrRaw.intendedUseArea,
-          skinHairType:     skinHairType          ?? cosAttrRaw.skinHairType,
+          productType: productTypeLabel ?? cosAttrRaw.productType,
+          productSubtype: productSubTypeLabel ?? cosAttrRaw.productSubtype,
+          ageGroup: ageGroupOpts.find((o) => o.value === ageGroupIdStr)?.label ?? cosAttrRaw.ageGroup,
+          intendedUseArea: intendedUseArea ?? cosAttrRaw.intendedUseArea,
+          skinHairType: skinHairType ?? cosAttrRaw.skinHairType,
           countryOfOrigin:
             countryOpts.find((o) => o.value === countryIdStr)?.label ??
             cosAttrRaw.countryOfOrigin ??
             cosAttrRaw.countryName,
           // Normalise inconsistently-cased scalar fields
-          variantName:         variantName         ?? cosAttrRaw.variantName,
-          gender:              gender              ?? cosAttrRaw.gender,
-          activeIngredients:   activeIngredients   ?? cosAttrRaw.activeIngredients,
+          variantName: variantName ?? cosAttrRaw.variantName,
+          gender: gender ?? cosAttrRaw.gender,
+          activeIngredients: activeIngredients ?? cosAttrRaw.activeIngredients,
           netQuantityStrength: netQuantityStrength ?? cosAttrRaw.netQuantityStrength,
-          productClaims:       productClaims       ?? cosAttrRaw.productClaims,
+          productClaims: productClaims ?? cosAttrRaw.productClaims,
           warningsPrecautions: warningsPrecautions ?? cosAttrRaw.warningsPrecautions,
         });
       } catch (err) {
@@ -1074,7 +1074,7 @@ const ProductView1 = ({
         setCosAttrLoading(false);
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productData]);
 
   /* ─────────────────────────────────────────────────────
@@ -1107,10 +1107,10 @@ const ProductView1 = ({
       ? productData!.productAttributeSupplementsOrNutraceuticals![0]
       : null;
 
-      const foodAttr: any | null =
-  (productData?.productAttributeFoodInfants ?? []).length > 0
-    ? productData!.productAttributeFoodInfants![0]
-    : null;
+  const foodAttr: any | null =
+    (productData?.productAttributeFoodInfants ?? []).length > 0
+      ? productData!.productAttributeFoodInfants![0]
+      : null;
 
   // Raw cosAttr — used only for category detection; rendered via resolvedCosAttr
   const cosAttrRaw: CosmeticAttributes | null = productData
@@ -1144,15 +1144,15 @@ const ProductView1 = ({
       !isDrug &&
       !isCosmetic);
 
-      const isFoodInfant =
-  resolvedCategoryId === 3 ||
-  (resolvedCategoryId == null &&
-    foodAttr !== null &&
-    !isConsumable &&
-    !isNonConsumable &&
-    !isDrug &&
-    !isSupplement &&
-    !isCosmetic);
+  const isFoodInfant =
+    resolvedCategoryId === 3 ||
+    (resolvedCategoryId == null &&
+      foodAttr !== null &&
+      !isConsumable &&
+      !isNonConsumable &&
+      !isDrug &&
+      !isSupplement &&
+      !isCosmetic);
 
   const primaryMoleculeId: number | null = (drugEntry?.molecules ?? [])[0]?.moleculeId ?? null;
 
@@ -1167,8 +1167,8 @@ const ProductView1 = ({
       m.strength != null
         ? m.strength
         : idx === 0
-        ? drugEntry?.molecule1Strength
-        : drugEntry?.molecule2Strength;
+          ? drugEntry?.molecule1Strength
+          : drugEntry?.molecule2Strength;
     return { ...m, resolvedName: name ?? "—", resolvedStrength: formatStrength(strength) };
   });
 
@@ -1176,21 +1176,21 @@ const ProductView1 = ({
     molecules.length > 0
       ? molecules
       : (
-          [
-            drugEntry?.molecule1Name || drugEntry?.molecule1Strength
-              ? {
-                  resolvedName: drugEntry?.molecule1Name ?? "—",
-                  resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
-                }
-              : null,
-            drugEntry?.molecule2Name || drugEntry?.molecule2Strength
-              ? {
-                  resolvedName: drugEntry?.molecule2Name ?? "—",
-                  resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
-                }
-              : null,
-          ].filter(Boolean) as { resolvedName: string; resolvedStrength: string }[]
-        );
+        [
+          drugEntry?.molecule1Name || drugEntry?.molecule1Strength
+            ? {
+              resolvedName: drugEntry?.molecule1Name ?? "—",
+              resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
+            }
+            : null,
+          drugEntry?.molecule2Name || drugEntry?.molecule2Strength
+            ? {
+              resolvedName: drugEntry?.molecule2Name ?? "—",
+              resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
+            }
+            : null,
+        ].filter(Boolean) as { resolvedName: string; resolvedStrength: string }[]
+      );
 
   const drugSchedule =
     drugEntry?.drugSchedule ??
@@ -1282,21 +1282,28 @@ const ProductView1 = ({
       ? `${pricing.shelfLifeMonths} months`
       : consAttr?.shelfLife ?? drugEntry?.shelfLife ?? null;
 
-  const additionalDiscounts: AdditionalDiscount[] = (pricing?.additionalDiscounts ?? []).filter(
-    (d) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage,
-  );
+  // Batch Aggregation logic: scan all batches for offers
+  const additionalDiscounts: AdditionalDiscount[] = (productData?.pricingDetails ?? [])
+    .flatMap((p: any) => p.additionalDiscounts || [])
+    .filter((d: any) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage)
+    .filter((d: any, index: number, self: any[]) =>
+      index === self.findIndex((t) =>
+        t.minimumPurchaseQuantity === d.minimumPurchaseQuantity &&
+        t.additionalDiscountPercentage === d.additionalDiscountPercentage
+      )
+    );
 
   const unitsPerPack = packaging?.unitPerPack ?? packaging?.unitsPerPack ?? packaging?.numberOfUnits;
 
   const packSizeDisplay =
     packaging?.numberOfPacks != null && unitsPerPack != null
       ? `${packaging.numberOfPacks} packs × ${unitsPerPack} units = ${(
-          packaging.numberOfPacks * unitsPerPack
-        ).toLocaleString()} units`
+        packaging.numberOfPacks * unitsPerPack
+      ).toLocaleString()} units`
       : null;
 
-  const productImages  = resolveProductImages(productData);
-  const displayImages  = productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
+  const productImages = resolveProductImages(productData);
+  const displayImages = productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
 
   const brochureUrl: string | null =
     validUrl(drugEntry?.brochurePath) ??
@@ -1320,7 +1327,7 @@ const ProductView1 = ({
     (lookups.loading ? "Loading…" : null);
 
   const handleClose = () => setCurrentView("overview" as DashboardView);
-  const handleEdit  = () => {
+  const handleEdit = () => {
     const editView = resolvedCategoryId != null ? CATEGORY_EDIT_VIEW[resolvedCategoryId] : null;
     setCurrentView(editView ?? ("editDrug" as DashboardView));
   };
@@ -1492,12 +1499,12 @@ const ProductView1 = ({
           nonConsAttr={
             ncAttr
               ? {
-                  ...ncAttr,
-                  safetyInstructions:
-                    ncAttr.safetyInstructions ??
-                    productData.warningsPrecautions ??
-                    undefined,
-                }
+                ...ncAttr,
+                safetyInstructions:
+                  ncAttr.safetyInstructions ??
+                  productData.warningsPrecautions ??
+                  undefined,
+              }
               : null
           }
           storageConditionName={storageCondition}
@@ -1598,25 +1605,25 @@ const ProductView1 = ({
         />
       )}
 
-            {/* Food & Infant (category 3) */}
-     {/* Food & Infant (category 3) */}
-{/* Food & Infant (category 3) */}
-{isFoodInfant && foodAttr && (
-  <FoodInfantView
-    productName={productData.productName}
-    productDescription={productDescription}
-    warningsPrecautions={warningsPrecautions}
-    displayImages={displayImages}
-    foodAttr={foodAttr}
-    brochureUrl={brochureUrl}
-    placeholderImage={PLACEHOLDER_IMAGE}
-    manufacturerName={manufacturerName}
-  />
-)}
-{console.log("FoodAttr from ProductView1:", {
-  nutritionalInformation: foodAttr?.nutritionalInformation,
-  nutritionalInformationImageUrl: foodAttr?.nutritionalInformationImageUrl,
-})}
+      {/* Food & Infant (category 3) */}
+      {/* Food & Infant (category 3) */}
+      {/* Food & Infant (category 3) */}
+      {isFoodInfant && foodAttr && (
+        <FoodInfantView
+          productName={productData.productName}
+          productDescription={productDescription}
+          warningsPrecautions={warningsPrecautions}
+          displayImages={displayImages}
+          foodAttr={foodAttr}
+          brochureUrl={brochureUrl}
+          placeholderImage={PLACEHOLDER_IMAGE}
+          manufacturerName={manufacturerName}
+        />
+      )}
+      {console.log("FoodAttr from ProductView1:", {
+        nutritionalInformation: foodAttr?.nutritionalInformation,
+        nutritionalInformationImageUrl: foodAttr?.nutritionalInformationImageUrl,
+      })}
 
       {/* ── SPECIAL OFFERS (if any) ── */}
       {specialOffers.length > 0 && <SpecialOffersSection offers={specialOffers} />}
@@ -1701,7 +1708,7 @@ const ProductView1 = ({
                 </div>
                 {additionalDiscounts.map((d, i) => {
                   const startDate = d.effectiveStartDate ?? d.startDate;
-                  const endDate   = d.effectiveEndDate   ?? d.endDate;
+                  const endDate = d.effectiveEndDate ?? d.endDate;
                   return (
                     <div
                       key={d.additionalDiscountId ?? i}
@@ -1715,13 +1722,11 @@ const ProductView1 = ({
                     >
                       <div style={{ flex: 1 }}>
                         <p style={{ color: "#5A5B58", fontSize: 14, fontFamily: "'Work Sans', sans-serif", fontWeight: 400, lineHeight: "20px", margin: 0 }}>
-                          {`Bulk order discount (${d.minimumPurchaseQuantity}${
-                            d.maximumPurchaseQuantity ? `-${d.maximumPurchaseQuantity}` : "+"
-                          } units)${
-                            startDate && endDate
+                          {`Bulk order discount (${d.minimumPurchaseQuantity}${d.maximumPurchaseQuantity ? `-${d.maximumPurchaseQuantity}` : "+"
+                            } units)${startDate && endDate
                               ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
                               : ""
-                          }`}
+                            }`}
                         </p>
                       </div>
                       <span style={{ color: "#3C3D3A", fontSize: 16, fontFamily: "'Noto Sans', sans-serif", fontWeight: 600, lineHeight: "24px", textAlign: "right", flexShrink: 0, paddingLeft: 16 }}>

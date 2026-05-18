@@ -14,7 +14,9 @@ export default SupplementForm
 
 import React, { useEffect, useState, useRef } from "react";
 import { FileText, X, RefreshCw } from "lucide-react";
-import Select from "react-select";
+// import Select from "react-select";
+import { useRouter } from "next/navigation";
+import Dropdown from "@/src/app/commonComponents/Dropdown";
 import Input from "@/src/app/commonComponents/Input";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
@@ -108,6 +110,7 @@ interface SupplementFormProps {
 }
 
 const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) => {
+  const router = useRouter();
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   const setFieldRef =
     (name: string) => (el: HTMLElement | null) => { fieldRefs.current[name] = el; };
@@ -182,8 +185,67 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [modalType, setModalType] = useState<"create" | "update">("create");
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
 
+  const resetForm = () => {
+    setForm({
+      productId: "",
+      pricingId: "",
+      productAttributeId: "",
+      packagingId: "",
+
+      productName: "",
+      therapeuticCategory: "",
+      therapeuticSubcategory: "",
+      brandName: "",
+      variantName: "",
+      dosageForm: "",
+      netQuantity: "",
+      strength: "",
+      activeIngredients: "",
+      excipients: "",
+      nutritionalInfoType: "",
+      intendedUse: "",
+      ageGroup: "",
+      gender: "",
+      vegNonVeg: "",
+      allergenInfo: "",
+      flavour: "",
+      productClaims: "",
+      warningsPrecautions: "",
+      productDescription: "",
+      storageCondition: "",
+      manufacturerName: "",
+      countryOfOrigin: "",
+      packId: "",
+      packType: "",
+      unitPerPack: "",
+      numberOfPacks: "",
+      packSize: "",
+      minimumOrderQuantity: "",
+      maximumOrderQuantity: "",
+      batchLotNumber: "",
+      manufacturingDate: null,
+      expiryDate: null,
+      dateOfStockEntry: new Date(),
+      stockQuantity: "",
+      sellingPrice: "",
+      mrp: "",
+      gstPercentage: "",
+      discountPercentage: "",
+      finalPrice: "",
+      hsnCode: "",
+      shelfLifeMonths: "",
+      additionalDiscount: [],
+      specialSchemes: [],
+    });
+    setImages([]);
+    setErrors({});
+    setBrochureFile(null);
+    setNutritionalImage(null);
+    setSelectedCertifications([]);
+  };
+
   const handleViewProduct = () => {
-    window.location.reload();
+    router.push("/seller_7a3b9f2c/products");
   };
 
   const handleContinueEditing = () => {
@@ -192,12 +254,11 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
   const handleContinueAdding = () => {
     setShowSuccess(false);
-    // window.location.reload(); or resetForm()
-    window.location.reload();
+    resetForm();
   };
 
   const handleBackToDashboard = () => {
-    window.location.reload();
+    router.push("/seller_7a3b9f2c/dashboard");
   };
 
   // In create mode, use the prop. In edit mode, this is set from the fetched product.
@@ -439,6 +500,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const brochureInputRef = useRef<HTMLInputElement>(null);
   const certDropdownRef = useRef<HTMLDivElement>(null);
 
+  /*
   const selectStyles = (errorKey: string) => ({
     control: (base: any, state: any) => ({
       ...base,
@@ -509,6 +571,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       primary50: "#E9D5FF",
     },
   });
+  */
 
   // Close cert dropdown on outside click
   useEffect(() => {
@@ -531,24 +594,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       const numberOfPacks = Number(updated.numberOfPacks) || 0;
       updated.packSize = String(unitPerPack * numberOfPacks);
 
-      // Bidirectional calculation: MRP, Discount, Selling Price
-      const mrp = Number(updated.mrp) || 0;
-      const disc = Number(updated.discountPercentage) || 0;
-      const sp = Number(updated.sellingPrice) || 0;
-
-      if (name === "sellingPrice") {
-        // User is editing Selling Price directly
-        if (mrp > 0) {
-          const calculatedDisc = ((mrp - sp) / mrp) * 100;
-          updated.discountPercentage = calculatedDisc >= 0 ? calculatedDisc.toFixed(2) : "0";
-        }
-      } else if (name === "mrp" || name === "discountPercentage") {
-        // User is editing MRP or Discount
-        if (mrp > 0) {
-          updated.sellingPrice = (mrp - (mrp * disc) / 100).toFixed(2);
-        }
-      }
-
       // Auto-calculate finalPrice from sellingPrice & gst
       const currentSP = Number(updated.sellingPrice) || 0;
       const gst = Number(updated.gstPercentage) || 0;
@@ -569,6 +614,14 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           newErrors.maximumOrderQuantity = "Max Order Qty must be ≥ Min Order Qty";
         } else {
           delete newErrors.maximumOrderQuantity;
+        }
+
+        // ── Cross-field: stockQty >= minQty ──────────────────────────────────
+        const stockQty = Number(updated.stockQuantity) || 0;
+        if (stockQty && minQty && stockQty < minQty) {
+          newErrors.stockQuantity = "Stock Quantity must be greater than or equal to Min Order Qty";
+        } else {
+          delete newErrors.stockQuantity;
         }
 
         // ── Cross-field: sellingPrice < mrp ──────────────────────────────────
@@ -1247,12 +1300,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         primaryActionText="View Product"
         secondaryActionText={isEditMode ? "Continue Editing" : "Continue Adding"}
         tertiaryActionText="Back to Dashboard"
-        onPrimaryAction={() => window.location.reload()}
-        onSecondaryAction={() => {
-          setShowSuccess(false);
-          window.location.reload(); // Simple reset
-        }}
-        onTertiaryAction={() => window.location.reload()}
+        onPrimaryAction={handleViewProduct}
+        onSecondaryAction={isEditMode ? handleContinueEditing : handleContinueAdding}
+        onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccess(false)}
       />
 
@@ -1312,6 +1362,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Therapeutic Category */}
             <div className="flex flex-col gap-1" data-field="therapeuticCategory">
               <label className={fieldLabel}>Therapeutic Category {requiredStar}</label>
+              {/*
               <Select
                 options={therapeuticCategoryOptions}
                 isLoading={loadingTherapeuticCategories}
@@ -1326,12 +1377,26 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 isDisabled={isEditMode}
               />
               {errors.therapeuticCategory && <p className={errorMsg}>{errors.therapeuticCategory}</p>}
+              */}
+              <Dropdown
+                options={therapeuticCategoryOptions}
+                isLoading={loadingTherapeuticCategories}
+                value={form.therapeuticCategory}
+                onChange={(val) => {
+                  setForm((p) => ({ ...p, therapeuticCategory: val, therapeuticSubcategory: "" }));
+                  if (errors.therapeuticCategory) setErrors((p) => { const n = { ...p }; delete n.therapeuticCategory; return n; });
+                }}
+                placeholder="Select category"
+                isDisabled={isEditMode}
+                error={errors.therapeuticCategory}
+              />
             </div>
 
             {/* ROW 2 */}
             {/* Therapeutic Subcategory */}
             <div className="flex flex-col gap-1" data-field="therapeuticSubcategory">
               <label className={fieldLabel}>Therapeutic Subcategory {requiredStar}</label>
+              {/*
               <Select
                 options={subCategoryOptions}
                 isLoading={loadingSubcategories}
@@ -1346,6 +1411,19 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 styles={selectStyles("therapeuticSubcategory")}
               />
               {errors.therapeuticSubcategory && <p className={errorMsg}>{errors.therapeuticSubcategory}</p>}
+              */}
+              <Dropdown
+                options={subCategoryOptions}
+                isLoading={loadingSubcategories}
+                value={form.therapeuticSubcategory}
+                onChange={(val) => {
+                  setForm((p) => ({ ...p, therapeuticSubcategory: val }));
+                  if (errors.therapeuticSubcategory) setErrors((p) => { const n = { ...p }; delete n.therapeuticSubcategory; return n; });
+                }}
+                placeholder={form.therapeuticCategory ? "Select sub-category" : "Select category first"}
+                isDisabled={isEditMode || !form.therapeuticCategory}
+                error={errors.therapeuticSubcategory}
+              />
             </div>
             {/* Brand Name */}
             <div data-field="brandName">
@@ -1379,6 +1457,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Dosage Form */}
             <div className="flex flex-col gap-1" data-field="dosageForm">
               <label className={fieldLabel}>Dosage Form {requiredStar}</label>
+              {/*
               <Select
                 options={dosageFormOptions}
                 value={dosageFormOptions.find(o => o.value === form.dosageForm) || null}
@@ -1392,6 +1471,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 isDisabled={isEditMode || loadingDosageForms}
               />
               {errors.dosageForm && <p className={errorMsg}>{errors.dosageForm}</p>}
+              */}
+              <Dropdown
+                options={dosageFormOptions}
+                value={form.dosageForm}
+                onChange={(val) => {
+                  setForm((p) => ({ ...p, dosageForm: val }));
+                  if (errors.dosageForm) setErrors((p) => { const n = { ...p }; delete n.dosageForm; return n; });
+                }}
+                placeholder={loadingDosageForms ? "Loading..." : "Select dosage form"}
+                isDisabled={isEditMode || loadingDosageForms}
+                error={errors.dosageForm}
+              />
             </div>
 
             {/* ROW 4 */}
@@ -1457,6 +1548,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Nutritional Information Table */}
             <div className="flex flex-col gap-1" data-field="nutritionalInfoType">
               <label className={fieldLabel}>Nutritional Information Table {requiredStar}</label>
+              {/*
               <Select
                 options={nutritionalInfoOptions}
                 value={nutritionalInfoOptions.find(o => o.value === form.nutritionalInfoType) || null}
@@ -1474,66 +1566,81 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 styles={selectStyles("nutritionalInfoType")}
               />
               {errors.nutritionalInfoType && <p className={errorMsg}>{errors.nutritionalInfoType}</p>}
+              */}
+              <Dropdown
+                options={nutritionalInfoOptions}
+                value={form.nutritionalInfoType}
+                onChange={(val) => {
+                  setForm((p) => ({ ...p, nutritionalInfoType: val }));
+                  if (val === "label") {
+                    setNutritionalImage(null);
+                    setErrors((p) => { const n = { ...p }; delete n.nutritionalImage; return n; });
+                  }
+                  if (errors.nutritionalInfoType) setErrors((p) => { const n = { ...p }; delete n.nutritionalInfoType; return n; });
+                }}
+                placeholder="Select option"
+                error={errors.nutritionalInfoType}
+              />
+            </div>
 
-              {form.nutritionalInfoType === "image" && (
-                <div className="mt-2 flex flex-col gap-1">
-                  <label className={fieldLabel}>Upload Nutritional Information {requiredStar}</label>
+            {form.nutritionalInfoType === "image" && (
+              <div className="flex flex-col gap-1">
+                <label className={fieldLabel}>Upload Nutritional Information {requiredStar}</label>
 
-                  <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
-                    <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
-                      <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
-                    </div>
+                <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
+                  <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
+                    <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
+                  </div>
 
-                    <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                      {nutritionalImage || (existingNutritionalImageUrl && !nutritionalImage) ? (
-                        <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
-                          <span className="truncate">
-                            {nutritionalImage ? nutritionalImage.name : "Current Nutritional Image"}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (nutritionalImage) {
-                                setNutritionalImage(null);
-                                if (nutritionalInputRef.current) nutritionalInputRef.current.value = "";
-                              } else {
-                                setExistingNutritionalImageUrl(null);
-                              }
-                            }}
-                            className="ml-2"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[#969793]">Upload the Nutritional Information Image</span>
-                      )}
-                    </div>
-
-                    {existingNutritionalImageUrl && !nutritionalImage && (
-                      <a href={existingNutritionalImageUrl} target="_blank" rel="noreferrer" className="text-purple-600 text-xs underline px-2">View</a>
-                    )}
-
-                    {!nutritionalImage && (!existingNutritionalImageUrl || nutritionalImage === null) && (
-                      <label className="cursor-pointer px-4">
-                        <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
-                        <input
-                          ref={nutritionalInputRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/jpg"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleNutritionalUpload(file);
+                  <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
+                    {nutritionalImage || (existingNutritionalImageUrl && !nutritionalImage) ? (
+                      <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
+                        <span className="truncate">
+                          {nutritionalImage ? nutritionalImage.name : "Current Nutritional Image"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (nutritionalImage) {
+                              setNutritionalImage(null);
+                              if (nutritionalInputRef.current) nutritionalInputRef.current.value = "";
+                            } else {
+                              setExistingNutritionalImageUrl(null);
+                            }
                           }}
-                        />
-                      </label>
+                          className="ml-2"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[#969793]">Upload the Nutritional Information Image</span>
                     )}
                   </div>
-                  {errors.nutritionalImage && <p className={errorMsg}>{errors.nutritionalImage}</p>}
+
+                  {existingNutritionalImageUrl && !nutritionalImage && (
+                    <a href={existingNutritionalImageUrl} target="_blank" rel="noreferrer" className="text-purple-600 text-xs underline px-2">View</a>
+                  )}
+
+                  {!nutritionalImage && (!existingNutritionalImageUrl || nutritionalImage === null) && (
+                    <label className="cursor-pointer px-4">
+                      <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
+                      <input
+                        ref={nutritionalInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleNutritionalUpload(file);
+                        }}
+                      />
+                    </label>
+                  )}
                 </div>
-              )}
-            </div>
+                {errors.nutritionalImage && <p className={errorMsg}>{errors.nutritionalImage}</p>}
+              </div>
+            )}
             {/* Intended Use / Health Benefit */}
             <div data-field="intendedUse">
               <Input
@@ -1552,6 +1659,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Age Group */}
             <div className="flex flex-col gap-1" data-field="ageGroup">
               <label className={fieldLabel}>Age Group {requiredStar}</label>
+              {/*
               <Select
                 options={ageGroupOptions}
                 value={ageGroupOptions.find(o => o.value === form.ageGroup) || null}
@@ -1565,10 +1673,23 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 isDisabled={isEditMode || loadingAgeGroups}
               />
               {errors.ageGroup && <p className={errorMsg}>{errors.ageGroup}</p>}
+              */}
+              <Dropdown
+                options={ageGroupOptions}
+                value={form.ageGroup}
+                onChange={(val) => {
+                  setForm((p) => ({ ...p, ageGroup: val }));
+                  if (errors.ageGroup) setErrors((p) => { const n = { ...p }; delete n.ageGroup; return n; });
+                }}
+                placeholder={loadingAgeGroups ? "Loading..." : "Select age group"}
+                isDisabled={isEditMode || loadingAgeGroups}
+                error={errors.ageGroup}
+              />
             </div>
             {/* Gender */}
             <div className="flex flex-col gap-1" data-field="gender">
               <label className={fieldLabel}>Gender {requiredStar}</label>
+              {/*
               <Select
                 options={genderOptions}
                 value={genderOptions.find(o => o.value === form.gender) || null}
@@ -1581,16 +1702,26 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 styles={selectStyles("gender")}
               />
               {errors.gender && <p className={errorMsg}>{errors.gender}</p>}
+              */}
+              <Dropdown
+                options={genderOptions}
+                value={form.gender}
+                onChange={(val) => {
+                  setForm((p) => ({ ...p, gender: val }));
+                  if (errors.gender) setErrors((p) => { const n = { ...p }; delete n.gender; return n; });
+                }}
+                placeholder="Select gender"
+                error={errors.gender}
+              />
             </div>
 
             {/* ROW 8 */}
-            {/* Veg / Non-Veg Indicator — Radio Buttons */}
-            <div data-field="vegNonVeg" className="flex flex-col gap-1.5">
-              <label className={`${fieldLabel} flex items-center gap-1`}>
-                Veg / Non-Veg Indicator
-                <span className="text-warning-500 font-semibold">*</span>
+            {/* Dietary Classification — Radio Buttons */}
+            <div data-field="vegNonVeg" className="flex flex-col gap-1.5 pt-1.5">
+              <label className={fieldLabel}>
+                Dietary Classification {requiredStar}
               </label>
-              <div className={`flex items-center gap-6 h-14 px-4 rounded-2xl border border-neutral-500 bg-white ${isEditMode ? "opacity-60 pointer-events-none" : ""}`}>
+              <div className={`flex items-center gap-6 h-14 ${isEditMode ? "opacity-60 pointer-events-none" : ""}`}>
                 {(["Veg", "Non-Veg"] as const).map((option) => (
                   <label
                     key={option}
@@ -1629,6 +1760,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Flavour */}
             <div className="flex flex-col gap-1" data-field="flavour">
               <label className={fieldLabel}>Flavour {requiredStar}</label>
+              {/*
               <Select
                 options={flavourOptions}
                 value={flavourOptions.find(o => o.value === form.flavour) || null}
@@ -1642,6 +1774,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 isDisabled={loadingFlavours}
               />
               {errors.flavour && <p className={errorMsg}>{errors.flavour}</p>}
+              */}
+              <Dropdown
+                options={flavourOptions}
+                value={form.flavour}
+                onChange={(val) => {
+                  setForm((p) => ({ ...p, flavour: val }));
+                  if (errors.flavour) setErrors((p) => { const n = { ...p }; delete n.flavour; return n; });
+                }}
+                placeholder={loadingFlavours ? "Loading..." : "Select flavour"}
+                isDisabled={loadingFlavours}
+                error={errors.flavour}
+              />
             </div>
             {/* Product Claims */}
             <div data-field="productClaims">
@@ -1661,6 +1805,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Storage Condition */}
             <div className="flex flex-col gap-1" data-field="storageCondition">
               <label className={fieldLabel}>Storage Condition {requiredStar}</label>
+              {/*
               <Select
                 options={storageOptions}
                 value={storageOptions.find(o => o.value === form.storageCondition) || null}
@@ -1674,6 +1819,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 isDisabled={hasStock || loadingStorageConditions}
               />
               {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
+              */}
+              <Dropdown
+                options={storageOptions}
+                value={form.storageCondition}
+                onChange={(val) => {
+                  setForm((p) => ({ ...p, storageCondition: val }));
+                  if (errors.storageCondition) setErrors((p) => { const n = { ...p }; delete n.storageCondition; return n; });
+                }}
+                placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
+                isDisabled={hasStock || loadingStorageConditions}
+                error={errors.storageCondition}
+              />
             </div>
             {/* Manufacturer Name */}
             <div data-field="manufacturerName">
@@ -1823,6 +1980,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Country of Origin */}
             <div className="flex flex-col gap-1" data-field="countryOfOrigin">
               <label className={fieldLabel}>Country of Origin {requiredStar}</label>
+              {/*
               <Select
                 options={countryOptions}
                 value={countryOptions.find(o => o.value === form.countryOfOrigin) || null}
@@ -1836,6 +1994,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 isDisabled={isEditMode || loadingCountries}
               />
               {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
+              */}
+              <Dropdown
+                options={countryOptions}
+                value={form.countryOfOrigin}
+                onChange={(val) => {
+                  setForm((p) => ({ ...p, countryOfOrigin: val }));
+                  if (errors.countryOfOrigin) setErrors((p) => { const n = { ...p }; delete n.countryOfOrigin; return n; });
+                }}
+                placeholder={loadingCountries ? "Loading..." : "Select country"}
+                isDisabled={isEditMode || loadingCountries}
+                error={errors.countryOfOrigin}
+              />
             </div>
             {/* Upload Brochure */}
             <div className="flex flex-col gap-1" data-field="brochureFile">
@@ -1899,34 +2069,36 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               {errors.brochureFile && <p className={errorMsg}>{errors.brochureFile}</p>}
             </div>
 
-            {/* ROW 13 */}
-            {/* Warnings / Precautions */}
-            <div className="flex flex-col gap-1" data-field="warningsPrecautions">
-              <label className={fieldLabel}>Warnings / Precautions {requiredStar}</label>
-              <textarea
-                ref={setFieldRef("warningsPrecautions") as React.RefCallback<HTMLTextAreaElement>}
-                name="warningsPrecautions"
-                value={form.warningsPrecautions}
-                onChange={handleChange}
-                placeholder="e.g., Not for pregnant women"
-                maxLength={255}
-                className={`w-full h-36 px-4 rounded-2xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none overflow-y-auto border bg-white focus:outline-none focus:ring-0 transition-colors duration-200 ${errors.warningsPrecautions ? "border-[#FF3B3B] focus:border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082]"}`}
-              />
-              {errors.warningsPrecautions && <p className={errorMsg}>{errors.warningsPrecautions}</p>}
-            </div>
-            {/* Product Description */}
-            <div className="flex flex-col gap-1" data-field="productDescription">
-              <label className={fieldLabel}>Product Description {requiredStar}</label>
-              <textarea
-                ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>}
-                name="productDescription"
-                value={form.productDescription}
-                onChange={handleChange}
-                placeholder="Provide a detailed description of the product (Min 10 chars)"
-                maxLength={255}
-                className={`w-full h-36 px-4 rounded-2xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none overflow-y-auto border bg-white focus:outline-none focus:ring-0 transition-colors duration-200 ${errors.productDescription ? "border-[#FF3B3B] focus:border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082]"}`}
-              />
-              {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
+            {/* Bottom Section Wrapper to protect layout from dynamic shifting above */}
+            <div className="col-span-2 grid grid-cols-2 gap-x-6 gap-y-3">
+              {/* Warnings / Precautions */}
+              <div className="flex flex-col gap-1" data-field="warningsPrecautions">
+                <label className={fieldLabel}>Warnings / Precautions {requiredStar}</label>
+                <textarea
+                  ref={setFieldRef("warningsPrecautions") as React.RefCallback<HTMLTextAreaElement>}
+                  name="warningsPrecautions"
+                  value={form.warningsPrecautions}
+                  onChange={handleChange}
+                  placeholder="e.g., Not for pregnant women"
+                  maxLength={255}
+                  className={`w-full h-36 px-4 rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.warningsPrecautions ? "border-[#FF3B3B] focus:border-[#FF3B3B] focus:ring-1 focus:ring-[#FF3B3B]" : "border-neutral-500 focus:border-[#C4AAFD] focus:ring-1 focus:ring-[#C4AAFD]"}`}
+                />
+                {errors.warningsPrecautions && <p className={errorMsg}>{errors.warningsPrecautions}</p>}
+              </div>
+              {/* Product Description */}
+              <div className="flex flex-col gap-1" data-field="productDescription">
+                <label className={fieldLabel}>Product Description {requiredStar}</label>
+                <textarea
+                  ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>}
+                  name="productDescription"
+                  value={form.productDescription}
+                  onChange={handleChange}
+                  placeholder="Provide a detailed description of the product (Min 10 chars)"
+                  maxLength={255}
+                  className={`w-full h-36 px-4 rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.productDescription ? "border-[#FF3B3B] focus:border-[#FF3B3B] focus:ring-1 focus:ring-[#FF3B3B]" : "border-neutral-500 focus:border-[#C4AAFD] focus:ring-1 focus:ring-[#C4AAFD]"}`}
+                />
+                {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
+              </div>
             </div>
 
           </div>
@@ -1944,7 +2116,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 Pack Type
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
-
+              {/*
               <Select
                 options={packTypeApiOptions}
                 value={
@@ -1967,6 +2139,21 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               {errors.packId && (
                 <p className="text-red-500 text-sm mt-1">{errors.packId}</p>
               )}
+              */}
+              <Dropdown
+                options={packTypeApiOptions}
+                value={form.packId}
+                onChange={(val, label) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    packId: val,
+                    packType: label,
+                  }))
+                }
+                placeholder={loadingPackTypes ? "Loading..." : "Select Pack Type"}
+                isDisabled={isEditMode || loadingPackTypes}
+                error={errors.packId}
+              />
             </div>
 
             <Input
@@ -2277,7 +2464,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 GST %
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
-
+              {/*
               <Select
                 options={gstOptions}
                 value={
@@ -2306,6 +2493,20 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   {errors.gstPercentage}
                 </p>
               )}
+              */}
+              <Dropdown
+                options={gstOptions}
+                value={form.gstPercentage}
+                onChange={(val) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    gstPercentage: val,
+                  }))
+                }
+                placeholder="Select GST %"
+                isDisabled={isEditMode}
+                error={errors.gstPercentage}
+              />
             </div>
 
             <Input
@@ -2429,7 +2630,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         <div className="flex justify-between mt-6 col-span-2 mb-6">
           <div className="space-x-6 flex">
             <button
-              onClick={() => window.location.reload()}
+              type="button"
+              onClick={() => router.back()}
               className="w-21 h-12 border-2 border-[#FF3B3B] rounded-lg text-label-l3 font-semibold text-[#FF3B3B] cursor-pointer"
             >
               Cancel
