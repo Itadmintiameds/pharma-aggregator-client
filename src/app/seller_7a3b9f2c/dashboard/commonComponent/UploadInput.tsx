@@ -3,9 +3,18 @@ import { useState } from "react";
 type Props = {
   onFileSelect: (file: File | null) => void;
   existingFile?: string; // ✅ NEW
+  label?: string;
+  placeholder?: string;
+  accept?: string;
 };
 
-export default function UploadInput({ onFileSelect, existingFile }: Props) {
+export default function UploadInput({ 
+  onFileSelect, 
+  existingFile,
+  label = "Upload Product Brochure / User Manual",
+  placeholder = "Upload the Product Brochure",
+  accept = "application/pdf"
+}: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [removedExisting, setRemovedExisting] = useState(false);
 
@@ -13,7 +22,7 @@ export default function UploadInput({ onFileSelect, existingFile }: Props) {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    if (selectedFile.type !== "application/pdf") {
+    if (accept === "application/pdf" && selectedFile.type !== "application/pdf") {
       alert("Only PDF allowed");
       return;
     }
@@ -30,11 +39,13 @@ export default function UploadInput({ onFileSelect, existingFile }: Props) {
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-label-l3 font-semibold text-neutral-700">
-        Upload Product Brochure / User Manual
-      </label>
+      {label && (
+        <label className="text-label-l3 font-semibold text-neutral-700">
+          {label}
+        </label>
+      )}
 
-      <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
+      <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
         <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
           <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
         </div>
@@ -50,7 +61,7 @@ export default function UploadInput({ onFileSelect, existingFile }: Props) {
               </button>
             </div>
           ) : (
-            <span className="text-[#969793]">Upload the Product Brochure</span>
+            <span className="text-[#969793]">{placeholder}</span>
           )}
         </div>
 
@@ -59,7 +70,7 @@ export default function UploadInput({ onFileSelect, existingFile }: Props) {
             <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
             <input
               type="file"
-              accept="application/pdf"
+              accept={accept}
               className="hidden"
               onChange={handleFileChange}
             />

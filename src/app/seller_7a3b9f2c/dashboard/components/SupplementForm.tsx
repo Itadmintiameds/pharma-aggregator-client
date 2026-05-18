@@ -20,6 +20,7 @@ import Dropdown from "@/src/app/commonComponents/Dropdown";
 import Input from "@/src/app/commonComponents/Input";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
+import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications } from "@/src/services/product/SupplementService";
 import { getProductById, updateProduct } from "@/src/services/product/ProductService";
@@ -496,8 +497,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     }
   }, [form.manufacturingDate, form.expiryDate]);
 
-  const nutritionalInputRef = useRef<HTMLInputElement>(null);
-  const brochureInputRef = useRef<HTMLInputElement>(null);
+  // const nutritionalInputRef = useRef<HTMLInputElement>(null);
+  // const brochureInputRef = useRef<HTMLInputElement>(null);
   const certDropdownRef = useRef<HTMLDivElement>(null);
 
   /*
@@ -1584,60 +1585,80 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             </div>
 
             {form.nutritionalInfoType === "image" && (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Upload Nutritional Information {requiredStar}</label>
+              <div data-field="nutritionalImage">
+                {/* Legacy Hardcoded Upload commented out
+                <div className="flex flex-col gap-1">
+                  <label className={fieldLabel}>Upload Nutritional Information {requiredStar}</label>
 
-                <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
-                  <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
-                    <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
-                  </div>
+                  <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
+                    <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
+                      <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
+                    </div>
 
-                  <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                    {nutritionalImage || (existingNutritionalImageUrl && !nutritionalImage) ? (
-                      <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
-                        <span className="truncate">
-                          {nutritionalImage ? nutritionalImage.name : "Current Nutritional Image"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (nutritionalImage) {
-                              setNutritionalImage(null);
-                              if (nutritionalInputRef.current) nutritionalInputRef.current.value = "";
-                            } else {
-                              setExistingNutritionalImageUrl(null);
-                            }
+                    <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
+                      {nutritionalImage || (existingNutritionalImageUrl && !nutritionalImage) ? (
+                        <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
+                          <span className="truncate">
+                            {nutritionalImage ? nutritionalImage.name : "Current Nutritional Image"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (nutritionalImage) {
+                                setNutritionalImage(null);
+                                if (nutritionalInputRef.current) nutritionalInputRef.current.value = "";
+                              } else {
+                                setExistingNutritionalImageUrl(null);
+                              }
+                            }}
+                            className="ml-2"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[#969793]">Upload the Nutritional Information Image</span>
+                      )}
+                    </div>
+
+                    {existingNutritionalImageUrl && !nutritionalImage && (
+                      <a href={existingNutritionalImageUrl} target="_blank" rel="noreferrer" className="text-purple-600 text-xs underline px-2">View</a>
+                    )}
+
+                    {!nutritionalImage && (!existingNutritionalImageUrl || nutritionalImage === null) && (
+                      <label className="cursor-pointer px-4">
+                        <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
+                        <input
+                          ref={nutritionalInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/jpg"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleNutritionalUpload(file);
                           }}
-                          className="ml-2"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-[#969793]">Upload the Nutritional Information Image</span>
+                        />
+                      </label>
                     )}
                   </div>
-
-                  {existingNutritionalImageUrl && !nutritionalImage && (
-                    <a href={existingNutritionalImageUrl} target="_blank" rel="noreferrer" className="text-purple-600 text-xs underline px-2">View</a>
-                  )}
-
-                  {!nutritionalImage && (!existingNutritionalImageUrl || nutritionalImage === null) && (
-                    <label className="cursor-pointer px-4">
-                      <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
-                      <input
-                        ref={nutritionalInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/jpg"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleNutritionalUpload(file);
-                        }}
-                      />
-                    </label>
-                  )}
+                  {errors.nutritionalImage && <p className={errorMsg}>{errors.nutritionalImage}</p>}
                 </div>
+                */}
+                <UploadInput
+                  onFileSelect={(file) => {
+                    setNutritionalImage(file);
+                    if (!file) {
+                      setExistingNutritionalImageUrl(null);
+                    }
+                    if (file && errors.nutritionalImage) {
+                      setErrors((p) => { const n = { ...p }; delete n.nutritionalImage; return n; });
+                    }
+                  }}
+                  existingFile={existingNutritionalImageUrl || undefined}
+                  label={`Upload Nutritional Information ${requiredStar}`}
+                  placeholder="Upload the Nutritional Information Image"
+                  accept="image/jpeg,image/png,image/jpg"
+                />
                 {errors.nutritionalImage && <p className={errorMsg}>{errors.nutritionalImage}</p>}
               </div>
             )}
@@ -1908,7 +1929,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
               {selectedCertifications.length === 0 ? (
-                <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
+                <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
                   <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
@@ -1920,6 +1941,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 <div className="flex flex-col gap-3">
                   {selectedCertifications.map((cert) => (
                     <div key={cert.id} className="flex flex-col gap-1">
+                      {/* Legacy Hardcoded Upload commented out
                       <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
                         <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
                           <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
@@ -1970,6 +1992,20 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                           </label>
                         )}
                       </div>
+                      */}
+                      <UploadInput
+                        onFileSelect={(file) => {
+                          if (file) {
+                            handleCertFileSelect(cert.id, file);
+                          } else {
+                            handleCertRemove(cert.id);
+                          }
+                        }}
+                        existingFile={cert.existingUrl || undefined}
+                        label=""
+                        placeholder={`Upload the ${cert.label}`}
+                        accept=".pdf,.jpg,.jpeg,.png"
+                      />
                     </div>
                   ))}
                 </div>
@@ -2008,64 +2044,84 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               />
             </div>
             {/* Upload Brochure */}
-            <div className="flex flex-col gap-1" data-field="brochureFile">
-              <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
-              <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
-                <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
-                  <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
-                </div>
+            <div data-field="brochureFile">
+              {/* Legacy Hardcoded Upload commented out
+              <div className="flex flex-col gap-1">
+                <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
+                <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
+                  <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
+                    <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
+                  </div>
 
-                <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                  {brochureFile || (existingBrochureUrl && !brochureFile) ? (
-                    <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
-                      <span className="truncate">
-                        {brochureFile ? brochureFile.name : "Current Brochure"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (brochureFile) {
-                            setBrochureFile(null);
-                          } else {
-                            setExistingBrochureUrl(null);
-                          }
+                  <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
+                    {brochureFile || (existingBrochureUrl && !brochureFile) ? (
+                      <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
+                        <span className="truncate">
+                          {brochureFile ? brochureFile.name : "Current Brochure"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (brochureFile) {
+                              setBrochureFile(null);
+                            } else {
+                              setExistingBrochureUrl(null);
+                            }
+                          }}
+                          className="ml-2"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[#969793]">Upload the Product Brochure</span>
+                    )}
+                  </div>
+
+                  {existingBrochureUrl && !brochureFile && (
+                    <a
+                      href={existingBrochureUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-purple-600 text-xs underline px-2"
+                    >
+                      View
+                    </a>
+                  )}
+
+                  {!brochureFile && (!existingBrochureUrl || brochureFile === null) && (
+                    <label className="cursor-pointer px-4">
+                      <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
+                      <input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleBrochureUpload(file);
                         }}
-                        className="ml-2"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-[#969793]">Upload the Product Brochure</span>
+                      />
+                    </label>
                   )}
                 </div>
-
-                {existingBrochureUrl && !brochureFile && (
-                  <a
-                    href={existingBrochureUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-purple-600 text-xs underline px-2"
-                  >
-                    View
-                  </a>
-                )}
-
-                {!brochureFile && (!existingBrochureUrl || brochureFile === null) && (
-                  <label className="cursor-pointer px-4">
-                    <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleBrochureUpload(file);
-                      }}
-                    />
-                  </label>
-                )}
+                {errors.brochureFile && <p className={errorMsg}>{errors.brochureFile}</p>}
               </div>
+              */}
+              <UploadInput
+                onFileSelect={(file) => {
+                  setBrochureFile(file);
+                  if (!file) {
+                    setExistingBrochureUrl(null);
+                  }
+                  if (file && errors.brochureFile) {
+                    setErrors((p) => { const n = { ...p }; delete n.brochureFile; return n; });
+                  }
+                }}
+                existingFile={existingBrochureUrl || undefined}
+                label="Upload Product Brochure / User Manual"
+                placeholder="Upload the Product Brochure"
+                accept=".pdf,.jpg,.jpeg,.png"
+              />
               {errors.brochureFile && <p className={errorMsg}>{errors.brochureFile}</p>}
             </div>
 
