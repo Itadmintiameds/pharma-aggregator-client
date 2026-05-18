@@ -9,41 +9,41 @@ interface DashboardFiltersProps {
   setCurrentView: (view: DashboardView) => void;
 }
 
-type ModalView   = "methods" | "excel" | "api" | "success";
-type ProductType = "drugs" | "medical_devices_non_consumable" | "medical_devices_consumable" | "cosmetics";
+type ModalView = "methods" | "excel" | "api" | "success";
+type ProductType = "drugs" | "medical_devices_non_consumable" | "medical_devices_consumable" | "cosmetics" | "supplements";
 type MedicalDeviceSubType = "consumable" | "non_consumable";
 
 interface UploadedFile {
-  file:      File;
-  status:    "pending" | "uploading" | "done" | "error";
-  error?:    string;
+  file: File;
+  status: "pending" | "uploading" | "done" | "error";
+  error?: string;
   progress?: number;
 }
 
 interface ValidationError {
-  rowNumber:    number;
-  productName:  string;
+  rowNumber: number;
+  productName: string;
   errorMessage: string;
 }
 
 interface UploadResult {
-  success:          boolean;
-  successCount:     number;
-  failureCount:     number;
-  totalRows:        number;
+  success: boolean;
+  successCount: number;
+  failureCount: number;
+  totalRows: number;
   validationErrors: ValidationError[];
-  message?:         string;
+  message?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const IMPORT_API_URL = "https://api-test-aggreator.tiameds.ai/api/v1/products/import";
 
 const C = {
-  primary:      "#4C1D95",
+  primary: "#4C1D95",
   primaryLight: "#EDE9FE",
-  green:        "#4EB300",
-  greenDark:    "#378200",
-  greenLight:   "#DCF7CB",
+  green: "#4EB300",
+  greenDark: "#378200",
+  greenLight: "#DCF7CB",
 } as const;
 
 const METHODS = [
@@ -52,8 +52,8 @@ const METHODS = [
     label: "Manual Entry", desc: "Fill the product details using the form",
     icon: (
       <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
@@ -62,10 +62,10 @@ const METHODS = [
     label: "Excel / CSV", desc: "Bulk upload via spreadsheet",
     icon: (
       <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke={C.greenDark} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <polyline points="14,2 14,8 20,8" stroke={C.greenDark} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <line x1="8" y1="13" x2="16" y2="13" stroke={C.greenDark} strokeWidth="2" strokeLinecap="round"/>
-        <line x1="8" y1="17" x2="16" y2="17" stroke={C.greenDark} strokeWidth="2" strokeLinecap="round"/>
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke={C.greenDark} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points="14,2 14,8 20,8" stroke={C.greenDark} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <line x1="8" y1="13" x2="16" y2="13" stroke={C.greenDark} strokeWidth="2" strokeLinecap="round" />
+        <line x1="8" y1="17" x2="16" y2="17" stroke={C.greenDark} strokeWidth="2" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -74,7 +74,7 @@ const METHODS = [
     label: "API Integration", desc: "Connect via REST API",
     icon: (
       <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-        <path d="M8 9l-3 3 3 3M16 9l3 3-3 3M14 4l-4 16" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M8 9l-3 3 3 3M16 9l3 3-3 3M14 4l-4 16" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
@@ -83,9 +83,9 @@ const METHODS = [
     label: "Database Sync", desc: "Sync directly from your database",
     icon: (
       <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-        <ellipse cx="12" cy="6" rx="8" ry="3" stroke="#CA8A04" strokeWidth="2"/>
-        <path d="M4 6v6c0 1.657 3.582 3 8 3s8-1.343 8-3V6" stroke="#CA8A04" strokeWidth="2"/>
-        <path d="M4 12v6c0 1.657 3.582 3 8 3s8-1.343 8-3v-6" stroke="#CA8A04" strokeWidth="2"/>
+        <ellipse cx="12" cy="6" rx="8" ry="3" stroke="#CA8A04" strokeWidth="2" />
+        <path d="M4 6v6c0 1.657 3.582 3 8 3s8-1.343 8-3V6" stroke="#CA8A04" strokeWidth="2" />
+        <path d="M4 12v6c0 1.657 3.582 3 8 3s8-1.343 8-3v-6" stroke="#CA8A04" strokeWidth="2" />
       </svg>
     ),
   },
@@ -97,26 +97,32 @@ const TEMPLATES: Record<ProductType, { name: string; xlsx: string; csv: string; 
   drugs: {
     name: "drug_products_template",
     xlsx: "/templates/drugs/XLSX-Drugs Template.xlsx",
-    csv:  "/templates/drugs/CSV-Drugs Template.csv",
-    xls:  "/templates/drugs/XLS-Drugs Template.xls",
+    csv: "/templates/drugs/CSV-Drugs Template.csv",
+    xls: "/templates/drugs/XLS-Drugs Template.xls",
   },
   medical_devices_non_consumable: {
     name: "medical_devices_non_consumable_template",
     xlsx: "/templates/medical-devices/nonconsumable/XLSX-Non Consumable Template.xlsx",
-    csv:  "/templates/medical-devices/nonconsumable/CSV-Non Consumable Template.csv",
-    xls:  "/templates/medical-devices/nonconsumable/XLS-Non Consumable Template.xls",
+    csv: "/templates/medical-devices/nonconsumable/CSV-Non Consumable Template.csv",
+    xls: "/templates/medical-devices/nonconsumable/XLS-Non Consumable Template.xls",
   },
   medical_devices_consumable: {
     name: "medical_devices_consumable_template",
     xlsx: "/templates/medical-devices/consumable/XLSX-Consumable Template.xlsx",
-    csv:  "/templates/medical-devices/consumable/CSV-Consumable Template.csv",
-    xls:  "/templates/medical-devices/consumable/XLS-Consumable Template.xls",
+    csv: "/templates/medical-devices/consumable/CSV-Consumable Template.csv",
+    xls: "/templates/medical-devices/consumable/XLS-Consumable Template.xls",
   },
   cosmetics: {
     name: "cosmetics_template",
     xlsx: "/templates/cosmetics/XLSX-Cosmetics Template.xlsx",
-    csv:  "/templates/cosmetics/CSV-Cosmetics Template.csv",
-    xls:  "/templates/cosmetics/XLS-Cosmetics Template.xls",
+    csv: "/templates/cosmetics/CSV-Cosmetics Template.csv",
+    xls: "/templates/cosmetics/XLS-Cosmetics Template.xls",
+  },
+  supplements: {
+    name: "supplements_template",
+    xlsx: "/templates/supplements/XLSX-Supplements Template.xlsx",
+    csv: "/templates/supplements/CSV-Supplements Template.csv",
+    xls: "/templates/supplements/XLS-Supplements Template.xls",
   },
 };
 
@@ -125,14 +131,16 @@ const TEMPLATES: Record<ProductType, { name: string; xlsx: string; csv: string; 
 //   Medical Devices (Consumable)     → 5
 //   Medical Devices (Non-Consumable) → 6
 //   Cosmetics                        → 4
-const MEDICAL_DEVICE_CONSUMABLE_IDS     = [5];
+const MEDICAL_DEVICE_CONSUMABLE_IDS = [5];
 const MEDICAL_DEVICE_NON_CONSUMABLE_IDS = [6];
-const COSMETICS_IDS                     = [4];
+const COSMETICS_IDS = [4];
+const SUPPLEMENTS_IDS = [2];
 
 const getCategoryId = (productType: ProductType): number => {
-  if (productType === "medical_devices_consumable")     return 5;
+  if (productType === "medical_devices_consumable") return 5;
   if (productType === "medical_devices_non_consumable") return 6;
-  if (productType === "cosmetics")                      return 4;
+  if (productType === "cosmetics") return 4;
+  if (productType === "supplements") return 2;
   return 1; // drugs
 };
 
@@ -169,32 +177,32 @@ const COSMETICS_REQUIRED_COLUMNS = [
 
 // Friendly name map for cosmetics columns (strips asterisk for display)
 const COSMETICS_FIELD_LABELS: Record<string, string> = {
-  "Product Category*":           "Product Category",
-  "Product Sub Category*":       "Product Sub Category",
-  "Product Name*":               "Product Name",
-  "Brand Name*":                 "Brand Name",
-  "Net Quantity*":               "Net Quantity",
-  "Active Ingredients*":         "Active Ingredients",
-  "Gender*":                     "Gender",
-  "Age Group*":                  "Age Group",
-  "Product Claims*":             "Product Claims",
-  "Warnings / Precautions*":     "Warnings / Precautions",
-  "Product Description*":        "Product Description",
-  "Storage Condition*":          "Storage Condition",
-  "Manufacturer Name*":          "Manufacturer Name",
-  "Country of Origin*":          "Country of Origin",
-  "Certifications / Compliance*":"Certifications / Compliance",
-  "Minimum Order Qty*":          "Minimum Order Qty",
-  "Max Order Qty*":              "Max Order Qty",
-  "Batch Number*":               "Batch Number",
-  "Manufacturing Date*":         "Manufacturing Date",
-  "Expiry Date*":                "Expiry Date",
-  "Stock Quantity*":             "Stock Quantity",
-  "MRP (INR)*":                  "MRP (INR)",
-  "Selling Price(INR)*":         "Selling Price (INR)",
-  "GST %":                       "GST %",
-  "HSN Code*":                   "HSN Code",
-  "Intended Use Area*":          "Intended Use Area",
+  "Product Category*": "Product Category",
+  "Product Sub Category*": "Product Sub Category",
+  "Product Name*": "Product Name",
+  "Brand Name*": "Brand Name",
+  "Net Quantity*": "Net Quantity",
+  "Active Ingredients*": "Active Ingredients",
+  "Gender*": "Gender",
+  "Age Group*": "Age Group",
+  "Product Claims*": "Product Claims",
+  "Warnings / Precautions*": "Warnings / Precautions",
+  "Product Description*": "Product Description",
+  "Storage Condition*": "Storage Condition",
+  "Manufacturer Name*": "Manufacturer Name",
+  "Country of Origin*": "Country of Origin",
+  "Certifications / Compliance*": "Certifications / Compliance",
+  "Minimum Order Qty*": "Minimum Order Qty",
+  "Max Order Qty*": "Max Order Qty",
+  "Batch Number*": "Batch Number",
+  "Manufacturing Date*": "Manufacturing Date",
+  "Expiry Date*": "Expiry Date",
+  "Stock Quantity*": "Stock Quantity",
+  "MRP (INR)*": "MRP (INR)",
+  "Selling Price(INR)*": "Selling Price (INR)",
+  "GST %": "GST %",
+  "HSN Code*": "HSN Code",
+  "Intended Use Area*": "Intended Use Area",
 };
 
 /**
@@ -213,7 +221,7 @@ function validateCosmeticsRows(
   );
 
   rows.forEach((row, idx) => {
-    const rowNumber  = idx + 2; // 1-indexed, row 1 = header
+    const rowNumber = idx + 2; // 1-indexed, row 1 = header
     const productName = (
       row["Product Name*"] ?? row["Product Name"] ?? ""
     ).trim();
@@ -235,11 +243,11 @@ function validateCosmeticsRows(
     }
 
     // Numeric range checks
-    const mrp          = parseFloat(row["MRP (INR)*"]          ?? row["MRP (INR)"]          ?? "");
+    const mrp = parseFloat(row["MRP (INR)*"] ?? row["MRP (INR)"] ?? "");
     const sellingPrice = parseFloat(row["Selling Price(INR)*"] ?? row["Selling Price(INR)"] ?? "");
-    const minQty       = parseInt(row["Minimum Order Qty*"]    ?? row["Minimum Order Qty"]    ?? "", 10);
-    const maxQty       = parseInt(row["Max Order Qty*"]        ?? row["Max Order Qty"]        ?? "", 10);
-    const stockQty     = parseInt(row["Stock Quantity*"]       ?? row["Stock Quantity"]       ?? "", 10);
+    const minQty = parseInt(row["Minimum Order Qty*"] ?? row["Minimum Order Qty"] ?? "", 10);
+    const maxQty = parseInt(row["Max Order Qty*"] ?? row["Max Order Qty"] ?? "", 10);
+    const stockQty = parseInt(row["Stock Quantity*"] ?? row["Stock Quantity"] ?? "", 10);
 
     if (!isNaN(mrp) && !isNaN(sellingPrice) && sellingPrice > mrp) {
       errors.push({ rowNumber, productName, errorMessage: "Selling Price cannot exceed MRP." });
@@ -253,7 +261,7 @@ function validateCosmeticsRows(
 
     // Date checks: Manufacturing Date must be before Expiry Date
     const mfgRaw = (row["Manufacturing Date*"] ?? row["Manufacturing Date"] ?? "").trim();
-    const expRaw = (row["Expiry Date*"]         ?? row["Expiry Date"]         ?? "").trim();
+    const expRaw = (row["Expiry Date*"] ?? row["Expiry Date"] ?? "").trim();
     if (mfgRaw && expRaw) {
       const mfgDate = new Date(mfgRaw);
       const expDate = new Date(expRaw);
@@ -283,8 +291,8 @@ function validateCosmeticsRows(
   // If structural columns are missing, add a single top-level error (row 1)
   if (missingCols.length > 0) {
     errors.unshift({
-      rowNumber:    1,
-      productName:  "—",
+      rowNumber: 1,
+      productName: "—",
       errorMessage: `Template columns missing: ${missingCols.map((c) => c.replace("*", "")).join(", ")}. Please use the official Cosmetics template.`,
     });
   }
@@ -305,21 +313,21 @@ const flex = (
 ): React.CSSProperties => ({
   display: "flex",
   flexDirection: dir === "col" ? "column" : "row",
-  ...(gap     ? { gap }                     : {}),
-  ...(align   ? { alignItems: align }       : {}),
+  ...(gap ? { gap } : {}),
+  ...(align ? { alignItems: align } : {}),
   ...(justify ? { justifyContent: justify } : {}),
 });
 
 const XIcon = ({ size = 24, color = "#111827", strokeWidth = 2 }: { size?: number; color?: string; strokeWidth?: number }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24">
-    <path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    <path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
   </svg>
 );
 
 const DownloadIcon = ({ color }: { color: string }) => (
   <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-    <path d="M12 16l-4-4h3V4h2v8h3l-4 4z" fill={color}/>
-    <path d="M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    <path d="M12 16l-4-4h3V4h2v8h3l-4 4z" fill={color} />
+    <path d="M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
@@ -327,9 +335,9 @@ function FileIcon({ ext = "XLSX" }: { ext?: string }) {
   return (
     <div style={{ position: "relative", width: 44, height: 52, flexShrink: 0 }}>
       <div style={{ width: 44, height: 52, borderRadius: 6, background: "#F9FAFB", border: "1px solid #E5E7EB", position: "relative", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-        <div style={{ position: "absolute", top: 0, right: 0, width: 0, height: 0, borderStyle: "solid", borderWidth: "0 12px 12px 0", borderColor: "transparent #E5E7EB transparent transparent" }}/>
+        <div style={{ position: "absolute", top: 0, right: 0, width: 0, height: 0, borderStyle: "solid", borderWidth: "0 12px 12px 0", borderColor: "transparent #E5E7EB transparent transparent" }} />
         {[16, 22, 28].map((top) => (
-          <div key={top} style={{ position: "absolute", top, left: 6, right: top === 28 ? 12 : 8, height: 2, background: "#E5E7EB", borderRadius: 1 }}/>
+          <div key={top} style={{ position: "absolute", top, left: 6, right: top === 28 ? 12 : 8, height: 2, background: "#E5E7EB", borderRadius: 1 }} />
         ))}
         <div style={{ position: "absolute", bottom: 0, left: 0, background: "#16A34A", borderRadius: "0 4px 0 4px", padding: "2px 4px" }}>
           <span style={{ fontSize: 7, fontWeight: 800, color: "white", letterSpacing: 0.3, lineHeight: 1, fontFamily: "monospace" }}>
@@ -344,17 +352,17 @@ function FileIcon({ ext = "XLSX" }: { ext?: string }) {
 function FileRow({ uf, index, onRemove, submitting }: {
   uf: UploadedFile; index: number; onRemove: (i: number) => void; submitting: boolean;
 }) {
-  const fileSizeKB  = Math.max(1, Math.round(uf.file.size / 1024));
-  const ext         = (uf.file.name.split(".").pop() ?? "xlsx").toUpperCase();
+  const fileSizeKB = Math.max(1, Math.round(uf.file.size / 1024));
+  const ext = (uf.file.name.split(".").pop() ?? "xlsx").toUpperCase();
   const isUploading = uf.status === "uploading";
-  const isDone      = uf.status === "done";
-  const isError     = uf.status === "error";
+  const isDone = uf.status === "done";
+  const isError = uf.status === "error";
 
   const sizeLabel = isUploading
     ? `${fileSizeKB} KB of ${fileSizeKB * 2} KB •`
     : isDone
-    ? `${fileSizeKB} KB of ${fileSizeKB} KB •`
-    : `${fileSizeKB} KB •`;
+      ? `${fileSizeKB} KB of ${fileSizeKB} KB •`
+      : `${fileSizeKB} KB •`;
 
   return (
     <div style={{ background: isError ? "#FEF2F2" : "#F3F4F6", borderRadius: 8, padding: 8, ...flex("col", 6), border: isError ? "1px solid #FECACA" : "none" }}>
@@ -369,7 +377,7 @@ function FileRow({ uf, index, onRemove, submitting }: {
               <span style={{ color: "#6B7280" }}>{sizeLabel}</span>
               {isUploading && (
                 <span style={{ ...flex("row", 3, "center"), color: "#374151" }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", border: "1.5px solid #D1FAE5", borderTopColor: "#16A34A", display: "inline-block", flexShrink: 0, animation: "dfSpin 0.65s linear infinite" }}/>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", border: "1.5px solid #D1FAE5", borderTopColor: "#16A34A", display: "inline-block", flexShrink: 0, animation: "dfSpin 0.65s linear infinite" }} />
                   <span style={{ color: "#111827", fontSize: 10 }}>Uploading...</span>
                 </span>
               )}
@@ -377,7 +385,7 @@ function FileRow({ uf, index, onRemove, submitting }: {
                 <span style={{ ...flex("row", 4, "center") }}>
                   <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#16A34A", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
                     <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
-                      <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
                   <span style={{ color: "#111827", fontWeight: 600, fontSize: 10 }}>Completed</span>
@@ -387,7 +395,7 @@ function FileRow({ uf, index, onRemove, submitting }: {
                 <span style={{ ...flex("row", 4, "center") }}>
                   <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#DC2626", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
                     <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
-                      <path d="M3 3l4 4M7 3L3 7" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                      <path d="M3 3l4 4M7 3L3 7" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
                     </svg>
                   </span>
                   <span style={{ color: "#DC2626", fontWeight: 600, fontSize: 10 }}>{uf.error ?? "Upload failed"}</span>
@@ -405,7 +413,7 @@ function FileRow({ uf, index, onRemove, submitting }: {
       </div>
       {isUploading && (
         <div style={{ height: 6, background: "#EDE9FE", borderRadius: 99, overflow: "hidden", marginTop: 2 }}>
-          <div style={{ height: "100%", background: "#7C3AED", borderRadius: 99, width: `${uf.progress ?? 0}%`, transition: "width 0.3s ease" }}/>
+          <div style={{ height: "100%", background: "#7C3AED", borderRadius: 99, width: `${uf.progress ?? 0}%`, transition: "width 0.3s ease" }} />
         </div>
       )}
     </div>
@@ -441,7 +449,7 @@ function MedicalDeviceSubTypePicker({
           <div style={{ ...flex("row", 6, "center") }}>
             {selected === "consumable" && (
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
-                <path d="M2 6l3 3 5-5" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 6l3 3 5-5" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             )}
             <span>Consumable</span>
@@ -466,7 +474,7 @@ function MedicalDeviceSubTypePicker({
           <div style={{ ...flex("row", 6, "center") }}>
             {selected === "non_consumable" && (
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
-                <path d="M2 6l3 3 5-5" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 6l3 3 5-5" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             )}
             <span>Non-Consumable</span>
@@ -493,8 +501,8 @@ function ValidationErrorPanel({
       <div style={{ ...flex("row", 0, "center", "space-between") }}>
         <div style={{ ...flex("row", 8, "center") }}>
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8"/>
-            <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round"/>
+            <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8" />
+            <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
           <span style={{ fontSize: 13, fontWeight: 700, color: "#991B1B", ...fontBase }}>
             {allFailed
@@ -558,20 +566,20 @@ function ValidationErrorPanel({
 
 // ─── ExcelUploadView ──────────────────────────────────────────────────────────
 function ExcelUploadView({ onBack, onSuccess }: {
-  onBack:    () => void;
+  onBack: () => void;
   onSuccess: (type: ProductType, files: UploadedFile[], result: UploadResult) => void;
 }) {
-  const [productType, setProductType]                 = useState<ProductType>("drugs");
-  const [medDevSubType, setMedDevSubType]             = useState<MedicalDeviceSubType>("consumable");
-  const [dragging, setDragging]                       = useState(false);
-  const [files, setFiles]                             = useState<UploadedFile[]>([]);
-  const [submitting, setSubmitting]                   = useState(false);
-  const [submitError, setSubmitError]                 = useState<string | null>(null);
-  const [uploadResult, setUploadResult]               = useState<UploadResult | null>(null);
-  const [fileFormatError, setFileFormatError]         = useState<string | null>(null);
+  const [productType, setProductType] = useState<ProductType>("drugs");
+  const [medDevSubType, setMedDevSubType] = useState<MedicalDeviceSubType>("consumable");
+  const [dragging, setDragging] = useState(false);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [fileFormatError, setFileFormatError] = useState<string | null>(null);
   const [availableCategories, setAvailableCategories] = useState<Array<{ id: number; name: string }>>([]);
-  const [loadingCategories, setLoadingCategories]     = useState(true);
-  const inputRef  = useRef<HTMLInputElement>(null);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const inputRef = useRef<HTMLInputElement>(null);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Derive the effective ProductType from (productType, medDevSubType)
@@ -581,8 +589,8 @@ function ExcelUploadView({ onBack, onSuccess }: {
         ? "medical_devices_consumable"
         : "medical_devices_non_consumable"
       : productType === "cosmetics"
-      ? "cosmetics"
-      : productType;
+        ? "cosmetics"
+        : productType;
 
   const getUserId = useCallback((): number | null => {
     try {
@@ -649,12 +657,14 @@ function ExcelUploadView({ onBack, onSuccess }: {
     MEDICAL_DEVICE_CONSUMABLE_IDS.includes(catId) || MEDICAL_DEVICE_NON_CONSUMABLE_IDS.includes(catId);
 
   const isCosmeticsCategory = (catId: number) => COSMETICS_IDS.includes(catId);
+  const isSupplementCategory = (catId: number) => SUPPLEMENTS_IDS.includes(catId);
 
   // ── FIX 1: isCategorySelected now handles cosmetics ──────────────────────
   const isCategorySelected = (catId: number) => {
-    if (catId === 1)                  return productType === "drugs";
-    if (isMedDevCategory(catId))      return productType === "medical_devices_non_consumable";
-    if (isCosmeticsCategory(catId))   return productType === "cosmetics";
+    if (catId === 1) return productType === "drugs";
+    if (isMedDevCategory(catId)) return productType === "medical_devices_non_consumable";
+    if (isCosmeticsCategory(catId)) return productType === "cosmetics";
+    if (isSupplementCategory(catId)) return productType === "supplements";
     return false;
   };
 
@@ -663,7 +673,8 @@ function ExcelUploadView({ onBack, onSuccess }: {
     catId === 1 ||
     MEDICAL_DEVICE_NON_CONSUMABLE_IDS.includes(catId) ||
     MEDICAL_DEVICE_CONSUMABLE_IDS.includes(catId) ||
-    COSMETICS_IDS.includes(catId);
+    COSMETICS_IDS.includes(catId) ||
+    SUPPLEMENTS_IDS.includes(catId);
 
   // ── FIX 3: handleCategorySelect now handles cosmetics ───────────────────
   const handleCategorySelect = (catId: number) => {
@@ -674,6 +685,8 @@ function ExcelUploadView({ onBack, onSuccess }: {
       setMedDevSubType("consumable");
     } else if (isCosmeticsCategory(catId)) {
       setProductType("cosmetics");
+    } else if (isSupplementCategory(catId)) {
+      setProductType("supplements");
     }
     setFiles([]); setUploadResult(null); setSubmitError(null); setFileFormatError(null);
   };
@@ -699,7 +712,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
   const addFiles = (newFiles: File[]) => {
     setSubmitError(null); setUploadResult(null); setFileFormatError(null);
     const validFiles: File[] = [];
-    const errors: string[]   = [];
+    const errors: string[] = [];
     const maxSize = 10 * 1024 * 1024;
     const validExts = ["xlsx", "csv", "xls"];
 
@@ -710,7 +723,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
         return;
       }
       if (file.size > maxSize) { errors.push(`${file.name}: File size exceeds 10MB limit.`); return; }
-      if (file.size === 0)     { errors.push(`${file.name}: File is empty — please use our template.`); return; }
+      if (file.size === 0) { errors.push(`${file.name}: File is empty — please use our template.`); return; }
       validFiles.push(file);
     });
 
@@ -836,10 +849,10 @@ function ExcelUploadView({ onBack, onSuccess }: {
 
     const successCount: number = data?.successCount ?? 0;
     const failureCount: number = data?.failureCount ?? data?.errorCount ?? 0;
-    const totalRows: number    = data?.totalRows ?? (successCount + failureCount);
+    const totalRows: number = data?.totalRows ?? (successCount + failureCount);
     const validationErrors: ValidationError[] = (data?.errors ?? []).map((e: any) => ({
-      rowNumber:    e.rowNumber    ?? e.row     ?? "?",
-      productName:  e.productName  ?? e.product ?? "",
+      rowNumber: e.rowNumber ?? e.row ?? "?",
+      productName: e.productName ?? e.product ?? "",
       errorMessage: e.errorMessage ?? e.message ?? e.error ?? "Unknown error",
     }));
 
@@ -943,19 +956,21 @@ function ExcelUploadView({ onBack, onSuccess }: {
   };
 
   const hasReadyFiles = files.some((f) => f.status === "done");
-  const template      = TEMPLATES[effectiveProductType];
+  const template = TEMPLATES[effectiveProductType];
 
   const templateLabel =
     effectiveProductType === "medical_devices_consumable"
       ? "Medical Devices (Consumable) Template"
       : effectiveProductType === "medical_devices_non_consumable"
-      ? "Medical Devices (Non-Consumable) Template"
-      : effectiveProductType === "cosmetics"
-      ? "Cosmetics & Personal Care Template"
-      : "Drugs Template";
+        ? "Medical Devices (Non-Consumable) Template"
+        : effectiveProductType === "cosmetics"
+          ? "Cosmetics & Personal Care Template"
+          : effectiveProductType === "supplements"
+            ? "Supplements & Nutraceuticals Template"
+            : "Drugs Template";
 
   const renderCategories = () => {
-    const seen  = new Set<string>();
+    const seen = new Set<string>();
     const tiles: Array<{ id: number; name: string; displayName: string; selectable: boolean }> = [];
     availableCategories.forEach((cat) => {
       if (isMedDevCategory(cat.id)) {
@@ -975,7 +990,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
       {/* Back */}
       <button onClick={onBack} style={{ ...flex("row", 6, "center"), background: "none", border: "none", cursor: "pointer", color: C.primary, fontSize: 14, fontWeight: 600, padding: 0, ...fontBase, alignSelf: "flex-start" }}>
         <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-          <path d="M19 12H5M12 5l-7 7 7 7" stroke={C.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M19 12H5M12 5l-7 7 7 7" stroke={C.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         Back
       </button>
@@ -991,7 +1006,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
         <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", ...fontBase }}>Select product category</div>
         {loadingCategories ? (
           <div style={{ ...flex("row", 8, "center") }}>
-            <span style={{ width: 14, height: 14, border: "2px solid #E5E7EB", borderTopColor: C.primary, borderRadius: "50%", animation: "dfSpin 0.7s linear infinite", display: "inline-block" }}/>
+            <span style={{ width: 14, height: 14, border: "2px solid #E5E7EB", borderTopColor: C.primary, borderRadius: "50%", animation: "dfSpin 0.7s linear infinite", display: "inline-block" }} />
             <span style={{ fontSize: 12, color: "#6B7280", ...fontBase }}>Loading categories...</span>
           </div>
         ) : (
@@ -1019,7 +1034,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
                 >
                   {selected && (
                     <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
-                      <path d="M2 6l3 3 5-5" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 6l3 3 5-5" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                   {cat.displayName}
@@ -1050,9 +1065,9 @@ function ExcelUploadView({ onBack, onSuccess }: {
           </div>
           <div style={{ ...flex("row", 6, "center"), flexShrink: 0 }}>
             {[
-              { href: template.csv,  label: ".CSV"  },
+              { href: template.csv, label: ".CSV" },
               { href: template.xlsx, label: ".XLSX" },
-              { href: template.xls,  label: ".XLS"  },
+              { href: template.xls, label: ".XLS" },
             ].map(({ href, label }) => (
               <a
                 key={label}
@@ -1069,14 +1084,14 @@ function ExcelUploadView({ onBack, onSuccess }: {
         </div>
       )}
 
-      
+
 
       {/* File format error */}
       {fileFormatError && (
         <div style={{ ...flex("row", 10, "center"), padding: "8px 12px", background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}>
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8"/>
-            <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round"/>
+            <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8" />
+            <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
           <span style={{ fontSize: 12, color: "#991B1B", flex: 1, ...fontBase }}>{fileFormatError}</span>
           <button onClick={() => setFileFormatError(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}>
@@ -1094,10 +1109,10 @@ function ExcelUploadView({ onBack, onSuccess }: {
           onClick={() => inputRef.current?.click()}
           style={{ background: dragging ? "#F5F3FF" : "#F9FAFB", border: `2px dashed ${dragging ? C.primary : "#A78BFA"}`, borderRadius: 8, padding: files.length ? "14px 16px" : "20px 16px", cursor: "pointer", ...flex("col", 10, "center", "center"), transition: "all 0.2s" }}
         >
-          <input ref={inputRef} type="file" accept=".xlsx,.csv,.xls" multiple style={{ display: "none" }} onChange={handleFileInput}/>
+          <input ref={inputRef} type="file" accept=".xlsx,.csv,.xls" multiple style={{ display: "none" }} onChange={handleFileInput} />
           <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
-            <path d="M32.5075 15.6583L9.43565 16.5154C8.67212 16.5154 8.22691 16.8012 8.0166 17.5353L3.2273 33.9198C3.02929 34.6161 2.08003 34.9419 1.41968 34.9419C0.759773 34.9419 0.219727 34.4019 0.219727 33.742V29.1503V10.3386V9.43986V6.68562C0.219727 5.76227 0.968328 5.01367 1.89168 5.01367H13.771C14.2144 5.01367 14.6394 5.18974 14.9529 5.50323L18.3995 8.94987C18.713 9.26336 19.1385 9.43942 19.5815 9.43942H30.8356C31.7589 9.43942 32.5075 10.188 32.5075 11.1114V11.6826V15.6583Z" fill="#E0AD31"/>
-            <path d="M1.41968 34.9419C2.07959 34.9419 2.42162 34.4383 2.61964 33.7419L7.44757 16.8986C7.65788 16.1645 8.3292 15.6587 9.09317 15.6587H38.6768C39.3832 15.6587 39.8908 16.3375 39.6914 17.0154L34.9074 33.2721C34.6914 34.0409 34.2176 34.9485 33.2377 34.9419H1.41968Z" fill="#FFC843"/>
+            <path d="M32.5075 15.6583L9.43565 16.5154C8.67212 16.5154 8.22691 16.8012 8.0166 17.5353L3.2273 33.9198C3.02929 34.6161 2.08003 34.9419 1.41968 34.9419C0.759773 34.9419 0.219727 34.4019 0.219727 33.742V29.1503V10.3386V9.43986V6.68562C0.219727 5.76227 0.968328 5.01367 1.89168 5.01367H13.771C14.2144 5.01367 14.6394 5.18974 14.9529 5.50323L18.3995 8.94987C18.713 9.26336 19.1385 9.43942 19.5815 9.43942H30.8356C31.7589 9.43942 32.5075 10.188 32.5075 11.1114V11.6826V15.6583Z" fill="#E0AD31" />
+            <path d="M1.41968 34.9419C2.07959 34.9419 2.42162 34.4383 2.61964 33.7419L7.44757 16.8986C7.65788 16.1645 8.3292 15.6587 9.09317 15.6587H38.6768C39.3832 15.6587 39.8908 16.3375 39.6914 17.0154L34.9074 33.2721C34.6914 34.0409 34.2176 34.9485 33.2377 34.9419H1.41968Z" fill="#FFC843" />
           </svg>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.primary, marginBottom: 2, ...fontBase }}>
@@ -1118,7 +1133,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
               )}
             </div>
             {files.map((uf, i) => (
-              <FileRow key={`${uf.file.name}-${i}`} uf={uf} index={i} onRemove={removeFile} submitting={submitting}/>
+              <FileRow key={`${uf.file.name}-${i}`} uf={uf} index={i} onRemove={removeFile} submitting={submitting} />
             ))}
           </div>
         )}
@@ -1140,8 +1155,8 @@ function ExcelUploadView({ onBack, onSuccess }: {
       {submitError && (
         <div style={{ ...flex("row", 10, "center"), padding: "10px 12px", background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}>
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8"/>
-            <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round"/>
+            <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8" />
+            <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
           <span style={{ fontSize: 12, color: "#991B1B", flex: 1, ...fontBase }}>{submitError}</span>
           <button onClick={() => setSubmitError(null)} style={{ background: "none", border: "none", cursor: "pointer" }}>
@@ -1159,13 +1174,13 @@ function ExcelUploadView({ onBack, onSuccess }: {
         <span style={{ color: hasReadyFiles && !submitting ? "white" : "#9CA3AF", fontWeight: 700, fontSize: 14, ...fontBase, ...flex("row", 8, "center") }}>
           {submitting ? (
             <>
-              <span style={{ width: 15, height: 15, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", animation: "dfSpin 0.7s linear infinite", display: "inline-block" }}/>
+              <span style={{ width: 15, height: 15, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", animation: "dfSpin 0.7s linear infinite", display: "inline-block" }} />
               Processing...
             </>
           ) : (
             <>
               <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
-                <path d="M12 3v12m0 0l-3-3m3 3l3-3M5 21h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 3v12m0 0l-3-3m3 3l3-3M5 21h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               Upload {files.length > 1 ? "Files" : "File"}
             </>
@@ -1175,8 +1190,8 @@ function ExcelUploadView({ onBack, onSuccess }: {
 
       <div style={{ ...flex("row", 6, "center"), justifyContent: "center" }}>
         <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="9" stroke="#9CA3AF" strokeWidth="1.5"/>
-          <path d="M12 8v4M12 16h.01" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round"/>
+          <circle cx="12" cy="12" r="9" stroke="#9CA3AF" strokeWidth="1.5" />
+          <path d="M12 8v4M12 16h.01" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
         <span style={{ fontSize: 10, color: "#9CA3AF", ...fontBase }}>
           Ensure your file follows the template format · Max 10MB per file
@@ -1189,22 +1204,22 @@ function ExcelUploadView({ onBack, onSuccess }: {
 // ─── SuccessView ──────────────────────────────────────────────────────────────
 function SuccessView({ files, result, onClose }: {
   productType: ProductType;
-  files:       UploadedFile[];
-  result:      UploadResult;
-  onReset:     () => void;
-  onClose?:    () => void;
+  files: UploadedFile[];
+  result: UploadResult;
+  onReset: () => void;
+  onClose?: () => void;
 }) {
   const fileName = files?.[0]?.file?.name ?? "product_template.xlsx";
   return (
     <div style={{ ...flex("col", 20, "center"), padding: "32px 24px", position: "relative" }}>
       {onClose && (
         <button onClick={onClose} style={{ position: "absolute", top: 10, right: 10, width: 28, height: 28, background: "none", border: "1.5px solid #1E1E1D", borderRadius: "50%", cursor: "pointer", ...flex("row", 0, "center", "center"), padding: 0 }}>
-          <XIcon size={12} color="#1E1E1D" strokeWidth={2.5}/>
+          <XIcon size={12} color="#1E1E1D" strokeWidth={2.5} />
         </button>
       )}
       <div style={{ padding: 20, background: "#DCF7CB", borderRadius: "50%", border: "1px solid #4EB300", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
         <svg width="32" height="32" fill="none" viewBox="0 0 24 24">
-          <path d="M5 13l4 4L19 7" stroke="#378200" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M5 13l4 4L19 7" stroke="#378200" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
       <div style={{ ...flex("col", 10, "center"), width: "100%" }}>
@@ -1244,11 +1259,11 @@ function SuccessView({ files, result, onClose }: {
 
 // ─── OnboardingModal ──────────────────────────────────────────────────────────
 function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onManualEntry: () => void }) {
-  const [successData, setSuccessData]       = useState<{ type: ProductType; files: UploadedFile[]; result: UploadResult } | null>(null);
-  const [hovered, setHovered]               = useState<string | null>(null);
-  const [transitioning, setTransitioning]   = useState(false);
-  const [displayView, setDisplayView]       = useState<ModalView>("methods");
-  const [slideDir, setSlideDir]             = useState<"left" | "right">("left");
+  const [successData, setSuccessData] = useState<{ type: ProductType; files: UploadedFile[]; result: UploadResult } | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [transitioning, setTransitioning] = useState(false);
+  const [displayView, setDisplayView] = useState<ModalView>("methods");
+  const [slideDir, setSlideDir] = useState<"left" | "right">("left");
   const [contentVisible, setContentVisible] = useState(true);
 
   const changeView = (next: ModalView, dir: "left" | "right") => {
@@ -1278,7 +1293,7 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
   }, []);
 
   const isSuccess = displayView === "success";
-  const slideX    = slideDir === "left" ? "-22px" : "22px";
+  const slideX = slideDir === "left" ? "-22px" : "22px";
 
   return (
     <>
@@ -1309,7 +1324,7 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
         <button onClick={onClose} style={{ position: "fixed", top: 12, right: 12, zIndex: 1002, background: "none", border: "none", padding: 0, cursor: "pointer", ...flex("row", 0, "center", "center") }}>
           <div style={{ width: 36, height: 36, background: "white", borderRadius: 8, ...flex("row", 0, "center", "center") }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path fillRule="evenodd" clipRule="evenodd" d="M12 3.75C9.81196 3.75 7.71354 4.61919 6.16637 6.16637C4.61919 7.71354 3.75 9.81196 3.75 12C3.75 13.0834 3.96339 14.1562 4.37799 15.1571C4.79259 16.1581 5.40029 17.0675 6.16637 17.8336C6.93245 18.5997 7.84193 19.2074 8.84286 19.622C9.8438 20.0366 10.9166 20.25 12 20.25C13.0834 20.25 14.1562 20.0366 15.1571 19.622C16.1581 19.2074 17.0675 18.5997 17.8336 17.8336C18.5997 17.0675 19.2074 16.1581 19.622 15.1571C20.0366 14.1562 20.25 13.0834 20.25 12C20.25 9.81196 19.3808 7.71354 17.8336 6.16637C16.2865 4.61919 14.188 3.75 12 3.75ZM5.10571 5.10571C6.93419 3.27723 9.41414 2.25 12 2.25C14.5859 2.25 17.0658 3.27723 18.8943 5.10571C20.7228 6.93419 21.75 9.41414 21.75 12C21.75 13.2804 21.4978 14.5482 21.0078 15.7312C20.5178 16.9141 19.7997 17.9889 18.8943 18.8943C17.9889 19.7997 16.9141 20.5178 15.7312 21.0078C14.5482 21.4978 13.2804 21.75 12 21.75C10.7196 21.75 9.45176 21.4978 8.26884 21.0078C7.08591 20.5178 6.01108 19.7997 5.10571 18.8943C4.20034 17.9889 3.48216 16.9141 2.99217 15.7312C2.50219 14.5482 2.25 13.2804 2.25 12C2.25 9.41414 3.27723 6.93419 5.10571 5.10571ZM9.21967 9.21967C9.51256 8.92678 9.98744 8.92678 10.2803 9.21967L12 10.9393L13.7197 9.21967C14.0126 8.92678 14.4874 8.92678 14.7803 9.21967C15.0732 9.51256 15.0732 9.98744 14.7803 10.2803L13.0607 12L14.7803 13.7197C15.0732 14.0126 15.0732 14.4874 14.7803 14.7803C14.4874 15.0732 14.0126 15.0732 13.7197 14.7803L12 13.0607L10.2803 14.7803C9.98744 15.0732 9.51256 15.0732 9.21967 14.7803C8.92678 14.4874 8.92678 14.0126 9.21967 13.7197L10.9393 12L9.21967 10.2803C8.92678 9.98744 8.92678 9.51256 9.21967 9.21967Z" fill="#111827"/>
+              <path fillRule="evenodd" clipRule="evenodd" d="M12 3.75C9.81196 3.75 7.71354 4.61919 6.16637 6.16637C4.61919 7.71354 3.75 9.81196 3.75 12C3.75 13.0834 3.96339 14.1562 4.37799 15.1571C4.79259 16.1581 5.40029 17.0675 6.16637 17.8336C6.93245 18.5997 7.84193 19.2074 8.84286 19.622C9.8438 20.0366 10.9166 20.25 12 20.25C13.0834 20.25 14.1562 20.0366 15.1571 19.622C16.1581 19.2074 17.0675 18.5997 17.8336 17.8336C18.5997 17.0675 19.2074 16.1581 19.622 15.1571C20.0366 14.1562 20.25 13.0834 20.25 12C20.25 9.81196 19.3808 7.71354 17.8336 6.16637C16.2865 4.61919 14.188 3.75 12 3.75ZM5.10571 5.10571C6.93419 3.27723 9.41414 2.25 12 2.25C14.5859 2.25 17.0658 3.27723 18.8943 5.10571C20.7228 6.93419 21.75 9.41414 21.75 12C21.75 13.2804 21.4978 14.5482 21.0078 15.7312C20.5178 16.9141 19.7997 17.9889 18.8943 18.8943C17.9889 19.7997 16.9141 20.5178 15.7312 21.0078C14.5482 21.4978 13.2804 21.75 12 21.75C10.7196 21.75 9.45176 21.4978 8.26884 21.0078C7.08591 20.5178 6.01108 19.7997 5.10571 18.8943C4.20034 17.9889 3.48216 16.9141 2.99217 15.7312C2.50219 14.5482 2.25 13.2804 2.25 12C2.25 9.41414 3.27723 6.93419 5.10571 5.10571ZM9.21967 9.21967C9.51256 8.92678 9.98744 8.92678 10.2803 9.21967L12 10.9393L13.7197 9.21967C14.0126 8.92678 14.4874 8.92678 14.7803 9.21967C15.0732 9.51256 15.0732 9.98744 14.7803 10.2803L13.0607 12L14.7803 13.7197C15.0732 14.0126 15.0732 14.4874 14.7803 14.7803C14.4874 15.0732 14.0126 15.0732 13.7197 14.7803L12 13.0607L10.2803 14.7803C9.98744 15.0732 9.51256 15.0732 9.21967 14.7803C8.92678 14.4874 8.92678 14.0126 9.21967 13.7197L10.9393 12L9.21967 10.2803C8.92678 9.98744 8.92678 9.51256 9.21967 9.21967Z" fill="#111827" />
             </svg>
           </div>
         </button>
@@ -1374,7 +1389,7 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
                         <div style={{ ...flex("row", 5, "center"), fontSize: 13, fontWeight: 600, color: m.accent, whiteSpace: "nowrap", flexShrink: 0, ...fontBase }}>
                           Get Started
                           <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-                            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         </div>
                       ) : (
@@ -1434,7 +1449,7 @@ const DashboardFilters = ({ setCurrentView }: DashboardFiltersProps) => {
           onClick={() => setShowModal(true)}
           className="h-11 w-50 flex items-center justify-center gap-2 bg-primary-900 hover:bg-primary-800 text-white rounded-md shadow-md transition"
         >
-          <Plus size={18}/> Add New Product
+          <Plus size={18} /> Add New Product
         </button>
       </div>
       {showModal && (
