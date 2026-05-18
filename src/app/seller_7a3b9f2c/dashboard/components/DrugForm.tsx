@@ -510,7 +510,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
     const selectedId = m.moleculeId;
 
-    // ❌ Check duplicate (excluding current index)
     const isDuplicate = form.molecules.some(
       (mol, i) => i !== index && Number(mol.moleculeId) === Number(selectedId),
     );
@@ -602,9 +601,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleSubmit = async () => {
-    const validation = drugProductSchema.safeParse({
+    const validation = drugProductSchema(strengthFormats).safeParse({
       ...form,
-      images: [...existingImages, ...images], // ✅ FIX
+      images: [...existingImages, ...images],
     });
 
     if (!validation.success) {
@@ -875,7 +874,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleUpdate = async () => {
-    const validation = drugProductSchema.safeParse({
+    const validation = drugProductSchema(strengthFormats).safeParse({
       ...form,
       images: [...existingImages, ...images],
     });
@@ -1108,29 +1107,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     },
   });
 
-  // useEffect(() => {
-  //   const fetchDosage = async () => {
-  //     try {
-  //       setLoadingDosage(true);
-
-  //       const data = await getDosage();
-
-  //       const options = data.map((d: any) => ({
-  //         value: d.dosageId, // ✅ important
-  //         label: d.dosageName, // adjust if backend uses different key
-  //       }));
-
-  //       setDosageOptions(options);
-  //     } catch (error) {
-  //       console.error("Error fetching dosage:", error);
-  //     } finally {
-  //       setLoadingDosage(false);
-  //     }
-  //   };
-
-  //   fetchDosage();
-  // }, []);
-
   useEffect(() => {
     const fetchDosage = async (categoryId: string | number) => {
       try {
@@ -1151,7 +1127,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       }
     };
 
-    // ✅ avoid undefined issue
     if (categoryId !== undefined) {
       fetchDosage(categoryId);
     }
@@ -1480,6 +1455,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                     readOnly={isEditMode}
                     required
                   />
+
+                  {errors[`molecules.${index}.strength`] && (
+                    <p className="text-red-500 text-sm">
+                      {errors[`molecules.${index}.strength`]}
+                    </p>
+                  )}
                 </div>
 
                 {!isEditMode && (
@@ -1511,6 +1492,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 Add Molecule
               </button>
             )}
+
             <Input
               label="Drug Schedule"
               name="drugSchedule"

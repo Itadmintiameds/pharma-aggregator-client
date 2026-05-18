@@ -6,7 +6,7 @@ const positiveInteger = z
   .min(1, "Required")
   .regex(/^[1-9]\d*$/, "Only positive integers are allowed");
 
-export const drugProductSchema = z.object({
+export const drugProductSchema = (strengthFormats: string[]) => z.object({
 
   therapeuticCategory: z
     .string()
@@ -31,19 +31,54 @@ export const drugProductSchema = z.object({
     }),
 
 
+  // molecules: z
+  //   .array(
+  //     z.object({
+  //       moleculeId: z
+  //         .union([z.string(), z.number()])
+  //         .transform((val) => Number(val)) // ✅ always number
+  //         .refine((val) => val > 0, {
+  //           message: "Molecule is required",
+  //         }),
+  //       drugSchedule: z.string().min(1),
+  //       mechanismOfAction: z.string().min(1),
+  //       primaryUse: z.string().min(1),
+  //       strength: z.string().min(1),
+  //     })
+  //   )
+  //   .min(1, "At least one molecule is required"),
+
   molecules: z
     .array(
       z.object({
         moleculeId: z
           .union([z.string(), z.number()])
-          .transform((val) => Number(val)) // ✅ always number
+          .transform((val) => Number(val))
           .refine((val) => val > 0, {
             message: "Molecule is required",
           }),
+
         drugSchedule: z.string().min(1),
+
         mechanismOfAction: z.string().min(1),
+
         primaryUse: z.string().min(1),
-        strength: z.string().min(1),
+
+        strength: z
+          .string()
+          .min(1, "Strength is required")
+          .refine(
+            (val) => {
+              const normalizedValue = val.toLowerCase().trim();
+
+              return strengthFormats.some((format) =>
+                normalizedValue.endsWith(format.toLowerCase().trim())
+              );
+            },
+            {
+              message: `Invalid strength format. Allowed strengths: ${strengthFormats.join(", ")}`,
+            }
+          ),
       })
     )
     .min(1, "At least one molecule is required"),
