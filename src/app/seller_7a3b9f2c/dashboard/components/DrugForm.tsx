@@ -25,6 +25,7 @@ import AddDiscNew from "./AdditionalDiscountNew";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import { getTherapeuticCategory } from "@/src/services/product/TherapeuticCategoryService";
 import { getSupplementDosageForms } from "@/src/services/product/SupplementService";
+import { useRouter } from "next/navigation";
 
 interface SelectOption {
   value: string;
@@ -206,6 +207,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     { value: "18", label: "18%" },
   ];
 
+  const router = useRouter();
   const [therapeuticCategories, setTherapeuticCategories] = useState<
     SelectOption[]
   >([]);
@@ -508,7 +510,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
     const selectedId = m.moleculeId;
 
-    // ❌ Check duplicate (excluding current index)
     const isDuplicate = form.molecules.some(
       (mol, i) => i !== index && Number(mol.moleculeId) === Number(selectedId),
     );
@@ -600,9 +601,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleSubmit = async () => {
-    const validation = drugProductSchema.safeParse({
+    const validation = drugProductSchema(strengthFormats).safeParse({
       ...form,
-      images: [...existingImages, ...images], // ✅ FIX
+      images: [...existingImages, ...images],
     });
 
     if (!validation.success) {
@@ -734,7 +735,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleViewProduct = () => {
-    window.location.reload();
+    router.push("/seller_7a3b9f2c/products");
   };
 
   const handleContinueEditing = () => {
@@ -743,11 +744,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
   const handleContinueAdding = () => {
     setShowSuccessModal(false);
-    resetForm();
+    window.location.reload();
   };
 
   const handleBackToDashboard = () => {
-    window.location.reload();
+    router.back();
   };
 
   useEffect(() => {
@@ -873,7 +874,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleUpdate = async () => {
-    const validation = drugProductSchema.safeParse({
+    const validation = drugProductSchema(strengthFormats).safeParse({
       ...form,
       images: [...existingImages, ...images],
     });
@@ -1106,29 +1107,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     },
   });
 
-  // useEffect(() => {
-  //   const fetchDosage = async () => {
-  //     try {
-  //       setLoadingDosage(true);
-
-  //       const data = await getDosage();
-
-  //       const options = data.map((d: any) => ({
-  //         value: d.dosageId, // ✅ important
-  //         label: d.dosageName, // adjust if backend uses different key
-  //       }));
-
-  //       setDosageOptions(options);
-  //     } catch (error) {
-  //       console.error("Error fetching dosage:", error);
-  //     } finally {
-  //       setLoadingDosage(false);
-  //     }
-  //   };
-
-  //   fetchDosage();
-  // }, []);
-
   useEffect(() => {
     const fetchDosage = async (categoryId: string | number) => {
       try {
@@ -1149,7 +1127,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       }
     };
 
-    // ✅ avoid undefined issue
     if (categoryId !== undefined) {
       fetchDosage(categoryId);
     }
@@ -1478,6 +1455,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                     readOnly={isEditMode}
                     required
                   />
+
+                  {errors[`molecules.${index}.strength`] && (
+                    <p className="text-red-500 text-sm">
+                      {errors[`molecules.${index}.strength`]}
+                    </p>
+                  )}
                 </div>
 
                 {!isEditMode && (
@@ -1509,6 +1492,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 Add Molecule
               </button>
             )}
+
             <Input
               label="Drug Schedule"
               name="drugSchedule"
@@ -2183,7 +2167,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         <div className="flex justify-between mt-6 col-span-2">
           <div className="space-x-6 flex">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => router.back()}
               className="w-21 h-12 border-2 border-[#FF3B3B] rounded-lg text-label-l3 font-semibold text-[#FF3B3B] cursor-pointer"
             >
               Cancel
