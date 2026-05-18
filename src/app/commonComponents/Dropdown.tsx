@@ -71,7 +71,7 @@ const Dropdown: React.FC<CommonDropdownProps> = ({
           className={`w-full h-14 px-4 rounded-xl border flex items-center justify-between cursor-pointer overflow-hidden
             ${!isDisabled && !isLoading
               ? "bg-white border-secondary-200 hover:border-primary-900"
-              : "bg-neutral-50 border-neutral-100 cursor-not-allowed"
+              : "bg-pneutral-100 border-2 border-pneutral-300 cursor-not-allowed"
             }
             ${error ? "border-red-500" : ""}
           `}
