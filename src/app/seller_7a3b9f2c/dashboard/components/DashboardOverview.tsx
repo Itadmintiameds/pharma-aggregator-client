@@ -47,9 +47,12 @@ const DashboardOverview = ({
 
     return <DrugForm productId={selectedProductId} mode="edit" />;
   }
-  // if (currentView === "editSupplement") {
-  //   return <SupplementForm productId={selectedProductId} mode="edit" />;
-  // }
+  if (currentView === "editSupplement") {
+    if (!selectedProductId) {
+      return <div>Loading...</div>;
+    }
+    return <SupplementForm productId={selectedProductId} mode="edit" />;
+  }
 
   // if (currentView === "editFoodInfant") {
   //   return <FoodInfantForm productId={selectedProductId} mode="edit" />;
@@ -58,6 +61,14 @@ const DashboardOverview = ({
   // if (currentView === "editCosmetic") {
   //   return <CosmeticForm productId={selectedProductId} mode="edit" />;
   // }
+
+
+  if (currentView === "editFoodInfant") {
+  if (!selectedProductId) {
+    return <div>Loading...</div>;
+  }
+  return <FoodInfantForm productId={selectedProductId} mode="edit" />;
+}
 
   if (currentView === "editConsumable") {
     if (!selectedProductId) {

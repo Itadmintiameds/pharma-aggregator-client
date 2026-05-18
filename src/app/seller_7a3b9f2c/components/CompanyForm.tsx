@@ -383,7 +383,7 @@ export default function CompanyForm({
           {/* Row 2: Company Registration Certificate Upload | Seller Type */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
-              Company Registration Certificate
+              Company Type Certificate
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
             <div
@@ -706,38 +706,9 @@ export default function CompanyForm({
             </div>
           </div>
 
-
-
-          <div className="flex flex-col gap-1">
+<div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
-              Street / Area / Road
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-              <input
-                type="text"
-                name="street"
-                autoComplete="off"
-                value={formData.street}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value.length <= 100) {
-                    onChange(e);
-                  }
-                }}
-                maxLength={100}
-                placeholder="Enter Street/Area/Road"
-                className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
-              />
-            </div>
-          </div>
-
-          {/* Row 6: Building/House No | Pincode */}
-
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l3 text-neutral-700 font-semibold">
-              Building No.
+              Building No./:
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
             <div className="relative">
@@ -755,6 +726,35 @@ export default function CompanyForm({
                 }}
                 maxLength={50}
                 placeholder="Enter Building/House No."
+                className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
+              />
+            </div>
+          </div>
+
+         
+
+          {/* Row 6: Building/House No | Pincode */}
+
+           <div className="flex flex-col gap-1">
+            <label className="text-label-l3 text-neutral-700 font-semibold">
+              Street / Road / Lane
+              <span className="text-warning-500 font-semibold ml-1">*</span>
+            </label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+              <input
+                type="text"
+                name="street"
+                autoComplete="off"
+                value={formData.street}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value.length <= 100) {
+                    onChange(e);
+                  }
+                }}
+                maxLength={100}
+                placeholder="Enter Street/Area/Road"
                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
               />
             </div>
@@ -783,7 +783,7 @@ export default function CompanyForm({
           {/* Row 7: Landmark | Company Phone */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
-              Landmark
+              Landmark (optional):
             </label>
             <input
               type="text"
@@ -804,6 +804,26 @@ export default function CompanyForm({
               className="w-full h-12 px-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
             />
           </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-label-l3 text-neutral-700 font-semibold">
+              Company Website (Optional):
+            </label>
+            <div className="relative">
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+              <input
+                type="text"
+                name="website_"
+                autoComplete="off"
+                value={formData.website}
+                onChange={onChange}
+                placeholder="URL:\\"
+                className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
+              />
+            </div>
+          </div>
+
+
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
               Company Phone
@@ -886,7 +906,7 @@ export default function CompanyForm({
           {/* Row 8: Company Email | Website */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l3 text-neutral-700 font-semibold">
-              Company Email
+              Company Email ID:
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
             <div className="relative">
@@ -903,23 +923,7 @@ export default function CompanyForm({
             </div>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l3 text-neutral-700 font-semibold">
-              Website
-            </label>
-            <div className="relative">
-              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-              <input
-                type="text"
-                name="website_"
-                autoComplete="off"
-                value={formData.website}
-                onChange={onChange}
-                placeholder="URL:\\"
-                className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:border-[#4B0082] focus:outline-none focus:ring-0 text-label-l2"
-              />
-            </div>
-          </div>
+          
         </div>
       </div>
 

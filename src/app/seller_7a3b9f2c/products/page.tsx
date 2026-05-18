@@ -14,7 +14,7 @@ export default function ProductsPage() {
       router.push("/seller_7a3b9f2c/products/add");
     } else if (view === "productView") {
       router.push(`/seller_7a3b9f2c/products/view/${selectedProductId}`);
-    } else if (view === "editDrug" || view === "editConsumable" || view === "editNonConsumable") {
+    } else if (view === "editDrug" || view === "editConsumable" || view === "editNonConsumable" || view === "editSupplement" || view === "editFoodInfant" || view === "editCosmetic") {
       router.push(`/seller_7a3b9f2c/products/edit/${selectedProductId}?category=${view}`);
     }
   };

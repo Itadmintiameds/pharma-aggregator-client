@@ -1,122 +1,276 @@
 import { api } from "@/src/utils/api";
 
-const API_BASE = "https://api-test-aggreator.tiameds.ai/api/v1";
-
 // ─── MASTERS ──────────────────────────────────────────────────────────────────
 
+/**
+ * Product Types (Category 4 = Cosmetics & Personal Care)
+ * GET /productCategory/getProductCategory/4
+ */
 export const getCosmeticProductTypes = async () => {
   try {
-    const response = await api.get("masters/cosmetic-product-types");
-    return response.data?.data ?? response.data ?? [];
+    const response = await api.get("productCategory/getProductCategory/4");
+    const rawData = response.data?.data ?? response.data ?? [];
+
+    return rawData.map((item: any) => ({
+      categoryId:      item.productCategoryId,
+      categoryName:    item.productCategory,
+      productTypeId:   item.productCategoryId,
+      productTypeName: item.productCategory,
+      id:              item.productCategoryId,
+      name:            item.productCategory,
+    }));
   } catch (error: unknown) {
     console.error("Error fetching cosmetic product types:", error);
-    if (error instanceof Error) throw new Error(`Error fetching cosmetic product types: ${error.message}`);
-    throw new Error("An unknown error occurred while fetching cosmetic product types.");
+    throw new Error(
+      error instanceof Error
+        ? `Error fetching cosmetic product types: ${error.message}`
+        : "An unknown error occurred while fetching cosmetic product types.",
+    );
   }
 };
 
-export const getCosmeticProductSubTypes = async (productTypeId: string | number) => {
+/**
+ * Product Sub-Types filtered by parent product type ID
+ * Reuses the same /productCategory/getProductCategory/4 endpoint and filters
+ * by productCategoryId to find the matching category's subcategories.
+ */
+export const getCosmeticProductSubTypes = async (
+  productTypeId: string | number,
+) => {
   try {
-    const response = await api.get(`masters/cosmetic-product-sub-types/${productTypeId}`);
-    return response.data?.data ?? response.data ?? [];
+    const response = await api.get("productCategory/getProductCategory/4");
+    const categories: any[] = response.data?.data ?? response.data ?? [];
+
+    const category = categories.find(
+      (cat: any) => String(cat.productCategoryId) === String(productTypeId),
+    );
+
+    if (!category?.productSubcategoryMasters) return [];
+
+    return category.productSubcategoryMasters.map((sub: any) => ({
+      productSubTypeId:   sub.productSubcategoryId,
+      productSubTypeName: sub.productSubcategory,
+      subcategoryId:      sub.productSubcategoryId,
+      subcategoryName:    sub.productSubcategory,
+      id:                 sub.productSubcategoryId,
+      name:               sub.productSubcategory,
+    }));
   } catch (error: unknown) {
     console.error("Error fetching cosmetic product sub-types:", error);
-    if (error instanceof Error) throw new Error(`Error fetching cosmetic product sub-types: ${error.message}`);
-    throw new Error("An unknown error occurred while fetching cosmetic product sub-types.");
+    throw new Error(
+      error instanceof Error
+        ? `Error fetching cosmetic product sub-types: ${error.message}`
+        : "An unknown error occurred while fetching cosmetic product sub-types.",
+    );
   }
 };
 
+/**
+ * Skin Types master
+ * GET /masters/skin-types
+ */
 export const getCosmeticSkinTypes = async () => {
   try {
     const response = await api.get("masters/skin-types");
-    return response.data?.data ?? response.data ?? [];
+    const rawData: any[] = response.data?.data ?? response.data ?? [];
+
+    return rawData.map((item: any) => ({
+      ...item,
+      // Support whatever key shape the API returns
+      skinTypeId:   item.skinTypeId   ?? item.typeId   ?? item.id,
+      skinTypeName: item.skinTypeName ?? item.typeName  ?? item.name,
+      id:           item.skinTypeId   ?? item.typeId   ?? item.id,
+      name:         item.skinTypeName ?? item.typeName  ?? item.name,
+    }));
   } catch (error: unknown) {
     console.error("Error fetching skin types:", error);
-    if (error instanceof Error) throw new Error(`Error fetching skin types: ${error.message}`);
-    throw new Error("An unknown error occurred while fetching skin types.");
+    throw new Error(
+      error instanceof Error
+        ? `Error fetching skin types: ${error.message}`
+        : "An unknown error occurred while fetching skin types.",
+    );
   }
 };
 
+/**
+ * Hair Types master
+ * GET /masters/hair-types
+ */
 export const getCosmeticHairTypes = async () => {
   try {
     const response = await api.get("masters/hair-types");
-    return response.data?.data ?? response.data ?? [];
+    const rawData: any[] = response.data?.data ?? response.data ?? [];
+
+    return rawData.map((item: any) => ({
+      ...item,
+      hairTypeId:   item.hairTypeId   ?? item.typeId   ?? item.id,
+      hairTypeName: item.hairTypeName ?? item.typeName  ?? item.name,
+      id:           item.hairTypeId   ?? item.typeId   ?? item.id,
+      name:         item.hairTypeName ?? item.typeName  ?? item.name,
+    }));
   } catch (error: unknown) {
     console.error("Error fetching hair types:", error);
-    if (error instanceof Error) throw new Error(`Error fetching hair types: ${error.message}`);
-    throw new Error("An unknown error occurred while fetching hair types.");
+    throw new Error(
+      error instanceof Error
+        ? `Error fetching hair types: ${error.message}`
+        : "An unknown error occurred while fetching hair types.",
+    );
   }
 };
 
+/**
+ * Age Groups master
+ * GET /ageGroup/getAll
+ */
 export const getCosmeticAgeGroups = async () => {
   try {
-    const response = await api.get("masters/age-groups/getAll");
-    return response.data?.data ?? response.data ?? [];
+    const response = await api.get("ageGroup/getAll");
+    const rawData: any[] = response.data?.data ?? response.data ?? [];
+
+    return rawData.map((item: any) => ({
+      ...item,
+      ageGroupId:   item.ageGroupId ?? item.id,
+      ageGroupName: item.ageGroup   ?? item.ageGroupName ?? item.name,
+      id:           item.ageGroupId ?? item.id,
+      name:         item.ageGroup   ?? item.ageGroupName ?? item.name,
+    }));
   } catch (error: unknown) {
     console.error("Error fetching age groups:", error);
-    if (error instanceof Error) throw new Error(`Error fetching age groups: ${error.message}`);
-    throw new Error("An unknown error occurred while fetching age groups.");
+    throw new Error(
+      error instanceof Error
+        ? `Error fetching age groups: ${error.message}`
+        : "An unknown error occurred while fetching age groups.",
+    );
   }
 };
 
+/**
+ * Intended Use Areas master
+ * GET /masters/intended-use-areas
+ */
 export const getCosmeticIntendedUseAreas = async () => {
   try {
     const response = await api.get("masters/intended-use-areas");
-    return response.data?.data ?? response.data ?? [];
+    const rawData: any[] = response.data?.data ?? response.data ?? [];
+
+    return rawData.map((item: any) => ({
+      ...item,
+      useAreaId:   item.useAreaId  ?? item.id,
+      useAreaName: item.areaName   ?? item.useAreaName ?? item.name,
+      id:          item.useAreaId  ?? item.id,
+      name:        item.areaName   ?? item.useAreaName ?? item.name,
+    }));
   } catch (error: unknown) {
     console.error("Error fetching intended use areas:", error);
-    if (error instanceof Error) throw new Error(`Error fetching intended use areas: ${error.message}`);
-    throw new Error("An unknown error occurred while fetching intended use areas.");
+    throw new Error(
+      error instanceof Error
+        ? `Error fetching intended use areas: ${error.message}`
+        : "An unknown error occurred while fetching intended use areas.",
+    );
   }
 };
 
+/**
+ * Storage Conditions master
+ * GET /masters/storagecondition
+ */
 export const getCosmeticStorageConditions = async () => {
   try {
     const response = await api.get("masters/storagecondition");
-    return response.data?.data ?? response.data ?? [];
+    const rawData: any[] = response.data?.data ?? response.data ?? [];
+
+    return rawData.map((item: any) => ({
+      ...item,
+      storageConditionId: item.storageConditionId ?? item.id,
+      conditionName:      item.conditionName      ?? item.name,
+      id:                 item.storageConditionId  ?? item.id,
+      name:               item.conditionName       ?? item.name,
+    }));
   } catch (error: unknown) {
     console.error("Error fetching storage conditions:", error);
-    if (error instanceof Error) throw new Error(`Error fetching storage conditions: ${error.message}`);
-    throw new Error("An unknown error occurred while fetching storage conditions.");
+    throw new Error(
+      error instanceof Error
+        ? `Error fetching storage conditions: ${error.message}`
+        : "An unknown error occurred while fetching storage conditions.",
+    );
   }
 };
 
+/**
+ * Countries master
+ * GET /masters/countries
+ */
 export const getCosmeticCountries = async () => {
   try {
     const response = await api.get("masters/countries");
-    return response.data?.data ?? response.data ?? [];
+    const rawData: any[] = response.data?.data ?? response.data ?? [];
+
+    return rawData.map((item: any) => ({
+      ...item,
+      countryId:   item.countryId   ?? item.id,
+      countryName: item.countryName ?? item.name,
+      id:          item.countryId   ?? item.id,
+      name:        item.countryName ?? item.name,
+    }));
   } catch (error: unknown) {
     console.error("Error fetching countries:", error);
-    if (error instanceof Error) throw new Error(`Error fetching countries: ${error.message}`);
-    throw new Error("An unknown error occurred while fetching countries.");
+    throw new Error(
+      error instanceof Error
+        ? `Error fetching countries: ${error.message}`
+        : "An unknown error occurred while fetching countries.",
+    );
   }
 };
 
+/**
+ * Certifications master
+ * GET /masters/certifications
+ */
 export const getCosmeticCertifications = async () => {
   try {
     const response = await api.get("masters/certifications");
-    return response.data?.data ?? response.data ?? [];
+    const rawData: any[] = response.data?.data ?? response.data ?? [];
+
+    return rawData.map((item: any) => ({
+      ...item,
+      certificationId:   item.certificationId   ?? item.id,
+      certificationName: item.certificationName ?? item.name,
+      id:                item.certificationId   ?? item.id,
+      name:              item.certificationName ?? item.name,
+    }));
   } catch (error: unknown) {
     console.error("Error fetching certifications:", error);
-    if (error instanceof Error) throw new Error(`Error fetching certifications: ${error.message}`);
-    throw new Error("An unknown error occurred while fetching certifications.");
+    throw new Error(
+      error instanceof Error
+        ? `Error fetching certifications: ${error.message}`
+        : "An unknown error occurred while fetching certifications.",
+    );
   }
 };
 
+/**
+ * Pack Types filtered by product category
+ * GET /dosage/packType/category/:categoryId
+ */
 export const getCosmeticPackTypes = async (categoryId: number = 4) => {
   try {
     const response = await api.get(`dosage/packType/category/${categoryId}`);
     return response.data?.data ?? response.data ?? [];
   } catch (error: unknown) {
     console.error("Error fetching pack types:", error);
-    if (error instanceof Error) throw new Error(`Error fetching pack types: ${error.message}`);
-    throw new Error("An unknown error occurred while fetching pack types.");
+    throw new Error(
+      error instanceof Error
+        ? `Error fetching pack types: ${error.message}`
+        : "An unknown error occurred while fetching pack types.",
+    );
   }
 };
 
 // ─── PRODUCT CRUD ─────────────────────────────────────────────────────────────
 
-export const createCosmeticProduct = async (payload: Record<string, unknown>) => {
+export const createCosmeticProduct = async (
+  payload: Record<string, unknown>,
+) => {
   try {
     const response = await api.post("products/create", payload, {
       headers: { "Content-Type": "application/json" },
@@ -124,21 +278,31 @@ export const createCosmeticProduct = async (payload: Record<string, unknown>) =>
     return response.data;
   } catch (error: any) {
     console.error("Error creating cosmetic product", {
-      message: error.message,
+      message:  error.message,
       response: error.response?.data,
-      status: error.response?.status,
+      status:   error.response?.status,
     });
     throw new Error(
       error.response?.data?.data?.message ??
-      error.response?.data?.message ??
-      error.message ??
-      "Error creating cosmetic product"
+        error.response?.data?.message ??
+        error.message ??
+        "Error creating cosmetic product",
     );
   }
 };
 
 // ─── DOCUMENT UPLOADS ─────────────────────────────────────────────────────────
 
+/**
+ * Upload certificate files for a cosmetic product attribute.
+ *
+ * The backend expects:
+ *   POST /product-documents/cosmetic/:productAttributeId/certificates
+ *   FormData: documentIds (one value per file), certificateFiles (one file per documentId)
+ *
+ * documentId here is the productCertificateDocumentId returned by the create
+ * endpoint — NOT the master certificationId.
+ */
 export const uploadCosmeticCertificate = async (
   productAttributeId: string,
   documentId: number,
@@ -159,7 +323,8 @@ export const uploadCosmeticCertificate = async (
     console.error("Error uploading cosmetic certificate:", error);
     return {
       success: false,
-      message: error.response?.data?.message ?? error.message ?? "Upload failed",
+      message:
+        error.response?.data?.message ?? error.message ?? "Upload failed",
     };
   }
 };
@@ -182,7 +347,37 @@ export const uploadCosmeticBrochure = async (
     console.error("Error uploading cosmetic brochure:", error);
     return {
       success: false,
-      message: error.response?.data?.message ?? error.message ?? "Upload failed",
+      message:
+        error.response?.data?.message ?? error.message ?? "Upload failed",
     };
+  }
+};
+
+
+export const getStorageConditionsByCategoryId = async (categoryId: number) => {
+  try {
+    const response = await api.get(`/storageConditions/${categoryId}`);
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Storage Conditions:', error);
+
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Storage Conditions: ${error.message}`);
+    } else {
+      throw new Error(
+        'An unknown error occurred while fetching Storage Conditions.'
+      );
+    }
+  }
+};
+
+export const getCosmeticCertificationsByCategoryId = async (categoryId: number) => {
+  try {
+    const response = await api.get(`/masters/certifications/categoryId/${categoryId}`);
+    return response.data?.data ?? response.data ?? [];
+  } catch (error: unknown) {
+    console.error("Error fetching certifications:", error);
+    if (error instanceof Error) throw new Error(`Error fetching certifications: ${error.message}`);
+    throw new Error("An unknown error occurred while fetching certifications.");
   }
 };

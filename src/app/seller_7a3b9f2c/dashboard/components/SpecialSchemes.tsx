@@ -14,12 +14,12 @@ type OptionType = {
   label: string;
 };
 
-const schemeOptions: OptionType[] = [
-  {
-    value: "buy_x_get_y_free",
-    label: "Buy X Get Y Free",
-  },
-];
+// const schemeOptions: OptionType[] = [
+//   {
+//     value: "buy_x_get_y_free",
+//     label: "Buy X Get Y Free",
+//   },
+// ];
 
 const customStyles: StylesConfig<OptionType, false> = {
   control: (provided, state) => ({
@@ -51,7 +51,12 @@ export type SpecialSchemesRef = {
   submitForm: () => void;
 };
 
-const SpecialSchemes = forwardRef<SpecialSchemesRef>((props, ref) => {
+type SpecialSchemesProps = {
+  initialData?: SpecialSchemesData[];
+  onSave?: (data: SpecialSchemesData[]) => void;
+};
+
+const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(({ initialData, onSave }, ref) => {
   const [form, setForm] = useState<SpecialSchemesData>({
     schemeName: "",
     schemeType: "",
@@ -65,17 +70,23 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef>((props, ref) => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [tableData, setTableData] = useState<SpecialSchemesData[]>([]);
+  const [tableData, setTableData] = useState<SpecialSchemesData[]>(initialData || []);
+
+  React.useEffect(() => {
+    if (initialData) {
+      setTableData(initialData);
+    }
+  }, [initialData]);
 
   const columns: ColumnDef<SpecialSchemesData>[] = [
     {
       accessorKey: "schemeName",
       header: "Name",
     },
-    {
-      accessorKey: "schemeType",
-      header: "Type",
-    },
+    // {
+    //   accessorKey: "schemeType",
+    //   header: "Type",
+    // },
     {
       accessorKey: "effectiveStartDate",
       header: "Start Date",
@@ -127,12 +138,12 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef>((props, ref) => {
     }
 
     // Scheme Type
-    if (
-      (!fieldName || fieldName === "schemeType") &&
-      !updatedForm.schemeType.trim()
-    ) {
-      newErrors.schemeType = "Scheme Type is required";
-    }
+    // if (
+    //   (!fieldName || fieldName === "schemeType") &&
+    //   !updatedForm.schemeType.trim()
+    // ) {
+    //   newErrors.schemeType = "Scheme Type is required";
+    // }
 
     // Buy Quantity
     if (!fieldName || fieldName === "buyQuantity") {
@@ -252,7 +263,12 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef>((props, ref) => {
 
     if (Object.keys(validationErrors).length > 0) return;
 
-    setTableData((prev) => [...prev, form]);
+    const updatedTableData = [...tableData, form];
+    setTableData(updatedTableData);
+    
+    if (onSave) {
+      onSave(updatedTableData);
+    }
 
     setForm({
       schemeName: "",
@@ -336,7 +352,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef>((props, ref) => {
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
+          {/* <div className="flex flex-col gap-2">
             <label htmlFor="" className="text-label-l3 font-medium">
               Scheme Type
             </label>
@@ -364,7 +380,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef>((props, ref) => {
             {errors.schemeType && (
               <p className="text-red-500 text-xs mt-1">{errors.schemeType}</p>
             )}
-          </div>
+          </div> */}
         </div>
 
         <div className="flex flex-col gap-3">
