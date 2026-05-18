@@ -82,7 +82,6 @@ const ProductList = ({
       setLoading(true);
       const response = await getProductList();
       setData(response || []);
-      // console.log("API DATA:", response);
     } catch (error) {
       console.error("Error fetching Drug Product List:", error);
     } finally {

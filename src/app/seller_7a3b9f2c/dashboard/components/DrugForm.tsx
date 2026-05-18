@@ -26,6 +26,7 @@ import AdditionalDiscountType from "./AdditionalDiscountType";
 import { getTherapeuticCategory } from "@/src/services/product/TherapeuticCategoryService";
 import { getSupplementDosageForms } from "@/src/services/product/SupplementService";
 import { useRouter } from "next/navigation";
+import { validateBatchNumber } from "@/src/services/product/Pricing";
 
 interface SelectOption {
   value: string;
@@ -294,6 +295,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       "0",
     )}`;
   };
+
   const handleChange = (
     e:
       | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -321,10 +323,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
       const mrp = Number(updatedForm.mrp) || 0;
       const sellingPrice = Number(updatedForm.sellingPrice) || 0;
-      const discount = Number(updatedForm.discountPercentage);
       const hsn = updatedForm.hsnCode || "";
-      const expiry = updatedForm.expiryDate || null;
-
       setErrors((prevErrors) => {
         const newErrors = { ...prevErrors };
 
@@ -382,6 +381,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           }
         }
 
+        if (name === "batchLotNumber" && value.trim()) {
+          checkBatchNumber(value);
+        }
+
         if (name === "expiryDate") {
           if (value) {
             const [year, month] = value.split("-").map(Number);
@@ -436,6 +439,26 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
       return updatedForm;
     });
+  };
+
+  const checkBatchNumber = async (batchLotNumber: string) => {
+    try {
+      const response = await validateBatchNumber(batchLotNumber);
+
+      if (response.exists) {
+        setErrors((prev) => ({
+          ...prev,
+          batchLotNumber: "Batch number already exists",
+        }));
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          batchLotNumber: "",
+        }));
+      }
+    } catch (error) {
+      console.error("Batch validation failed:", error);
+    }
   };
 
   const handleTherapeuticCategoriesChange = (selected: SelectOption | null) => {
@@ -617,6 +640,29 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       });
 
       setErrors(fieldErrors);
+      return;
+    }
+
+    const batchValidation = await validateBatchNumber(form.batchLotNumber);
+
+    if (batchValidation.exists) {
+      setErrors((prev) => ({
+        ...prev,
+        batchLotNumber: "Batch number already exists",
+      }));
+
+      return;
+    }
+
+    const mrp = Number(form.mrp) || 0;
+    const sellingPrice = Number(form.sellingPrice) || 0;
+
+    if (sellingPrice >= mrp) {
+      setErrors((prev) => ({
+        ...prev,
+        sellingPrice: "Selling Price must be less than MRP",
+      }));
+
       return;
     }
 
@@ -1039,13 +1085,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const selectStyles = (errorKey: string) => ({
     control: (base: any, state: any) => ({
       ...base,
-      minHeight: "56px",
+      minHeight: "52px",
       height: "auto",
-      borderRadius: "16px",
+      borderRadius: "8px",
+      borderWidth: state.isFocused ? "2px" : "1px",
       borderColor: errors[errorKey]
         ? "#FF3B3B"
         : state.isFocused
-          ? "#4B0082"
+          ? "#C4AAFD"
           : "#737373",
       boxShadow: "none",
       cursor: "pointer",
@@ -1054,7 +1101,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       alignItems:
         state.hasValue && state.selectProps.isMulti ? "flex-start" : "center",
 
-      "&:hover": { borderColor: errors[errorKey] ? "#FF3B3B" : "#4B0082" },
+      "&:hover": { borderColor: errors[errorKey] ? "#FF3B3B" : "#C4AAFD" },
     }),
 
     valueContainer: (base: any) => ({
@@ -1066,14 +1113,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
     indicatorsContainer: (base: any) => ({
       ...base,
-      height: "56px", // ✅ keep icon aligned like other fields
+      height: "52px", // ✅ keep icon aligned like other fields
     }),
 
     dropdownIndicator: (base: any, state: any) => ({
       ...base,
-      color: state.isFocused ? "#4B0082" : "#737373",
+      color: state.isFocused ? "#C4AAFD" : "#737373",
       cursor: "pointer",
-      "&:hover": { color: "#4B0082" },
+      "&:hover": { color: "#C4AAFD" },
     }),
 
     option: (base: any, state: any) => ({
@@ -1314,7 +1361,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-neutral-700 font-semibold">
+              <label className="text-label-l3 text-pneutral-900 font-semibold">
                 Therapeutic Category
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
@@ -1333,14 +1380,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 styles={selectStyles("productCategoryId")}
               />
               {errors.therapeuticCategory && (
-                <p className="text-red-500 text-sm mt-1">
+                <p className="text-red-500 text-xs mt-1">
                   {errors.therapeuticCategory}
                 </p>
               )}
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-neutral-700 font-semibold">
+              <label className="text-label-l3 text-pneutral-900 font-semibold">
                 Therapeutic Subcategory
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
@@ -1359,7 +1406,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 styles={selectStyles("therapeuticSubcategory")}
               />
               {errors.therapeuticSubcategory && (
-                <p className="text-red-500 text-sm mt-1">
+                <p className="text-red-500 text-xs mt-1">
                   {errors.therapeuticSubcategory}
                 </p>
               )}
@@ -1378,7 +1425,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             />
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-neutral-700 font-semibold">
+              <label className="text-label-l3 text-pneutral-900 font-semibold">
                 Dosage Form (Tablet, Syrup)
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
@@ -1396,7 +1443,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               />
 
               {errors.dosageId && (
-                <p className="text-red-500 text-sm mt-1">{errors.dosageId}</p>
+                <p className="text-red-500 text-xs mt-1">{errors.dosageId}</p>
               )}
             </div>
 
@@ -1406,7 +1453,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 className="grid grid-cols-[1fr_1fr_auto] gap-4 col-span-2"
               >
                 <div className="flex flex-col gap-1 w-full">
-                  <label className="text-label-l3 text-neutral-700 font-semibold">
+                  <label className="text-label-l3 text-pneutral-900 font-semibold">
                     Molecule
                     <span className="text-warning-500 font-semibold ml-1">
                       *
@@ -1437,7 +1484,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   />
 
                   {errors[`molecules.${index}.moleculeId`] && (
-                    <p className="text-red-500 text-sm">
+                    <p className="text-red-500 text-xs">
                       {errors[`molecules.${index}.moleculeId`]}
                     </p>
                   )}
@@ -1457,7 +1504,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   />
 
                   {errors[`molecules.${index}.strength`] && (
-                    <p className="text-red-500 text-sm">
+                    <p className="text-red-500 text-xs">
                       {errors[`molecules.${index}.strength`]}
                     </p>
                   )}
@@ -1530,19 +1577,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               onFileSelect={setManualFile}
               existingFile={existingManualFile || undefined}
             />
-            {/* <Input
-              label="Storage Condition"
-              name="storageCondition"
-              id="storageCondition"
-              placeholder=""
-              value={form.storageCondition}
-              onChange={handleChange}
-              error={errors.storageCondition}
-              required
-            /> */}
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-neutral-700 font-semibold">
+              <label className="text-label-l3 text-pneutral-900 font-semibold">
                 Storage Condition
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
@@ -1568,7 +1605,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               />
 
               {errors.storageConditionIds && (
-                <p className="text-red-500 text-sm mt-1">
+                <p className="text-red-500 text-xs mt-1">
                   {errors.storageConditionIds}
                 </p>
               )}
@@ -1587,7 +1624,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             />
 
             <div>
-              <label className="block text-label-l3 text-neutral-700 font-semibold mb-1">
+              <label className="block text-label-l3 text-pneutral-900 font-semibold mb-1">
                 Warnings & Precautions
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
@@ -1599,21 +1636,21 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 onChange={handleChange}
                 // disabled={mode === "delete"}
                 rows={4}
-                className={`w-full h-36 rounded-2xl p-3 resize-none overflow-y-auto border ${
+                className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${
                   errors.warningsPrecautions
                     ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
-                    : "border-neutral-500 focus:border-[#4B0082]"
+                    : "border-neutral-500 focus:border-2 focus:border-[#C4AAFD]"
                 } focus:outline-none focus:ring-0`}
               />
               {errors.warningsPrecautions && (
-                <p className="text-red-500 text-sm mt-1">
+                <p className="text-red-500 text-xs mt-1">
                   {errors.warningsPrecautions}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-label-l3 text-neutral-700 font-semibold mb-1">
+              <label className="block text-label-l3 text-pneutral-900 font-semibold mb-1">
                 Product Description
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
@@ -1625,14 +1662,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 onChange={handleChange}
                 // disabled={mode === "delete"}
                 rows={4}
-                className={`w-full h-36 rounded-2xl p-3 resize-none overflow-y-auto border ${
+                className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${
                   errors.productDescription
                     ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
-                    : "border-neutral-500 focus:border-[#4B0082]"
+                    : "border-neutral-500 focus:border-2 focus:border-[#C4AAFD]"
                 } focus:outline-none focus:ring-0`}
               />
               {errors.productDescription && (
-                <p className="text-red-500 text-sm mt-1">
+                <p className="text-red-500 text-xs mt-1">
                   {errors.productDescription}
                 </p>
               )}
@@ -1648,7 +1685,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-neutral-700 font-semibold">
+              <label className="text-label-l3 text-pneutral-900 font-semibold">
                 Pack Type
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
@@ -1673,7 +1710,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 styles={selectStyles("packId")}
               />
               {errors.packId && (
-                <p className="text-red-500 text-sm mt-1">{errors.packId}</p>
+                <p className="text-red-500 text-xs mt-1">{errors.packId}</p>
               )}
             </div>
 
@@ -1976,7 +2013,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             <div className="border-b border-neutral-200 col-span-2"></div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-neutral-700 font-semibold">
+              <label className="text-label-l3 text-pneutral-900 font-semibold">
                 GST %
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
@@ -2005,7 +2042,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               />
 
               {errors.gstPercentage && (
-                <p className="text-red-500 text-sm mt-1">
+                <p className="text-red-500 text-xs mt-1">
                   {errors.gstPercentage}
                 </p>
               )}
@@ -2031,7 +2068,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
           <div className="text-[#364153] font-normal text-sm">
-            Product Photos{" "}
+            Product Photos
             <span className="text-warning-500 font-semibold ml-1">*</span>
           </div>
 
@@ -2106,7 +2143,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
 
           {errors.images && (
-            <div className="text-red-500 text-sm mt-2">{errors.images}</div>
+            <div className="text-red-500 text-xs mt-2">{errors.images}</div>
           )}
 
           <div className="flex gap-4">
