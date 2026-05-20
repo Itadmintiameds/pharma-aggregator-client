@@ -6,7 +6,9 @@ import { getDrugProductById } from "@/src/services/product/ProductService";
 import { getPackTypeById } from "@/src/services/product/PackType";
 import { getStorageConditionById } from "@/src/services/product/StorageCondition";
 import {
+  getTherapeuticCategory,
   getTherapeuticCategoryById,
+  getTherapeuticSubcategory,
   getTherapeuticSubcategoryById,
 } from "@/src/services/product/TherapeuticCategoryService";
 import { getAllMolecules } from "@/src/services/product/MoleculeService";
@@ -28,6 +30,7 @@ import ConsumableView from "./ConsumableView";
 import NonConsumableView from "./NonConsumableView";
 import CosmeticPersonalCareView from "./CosmeticView";
 import FoodInfantView from "./FoodInfantView";
+import { FileText } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -423,7 +426,14 @@ const resolveProductImages = (data: ProductApiData | null): string[] => {
   if (!data) return [];
   if (Array.isArray(data.productImages)) {
     const urls = data.productImages
-      .map((img) => img?.productImage || img?.imageUrl || img?.url || img?.imagePath || "")
+      .map(
+        (img) =>
+          img?.productImage ||
+          img?.imageUrl ||
+          img?.url ||
+          img?.imagePath ||
+          "",
+      )
       .filter((url) => validUrl(url) !== null);
     if (urls.length) return urls;
   }
@@ -443,7 +453,9 @@ const resolveProductImages = (data: ProductApiData | null): string[] => {
  * Priority: productAttributeCosmeticAndPersonalUse → productAttributeCosmeticPersonalCare
  *         → productAttributeCosmetics → cosmeticAttributes
  */
-const extractCosmeticAttr = (data: ProductApiData): CosmeticAttributes | null => {
+const extractCosmeticAttr = (
+  data: ProductApiData,
+): CosmeticAttributes | null => {
   const arr =
     (data.productAttributeCosmeticAndPersonalUse ?? []).length > 0
       ? data.productAttributeCosmeticAndPersonalUse!
@@ -464,7 +476,7 @@ const extractCosmeticAttr = (data: ProductApiData): CosmeticAttributes | null =>
 function toSelectOpts(
   result: PromiseSettledResult<any>,
   valueKeys: string[],
-  labelKeys: string[]
+  labelKeys: string[],
 ): { value: string; label: string }[] {
   if (result.status !== "fulfilled") return [];
   return (result.value as any[])
@@ -501,7 +513,9 @@ const FieldRow = ({
       {required && <span style={REQUIRED_STAR}>*</span>}
     </div>
     {valueNode ? (
-      <div style={{ flex: "1 1 0", display: "flex", justifyContent: "flex-end" }}>
+      <div
+        style={{ flex: "1 1 0", display: "flex", justifyContent: "flex-end" }}
+      >
         {valueNode}
       </div>
     ) : (
@@ -511,7 +525,13 @@ const FieldRow = ({
 );
 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ paddingTop: 8, paddingBottom: 8, borderBottom: "1px solid #D5D5D4" }}>
+  <div
+    style={{
+      paddingTop: 8,
+      paddingBottom: 8,
+      borderBottom: "1px solid #D5D5D4",
+    }}
+  >
     <h2
       style={{
         color: "#1E1E1D",
@@ -531,23 +551,62 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
    SPECIAL OFFERS SECTION
 ───────────────────────────────────────────────────────── */
 
-const OFFER_COLORS: Record<string, { bg: string; border: string; titleColor: string; iconBg: string }> = {
-  bogo: { bg: "#F0FDF4", border: "#86EFAC", titleColor: "#15803D", iconBg: "#DCFCE7" },
-  bulk: { bg: "#FAF5FF", border: "#D8B4FE", titleColor: "#7E22CE", iconBg: "#F3E8FF" },
-  bundle: { bg: "#FFFBEB", border: "#FCD34D", titleColor: "#92400E", iconBg: "#FEF3C7" },
-  seasonal: { bg: "#EFF6FF", border: "#93C5FD", titleColor: "#1D4ED8", iconBg: "#DBEAFE" },
+const OFFER_COLORS: Record<
+  string,
+  { bg: string; border: string; titleColor: string; iconBg: string }
+> = {
+  bogo: {
+    bg: "#F0FDF4",
+    border: "#86EFAC",
+    titleColor: "#15803D",
+    iconBg: "#DCFCE7",
+  },
+  bulk: {
+    bg: "#FAF5FF",
+    border: "#D8B4FE",
+    titleColor: "#7E22CE",
+    iconBg: "#F3E8FF",
+  },
+  bundle: {
+    bg: "#FFFBEB",
+    border: "#FCD34D",
+    titleColor: "#92400E",
+    iconBg: "#FEF3C7",
+  },
+  seasonal: {
+    bg: "#EFF6FF",
+    border: "#93C5FD",
+    titleColor: "#1D4ED8",
+    iconBg: "#DBEAFE",
+  },
 };
 
 const OFFER_ICONS: Record<string, string> = {
-  bogo: "🎁", bulk: "📦", bundle: "🔒", seasonal: "🏷️",
+  bogo: "🎁",
+  bulk: "📦",
+  bundle: "🔒",
+  seasonal: "🏷️",
 };
 
 const SpecialOffersSection = ({ offers }: { offers: SpecialOffer[] }) => {
   if (!offers || offers.length === 0) return null;
   return (
-    <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
+    <div
+      style={{
+        alignSelf: "stretch",
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+      }}
+    >
       <SectionTitle>Special Offers &amp; Promotional Schemes</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: 16,
+        }}
+      >
         {offers.map((offer, idx) => {
           const type = offer.offerType ?? "bogo";
           const colors = OFFER_COLORS[type] ?? OFFER_COLORS.bogo;
@@ -570,18 +629,56 @@ const SpecialOffersSection = ({ offers }: { offers: SpecialOffer[] }) => {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 32, height: 32, background: colors.iconBg, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    background: colors.iconBg,
+                    borderRadius: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 16,
+                  }}
+                >
                   {icon}
                 </div>
-                <span style={{ color: colors.titleColor, fontSize: 16, fontFamily: "'Work Sans', sans-serif", fontWeight: 600, lineHeight: "22px" }}>
+                <span
+                  style={{
+                    color: colors.titleColor,
+                    fontSize: 16,
+                    fontFamily: "'Work Sans', sans-serif",
+                    fontWeight: 600,
+                    lineHeight: "22px",
+                  }}
+                >
                   {offer.title}
                 </span>
               </div>
-              <p style={{ color: "#3C3D3A", fontSize: 13, fontFamily: "'Noto Sans', sans-serif", fontWeight: 400, lineHeight: "20px", margin: 0 }}>
+              <p
+                style={{
+                  color: "#3C3D3A",
+                  fontSize: 13,
+                  fontFamily: "'Noto Sans', sans-serif",
+                  fontWeight: 400,
+                  lineHeight: "20px",
+                  margin: 0,
+                }}
+              >
                 {offer.description}
               </p>
               {validText && (
-                <p style={{ color: colors.titleColor, fontSize: 12, fontFamily: "'Noto Sans', sans-serif", fontWeight: 400, lineHeight: "18px", margin: 0, opacity: 0.8 }}>
+                <p
+                  style={{
+                    color: colors.titleColor,
+                    fontSize: 12,
+                    fontFamily: "'Noto Sans', sans-serif",
+                    fontWeight: 400,
+                    lineHeight: "18px",
+                    margin: 0,
+                    opacity: 0.8,
+                  }}
+                >
                   {validText}
                 </p>
               )}
@@ -606,7 +703,8 @@ const ProductView1 = ({
   const [loading, setLoading] = useState(true);
   const [lookups, setLookups] = useState<ResolvedLookups>(INITIAL_LOOKUPS);
   // Holds the fully-resolved cosmetic attribute object (IDs → labels)
-  const [resolvedCosAttr, setResolvedCosAttr] = useState<CosmeticAttributes | null>(null);
+  const [resolvedCosAttr, setResolvedCosAttr] =
+    useState<CosmeticAttributes | null>(null);
   const [cosAttrLoading, setCosAttrLoading] = useState(false);
 
   /* ── 1. Fetch product ── */
@@ -617,7 +715,9 @@ const ProductView1 = ({
     setResolvedCosAttr(null);
     (async () => {
       try {
-        const response = (await getDrugProductById(productId)) as ProductApiData;
+        const response = (await getDrugProductById(
+          productId,
+        )) as ProductApiData;
         setProductData(response);
       } catch (err) {
         console.error("[ProductView] Error fetching product:", err);
@@ -631,14 +731,18 @@ const ProductView1 = ({
   useEffect(() => {
     if (!productData) return;
 
-    const packaging: PackagingDetails | undefined = Array.isArray(productData.packagingDetails)
+    const packaging: PackagingDetails | undefined = Array.isArray(
+      productData.packagingDetails,
+    )
       ? productData.packagingDetails[0]
       : productData.packagingDetails;
 
     const drugEntry: DrugAttributeEntry | null =
       (productData.productAttributeDrugs ?? []).length > 0
         ? productData.productAttributeDrugs![0]
-        : productData.drugAttributes ?? null;
+        : (productData.drugAttributes ?? null);
+
+    // console.log("DrugENtry---------------", drugEntry);
 
     const consAttr: ConsumableAttributes | null =
       (productData.productAttributeConsumableMedicals ?? []).length > 0
@@ -648,15 +752,17 @@ const ProductView1 = ({
     const ncAttr: NonConsumableAttributes | null =
       (productData.productAttributeNonConsumableMedicals ?? []).length > 0
         ? productData.productAttributeNonConsumableMedicals![0]
-        : productData.nonConsumableAttributes ?? null;
+        : (productData.nonConsumableAttributes ?? null);
 
-    const cosAttrRaw: CosmeticAttributes | null = extractCosmeticAttr(productData);
+    const cosAttrRaw: CosmeticAttributes | null =
+      extractCosmeticAttr(productData);
 
     setLookups((prev) => ({ ...prev, loading: true }));
 
     // ── Pack type ──
     const packId = toPositiveInt(packaging?.packId);
-    const inlinePackName = packaging?.packTypeName?.trim() || packaging?.packType?.trim() || null;
+    const inlinePackName =
+      packaging?.packTypeName?.trim() || packaging?.packType?.trim() || null;
 
     const fetchPackType = async (): Promise<Partial<ResolvedLookups>> => {
       if (inlinePackName) return { packTypeName: inlinePackName };
@@ -690,13 +796,15 @@ const ProductView1 = ({
       ncAttr?.storageConditionId ??
       cosAttrRaw?.storageConditionId ??
       (Array.isArray(drugEntry?.storageConditionIds) &&
-        (drugEntry?.storageConditionIds?.length ?? 0) > 0
+      (drugEntry?.storageConditionIds?.length ?? 0) > 0
         ? drugEntry!.storageConditionIds![0]
         : undefined);
 
     const storageId = toPositiveInt(rawStorageId);
 
-    const fetchStorageCondition = async (): Promise<Partial<ResolvedLookups>> => {
+    const fetchStorageCondition = async (): Promise<
+      Partial<ResolvedLookups>
+    > => {
       if (inlineStorageName) return { storageConditionName: inlineStorageName };
       if (storageId === null) {
         console.warn(
@@ -710,10 +818,18 @@ const ProductView1 = ({
       try {
         const data = await getStorageConditionById(storageId);
         const name =
-          data?.conditionName ?? data?.storageConditionName ?? data?.name ?? data?.condition ?? null;
+          data?.conditionName ??
+          data?.storageConditionName ??
+          data?.name ??
+          data?.condition ??
+          null;
         return { storageConditionName: name ? String(name).trim() : null };
       } catch (e) {
-        console.error("[ProductView] fetchStorageCondition failed for id", storageId, e);
+        console.error(
+          "[ProductView] fetchStorageCondition failed for id",
+          storageId,
+          e,
+        );
         return {};
       }
     };
@@ -721,46 +837,99 @@ const ProductView1 = ({
     // ── Therapeutic category ──
     const catId = toPositiveInt(drugEntry?.therapeuticCategoryId);
     const inlineCatName =
-      drugEntry?.therapeuticCategoryName?.trim() || productData.therapeuticCategory?.trim() || null;
+      drugEntry?.therapeuticCategoryName?.trim() ||
+      productData.therapeuticCategory?.trim() ||
+      null;
 
-    const fetchTherapeuticCategory = async (): Promise<Partial<ResolvedLookups>> => {
-      if (inlineCatName) return { therapeuticCategoryName: inlineCatName };
-      if (!drugEntry || catId === null) return {};
+    const fetchTherapeuticCategory = async (): Promise<
+      Partial<ResolvedLookups>
+    > => {
+      if (inlineCatName) {
+        return { therapeuticCategoryName: inlineCatName };
+      }
+
+      if (catId === null) {
+        return {};
+      }
+
       try {
-        const data = await getTherapeuticCategoryById(String(catId));
+        const data = await getTherapeuticCategory(catId);
+        const categoryData = Array.isArray(data)
+          ? data[0]
+          : data?.content
+            ? data.content
+            : data;
+
         const name =
-          data?.therapeuticCategory ?? data?.therapeuticCategoryName ?? data?.categoryName ?? data?.name ?? null;
-        return { therapeuticCategoryName: name ? String(name).trim() : null };
-      } catch {
+          categoryData?.therapeuticCategory ||
+          categoryData?.therapeuticCategoryName ||
+          categoryData?.categoryName ||
+          categoryData?.name ||
+          null;
+
+        return {
+          therapeuticCategoryName: name ? String(name).trim() : null,
+        };
+      } catch (error) {
+        console.error("Failed to fetch therapeutic category:", error);
         return {};
       }
     };
 
     // ── Therapeutic subcategory ──
     const subId = toPositiveInt(drugEntry?.therapeuticSubcategoryId);
-    const inlineSubName =
-      drugEntry?.therapeuticSubcategoryName?.trim() || productData.therapeuticSubcategory?.trim() || null;
 
-    const fetchTherapeuticSubcategory = async (): Promise<Partial<ResolvedLookups>> => {
-      if (inlineSubName) return { therapeuticSubcategoryName: inlineSubName };
-      if (!drugEntry || subId === null) return {};
+    const inlineSubName =
+      drugEntry?.therapeuticSubcategoryName?.trim() ||
+      productData.therapeuticSubcategory?.trim() ||
+      null;
+
+    const fetchTherapeuticSubcategory = async (): Promise<
+      Partial<ResolvedLookups>
+    > => {
+      // Use inline value if already available
+      if (inlineSubName) {
+        return {
+          therapeuticSubcategoryName: inlineSubName,
+        };
+      }
+
+      // Skip if no subcategory ID
+      if (subId === null) {
+        return {};
+      }
+
       try {
-        const data = await getTherapeuticSubcategoryById(String(subId));
+        const data = await getTherapeuticSubcategory(subId);
+
+        console.log("Therapeutic subcategory API response:", data);
+
+        const subcategoryData = Array.isArray(data)
+          ? data[0]
+          : data?.content
+            ? data.content
+            : data;
+
         const name =
-          data?.therapeuticSubcategory ??
-          data?.therapeuticSubcategoryName ??
-          data?.subcategoryName ??
-          data?.name ??
+          subcategoryData?.therapeuticSubcategory ||
+          subcategoryData?.therapeuticSubcategoryName ||
+          subcategoryData?.subcategoryName ||
+          subcategoryData?.name ||
           null;
-        return { therapeuticSubcategoryName: name ? String(name).trim() : null };
-      } catch {
+
+        return {
+          therapeuticSubcategoryName: name ? String(name).trim() : null,
+        };
+      } catch (error) {
+        console.error("Failed to fetch therapeutic subcategory:", error);
         return {};
       }
     };
 
     // ── Molecules ──
     const moleculesInEntry = drugEntry?.molecules ?? [];
-    const needsMoleculeData = drugEntry != null && moleculesInEntry.some((m) => m.moleculeId != null);
+    const needsMoleculeData =
+      drugEntry != null && moleculesInEntry.some((m) => m.moleculeId != null);
 
     const fetchMolecules = async (): Promise<Partial<ResolvedLookups>> => {
       if (!needsMoleculeData) return {};
@@ -786,7 +955,8 @@ const ProductView1 = ({
 
     // ── Consumable: device category & subcategory ──
     const inlineDeviceCatName = consAttr?.deviceCategoryName?.trim() || null;
-    const inlineDeviceSubCatName = consAttr?.deviceSubCategoryName?.trim() || null;
+    const inlineDeviceSubCatName =
+      consAttr?.deviceSubCategoryName?.trim() || null;
     const deviceCatId = toPositiveInt(consAttr?.deviceCatId);
     const deviceSubCatId = toPositiveInt(consAttr?.deviceSubCatId);
 
@@ -798,21 +968,42 @@ const ProductView1 = ({
       if (!deviceCategoryName && deviceCatId !== null) {
         try {
           const cats: any[] = await getConsumableDeviceCategories();
-          const found = cats.find((c) => Number(c.deviceCatId ?? c.id) === deviceCatId);
-          if (found) deviceCategoryName = String(found.deviceName ?? found.name ?? "").trim() || null;
-        } catch { /* ignore */ }
+          const found = cats.find(
+            (c) => Number(c.deviceCatId ?? c.id) === deviceCatId,
+          );
+          if (found)
+            deviceCategoryName =
+              String(found.deviceName ?? found.name ?? "").trim() || null;
+        } catch {
+          /* ignore */
+        }
       }
 
-      if (!deviceSubCategoryName && deviceCatId !== null && deviceSubCatId !== null) {
+      if (
+        !deviceSubCategoryName &&
+        deviceCatId !== null &&
+        deviceSubCatId !== null
+      ) {
         try {
-          const subCats: any[] = await getConsumableDeviceSubCategories(String(deviceCatId));
+          const subCats: any[] = await getConsumableDeviceSubCategories(
+            String(deviceCatId),
+          );
           const found = subCats.find(
-            (s) => Number(s.deviceSubCatId ?? s.subCategoryId ?? s.id) === deviceSubCatId,
+            (s) =>
+              Number(s.deviceSubCatId ?? s.subCategoryId ?? s.id) ===
+              deviceSubCatId,
           );
           if (found)
             deviceSubCategoryName =
-              String(found.deviceSubCatName ?? found.subCategoryName ?? found.name ?? "").trim() || null;
-        } catch { /* ignore */ }
+              String(
+                found.deviceSubCatName ??
+                  found.subCategoryName ??
+                  found.name ??
+                  "",
+              ).trim() || null;
+        } catch {
+          /* ignore */
+        }
       }
 
       return { deviceCategoryName, deviceSubCategoryName };
@@ -838,8 +1029,10 @@ const ProductView1 = ({
   useEffect(() => {
     if (!productData) return;
 
-    const resolvedCategoryId: number | null = productData?.categoryId ?? categoryIdProp ?? null;
-    const cosAttrRaw: CosmeticAttributes | null = extractCosmeticAttr(productData);
+    const resolvedCategoryId: number | null =
+      productData?.categoryId ?? categoryIdProp ?? null;
+    const cosAttrRaw: CosmeticAttributes | null =
+      extractCosmeticAttr(productData);
 
     // Only run for cosmetic products
     const isCosmetic =
@@ -858,19 +1051,19 @@ const ProductView1 = ({
         // ── Extract raw IDs from the attribute object (handle every casing variant) ──
         const productTypeIdStr = String(
           (cosAttrRaw as any).productCategoryId ??
-          (cosAttrRaw as any).productTypeId ??
-          ""
+            (cosAttrRaw as any).productTypeId ??
+            "",
         );
         const productSubTypeIdStr = String(
           (cosAttrRaw as any).productSubcategoryId ??
-          (cosAttrRaw as any).productSubTypeId ??
-          ""
+            (cosAttrRaw as any).productSubTypeId ??
+            "",
         );
         const ageGroupIdStr = String((cosAttrRaw as any).ageGroupId ?? "");
         const countryIdStr = String(
           (cosAttrRaw as any).countryId ??
-          (cosAttrRaw as any).countryOfOriginId ??
-          ""
+            (cosAttrRaw as any).countryOfOriginId ??
+            "",
         );
 
         // Raw array IDs for multi-select fields
@@ -881,7 +1074,11 @@ const ProductView1 = ({
           (cosAttrRaw as any).intendedUseAreas ?? // sometimes already strings, handled below
           []
         )
-          .filter((v: any) => typeof v === "number" || (typeof v === "string" && /^\d+$/.test(v)))
+          .filter(
+            (v: any) =>
+              typeof v === "number" ||
+              (typeof v === "string" && /^\d+$/.test(v)),
+          )
           .map(String);
 
         const rawSkinIds: string[] = (
@@ -891,7 +1088,11 @@ const ProductView1 = ({
           (cosAttrRaw as any).skinTypes ??
           []
         )
-          .filter((v: any) => typeof v === "number" || (typeof v === "string" && /^\d+$/.test(v)))
+          .filter(
+            (v: any) =>
+              typeof v === "number" ||
+              (typeof v === "string" && /^\d+$/.test(v)),
+          )
           .map(String);
 
         const rawHairIds: string[] = (
@@ -900,7 +1101,11 @@ const ProductView1 = ({
           (cosAttrRaw as any).hairTypes ??
           []
         )
-          .filter((v: any) => typeof v === "number" || (typeof v === "string" && /^\d+$/.test(v)))
+          .filter(
+            (v: any) =>
+              typeof v === "number" ||
+              (typeof v === "string" && /^\d+$/.test(v)),
+          )
           .map(String);
 
         // ── Fetch all needed masters in parallel ──
@@ -924,37 +1129,38 @@ const ProductView1 = ({
         const productTypeOpts = toSelectOpts(
           productTypesResult,
           ["categoryId", "productTypeId", "id"],
-          ["categoryName", "productTypeName", "name"]
+          ["categoryName", "productTypeName", "name"],
         );
         const ageGroupOpts = toSelectOpts(
           ageGroupsResult,
           ["ageGroupId", "id"],
-          ["ageGroupName", "name"]
+          ["ageGroupName", "name"],
         );
         const intendedOpts = toSelectOpts(
           intendedUseAreasResult,
           ["useAreaId", "id"],
-          ["useAreaName", "name"]
+          ["useAreaName", "name"],
         );
         const skinTypeOpts = toSelectOpts(
           skinTypesResult,
           ["skinTypeId", "id"],
-          ["skinTypeName", "name"]
+          ["skinTypeName", "name"],
         );
         const hairTypeOpts = toSelectOpts(
           hairTypesResult,
           ["hairTypeId", "id"],
-          ["hairTypeName", "name"]
+          ["hairTypeName", "name"],
         );
         const countryOpts = toSelectOpts(
           countriesResult,
           ["countryId", "id"],
-          ["countryName", "name"]
+          ["countryName", "name"],
         );
 
         // ── Resolve product type label ──
         const productTypeLabel =
-          productTypeOpts.find((o) => o.value === productTypeIdStr)?.label ?? null;
+          productTypeOpts.find((o) => o.value === productTypeIdStr)?.label ??
+          null;
 
         // ── Resolve sub-type (requires a separate API call with the parent type ID) ──
         let productSubTypeLabel: string | null = null;
@@ -979,7 +1185,8 @@ const ProductView1 = ({
               })
               .filter(Boolean) as { value: string; label: string }[];
             productSubTypeLabel =
-              subTypeOpts.find((o) => o.value === productSubTypeIdStr)?.label ?? null;
+              subTypeOpts.find((o) => o.value === productSubTypeIdStr)?.label ??
+              null;
           } catch {
             // leave null — not critical
           }
@@ -989,28 +1196,29 @@ const ProductView1 = ({
         const intendedUseArea =
           rawIntendedIds.length > 0
             ? rawIntendedIds
-              .map((id) => intendedOpts.find((o) => o.value === id)?.label)
-              .filter(Boolean)
-              .join(", ")
+                .map((id) => intendedOpts.find((o) => o.value === id)?.label)
+                .filter(Boolean)
+                .join(", ")
             : null;
 
         const skinPart =
           rawSkinIds.length > 0
             ? rawSkinIds
-              .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
-              .filter(Boolean)
-              .join(", ")
+                .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
+                .filter(Boolean)
+                .join(", ")
             : null;
 
         const hairPart =
           rawHairIds.length > 0
             ? rawHairIds
-              .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
-              .filter(Boolean)
-              .join(", ")
+                .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
+                .filter(Boolean)
+                .join(", ")
             : null;
 
-        const skinHairType = [skinPart, hairPart].filter(Boolean).join(", ") || null;
+        const skinHairType =
+          [skinPart, hairPart].filter(Boolean).join(", ") || null;
 
         // ── Resolve scalar fields that have inconsistent casing in the API ──
         const variantName =
@@ -1019,9 +1227,7 @@ const ProductView1 = ({
           null;
 
         const gender =
-          (cosAttrRaw as any).Gender ??
-          (cosAttrRaw as any).gender ??
-          null;
+          (cosAttrRaw as any).Gender ?? (cosAttrRaw as any).gender ?? null;
 
         const activeIngredients =
           (cosAttrRaw as any).ActiveIngredients ??
@@ -1051,7 +1257,9 @@ const ProductView1 = ({
           // Overwrite with resolved label strings
           productType: productTypeLabel ?? cosAttrRaw.productType,
           productSubtype: productSubTypeLabel ?? cosAttrRaw.productSubtype,
-          ageGroup: ageGroupOpts.find((o) => o.value === ageGroupIdStr)?.label ?? cosAttrRaw.ageGroup,
+          ageGroup:
+            ageGroupOpts.find((o) => o.value === ageGroupIdStr)?.label ??
+            cosAttrRaw.ageGroup,
           intendedUseArea: intendedUseArea ?? cosAttrRaw.intendedUseArea,
           skinHairType: skinHairType ?? cosAttrRaw.skinHairType,
           countryOfOrigin:
@@ -1062,12 +1270,17 @@ const ProductView1 = ({
           variantName: variantName ?? cosAttrRaw.variantName,
           gender: gender ?? cosAttrRaw.gender,
           activeIngredients: activeIngredients ?? cosAttrRaw.activeIngredients,
-          netQuantityStrength: netQuantityStrength ?? cosAttrRaw.netQuantityStrength,
+          netQuantityStrength:
+            netQuantityStrength ?? cosAttrRaw.netQuantityStrength,
           productClaims: productClaims ?? cosAttrRaw.productClaims,
-          warningsPrecautions: warningsPrecautions ?? cosAttrRaw.warningsPrecautions,
+          warningsPrecautions:
+            warningsPrecautions ?? cosAttrRaw.warningsPrecautions,
         });
       } catch (err) {
-        console.error("[ProductView] Failed to resolve cosmetic master labels:", err);
+        console.error(
+          "[ProductView] Failed to resolve cosmetic master labels:",
+          err,
+        );
         // Fallback: pass raw attr so the view at least renders whatever it has
         setResolvedCosAttr(cosAttrRaw);
       } finally {
@@ -1081,7 +1294,9 @@ const ProductView1 = ({
      DERIVED VALUES
   ───────────────────────────────────────────────────── */
 
-  const packaging: PackagingDetails | undefined = Array.isArray(productData?.packagingDetails)
+  const packaging: PackagingDetails | undefined = Array.isArray(
+    productData?.packagingDetails,
+  )
     ? productData?.packagingDetails[0]
     : productData?.packagingDetails;
 
@@ -1090,7 +1305,7 @@ const ProductView1 = ({
   const ncAttr: NonConsumableAttributes | null =
     (productData?.productAttributeNonConsumableMedicals ?? []).length > 0
       ? productData!.productAttributeNonConsumableMedicals![0]
-      : productData?.nonConsumableAttributes ?? null;
+      : (productData?.nonConsumableAttributes ?? null);
 
   const consAttr: ConsumableAttributes | null =
     (productData?.productAttributeConsumableMedicals ?? []).length > 0
@@ -1100,7 +1315,7 @@ const ProductView1 = ({
   const drugEntry: DrugAttributeEntry | null =
     (productData?.productAttributeDrugs ?? []).length > 0
       ? productData!.productAttributeDrugs![0]
-      : productData?.drugAttributes ?? null;
+      : (productData?.drugAttributes ?? null);
 
   const suppAttr: any | null =
     (productData?.productAttributeSupplementsOrNutraceuticals ?? []).length > 0
@@ -1117,7 +1332,8 @@ const ProductView1 = ({
     ? extractCosmeticAttr(productData)
     : null;
 
-  const resolvedCategoryId: number | null = productData?.categoryId ?? categoryIdProp ?? null;
+  const resolvedCategoryId: number | null =
+    productData?.categoryId ?? categoryIdProp ?? null;
 
   const isConsumable =
     resolvedCategoryId === 5 ||
@@ -1127,7 +1343,10 @@ const ProductView1 = ({
     (resolvedCategoryId == null && ncAttr !== null && !isConsumable);
   const isCosmetic =
     resolvedCategoryId === 4 ||
-    (resolvedCategoryId == null && cosAttrRaw !== null && !isConsumable && !isNonConsumable);
+    (resolvedCategoryId == null &&
+      cosAttrRaw !== null &&
+      !isConsumable &&
+      !isNonConsumable);
   const isDrug =
     resolvedCategoryId === 1 ||
     (resolvedCategoryId == null &&
@@ -1154,7 +1373,8 @@ const ProductView1 = ({
       !isSupplement &&
       !isCosmetic);
 
-  const primaryMoleculeId: number | null = (drugEntry?.molecules ?? [])[0]?.moleculeId ?? null;
+  const primaryMoleculeId: number | null =
+    (drugEntry?.molecules ?? [])[0]?.moleculeId ?? null;
 
   const molecules = (drugEntry?.molecules ?? []).map((m, idx) => {
     const id = m.moleculeId;
@@ -1169,33 +1389,40 @@ const ProductView1 = ({
         : idx === 0
           ? drugEntry?.molecule1Strength
           : drugEntry?.molecule2Strength;
-    return { ...m, resolvedName: name ?? "—", resolvedStrength: formatStrength(strength) };
+    return {
+      ...m,
+      resolvedName: name ?? "—",
+      resolvedStrength: formatStrength(strength),
+    };
   });
 
   const moleculesToDisplay =
     molecules.length > 0
       ? molecules
-      : (
-        [
+      : ([
           drugEntry?.molecule1Name || drugEntry?.molecule1Strength
             ? {
-              resolvedName: drugEntry?.molecule1Name ?? "—",
-              resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
-            }
+                resolvedName: drugEntry?.molecule1Name ?? "—",
+                resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
+              }
             : null,
           drugEntry?.molecule2Name || drugEntry?.molecule2Strength
             ? {
-              resolvedName: drugEntry?.molecule2Name ?? "—",
-              resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
-            }
+                resolvedName: drugEntry?.molecule2Name ?? "—",
+                resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
+              }
             : null,
-        ].filter(Boolean) as { resolvedName: string; resolvedStrength: string }[]
-      );
+        ].filter(Boolean) as {
+          resolvedName: string;
+          resolvedStrength: string;
+        }[]);
 
   const drugSchedule =
     drugEntry?.drugSchedule ??
     productData?.drugSchedule ??
-    (primaryMoleculeId != null ? lookups.moleculeDetailMap[primaryMoleculeId]?.drugSchedule : null) ??
+    (primaryMoleculeId != null
+      ? lookups.moleculeDetailMap[primaryMoleculeId]?.drugSchedule
+      : null) ??
     null;
 
   const mechanismOfAction =
@@ -1211,14 +1438,20 @@ const ProductView1 = ({
     drugEntry?.purpose ??
     ncAttr?.purpose ??
     suppAttr?.intendedUse ??
-    (primaryMoleculeId != null ? lookups.moleculeDetailMap[primaryMoleculeId]?.primaryUse : null) ??
+    (primaryMoleculeId != null
+      ? lookups.moleculeDetailMap[primaryMoleculeId]?.primaryUse
+      : null) ??
     null;
 
   const resolvedPackType =
     lookups.packTypeName ||
     packaging?.packTypeName?.trim() ||
     packaging?.packType?.trim() ||
-    (lookups.loading ? "Loading…" : packaging?.packId != null ? `Pack #${packaging.packId}` : null);
+    (lookups.loading
+      ? "Loading…"
+      : packaging?.packId != null
+        ? `Pack #${packaging.packId}`
+        : null);
 
   const storageCondition: string | null =
     lookups.storageConditionName ??
@@ -1273,37 +1506,52 @@ const ProductView1 = ({
     null;
 
   const gstPercentage =
-    pricing?.gstPercentage ?? drugEntry?.gstPercentage ?? productData?.gstPercentage ?? null;
+    pricing?.gstPercentage ??
+    drugEntry?.gstPercentage ??
+    productData?.gstPercentage ??
+    null;
 
-  const hsnCode = pricing?.hsnCode ?? drugEntry?.hsnCode ?? productData?.hsnCode ?? null;
+  const hsnCode =
+    pricing?.hsnCode ?? drugEntry?.hsnCode ?? productData?.hsnCode ?? null;
 
   const shelfLifeDisplay =
     pricing?.shelfLifeMonths != null
       ? `${pricing.shelfLifeMonths} months`
-      : consAttr?.shelfLife ?? drugEntry?.shelfLife ?? null;
+      : (consAttr?.shelfLife ?? drugEntry?.shelfLife ?? null);
 
   // Batch Aggregation logic: scan all batches for offers
-  const additionalDiscounts: AdditionalDiscount[] = (productData?.pricingDetails ?? [])
+  const additionalDiscounts: AdditionalDiscount[] = (
+    productData?.pricingDetails ?? []
+  )
     .flatMap((p: any) => p.additionalDiscounts || [])
-    .filter((d: any) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage)
-    .filter((d: any, index: number, self: any[]) =>
-      index === self.findIndex((t) =>
-        t.minimumPurchaseQuantity === d.minimumPurchaseQuantity &&
-        t.additionalDiscountPercentage === d.additionalDiscountPercentage
-      )
+    .filter(
+      (d: any) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage,
+    )
+    .filter(
+      (d: any, index: number, self: any[]) =>
+        index ===
+        self.findIndex(
+          (t) =>
+            t.minimumPurchaseQuantity === d.minimumPurchaseQuantity &&
+            t.additionalDiscountPercentage === d.additionalDiscountPercentage,
+        ),
     );
 
-  const unitsPerPack = packaging?.unitPerPack ?? packaging?.unitsPerPack ?? packaging?.numberOfUnits;
+  const unitsPerPack =
+    packaging?.unitPerPack ??
+    packaging?.unitsPerPack ??
+    packaging?.numberOfUnits;
 
   const packSizeDisplay =
     packaging?.numberOfPacks != null && unitsPerPack != null
       ? `${packaging.numberOfPacks} packs × ${unitsPerPack} units = ${(
-        packaging.numberOfPacks * unitsPerPack
-      ).toLocaleString()} units`
+          packaging.numberOfPacks * unitsPerPack
+        ).toLocaleString()} units`
       : null;
 
   const productImages = resolveProductImages(productData);
-  const displayImages = productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
+  const displayImages =
+    productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
 
   const brochureUrl: string | null =
     validUrl(drugEntry?.brochurePath) ??
@@ -1328,20 +1576,40 @@ const ProductView1 = ({
 
   const handleClose = () => setCurrentView("overview" as DashboardView);
   const handleEdit = () => {
-    const editView = resolvedCategoryId != null ? CATEGORY_EDIT_VIEW[resolvedCategoryId] : null;
+    const editView =
+      resolvedCategoryId != null
+        ? CATEGORY_EDIT_VIEW[resolvedCategoryId]
+        : null;
     setCurrentView(editView ?? ("editDrug" as DashboardView));
   };
 
   /* ─────────────────────────────────────────────────────
      LOADING / EMPTY STATES
   ───────────────────────────────────────────────────── */
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   if (loading) {
     return (
-      <div style={{ width: "100%", background: "var(--base-white)", borderRadius: 16, padding: 24 }}>
+      <div
+        style={{
+          width: "100%",
+          background: "var(--base-white)",
+          borderRadius: 16,
+          padding: 24,
+        }}
+      >
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ height: 256, background: "#F5F5F5", borderRadius: 12 }} />
-          <div style={{ height: 24, background: "#F5F5F5", borderRadius: 6, width: "66%" }} />
+          <div
+            style={{ height: 256, background: "#F5F5F5", borderRadius: 12 }}
+          />
+          <div
+            style={{
+              height: 24,
+              background: "#F5F5F5",
+              borderRadius: 6,
+              width: "66%",
+            }}
+          />
         </div>
       </div>
     );
@@ -1414,7 +1682,9 @@ const ProductView1 = ({
               margin: 0,
             }}
           >
-            {productData.productName ? `${productData.productName} Preview` : "Product Preview"}
+            {productData.productName
+              ? `${productData.productName} Preview`
+              : "Product Preview"}
           </h1>
           <p
             style={{
@@ -1499,12 +1769,12 @@ const ProductView1 = ({
           nonConsAttr={
             ncAttr
               ? {
-                ...ncAttr,
-                safetyInstructions:
-                  ncAttr.safetyInstructions ??
-                  productData.warningsPrecautions ??
-                  undefined,
-              }
+                  ...ncAttr,
+                  safetyInstructions:
+                    ncAttr.safetyInstructions ??
+                    productData.warningsPrecautions ??
+                    undefined,
+                }
               : null
           }
           storageConditionName={storageCondition}
@@ -1516,10 +1786,17 @@ const ProductView1 = ({
       )}
 
       {/* Cosmetic & Personal Care (category 4) */}
-      {isCosmetic && (
-        cosAttrLoading ? (
+      {isCosmetic &&
+        (cosAttrLoading ? (
           // Show a subtle inline spinner while master labels are resolving
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "48px 0" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: "48px 0",
+            }}
+          >
             <div
               style={{
                 width: 32,
@@ -1543,48 +1820,229 @@ const ProductView1 = ({
             brochureUrl={brochureUrl}
             placeholderImage={PLACEHOLDER_IMAGE}
           />
-        )
-      )}
+        ))}
 
       {/* Drug (category 1) */}
       {isDrug && (
-        <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ paddingTop: 8, paddingBottom: 8, borderBottom: "1px #D5D5D4 solid" }}>
-            <h2 style={{ color: "#1E1E1D", fontSize: 28, fontFamily: "'Work Sans', sans-serif", fontWeight: 500, lineHeight: "36px", margin: 0 }}>
+        <div
+          style={{
+            alignSelf: "stretch",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
+          <div
+            style={{
+              paddingTop: 8,
+              paddingBottom: 8,
+              borderBottom: "1px #D5D5D4 solid",
+            }}
+          >
+            <h2
+              style={{
+                color: "#1E1E1D",
+                fontSize: 28,
+                fontFamily: "'Work Sans', sans-serif",
+                fontWeight: 500,
+                lineHeight: "36px",
+                margin: 0,
+              }}
+            >
               Product Details
             </h2>
+
+            <div className="w-full rounded-xl border border-primary-600 p-4 bg-white mt-4 space-y-3">
+              <div className="text-label-l4 font-medium text-pneutral-900">
+                Product Images
+              </div>
+
+              <div className="grid grid-cols-4 gap-4">
+                {displayImages.slice(0, 4).map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="relative h-67.5 overflow-hidden rounded-xl bg-[#F5F5F5]"
+                  >
+                    <img
+                      src={img}
+                      alt={`Product image ${idx + 1}`}
+                      className="w-67.5 h-67.5 object-cover rounded-xl"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src =
+                          PLACEHOLDER_IMAGE;
+                      }}
+                    />
+
+                    {idx === 0 && (
+                      <div className="absolute top-3 left-3 w-15 h-6.5 bg-primary-600 text-center rounded-md">
+                        <span className="text-white text-xs font-normal">
+                          Primary
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {Array.from({
+                  length: Math.max(0, 4 - displayImages.length),
+                }).map((_, i) => (
+                  <div
+                    key={`empty-${i}`}
+                    className="h-67.5 rounded-xl bg-[#F5F5F5]"
+                  />
+                ))}
+              </div>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
-            <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-              <FieldRow label="Product Name" value={productData.productName} multiline />
-              <FieldRow label="Therapeutic Category" value={therapeuticCategory} />
-              <FieldRow label="Therapeutic Subcategory" value={therapeuticSubcategory} />
-              <FieldRow label="Dosage Form (Tablet, Syrup)" value={dosageForm} />
+            <div
+              style={{
+                flex: "1 1 0",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <FieldRow
+                label="Product Name"
+                value={productData.productName}
+                multiline
+              />
+              <FieldRow
+                label="Therapeutic Category"
+                value={therapeuticCategory}
+              />
+              <FieldRow
+                label="Therapeutic Subcategory"
+                value={therapeuticSubcategory}
+              />
+              <FieldRow
+                label="Dosage Form (Tablet, Syrup)"
+                value={dosageForm}
+              />
               {moleculesToDisplay.map((mol, idx) => (
                 <div key={idx} style={{ ...ROW, alignItems: "center" }}>
                   <div style={ROW_LABEL}>
                     <span style={LABEL_TEXT}>
-                      {moleculesToDisplay.length === 1 ? "Molecule" : `Molecule ${idx + 1}`}
+                      {moleculesToDisplay.length === 1
+                        ? "Molecule"
+                        : `Molecule ${idx + 1}`}
                     </span>
                     <span style={REQUIRED_STAR}>*</span>
                   </div>
-                  <div style={{ flex: "1 1 0", display: "flex", gap: 16, justifyContent: "flex-end", alignItems: "center" }}>
+                  <div
+                    style={{
+                      flex: "1 1 0",
+                      display: "flex",
+                      gap: 16,
+                      justifyContent: "flex-end",
+                      alignItems: "center",
+                    }}
+                  >
                     <span style={{ ...VALUE_TEXT, textAlign: "right" }}>
-                      {lookups.loading && !mol.resolvedName ? "Loading…" : mol.resolvedName}
+                      {lookups.loading && !mol.resolvedName
+                        ? "Loading…"
+                        : mol.resolvedName}
                     </span>
-                    <span style={{ color: "#3C3D3A", fontSize: 16, fontFamily: "'Noto Sans', sans-serif", fontWeight: 700, lineHeight: "24px" }}>
+                    <span
+                      style={{
+                        color: "#3C3D3A",
+                        fontSize: 16,
+                        fontFamily: "'Noto Sans', sans-serif",
+                        fontWeight: 700,
+                        lineHeight: "24px",
+                      }}
+                    >
                       {mol.resolvedStrength}
                     </span>
                   </div>
                 </div>
               ))}
               <FieldRow label="Drug Schedule" value={drugSchedule} />
-              <FieldRow label="Mechanism of Action (MoA)" value={mechanismOfAction} multiline />
-              <FieldRow label="Storage Condition" value={storageCondition} multiline />
+              <FieldRow
+                label="Mechanism of Action (MoA)"
+                value={mechanismOfAction}
+                multiline
+              />
+              <FieldRow
+                label="Storage Condition"
+                value={storageCondition}
+                multiline
+              />
             </div>
-            <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
+            <div
+              style={{
+                flex: "1 1 0",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
               <FieldRow label="Primary Use" value={primaryUse} />
               <FieldRow label="Manufacturer Name" value={manufacturerName} />
+
+              <div className="px-4 pt-3 pb-2 border-b border-pneutral-200 flex flex-col gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="text-pneutral-500 text-base font-medium leading-6">
+                    Uploaded User Manual
+                  </span>
+
+                  <span className="text-warning-500 text-base font-medium leading-6">
+                    *
+                  </span>
+                </div>
+
+                {brochureUrl ? (
+                  <a
+                    href={brochureUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-3 p-3 bg-pneutral-50 rounded-lg no-underline"
+                  >
+                    <FileText size={24} color="var(--pneutral-800)" />
+
+                    <span className="text-pneutral-800 text-base font-normal leading-[22px] break-all">
+                      {decodeURIComponent(
+                        brochureUrl.split("/").pop()?.split("?")[0] ||
+                          "user-manual.pdf",
+                      )}
+                    </span>
+                  </a>
+                ) : (
+                  <div className="flex items-center gap-3 p-3 bg-pneutral-50 rounded-lg">
+                    <FileText size={24} color="var(--pneutral-800)" />
+
+                    <span className="text-pneutral-500 text-base font-normal leading-[22px]">
+                      No user manual uploaded
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="w-full px-5 py-4 border-b border-[#D5D5D4] flex flex-col items-start gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="text-pneutral-700 text-base font-normal leading-6">
+                    Warnings & Precautions
+                  </span>
+
+                  <span className="text-[#FF3B30] text-base">*</span>
+                </div>
+
+                <p className="w-full text-left whitespace-pre-wrap text-pneutral-800 text-base font-normal  m-0">
+                  {warningsPrecautions ?? "—"}
+                </p>
+              </div>
+              <div className="w-full px-5 py-4 border-b border-[#D5D5D4] flex flex-col items-start gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="text-pneutral-700 text-base font-normal leading-6">
+                    Product Description
+                  </span>
+
+                  <span className="text-[#FF3B30] text-base">*</span>
+                </div>
+
+                <p className="w-full text-left whitespace-pre-wrap text-pneutral-800 text-base font-normal  m-0">
+                  {productDescription ?? "—"}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -1620,25 +2078,45 @@ const ProductView1 = ({
       )}
       {console.log("FoodAttr from ProductView1:", {
         nutritionalInformation: foodAttr?.nutritionalInformation,
-        nutritionalInformationImageUrl: foodAttr?.nutritionalInformationImageUrl,
+        nutritionalInformationImageUrl:
+          foodAttr?.nutritionalInformationImageUrl,
       })}
 
       {/* ── SPECIAL OFFERS (if any) ── */}
-      {specialOffers.length > 0 && <SpecialOffersSection offers={specialOffers} />}
+      {specialOffers.length > 0 && (
+        <SpecialOffersSection offers={specialOffers} />
+      )}
 
       {/* ── PACKAGING & ORDER DETAILS ── */}
-      <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div
+        style={{
+          alignSelf: "stretch",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+        }}
+      >
         <SectionTitle>Packaging &amp; Order Details</SectionTitle>
         <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
-          <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
+          <div
+            style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}
+          >
             <FieldRow label="Pack Type" value={resolvedPackType} />
             <FieldRow
               label="Number of Units per Pack Type"
-              value={packaging?.numberOfUnits ?? packaging?.unitPerPack ?? packaging?.unitsPerPack}
+              value={
+                packaging?.numberOfUnits ??
+                packaging?.unitPerPack ??
+                packaging?.unitsPerPack
+              }
             />
             <FieldRow
               label="Number of Packs"
-              value={packaging?.numberOfPacks != null ? `${packaging.numberOfPacks} Box` : null}
+              value={
+                packaging?.numberOfPacks != null
+                  ? `${packaging.numberOfPacks} Box`
+                  : null
+              }
             />
             <FieldRow
               label="Pack Size (No. of packs × No. of Units per pack type)"
@@ -1646,27 +2124,63 @@ const ProductView1 = ({
               multiline
             />
           </div>
-          <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
+          <div
+            style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}
+          >
             <div style={{ padding: "8px", borderBottom: "1px #D5D5D4 solid" }}>
-              <span style={{ color: "#1E1E1D", fontSize: 20, fontFamily: "'Work Sans', sans-serif", fontWeight: 500, lineHeight: "28px" }}>
+              <span
+                style={{
+                  color: "#1E1E1D",
+                  fontSize: 20,
+                  fontFamily: "'Work Sans', sans-serif",
+                  fontWeight: 500,
+                  lineHeight: "28px",
+                }}
+              >
                 Order Details
               </span>
             </div>
-            <FieldRow label="Min Order Qty" value={packaging?.minimumOrderQuantity} />
-            <FieldRow label="Max Order Qty" value={packaging?.maximumOrderQuantity} />
+            <FieldRow
+              label="Min Order Qty"
+              value={packaging?.minimumOrderQuantity}
+            />
+            <FieldRow
+              label="Max Order Qty"
+              value={packaging?.maximumOrderQuantity}
+            />
           </div>
         </div>
       </div>
 
       {/* ── BATCH MANAGEMENT + PRICING ── */}
-      <div style={{ display: "flex", gap: 36, alignItems: "flex-start", alignSelf: "stretch" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 36,
+          alignItems: "flex-start",
+          alignSelf: "stretch",
+        }}
+      >
         {/* Batch Management */}
-        <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div
+          style={{
+            flex: "1 1 0",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
           <SectionTitle>Batch Management</SectionTitle>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <FieldRow label="Batch Number" value={pricing?.batchLotNumber} />
-            <FieldRow label="Manufacturing Date" value={formatDate(pricing?.manufacturingDate)} />
-            <FieldRow label="Expiry Date" value={formatDate(pricing?.expiryDate)} />
+            <FieldRow
+              label="Manufacturing Date"
+              value={formatDate(pricing?.manufacturingDate)}
+            />
+            <FieldRow
+              label="Expiry Date"
+              value={formatDate(pricing?.expiryDate)}
+            />
             <FieldRow
               label="Stock Quantity (in terms of Pack Size)"
               value={
@@ -1675,32 +2189,60 @@ const ProductView1 = ({
                   : null
               }
             />
-            <FieldRow label="Date of Stock Entry" value={formatDate(pricing?.dateOfStockEntry)} />
+            <FieldRow
+              label="Date of Stock Entry"
+              value={formatDate(pricing?.dateOfStockEntry)}
+            />
             <FieldRow label="Shelf Life" value={shelfLifeDisplay} />
           </div>
         </div>
 
         {/* Pricing */}
-        <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div
+          style={{
+            flex: "1 1 0",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
           <SectionTitle>Pricing</SectionTitle>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <FieldRow
               label="MRP (per Pack Size)"
-              value={pricing?.mrp != null ? `₹${pricing.mrp.toLocaleString()}` : null}
+              value={
+                pricing?.mrp != null ? `₹${pricing.mrp.toLocaleString()}` : null
+              }
             />
             <FieldRow
               label="Selling Price (per Pack Size)"
-              value={pricing?.sellingPrice != null ? `₹${pricing.sellingPrice.toLocaleString()}` : null}
+              value={
+                pricing?.sellingPrice != null
+                  ? `₹${pricing.sellingPrice.toLocaleString()}`
+                  : null
+              }
             />
             <FieldRow
               label="Discount Percentage"
-              value={pricing?.discountPercentage != null ? `${pricing.discountPercentage}%` : null}
+              value={
+                pricing?.discountPercentage != null
+                  ? `${pricing.discountPercentage}%`
+                  : null
+              }
             />
 
             {additionalDiscounts.length > 0 && (
               <>
                 <div style={{ padding: "12px 8px 8px" }}>
-                  <span style={{ color: "#5A5B58", fontSize: 18, fontFamily: "'Work Sans', sans-serif", fontWeight: 500, lineHeight: "24px" }}>
+                  <span
+                    style={{
+                      color: "#5A5B58",
+                      fontSize: 18,
+                      fontFamily: "'Work Sans', sans-serif",
+                      fontWeight: 500,
+                      lineHeight: "24px",
+                    }}
+                  >
                     Additional Scheme Applied
                   </span>
                 </div>
@@ -1719,15 +2261,39 @@ const ProductView1 = ({
                       }}
                     >
                       <div style={{ flex: 1 }}>
-                        <p style={{ color: "#5A5B58", fontSize: 14, fontFamily: "'Work Sans', sans-serif", fontWeight: 400, lineHeight: "20px", margin: 0 }}>
-                          {`Bulk order discount (${d.minimumPurchaseQuantity}${d.maximumPurchaseQuantity ? `-${d.maximumPurchaseQuantity}` : "+"
-                            } units)${startDate && endDate
+                        <p
+                          style={{
+                            color: "#5A5B58",
+                            fontSize: 14,
+                            fontFamily: "'Work Sans', sans-serif",
+                            fontWeight: 400,
+                            lineHeight: "20px",
+                            margin: 0,
+                          }}
+                        >
+                          {`Bulk order discount (${d.minimumPurchaseQuantity}${
+                            d.maximumPurchaseQuantity
+                              ? `-${d.maximumPurchaseQuantity}`
+                              : "+"
+                          } units)${
+                            startDate && endDate
                               ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
                               : ""
-                            }`}
+                          }`}
                         </p>
                       </div>
-                      <span style={{ color: "#3C3D3A", fontSize: 16, fontFamily: "'Noto Sans', sans-serif", fontWeight: 600, lineHeight: "24px", textAlign: "right", flexShrink: 0, paddingLeft: 16 }}>
+                      <span
+                        style={{
+                          color: "#3C3D3A",
+                          fontSize: 16,
+                          fontFamily: "'Noto Sans', sans-serif",
+                          fontWeight: 600,
+                          lineHeight: "24px",
+                          textAlign: "right",
+                          flexShrink: 0,
+                          paddingLeft: 16,
+                        }}
+                      >
                         {d.additionalDiscountPercentage}%
                       </span>
                     </div>
@@ -1740,14 +2306,27 @@ const ProductView1 = ({
       </div>
 
       {/* ── TAX & BILLING ── */}
-      <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div
+        style={{
+          alignSelf: "stretch",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+        }}
+      >
         <SectionTitle>TAX &amp; BILLING</SectionTitle>
         <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
           <div style={{ flex: "1 1 0" }}>
-            <FieldRow label="GST %" value={gstPercentage != null ? `${gstPercentage}%` : null} />
+            <FieldRow
+              label="GST %"
+              value={gstPercentage != null ? `${gstPercentage}%` : null}
+            />
           </div>
           <div style={{ flex: "1 1 0" }}>
-            <FieldRow label="HSN Code" value={hsnCode != null ? String(hsnCode) : null} />
+            <FieldRow
+              label="HSN Code"
+              value={hsnCode != null ? String(hsnCode) : null}
+            />
           </div>
         </div>
       </div>
@@ -1756,4 +2335,3 @@ const ProductView1 = ({
 };
 
 export default ProductView1;
-
