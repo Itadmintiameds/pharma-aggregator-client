@@ -273,7 +273,9 @@ const resolveField = (
   if (!obj) return null;
   for (const key of keys) {
     const val = obj[key];
-    if (val != null && typeof val === "string" && val.trim() !== "") return val.trim();
+    if (val == null) continue;
+    if (typeof val === "string" && val.trim() !== "") return val.trim();
+    if (typeof val === "number" && !isNaN(val)) return String(val);
   }
   return null;
 };

@@ -25,7 +25,8 @@ import {
   uploadProductImages,
 } from "@/src/services/product/ProductService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
-import { AlertCircle, FileText, RefreshCw, X } from "lucide-react";
+import { AlertCircle, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Select from "react-select";
 import CommonModal from "../commonComponent/CommonModal";
@@ -374,62 +375,11 @@ const NonEditableSelect = ({ label, value, required }: { label: string; value: s
   </div>
 );
 
-// ─── Submit progress overlay ──────────────────────────────────────────────────
-
-interface SubmitStep {
-  key: string;
-  label: string;
-  status: "pending" | "running" | "done" | "error";
-}
-
-const SubmitProgressOverlay = ({ steps }: { steps: SubmitStep[] }) => (
-  <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
-    <div className="bg-white rounded-2xl shadow-2xl p-8 w-80 flex flex-col gap-4">
-      <p className="text-lg font-semibold text-neutral-800">Saving product…</p>
-      <div className="flex flex-col gap-3">
-        {steps.map((step) => (
-          <div key={step.key} className="flex items-center gap-3">
-            {step.status === "running" && (
-              <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-            )}
-            {step.status === "done" && (
-              <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            )}
-            {step.status === "error" && (
-              <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
-                <X size={10} className="text-white" />
-              </div>
-            )}
-            {step.status === "pending" && (
-              <div className="w-5 h-5 rounded-full border-2 border-neutral-300 flex-shrink-0" />
-            )}
-            <span
-              className={`text-sm ${
-                step.status === "running"
-                  ? "text-purple-700 font-semibold"
-                  : step.status === "done"
-                    ? "text-green-700"
-                    : step.status === "error"
-                      ? "text-red-600 font-semibold"
-                      : "text-neutral-400"
-              }`}
-            >
-              {step.label}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticFormProps) => {
+  const router = useRouter();
   const todayStr = new Date().toISOString().split("T")[0];
 
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -532,11 +482,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
   // ─── Skin/Hair rule ───────────────────────────────────────────────────────────
   const [skinHairRule, setSkinHairRule] = useState<SkinHairRule>({ skinType: "optional", hairType: "optional" });
-
-  // ─── Submit progress ──────────────────────────────────────────────────────────
-  const [submitSteps, setSubmitSteps] = useState<SubmitStep[]>([]);
-  const updateStep = (key: string, status: SubmitStep["status"]) =>
-    setSubmitSteps((prev) => prev.map((s) => s.key === key ? { ...s, status } : s));
 
   // ─── Errors / modals ──────────────────────────────────────────────────────────
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -1038,7 +983,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }
     const maxLengths: Record<string, number> = {
       productName: 150, brandName: 60, variantName: 60,
-      manufacturerName: 100, productDescription: 1000,
+      manufacturerName: 100, productDescription: 1000, batchNumber: 20,
     };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
@@ -1201,6 +1146,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       const bNum = form.batchNumber.trim();
       if (!bNum) e.batchNumber = "Batch number is required";
       else if (!/^[a-zA-Z0-9]+$/.test(bNum)) e.batchNumber = "Batch number must be alphanumeric only";
+      else if (bNum.length < 3) e.batchNumber = "Batch number must be at least 3 characters";
+      else if (bNum.length > 20) e.batchNumber = "Batch number must not exceed 20 characters";
 
       if (!form.manufacturingDate) e.manufacturingDate = "Manufacturing date is required";
       else {
@@ -1278,14 +1225,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     const hasBrochureUpload = !!brochureFile;
     const hasImageUpload = images.length > 0;
 
-    const initialSteps: SubmitStep[] = [
-      { key: "create", label: "Creating product record", status: "pending" },
-      ...(hasImageUpload ? [{ key: "images", label: "Uploading product images", status: "pending" as const }] : []),
-      ...certsToUpload.map((c) => ({ key: `cert-${c.id}`, label: `Uploading certificate: ${c.label}`, status: "pending" as const })),
-      ...(hasBrochureUpload ? [{ key: "brochure", label: "Uploading brochure", status: "pending" as const }] : []),
-    ];
-
-    setSubmitSteps(initialSteps);
     setSubmitting(true);
 
     const payload = {
@@ -1369,40 +1308,29 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       const currentAttributeId = productAttributeId;
 
       try {
-        updateStep("create", "running");
         await updateProduct(currentProductId, payload as never);
-        updateStep("create", "done");
 
         if (hasImageUpload) {
-          updateStep("images", "running");
           await uploadProductImages(currentProductId, images);
-          updateStep("images", "done");
         }
 
         if (currentAttributeId) {
           for (const cert of certsToUpload) {
-            updateStep(`cert-${cert.id}`, "running");
             const result = await uploadCosmeticCertificate(currentAttributeId, cert.productCertificateDocumentId, cert.file!);
             if (!result.success) {
-              updateStep(`cert-${cert.id}`, "error");
               throw new Error(`Failed to upload certificate "${cert.label}": ${result.message}`);
             }
-            updateStep(`cert-${cert.id}`, "done");
           }
 
           if (hasBrochureUpload) {
-            updateStep("brochure", "running");
             const result = await uploadCosmeticBrochure(currentAttributeId, brochureFile!);
             if (!result.success) {
-              updateStep("brochure", "error");
               throw new Error(`Failed to upload brochure: ${result.message}`);
             }
-            updateStep("brochure", "done");
           }
         }
 
         setSubmitting(false);
-        setSubmitSteps([]);
         alert("Product updated successfully!");
         if (onSubmitSuccess) onSubmitSuccess();
         else window.location.reload();
@@ -1411,7 +1339,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         console.error("Edit submit error:", err);
         setApiError(`Failed to update product: ${msg}`);
         setSubmitting(false);
-        setSubmitSteps([]);
       }
       return;
     }
@@ -1430,14 +1357,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     };
 
     try {
-      updateStep("create", "running");
       const createData: ApiResponseData = await createCosmeticProduct(payload as Record<string, unknown>);
 
       const dataInner = (createData?.data ?? createData) as ApiResponseData;
       createdProductId = String(dataInner?.productId ?? "").trim();
 
       if (!createdProductId || createdProductId === "undefined") {
-        updateStep("create", "error");
         throw new Error("Server did not return a product ID. The product was not created.");
       }
 
@@ -1453,12 +1378,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       }
 
       if (!createdAttributeId) {
-        updateStep("create", "error");
         await rollback();
         throw new Error("The product attribute data was not saved by the server.");
       }
 
-      updateStep("create", "done");
       setResolvedProductId(createdProductId);
       setProductAttributeId(createdAttributeId);
 
@@ -1471,54 +1394,43 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       }
 
       if (hasImageUpload) {
-        updateStep("images", "running");
         try {
           await uploadProductImages(createdProductId, images);
-          updateStep("images", "done");
         } catch (imgErr) {
-          updateStep("images", "error");
           await rollback();
           throw new Error(`Image upload failed: ${imgErr instanceof Error ? imgErr.message : "unknown error"}`);
         }
       }
 
       for (const cert of certsToUpload) {
-        updateStep(`cert-${cert.id}`, "running");
         const certIdNum = Number(cert.id);
         const docId = certDocMap.get(certIdNum) ?? cert.productCertificateDocumentId;
         try {
           const result = await uploadCosmeticCertificate(createdAttributeId, docId, cert.file!);
           if (!result.success) throw new Error(result.message);
-          updateStep(`cert-${cert.id}`, "done");
         } catch (certErr) {
-          updateStep(`cert-${cert.id}`, "error");
           await rollback();
           throw new Error(`Certificate upload failed for "${cert.label}"`);
         }
       }
 
       if (hasBrochureUpload) {
-        updateStep("brochure", "running");
         try {
           const result = await uploadCosmeticBrochure(createdAttributeId, brochureFile!);
           if (!result.success) throw new Error(result.message);
-          updateStep("brochure", "done");
         } catch {
-          updateStep("brochure", "error");
           await rollback();
           throw new Error(`Brochure upload failed`);
         }
       }
 
       setSubmitting(false);
-      setSubmitSteps([]);
       setShowSuccessModal(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "An unknown error occurred";
       console.error("[CosmeticForm] Submit error:", err);
       setApiError(msg);
       setSubmitting(false);
-      setTimeout(() => setSubmitSteps([]), 2000);
     }
   };
 
@@ -1603,61 +1515,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     colors: { ...theme.colors, primary: "#4B0082", primary25: "#F3E8FF", primary50: "#E9D5FF" },
   });
 
-  // ─── Certification upload UI ───────────────────────────────────────────────────
-  const renderCertUploadList = () => {
-    if (selectedCertifications.length === 0) {
-      return (
-        <div className="flex items-center w-full h-[52px] rounded-[8px] border border-[#C0C1BE] bg-white overflow-hidden">
-          <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
-            <img src="/icons/UploadIcon.svg" className="w-6 h-6" alt="upload" />
-          </div>
-          <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-            <span className="text-[#969793]">Select certifications first</span>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="flex flex-col gap-3">
-        {selectedCertifications.map((cert) => (
-          <div key={cert.id} className="flex flex-col gap-1">
-            <div className="flex items-center w-full h-[52px] rounded-[8px] border border-[#C0C1BE] bg-white overflow-hidden">
-              <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
-                <img src="/icons/UploadIcon.svg" className="w-6 h-6" alt="upload" />
-              </div>
-              <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                {cert.isUploaded || cert.existingUrl ? (
-                  <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
-                    <FileText size={14} className="text-purple-600 mr-2 flex-shrink-0" />
-                    <span className="truncate">{cert.fileName || "Existing certificate"}</span>
-                    <button type="button" onClick={() => handleCertRemove(cert.id)} className="ml-2 text-gray-500 hover:text-red-500">
-                      <X size={12} />
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-[#969793]">Upload the {cert.label}</span>
-                )}
-              </div>
-              {!cert.isUploaded && !cert.existingUrl ? (
-                <label className="cursor-pointer px-4">
-                  <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" alt="add" />
-                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.svg" className="hidden"
-                    onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
-                </label>
-              ) : (
-                <label className="cursor-pointer px-4" title="Replace">
-                  <RefreshCw size={16} className="text-purple-600" />
-                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.svg" className="hidden"
-                    onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
-                </label>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
   // ─── Loading guard ─────────────────────────────────────────────────────────────
   if (mode === "edit" && loadingProduct) {
     return (
@@ -1675,7 +1532,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   // ─── Render ────────────────────────────────────────────────────────────────────
   return (
     <>
-      {submitting && submitSteps.length > 0 && <SubmitProgressOverlay steps={submitSteps} />}
 
       <PopupModal
         isOpen={showSuccessModal}
@@ -1684,9 +1540,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         primaryActionText="View Product"
         secondaryActionText="Continue Adding"
         tertiaryActionText="Back to Dashboard"
-        onPrimaryAction={() => { console.log("Go to product"); }}
-        onSecondaryAction={() => { setShowSuccessModal(false); window.location.reload(); }}
-        onTertiaryAction={() => { window.location.reload(); }}
+        onPrimaryAction={() => { router.push(`/seller_7a3b9f2c/products/view/${resolvedProductId}`); }}
+        onSecondaryAction={() => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); }}
+        onTertiaryAction={() => { router.push("/seller_7a3b9f2c/dashboard"); }}
         onClose={() => setShowSuccessModal(false)}
       />
 
@@ -1947,51 +1803,69 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
             <div className="flex flex-col gap-1" data-field="certifications">
               <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
-              {isEdit ? (
-                <div className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] flex items-center text-base bg-gray-50" style={{ color: "#5A5B58" }}>
-                  {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "No certifications selected"}
+              <div className="relative" ref={certDropdownRef}>
+                <div
+                  onClick={() => setShowCertDropdown((p) => !p)}
+                  className={`w-full h-[52px] px-4 border rounded-[8px] flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-[#FF3B3B]" : "border-[#C0C1BE] hover:border-[#C0C1BE]"}`}
+                >
+                  <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
+                    style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#A3A3A3" }}>
+                    {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
+                  </span>
+                  <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
-              ) : (
-                <div className="relative" ref={certDropdownRef}>
-                  <div
-                    onClick={() => setShowCertDropdown((p) => !p)}
-                    className={`w-full h-[52px] px-4 border rounded-[8px] flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-[#FF3B3B]" : "border-[#C0C1BE] hover:border-[#C0C1BE]"}`}
-                  >
-                    <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
-                      style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#A3A3A3" }}>
-                      {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
-                    </span>
-                    <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                {showCertDropdown && (
+                  <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-[8px] shadow-lg max-h-60 overflow-y-auto">
+                    {loadingCertifications ? (
+                      <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
+                    ) : (
+                      certificationMasterOptions.map((opt) => (
+                        <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
+                          <input type="checkbox"
+                            checked={selectedCertifications.some((c) => c.id === opt.value)}
+                            onChange={() => handleCertCheckbox(opt)}
+                            className="accent-purple-600 w-4 h-4" />
+                          <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
+                        </label>
+                      ))
+                    )}
                   </div>
-                  {showCertDropdown && (
-                    <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-[8px] shadow-lg max-h-60 overflow-y-auto">
-                      {loadingCertifications ? (
-                        <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
-                      ) : (
-                        certificationMasterOptions.map((opt) => (
-                          <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                            <input type="checkbox"
-                              checked={selectedCertifications.some((c) => c.id === opt.value)}
-                              onChange={() => handleCertCheckbox(opt)}
-                              className="accent-purple-600 w-4 h-4" />
-                            <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                          </label>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
               {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
-              {renderCertUploadList()}
-              <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG, SVG — max 5 MB per file</p>
-            </div>
+            {selectedCertifications.length === 0 ? (
+              <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
+                <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
+                <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
+                  <div className="flex items-center justify-center h-full px-4 bg-secondary-200">
+                    <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
+                    <span className="text-pneutral-500 text-sm">Select certifications first</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              selectedCertifications.map((cert) => (
+                <div key={cert.id} className="flex flex-col gap-1 col-span-1">
+                  <label className={fieldLabel}>Upload {cert.label} {requiredStar}</label>
+                  <UploadInput
+                    onFileSelect={(file) => {
+                      if (file) handleCertFileSelect(cert.id, file);
+                      else handleCertRemove(cert.id);
+                    }}
+                    existingFile={cert.existingUrl || undefined}
+                    label=""
+                    placeholder={`Upload the ${cert.label}`}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                </div>
+              ))
+            )}
 
             <div data-field="brochure">
               <UploadInput onFileSelect={(file) => setBrochureFile(file)} existingFile={existingBrochureUrl || undefined} />
@@ -2254,15 +2128,15 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           </div>
         </div>
 
-        {/* Section 3: Product Photos */}
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white"
+        {/* ── Section 3: Product Photos ─────────────────────────────────────────── */}
+        <div className="relative border border-neutral-200 rounded-xl p-6 bg-white"
           ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
-          <div className="text-[#364153] font-normal text-sm">
-            Product Photos {mode === "create" && <span className="text-warning-500 font-semibold ml-1">*</span>}
-          </div>
+          <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
+            Product Photos {mode === "create" && <span className="text-red-500">*</span>}
+          </h2>
 
           {existingImages.length > 0 && (
-            <div className="mb-4 mt-4">
+            <div className="mb-4">
               <p className="text-sm font-semibold text-gray-600 mb-2">Current Images</p>
               <div className="flex flex-wrap gap-3">
                 {existingImages.map((url, i) => (
@@ -2274,7 +2148,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             </div>
           )}
 
-          <div className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer mt-4"
+          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
             onClick={() => document.getElementById("cosmeticFileInput")?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}>
@@ -2283,12 +2157,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
               </div>
               <div className="text-sm font-medium text-gray-600 text-center">Choose a file or drag &amp; drop it here</div>
-              <div className="text-xs text-gray-400 text-center">PNG, JPG, SVG — max 5 images, 5 MB each</div>
+              <div className="text-xs text-gray-400 text-center">Click to browse PNG, JPG, and SVG</div>
             </div>
           </div>
 
-          <input id="cosmeticFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg,image/svg+xml"
-            className="hidden" onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); }} />
+          <input id="cosmeticFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg,image/svg+xml" className="hidden"
+            onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); }} />
 
           {images.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-3">

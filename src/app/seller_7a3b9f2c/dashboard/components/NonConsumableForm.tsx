@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Select, { StylesConfig, Theme } from "react-select";
 import Input from "@/src/app/commonComponents/Input";
@@ -164,6 +165,7 @@ const NonEditableSelect = ({ label, value, required }: { label: string; value: s
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonConsumableFormProps) => {
+  const router = useRouter();
   const todayStr = new Date().toISOString().split("T")[0];
 
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -618,7 +620,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numericOnlyFields = ["stockQuantity", "sellingPrice", "mrp", "discountPercentage", "hsnCode", "unitPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity", "dimensionSize"];
+    const numericOnlyFields = ["stockQuantity", "sellingPrice", "mrp", "discountPercentage", "hsnCode", "unitPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity"];
     if (numericOnlyFields.includes(name)) {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
@@ -635,7 +637,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (isNaN(v) || v < 0 || v > 100) setErrors((p) => ({ ...p, discountPercentage: "Discount must be between 0 and 100" }));
       else setErrors((p) => { const n = { ...p }; delete n.discountPercentage; return n; });
     }
-    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, modelName: 60, modelNumber: 60, udiNumber: 60, manufacturerName: 100, productDescription: 1000, warrantyPeriod: 3 };
+    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, modelName: 60, modelNumber: 60, udiNumber: 60, manufacturerName: 100, productDescription: 1000, warrantyPeriod: 3, dimensionSize: 30 };
     if (name in maxLengths && value.length > maxLengths[name]) return;
   };
 
@@ -703,9 +705,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     setErrors((p) => { const n = { ...p }; delete n.images; return n; });
   };
 
-  const handleViewProduct = () => { console.log("Go to product page"); };
-  const handleContinueAdding = () => { setShowSuccessModal(false); window.location.reload(); };
-  const handleBackToDashboard = () => { window.location.reload(); };
+  const handleViewProduct = () => { router.push(`/seller_7a3b9f2c/products/view/${resolvedProductId}`); };
+  const handleContinueAdding = () => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); };
+  const handleBackToDashboard = () => { router.push("/seller_7a3b9f2c/dashboard"); };
 
   // ─── Validation ───────────────────────────────────────────────────────────
 
@@ -747,17 +749,29 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
       else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
       if (images.length === 0) e.images = "Product Image upload is mandatory.";
-      if (form.warrantyPeriod.trim() !== "") {
+      if (!form.warrantyPeriod.trim()) {
+        e.warrantyPeriod = "Warranty period is required";
+      } else {
         const wp = Number(form.warrantyPeriod);
         if (isNaN(wp) || wp < 0 || !Number.isInteger(wp)) e.warrantyPeriod = "Warranty period must be a non-negative integer (months)";
       }
-      if (form.manufacturingDate) {
+      if (!form.manufacturingDate) {
+        e.manufacturingDate = "Manufacturing date is required";
+      } else {
         const mfg = form.manufacturingDate;
         const today = new Date();
         const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
         const mfgMonth = new Date(mfg.getFullYear(), mfg.getMonth(), 1);
         if (mfgMonth > currentMonth) e.manufacturingDate = "Manufacturing date cannot be in the future month";
       }
+
+      const dimSize = form.dimensionSize.trim();
+      if (!dimSize) {
+        e.dimensionSize = "Technical dimensions / capacity / configuration is required";
+      } else if (dimSize.length > 30) {
+        e.dimensionSize = "Technical dimensions must not exceed 30 characters";
+      }
+      if (!form.deviceSpecificationUnitId) e.deviceSpecificationUnitId = "Unit is required";
     }
 
     const iUse = form.intendedUse.trim();
@@ -945,6 +959,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         const dataInner = createData?.data as ApiResponseData | undefined;
         currentProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
         if (!currentProductId || currentProductId === "undefined") throw new Error("Product ID not returned from server");
+        setResolvedProductId(currentProductId);
         currentAttributeId = extractProductAttributeId(createData) || "";
         if (!currentAttributeId) throw new Error("Product attribute ID not returned from server — cannot upload certificates");
 
@@ -1002,6 +1017,25 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const selectTheme = (theme: Theme) => ({
     ...theme, colors: { ...theme.colors, primary: "#7c3aed", primary25: "#f3f0ff", primary50: "#ede9fe" },
   });
+
+  const unitSelectStyles = {
+    control: (base: any) => ({
+      ...base, minHeight: "52px", height: "52px", border: "none", boxShadow: "none",
+      borderRadius: "0", cursor: "pointer", backgroundColor: "transparent", "&:hover": { border: "none" },
+    }),
+    valueContainer: (base: any) => ({ ...base, padding: "0 8px" }),
+    indicatorsContainer: (base: any) => ({ ...base, height: "52px" }),
+    dropdownIndicator: (base: any, state: any) => ({
+      ...base, color: state.isFocused ? "#7c3aed" : "#9ca3af", cursor: "pointer", "&:hover": { color: "#7c3aed" },
+    }),
+    option: (base: any, state: any) => ({
+      ...base, backgroundColor: state.isSelected ? "#7c3aed" : state.isFocused ? "#f3f0ff" : "white",
+      color: state.isSelected ? "white" : "#1f2937", cursor: "pointer",
+      "&:active": { backgroundColor: "#7c3aed", color: "white" },
+    }),
+    placeholder: (base: any) => ({ ...base, color: "#969793" }),
+    singleValue: (base: any) => ({ ...base, color: "#3C3D3A" }),
+  };
 
   if (loadingProduct) {
     return (
@@ -1208,24 +1242,29 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             {isEdit ? (
               <div className="flex flex-col gap-1">
                 <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
-                <div className="flex gap-2">
-                  <div className={`${inputDisabled} flex-1`} style={{ color: "#5A5B58" }}>{form.dimensionSize || "—"}</div>
-                  <div className="w-36 h-12 px-4 border border-neutral-200 rounded-xl text-base bg-gray-50 cursor-default flex items-center truncate" style={{ color: "#5A5B58" }}>{displayLabels.specificationUnitLabel || "—"}</div>
+                <div className={`flex items-center border rounded-[8px] overflow-hidden border-[#C0C1BE]`}>
+                  <div className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 flex items-center" style={{ color: "#5A5B58" }}>{form.dimensionSize || "—"}</div>
+                  <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
+                  <div className="w-36 h-[52px] px-4 bg-gray-50 flex items-center text-base truncate" style={{ color: "#5A5B58" }}>{displayLabels.specificationUnitLabel || "—"}</div>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("dimensionSize") as React.RefCallback<HTMLDivElement>}>
+              <div
+                className="flex flex-col gap-1"
+                ref={(el) => { fieldRefs.current["dimensionSize"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
+              >
                 <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
-                <div className="flex gap-2 items-start">
+                <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.dimensionSize || errors.deviceSpecificationUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
                   <input
                     type="text"
                     name="dimensionSize"
                     value={form.dimensionSize}
                     onChange={handleChange}
                     placeholder="e.g., 20.5"
-                    className={`flex-1 h-12 px-4 border rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] bg-white focus:outline-none focus:border-purple-600 transition-colors ${errors.dimensionSize ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}
+                    className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
                   />
-                  <div className="w-36 flex-shrink-0">
+                  <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
+                  <div className="w-36">
                     <Select
                       options={specificationUnitOptions}
                       isLoading={loadingSpecificationUnits}
@@ -1234,8 +1273,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                       onChange={(sel) => handleSelectChange("deviceSpecificationUnitId", sel)}
                       placeholder="Select Unit"
                       theme={selectTheme}
-                      styles={selectStyles("deviceSpecificationUnitId")}
-                      isClearable
+                      styles={unitSelectStyles}
+                      menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                      menuPosition="fixed"
                     />
                   </div>
                 </div>
@@ -1244,85 +1284,84 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {/* Certifications */}
-            <div className="col-span-1 md:col-span-2" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {isEdit ? (
-                  <NonEditableField label="Certifications / Compliance" value={selectedCertifications.map((c) => c.label).join(", ")} required />
-                ) : (
-                  <div>
-                    <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
-                    <div className="relative" ref={dropdownRef}>
-                      <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
-                        <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#969793" }}>
-                          {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
-                        </span>
-                        <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            {/* Certifications — dropdown */}
+            <div className="flex flex-col gap-1" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
+              {isEdit ? (
+                <NonEditableField label="Certifications / Compliance" value={selectedCertifications.map((c) => c.label).join(", ")} required />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
+                  <div className="relative" ref={dropdownRef}>
+                    <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
+                      <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#969793" }}>
+                        {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
+                      </span>
+                      <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </div>
+                    {showCertDropdown && (
+                      <div className="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                        {loadingCertifications ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
+                          certificationMasterOptions.map((opt) => (
+                            <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
+                              <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
+                              <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
+                            </label>
+                          ))
+                        )}
                       </div>
-                      {showCertDropdown && (
-                        <div className="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                          {loadingCertifications ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
-                            certificationMasterOptions.map((opt) => (
-                              <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                                <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
-                                <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                              </label>
-                            ))
-                          )}
+                    )}
+                  </div>
+                  {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
+                </>
+              )}
+            </div>
+
+            {/* Certifications — upload */}
+            <div className="flex flex-col gap-1">
+              <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
+              {selectedCertifications.length === 0 ? (
+                <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
+                  <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
+                  <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {selectedCertifications.map((cert) => (
+                    <div key={cert.id}>
+                      {cert.existingUrl && !cert.file ? (
+                        <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
+                          <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
+                          <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
+                          <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.label}</p><p className="text-xs text-gray-500">Existing certificate</p></div>
+                          <div className="flex items-center gap-1 pr-3">
+                            <button type="button" title="Replace" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
+                            <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
+                          </div>
+                        </div>
+                      ) : cert.isUploaded && cert.file ? (
+                        <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
+                          <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
+                          <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
+                          <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.fileName}</p><p className="text-xs text-gray-500">{(cert.file.size / 1024).toFixed(0)} KB</p></div>
+                          <div className="flex items-center gap-1 pr-3">
+                            <button type="button" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
+                            <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()}>
+                          <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
+                          <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
+                          <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">{cert.label} — click to upload</span>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
                         </div>
                       )}
+                      <input id={`nc-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
                     </div>
-                    {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
-                  </div>
-                )}
-
-                <div>
-                  <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
-                  {selectedCertifications.length === 0 ? (
-                    <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
-                      <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
-                      <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {selectedCertifications.map((cert) => (
-                        <div key={cert.id}>
-                          {cert.existingUrl && !cert.file ? (
-                            <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
-                              <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.label}</p><p className="text-xs text-gray-500">Existing certificate</p></div>
-                              <div className="flex items-center gap-1 pr-3">
-                                <button type="button" title="Replace" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                                <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                              </div>
-                            </div>
-                          ) : cert.isUploaded && cert.file ? (
-                            <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
-                              <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.fileName}</p><p className="text-xs text-gray-500">{(cert.file.size / 1024).toFixed(0)} KB</p></div>
-                              <div className="flex items-center gap-1 pr-3">
-                                <button type="button" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                                <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()}>
-                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
-                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
-                              <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">{cert.label} — click to upload</span>
-                              <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
-                            </div>
-                          )}
-                          <input id={`nc-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file. Files are uploaded on Save.</p>
+                  ))}
                 </div>
-              </div>
+              )}
+              <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file. Files are uploaded on Save.</p>
             </div>
 
             {/* Material / Build Type */}
@@ -1380,6 +1419,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                   value={form.warrantyPeriod}
                   onChange={handleChange}
                   placeholder="e.g., 12"
+                  required
                   error={errors.warrantyPeriod}
                   maxLength={3}
                   // className={inputClass}
@@ -1472,7 +1512,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         {/* ── Section 2: Packaging & Order Details ──────────────────────────────── */}
         <div className={sectionCard}>
           <h2 className={sectionTitle}>Packaging &amp; Order Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="border-b border-neutral-200 mt-3"></div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
 
             {/* Pack Type */}
             {isEdit ? (
@@ -1529,6 +1571,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           </div>
 
           <p className={subSectionTitle}>Order Details</p>
+          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
             <div ref={setFieldRef("minimumOrderQuantity") as React.RefCallback<HTMLDivElement>}>
               <Input
@@ -1559,6 +1602,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           </div>
 
           <p className={subSectionTitle}>Batch Management</p>
+          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
             {/* Manufacturing Date */}
@@ -1567,6 +1611,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                 label="Manufacturing Date"
                 type="month"
                 name="manufacturingDate"
+                required={!isEdit}
                 readOnly={isEdit}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -1625,6 +1670,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           </div>
 
           <p className={subSectionTitle}>Pricing</p>
+          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
             <div ref={setFieldRef("sellingPrice") as React.RefCallback<HTMLDivElement>}>
@@ -1680,6 +1726,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           </div>
 
           <p className={subSectionTitle}>TAX &amp; BILLING</p>
+          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
             {/* GST % */}

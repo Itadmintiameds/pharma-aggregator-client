@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Select, { StylesConfig, Theme } from "react-select";
 import Input from "@/src/app/commonComponents/Input";
@@ -165,6 +166,7 @@ const NonEditableSelect = ({ label, value, required }: { label: string; value: s
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: ConsumableFormProps) => {
+  const router = useRouter();
   const todayStr = new Date().toISOString().split("T")[0];
 
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -664,12 +666,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numericOnlyFields = ["stockQuantity", "sellingPricePerPack", "mrp", "discountPercentage", "hsnCode", "unitsPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity", "sizeDimension"];
+    const numericOnlyFields = ["stockQuantity", "sellingPricePerPack", "mrp", "discountPercentage", "hsnCode", "unitsPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity"];
     if (numericOnlyFields.includes(name)) {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
-    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000 };
+    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000, sizeDimension: 20 };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
     setForm((p) => ({ ...p, [name]: value }));
@@ -735,9 +737,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     setErrors((p) => { const n = { ...p }; delete n.images; return n; });
   };
 
-  const handleViewProduct = () => { console.log("Go to product page"); };
-  const handleContinueAdding = () => { setShowSuccessModal(false); window.location.reload(); };
-  const handleBackToDashboard = () => { window.location.reload(); };
+  const handleViewProduct = () => { router.push(`/seller_7a3b9f2c/products/view/${resolvedProductId}`); };
+  const handleContinueAdding = () => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); };
+  const handleBackToDashboard = () => { router.push("/seller_7a3b9f2c/dashboard"); };
 
   // ─── Validation ───────────────────────────────────────────────────────────
 
@@ -756,8 +758,17 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       else if (bName.length > 60) e.brandName = "Brand name must not exceed 60 characters";
       if (selectedMaterialTypes.length === 0) e.materialType = "At least one material type is required";
       const sDim = form.sizeDimension.trim();
-      if (!sDim) e.sizeDimension = "Size / Dimension is required";
-      else if (isNaN(parseFloat(sDim)) || parseFloat(sDim) <= 0) e.sizeDimension = "Size / Dimension must be a positive number";
+      if (!sDim) {
+        e.sizeDimension = "Size / Dimension is required";
+      } else if (sDim.length > 20) {
+        e.sizeDimension = "Size / Dimension must not exceed 20 characters";
+      } else {
+        // Allow numeric (e.g., 5, 10.50), dimensional (22 × 25, 14x40), or predefined size labels
+        const validPattern = /^[\d]+(\.\d{1,2})?(\s*[xX×]\s*[\d]+(\.\d{1,2})?)*$|^(Neonatal|Paediatric|Adult|XS|S|M|L|XL)$/i;
+        if (!validPattern.test(sDim)) {
+          e.sizeDimension = "Enter a numeric value (e.g., 10, 22×25), or a standard size (S, M, L, Adult, Neonatal)";
+        }
+      }
       if (!form.deviceSpecificationUnitId) e.deviceSpecificationUnitId = "Unit is required";
       if (!form.sterileStatus) e.sterileStatus = "Sterile status is required";
       if (!form.disposableType) e.disposableType = "Disposable / Reusable selection is required";
@@ -976,6 +987,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         const dataInner = createData?.data as ApiResponseData | undefined;
         currentProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
         if (!currentProductId || currentProductId === "undefined") throw new Error("Product ID not returned from server");
+        setResolvedProductId(currentProductId);
         currentAttributeId = extractProductAttributeId(createData) || "";
         if (!currentAttributeId) throw new Error("Product attribute ID not returned from server — cannot upload certificates");
 
@@ -1031,6 +1043,25 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const selectTheme = (theme: Theme) => ({
     ...theme, colors: { ...theme.colors, primary: "#7c3aed", primary25: "#f3f0ff", primary50: "#ede9fe" },
   });
+
+  const unitSelectStyles = {
+    control: (base: any) => ({
+      ...base, minHeight: "52px", height: "52px", border: "none", boxShadow: "none",
+      borderRadius: "0", cursor: "pointer", backgroundColor: "transparent", "&:hover": { border: "none" },
+    }),
+    valueContainer: (base: any) => ({ ...base, padding: "0 8px" }),
+    indicatorsContainer: (base: any) => ({ ...base, height: "52px" }),
+    dropdownIndicator: (base: any, state: any) => ({
+      ...base, color: state.isFocused ? "#7c3aed" : "#9ca3af", cursor: "pointer", "&:hover": { color: "#7c3aed" },
+    }),
+    option: (base: any, state: any) => ({
+      ...base, backgroundColor: state.isSelected ? "#7c3aed" : state.isFocused ? "#f3f0ff" : "white",
+      color: state.isSelected ? "white" : "#1f2937", cursor: "pointer",
+      "&:active": { backgroundColor: "#7c3aed", color: "white" },
+    }),
+    placeholder: (base: any) => ({ ...base, color: "#969793" }),
+    singleValue: (base: any) => ({ ...base, color: "#3C3D3A" }),
+  };
 
   // ─── Loading guard ────────────────────────────────────────────────────────
 
@@ -1185,17 +1216,16 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 ref={(el) => { fieldRefs.current["sizeDimension"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
               >
                 <label className={fieldLabel}>Size / Dimension {requiredStar}</label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Input
-                      name="sizeDimension"
-                      placeholder="e.g., 10.5"
-                      value={form.sizeDimension}
-                      onChange={handleChange}
-                      error={errors.sizeDimension}
-                    />
-                  </div>
-                  <div className="w-36 flex-shrink-0">
+                <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.sizeDimension || errors.deviceSpecificationUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
+                  <input
+                    name="sizeDimension"
+                    value={form.sizeDimension}
+                    onChange={handleChange}
+                    placeholder="e.g., 10.5, 22×25, M, Adult"
+                    className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
+                  />
+                  <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
+                  <div className="w-36">
                     <Select
                       options={specificationUnitOptions}
                       isLoading={loadingSpecificationUnits}
@@ -1204,10 +1234,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                       onChange={(sel) => handleSelectChange("deviceSpecificationUnitId", sel)}
                       placeholder={form.deviceSubCategoryId ? "Unit" : "Select sub-cat first"}
                       theme={selectTheme}
-                      styles={selectStyles("deviceSpecificationUnitId")}
+                      styles={unitSelectStyles}
+                      menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                      menuPosition="fixed"
                     />
                   </div>
                 </div>
+                {errors.sizeDimension && <p className={errorMsg}>{errors.sizeDimension}</p>}
                 {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
               </div>
             )}
@@ -1251,47 +1284,48 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             <Input label="Intended Use / Purpose" name="intendedUse" placeholder="e.g., For surgical procedures"
               value={form.intendedUse} onChange={handleChange} error={errors.intendedUse} required />
 
-            {/* Certifications */}
-            <div className="col-span-1 md:col-span-2" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {isEdit ? (
-                  <NonEditableField label="Certifications & Compliance"
-                    value={selectedCertifications.map((c) => c.label).join(", ")} required />
-                ) : (
-                  <div>
-                    <label className={fieldLabel}>Certifications &amp; Compliance {requiredStar}</label>
-                    <div className="relative" ref={dropdownRef}>
-                      <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
-                        <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#969793" }}>
-                          {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
-                        </span>
-                        <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            {/* Certifications — dropdown */}
+            <div className="flex flex-col gap-1" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
+              {isEdit ? (
+                <NonEditableField label="Certifications &amp; Compliance"
+                  value={selectedCertifications.map((c) => c.label).join(", ")} required />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Certifications &amp; Compliance {requiredStar}</label>
+                  <div className="relative" ref={dropdownRef}>
+                    <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
+                      <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#969793" }}>
+                        {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
+                      </span>
+                      <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </div>
+                    {showCertDropdown && (
+                      <div className="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                        {loadingCertifications ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
+                          certificationMasterOptions.map((opt) => (
+                            <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
+                              <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
+                              <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
+                            </label>
+                          ))
+                        )}
                       </div>
-                      {showCertDropdown && (
-                        <div className="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                          {loadingCertifications ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
-                            certificationMasterOptions.map((opt) => (
-                              <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                                <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
-                                <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                              </label>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
+                    )}
                   </div>
-                )}
+                  {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
+                </>
+              )}
+            </div>
 
-                <div>
-                  <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
-                  {selectedCertifications.length === 0 ? (
-                    <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
-                      <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
-                      <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
-                    </div>
-                  ) : (
+            {/* Certifications — upload */}
+            <div className="flex flex-col gap-1">
+              <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
+              {selectedCertifications.length === 0 ? (
+                <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
+                  <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
+                  <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
+                </div>
+              ) : (
                     <div className="flex flex-col gap-2">
                       {selectedCertifications.map((cert) => (
                         <div key={cert.id}>
@@ -1330,9 +1364,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                       ))}
                     </div>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file.</p>
-                </div>
-              </div>
+              <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file.</p>
             </div>
 
             {/* Country of Origin */}
@@ -1408,7 +1440,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         {/* ── Section 2: Packaging & Order Details ─────────────────────────────── */}
         <div className={sectionCard}>
           <h2 className={sectionTitle}>Packaging &amp; Order Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="border-b border-neutral-200 mt-3"></div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
 
             {isEdit ? (
               <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
@@ -1433,6 +1467,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           </div>
 
           <p className={subSectionTitle}>Order Details</p>
+          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
             <Input label="Min Order Qty" name="minimumOrderQuantity" placeholder="e.g., 1"
               value={form.minimumOrderQuantity} onChange={handleChange} error={errors.minimumOrderQuantity} required />
@@ -1441,6 +1476,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           </div>
 
           <p className={subSectionTitle}>Batch Management</p>
+          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
             {isEdit ? (
@@ -1545,6 +1581,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           </div>
 
           <p className={subSectionTitle}>Pricing</p>
+          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
             <Input label="MRP (per Pack Size)" name="mrp" placeholder="e.g., 500"
               value={form.mrp} onChange={handleChange} error={errors.mrp} required />
@@ -1569,6 +1606,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           </div>
 
           <p className={subSectionTitle}>TAX &amp; BILLING</p>
+          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
             {isEdit ? (
               <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
