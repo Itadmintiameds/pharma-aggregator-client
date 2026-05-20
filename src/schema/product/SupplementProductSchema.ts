@@ -30,7 +30,7 @@ export const supplementProductSchema = z
     productName: z
       .string()
       .trim()
-      .min(1, "Product Name is required")
+      .min(3, "Product Name must be at least 3 characters")
       .max(150, "Product Name must not exceed 150 characters")
       .regex(
         /^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/,

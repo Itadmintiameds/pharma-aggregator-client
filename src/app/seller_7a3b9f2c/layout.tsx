@@ -146,7 +146,7 @@ export default function SellerLayout({
 
   // For protected routes, render with sidebar and header
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-secondary-50">
       <SellerSidebar
         currentView={currentView}
         setCurrentView={() => {}}
@@ -211,7 +211,7 @@ export default function SellerLayout({
 //   const currentView = getCurrentView(pathname) as any;
 
 //   return (
-//     <div className="min-h-screen bg-gray-50">
+//     <div className="min-h-screen bg-secondary-50">
 //       <SellerSidebar
 //         currentView={currentView}
 //         setCurrentView={() => {}}

@@ -232,3 +232,34 @@ export const uploadSupplementCertifications = async (
     );
   }
 };
+
+export const getServingSizeUnits = async (dosageFormId: string | number) => {
+  try {
+    if (!dosageFormId) throw new Error("Dosage Form ID is required");
+    const response = await api.get(`serving-size/dosageForm/${dosageFormId}`);
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Serving Size Units:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Serving Size Units: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Serving Size Units.');
+    }
+  }
+};
+
+export const getNetQuantityUnits = async (categoryId: string | number) => {
+  try {
+    if (!categoryId) throw new Error("Category ID is required");
+    const response = await api.get(`net-quantity-units/${categoryId}`);
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Net Quantity Units:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Net Quantity Units: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Net Quantity Units.');
+    }
+  }
+};
+

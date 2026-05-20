@@ -22,8 +22,9 @@ import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
 import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
-import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications } from "@/src/services/product/SupplementService";
+import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications, getServingSizeUnits, getNetQuantityUnits } from "@/src/services/product/SupplementService";
 import { getProductById, updateProduct } from "@/src/services/product/ProductService";
+import { validateBatchNumber } from "@/src/services/product/Pricing";
 
 import { getTherapeuticCategory, getTherapeuticSubcategory } from "@/src/services/product/TherapeuticCategoryService";
 import { supplementProductSchema } from "@/src/schema/product/SupplementProductSchema";
@@ -45,15 +46,15 @@ interface CertificationTag {
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
-const fieldLabel = "text-label-l3 text-[#1E1E1D] font-semibold";
-const requiredStar = <span className="text-[#FF3B3B] font-semibold ml-1">*</span>;
+const fieldLabel = "text-label-l4 text-pneutral-900 font-medium";
+const requiredStar = <span className="text-warning-500 font-semibold ml-1">*</span>;
 
-const errorMsg = "text-xs px-1 font-medium text-[#FF3B3B]";
+const errorMsg = "font-heading font-normal text-sm leading-[28px] px-1 text-warning-500";
 
 // ─── Upload Icon ───────────────────────────────────────────────────────────────
 
 const UploadCloudIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9F75FC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--secondary-500)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="16 16 12 12 8 16" />
     <line x1="12" y1="12" x2="12" y2="21" />
     <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
@@ -99,8 +100,198 @@ const gstOptions: SelectOption[] = [
   { value: "5", label: "5%" },
   { value: "12", label: "12%" },
   { value: "18", label: "18%" },
-  { value: "28", label: "28%" },
 ];
+
+const extractUnitString = (item: any): string => {
+  if (typeof item === "string") return item;
+  if (!item || typeof item !== "object") return "";
+
+  // 1. Check known direct keys strictly for strings
+  if (typeof item.netQuantityUnitName === "string") return item.netQuantityUnitName;
+  if (typeof item.servingSizeUnitName === "string") return item.servingSizeUnitName;
+  if (typeof item.unitName === "string") return item.unitName;
+  if (item.unit) {
+    if (typeof item.unit === "string") return item.unit;
+    if (typeof item.unit === "object") {
+      if (typeof item.unit.netQuantityUnitName === "string") return item.unit.netQuantityUnitName;
+      if (typeof item.unit.servingSizeUnitName === "string") return item.unit.servingSizeUnitName;
+      if (typeof item.unit.name === "string") return item.unit.name;
+      if (typeof item.unit.unit === "string") return item.unit.unit;
+    }
+  }
+  if (typeof item.name === "string") return item.name;
+  if (typeof item.label === "string") return item.label;
+
+  // 2. Check nested objects
+  const nestedUnit = item.netQuantityUnit || item.servingSizeUnit || item.unit;
+  if (nestedUnit && typeof nestedUnit === "object") {
+    if (typeof nestedUnit.netQuantityUnitName === "string") return nestedUnit.netQuantityUnitName;
+    if (typeof nestedUnit.servingSizeUnitName === "string") return nestedUnit.servingSizeUnitName;
+    if (typeof nestedUnit.unitName === "string") return nestedUnit.unitName;
+    if (typeof nestedUnit.name === "string") return nestedUnit.name;
+    if (typeof nestedUnit.unit === "string") return nestedUnit.unit;
+  }
+
+  // 3. Fallback: Search all keys for a string value that is a non-numeric short word
+  for (const key of Object.keys(item)) {
+    const val = item[key];
+    if (typeof val === "string" && val.trim().length > 0 && isNaN(Number(val))) {
+      return val;
+    }
+    if (val && typeof val === "object") {
+      for (const subKey of Object.keys(val)) {
+        const subVal = val[subKey];
+        if (typeof subVal === "string" && subVal.trim().length > 0 && isNaN(Number(subVal))) {
+          return subVal;
+        }
+      }
+    }
+  }
+  return "";
+};
+
+// ─── Custom Numeric Input with Unit Dropdown ───────────────────────────────────
+
+interface NumericInputWithUnitProps {
+  label: string;
+  name: string;
+  value: string;
+  unit: string;
+  onValueChange: (val: string) => void;
+  onUnitChange: (unit: string) => void;
+  placeholder?: string;
+  error?: string;
+  required?: boolean;
+  disabled?: boolean;
+  readOnly?: boolean;
+  options: string[];
+}
+
+const NumericInputWithUnit: React.FC<NumericInputWithUnitProps> = ({
+  label,
+  name,
+  value,
+  unit,
+  onValueChange,
+  onUnitChange,
+  placeholder = "",
+  error,
+  required = false,
+  disabled = false,
+  readOnly = false,
+  options
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    // Allow digits and at most one decimal point
+    if (val === "" || /^\d*\.?\d*$/.test(val)) {
+      onValueChange(val);
+    }
+  };
+
+  // State mappings for border/shadow color matching original Input component
+  const getBorderColor = () => {
+    if (disabled) return "border-pneutral-200 bg-sneutral-100 cursor-not-allowed";
+    if (readOnly) return "border-pneutral-100 bg-pneutral-50 cursor-default";
+    if (error) return "border-warning-500 focus-within:ring-1 focus-within:ring-warning-500 focus-within:border-warning-500";
+    return "border-neutral-500 focus-within:border-secondary-300 focus-within:ring-1 focus-within:ring-secondary-300";
+  };
+
+  return (
+    <div ref={containerRef} className="flex flex-col gap-1 w-full relative">
+      {/* Label */}
+      <label className={`text-label-l4 font-medium transition-colors duration-200 ${disabled ? "text-pneutral-500" : "text-pneutral-900"}`}>
+        {label}
+        {required && <span className="text-warning-500 ml-1">*</span>}
+      </label>
+
+      {/* Input Group Container */}
+      <div className={`flex items-center h-[52px] w-full border rounded-lg bg-white overflow-hidden transition-all duration-200 ${getBorderColor()}`}>
+        {/* Left Side: Numerical Input */}
+        <input
+          type="text"
+          name={name}
+          placeholder={placeholder}
+          value={value}
+          onChange={handleInputChange}
+          disabled={disabled || readOnly}
+          className="flex-1 h-full px-4 text-base outline-none border-none bg-transparent text-pneutral-800 placeholder:text-pneutral-500"
+        />
+
+        {/* Divider line */}
+        <div className="h-full border-l border-neutral-300"></div>
+
+        {/* Right Side: Unit Dropdown Trigger */}
+        <button
+          type="button"
+          disabled={disabled || readOnly}
+          onClick={() => !disabled && !readOnly && setIsOpen(!isOpen)}
+          className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 transition-colors hover:bg-neutral-100 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span
+            className={unit ? "text-pneutral-800" : "text-pneutral-500"}
+            style={{
+              fontWeight: 400,
+              fontSize: "16px",
+              lineHeight: "24px",
+              letterSpacing: "0em",
+            }}
+          >
+            {unit || "Select Unit"}
+          </span>
+          <svg
+            className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* Absolute Dropdown List */}
+        {isOpen && (
+          <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
+            {options.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => {
+                  onUnitChange(opt);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer font-medium ${unit === opt ? "bg-neutral-50 font-semibold" : ""}`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <p className="font-heading font-normal text-sm leading-[28px] px-1 text-warning-500 mt-1">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+};
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
@@ -132,6 +323,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     variantName: "",
     dosageForm: "",
     netQuantity: "",
+    netQuantityValue: "",
+    netQuantityUnit: "",
+    servingSizeValue: "",
+    servingSizeUnit: "",
+    netQuantityUnitId: 0,
+    servingSizeUnitId: 0,
     strength: "",
     activeIngredients: "",
     excipients: "",
@@ -181,6 +378,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
   const [showCertDropdown, setShowCertDropdown] = useState(false);
+  const [showAgeGroupDropdown, setShowAgeGroupDropdown] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [modalType, setModalType] = useState<"create" | "update">("create");
@@ -200,6 +398,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       variantName: "",
       dosageForm: "",
       netQuantity: "",
+      netQuantityValue: "",
+      netQuantityUnit: "",
+      servingSizeValue: "",
+      servingSizeUnit: "",
+      netQuantityUnitId: 0,
+      servingSizeUnitId: 0,
       strength: "",
       activeIngredients: "",
       excipients: "",
@@ -245,6 +449,26 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     setSelectedCertifications([]);
   };
 
+  const checkBatchNumber = async (batchLotNumber: string) => {
+    try {
+      const response = await validateBatchNumber(batchLotNumber);
+      if (response.exists) {
+        setErrors((prev) => ({
+          ...prev,
+          batchLotNumber: "Batch number already exists",
+        }));
+      } else {
+        setErrors((prev) => {
+          const copy = { ...prev };
+          delete copy.batchLotNumber;
+          return copy;
+        });
+      }
+    } catch (error) {
+      console.error("Batch validation failed:", error);
+    }
+  };
+
   const handleViewProduct = () => {
     router.push("/seller_7a3b9f2c/products");
   };
@@ -280,6 +504,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
   const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
   const [certificationOptions, setCertificationOptions] = useState<any[]>([]);
+  const [netQuantityUnitOptions, setNetQuantityUnitOptions] = useState<string[]>([]);
+  const [netQuantityUnitsList, setNetQuantityUnitsList] = useState<any[]>([]);
+  const [loadingNetQuantityUnits, setLoadingNetQuantityUnits] = useState(false);
+  const [servingSizeUnitOptions, setServingSizeUnitOptions] = useState<string[]>([]);
+  const [servingSizeUnitsList, setServingSizeUnitsList] = useState<any[]>([]);
+  const [loadingServingSizeUnits, setLoadingServingSizeUnits] = useState(false);
 
   const [loadingTherapeuticCategories, setLoadingTherapeuticCategories] = useState(false);
   const [loadingSubcategories, setLoadingSubcategories] = useState(false);
@@ -476,6 +706,60 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   }, [form.dosageForm]);
 
   useEffect(() => {
+    if (!effectiveCategoryId) return;
+    const fetchNetQtyUnits = async () => {
+      setLoadingNetQuantityUnits(true);
+      try {
+        const data = await getNetQuantityUnits(effectiveCategoryId);
+        if (Array.isArray(data)) {
+          setNetQuantityUnitsList(data);
+          const parsed = Array.from(new Set(data.map(extractUnitString).filter((u): u is string => typeof u === "string" && u.trim().length > 0)));
+          setNetQuantityUnitOptions(parsed);
+        } else {
+          setNetQuantityUnitsList([]);
+          setNetQuantityUnitOptions([]);
+        }
+      } catch (error) {
+        console.error("Error fetching net quantity units:", error);
+        setNetQuantityUnitsList([]);
+        setNetQuantityUnitOptions([]);
+      } finally {
+        setLoadingNetQuantityUnits(false);
+      }
+    };
+    fetchNetQtyUnits();
+  }, [effectiveCategoryId]);
+
+  useEffect(() => {
+    if (!form.dosageForm) {
+      setServingSizeUnitOptions([]);
+      setServingSizeUnitsList([]);
+      return;
+    }
+    const fetchServingSizeUnits = async () => {
+      setLoadingServingSizeUnits(true);
+      try {
+        const data = await getServingSizeUnits(form.dosageForm);
+        if (Array.isArray(data)) {
+          setServingSizeUnitsList(data);
+          const parsed = Array.from(new Set(data.map(extractUnitString).filter((u): u is string => typeof u === "string" && u.trim().length > 0)));
+          setServingSizeUnitOptions(parsed);
+        } else {
+          setServingSizeUnitsList([]);
+          setServingSizeUnitOptions([]);
+        }
+      } catch (error) {
+        console.error("Error fetching serving size units:", error);
+        setServingSizeUnitsList([]);
+        setServingSizeUnitOptions([]);
+      } finally {
+        setLoadingServingSizeUnits(false);
+      }
+    };
+    fetchServingSizeUnits();
+  }, [form.dosageForm]);
+
+  useEffect(() => {
     const units = parseFloat(form.unitPerPack) || 0;
     const packs = parseFloat(form.numberOfPacks) || 0;
     const total = units * packs;
@@ -494,12 +778,25 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         ...prev,
         shelfLifeMonths: totalMonths > 0 ? totalMonths.toString() : "",
       }));
+      if (totalMonths > 60) {
+        setErrors((prev) => ({
+          ...prev,
+          shelfLifeMonths: "Shelf life cannot exceed 5 years (60 months)",
+        }));
+      } else {
+        setErrors((prev) => {
+          const copy = { ...prev };
+          delete copy.shelfLifeMonths;
+          return copy;
+        });
+      }
     }
   }, [form.manufacturingDate, form.expiryDate]);
 
   // const nutritionalInputRef = useRef<HTMLInputElement>(null);
   // const brochureInputRef = useRef<HTMLInputElement>(null);
   const certDropdownRef = useRef<HTMLDivElement>(null);
+  const ageGroupDropdownRef = useRef<HTMLDivElement>(null);
 
   /*
   const selectStyles = (errorKey: string) => ({
@@ -574,15 +871,87 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   });
   */
 
-  // Close cert dropdown on outside click
+  // Close cert and ageGroup dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (certDropdownRef.current && !certDropdownRef.current.contains(e.target as Node))
         setShowCertDropdown(false);
+      if (ageGroupDropdownRef.current && !ageGroupDropdownRef.current.contains(e.target as Node))
+        setShowAgeGroupDropdown(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  const handleNetQuantityValueChange = (val: string) => {
+    setForm((prev) => ({
+      ...prev,
+      netQuantityValue: val,
+      netQuantity: `${val} ${prev.netQuantityUnit}`.trim(),
+    }));
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.netQuantityValue;
+      delete copy.netQuantity;
+      const ssVal = Number(form.servingSizeValue);
+      const nqVal = Number(val);
+      if (!isNaN(ssVal) && !isNaN(nqVal) && ssVal > nqVal) {
+        copy.servingSizeValue = "Serving Size cannot exceed Net Quantity";
+      } else {
+        delete copy.servingSizeValue;
+      }
+      return copy;
+    });
+  };
+
+  const handleNetQuantityUnitChange = (unit: string) => {
+    const matchedItem = netQuantityUnitsList.find((item) => extractUnitString(item) === unit);
+    const unitId = matchedItem ? (matchedItem.unitId || matchedItem.id) : 0;
+    setForm((prev) => ({
+      ...prev,
+      netQuantityUnit: unit,
+      netQuantityUnitId: unitId,
+      netQuantity: `${prev.netQuantityValue} ${unit}`.trim(),
+    }));
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.netQuantityUnit;
+      delete copy.netQuantity;
+      return copy;
+    });
+  };
+
+  const handleServingSizeValueChange = (val: string) => {
+    setForm((prev) => ({
+      ...prev,
+      servingSizeValue: val,
+    }));
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.servingSizeValue;
+      const ssVal = Number(val);
+      const nqVal = Number(form.netQuantityValue);
+      if (!isNaN(ssVal) && !isNaN(nqVal) && ssVal > nqVal) {
+        copy.servingSizeValue = "Serving Size cannot exceed Net Quantity";
+      }
+      return copy;
+    });
+  };
+
+  const handleServingSizeUnitChange = (unit: string) => {
+    const matchedItem = servingSizeUnitsList.find((item) => extractUnitString(item) === unit);
+    const unitId = matchedItem ? (matchedItem.id || matchedItem.unitId) : 0;
+    setForm((prev) => ({
+      ...prev,
+      servingSizeUnit: unit,
+      servingSizeUnitId: unitId,
+    }));
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.servingSizeUnit;
+      return copy;
+    });
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -632,6 +1001,26 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           newErrors.sellingPrice = "Selling Price must be less than MRP";
         } else {
           delete newErrors.sellingPrice;
+        }
+
+        // ── Batch/Lot Number Validation ──────────────────────────────────────
+        if (name === "batchLotNumber" && value.trim()) {
+          checkBatchNumber(value);
+        }
+
+        // ── Product Name Validation ──────────────────────────────────────────
+        if (name === "productName") {
+          if (!value.trim()) {
+            newErrors.productName = "Product Name is required";
+          } else if (value.trim().length < 3) {
+            newErrors.productName = "Product Name must be at least 3 characters";
+          } else if (value.length > 150) {
+            newErrors.productName = "Product Name must not exceed 150 characters";
+          } else if (!/^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/.test(value)) {
+            newErrors.productName = "Product Name can contain alphanumeric and special characters only";
+          } else {
+            delete newErrors.productName;
+          }
         }
 
         // ── Discount 0–100 ───────────────────────────────────────────────────
@@ -853,12 +1242,36 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         variantName: attr.variantName || "",
         dosageForm: String(attr.dosageFormId || ""),
         netQuantity: attr.netQuantity || "",
+        netQuantityValue: attr.netQuantityValue || (
+          typeof attr.netQuantity === "number"
+            ? String(attr.netQuantity)
+            : (attr.netQuantity ? (String(attr.netQuantity).match(/^(\d+(?:\.\d+)?)/)?.[1] || "") : "")
+        ),
+        netQuantityUnit: attr.netQuantityUnitName || attr.netQuantityUnitSymbol || (
+          attr.netQuantity && typeof attr.netQuantity === "string"
+            ? (String(attr.netQuantity).match(/^\d+(?:\.\d+)?\s*(.*)$/)?.[1] || "")
+            : ""
+        ),
+        netQuantityUnitId: attr.netQuantityUnitId || 0,
+        servingSizeValue: attr.servingSizeValue || (
+          typeof attr.servingSize === "number"
+            ? String(attr.servingSize)
+            : (attr.servingSize ? (String(attr.servingSize).match(/^(\d+(?:\.\d+)?)/)?.[1] || "") : "")
+        ),
+        servingSizeUnit: attr.servingSizeUnitName || attr.servingSizeUnitSymbol || (
+          attr.servingSize && typeof attr.servingSize === "string"
+            ? (String(attr.servingSize).match(/^\d+(?:\.\d+)?\s*(.*)$/)?.[1] || "")
+            : ""
+        ),
+        servingSizeUnitId: attr.servingSizeUnitId || 0,
         strength: attr.strength || "",
         activeIngredients: attr.activeIngredients || "",
         excipients: attr.otherIngredients || "",
         nutritionalInfoType: attr.nutritionalInformationImageUrl ? "image" : "label",
         intendedUse: attr.intendedUse || "",
-        ageGroup: String(attr.ageGroupId || ""),
+        ageGroup: attr.ageGroupIds && attr.ageGroupIds.length > 0
+          ? attr.ageGroupIds.map(String).join(",")
+          : String(attr.ageGroupId || ""),
         gender: attr.gender || "",
         vegNonVeg: attr.vegOrNonVegIndicator || "",
         allergenInfo: attr.allergenInformation || "",
@@ -906,9 +1319,13 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   const validate = (): Record<string, string> => {
+    // Sync netQuantity compiled string before safeParse
+    const compiledNetQty = `${form.netQuantityValue} ${form.netQuantityUnit}`.trim();
+
     // ── Zod schema validation ─────────────────────────────────────────────────
     const result = supplementProductSchema.safeParse({
       ...form,
+      netQuantity: compiledNetQty || form.netQuantity,
       // manufacturingDate/expiryDate must be Date objects; guard against null
       manufacturingDate: form.manufacturingDate instanceof Date ? form.manufacturingDate : new Date("invalid"),
       expiryDate: form.expiryDate instanceof Date ? form.expiryDate : new Date("invalid"),
@@ -916,9 +1333,41 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
     const e: Record<string, string> = {};
 
+    // ── Custom value and unit validations for Net Quantity ───────────────────
+    if (!form.netQuantityValue) {
+      e.netQuantityValue = "Net Quantity is required";
+    } else if (isNaN(Number(form.netQuantityValue)) || Number(form.netQuantityValue) <= 0) {
+      e.netQuantityValue = "Net Quantity must be a positive number";
+    }
+    if (!form.netQuantityUnit) {
+      e.netQuantityUnit = "Please select a unit";
+    }
+
+    // ── Custom value and unit validations for Serving Size ───────────────────
+    if (!form.servingSizeValue) {
+      e.servingSizeValue = "Serving Size is required";
+    } else if (isNaN(Number(form.servingSizeValue)) || Number(form.servingSizeValue) <= 0) {
+      e.servingSizeValue = "Serving Size must be a positive number";
+    } else if (form.netQuantityValue && Number(form.servingSizeValue) > Number(form.netQuantityValue)) {
+      e.servingSizeValue = "Serving Size cannot exceed Net Quantity";
+    }
+    if (!form.servingSizeUnit) {
+      e.servingSizeUnit = "Please select a unit";
+    }
+
+    // ── Custom validation for shelf life (cannot exceed 5 years / 60 months) ──
+    if (form.shelfLifeMonths) {
+      const slVal = Number(form.shelfLifeMonths);
+      if (!isNaN(slVal) && slVal > 60) {
+        e.shelfLifeMonths = "Shelf life cannot exceed 5 years (60 months)";
+      }
+    }
+
     if (!result.success) {
       result.error.issues.forEach((issue) => {
         const key = issue.path.join(".");
+        // Ignore generic netQuantity schema error since we do granular custom validation
+        if (key === "netQuantity") return;
         if (!e[key]) e[key] = issue.message; // keep first error per field
       });
     }
@@ -931,8 +1380,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     if (images.length === 0 && existingImages.length === 0)
       e.images = "At least one product image is required";
     if (images.length > 5) e.images = "Maximum 5 images allowed";
-    if (!brochureFile && !existingBrochureUrl)
-      e.brochureFile = "Brochure / User Manual is required";
     if (selectedCertifications.length === 0) {
       e.certifications = "At least one certification is required";
     } else {
@@ -959,6 +1406,17 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       setErrors(errs);
       const firstKey = Object.keys(errs)[0];
       const el = fieldRefs.current[firstKey] || document.querySelector<HTMLElement>(`[data-field="${firstKey}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    const batchValidation = await validateBatchNumber(form.batchLotNumber);
+    if (batchValidation.exists) {
+      setErrors((prev) => ({
+        ...prev,
+        batchLotNumber: "Batch number already exists",
+      }));
+      const el = fieldRefs.current["batchLotNumber"] || document.querySelector<HTMLElement>(`[data-field="batchLotNumber"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
@@ -1023,14 +1481,28 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             brandName: form.brandName,
             variantName: form.variantName,
             dosageFormId: Number(form.dosageForm),
-            netQuantity: form.netQuantity,
+            netQuantity: Number(form.netQuantityValue),
+            netQuantityUnitId: Number(
+              netQuantityUnitsList.find((item) => extractUnitString(item) === form.netQuantityUnit)?.unitId ||
+              netQuantityUnitsList.find((item) => extractUnitString(item) === form.netQuantityUnit)?.id ||
+              form.netQuantityUnitId ||
+              0
+            ),
+            servingSize: Number(form.servingSizeValue),
+            servingSizeUnitId: Number(
+              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.id ||
+              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.unitId ||
+              form.servingSizeUnitId ||
+              0
+            ),
             strength: form.strength,
             activeIngredients: form.activeIngredients,
             otherIngredients: form.excipients,
             nutritionalInformation: form.nutritionalInfoType === "label" ? "As per the label." : "",
             nutritionalInformationImageUrl: "", // Will be updated in Step 2.5 after product creation
             intendedUse: form.intendedUse,
-            ageGroupId: Number(form.ageGroup),
+            ageGroupId: form.ageGroup ? Number(form.ageGroup.split(",")[0]) : 0,
+            ageGroupIds: form.ageGroup ? form.ageGroup.split(",").map(Number) : [],
             gender: form.gender,
             vegOrNonVegIndicator: form.vegNonVeg,
             allergenInformation: form.allergenInfo,
@@ -1185,13 +1657,27 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             brandName: form.brandName,
             variantName: form.variantName,
             dosageFormId: Number(form.dosageForm),
-            netQuantity: form.netQuantity,
+            netQuantity: Number(form.netQuantityValue),
+            netQuantityUnitId: Number(
+              netQuantityUnitsList.find((item) => extractUnitString(item) === form.netQuantityUnit)?.unitId ||
+              netQuantityUnitsList.find((item) => extractUnitString(item) === form.netQuantityUnit)?.id ||
+              form.netQuantityUnitId ||
+              0
+            ),
+            servingSize: Number(form.servingSizeValue),
+            servingSizeUnitId: Number(
+              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.id ||
+              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.unitId ||
+              form.servingSizeUnitId ||
+              0
+            ),
             strength: form.strength,
             activeIngredients: form.activeIngredients,
             otherIngredients: form.excipients,
             nutritionalInformation: form.nutritionalInfoType === "label" ? "As per the label." : "",
             intendedUse: form.intendedUse,
-            ageGroupId: Number(form.ageGroup),
+            ageGroupId: form.ageGroup ? Number(form.ageGroup.split(",")[0]) : 0,
+            ageGroupIds: form.ageGroup ? form.ageGroup.split(",").map(Number) : [],
             gender: form.gender,
             vegOrNonVegIndicator: form.vegNonVeg,
             allergenInformation: form.allergenInfo,
@@ -1340,7 +1826,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       <div className="flex flex-col gap-5 w-full">
 
         {/* ── Section 1: Product Details ──────────────────────────────────────── */}
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
+        <div className="relative border border-neutral-200 rounded-xl p-6 bg-white">
           <div className="text-h4 font-semibold">Product Details</div>
           <div className="border-b border-neutral-200 mt-3"></div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
@@ -1477,7 +1963,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 options={dosageFormOptions}
                 value={form.dosageForm}
                 onChange={(val) => {
-                  setForm((p) => ({ ...p, dosageForm: val }));
+                  setForm((p) => ({ ...p, dosageForm: val, servingSizeUnit: "" }));
                   if (errors.dosageForm) setErrors((p) => { const n = { ...p }; delete n.dosageForm; return n; });
                 }}
                 placeholder={loadingDosageForms ? "Loading..." : "Select dosage form"}
@@ -1489,19 +1975,38 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* ROW 4 */}
             {/* Net Quantity */}
             <div data-field="netQuantity">
-              <Input
+              <NumericInputWithUnit
                 label="Net Quantity"
-                name="netQuantity"
-                id="netQuantity"
-                placeholder="e.g., 60 tablets, 200g, 100ml"
-                onChange={handleChange}
-                value={form.netQuantity}
-                maxLength={20}
-                error={errors.netQuantity}
+                name="netQuantityValue"
+                placeholder="e.g., 60, 200, 100"
+                value={form.netQuantityValue}
+                unit={form.netQuantityUnit}
+                onValueChange={handleNetQuantityValueChange}
+                onUnitChange={handleNetQuantityUnitChange}
+                error={errors.netQuantityValue || errors.netQuantity}
+                options={netQuantityUnitOptions}
                 required
                 readOnly={isEditMode}
               />
             </div>
+            {/* Serving Size */}
+            <div data-field="servingSize">
+              <NumericInputWithUnit
+                label="Serving Size"
+                name="servingSizeValue"
+                placeholder="e.g., 1, 5, 10"
+                value={form.servingSizeValue}
+                unit={form.servingSizeUnit}
+                onValueChange={handleServingSizeValueChange}
+                onUnitChange={handleServingSizeUnitChange}
+                error={errors.servingSizeValue}
+                options={servingSizeUnitOptions}
+                required
+                readOnly={isEditMode}
+              />
+            </div>
+
+            {/* ROW 5 */}
             {/* Strength / Composition */}
             <div data-field="strength">
               <Input
@@ -1695,17 +2200,88 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               />
               {errors.ageGroup && <p className={errorMsg}>{errors.ageGroup}</p>}
               */}
-              <Dropdown
-                options={ageGroupOptions}
-                value={form.ageGroup}
-                onChange={(val) => {
-                  setForm((p) => ({ ...p, ageGroup: val }));
-                  if (errors.ageGroup) setErrors((p) => { const n = { ...p }; delete n.ageGroup; return n; });
-                }}
-                placeholder={loadingAgeGroups ? "Loading..." : "Select age group"}
-                isDisabled={isEditMode || loadingAgeGroups}
-                error={errors.ageGroup}
-              />
+              <div className="relative" ref={ageGroupDropdownRef}>
+                <div
+                  onClick={() => {
+                    if (!isEditMode && !loadingAgeGroups) {
+                      setShowAgeGroupDropdown((p) => !p);
+                    }
+                  }}
+                  className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${
+                    errors.ageGroup ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"
+                  } ${isEditMode || loadingAgeGroups ? "bg-pneutral-100 border-2 border-pneutral-300 cursor-not-allowed" : ""}`}
+                >
+                  <span
+                    className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
+                    style={{
+                      color: form.ageGroup ? "var(--pneutral-800)" : "var(--sneutral-400)",
+                    }}
+                  >
+                    {form.ageGroup
+                      ? form.ageGroup
+                          .split(",")
+                          .map((val) => ageGroupOptions.find((o) => o.value === val)?.label)
+                          .filter(Boolean)
+                          .join(", ")
+                      : "Select age group"}
+                  </span>
+                  <svg
+                    className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${
+                      showAgeGroupDropdown ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+                {showAgeGroupDropdown && (
+                  <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
+                    {loadingAgeGroups ? (
+                      <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
+                    ) : (
+                      ageGroupOptions.map((opt) => {
+                        const selectedValues = form.ageGroup ? form.ageGroup.split(",") : [];
+                        const isChecked = selectedValues.includes(opt.value);
+                        return (
+                          <label
+                            key={opt.value}
+                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                let newValues;
+                                if (isChecked) {
+                                  newValues = selectedValues.filter((v) => v !== opt.value);
+                                } else {
+                                  newValues = [...selectedValues, opt.value];
+                                }
+                                const newValString = newValues.join(",");
+                                setForm((p) => ({ ...p, ageGroup: newValString }));
+                                if (errors.ageGroup) {
+                                  setErrors((p) => {
+                                    const n = { ...p };
+                                    delete n.ageGroup;
+                                    return n;
+                                  });
+                                }
+                              }}
+                              className="accent-purple-600 w-4 h-4"
+                            />
+                            <span className="text-base [font-family:'Open_Sans',sans-serif] text-pneutral-800">
+                              {opt.label}
+                            </span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+              {errors.ageGroup && <p className={errorMsg}>{errors.ageGroup}</p>}
             </div>
             {/* Gender */}
             <div className="flex flex-col gap-1" data-field="gender">
@@ -1754,7 +2330,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                       value={option}
                       checked={form.vegNonVeg === option}
                       onChange={() => !isEditMode && handleRadioChange("vegNonVeg", option)}
-                      className="w-4 h-4 accent-[#4B0082] cursor-pointer"
+                      className="w-4 h-4 accent-primary-900 cursor-pointer"
                       disabled={isEditMode}
                     />
                     <span className="text-neutral-800 font-medium text-sm">{option}</span>
@@ -1870,18 +2446,33 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             </div>
 
             {/* ROW 11 */}
+            {/* Country of Origin */}
+            <div className="flex flex-col gap-1" data-field="countryOfOrigin">
+              <label className={fieldLabel}>Country of Origin {requiredStar}</label>
+              <Dropdown
+                options={countryOptions}
+                value={form.countryOfOrigin}
+                onChange={(val) => {
+                  setForm((p) => ({ ...p, countryOfOrigin: val }));
+                  if (errors.countryOfOrigin) setErrors((p) => { const n = { ...p }; delete n.countryOfOrigin; return n; });
+                }}
+                placeholder={loadingCountries ? "Loading..." : "Select country"}
+                isDisabled={isEditMode || loadingCountries}
+                error={errors.countryOfOrigin}
+              />
+            </div>
             {/* Certifications / Compliance Checkbox Dropdown */}
             <div className="flex flex-col gap-1" data-field="certifications">
               <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
               <div className="relative" ref={certDropdownRef}>
                 <div
                   onClick={() => setShowCertDropdown((p) => !p)}
-                  className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-[#FF3B3B]" : "border-neutral-500 hover:border-[#4B0082]"
+                  className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"
                     }`}
                 >
                   <span
                     className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
-                    style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#A3A3A3" }}
+                    style={{ color: selectedCertifications.length > 0 ? "var(--pneutral-800)" : "var(--sneutral-400)" }}
                   >
                     {selectedCertifications.length > 0
                       ? selectedCertifications.map((c) => c.label).join(", ")
@@ -1913,7 +2504,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                             onChange={() => handleCertCheckbox(opt)}
                             className="accent-purple-600 w-4 h-4"
                           />
-                          <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">
+                          <span className="text-base [font-family:'Open_Sans',sans-serif] text-pneutral-800">
                             {opt.label}
                           </span>
                         </label>
@@ -1926,187 +2517,42 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             </div>
 
             {/* Upload Certifications / Compliance List */}
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
-              {selectedCertifications.length === 0 ? (
+            {selectedCertifications.length === 0 ? (
+              <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
+                <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
                 <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
-                  <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
+                  <div className="flex items-center justify-center h-full px-4 bg-secondary-200">
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
                   <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                    <span className="text-[#969793]">Select certifications first</span>
+                    <span className="text-pneutral-500 text-sm">Select certifications first</span>
                   </div>
                 </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {selectedCertifications.map((cert) => (
-                    <div key={cert.id} className="flex flex-col gap-1">
-                      {/* Legacy Hardcoded Upload commented out
-                      <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
-                        <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
-                          <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
-                        </div>
-
-                        <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                          {cert.isUploaded || cert.existingUrl ? (
-                            <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
-                              <span className="truncate">
-                                {cert.isUploaded ? cert.fileName : "Current Certificate"}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleCertRemove(cert.id)}
-                                className="ml-2"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-[#969793]">Upload the {cert.label}</span>
-                          )}
-                        </div>
-
-                        {cert.existingUrl && !cert.isUploaded && (
-                          <a
-                            href={cert.existingUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-purple-600 text-xs underline px-2"
-                          >
-                            View
-                          </a>
-                        )}
-
-                        {!cert.isUploaded && (
-                          <label className="cursor-pointer px-4">
-                            <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
-                            <input
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) handleCertFileSelect(cert.id, file);
-                              }}
-                            />
-                          </label>
-                        )}
-                      </div>
-                      */}
-                      <UploadInput
-                        onFileSelect={(file) => {
-                          if (file) {
-                            handleCertFileSelect(cert.id, file);
-                          } else {
-                            handleCertRemove(cert.id);
-                          }
-                        }}
-                        existingFile={cert.existingUrl || undefined}
-                        label=""
-                        placeholder={`Upload the ${cert.label}`}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* ROW 12 */}
-            {/* Country of Origin */}
-            <div className="flex flex-col gap-1" data-field="countryOfOrigin">
-              <label className={fieldLabel}>Country of Origin {requiredStar}</label>
-              {/*
-              <Select
-                options={countryOptions}
-                value={countryOptions.find(o => o.value === form.countryOfOrigin) || null}
-                onChange={(selected) => {
-                  setForm((p) => ({ ...p, countryOfOrigin: selected ? selected.value : "" }));
-                  if (errors.countryOfOrigin) setErrors((p) => { const n = { ...p }; delete n.countryOfOrigin; return n; });
-                }}
-                placeholder={loadingCountries ? "Loading..." : "Select country"}
-                theme={selectTheme}
-                styles={selectStyles("countryOfOrigin")}
-                isDisabled={isEditMode || loadingCountries}
-              />
-              {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
-              */}
-              <Dropdown
-                options={countryOptions}
-                value={form.countryOfOrigin}
-                onChange={(val) => {
-                  setForm((p) => ({ ...p, countryOfOrigin: val }));
-                  if (errors.countryOfOrigin) setErrors((p) => { const n = { ...p }; delete n.countryOfOrigin; return n; });
-                }}
-                placeholder={loadingCountries ? "Loading..." : "Select country"}
-                isDisabled={isEditMode || loadingCountries}
-                error={errors.countryOfOrigin}
-              />
-            </div>
-            {/* Upload Brochure */}
-            <div data-field="brochureFile">
-              {/* Legacy Hardcoded Upload commented out
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
-                <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
-                  <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
-                    <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
-                  </div>
-
-                  <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                    {brochureFile || (existingBrochureUrl && !brochureFile) ? (
-                      <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
-                        <span className="truncate">
-                          {brochureFile ? brochureFile.name : "Current Brochure"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (brochureFile) {
-                              setBrochureFile(null);
-                            } else {
-                              setExistingBrochureUrl(null);
-                            }
-                          }}
-                          className="ml-2"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-[#969793]">Upload the Product Brochure</span>
-                    )}
-                  </div>
-
-                  {existingBrochureUrl && !brochureFile && (
-                    <a
-                      href={existingBrochureUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-purple-600 text-xs underline px-2"
-                    >
-                      View
-                    </a>
-                  )}
-
-                  {!brochureFile && (!existingBrochureUrl || brochureFile === null) && (
-                    <label className="cursor-pointer px-4">
-                      <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
-                      <input
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleBrochureUpload(file);
-                        }}
-                      />
-                    </label>
-                  )}
-                </div>
-                {errors.brochureFile && <p className={errorMsg}>{errors.brochureFile}</p>}
               </div>
-              */}
+            ) : (
+              selectedCertifications.map((cert) => (
+                <div key={cert.id} className="flex flex-col gap-1 col-span-1">
+                  <label className={fieldLabel}>Upload {cert.label} {requiredStar}</label>
+                  <UploadInput
+                    onFileSelect={(file) => {
+                      if (file) {
+                        handleCertFileSelect(cert.id, file);
+                      } else {
+                        handleCertRemove(cert.id);
+                      }
+                    }}
+                    existingFile={cert.existingUrl || undefined}
+                    label=""
+                    placeholder={`Upload the ${cert.label}`}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                </div>
+              ))
+            )}
+
+            {/* Upload Brochure */}
+            <div className="flex flex-col gap-1" data-field="brochureFile">
+              <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
               <UploadInput
                 onFileSelect={(file) => {
                   setBrochureFile(file);
@@ -2118,7 +2564,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   }
                 }}
                 existingFile={existingBrochureUrl || undefined}
-                label="Upload Product Brochure / User Manual"
+                label=""
                 placeholder="Upload the Product Brochure"
                 accept=".pdf,.jpg,.jpeg,.png"
               />
@@ -2137,7 +2583,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   onChange={handleChange}
                   placeholder="e.g., Not for pregnant women"
                   maxLength={255}
-                  className={`w-full h-36 px-4 rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.warningsPrecautions ? "border-[#FF3B3B] focus:border-[#FF3B3B] focus:ring-1 focus:ring-[#FF3B3B]" : "border-neutral-500 focus:border-[#C4AAFD] focus:ring-1 focus:ring-[#C4AAFD]"}`}
+                  className={`w-full h-36 px-4 rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-pneutral-800 placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.warningsPrecautions ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
                 />
                 {errors.warningsPrecautions && <p className={errorMsg}>{errors.warningsPrecautions}</p>}
               </div>
@@ -2151,7 +2597,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   onChange={handleChange}
                   placeholder="Provide a detailed description of the product (Min 10 chars)"
                   maxLength={255}
-                  className={`w-full h-36 px-4 rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.productDescription ? "border-[#FF3B3B] focus:border-[#FF3B3B] focus:ring-1 focus:ring-[#FF3B3B]" : "border-neutral-500 focus:border-[#C4AAFD] focus:ring-1 focus:ring-[#C4AAFD]"}`}
+                  className={`w-full h-36 px-4 rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-pneutral-800 placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.productDescription ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
                 />
                 {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
               </div>
@@ -2161,14 +2607,14 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         </div>
 
         {/* Packaging & Order Details */}
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
+        <div className="relative border border-neutral-200 rounded-xl p-6 bg-white">
           <div className="text-h4 font-semibold">Packaging & Order Details</div>
 
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-neutral-700 font-semibold">
+              <label className="text-label-l4 text-neutral-700 font-medium">
                 Pack Type
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
@@ -2408,6 +2854,21 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             />
 
             <Input
+              type="number"
+              label="Stock Quantity"
+              name="stockQuantity"
+              id="stockQuantity"
+              placeholder=""
+              value={form.stockQuantity}
+              onChange={handleChange}
+              readOnly={isEditMode}
+              min={0}
+              step={1}
+              error={errors.stockQuantity}
+              required
+            />
+
+            <Input
               label="Date of Entry"
               type="date"
               name="dateOfStockEntry"
@@ -2426,24 +2887,51 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               required
             />
 
-            <Input
-              type="number"
-              label="Stock Quantity"
-              name="stockQuantity"
-              id="stockQuantity"
-              placeholder=""
-              value={form.stockQuantity}
-              onChange={handleChange}
-              readOnly={isEditMode}
-              min={0}
-              step={1}
-              error={errors.stockQuantity}
-              required
-            />
-
             <div className="text-h6 font-normal col-span-2 mt-3">Pricing</div>
 
             <div className="border-b border-neutral-200 col-span-2"></div>
+
+            <div className="col-span-2 flex items-end gap-4">
+              <div className="w-1/2">
+                <Input
+                  type="number"
+                  label="Discount(%)"
+                  name="discountPercentage"
+                  value={form.discountPercentage}
+                  onChange={handleChange}
+                  min={0}
+                  max={100}
+                  step={1}
+                  error={errors.discountPercentage}
+                  required
+                />
+              </div>
+
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAdditionalDiscount(true)}
+                  className="w-[237px] h-[56px] bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[18px] leading-[28px] rounded-lg flex items-center justify-center gap-[12px] cursor-pointer hover:bg-purple-50 transition-all duration-200"
+                >
+                  <svg
+                    width="14.24"
+                    height="14.24"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="flex-shrink-0"
+                  >
+                    <path
+                      d="M7 1v12M1 7h12"
+                      stroke="#9659FD"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span>Add Special Discount</span>
+                </button>
+              </div>
+            </div>
 
             <Input
               type="number"
@@ -2477,46 +2965,30 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               error={errors.sellingPrice}
               required
             />
-
-            <div className="col-span-2 flex items-end gap-4">
-              <div className="w-1/2">
-                <Input
-                  type="number"
-                  label="Discount Percentage"
-                  name="discountPercentage"
-                  value={form.discountPercentage}
-                  onChange={handleChange}
-                  min={0}
-                  max={100}
-                  step={1}
-                  error={errors.discountPercentage}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAdditionalDiscount(true)}
-                  className="w-55.5 h-10.5 px-6 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
-                >
-                  <img
-                    src="/icons/PlusIcon.svg"
-                    alt="drug"
-                    className="w-[12.5px] h-[12.5px]"
-                  />
-                  Add Special Discount
-                </button>
-              </div>
-            </div>
             <div className="text-h6 font-normal col-span-2 mt-3">
               TAX & BILLING
             </div>
 
             <div className="border-b border-neutral-200 col-span-2"></div>
 
+            <Input
+              type="number"
+              label="HSN Code"
+              name="hsnCode"
+              id="hsnCode"
+              placeholder=""
+              value={form.hsnCode}
+              onChange={handleChange}
+              min={1}
+              step={1}
+              maxLength={8}
+              readOnly={isEditMode}
+              error={errors.hsnCode}
+              required
+            />
+
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-neutral-700 font-semibold">
+              <label className="text-label-l4 text-neutral-700 font-medium">
                 GST %
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
@@ -2564,32 +3036,16 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 error={errors.gstPercentage}
               />
             </div>
-
-            <Input
-              type="number"
-              label="HSN Code"
-              name="hsnCode"
-              id="hsnCode"
-              placeholder=""
-              value={form.hsnCode}
-              onChange={handleChange}
-              min={1}
-              step={1}
-              maxLength={8}
-              readOnly={isEditMode}
-              error={errors.hsnCode}
-              required
-            />
           </div>
         </div>
 
         {/* ── Section 2: Product Photos ──────────────────────────────────────────── */}
         <div
-          className="relative border border-neutral-200 rounded-xl p-6 mt-6"
+          className="relative border border-neutral-200 rounded-xl p-6 bg-white"
           ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>}
           data-field="images"
         >
-          <div className="text-[#364153] font-normal text-sm">
+          <div className="text-pneutral-700 font-normal text-sm">
             Product Photos{" "}
             <span className="text-warning-500 font-semibold ml-1">*</span>
           </div>
@@ -2648,11 +3104,11 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                     <img
                       src={img}
                       alt="product"
-                      className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
+                      className="w-full h-full object-cover rounded-md border border-pneutral-200"
                     />
                     <button
                       onClick={() => setExistingImages(existingImages.filter((_, i) => i !== index))}
-                      className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
+                      className="absolute top-1 right-1 text-pneutral-900 cursor-pointer text-xs px-1 rounded"
                     >
                       ✕
                     </button>
@@ -2668,11 +3124,11 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                     <img
                       src={URL.createObjectURL(file)}
                       alt="preview"
-                      className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
+                      className="w-full h-full object-cover rounded-md border border-pneutral-200"
                     />
                     <button
                       onClick={() => setImages(images.filter((_, i) => i !== index))}
-                      className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
+                      className="absolute top-1 right-1 text-pneutral-900 cursor-pointer text-xs px-1 rounded"
                     >
                       ✕
                     </button>
@@ -2688,12 +3144,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             <button
               type="button"
               onClick={() => router.back()}
-              className="w-21 h-12 border-2 border-[#FF3B3B] rounded-lg text-label-l3 font-semibold text-[#FF3B3B] cursor-pointer"
+              className="w-21 h-12 border-2 border-warning-500 rounded-lg text-label-l3 font-semibold text-warning-500 cursor-pointer"
             >
               Cancel
             </button>
 
-            <button className="w-35.25 h-12 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5">
+            <button className="w-35.25 h-12 bg-secondary-500 text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5">
               <img
                 src="/icons/SaveDraftIcon.svg"
                 alt="drug"
@@ -2707,7 +3163,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer flex items-center justify-center gap-2"
+              className="bg-primary-900 text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer flex items-center justify-center gap-2"
             >
               {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {submitting ? "Saving..." : "Submit"}

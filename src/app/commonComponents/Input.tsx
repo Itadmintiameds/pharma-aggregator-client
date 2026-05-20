@@ -138,18 +138,18 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   const sizeStyles: Record<InputSize, string> = {
     sm: "h-10 px-3 text-sm rounded-xl",
     md: "h-12 px-3 text-sm rounded-lg",
-    lg: "h-[52px] px-4 py-3 text-base rounded-lg",
+    lg: "h-[52px] min-h-[52px] max-h-[56px] px-4 py-3 text-base rounded-lg",
   };
 
   // 3. State Mapping (Borders, Backgrounds, Text Colors)
   const getVariantStyles = (): string => {
-    if (disabled) return "border-[#D5D5D4] bg-[#E1E1E1] text-[#969793] cursor-not-allowed";
-    if (readOnly) return "border-[#EAEAE9] bg-[#F8F8F9] text-[#3C3D3A] cursor-default";
-    if (error) return "border-[#FF3B3B] text-[#3C3D3A] bg-white focus:border-[#FF3B3B] focus:ring-1 focus:ring-[#FF3B3B]";
-    if (success) return "border-[#378200] text-[#3C3D3A] bg-white focus:border-[#378200] focus:ring-1 focus:ring-[#378200]";
-    
+    if (disabled) return "border-pneutral-200 bg-sneutral-100 text-pneutral-500 cursor-not-allowed";
+    if (readOnly) return "border-pneutral-100 bg-pneutral-50 text-pneutral-800 cursor-default";
+    if (error) return "border-warning-500 text-pneutral-800 bg-white focus:border-warning-500 focus:ring-1 focus:ring-warning-500";
+    if (success) return "border-success-700 text-pneutral-800 bg-white focus:border-success-700 focus:ring-1 focus:ring-success-700";
+
     // Default (Enabled) / Active State
-    return "border-neutral-500 text-[#3C3D3A] bg-white focus:border-[#C4AAFD] focus:ring-1 focus:ring-[#C4AAFD]";
+    return "border-neutral-500 text-pneutral-800 bg-white focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300";
   };
 
   return (
@@ -157,12 +157,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
       {/* Label Logic */}
       <label
         htmlFor={inputId}
-        className={`text-label-l3 font-semibold transition-colors duration-200 ${
-          disabled ? "text-[#969793]" : "text-[#1E1E1D]"
-        } ${labelClassName}`}
+        className={`text-label-l4 font-medium transition-colors duration-200 ${disabled ? "text-pneutral-500" : "text-pneutral-900"
+          } ${labelClassName}`}
       >
         {label}
-        {props.required && <span className="text-[#FF3B3B] ml-1">*</span>}
+        {props.required && <span className="text-warning-500 ml-1">*</span>}
       </label>
 
       {/* Input Field */}
@@ -192,9 +191,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
       {/* Supporting Text (Hint / Error / Success) */}
       {(error || success || hint) && (
         <p
-          className={`text-xs px-1 font-medium ${
-            error ? "text-[#FF3B3B]" : success ? "text-[#378200]" : "text-neutral-500"
-          }`}
+          className={`font-heading font-normal text-sm leading-[28px] px-1 ${error ? "text-warning-500" : success ? "text-success-700" : "text-neutral-500"
+            }`}
         >
           {error || success || hint}
         </p>
