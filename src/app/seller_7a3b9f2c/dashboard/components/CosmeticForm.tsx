@@ -8,7 +8,9 @@ import {
   getCosmeticCountries,
   getCosmeticHairTypes,
   getCosmeticIntendedUseAreas,
+  getCosmeticNetQuantityUnits,
   getCosmeticPackTypes,
+  getCosmeticProductForms,
   getCosmeticProductSubTypes,
   getCosmeticProductTypes,
   getCosmeticSkinTypes,
@@ -461,6 +463,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [loadingPackTypes, setLoadingPackTypes] = useState(false);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
+  const [loadingNetQuantityUnits, setLoadingNetQuantityUnits] = useState(false);
+  const [loadingProductForms, setLoadingProductForms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // ─── Form state ──────────────────────────────────────────────────────────────
@@ -473,7 +477,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     gender:               "",
     activeIngredients:    "",
     netQuantity:          "",
-    ageGroupId:           "",
+    netQuantityUnitId:    "",
+    productFormId:        "",
     productClaims:        "",
     warningsPrecautions:  "",
     productDescription:   "",
@@ -508,6 +513,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [pricingId, setPricingId] = useState("");
 
   // ─── Multi-select fields ──────────────────────────────────────────────────────
+  const [selectedAgeGroups, setSelectedAgeGroups] = useState<string[]>([]);
   const [selectedIntendedUseAreas, setSelectedIntendedUseAreas] = useState<string[]>([]);
   const [selectedSkinTypes, setSelectedSkinTypes] = useState<string[]>([]);
   const [selectedHairTypes, setSelectedHairTypes] = useState<string[]>([]);
@@ -524,6 +530,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
   const [packTypeOptions, setPackTypeOptions] = useState<SelectOption[]>([]);
+  const [netQuantityUnitOptions, setNetQuantityUnitOptions] = useState<SelectOption[]>([]);
+  const [productFormOptions, setProductFormOptions] = useState<SelectOption[]>([]);
 
   // ─── Display labels (edit mode) ───────────────────────────────────────────────
   const [displayLabels, setDisplayLabels] = useState({
@@ -627,17 +635,23 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
       const productTypeIdStr    = String(attribute.productCategoryId ?? attribute.productTypeId ?? "");
       const productSubTypeIdStr = String(attribute.productSubcategoryId ?? attribute.productSubTypeId ?? "");
-      const ageGroupIdStr       = String(attribute.ageGroupId || "");
       const storageCondIdStr    = String(attribute.storageConditionId || "");
       const countryIdStr        = String(attribute.countryId || "");
       const packIdStr           = String(packaging.packId || "");
       const gstVal              = String(pricing.gstPercentage ?? "");
+      const netQuantityUnitIdStr = String(attribute.unitId || attribute.netQuantityUnitId || "");
+      const productFormIdStr    = String(attribute.formId || attribute.productFormId || "");
+
+      let ageGroupIds: string[] = [];
+      if (Array.isArray(attribute.ageGroupIds))     ageGroupIds = attribute.ageGroupIds.map(String);
+      else if (Array.isArray(attribute.ageGroupId)) ageGroupIds = attribute.ageGroupId.map(String);
+      else if (attribute.ageGroupId)                ageGroupIds = [String(attribute.ageGroupId)];
 
       const brandNameValue        = attribute.brandName || "";
       const variantNameValue      = attribute.VariantName || attribute.variantName || "";
       const genderValue           = (attribute.Gender || attribute.gender || "").toLowerCase();
       const activeIngredientsValue = attribute.ActiveIngredients || attribute.activeIngredients || "";
-      const netQuantityValue      = attribute.NetQuantityStrength || attribute.netQuantityStrength || attribute.netQuantity || "";
+      const netQuantityValue      = String(attribute.NetQuantityStrength ?? attribute.netQuantityStrength ?? attribute.netQuantity ?? "");
       const productClaimsValue    = attribute.ProductClaims || attribute.productClaims || "";
       const warningsValue         = data.warningsPrecautions ?? attribute.WarningsPrecautions ?? attribute.warningsPrecautions ?? "";
       const descriptionValue      = data.productDescription || "";
@@ -650,7 +664,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       setDisplayLabels({
         productTypeLabel:      currentProductTypeOptions.find((o) => o.value === productTypeIdStr)?.label || productTypeIdStr,
         productSubTypeLabel:   resolvedSubCats.find((o) => o.value === productSubTypeIdStr)?.label || productSubTypeIdStr,
-        ageGroupLabel:         currentAgeGroupOptions.find((o) => o.value === ageGroupIdStr)?.label || ageGroupIdStr,
+        ageGroupLabel:         ageGroupIds.map((id) => currentAgeGroupOptions.find((o) => o.value === id)?.label || id).join(", "),
         storageConditionLabel: currentStorageConditionOptions.find((o) => o.value === storageCondIdStr)?.label || storageCondIdStr,
         countryLabel:          currentCountryOptions.find((o) => o.value === countryIdStr)?.label || countryIdStr,
         packTypeLabel:         currentPackTypeOptions.find((o) => o.value === packIdStr)?.label || packIdStr,
@@ -667,7 +681,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         gender:               genderValue,
         activeIngredients:    activeIngredientsValue,
         netQuantity:          netQuantityValue,
-        ageGroupId:           ageGroupIdStr,
+        netQuantityUnitId:    netQuantityUnitIdStr,
+        productFormId:        productFormIdStr,
         productClaims:        productClaimsValue,
         warningsPrecautions:  warningsValue,
         productDescription:   descriptionValue,
@@ -712,12 +727,24 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       else if (Array.isArray(attribute.skinTypes)) rawSkin = attribute.skinTypes;
 
       if (Array.isArray(attribute.hairTypeIds))   rawHair = attribute.hairTypeIds;
+      else if (Array.isArray(attribute.typeId))    rawHair = attribute.typeId;
       else if (Array.isArray(attribute.hairType))  rawHair = attribute.hairType;
       else if (Array.isArray(attribute.hairTypes)) rawHair = attribute.hairTypes;
 
-      if (rawIntended.length) setSelectedIntendedUseAreas(rawIntended.map(String));
-      if (rawSkin.length)     setSelectedSkinTypes(rawSkin.map(String));
-      if (rawHair.length)     setSelectedHairTypes(rawHair.map(String));
+      const toIdStrings = (arr: unknown[], ...keys: string[]): string[] =>
+        arr.map((item) => {
+          if (item !== null && typeof item === "object") {
+            const o = item as Record<string, unknown>;
+            for (const k of keys) if (o[k] != null) return String(o[k]);
+            return "";
+          }
+          return String(item);
+        }).filter(Boolean);
+
+      setSelectedAgeGroups(ageGroupIds);
+      if (rawIntended.length) setSelectedIntendedUseAreas(toIdStrings(rawIntended, "useAreaId", "areaId", "id"));
+      if (rawSkin.length)     setSelectedSkinTypes(toIdStrings(rawSkin, "skintypeId", "skinTypeId", "typeId", "id"));
+      if (rawHair.length)     setSelectedHairTypes(toIdStrings(rawHair, "typeId", "hairTypeId", "id"));
 
       if (data.productImages?.length) {
         setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
@@ -766,6 +793,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       setLoadingCountries(true);
       setLoadingPackTypes(true);
       setLoadingCertifications(true);
+      setLoadingNetQuantityUnits(true);
+      setLoadingProductForms(true);
 
       const [
         productTypesResult,
@@ -777,6 +806,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         countriesResult,
         packTypesResult,
         certificationsResult,
+        netQuantityUnitsResult,
+        productFormsResult,
       ] = await Promise.allSettled([
         getCosmeticProductTypes(),
         getCosmeticSkinTypes(),
@@ -787,6 +818,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         getCosmeticCountries(),
         getCosmeticPackTypes(productCategoryId),
         getCosmeticCertificationsByCategoryId(productCategoryId),
+        getCosmeticNetQuantityUnits(productCategoryId),
+        getCosmeticProductForms(),
       ]);
 
       if (!mounted) return;
@@ -847,6 +880,20 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               .filter((o) => o.value)
           : [];
 
+      const resolvedNetQuantityUnits: SelectOption[] =
+        netQuantityUnitsResult.status === "fulfilled"
+          ? (netQuantityUnitsResult.value as MasterItem[])
+              .map((i) => ({ value: getMasterStr(i, "netQuantityUnitId", "unitId", "id"), label: getMasterStr(i, "unitName", "unit", "name") || "Unknown" }))
+              .filter((o) => o.value)
+          : [];
+
+      const resolvedProductForms: SelectOption[] =
+        productFormsResult.status === "fulfilled"
+          ? (productFormsResult.value as MasterItem[])
+              .map((i) => ({ value: getMasterStr(i, "productFormId", "formId", "id"), label: getMasterStr(i, "productFormName", "formName", "productForm", "name") || "Unknown" }))
+              .filter((o) => o.value)
+          : [];
+
       const fallbackCerts: CertificationMasterOption[] = [
         { value: "1", label: "ISO Certification", certificationId: 1, tagCode: "Tag 01" },
         { value: "2", label: "GMP (Good Manufacturing Practice)", certificationId: 2, tagCode: "Tag 02" },
@@ -879,6 +926,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       setCountryOptions(resolvedCountries);
       setPackTypeOptions(resolvedPackTypes);
       setCertificationMasterOptions(resolvedCerts.length ? resolvedCerts : fallbackCerts);
+      setNetQuantityUnitOptions(resolvedNetQuantityUnits);
+      setProductFormOptions(resolvedProductForms);
 
       setLoadingProductTypes(false);
       setLoadingSkinTypes(false);
@@ -889,6 +938,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       setLoadingCountries(false);
       setLoadingPackTypes(false);
       setLoadingCertifications(false);
+      setLoadingNetQuantityUnits(false);
+      setLoadingProductForms(false);
 
       if (mode === "edit" && productId) {
         await fetchProductData(
@@ -966,7 +1017,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     const numericOnlyFields = [
       "stockQuantity", "sellingPrice", "mrp", "discountPercentage",
       "hsnCode", "unitsPerPack", "numberOfPacks",
-      "minimumOrderQuantity", "maximumOrderQuantity",
+      "minimumOrderQuantity", "maximumOrderQuantity", "netQuantity",
     ];
     if (numericOnlyFields.includes(name)) {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
@@ -974,7 +1025,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }
     const maxLengths: Record<string, number> = {
       productName: 150, brandName: 60, variantName: 60,
-      manufacturerName: 100, productDescription: 1000, netQuantity: 20,
+      manufacturerName: 100, productDescription: 1000,
     };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
@@ -1086,11 +1137,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
     if (!form.activeIngredients.trim()) e.activeIngredients = "Active ingredients are required";
 
-    const nQty = form.netQuantity.trim();
-    if (!nQty) e.netQuantity = "Net quantity / strength is required";
-    else if (nQty.length > 20) e.netQuantity = "Net quantity must not exceed 20 characters";
+    if (!form.netQuantity.trim()) e.netQuantity = "Net quantity is required";
+    else if (isNaN(Number(form.netQuantity)) || Number(form.netQuantity) <= 0)
+      e.netQuantity = "Net quantity must be a positive number";
+    if (!form.netQuantityUnitId) e.netQuantityUnitId = "Unit is required";
+    if (!form.productFormId) e.productFormId = "Product form is required";
 
-    if (!form.ageGroupId) e.ageGroupId = "Age group is required";
+    if (selectedAgeGroups.length === 0) e.ageGroupId = "At least one age group is required";
     if (!form.productClaims.trim()) e.productClaims = "Product claims are required";
     if (!form.warningsPrecautions.trim()) e.warningsPrecautions = "Warnings / precautions are required";
 
@@ -1267,8 +1320,11 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         skintypeId:           skinHairRule.skinType !== "hidden" ? selectedSkinTypes.map(Number) : [],
         typeId:           skinHairRule.hairType !== "hidden" ? selectedHairTypes.map(Number) : [],
         ActiveIngredients:    form.activeIngredients,
-        NetQuantityStrength:  form.netQuantity,
-        ageGroupId:           Number(form.ageGroupId),
+        NetQuantityStrength:  Number(form.netQuantity),
+        unitId:               Number(form.netQuantityUnitId),
+        formId:               Number(form.productFormId),
+        ageGroupId:           selectedAgeGroups.length > 0 ? Number(selectedAgeGroups[0]) : 0,
+        ageGroupIds:          selectedAgeGroups.map(Number),
         ProductClaims:        form.productClaims,
         WarningsPrecautions:  form.warningsPrecautions,
         storageConditionId:   Number(form.storageConditionId),
@@ -1699,9 +1755,50 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               dataField="intendedUseAreas"
             />
 
-            <div data-field="netQuantity">
-              <Input label="Net Quantity / Strength" name="netQuantity" placeholder="e.g., 100ml, 50g, 200ml"
-                value={form.netQuantity} onChange={handleChange} error={errors.netQuantity} required />
+            <div className="flex flex-col gap-1" data-field="productFormId">
+              <label className={fieldLabel}>Product Form {requiredStar}</label>
+              <Select
+                options={productFormOptions}
+                isLoading={loadingProductForms}
+                value={productFormOptions.find((o) => o.value === form.productFormId) || null}
+                onChange={(sel) => {
+                  handleSelectChange("productFormId", sel);
+                  if (errors.productFormId) setErrors((p) => { const n = { ...p }; delete n.productFormId; return n; });
+                }}
+                placeholder={loadingProductForms ? "Loading..." : "Eg, Gel, Powder"}
+                theme={selectTheme}
+                styles={selectStyles("productFormId")}
+              />
+              {errors.productFormId && <p className={errorMsg}>{errors.productFormId}</p>}
+            </div>
+
+            <div className="flex flex-col gap-1" data-field="netQuantity">
+              <label className={fieldLabel}>Net Quantity {requiredStar}</label>
+              <div className="flex gap-2">
+                <input
+                  name="netQuantity"
+                  value={form.netQuantity}
+                  onChange={handleChange}
+                  placeholder="e.g., 100"
+                  className={`flex-1 h-14 px-4 border rounded-2xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-0 transition-colors ${errors.netQuantity ? "border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082] hover:border-[#4B0082]"}`}
+                />
+                <div className="w-36" data-field="netQuantityUnitId">
+                  <Select
+                    options={netQuantityUnitOptions}
+                    isLoading={loadingNetQuantityUnits}
+                    value={netQuantityUnitOptions.find((o) => o.value === form.netQuantityUnitId) || null}
+                    onChange={(sel) => {
+                      handleSelectChange("netQuantityUnitId", sel);
+                      if (errors.netQuantityUnitId) setErrors((p) => { const n = { ...p }; delete n.netQuantityUnitId; return n; });
+                    }}
+                    placeholder={loadingNetQuantityUnits ? "..." : "Select Unit"}
+                    theme={selectTheme}
+                    styles={selectStyles("netQuantityUnitId")}
+                  />
+                </div>
+              </div>
+              {errors.netQuantity && <p className={errorMsg}>{errors.netQuantity}</p>}
+              {errors.netQuantityUnitId && <p className={errorMsg}>{errors.netQuantityUnitId}</p>}
             </div>
 
             {skinHairRule.skinType !== "hidden" && (
@@ -1736,23 +1833,18 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               />
             )}
 
-            <div className="flex flex-col gap-1" data-field="ageGroupId">
-              {isEdit ? (
-                <NonEditableSelect label="Age Group" value={displayLabels.ageGroupLabel} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Age Group {requiredStar}</label>
-                  <Select
-                    options={ageGroupOptions} isLoading={loadingAgeGroups}
-                    value={ageGroupOptions.find((o) => o.value === form.ageGroupId) || null}
-                    onChange={(sel) => handleSelectChange("ageGroupId", sel)}
-                    placeholder={loadingAgeGroups ? "Loading..." : "Select age group"}
-                    theme={selectTheme} styles={selectStyles("ageGroupId")}
-                  />
-                  {errors.ageGroupId && <p className={errorMsg}>{errors.ageGroupId}</p>}
-                </>
-              )}
-            </div>
+            <MultiCheckDropdown
+              label="Age Group" required
+              options={ageGroupOptions} selected={selectedAgeGroups}
+              onChange={(vals) => {
+                setSelectedAgeGroups(vals);
+                if (errors.ageGroupId) setErrors((p) => { const n = { ...p }; delete n.ageGroupId; return n; });
+              }}
+              placeholder="Select age group(s)"
+              errorKey="ageGroupId" errors={errors} loading={loadingAgeGroups}
+              fieldRef={setFieldRef("ageGroupId") as React.Ref<HTMLDivElement>}
+              dataField="ageGroupId"
+            />
 
             <div className="flex flex-col gap-1" data-field="countryOfOriginId">
               {isEdit ? (

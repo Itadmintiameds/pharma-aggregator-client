@@ -119,10 +119,18 @@ export const cosmeticFormSchema = z
 
     netQuantity: z
       .string()
-      .min(1, "Net quantity / strength is required")
-      .max(20, "Net quantity must not exceed 20 characters"),
+      .min(1, "Net quantity is required")
+      .refine((v) => !isNaN(Number(v)) && Number(v) > 0, {
+        message: "Net quantity must be a positive number",
+      }),
 
-    ageGroupId: z.string().min(1, "Age group is required"),
+    netQuantityUnitId: z.string().min(1, "Net quantity unit is required"),
+
+    productFormId: z.string().min(1, "Product form is required"),
+
+    selectedAgeGroups: z
+      .array(z.string())
+      .min(1, "At least one age group is required"),
 
     productClaims: z.string().min(1, "Product claims are required"),
 
@@ -264,6 +272,9 @@ export const cosmeticFormEditSchema = cosmeticFormSchema
     expiryDate: true,
     stockQuantity: true,
     packTypeId: true,
+    netQuantityUnitId: true,
+    productFormId: true,
+    selectedAgeGroups: true,
   })
   .extend({
     productTypeId: z.string().optional(),
@@ -273,6 +284,9 @@ export const cosmeticFormEditSchema = cosmeticFormSchema
     expiryDate: z.date().nullable().optional(),
     stockQuantity: z.string().optional(),
     packTypeId: z.string().optional(),
+    netQuantityUnitId: z.string().optional(),
+    productFormId: z.string().optional(),
+    selectedAgeGroups: z.array(z.string()).optional(),
   });
 
 // ─── Types ────────────────────────────────────────────────────────────────────

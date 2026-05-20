@@ -381,3 +381,47 @@ export const getCosmeticCertificationsByCategoryId = async (categoryId: number) 
     throw new Error("An unknown error occurred while fetching certifications.");
   }
 };
+
+/**
+ * Net Quantity Units master
+ * GET /net-quantity-units/:categoryId
+ */
+export const getCosmeticNetQuantityUnits = async (categoryId: number = 4) => {
+  try {
+    const response = await api.get(`net-quantity-units/${categoryId}`);
+    const rawData: any[] = response.data?.data ?? response.data ?? [];
+    return rawData.map((item: any) => ({
+      ...item,
+      netQuantityUnitId: item.netQuantityUnitId ?? item.unitId ?? item.id,
+      unitName:          item.unitName ?? item.unit ?? item.name,
+      id:                item.netQuantityUnitId ?? item.unitId ?? item.id,
+      name:              item.unitName ?? item.unit ?? item.name,
+    }));
+  } catch (error: unknown) {
+    console.error("Error fetching net quantity units:", error);
+    if (error instanceof Error) throw new Error(`Error fetching net quantity units: ${error.message}`);
+    throw new Error("An unknown error occurred while fetching net quantity units.");
+  }
+};
+
+/**
+ * Product Forms master
+ * GET /net-quantity-units/productsform
+ */
+export const getCosmeticProductForms = async () => {
+  try {
+    const response = await api.get("net-quantity-units/productsform");
+    const rawData: any[] = response.data?.data ?? response.data ?? [];
+    return rawData.map((item: any) => ({
+      ...item,
+      productFormId:   item.productFormId ?? item.formId ?? item.id,
+      productFormName: item.productFormName ?? item.formName ?? item.productForm ?? item.name,
+      id:              item.productFormId ?? item.formId ?? item.id,
+      name:            item.productFormName ?? item.formName ?? item.productForm ?? item.name,
+    }));
+  } catch (error: unknown) {
+    console.error("Error fetching product forms:", error);
+    if (error instanceof Error) throw new Error(`Error fetching product forms: ${error.message}`);
+    throw new Error("An unknown error occurred while fetching product forms.");
+  }
+};
