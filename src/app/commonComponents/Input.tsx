@@ -149,7 +149,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
     if (success) return "border-success-700 text-pneutral-800 bg-white focus:border-success-700 focus:ring-1 focus:ring-success-700";
 
     // Default (Enabled) / Active State
-    return "border-neutral-500 text-pneutral-800 bg-white focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300";
+    return "border-pneutral-300 text-pneutral-800 bg-white focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300";
   };
 
   return (
