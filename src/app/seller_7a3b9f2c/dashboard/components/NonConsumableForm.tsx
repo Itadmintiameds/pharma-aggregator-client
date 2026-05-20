@@ -23,7 +23,8 @@ import {
   uploadNonConsumableCertificate,
   uploadNonConsumableBrochure,
   getStorageConditionsByCategoryId,
-  getNonConsumableCertificationsByCategoryId
+  getNonConsumableCertificationsByCategoryId,
+  getSpecificationUnitsBySubCategory
 } from "@/src/services/product/NonConsumbaleService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 
@@ -73,12 +74,6 @@ type SelectStyles = StylesConfig<SelectOption, false>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function isFutureDate(date: Date | null): boolean {
-  if (!date) return false;
-  const todayStr = new Date().toLocaleDateString("en-CA");
-  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  return dateStr > todayStr;
-}
 
 function validateHSNCode(hsnCode: string): string | null {
   const trimmed = hsnCode.trim();
@@ -137,13 +132,13 @@ function getMasterStr(item: MasterItem, ...keys: string[]): string {
 
 // ─── Style constants ──────────────────────────────────────────────────────────
 
-const fieldLabel = "block mb-1.5 font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]";
-const requiredStar = <span className="text-red-500 ml-0.5">*</span>;
-const inputDisabled = "w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] bg-gray-50 cursor-default flex items-center";
+const fieldLabel = "text-label-l4 font-medium text-pneutral-900";
+const requiredStar = <span className="text-warning-500 ml-1">*</span>;
+const inputDisabled = "w-full h-12 px-4 border border-neutral-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] bg-gray-50 cursor-default flex items-center";
 const errorMsg = "text-red-500 text-xs mt-1";
-const sectionCard = "bg-white border border-gray-200 rounded-2xl p-6 shadow-sm";
-const sectionTitle = "mb-4 pb-3 border-b border-gray-100 text-[28px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D]";
-const subSectionTitle = "mb-3 mt-5 pb-2 border-b border-gray-100 text-[21px] [font-family:'Open_Sans',sans-serif] font-normal leading-6 [color:#1E1E1D]";
+const sectionCard = "relative border border-neutral-200 rounded-xl p-6 bg-white";
+const sectionTitle = "text-h4 font-semibold";
+const subSectionTitle = "text-h6 font-normal mt-5";
 
 // Input className to match the existing design (passed as className to <Input>)
 // const inputClass = "!h-12 !rounded-xl border-gray-300 focus:border-purple-600 [font-family:'Open_Sans',sans-serif] text-base font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793]";
@@ -194,6 +189,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     deviceSubCategoryId: "",
     powerSourceId: "",
     warrantyPeriod: "",
+    dimensionSize: "",
+    deviceSpecificationUnitId: "",
     amcAvailability: "",
     packType: "",
     unitPerPack: "",
@@ -228,6 +225,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     amcLabel: "",
     deviceClassLabel: "",
     gstLabel: "",
+    specificationUnitLabel: "",
   });
 
   const [deviceCategoryOptions, setDeviceCategoryOptions] = useState<SelectOption[]>([]);
@@ -238,11 +236,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [powerSourceOptions, setPowerSourceOptions] = useState<SelectOption[]>([]);
   const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
+  const [specificationUnitOptions, setSpecificationUnitOptions] = useState<SelectOption[]>([]);
 
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
   const [loadingMaterialTypes, setLoadingMaterialTypes] = useState(false);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
+  const [loadingSpecificationUnits, setLoadingSpecificationUnits] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -333,6 +333,26 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     }
   }, []);
 
+  const fetchSpecificationUnits = useCallback(async (subCatId: string) => {
+    if (!subCatId) { setSpecificationUnitOptions([]); return; }
+    setLoadingSpecificationUnits(true);
+    try {
+      const items: MasterItem[] = await getSpecificationUnitsBySubCategory(subCatId);
+      setSpecificationUnitOptions(
+        items
+          .map((i) => ({
+            value: getMasterStr(i, "unitId", "specificationUnitId", "id"),
+            label: getMasterStr(i, "unitName", "specificationUnit", "name", "unit") || "Unknown",
+          }))
+          .filter((o) => o.value),
+      );
+    } catch {
+      setSpecificationUnitOptions([]);
+    } finally {
+      setLoadingSpecificationUnits(false);
+    }
+  }, []);
+
   const fetchProductData = useCallback(async () => {
     if (mode !== "edit" || !productId) return;
     setLoadingProduct(true);
@@ -382,6 +402,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         deviceSubCategoryId: String(attribute.deviceSubCategoryId || attribute.deviceSubCatId || ""),
         powerSourceId: String(attribute.powerSourceId || ""),
         warrantyPeriod: String(attribute.warrantyPeriod || ""),
+        dimensionSize: attribute.dimensionSize != null ? String(attribute.dimensionSize) : "",
+        deviceSpecificationUnitId: String(attribute.deviceSpecificationUnitId || ""),
         amcAvailability: (attribute.amcAvailability === true || attribute.serviceAvailability === true) ? "true" : "false",
         packType: packIdVal,
         unitPerPack: String(packaging.unitPerPack || ""),
@@ -423,13 +445,15 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
       const catId = String(attribute.deviceCategoryId || attribute.deviceCatId || "");
       if (catId) await fetchDeviceSubCategories(catId);
+      const subCatId = String(attribute.deviceSubCategoryId || attribute.deviceSubCatId || "");
+      if (subCatId) await fetchSpecificationUnits(subCatId);
     } catch (err) {
       console.error("Error fetching product:", err);
       setApiError("Failed to load product data. Please refresh and try again.");
     } finally {
       setLoadingProduct(false);
     }
-  }, [mode, productId, fetchDeviceSubCategories]);
+  }, [mode, productId, fetchDeviceSubCategories, fetchSpecificationUnits]);
 
   // ─── Effects ──────────────────────────────────────────────────────────────
 
@@ -540,11 +564,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       amcLabel: amcOptions.find((o) => o.value === form.amcAvailability)?.label || form.amcAvailability,
       deviceClassLabel: deviceClassOptions.find((o) => o.value === form.deviceClassification)?.label || form.deviceClassification,
       gstLabel: gstOptions.find((o) => o.value === form.gstPercentage)?.label || (form.gstPercentage ? `${form.gstPercentage}%` : ""),
+      specificationUnitLabel: specificationUnitOptions.find((o) => o.value === form.deviceSpecificationUnitId)?.label || form.deviceSpecificationUnitId,
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, deviceCategoryOptions, deviceSubCategoryOptions, countryOptions, powerSourceOptions, storageConditionOptions,
+  }, [mode, deviceCategoryOptions, deviceSubCategoryOptions, countryOptions, powerSourceOptions, storageConditionOptions, specificationUnitOptions,
       form.deviceCategoryId, form.deviceSubCategoryId, form.countryOfOrigin, form.powerSourceId, form.storageCondition,
-      form.amcAvailability, form.deviceClassification, form.gstPercentage]);
+      form.amcAvailability, form.deviceClassification, form.gstPercentage, form.deviceSpecificationUnitId]);
 
   useEffect(() => {
     if (form.deviceCategoryId) {
@@ -554,6 +579,15 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       setDeviceSubCategoryOptions([]);
     }
   }, [form.deviceCategoryId, fetchDeviceSubCategories, mode]);
+
+  useEffect(() => {
+    if (form.deviceSubCategoryId) {
+      fetchSpecificationUnits(form.deviceSubCategoryId);
+      if (mode === "create") setForm((p) => ({ ...p, deviceSpecificationUnitId: "" }));
+    } else {
+      setSpecificationUnitOptions([]);
+    }
+  }, [form.deviceSubCategoryId, fetchSpecificationUnits, mode]);
 
   useEffect(() => {
     const u = parseFloat(form.unitPerPack), p = parseFloat(form.numberOfPacks);
@@ -584,7 +618,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numericOnlyFields = ["stockQuantity", "sellingPrice", "mrp", "discountPercentage", "hsnCode", "unitPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity"];
+    const numericOnlyFields = ["stockQuantity", "sellingPrice", "mrp", "discountPercentage", "hsnCode", "unitPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity", "dimensionSize"];
     if (numericOnlyFields.includes(name)) {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
@@ -717,7 +751,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         const wp = Number(form.warrantyPeriod);
         if (isNaN(wp) || wp < 0 || !Number.isInteger(wp)) e.warrantyPeriod = "Warranty period must be a non-negative integer (months)";
       }
-      if (form.manufacturingDate && isFutureDate(form.manufacturingDate)) e.manufacturingDate = "Manufacturing date cannot be a future date";
+      if (form.manufacturingDate) {
+        const mfg = form.manufacturingDate;
+        const today = new Date();
+        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const mfgMonth = new Date(mfg.getFullYear(), mfg.getMonth(), 1);
+        if (mfgMonth > currentMonth) e.manufacturingDate = "Manufacturing date cannot be in the future month";
+      }
     }
 
     const iUse = form.intendedUse.trim();
@@ -862,6 +902,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           countryId: Number(form.countryOfOrigin),
           manufacturerName: form.manufacturerName,
           warrantyPeriod: form.warrantyPeriod || "",
+          dimensionSize: form.dimensionSize ? Number(form.dimensionSize) : null,
+          deviceSpecificationUnitId: form.deviceSpecificationUnitId ? Number(form.deviceSpecificationUnitId) : null,
           udiNumber: form.udiNumber || "",
           deviceClassification: form.deviceClassification,
           safetyInstructions: form.safetyInstructions,
@@ -1012,7 +1054,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         {/* ── Section 1: Product Details ─────────────────────────────────────────── */}
         <div className={sectionCard}>
           <h2 className={sectionTitle}>Product Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="border-b border-neutral-200 mt-3"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
 
             {/* Product Name */}
             {isEdit ? (
@@ -1161,37 +1204,43 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               />
             </div>
 
-            {/* Material / Build Type */}
+            {/* Technical Dimensions / Capacity / Configuration */}
             {isEdit ? (
-              <NonEditableField
-                label="Material / Build Type (Plastic, Metal, Steel)"
-                value={selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")}
-                required
-              />
-            ) : (
-              <div className="flex flex-col gap-1" data-field="materialType">
-                <label className={fieldLabel}>Material / Build Type (Plastic, Metal, Steel) {requiredStar}</label>
-                <div className="relative" ref={materialDropdownRef}>
-                  <div onClick={() => setShowMaterialDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.materialType ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
-                    <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedMaterialTypes.length > 0 ? "#3C3D3A" : "#969793" }}>
-                      {selectedMaterialTypes.length > 0 ? selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ") : "Select material / build types"}
-                    </span>
-                    <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showMaterialDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                  {showMaterialDropdown && (
-                    <div className="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                      {loadingMaterialTypes ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
-                        materialTypeOptions.map((opt) => (
-                          <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                            <input type="checkbox" checked={selectedMaterialTypes.includes(opt.value)} onChange={() => handleMaterialCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
-                            <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                          </label>
-                        ))
-                      )}
-                    </div>
-                  )}
+              <div className="flex flex-col gap-1">
+                <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
+                <div className="flex gap-2">
+                  <div className={`${inputDisabled} flex-1`} style={{ color: "#5A5B58" }}>{form.dimensionSize || "—"}</div>
+                  <div className="w-36 h-12 px-4 border border-neutral-200 rounded-xl text-base bg-gray-50 cursor-default flex items-center truncate" style={{ color: "#5A5B58" }}>{displayLabels.specificationUnitLabel || "—"}</div>
                 </div>
-                {errors.materialType && <p className={errorMsg}>{errors.materialType}</p>}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1" ref={setFieldRef("dimensionSize") as React.RefCallback<HTMLDivElement>}>
+                <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
+                <div className="flex gap-2 items-start">
+                  <input
+                    type="text"
+                    name="dimensionSize"
+                    value={form.dimensionSize}
+                    onChange={handleChange}
+                    placeholder="e.g., 20.5"
+                    className={`flex-1 h-12 px-4 border rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] bg-white focus:outline-none focus:border-purple-600 transition-colors ${errors.dimensionSize ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}
+                  />
+                  <div className="w-36 flex-shrink-0">
+                    <Select
+                      options={specificationUnitOptions}
+                      isLoading={loadingSpecificationUnits}
+                      isDisabled={!form.deviceSubCategoryId}
+                      value={specificationUnitOptions.find((o) => o.value === form.deviceSpecificationUnitId) || null}
+                      onChange={(sel) => handleSelectChange("deviceSpecificationUnitId", sel)}
+                      placeholder="Select Unit"
+                      theme={selectTheme}
+                      styles={selectStyles("deviceSpecificationUnitId")}
+                      isClearable
+                    />
+                  </div>
+                </div>
+                {errors.dimensionSize && <p className={errorMsg}>{errors.dimensionSize}</p>}
+                {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
               </div>
             )}
 
@@ -1275,6 +1324,40 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                 </div>
               </div>
             </div>
+
+            {/* Material / Build Type */}
+            {isEdit ? (
+              <NonEditableField
+                label="Material / Build Type (Plastic, Metal, Steel)"
+                value={selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")}
+                required
+              />
+            ) : (
+              <div className="flex flex-col gap-1" data-field="materialType">
+                <label className={fieldLabel}>Material / Build Type (Plastic, Metal, Steel) {requiredStar}</label>
+                <div className="relative" ref={materialDropdownRef}>
+                  <div onClick={() => setShowMaterialDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.materialType ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
+                    <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedMaterialTypes.length > 0 ? "#3C3D3A" : "#969793" }}>
+                      {selectedMaterialTypes.length > 0 ? selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ") : "Select material / build types"}
+                    </span>
+                    <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showMaterialDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                  {showMaterialDropdown && (
+                    <div className="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                      {loadingMaterialTypes ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
+                        materialTypeOptions.map((opt) => (
+                          <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
+                            <input type="checkbox" checked={selectedMaterialTypes.includes(opt.value)} onChange={() => handleMaterialCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
+                            <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+                {errors.materialType && <p className={errorMsg}>{errors.materialType}</p>}
+              </div>
+            )}
 
             {/* Power Source */}
             {isEdit ? (
@@ -1479,23 +1562,34 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
             {/* Manufacturing Date */}
-            {isEdit ? (
-              <NonEditableField label="Manufacturing Date" value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""} />
-            ) : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Manufacturing Date</label>
-                <input
-                  ref={setFieldRef("manufacturingDate")}
-                  type="date"
-                  name="manufacturingDate"
-                  max={todayStr}
-                  onChange={(e) => setForm((p) => ({ ...p, manufacturingDate: e.target.value ? new Date(e.target.value) : null }))}
-                  value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""}
-                  className={`w-full h-12 px-4 border border-gray-300 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors bg-white ${errors.manufacturingDate ? "border-red-400" : ""}`}
-                />
-                {errors.manufacturingDate && <p className={errorMsg}>{errors.manufacturingDate}</p>}
-              </div>
-            )}
+            <div ref={setFieldRef("manufacturingDate") as React.RefCallback<HTMLDivElement>}>
+              <Input
+                label="Manufacturing Date"
+                type="month"
+                name="manufacturingDate"
+                readOnly={isEdit}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (!value) return;
+                  const [year, month] = value.split("-").map(Number);
+                  const date = new Date(year, month - 1, 1);
+                  const today = new Date();
+                  const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                  if (date > currentMonth) {
+                    setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
+                    return;
+                  }
+                  setErrors((prev) => ({ ...prev, manufacturingDate: "" }));
+                  setForm((p) => ({ ...p, manufacturingDate: date }));
+                }}
+                value={
+                  form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
+                    ? `${form.manufacturingDate.getFullYear()}-${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}`
+                    : ""
+                }
+                error={errors.manufacturingDate}
+              />
+            </div>
 
             {/* Stock Quantity */}
             {isEdit ? (
@@ -1561,25 +1655,27 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               />
             </div>
 
-            <div ref={setFieldRef("discountPercentage") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Discount Percentage (%)"
-                name="discountPercentage"
-                value={form.discountPercentage}
-                onChange={handleChange}
-                placeholder="0–100"
-                error={errors.discountPercentage}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className={`${fieldLabel} opacity-0`}>_</label>
-              <button type="button" onClick={() => setShowAdditionalDiscountModal(true)} style={{ background: "#9F75FC", borderRadius: "8px" }} className="h-12 px-5 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] w-auto self-start hover:opacity-90 transition-opacity flex items-center gap-2">
-                <span className="w-5 h-5 flex items-center justify-center"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="white" strokeWidth="2" strokeLinecap="round" /></svg></span>
-                Add Additional Discount
-              </button>
+            <div className="col-span-1 md:col-span-2 flex items-end gap-4">
+              <div className="w-1/2" ref={setFieldRef("discountPercentage") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="Discount Percentage (%)"
+                  name="discountPercentage"
+                  value={form.discountPercentage}
+                  onChange={handleChange}
+                  placeholder="0–100"
+                  error={errors.discountPercentage}
+                />
+              </div>
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAdditionalDiscountModal(true)}
+                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
+                >
+                  <img src="/icons/PlusIcon.svg" alt="add" className="w-6 h-6" />
+                  Add Special Offers
+                </button>
+              </div>
             </div>
           </div>
 

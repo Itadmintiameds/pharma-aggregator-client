@@ -21,7 +21,8 @@ import {
   uploadConsumableCertificate,
   uploadConsumableBrochure,
   getStorageConditionsByCategoryId,
-  getConsumableCertificationsByCategoryId
+  getConsumableCertificationsByCategoryId,
+  getConsumableSpecificationUnitsBySubCategory,
 } from "@/src/services/product/ConsumbaleService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 
@@ -72,13 +73,6 @@ type SelectStyles = StylesConfig<SelectOption, false>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function isFutureDate(date: Date | null): boolean {
-  if (!date) return false;
-  const todayStr = new Date().toLocaleDateString("en-CA");
-  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  return dateStr > todayStr;
-}
-
 function validateHSNCode(hsnCode: string): string | null {
   const trimmed = hsnCode.trim();
   if (trimmed === "") return null;
@@ -87,19 +81,10 @@ function validateHSNCode(hsnCode: string): string | null {
   return null;
 }
 
-function computeShelfLife(mfgDate: Date | null, expDate: Date | null): string {
-  if (!mfgDate || !expDate) return "";
-  const diffMs = expDate.getTime() - mfgDate.getTime();
-  if (diffMs <= 0) return "";
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const years = Math.floor(days / 365);
-  const months = Math.floor((days % 365) / 30);
-  const remDays = days % 30;
-  const parts: string[] = [];
-  if (years > 0) parts.push(`${years} Year${years > 1 ? "s" : ""}`);
-  if (months > 0) parts.push(`${months} Month${months > 1 ? "s" : ""}`);
-  if (remDays > 0 && years === 0) parts.push(`${remDays} Day${remDays > 1 ? "s" : ""}`);
-  return parts.join(" ");
+function computeShelfLife(mfgDate: Date | null, expDate: Date | null): number | null {
+  if (!mfgDate || !expDate) return null;
+  const totalMonths = (expDate.getFullYear() - mfgDate.getFullYear()) * 12 + (expDate.getMonth() - mfgDate.getMonth());
+  return totalMonths > 0 ? totalMonths : null;
 }
 
 function deepFind(obj: unknown, key: string): unknown {
@@ -151,12 +136,12 @@ function getMasterStr(item: MasterItem, ...keys: string[]): string {
 
 // ─── Style constants ──────────────────────────────────────────────────────────
 
-const fieldLabel = "block mb-1.5 font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]";
-const requiredStar = <span className="text-red-500 ml-0.5">*</span>;
+const fieldLabel = "text-label-l4 font-medium text-pneutral-900";
+const requiredStar = <span className="text-warning-500 ml-1">*</span>;
 const errorMsg = "text-red-500 text-xs mt-1";
-const sectionCard = "bg-white border border-gray-200 rounded-2xl p-6 shadow-sm";
-const sectionTitle = "mb-4 pb-3 border-b border-gray-100 text-[28px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D]";
-const subSectionTitle = "mb-3 mt-5 pb-2 border-b border-gray-100 text-[21px] [font-family:'Open_Sans',sans-serif] font-normal leading-6 [color:#1E1E1D]";
+const sectionCard = "relative border border-neutral-200 rounded-xl p-6 bg-white";
+const sectionTitle = "text-h4 font-semibold";
+const subSectionTitle = "text-h6 font-normal mt-5";
 const inputDisabled = "w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] bg-gray-50 cursor-default flex items-center";
 
 const UploadCloudIcon = () => (
@@ -191,6 +176,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     deviceSubCategoryId: "",
     brandName: "",
     sizeDimension: "",
+    deviceSpecificationUnitId: "",
     sterileStatus: "",
     disposableType: "",
     intendedUse: "",
@@ -218,9 +204,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     gstPercentage: "",
     hsnCode: "",
     finalPrice: "",
+    shelfLifeMonths: "",
   });
-
-  const [shelfLifeDisplay, setShelfLifeDisplay] = useState("");
   const [resolvedProductId, setResolvedProductId] = useState("");
   const [productAttributeId, setProductAttributeId] = useState("");
   const [packagingId, setPackagingId] = useState("");
@@ -236,6 +221,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     storageConditionLabel: "",
     gstLabel: "",
     materialTypesLabel: "",
+    specificationUnitLabel: "",
   });
 
   // Master option lists
@@ -249,6 +235,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
   const materialDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [specificationUnitOptions, setSpecificationUnitOptions] = useState<SelectOption[]>([]);
+  const [loadingSpecificationUnits, setLoadingSpecificationUnits] = useState(false);
 
   const [loadingProduct, setLoadingProduct] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
@@ -323,6 +312,27 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }
   }, []);
 
+  const fetchSpecificationUnits = useCallback(async (subCategoryId: string): Promise<SelectOption[]> => {
+    if (!subCategoryId) { setSpecificationUnitOptions([]); return []; }
+    setLoadingSpecificationUnits(true);
+    try {
+      const items: MasterItem[] = await getConsumableSpecificationUnitsBySubCategory(subCategoryId);
+      const opts = items
+        .map((i) => ({
+          value: getMasterStr(i, "unitId", "id"),
+          label: getMasterStr(i, "unitName", "name", "unit") || "Unknown",
+        }))
+        .filter((o) => o.value);
+      setSpecificationUnitOptions(opts);
+      return opts;
+    } catch {
+      setSpecificationUnitOptions([]);
+      return [];
+    } finally {
+      setLoadingSpecificationUnits(false);
+    }
+  }, []);
+
   // ─── Load product for edit (called after all masters are ready) ────────────
 
   const fetchProductData = useCallback(async (
@@ -366,6 +376,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         resolvedSubCats = await fetchDeviceSubCategories(deviceCatIdStr);
       }
 
+      // Fetch specification units for sub-category
+      let resolvedSpecUnits: SelectOption[] = [];
+      if (deviceSubCatIdStr) {
+        resolvedSpecUnits = await fetchSpecificationUnits(deviceSubCatIdStr);
+      }
+      const specUnitIdStr = String(attribute.deviceSpecificationUnitId || "");
+
       // Resolve material type labels
       const materialTypeIds: string[] = Array.isArray(attribute.materialTypeId)
         ? attribute.materialTypeId.map(String)
@@ -383,6 +400,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         storageConditionLabel: currentStorageOptions.find((o) => o.value === storageCondIdStr)?.label || storageCondIdStr,
         gstLabel: gstOptions.find((o) => o.value === gstVal)?.label || (gstVal ? `${gstVal}%` : ""),
         materialTypesLabel,
+        specificationUnitLabel: resolvedSpecUnits.find((o) => o.value === specUnitIdStr)?.label || specUnitIdStr,
       });
 
       setSelectedMaterialTypes(materialTypeIds);
@@ -392,7 +410,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         deviceCategoryId: deviceCatIdStr,
         deviceSubCategoryId: deviceSubCatIdStr,
         brandName: attribute.brandName || "",
-        sizeDimension: attribute.dimensionSize || "",
+        sizeDimension: attribute.dimensionSize != null ? String(attribute.dimensionSize) : "",
+        deviceSpecificationUnitId: specUnitIdStr,
         sterileStatus: (attribute.sterileOrNonSterile || "").toLowerCase() === "sterile" ? "sterile" : "non-sterile",
         disposableType: (attribute.disposalOrReusable || "").toLowerCase() === "disposable" ? "disposable" : "reusable",
         intendedUse: attribute.purpose || "",
@@ -420,9 +439,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         gstPercentage: gstVal,
         hsnCode: String(pricing.hsnCode || ""),
         finalPrice: String(pricing.finalPrice || ""),
+        shelfLifeMonths: String(computeShelfLife(mfgDate, expDate) ?? ""),
       });
-
-      setShelfLifeDisplay(computeShelfLife(mfgDate, expDate));
 
       if (pricing.additionalDiscounts?.length) {
         setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
@@ -470,7 +488,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       setLoadingProduct(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, productId, fetchDeviceSubCategories]);
+  }, [mode, productId, fetchDeviceSubCategories, fetchSpecificationUnits]);
 
   // ─── Load all masters, then product (sequenced like CosmeticForm) ──────────
 
@@ -597,6 +615,20 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.deviceCategoryId, mode]);
 
+  // Fetch specification units when sub-category changes (create mode only)
+  useEffect(() => {
+    if (!form.deviceSubCategoryId) {
+      setSpecificationUnitOptions([]);
+      if (mode === "create") setForm((p) => ({ ...p, deviceSpecificationUnitId: "" }));
+      return;
+    }
+    if (mode === "create") {
+      fetchSpecificationUnits(form.deviceSubCategoryId);
+      setForm((p) => ({ ...p, deviceSpecificationUnitId: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.deviceSubCategoryId, mode]);
+
   // Auto-compute pack size
   useEffect(() => {
     const u = parseFloat(form.unitsPerPack), p = parseFloat(form.numberOfPacks);
@@ -606,14 +638,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   }, [form.unitsPerPack, form.numberOfPacks]);
 
   // Auto-compute shelf life
-  useEffect(() => {
-    const sl = computeShelfLife(form.manufacturingDate, form.expiryDate);
-    setShelfLifeDisplay(sl);
-    if (sl && errors.expiryDate) {
-      setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
-    }
-  }, [form.manufacturingDate, form.expiryDate, errors.expiryDate]);
-
   // Auto-compute final price
   useEffect(() => {
     const selling = parseFloat(form.sellingPricePerPack);
@@ -640,12 +664,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numericOnlyFields = ["stockQuantity", "sellingPricePerPack", "mrp", "discountPercentage", "hsnCode", "unitsPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity"];
+    const numericOnlyFields = ["stockQuantity", "sellingPricePerPack", "mrp", "discountPercentage", "hsnCode", "unitsPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity", "sizeDimension"];
     if (numericOnlyFields.includes(name)) {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
-    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, sizeDimension: 20, manufacturerName: 100, productDescription: 1000 };
+    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000 };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
     setForm((p) => ({ ...p, [name]: value }));
@@ -732,8 +756,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       else if (bName.length > 60) e.brandName = "Brand name must not exceed 60 characters";
       if (selectedMaterialTypes.length === 0) e.materialType = "At least one material type is required";
       const sDim = form.sizeDimension.trim();
-      if (!sDim) e.sizeDimension = "Size / Dimension / Gauge is required";
-      else if (sDim.length > 20) e.sizeDimension = "Size / Dimension must not exceed 20 characters";
+      if (!sDim) e.sizeDimension = "Size / Dimension is required";
+      else if (isNaN(parseFloat(sDim)) || parseFloat(sDim) <= 0) e.sizeDimension = "Size / Dimension must be a positive number";
+      if (!form.deviceSpecificationUnitId) e.deviceSpecificationUnitId = "Unit is required";
       if (!form.sterileStatus) e.sterileStatus = "Sterile status is required";
       if (!form.disposableType) e.disposableType = "Disposable / Reusable selection is required";
       if (!form.countryOfOrigin) e.countryOfOrigin = "Country of origin is required";
@@ -751,9 +776,16 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (!bNum) e.batchLotNumber = "Batch / lot number is required";
       else if (!/^[a-zA-Z0-9]+$/.test(bNum)) e.batchLotNumber = "Batch number must be alphanumeric only";
       if (!form.manufacturingDate) e.manufacturingDate = "Manufacturing date is required";
-      else if (isFutureDate(form.manufacturingDate)) e.manufacturingDate = "Manufacturing date cannot be a future date";
+      else {
+        const today = new Date();
+        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        if (form.manufacturingDate > currentMonth) e.manufacturingDate = "Manufacturing date cannot be in the future month";
+      }
       if (!form.expiryDate) e.expiryDate = "Expiry date is required";
-      else if (form.manufacturingDate && form.expiryDate <= form.manufacturingDate) e.expiryDate = "Expiry date must be greater than manufacturing date";
+      else if (form.manufacturingDate) {
+        const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
+        if (form.expiryDate < minExpiry) e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
+      }
       if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
       if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
       else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
@@ -840,6 +872,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     return combined.toISOString().slice(0, 19);
   };
 
+  const getMinExpiryMonth = () => {
+    if (!form.manufacturingDate) return "";
+    const mfg = new Date(form.manufacturingDate);
+    const min = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
+    return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}`;
+  };
+
   // ─── Submit ───────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
@@ -891,7 +930,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           deviceSubCatId: Number(form.deviceSubCategoryId),
           brandName: form.brandName,
           materialTypeId: selectedMaterialTypes.map(Number),
-          dimensionSize: form.sizeDimension,
+          dimensionSize: parseFloat(form.sizeDimension) || 0,
+          deviceSpecificationUnitId: Number(form.deviceSpecificationUnitId),
           sterileOrNonSterile: form.sterileStatus === "sterile" ? "Sterile" : "Non-Sterile",
           disposalOrReusable: form.disposableType === "disposable" ? "Disposable" : "Reusable",
           purpose: form.intendedUse,
@@ -900,7 +940,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           countryId: Number(form.countryOfOrigin),
           manufacturerName: form.manufacturerName,
           storageConditionId: form.storageCondition ? Number(form.storageCondition) : 0,
-          shelfLife: shelfLifeDisplay,
+          shelfLife: form.shelfLifeMonths,
           brochureType: "PDF",
           brochurePathStatus: existingBrochureUrl || (brochureFile ? "TO_UPLOAD" : "PENDING"),
           certificateDocuments: selectedCertifications.map((c) => ({
@@ -1054,7 +1094,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         {/* ── Section 1: Product Details ───────────────────────────────────────── */}
         <div className={sectionCard}>
           <h2 className={sectionTitle}>Product Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="border-b border-neutral-200 mt-3"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
 
             {isEdit ? (
               <NonEditableField label="Product Name" value={form.productName} required />
@@ -1131,10 +1172,44 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             )}
 
             {isEdit ? (
-              <NonEditableField label="Size / Dimension / Gauge" value={form.sizeDimension} required />
+              <NonEditableField
+                label="Size / Dimension"
+                value={form.sizeDimension && displayLabels.specificationUnitLabel
+                  ? `${form.sizeDimension} ${displayLabels.specificationUnitLabel}`
+                  : form.sizeDimension || "—"}
+                required
+              />
             ) : (
-              <Input label="Size / Dimension / Gauge" name="sizeDimension" placeholder="e.g., Size M, 22G, 5ml"
-                value={form.sizeDimension} onChange={handleChange} error={errors.sizeDimension} required />
+              <div
+                className="flex flex-col gap-1"
+                ref={(el) => { fieldRefs.current["sizeDimension"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
+              >
+                <label className={fieldLabel}>Size / Dimension {requiredStar}</label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      name="sizeDimension"
+                      placeholder="e.g., 10.5"
+                      value={form.sizeDimension}
+                      onChange={handleChange}
+                      error={errors.sizeDimension}
+                    />
+                  </div>
+                  <div className="w-36 flex-shrink-0">
+                    <Select
+                      options={specificationUnitOptions}
+                      isLoading={loadingSpecificationUnits}
+                      isDisabled={!form.deviceSubCategoryId}
+                      value={specificationUnitOptions.find((o) => o.value === form.deviceSpecificationUnitId) || null}
+                      onChange={(sel) => handleSelectChange("deviceSpecificationUnitId", sel)}
+                      placeholder={form.deviceSubCategoryId ? "Unit" : "Select sub-cat first"}
+                      theme={selectTheme}
+                      styles={selectStyles("deviceSpecificationUnitId")}
+                    />
+                  </div>
+                </div>
+                {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
+              </div>
             )}
 
             {/* Sterile status */}
@@ -1375,41 +1450,85 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 value={form.batchLotNumber} onChange={handleChange} error={errors.batchLotNumber} required />
             )}
 
-            {isEdit ? (
-              <NonEditableField label="Manufacturing Date"
-                value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : "—"} required />
-            ) : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Manufacturing Date {requiredStar}</label>
-                <input ref={setFieldRef("manufacturingDate")} type="date" name="manufacturingDate" max={todayStr}
-                  onChange={(e) => setForm((p) => ({ ...p, manufacturingDate: e.target.value ? new Date(e.target.value) : null }))}
-                  value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""}
-                  className={`w-full h-12 px-4 border rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.manufacturingDate ? "border-red-400" : "border-gray-300"}`} />
-                {errors.manufacturingDate && <p className={errorMsg}>{errors.manufacturingDate}</p>}
-              </div>
-            )}
+            <Input
+              label="Manufacturing Date"
+              type="month"
+              name="manufacturingDate"
+              id="manufacturingDate"
+              readOnly={isEdit}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (!value) return;
+                const [year, month] = value.split("-").map(Number);
+                const date = new Date(year, month - 1, 1);
+                const today = new Date();
+                const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                if (date > currentMonth) {
+                  setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
+                  return;
+                }
+                setErrors((prev) => ({ ...prev, manufacturingDate: "", expiryDate: "" }));
+                setForm({ ...form, manufacturingDate: date, expiryDate: null, shelfLifeMonths: "" });
+              }}
+              value={
+                form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
+                  ? `${form.manufacturingDate.getFullYear()}-${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}`
+                  : ""
+              }
+              error={errors.manufacturingDate}
+              required
+            />
 
-            {isEdit ? (
-              <NonEditableField label="Expiry Date"
-                value={form.expiryDate ? form.expiryDate.toISOString().split("T")[0] : "—"} required />
-            ) : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Expiry Date {requiredStar}</label>
-                <input ref={setFieldRef("expiryDate")} type="date" name="expiryDate"
-                  min={form.manufacturingDate ? (() => { const d = new Date(form.manufacturingDate!); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })() : undefined}
-                  onChange={(e) => setForm((p) => ({ ...p, expiryDate: e.target.value ? new Date(e.target.value) : null }))}
-                  value={form.expiryDate ? form.expiryDate.toISOString().split("T")[0] : ""}
-                  className={`w-full h-12 px-4 border rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.expiryDate ? "border-red-400" : "border-gray-300"}`} />
-                {errors.expiryDate && <p className={errorMsg}>{errors.expiryDate}</p>}
-              </div>
-            )}
+            <Input
+              label="Expiry Date"
+              type="month"
+              name="expiryDate"
+              value={
+                form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
+                  ? `${form.expiryDate.getFullYear()}-${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}`
+                  : ""
+              }
+              readOnly={isEdit}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (!value) {
+                  setForm((prev) => ({ ...prev, expiryDate: null, shelfLifeMonths: "" }));
+                  return;
+                }
+                const [year, month] = value.split("-").map(Number);
+                const date = new Date(year, month - 1, 1);
+                if (form.manufacturingDate) {
+                  const mfg = form.manufacturingDate;
+                  const minDate = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
+                  const totalMonths = (date.getFullYear() - mfg.getFullYear()) * 12 + (date.getMonth() - mfg.getMonth());
+                  if (date < minDate) {
+                    setErrors((p) => ({ ...p, expiryDate: "Expiry must be at least 3 months after Manufacturing Date" }));
+                    setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+                  } else {
+                    setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
+                    setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: totalMonths.toString() }));
+                  }
+                } else {
+                  setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+                }
+              }}
+              onFocus={() => {
+                if (form.manufacturingDate) {
+                  setErrors((prev) => ({ ...prev, expiryDate: "Expiry must be at least 3 months after Manufacturing Date" }));
+                }
+              }}
+              min={getMinExpiryMonth()}
+              error={errors.expiryDate}
+              required
+            />
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Shelf Life (auto calculated)</label>
-              <div className={`w-full h-12 px-4 border rounded-xl flex items-center text-base [font-family:'Open_Sans',sans-serif] ${shelfLifeDisplay ? "border-purple-200 bg-purple-50 [color:#7D32FC]" : "border-gray-200 bg-gray-50 [color:#969793]"}`}>
-                {shelfLifeDisplay || "Calculated from Manufacturing & Expiry dates"}
-              </div>
-            </div>
+            <Input
+              type="number"
+              label="Shelf Life (In Months)"
+              name="shelfLifeMonths"
+              value={form.shelfLifeMonths}
+              readOnly
+            />
 
             {isEdit ? (
               <NonEditableField label="Stock Quantity (in units)" value={form.stockQuantity} required />
@@ -1431,18 +1550,21 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               value={form.mrp} onChange={handleChange} error={errors.mrp} required />
             <Input label="Selling Price (per Pack Size)" name="sellingPricePerPack" placeholder="e.g., 450"
               value={form.sellingPricePerPack} onChange={handleChange} error={errors.sellingPricePerPack} required />
-            <Input label="Discount Percentage (%)" name="discountPercentage" placeholder="0–100"
-              value={form.discountPercentage} onChange={handleChange} error={errors.discountPercentage} />
-            <div className="flex flex-col gap-1">
-              <label className={`${fieldLabel} opacity-0`}>_</label>
-              <button type="button" onClick={() => setShowAdditionalDiscountModal(true)}
-                style={{ background: "#9F75FC", borderRadius: "8px" }}
-                className="h-12 px-5 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] w-auto self-start hover:opacity-90 transition-opacity flex items-center gap-2">
-                <span className="w-5 h-5 flex items-center justify-center">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="white" strokeWidth="2" strokeLinecap="round" /></svg>
-                </span>
-                Add Additional Discount
-              </button>
+            <div className="col-span-1 md:col-span-2 flex items-end gap-4">
+              <div className="w-1/2">
+                <Input label="Discount Percentage (%)" name="discountPercentage" placeholder="0–100"
+                  value={form.discountPercentage} onChange={handleChange} error={errors.discountPercentage} />
+              </div>
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAdditionalDiscountModal(true)}
+                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
+                >
+                  <img src="/icons/PlusIcon.svg" alt="add" className="w-6 h-6" />
+                  Add Special Offers
+                </button>
+              </div>
             </div>
           </div>
 

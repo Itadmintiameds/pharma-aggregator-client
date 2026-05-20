@@ -192,7 +192,7 @@ const MedicalDevicesForm = () => {
         </div>
       </div>
 
-      {/* FORMS OUTSIDE */}
+      {/* FORMS */}
       <div style={{ marginTop: 24 }}>
         {selectedType === "consumable" && <ConsumableForm />}
         {selectedType === "non-consumable" && <NonConsumableForm />}

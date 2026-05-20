@@ -209,3 +209,15 @@ export const getNonConsumableCertificationsByCategoryId = async (categoryId: num
     throw new Error("An unknown error occurred while fetching certifications.");
   }
 };
+
+export const getSpecificationUnitsBySubCategory = async (subCategoryId: string | number) => {
+  try {
+    const response = await api.get(`masters/by-subcategory/${subCategoryId}`);
+    return response.data?.data ?? response.data ?? [];
+  } catch (error: unknown) {
+    console.error("Error fetching specification units:", error);
+    if (error instanceof Error)
+      throw new Error(`Error fetching specification units: ${error.message}`);
+    throw new Error("An unknown error occurred while fetching specification units.");
+  }
+};

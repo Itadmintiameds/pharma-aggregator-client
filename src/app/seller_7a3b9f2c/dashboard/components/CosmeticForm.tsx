@@ -108,12 +108,7 @@ function getSkinHairRule(productTypeLabel: string): SkinHairRule {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function isFutureDate(date: Date | null): boolean {
-  if (!date) return false;
-  const todayStr = new Date().toLocaleDateString("en-CA");
-  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  return dateStr > todayStr;
-}
+
 
 function validateHSNCode(hsnCode: string): string | null {
   const trimmed = hsnCode.trim();
@@ -125,16 +120,8 @@ function validateHSNCode(hsnCode: string): string | null {
 }
 function computeShelfLife(mfgDate: Date | null, expDate: Date | null): number | null {
   if (!mfgDate || !expDate) return null;
-
-  const diffMs = expDate.getTime() - mfgDate.getTime();
-  if (diffMs <= 0) return null;
-
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  // Convert total days to months
-  const months = Math.floor(days / 30);
-
-  return months;
+  const totalMonths = (expDate.getFullYear() - mfgDate.getFullYear()) * 12 + (expDate.getMonth() - mfgDate.getMonth());
+  return totalMonths > 0 ? totalMonths : null;
 }
 
 function getMasterStr(item: MasterItem, ...keys: string[]): string {
@@ -250,9 +237,9 @@ function extractCertDocumentIdMapFromProduct(productData: ApiResponseData): Map<
 
 // ─── Style constants ──────────────────────────────────────────────────────────
 
-const fieldLabel   = "text-label-l3 text-neutral-700 font-semibold";
-const requiredStar = <span className="text-warning-500 font-semibold ml-1">*</span>;
-const errorMsg     = "text-red-500 text-sm mt-1";
+const fieldLabel   = "text-label-l4 font-medium text-pneutral-900";
+const requiredStar = <span className="text-warning-500 ml-1">*</span>;
+const errorMsg     = "text-red-500 text-xs mt-1";
 
 // ─── Static Options ───────────────────────────────────────────────────────────
 
@@ -317,14 +304,14 @@ const MultiCheckDropdown = ({
       <div className="relative" ref={ref}>
         <div
           onClick={() => !disabled && setOpen((p) => !p)}
-          className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between transition-all bg-white ${
+          className={`w-full h-[52px] px-4 border rounded-[8px] flex items-center justify-between transition-all bg-white ${
             disabled ? "cursor-default bg-gray-50" : "cursor-pointer"
           } ${
             errors[errorKey]
               ? "border-[#FF3B3B]"
               : open
-                ? "border-[#4B0082]"
-                : "border-neutral-500 hover:border-[#4B0082]"
+                ? "border-2 border-[#C4AAFD]"
+                : "border-[#C0C1BE] hover:border-[#C0C1BE]"
           }`}
         >
           <span
@@ -341,7 +328,7 @@ const MultiCheckDropdown = ({
           </svg>
         </div>
         {open && (
-          <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
+          <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-[8px] shadow-lg max-h-60 overflow-y-auto">
             {loading ? (
               <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
             ) : options.length === 0 ? (
@@ -372,7 +359,7 @@ const MultiCheckDropdown = ({
 const NonEditableField = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
   <div className="flex flex-col gap-1">
     <label className={fieldLabel}>{label} {required && requiredStar}</label>
-    <div className="w-full h-14 px-4 border border-neutral-200 rounded-2xl flex items-center text-base [font-family:'Open_Sans',sans-serif] bg-gray-50" style={{ color: "#5A5B58" }}>
+    <div className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] flex items-center text-base [font-family:'Open_Sans',sans-serif] bg-gray-50" style={{ color: "#5A5B58" }}>
       {value || "—"}
     </div>
   </div>
@@ -381,7 +368,7 @@ const NonEditableField = ({ label, value, required }: { label: string; value: st
 const NonEditableSelect = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
   <div className="flex flex-col gap-1">
     <label className={fieldLabel}>{label} {required && requiredStar}</label>
-    <div className="w-full h-14 px-4 border border-neutral-200 rounded-2xl flex items-center text-base [font-family:'Open_Sans',sans-serif] bg-gray-50" style={{ color: "#5A5B58" }}>
+    <div className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] flex items-center text-base [font-family:'Open_Sans',sans-serif] bg-gray-50" style={{ color: "#5A5B58" }}>
       {value || "—"}
     </div>
   </div>
@@ -451,7 +438,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const productCategoryId = 4;
 
   // ─── Loading states ───────────────────────────────────────────────────────────
-  const [initialLoading, setInitialLoading] = useState(true);
   const [loadingProduct, setLoadingProduct] = useState(false);
   const [loadingProductTypes, setLoadingProductTypes] = useState(false);
   const [loadingSubTypes, setLoadingSubTypes] = useState(false);
@@ -502,11 +488,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     finalPrice:           "",
     gstPercentage:        "",
     hsnCode:              "",
+    shelfLifeMonths:      "",
     // ✅ additionalDiscount stored directly as AdditionalDiscountData[] — same as DrugForm
     additionalDiscount:   [] as AdditionalDiscountData[],
   });
-
-  const [shelfLifeDisplay, setShelfLifeDisplay] = useState<number | null>(null);
   const [resolvedProductId, setResolvedProductId] = useState("");
   const [productAttributeId, setProductAttributeId] = useState("");
   const [packagingId, setPackagingId] = useState("");
@@ -567,6 +552,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const certDropdownRef = useRef<HTMLDivElement>(null);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+  const getMinExpiryMonth = () => {
+    if (!form.manufacturingDate) return "";
+    const mfg = new Date(form.manufacturingDate);
+    const min = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
+    return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}`;
+  };
 
   const toLocalDateTimeString = (date: Date | null): string | null => {
     if (!date) return null;
@@ -706,11 +698,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         gstPercentage:        gstVal,
         hsnCode:              String(pricing.hsnCode || ""),
         finalPrice:           String(pricing.finalPrice || ""),
+        shelfLifeMonths:      String(computeShelfLife(mfgDate, expDate) ?? ""),
         // ✅ Load additionalDiscount directly — same shape as DrugForm
         additionalDiscount:   Array.isArray(pricing.additionalDiscounts) ? pricing.additionalDiscounts : [],
       });
-
-      setShelfLifeDisplay(computeShelfLife(mfgDate, expDate));
 
       let rawIntended: unknown[] = [];
       let rawSkin: unknown[]     = [];
@@ -951,7 +942,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         );
       }
 
-      setInitialLoading(false);
     };
 
     loadAllMasters();
@@ -985,12 +975,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   }, [form.unitsPerPack, form.numberOfPacks]);
 
   useEffect(() => {
-    const sl = computeShelfLife(form.manufacturingDate, form.expiryDate);
-    setShelfLifeDisplay(sl);
-    if (sl && errors.expiryDate) setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
-  }, [form.manufacturingDate, form.expiryDate]);
-
-  useEffect(() => {
     const selling = parseFloat(form.sellingPrice);
     const disc    = parseFloat(form.discountPercentage);
     setForm((prev) => ({
@@ -1014,6 +998,35 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+
+    if (name === "expiryDate") {
+      if (!value) {
+        setForm((prev) => ({ ...prev, expiryDate: null, shelfLifeMonths: "" }));
+        setErrors((prev) => { const n = { ...prev }; delete n.expiryDate; return n; });
+      } else {
+        const [year, month] = value.split("-").map(Number);
+        const date = new Date(year, month - 1, 1);
+        if (form.manufacturingDate) {
+          const mfg = form.manufacturingDate;
+          const minDate = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
+          const totalMonths = (date.getFullYear() - mfg.getFullYear()) * 12 + (date.getMonth() - mfg.getMonth());
+          if (date < minDate) {
+            setErrors((p) => ({ ...p, expiryDate: "Expiry must be at least 3 months after Manufacturing Date" }));
+            setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+          } else if (totalMonths < 0) {
+            setErrors((p) => ({ ...p, expiryDate: "Expiry cannot be before Manufacturing Date" }));
+            setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+          } else {
+            setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
+            setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: totalMonths.toString() }));
+          }
+        } else {
+          setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+        }
+      }
+      return;
+    }
+
     const numericOnlyFields = [
       "stockQuantity", "sellingPrice", "mrp", "discountPercentage",
       "hsnCode", "unitsPerPack", "numberOfPacks",
@@ -1190,11 +1203,19 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       else if (!/^[a-zA-Z0-9]+$/.test(bNum)) e.batchNumber = "Batch number must be alphanumeric only";
 
       if (!form.manufacturingDate) e.manufacturingDate = "Manufacturing date is required";
-      else if (isFutureDate(form.manufacturingDate)) e.manufacturingDate = "Manufacturing date cannot be a future date";
+      else {
+        const today = new Date();
+        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        if (form.manufacturingDate > currentMonth)
+          e.manufacturingDate = "Manufacturing date cannot be in the future month";
+      }
 
       if (!form.expiryDate) e.expiryDate = "Expiry date is required";
-      else if (form.manufacturingDate && form.expiryDate <= form.manufacturingDate)
-        e.expiryDate = "Expiry date must be after manufacturing date";
+      else if (form.manufacturingDate) {
+        const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
+        if (form.expiryDate < minExpiry)
+          e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
+      }
 
       const stock = parseFloat(form.stockQuantity);
       if (!form.stockQuantity.trim()) e.stockQuantity = "Stock quantity is required";
@@ -1289,7 +1310,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         batchLotNumber:     form.batchNumber,
         manufacturingDate:  toLocalDateTimeString(form.manufacturingDate),
         expiryDate:         toLocalDateTimeString(form.expiryDate),
-        shelfLifeMonths: shelfLifeDisplay ?? 0,
+        shelfLifeMonths: Number(form.shelfLifeMonths),
         stockQuantity:      Number(form.stockQuantity),
         dateOfStockEntry:   toLocalDateTimeString(form.dateOfStockEntry),
         sellingPrice:       Number(form.sellingPrice),
@@ -1505,22 +1526,33 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const selectStyles = (errorKey: string) => ({
     control: (base: any, state: any) => ({
       ...base,
-      minHeight: "56px",
+      minHeight: "52px",
       height: "auto",
-      borderRadius: "16px",
-      borderColor: errors[errorKey] ? "#FF3B3B" : state.isFocused ? "#4B0082" : "#737373",
+      borderRadius: "8px",
+      borderWidth: state.isFocused ? "2px" : "1px",
+      borderColor: errors[errorKey]
+        ? "#FF3B3B"
+        : state.isFocused
+          ? "#C4AAFD"
+          : "#C0C1BE",
       boxShadow: "none",
       cursor: "pointer",
-      alignItems: "center",
-      "&:hover": { borderColor: errors[errorKey] ? "#FF3B3B" : "#4B0082" },
+      alignItems: state.hasValue && state.selectProps.isMulti ? "flex-start" : "center",
+      "&:hover": {
+        borderColor: errors[errorKey]
+          ? "#FF3B3B"
+          : state.isFocused
+            ? "#C4AAFD"
+            : "#C0C1BE",
+      },
     }),
-    valueContainer: (base: any) => ({ ...base, padding: "8px 16px" }),
-    indicatorsContainer: (base: any) => ({ ...base, height: "56px" }),
+    valueContainer: (base: any) => ({ ...base, padding: "8px 16px", flexWrap: "wrap", overflow: "visible" }),
+    indicatorsContainer: (base: any) => ({ ...base, height: "52px" }),
     dropdownIndicator: (base: any, state: any) => ({
       ...base,
-      color: state.isFocused ? "#4B0082" : "#737373",
+      color: state.isFocused ? "#C4AAFD" : "#737373",
       cursor: "pointer",
-      "&:hover": { color: "#4B0082" },
+      "&:hover": { color: "#C4AAFD" },
     }),
     option: (base: any, state: any) => ({
       ...base,
@@ -1531,7 +1563,40 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }),
     placeholder: (base: any) => ({ ...base, color: "#A3A3A3" }),
     singleValue: (base: any) => ({ ...base, color: "#1E1E1E" }),
+    multiValue: (base: any) => ({ ...base, margin: "2px" }),
   });
+
+  const unitSelectStyles = {
+    control: (base: any) => ({
+      ...base,
+      minHeight: "52px",
+      height: "52px",
+      border: "none",
+      boxShadow: "none",
+      borderRadius: "0",
+      cursor: "pointer",
+      backgroundColor: "transparent",
+      "&:hover": { border: "none" },
+    }),
+    valueContainer: (base: any) => ({ ...base, padding: "0 8px" }),
+    indicatorsContainer: (base: any) => ({ ...base, height: "52px" }),
+    dropdownIndicator: (base: any, state: any) => ({
+      ...base,
+      color: state.isFocused ? "#C4AAFD" : "#737373",
+      cursor: "pointer",
+      "&:hover": { color: "#C4AAFD" },
+    }),
+    option: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: state.isSelected ? "#4B0082" : state.isFocused ? "#F3E8FF" : "white",
+      color: state.isSelected ? "white" : "#1E1E1E",
+      cursor: "pointer",
+      "&:active": { backgroundColor: "#4B0082", color: "white" },
+    }),
+    placeholder: (base: any) => ({ ...base, color: "#A3A3A3", fontSize: "14px" }),
+    singleValue: (base: any) => ({ ...base, color: "#1E1E1E" }),
+    menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+  };
 
   const selectTheme = (theme: any) => ({
     ...theme,
@@ -1542,7 +1607,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const renderCertUploadList = () => {
     if (selectedCertifications.length === 0) {
       return (
-        <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
+        <div className="flex items-center w-full h-[52px] rounded-[8px] border border-[#C0C1BE] bg-white overflow-hidden">
           <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
             <img src="/icons/UploadIcon.svg" className="w-6 h-6" alt="upload" />
           </div>
@@ -1556,7 +1621,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       <div className="flex flex-col gap-3">
         {selectedCertifications.map((cert) => (
           <div key={cert.id} className="flex flex-col gap-1">
-            <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
+            <div className="flex items-center w-full h-[52px] rounded-[8px] border border-[#C0C1BE] bg-white overflow-hidden">
               <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
                 <img src="/icons/UploadIcon.svg" className="w-6 h-6" alt="upload" />
               </div>
@@ -1594,14 +1659,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   };
 
   // ─── Loading guard ─────────────────────────────────────────────────────────────
-  if (initialLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   if (mode === "edit" && loadingProduct) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -1665,7 +1722,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         )}
 
         {/* Section 1: Product Details */}
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
+        <div className="relative border border-neutral-200 rounded-xl p-6 bg-white">
           <div className="text-h4 font-semibold">Product Details</div>
           <div className="border-b border-neutral-200 mt-3"></div>
 
@@ -1774,14 +1831,15 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
             <div className="flex flex-col gap-1" data-field="netQuantity">
               <label className={fieldLabel}>Net Quantity {requiredStar}</label>
-              <div className="flex gap-2">
+              <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.netQuantity || errors.netQuantityUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
                 <input
                   name="netQuantity"
                   value={form.netQuantity}
                   onChange={handleChange}
-                  placeholder="e.g., 100"
-                  className={`flex-1 h-14 px-4 border rounded-2xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-0 transition-colors ${errors.netQuantity ? "border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082] hover:border-[#4B0082]"}`}
+                  placeholder="Placeholder"
+                  className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
                 />
+                <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
                 <div className="w-36" data-field="netQuantityUnitId">
                   <Select
                     options={netQuantityUnitOptions}
@@ -1793,7 +1851,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                     }}
                     placeholder={loadingNetQuantityUnits ? "..." : "Select Unit"}
                     theme={selectTheme}
-                    styles={selectStyles("netQuantityUnitId")}
+                    styles={unitSelectStyles}
+                    menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                    menuPosition="fixed"
                   />
                 </div>
               </div>
@@ -1888,14 +1948,14 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             <div className="flex flex-col gap-1" data-field="certifications">
               <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
               {isEdit ? (
-                <div className="w-full h-14 px-4 border border-neutral-200 rounded-2xl flex items-center text-base bg-gray-50" style={{ color: "#5A5B58" }}>
+                <div className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] flex items-center text-base bg-gray-50" style={{ color: "#5A5B58" }}>
                   {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "No certifications selected"}
                 </div>
               ) : (
                 <div className="relative" ref={certDropdownRef}>
                   <div
                     onClick={() => setShowCertDropdown((p) => !p)}
-                    className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-[#FF3B3B]" : "border-neutral-500 hover:border-[#4B0082]"}`}
+                    className={`w-full h-[52px] px-4 border rounded-[8px] flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-[#FF3B3B]" : "border-[#C0C1BE] hover:border-[#C0C1BE]"}`}
                   >
                     <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
                       style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#A3A3A3" }}>
@@ -1906,7 +1966,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                     </svg>
                   </div>
                   {showCertDropdown && (
-                    <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-[8px] shadow-lg max-h-60 overflow-y-auto">
                       {loadingCertifications ? (
                         <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
                       ) : (
@@ -1943,7 +2003,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 ref={setFieldRef("activeIngredients") as React.RefCallback<HTMLTextAreaElement>}
                 name="activeIngredients" value={form.activeIngredients} onChange={handleChange} rows={4}
                 placeholder="e.g., Vitamin C, Vitamin E, Salicylic Acid, Hyaluronic Acid"
-                className={`w-full rounded-2xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-0 transition-colors ${errors.activeIngredients ? "border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082]"}`}
+                className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] transition-colors ${errors.activeIngredients ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}
               />
               {errors.activeIngredients && <p className={errorMsg}>{errors.activeIngredients}</p>}
             </div>
@@ -1954,7 +2014,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 ref={setFieldRef("productClaims") as React.RefCallback<HTMLTextAreaElement>}
                 name="productClaims" value={form.productClaims} onChange={handleChange} rows={4}
                 placeholder={`e.g., "Paraben Free", "Dermatologically Tested", "Clinically Proven"`}
-                className={`w-full rounded-2xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-0 transition-colors ${errors.productClaims ? "border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082]"}`}
+                className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] transition-colors ${errors.productClaims ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}
               />
               {errors.productClaims && <p className={errorMsg}>{errors.productClaims}</p>}
             </div>
@@ -1965,7 +2025,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 ref={setFieldRef("warningsPrecautions") as React.RefCallback<HTMLTextAreaElement>}
                 name="warningsPrecautions" value={form.warningsPrecautions} onChange={handleChange} rows={4}
                 placeholder="e.g., For external use only. Avoid contact with eyes. Keep out of reach of children."
-                className={`w-full rounded-2xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-0 transition-colors ${errors.warningsPrecautions ? "border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082]"}`}
+                className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] transition-colors ${errors.warningsPrecautions ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}
               />
               {errors.warningsPrecautions && <p className={errorMsg}>{errors.warningsPrecautions}</p>}
             </div>
@@ -1977,7 +2037,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 name="productDescription" value={form.productDescription} onChange={handleChange}
                 rows={4} maxLength={1000}
                 placeholder="Detailed product description (max 1000 characters)"
-                className={`w-full rounded-2xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-0 transition-colors ${errors.productDescription ? "border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082]"}`}
+                className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] transition-colors ${errors.productDescription ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}
               />
               {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
             </div>
@@ -1985,7 +2045,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         </div>
 
         {/* Section 2: Packaging & Order Details */}
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
+        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
           <div className="text-h4 font-semibold">Packaging &amp; Order Details</div>
           <div className="border-b border-neutral-200 mt-3"></div>
 
@@ -2017,7 +2077,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Pack Size (No. of Units per Pack Type × No. of Packs)</label>
               <input name="packSize" value={form.packSize} readOnly
-                className="w-full h-14 px-4 border border-neutral-200 rounded-2xl text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
+                className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
             </div>
           </div>
 
@@ -2044,50 +2104,66 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               )}
             </div>
 
-            <div className="flex flex-col gap-1" data-field="manufacturingDate">
-              <label className={fieldLabel}>Manufacturing Date {requiredStar}</label>
-              {isEdit ? (
-                <div className="w-full h-14 px-4 border border-neutral-200 rounded-2xl flex items-center bg-gray-50" style={{ color: "#5A5B58" }}>
-                  {form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""}
-                </div>
-              ) : (
-                <>
-                  <input ref={setFieldRef("manufacturingDate")} type="date" name="manufacturingDate"
-                    max={todayStr}
-                    value={form.manufacturingDate ? form.manufacturingDate.toISOString().split("T")[0] : ""}
-                    onChange={(e) => setForm((p) => ({ ...p, manufacturingDate: e.target.value ? new Date(e.target.value) : null }))}
-                    className={`w-full h-14 px-4 border rounded-2xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-0 transition-colors ${errors.manufacturingDate ? "border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082]"}`}
-                  />
-                  {errors.manufacturingDate && <p className={errorMsg}>{errors.manufacturingDate}</p>}
-                </>
-              )}
-            </div>
+            <Input
+              label="Manufacturing Date"
+              type="month"
+              name="manufacturingDate"
+              id="manufacturingDate"
+              readOnly={isEdit}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (!value) return;
+                const [year, month] = value.split("-").map(Number);
+                const date = new Date(year, month - 1, 1);
+                const today = new Date();
+                const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                if (date > currentMonth) {
+                  setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
+                  return;
+                }
+                setErrors((prev) => ({ ...prev, manufacturingDate: "", expiryDate: "" }));
+                setForm({ ...form, manufacturingDate: date, expiryDate: null, shelfLifeMonths: "" });
+              }}
+              value={
+                form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
+                  ? `${form.manufacturingDate.getFullYear()}-${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}`
+                  : ""
+              }
+              error={errors.manufacturingDate}
+              required
+            />
 
-            <div className="flex flex-col gap-1" data-field="expiryDate">
-              <label className={fieldLabel}>Expiry Date {requiredStar}</label>
-              {isEdit ? (
-                <div className="w-full h-14 px-4 border border-neutral-200 rounded-2xl flex items-center bg-gray-50" style={{ color: "#5A5B58" }}>
-                  {form.expiryDate ? form.expiryDate.toISOString().split("T")[0] : ""}
-                </div>
-              ) : (
-                <>
-                  <input ref={setFieldRef("expiryDate")} type="date" name="expiryDate"
-                    min={form.manufacturingDate ? (() => { const d = new Date(form.manufacturingDate!); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })() : undefined}
-                    value={form.expiryDate ? form.expiryDate.toISOString().split("T")[0] : ""}
-                    onChange={(e) => setForm((p) => ({ ...p, expiryDate: e.target.value ? new Date(e.target.value) : null }))}
-                    className={`w-full h-14 px-4 border rounded-2xl text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none focus:ring-0 transition-colors ${errors.expiryDate ? "border-[#FF3B3B]" : "border-neutral-500 focus:border-[#4B0082]"}`}
-                  />
-                  {errors.expiryDate && <p className={errorMsg}>{errors.expiryDate}</p>}
-                </>
-              )}
-            </div>
+            <Input
+              label="Expiry Date"
+              type="month"
+              name="expiryDate"
+              value={
+                form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
+                  ? `${form.expiryDate.getFullYear()}-${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}`
+                  : ""
+              }
+              readOnly={isEdit}
+              onChange={handleChange}
+              onFocus={() => {
+                if (form.manufacturingDate) {
+                  setErrors((prev) => ({
+                    ...prev,
+                    expiryDate: "Expiry must be at least 3 months after Manufacturing Date",
+                  }));
+                }
+              }}
+              min={getMinExpiryMonth()}
+              error={errors.expiryDate}
+              required
+            />
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Shelf Life (auto-calculated)</label>
-              <div className={`w-full h-14 px-4 border rounded-2xl flex items-center text-base [font-family:'Open_Sans',sans-serif] ${shelfLifeDisplay ? "border-purple-200 bg-purple-50 [color:#7D32FC]" : "border-neutral-200 bg-gray-50 [color:#969793]"}`}>
-                {shelfLifeDisplay || "Calculated from Manufacturing & Expiry dates"}
-              </div>
-            </div>
+            <Input
+              type="number"
+              label="Shelf Life (In Months)"
+              name="shelfLifeMonths"
+              value={form.shelfLifeMonths}
+              readOnly
+            />
 
             <div data-field="stockQuantity">
               {isEdit ? (
@@ -2101,7 +2177,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Date of Stock Entry {requiredStar}</label>
               <input type="date" value={todayStr} readOnly
-                className="w-full h-14 px-4 border border-neutral-200 rounded-2xl text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
+                className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
             </div>
           </div>
 
@@ -2131,10 +2207,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 <button
                   type="button"
                   onClick={() => setShowAdditionalDiscount(true)}
-                  className="w-55.5 h-10.5 px-6 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
+                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
                 >
-                  <img src="/icons/PlusIcon.svg" alt="add" className="w-[12.5px] h-[12.5px]" />
-                  Add Special Discount
+                  <img src="/icons/PlusIcon.svg" alt="drug" className="w-6 h-6" />
+                  Add Special Offers
                 </button>
               </div>
             </div>
@@ -2142,7 +2218,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Final Price (Auto-calculated)</label>
               <input name="finalPrice" value={form.finalPrice} readOnly
-                className="w-full h-14 px-4 border border-neutral-200 rounded-2xl text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
+                className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
             </div>
           </div>
 
@@ -2179,7 +2255,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         </div>
 
         {/* Section 3: Product Photos */}
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6"
+        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white"
           ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
           <div className="text-[#364153] font-normal text-sm">
             Product Photos {mode === "create" && <span className="text-warning-500 font-semibold ml-1">*</span>}
@@ -2261,6 +2337,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       </div>
     </>
   );
-};
+};  
 
 export default CosmeticForm;
