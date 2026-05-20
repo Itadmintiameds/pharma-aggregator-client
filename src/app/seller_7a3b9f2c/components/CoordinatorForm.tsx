@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -101,35 +100,28 @@ export default function CoordinatorForm({
   }, []);
 
   // ---- Coordinator Name handler ----
-  // First character MUST be a letter (A-Z, a-z), after that letters/numbers/spaces allowed
   const handleCoordinatorNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
 
-    // If empty, allow clear
     if (value === "") {
       setCoordinatorNameLocal("");
       onAlphabetInput(e, "coordinatorName");
       return;
     }
 
-    // First character must be a letter
     if (!/^[A-Za-z]/.test(value)) {
       return;
     }
 
-    // Allow only: letters, numbers, and spaces after first character
     const allowedCharsRegex = /^[A-Za-z][A-Za-z0-9\s]*$/;
     if (!allowedCharsRegex.test(value)) {
       return;
     }
 
-    // Limit to 100 characters
     if (value.length > 100) return;
 
-    // Save directly in local state — bypasses the parent stripping numbers
     setCoordinatorNameLocal(value);
 
-    // Push to parent so formData stays in sync
     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
       window.HTMLInputElement.prototype,
       "value"
@@ -146,35 +138,28 @@ export default function CoordinatorForm({
   };
 
   // ---- Coordinator Designation handler ----
-  // First character MUST be a letter (A-Z, a-z), after that letters/numbers/spaces allowed
   const handleCoordinatorDesignationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
 
-    // If empty, allow clear
     if (value === "") {
       setCoordinatorDesignationLocal("");
       onAlphabetInput(e, "coordinatorDesignation");
       return;
     }
 
-    // First character must be a letter
     if (!/^[A-Za-z]/.test(value)) {
       return;
     }
 
-    // Allow only: letters, numbers, and spaces after first character
     const allowedCharsRegex = /^[A-Za-z][A-Za-z0-9\s]*$/;
     if (!allowedCharsRegex.test(value)) {
       return;
     }
 
-    // Limit to 100 characters
     if (value.length > 100) return;
 
-    // Save directly in local state — bypasses the parent stripping numbers
     setCoordinatorDesignationLocal(value);
 
-    // Push to parent so formData stays in sync
     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
       window.HTMLInputElement.prototype,
       "value"
@@ -202,7 +187,6 @@ export default function CoordinatorForm({
     }
   };
 
-  // Handle phone change with numeric only and validation
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
 
@@ -268,11 +252,10 @@ export default function CoordinatorForm({
   };
 
   const getPlaceholder = () => {
-    if (selectedCountryCode === "+91") return "Enter 10-digit mobile number (starts with 6,7,8,9)";
+    if (selectedCountryCode === "+91") return "Enter 10-digit mobile number";
     return "Enter mobile number";
   };
 
-  // ---------------- EMAIL OTP ----------------
   const handleSendEmailOTP = async () => {
     if (!formData.coordinatorEmail) {
       toast.error("Please enter email address");
@@ -306,7 +289,6 @@ export default function CoordinatorForm({
     }
   };
 
-  // ---------------- PHONE OTP ----------------
   const handleSendPhoneOTP = async () => {
     if (phoneVerified) {
       toast.info("Phone number is already verified");
@@ -349,7 +331,6 @@ export default function CoordinatorForm({
     }
   };
 
-  // ---------------- VERIFIED ----------------
   const handleEmailVerified = () => {
     setShowModal(false);
     onEmailVerified();
@@ -362,7 +343,6 @@ export default function CoordinatorForm({
     toast.success("Phone verified successfully");
   };
 
-  // ---------------- RESEND ----------------
   const handleResendEmail = async () => {
     try {
       await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
@@ -382,7 +362,6 @@ export default function CoordinatorForm({
     }
   };
 
-  // ---------------- CONTINUE ----------------
   const handleContinue = () => {
     if (!coordinatorNameLocal?.trim()) {
       toast.error("Coordinator name is required");
@@ -438,30 +417,30 @@ export default function CoordinatorForm({
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 bg-white">
       {/* Header */}
       <div>
-        <div className="text-h2 font-semibold">
+        <div className="text-h3 font-heading font-medium text-pneutral-900 leading-[40px]">
           Coordinator contact details
         </div>
-        <div className="text-label-l3 text-neutral-600 mt-1">
+        <div className="text-label-l4 font-heading font-regular text-pneutral-800 leading-[24px] mt-1">
           Coordinator details for communication and verification
         </div>
       </div>
 
       {/* Form */}
       <div>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-2">
 
-          {/* Name — must start with letter, numbers allowed after */}
+          {/* Name */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l3 text-neutral-700 font-semibold">
+            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
               Coordinator Name
-              <span className="text-warning-500 ml-1">*</span>
+              <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
 
             <div className="relative">
-              {/* <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" /> */}
+              {/* <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" /> */}
               <input
                 type="text"
                 autoComplete="new-password"
@@ -469,20 +448,20 @@ export default function CoordinatorForm({
                 onChange={handleCoordinatorNameChange}
                 placeholder="Enter coordinator name"
                 maxLength={100}
-                className="w-full h-12 pl-5 pr-4  rounded-2xl border border-neutral-500 focus:outline-none"
+                className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
           </div>
 
-          {/* Designation — must start with letter, numbers allowed after */}
+          {/* Designation */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l3 text-neutral-700 font-semibold">
+            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
               Coordinator Designation
-              <span className="text-warning-500 ml-1">*</span>
+              <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
 
             <div className="relative">
-              {/* <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" /> */}
+              {/* <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" /> */}
               <input
                 type="text"
                 autoComplete="new-password"
@@ -490,29 +469,30 @@ export default function CoordinatorForm({
                 onChange={handleCoordinatorDesignationChange}
                 placeholder="Enter designation"
                 maxLength={100}
-                className="w-full h-12 pl-5 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
+                className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
           </div>
 
           {/* Phone */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l3 text-neutral-700 font-semibold">
-              Coordinator Mobile Number
-              <span className="text-warning-500 ml-1">*</span>
+            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+              Coordinator Number
+              <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
 
             <div className="relative" ref={phoneDropdownRef}>
-              <div className="flex">
+              {/* <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900 z-10" /> */}
+              <div className="flex items-start">
                 {/* Country Code Dropdown */}
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setIsPhoneDropdownOpen(!isPhoneDropdownOpen)}
-                    className="h-12 px-2 pl-3 pr-2 rounded-l-2xl border border-r-0 border-neutral-500 bg-white flex items-center gap-1 focus:outline-none hover:bg-gray-50 transition-colors"
+                    className="h-13 px-2 pl-5 pr-2 rounded-l-xl border border-r-0 border-neutral-500 bg-white flex items-center gap-1 focus:outline-none"
                   >
-                    <span className="text-sm font-medium">{selectedCountryCode}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                    <span className="text-p4 font-body font-regular text-pneutral-900">{selectedCountryCode}</span>
+                    <ChevronDown className="w-4 h-4 text-pneutral-900" />
                   </button>
 
                   {isPhoneDropdownOpen && (
@@ -521,7 +501,7 @@ export default function CoordinatorForm({
                         className="fixed inset-0 z-10"
                         onClick={() => setIsPhoneDropdownOpen(false)}
                       />
-                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-xl shadow-lg z-20 max-h-60 overflow-y-auto">
                         {countryCodes.map((country) => (
                           <button
                             key={country.code}
@@ -534,8 +514,8 @@ export default function CoordinatorForm({
                             className="w-full px-3 py-2.5 text-left hover:bg-neutral-50 flex items-center gap-2 transition-colors"
                           >
                             <span className="text-lg">{country.flag}</span>
-                            <span className="text-sm font-semibold">{country.code}</span>
-                            <span className="text-xs text-neutral-500">{country.country}</span>
+                            <span className="text-p4 font-body font-semibold text-pneutral-900">{country.code}</span>
+                            <span className="text-p2 font-body font-regular text-pneutral-500">{country.country}</span>
                           </button>
                         ))}
                       </div>
@@ -544,49 +524,46 @@ export default function CoordinatorForm({
                 </div>
 
                 {/* Phone Number Input */}
-                <div className="relative flex-1">
-                  {/* <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" /> */}
-                  <input
-                    type="tel"
-                    autoComplete="new-password"
-                    value={formData.coordinatorMobile}
-                    onChange={handlePhoneChange}
-                    onKeyDown={handlePhoneKeyDown}
-                    onPaste={handlePhonePaste}
-                    placeholder={getPlaceholder()}
-                    maxLength={getMaxLength()}
-                    disabled={phoneVerified}
-                    className={`w-full h-12 pl-5 pr-4 rounded-r-2xl border focus:outline-none ${
-                      phoneError ? 'border-red-500' : 'border-neutral-500'
-                    }`}
-                  />
-                </div>
+                <input
+                  type="tel"
+                  autoComplete="new-password"
+                  value={formData.coordinatorMobile}
+                  onChange={handlePhoneChange}
+                  onKeyDown={handlePhoneKeyDown}
+                  onPaste={handlePhonePaste}
+                  placeholder={getPlaceholder()}
+                  maxLength={getMaxLength()}
+                  disabled={phoneVerified}
+                  className={`flex-1 h-13 px-4 rounded-r-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${
+                    phoneError ? 'border-red-500' : 'border-neutral-500'
+                  }`}
+                />
 
                 <button
                   onClick={handleSendPhoneOTP}
                   disabled={!!phoneError || !formData.coordinatorMobile || phoneVerified}
-                  className={`h-12 px-4 rounded-lg text-white font-semibold ml-2 transition-colors ${
+                  className={`h-11 px-4 rounded-xl text-white font-semibold ml-3 transition-none ${
                     phoneVerified
-                      ? 'bg-[#9F75FC] cursor-not-allowed'
+                      ? 'bg-primary-800 cursor-not-allowed '
                       : phoneError || !formData.coordinatorMobile
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-[#9F75FC] hover:bg-[#8B5CF6]'
+                        ? 'bg-primary-800 cursor-not-allowed '
+                        : 'bg-primary-800'
                   }`}
                 >
-                  {phoneVerified ? "✓ Verified" : "Send OTP"}
+                  {phoneVerified ? " Verified" : "Send OTP"}
                 </button>
               </div>
             </div>
 
             {phoneError && (
-              <p className="mt-1 text-xs text-red-500 flex items-start">
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
                 <span className="mr-1">⚠️</span>
                 <span>{phoneError}</span>
               </p>
             )}
 
             {phoneExistsError && !phoneError && (
-              <p className="text-xs text-red-500 mt-1">
+              <p className="text-p2 font-body font-regular text-red-500 mt-1">
                 {phoneExistsError}
               </p>
             )}
@@ -594,14 +571,14 @@ export default function CoordinatorForm({
 
           {/* Email */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l3 text-neutral-700 font-semibold">
+            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
               Coordinator Email ID
-              <span className="text-warning-500 ml-1">*</span>
+              <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
 
-            <div className="flex gap-2">
+            <div className="flex gap-3 items-start">
               <div className="relative flex-1">
-                {/* <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" /> */}
+                {/* <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" /> */}
                 <input
                   type="email"
                   autoComplete="new-password"
@@ -609,7 +586,7 @@ export default function CoordinatorForm({
                   onChange={handleEmailChange}
                   placeholder="Enter email"
                   disabled={emailVerified}
-                  className={`w-full h-12 pl-5 pr-4 rounded-2xl border focus:outline-none ${
+                  className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${
                     emailError ? 'border-red-500' : 'border-neutral-500'
                   }`}
                 />
@@ -618,26 +595,26 @@ export default function CoordinatorForm({
               <button
                 onClick={handleSendEmailOTP}
                 disabled={!formData.coordinatorEmail || !!emailError || emailVerified}
-                className={`h-12 px-4 rounded-lg text-white font-semibold transition-colors ${
+                className={`h-11 px-4 rounded-xl text-white font-semibold transition-none ${
                   emailVerified
-                    ? 'bg-[#9F75FC] cursor-not-allowed'
+                    ? 'bg-primary-800 cursor-not-allowed'
                     : !formData.coordinatorEmail || !!emailError
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-[#9F75FC] hover:bg-[#8B5CF6]'
+                      ? 'bg-primary-800 cursor-not-allowed'
+                      : 'bg-primary-800'
                 }`}
               >
-                {emailVerified ? "✓ Verified" : "Send OTP"}
+                {emailVerified ? "Verified" : "Send OTP"}
               </button>
             </div>
 
             {emailError && (
-              <p className="text-xs text-red-500 mt-1">
+              <p className="text-p2 font-body font-regular text-red-500 mt-1">
                 {emailError}
               </p>
             )}
 
             {emailExistsError && !emailError && (
-              <p className="text-xs text-red-500 mt-1">
+              <p className="text-p2 font-body font-regular text-red-500 mt-1">
                 {emailExistsError}
               </p>
             )}
@@ -649,7 +626,7 @@ export default function CoordinatorForm({
       <div className="flex justify-between mt-10">
         <button
           onClick={() => router.push("/")}
-          className="h-12 px-6 border-2 border-warning-500 text-warning-500 rounded-xl font-semibold hover:bg-warning-50 transition-colors"
+          className="h-12 px-6 border-2 border-warning-500 text-warning-500 rounded-xl font-semibold"
         >
           Cancel
         </button>
@@ -657,7 +634,7 @@ export default function CoordinatorForm({
         <div className="flex gap-4">
           <button
             onClick={prevStep}
-            className="h-12 px-6 border-2 border-neutral-500 text-neutral-500 rounded-xl flex items-center gap-2 hover:bg-neutral-50 transition-colors"
+            className="h-12 px-6 border-2 border-pneutral-900 text-pneutral-900 rounded-xl flex items-center gap-2"
           >
             <Image
               src="/icons/backbuttonicon.png"
@@ -670,7 +647,7 @@ export default function CoordinatorForm({
 
           <button
             onClick={handleContinue}
-            className="h-12 px-6 border-2 border-primary-900 text-primary-900 rounded-xl flex items-center gap-2 hover:bg-primary-50 transition-colors"
+            className="h-12 px-6 border-2 border-primary-800 text-primary-800 rounded-xl flex items-center gap-2"
           >
             Continue
             <Image
@@ -713,282 +690,10 @@ export default function CoordinatorForm({
 
 
 
-// without validations and OTP verification - just input handling and passing data to parent
-
-// "use client";
-
-// import React, { useState } from "react";
-// import { Briefcase, Phone, Mail } from "lucide-react";
-// import Image from "next/image";
-// import { useRouter } from "next/navigation";
-// import { HiOutlineUserGroup } from "react-icons/hi2";
-
-// interface Props {
-//   formData: any;
-//   isCheckingEmail: boolean;
-//   isCheckingPhone: boolean;
-//   emailExistsError: string;
-//   phoneExistsError: string;
-//   emailVerified: boolean;
-//   phoneVerified: boolean;
-//   onEmailChange: (email: string) => void;
-//   onPhoneChange: (phone: string) => void;
-//   onEmailVerified: () => void;
-//   onPhoneVerified: () => void;
-//   onAlphabetInput: (
-//     e: React.ChangeEvent<HTMLInputElement>,
-//     field: string
-//   ) => void;
-//   prevStep: () => void;
-//   nextStep: () => void;
-// }
-
-// export default function CoordinatorForm({
-//   formData,
-//   onEmailChange,
-//   onPhoneChange,
-//   onAlphabetInput,
-//   prevStep,
-//   nextStep,
-// }: Props) {
-//   const router = useRouter();
-
-//   // Local state for name & designation
-//   const [coordinatorNameLocal, setCoordinatorNameLocal] = useState<string>(formData.coordinatorName || "");
-//   const [coordinatorDesignationLocal, setCoordinatorDesignationLocal] = useState<string>(formData.coordinatorDesignation || "");
-
-//   // Handle coordinator name - allow letters, numbers, spaces
-//   const handleCoordinatorNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     let value = e.target.value;
-    
-//     if (value === "") {
-//       setCoordinatorNameLocal("");
-//       onAlphabetInput(e, "coordinatorName");
-//       return;
-//     }
-    
-//     // Allow letters, numbers, spaces
-//     const allowedCharsRegex = /^[A-Za-z][A-Za-z0-9\s]*$/;
-//     if (!allowedCharsRegex.test(value)) {
-//       return;
-//     }
-    
-//     if (value.length > 100) return;
-    
-//     setCoordinatorNameLocal(value);
-    
-//     // Push to parent
-//     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-//       window.HTMLInputElement.prototype,
-//       "value"
-//     )?.set;
-//     if (nativeInputValueSetter) {
-//       nativeInputValueSetter.call(e.target, value);
-//       e.target.dispatchEvent(new Event("input", { bubbles: true }));
-//     }
-//     Object.defineProperty(e, "target", {
-//       writable: false,
-//       value: { ...e.target, value },
-//     });
-//     onAlphabetInput(e, "coordinatorName");
-//   };
-
-//   // Handle coordinator designation
-//   const handleCoordinatorDesignationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     let value = e.target.value;
-    
-//     if (value === "") {
-//       setCoordinatorDesignationLocal("");
-//       onAlphabetInput(e, "coordinatorDesignation");
-//       return;
-//     }
-    
-//     // Allow letters, numbers, spaces
-//     const allowedCharsRegex = /^[A-Za-z][A-Za-z0-9\s]*$/;
-//     if (!allowedCharsRegex.test(value)) {
-//       return;
-//     }
-    
-//     if (value.length > 100) return;
-    
-//     setCoordinatorDesignationLocal(value);
-    
-//     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-//       window.HTMLInputElement.prototype,
-//       "value"
-//     )?.set;
-//     if (nativeInputValueSetter) {
-//       nativeInputValueSetter.call(e.target, value);
-//       e.target.dispatchEvent(new Event("input", { bubbles: true }));
-//     }
-//     Object.defineProperty(e, "target", {
-//       writable: false,
-//       value: { ...e.target, value },
-//     });
-//     onAlphabetInput(e, "coordinatorDesignation");
-//   };
-
-//   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     const value = e.target.value;
-//     onEmailChange(value);
-//   };
-
-//   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     let value = e.target.value;
-//     value = value.replace(/\D/g, '');
-//     if (value.length <= 15) {
-//       onPhoneChange(value);
-//     }
-//   };
-
-//   // Simple continue - no validations
-//   const handleContinue = () => {
-//     // Just proceed without any validation or verification checks
-//     nextStep();
-//   };
-
-//   return (
-//     <div className="flex flex-col gap-5">
-//       {/* Header */}
-//       <div>
-//         <div className="text-h2 font-semibold">
-//           Coordinator contact details
-//         </div>
-//         <div className="text-label-l3 text-neutral-600 mt-1">
-//           Coordinator details for communication and verification
-//         </div>
-//       </div>
-
-//       {/* Form */}
-//       <div>
-//         <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-
-//           {/* Name */}
-//           <div className="flex flex-col gap-1">
-//             <label className="text-label-l3 text-neutral-700 font-semibold">
-//               Coordinator Name
-//             </label>
-
-//             <div className="relative">
-//               <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-//               <input
-//                 type="text"
-//                 autoComplete="new-password"
-//                 value={coordinatorNameLocal}
-//                 onChange={handleCoordinatorNameChange}
-//                 placeholder="Enter coordinator name"
-//                 maxLength={100}
-//                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none focus:border-primary-900"
-//               />
-//             </div>
-//           </div>
-
-//           {/* Designation */}
-//           <div className="flex flex-col gap-1">
-//             <label className="text-label-l3 text-neutral-700 font-semibold">
-//               Coordinator Designation
-//             </label>
-
-//             <div className="relative">
-//               <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-//               <input
-//                 type="text"
-//                 autoComplete="new-password"
-//                 value={coordinatorDesignationLocal}
-//                 onChange={handleCoordinatorDesignationChange}
-//                 placeholder="Enter designation"
-//                 maxLength={100}
-//                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none focus:border-primary-900"
-//               />
-//             </div>
-//           </div>
-
-//           {/* Phone - Simplified without OTP */}
-//           <div className="flex flex-col gap-1">
-//             <label className="text-label-l3 text-neutral-700 font-semibold">
-//               Coordinator Mobile Number
-//             </label>
-
-//             <div className="relative">
-//               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-//               <input
-//                 type="tel"
-//                 autoComplete="new-password"
-//                 value={formData.coordinatorMobile}
-//                 onChange={handlePhoneChange}
-//                 placeholder="Enter mobile number"
-//                 maxLength={15}
-//                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none focus:border-primary-900"
-//               />
-//             </div>
-//           </div>
-
-//           {/* Email - Simplified without OTP */}
-//           <div className="flex flex-col gap-1">
-//             <label className="text-label-l3 text-neutral-700 font-semibold">
-//               Coordinator Email ID
-//             </label>
-
-//             <div className="relative">
-//               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-//               <input
-//                 type="email"
-//                 autoComplete="new-password"
-//                 value={formData.coordinatorEmail}
-//                 onChange={handleEmailChange}
-//                 placeholder="Enter email"
-//                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none focus:border-primary-900"
-//               />
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* Buttons */}
-//       <div className="flex justify-between mt-10">
-//         <button
-//           onClick={() => router.push("/")}
-//           className="h-12 px-6 border-2 border-warning-500 text-warning-500 rounded-xl font-semibold hover:bg-warning-50 transition-colors"
-//         >
-//           Cancel
-//         </button>
-
-//         <div className="flex gap-4">
-//           <button
-//             onClick={prevStep}
-//             className="h-12 px-6 border-2 border-neutral-500 text-neutral-500 rounded-xl flex items-center gap-2 hover:bg-neutral-50 transition-colors"
-//           >
-//             <Image
-//               src="/icons/backbuttonicon.png"
-//               alt="Back"
-//               width={18}
-//               height={18}
-//             />
-//             Back
-//           </button>
-
-//           <button
-//             onClick={handleContinue}
-//             className="h-12 px-6 border-2 border-primary-900 text-primary-900 rounded-xl flex items-center gap-2 hover:bg-primary-50 transition-colors"
-//           >
-//             Continue
-//             <Image
-//               src="/icons/continueicon.png"
-//               alt="Continue"
-//               width={20}
-//               height={20}
-//             />
-//           </button>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
 
 
 
-// with validationn.... 
-
+// old codes without latest global css 19.05.2026............
 // "use client";
 
 // import React, { useState, useRef, useEffect } from "react";
@@ -1451,7 +1156,7 @@ export default function CoordinatorForm({
 //             </label>
 
 //             <div className="relative">
-//               <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+//               {/* <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" /> */}
 //               <input
 //                 type="text"
 //                 autoComplete="new-password"
@@ -1459,7 +1164,7 @@ export default function CoordinatorForm({
 //                 onChange={handleCoordinatorNameChange}
 //                 placeholder="Enter coordinator name"
 //                 maxLength={100}
-//                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
+//                 className="w-full h-12 pl-5 pr-4  rounded-2xl border border-neutral-500 focus:outline-none"
 //               />
 //             </div>
 //           </div>
@@ -1472,7 +1177,7 @@ export default function CoordinatorForm({
 //             </label>
 
 //             <div className="relative">
-//               <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+//               {/* <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" /> */}
 //               <input
 //                 type="text"
 //                 autoComplete="new-password"
@@ -1480,7 +1185,7 @@ export default function CoordinatorForm({
 //                 onChange={handleCoordinatorDesignationChange}
 //                 placeholder="Enter designation"
 //                 maxLength={100}
-//                 className="w-full h-12 pl-10 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
+//                 className="w-full h-12 pl-5 pr-4 rounded-2xl border border-neutral-500 focus:outline-none"
 //               />
 //             </div>
 //           </div>
@@ -1535,7 +1240,7 @@ export default function CoordinatorForm({
 
 //                 {/* Phone Number Input */}
 //                 <div className="relative flex-1">
-//                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+//                   {/* <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" /> */}
 //                   <input
 //                     type="tel"
 //                     autoComplete="new-password"
@@ -1546,7 +1251,7 @@ export default function CoordinatorForm({
 //                     placeholder={getPlaceholder()}
 //                     maxLength={getMaxLength()}
 //                     disabled={phoneVerified}
-//                     className={`w-full h-12 pl-10 pr-4 rounded-r-2xl border focus:outline-none ${
+//                     className={`w-full h-12 pl-5 pr-4 rounded-r-2xl border focus:outline-none ${
 //                       phoneError ? 'border-red-500' : 'border-neutral-500'
 //                     }`}
 //                   />
@@ -1591,7 +1296,7 @@ export default function CoordinatorForm({
 
 //             <div className="flex gap-2">
 //               <div className="relative flex-1">
-//                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+//                 {/* <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" /> */}
 //                 <input
 //                   type="email"
 //                   autoComplete="new-password"
@@ -1599,7 +1304,7 @@ export default function CoordinatorForm({
 //                   onChange={handleEmailChange}
 //                   placeholder="Enter email"
 //                   disabled={emailVerified}
-//                   className={`w-full h-12 pl-10 pr-4 rounded-2xl border focus:outline-none ${
+//                   className={`w-full h-12 pl-5 pr-4 rounded-2xl border focus:outline-none ${
 //                     emailError ? 'border-red-500' : 'border-neutral-500'
 //                   }`}
 //                 />

@@ -6,6 +6,8 @@ import Image from "next/image";
 import Button from "@/src/app/commonComponents/Button";
 import { FiMenu, FiX } from "react-icons/fi";
 
+
+
 const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -70,7 +72,7 @@ const Header = () => {
       </header>
 
       {/* ================= SPACER ================= */}
-      <div className="h-20"></div>
+      {/* <div className="h-20"></div> */}
 
       {/* ================= MOBILE OVERLAY ================= */}
       {menuOpen && (
