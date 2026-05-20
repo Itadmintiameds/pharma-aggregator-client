@@ -19,11 +19,11 @@ function Table<T extends object>({
   actions,
 }: TableProps<T>) {
   return (
-    <div className="w-full overflow-x-auto border border-neutral-200 rounded-xl">
+    <div className="w-full overflow-x-auto border border-pneutral-200 rounded-xl">
       <table className="min-w-full text-sm">
         
         {/* Table Head */}
-        <thead className="text-label-l3 font-semibold text-black bg-neutral-50 h-13.5">
+        <thead className="text-label-l3 text-black bg-pneutral-50 h-13.5">
           <tr>
             {columns.map((col, index) => (
               <th
@@ -67,7 +67,7 @@ function Table<T extends object>({
                 className="border-t border-neutral-200 hover:bg-neutral-50"
               >
                 {columns.map((col, colIndex) => (
-                  <td key={colIndex} className="px-4 py-3 whitespace-nowrap text-label-l3 h-14">
+                  <td key={colIndex} className="px-4 py-3 whitespace-nowrap text-label-l3 font-normal h-14">
                     {typeof col.accessor === "function"
                       ? col.accessor(row)
                       : (row[col.accessor] as React.ReactNode)}
