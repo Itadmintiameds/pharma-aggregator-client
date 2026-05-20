@@ -58,8 +58,8 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
         </button>
 
         <button
-          onClick={() => setCurrentView("addProduct" as DashboardView)}
-          className="w-44.5 h-12 bg-primary-900 rounded-lg text-white text-lable-l2 font-medium cursor-pointer flex items-center justify-center gap-3"
+          onClick={() => router.push("/seller_7a3b9f2c/products/add")}
+          className="w-50 h-12 bg-primary-900 rounded-lg text-white text-lable-l2 font-medium cursor-pointer flex items-center justify-center gap-3"
         >
           <img
             src="/icons/PlusIconWhite.svg"

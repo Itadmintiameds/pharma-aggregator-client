@@ -631,16 +631,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     }));
   };
 
-  // const handleStrengthChange = (index: number, value: string) => {
-  //   const updated = [...form.molecules];
-  //   updated[index].strength = value;
-
-  //   setForm((prev) => ({
-  //     ...prev,
-  //     molecules: updated,
-  //   }));
-  // };
-
   const handleStrengthChange = (index: number, value: string) => {
     const updated = [...form.molecules];
 
@@ -1468,17 +1458,17 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
         </CommonModal>
       )}
-      <div className="w-full">
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
+      <div className="w-full ">
+        <div className="relative border border-neutral-200 rounded-xl p-6  bg-white">
           <div className="text-h4 font-semibold">Product Details</div>
 
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-pneutral-900 font-semibold">
+              <label className="text-label-l4 font-medium text-pneutral-900">
                 Therapeutic Category
-                <span className="text-warning-500 font-semibold ml-1">*</span>
+                <span className="text-warning-500 ml-1">*</span>
               </label>
               <Select
                 options={therapeuticCategories}
@@ -1502,9 +1492,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-pneutral-900 font-semibold">
+              <label className="text-label-l4 font-medium text-pneutral-900">
                 Therapeutic Subcategory
-                <span className="text-warning-500 font-semibold ml-1">*</span>
+                <span className="text-warning-500 ml-1">*</span>
               </label>
               <Select
                 options={subcategoryOptions}
@@ -1540,9 +1530,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             />
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-pneutral-900 font-semibold">
+              <label className="text-label-l4 font-medium text-pneutral-900">
                 Dosage Form (Tablet, Syrup)
-                <span className="text-warning-500 font-semibold ml-1">*</span>
+                <span className="text-warning-500 ml-1">*</span>
               </label>
               <Select
                 options={dosageOptions}
@@ -1568,9 +1558,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 className="grid grid-cols-[1fr_0.87fr_auto] gap-6 col-span-2"
               >
                 <div className="flex flex-col gap-1 w-full">
-                  <label className="text-label-l3 text-pneutral-900 font-semibold">
+                  <label className="text-label-l4 font-medium text-pneutral-900">
                     Molecule
-                    <span className="text-warning-500 font-semibold ml-1">
+                    <span className="text-warning-500 ml-1">
                       *
                     </span>
                   </label>
@@ -1694,9 +1684,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             />
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-pneutral-900 font-semibold">
+              <label className="text-label-l4 font-medium text-pneutral-900">
                 Storage Condition
-                <span className="text-warning-500 font-semibold ml-1">*</span>
+                <span className="text-warning-500 ml-1">*</span>
               </label>
 
               <Select
@@ -1739,9 +1729,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             />
 
             <div>
-              <label className="block text-label-l3 text-pneutral-900 font-semibold mb-1">
+              <label className="block text-label-l4 font-medium text-pneutral-900 mb-1">
                 Warnings & Precautions
-                <span className="text-warning-500 font-semibold ml-1">*</span>
+                <span className="text-warning-500 ml-1">*</span>
               </label>
               <textarea
                 name="warningsPrecautions"
@@ -1765,9 +1755,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             </div>
 
             <div>
-              <label className="block text-label-l3 text-pneutral-900 font-semibold mb-1">
+              <label className="block text-label-l4 font-medium text-pneutral-900 mb-1">
                 Product Description
-                <span className="text-warning-500 font-semibold ml-1">*</span>
+                <span className="text-warning-500 ml-1">*</span>
               </label>
               <textarea
                 name="productDescription"
@@ -1793,16 +1783,16 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         </div>
 
         {/* Packaging & Order Details */}
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
+        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
           <div className="text-h4 font-semibold">Packaging & Order Details</div>
 
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-pneutral-900 font-semibold">
+              <label className="text-label-l4 font-medium text-pneutral-900">
                 Pack Type
-                <span className="text-warning-500 font-semibold ml-1">*</span>
+                <span className="text-warning-500 ml-1">*</span>
               </label>
 
               <Select
@@ -2128,9 +2118,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             <div className="border-b border-neutral-200 col-span-2"></div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l3 text-pneutral-900 font-semibold">
+              <label className="text-label-l4 font-medium text-pneutral-900">
                 GST %
-                <span className="text-warning-500 font-semibold ml-1">*</span>
+                <span className="text-warning-500 ml-1">*</span>
               </label>
 
               <Select
@@ -2181,14 +2171,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
         </div>
 
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
+        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
           <div className="text-pneutral-800 text-h6 font-medium">
             Product Photos
             <span className="text-warning-500 text-h6 font-medium ml-2">*</span>
           </div>
 
           <div
-            className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer"
+            className="w-full h-40 bg-pneutral-50 flex items-center justify-center rounded-lg cursor-pointer"
             onClick={() => {
               if (!isReadOnly || mode === "edit") {
                 document.getElementById("fileInput")?.click();
