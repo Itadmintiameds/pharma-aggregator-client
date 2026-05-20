@@ -325,6 +325,7 @@ export interface TempSellerCoordinator {
   createdAt?: string;
   updatedAt?: string;
   isActive?: boolean;
+  authorizationLetterUrl?: string;
 }
 
 

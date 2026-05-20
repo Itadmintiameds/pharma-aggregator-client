@@ -9,7 +9,7 @@ const SellerHome = () => {
     return (
         <div>
             <Header />
-            <SellerJourney />
+            <SellerJourney/>
             <Footer />
         </div>
     )

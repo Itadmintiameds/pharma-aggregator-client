@@ -794,6 +794,7 @@ const handleSubmit = async () => {
       designation: formData.coordinatorDesignation,
       email: formData.coordinatorEmail,
       mobile: formData.coordinatorMobile,
+      authorizationLetterUrl: "",
     };
 
     // Build bank details WITH placeholder

@@ -45,14 +45,14 @@ export default function UploadInput({
         </label>
       )}
 
-      <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
-        <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
+      <div className="flex items-center w-full h-13 rounded-lg border border-neutral-500 bg-white overflow-hidden">
+        <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
           <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
         </div>
 
         <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
           {file || (existingFile && !removedExisting) ? (
-            <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
+            <div className="flex items-center bg-sneutral-800 text-white text-p2 px-3 py-2 rounded-lg max-w-full">
               <span className="truncate">
                 {file ? file.name : existingFile?.split("/").pop()}
               </span>
