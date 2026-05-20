@@ -40,12 +40,12 @@ export default function UploadInput({
   return (
     <div className="flex flex-col gap-1">
       {label && (
-        <label className="text-label-l3 font-semibold text-pneutral-900">
+        <label className="text-label-l4 font-medium text-pneutral-900">
           {label}
         </label>
       )}
 
-      <div className="flex items-center w-full h-13 rounded-lg border border-neutral-500 bg-white overflow-hidden">
+      <div className="flex items-center w-full h-13 rounded-lg border border-pneutral-300 bg-white overflow-hidden">
         <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
           <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
         </div>
