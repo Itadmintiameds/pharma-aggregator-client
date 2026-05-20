@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Tiameds Projects\\\\pharma-aggregator-client\\\\src\\\\app\\\\seller_7a3b9f2c\\\\dashboard\" -Recurse -Directory)",
+      "Bash(Select-Object FullName)"
+    ]
+  }
+}

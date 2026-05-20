@@ -866,7 +866,12 @@ const ProductView1 = ({
           (cosAttrRaw as any).productSubTypeId ??
           ""
         );
-        const ageGroupIdStr = String((cosAttrRaw as any).ageGroupId ?? "");
+        const ageGroupIdsRaw: string[] = (() => {
+          const v = (cosAttrRaw as any).ageGroupIds ?? (cosAttrRaw as any).ageGroupId;
+          if (Array.isArray(v)) return v.map(String);
+          if (v != null) return [String(v)];
+          return [];
+        })();
         const countryIdStr = String(
           (cosAttrRaw as any).countryId ??
           (cosAttrRaw as any).countryOfOriginId ??
@@ -894,14 +899,23 @@ const ProductView1 = ({
           .filter((v: any) => typeof v === "number" || (typeof v === "string" && /^\d+$/.test(v)))
           .map(String);
 
-        const rawHairIds: string[] = (
-          (cosAttrRaw as any).hairTypeIds ??
-          (cosAttrRaw as any).hairType ??
-          (cosAttrRaw as any).hairTypes ??
-          []
-        )
-          .filter((v: any) => typeof v === "number" || (typeof v === "string" && /^\d+$/.test(v)))
-          .map(String);
+        const rawHairIds: string[] = (() => {
+          const src =
+            (cosAttrRaw as any).hairTypeIds ??
+            (cosAttrRaw as any).typeId ??
+            (cosAttrRaw as any).hairType ??
+            (cosAttrRaw as any).hairTypes ??
+            [];
+          return (src as any[]).map((v: any) => {
+            if (typeof v === "number") return String(v);
+            if (typeof v === "string" && /^\d+$/.test(v)) return v;
+            if (v !== null && typeof v === "object") {
+              const id = v.typeId ?? v.hairTypeId ?? v.id;
+              return id != null ? String(id) : null;
+            }
+            return null;
+          }).filter(Boolean) as string[];
+        })();
 
         // ── Fetch all needed masters in parallel ──
         const [
@@ -1028,11 +1042,12 @@ const ProductView1 = ({
           (cosAttrRaw as any).activeIngredients ??
           null;
 
-        const netQuantityStrength =
+        const netQuantityStrengthRaw =
           (cosAttrRaw as any).NetQuantityStrength ??
           (cosAttrRaw as any).netQuantityStrength ??
           (cosAttrRaw as any).netQuantity ??
           null;
+        const netQuantityStrength = netQuantityStrengthRaw != null ? String(netQuantityStrengthRaw) : null;
 
         const productClaims =
           (cosAttrRaw as any).ProductClaims ??
@@ -1051,7 +1066,10 @@ const ProductView1 = ({
           // Overwrite with resolved label strings
           productType: productTypeLabel ?? cosAttrRaw.productType,
           productSubtype: productSubTypeLabel ?? cosAttrRaw.productSubtype,
-          ageGroup: ageGroupOpts.find((o) => o.value === ageGroupIdStr)?.label ?? cosAttrRaw.ageGroup,
+          ageGroup:
+            ageGroupIdsRaw.length > 0
+              ? (ageGroupIdsRaw.map((id) => ageGroupOpts.find((o) => o.value === id)?.label).filter(Boolean).join(", ") || cosAttrRaw.ageGroup)
+              : cosAttrRaw.ageGroup,
           intendedUseArea: intendedUseArea ?? cosAttrRaw.intendedUseArea,
           skinHairType: skinHairType ?? cosAttrRaw.skinHairType,
           countryOfOrigin:
