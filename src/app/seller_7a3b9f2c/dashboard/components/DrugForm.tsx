@@ -258,26 +258,51 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     }
   }, [categoryId]);
 
+  // useEffect(() => {
+  //   const fetchTherapeuticCategories = async (id: string | number) => {
+  //     setLoadingTherapeuticCategories(true);
+
+  //     try {
+  //       const data = await getTherapeuticCategory(id);
+
+  //       const options = data.map((cat: any) => ({
+  //         value: cat.therapeuticCategoryId,
+  //         label: cat.therapeuticCategory,
+  //       }));
+
+  //       setTherapeuticCategories(options);
+  //     } catch (error) {
+  //       console.error(error);
+  //     } finally {
+  //       setLoadingTherapeuticCategories(false);
+  //     }
+  //   };
+
+  //   if (categoryId !== undefined) {
+  //     fetchTherapeuticCategories(categoryId);
+  //   }
+  // }, [categoryId]);
+
+  const fetchTherapeuticCategories = async (id: string | number) => {
+    setLoadingTherapeuticCategories(true);
+
+    try {
+      const data = await getTherapeuticCategory(id);
+
+      const options = data.map((cat: any) => ({
+        value: cat.therapeuticCategoryId,
+        label: cat.therapeuticCategory,
+      }));
+
+      setTherapeuticCategories(options);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingTherapeuticCategories(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTherapeuticCategories = async (id: string | number) => {
-      setLoadingTherapeuticCategories(true);
-
-      try {
-        const data = await getTherapeuticCategory(id);
-
-        const options = data.map((cat: any) => ({
-          value: cat.therapeuticCategoryId,
-          label: cat.therapeuticCategory,
-        }));
-
-        setTherapeuticCategories(options);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoadingTherapeuticCategories(false);
-      }
-    };
-
     if (categoryId !== undefined) {
       fetchTherapeuticCategories(categoryId);
     }
@@ -294,6 +319,22 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       2,
       "0",
     )}`;
+  };
+
+  const validateStrengthFormat = (value: string) => {
+    if (!value.trim()) return "Strength is required";
+
+    const normalizedValue = value.toLowerCase().trim();
+
+    const isValid = strengthFormats.some((format) =>
+      normalizedValue.endsWith(format.toLowerCase().trim()),
+    );
+
+    if (!isValid) {
+      return `Invalid strength format. Allowed strengths: ${strengthFormats.join(", ")}`;
+    }
+
+    return "";
   };
 
   const handleChange = (
@@ -434,6 +475,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             updatedForm.shelfLifeMonths = "";
           }
         }
+
         return newErrors;
       });
 
@@ -589,14 +631,40 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     }));
   };
 
+  // const handleStrengthChange = (index: number, value: string) => {
+  //   const updated = [...form.molecules];
+  //   updated[index].strength = value;
+
+  //   setForm((prev) => ({
+  //     ...prev,
+  //     molecules: updated,
+  //   }));
+  // };
+
   const handleStrengthChange = (index: number, value: string) => {
     const updated = [...form.molecules];
+
     updated[index].strength = value;
 
     setForm((prev) => ({
       ...prev,
       molecules: updated,
     }));
+
+    // ✅ Strength validation
+    const strengthError = validateStrengthFormat(value);
+
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+
+      if (strengthError) {
+        newErrors[`molecules.${index}.strength`] = strengthError;
+      } else {
+        delete newErrors[`molecules.${index}.strength`];
+      }
+
+      return newErrors;
+    });
   };
 
   const getFinalDrugSchedule = (molecules: any[]) => {
@@ -624,7 +692,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleSubmit = async () => {
-    const validation = drugProductSchema(strengthFormats).safeParse({
+    const validation = drugProductSchema.safeParse({
       ...form,
       images: [...existingImages, ...images],
     });
@@ -661,6 +729,25 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       setErrors((prev) => ({
         ...prev,
         sellingPrice: "Selling Price must be less than MRP",
+      }));
+
+      return;
+    }
+
+    const strengthErrors: Record<string, string> = {};
+
+    form.molecules.forEach((molecule, index) => {
+      const error = validateStrengthFormat(molecule.strength);
+
+      if (error) {
+        strengthErrors[`molecules.${index}.strength`] = error;
+      }
+    });
+
+    if (Object.keys(strengthErrors).length > 0) {
+      setErrors((prev) => ({
+        ...prev,
+        ...strengthErrors,
       }));
 
       return;
@@ -794,7 +881,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleBackToDashboard = () => {
-    router.back();
+    router.push("/seller_7a3b9f2c/dashboard");
   };
 
   useEffect(() => {
@@ -807,6 +894,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     try {
       const data = await getProductById(id);
       if (!data) throw new Error("Product not found");
+
+      await fetchTherapeuticCategories(data.categoryId);
+      await fetchDosage(data.categoryId);
 
       const pricing =
         data.pricingDetails?.length > 0
@@ -920,7 +1010,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleUpdate = async () => {
-    const validation = drugProductSchema(strengthFormats).safeParse({
+    const validation = drugProductSchema.safeParse({
       ...form,
       images: [...existingImages, ...images],
     });
@@ -1154,26 +1244,51 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     },
   });
 
+  // useEffect(() => {
+  //   const fetchDosage = async (categoryId: string | number) => {
+  //     try {
+  //       setLoadingDosage(true);
+
+  //       const data = await getSupplementDosageForms(categoryId);
+
+  //       const options = data.map((d: any) => ({
+  //         value: d.dosageId,
+  //         label: d.dosageName,
+  //       }));
+
+  //       setDosageOptions(options);
+  //     } catch (error) {
+  //       console.error("Error fetching dosage:", error);
+  //     } finally {
+  //       setLoadingDosage(false);
+  //     }
+  //   };
+
+  //   if (categoryId !== undefined) {
+  //     fetchDosage(categoryId);
+  //   }
+  // }, [categoryId]);
+
+  const fetchDosage = async (categoryId: string | number) => {
+    try {
+      setLoadingDosage(true);
+
+      const data = await getSupplementDosageForms(categoryId);
+
+      const options = data.map((d: any) => ({
+        value: d.dosageId,
+        label: d.dosageName,
+      }));
+
+      setDosageOptions(options);
+    } catch (error) {
+      console.error("Error fetching dosage:", error);
+    } finally {
+      setLoadingDosage(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDosage = async (categoryId: string | number) => {
-      try {
-        setLoadingDosage(true);
-
-        const data = await getSupplementDosageForms(categoryId);
-
-        const options = data.map((d: any) => ({
-          value: d.dosageId,
-          label: d.dosageName,
-        }));
-
-        setDosageOptions(options);
-      } catch (error) {
-        console.error("Error fetching dosage:", error);
-      } finally {
-        setLoadingDosage(false);
-      }
-    };
-
     if (categoryId !== undefined) {
       fetchDosage(categoryId);
     }
@@ -1353,7 +1468,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
         </CommonModal>
       )}
-      <div>
+      <div className="w-full">
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
           <div className="text-h4 font-semibold">Product Details</div>
 
@@ -1450,7 +1565,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             {form.molecules.map((molecule, index) => (
               <div
                 key={index}
-                className="grid grid-cols-[1fr_1fr_auto] gap-4 col-span-2"
+                className="grid grid-cols-[1fr_0.87fr_auto] gap-6 col-span-2"
               >
                 <div className="flex flex-col gap-1 w-full">
                   <label className="text-label-l3 text-pneutral-900 font-semibold">
@@ -1514,7 +1629,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   <div className="flex items-end">
                     <button
                       onClick={() => removeMolecule(index)}
-                      className="border-2 border-[#FF3B3B] w-11 h-10 rounded-lg flex items-center justify-center"
+                      className="border-2 border-[#FF3B3B] w-13 h-12 rounded-lg flex items-center justify-center"
                     >
                       <img
                         src="/icons/RedMinusIcon.svg"
@@ -1529,12 +1644,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             {!isEditMode && (
               <button
                 onClick={addMolecule}
-                className="col-span-2 w-41.25 h-10.5 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5"
+                className="col-span-2 w-40 h-12 border-2 border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5"
               >
                 <img
                   src="/icons/PlusIcon.svg"
                   alt="drug"
-                  className="w-[12.5px] h-[12.5px] rounded-md object-cover"
+                  className="w-5 h-5 rounded-md object-cover"
                 />
                 Add Molecule
               </button>
@@ -1995,14 +2110,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               <div className="mt-6">
                 <button
                   onClick={() => setShowAdditionalDiscount(true)}
-                  className="w-55.5 h-10.5 px-6 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
+                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
                 >
                   <img
                     src="/icons/PlusIcon.svg"
                     alt="drug"
-                    className="w-[12.5px] h-[12.5px]"
+                    className="w-6 h-6"
                   />
-                  Add Special Discount
+                  Add Special Offers
                 </button>
               </div>
             </div>
@@ -2067,9 +2182,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         </div>
 
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6">
-          <div className="text-[#364153] font-normal text-sm">
+          <div className="text-pneutral-800 text-h6 font-medium">
             Product Photos
-            <span className="text-warning-500 font-semibold ml-1">*</span>
+            <span className="text-warning-500 text-h6 font-medium ml-2">*</span>
           </div>
 
           <div
@@ -2131,10 +2246,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                     className="w-10 h-10 rounded-md object-cover"
                   />
 
-                  <div className="text-label-l2 font-normal mt-4">
+                  <div className="text-label-l3 font-normal text-pneutral-900 mt-4">
                     Choose a file or drag & drop it here
                   </div>
-                  <div className="text-label-l1 font-normal text-neutral-400">
+                  <div className="text-label-l2 font-normal text-pneutral-400 mt-1">
                     or click to browse JPEG, PNG, and Pdf{" "}
                   </div>
                 </div>
@@ -2205,12 +2320,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           <div className="space-x-6 flex">
             <button
               onClick={() => router.back()}
-              className="w-21 h-12 border-2 border-[#FF3B3B] rounded-lg text-label-l3 font-semibold text-[#FF3B3B] cursor-pointer"
+              className="w-35.25 h-12 border-2 border-warning-500 rounded-lg text-label-l4 font-medium text-warning-500 cursor-pointer"
             >
               Cancel
             </button>
 
-            <button className="w-35.25 h-12 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5">
+            <button className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5">
               <img
                 src="/icons/SaveDraftIcon.svg"
                 alt="drug"
@@ -2220,20 +2335,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             </button>
           </div>
           <div>
-            {/* {mode === "delete" ? (
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="bg-red-600 text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
-              >
-                Delete
-              </button>
-            ) :  */}
             {mode === "edit" ? (
               <button
                 type="button"
                 onClick={handleUpdate}
-                className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
+                className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer"
               >
                 Update
               </button>
@@ -2241,7 +2347,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer"
+                className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer"
               >
                 Submit
               </button>
