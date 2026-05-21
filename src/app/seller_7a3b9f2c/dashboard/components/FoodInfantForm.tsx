@@ -2052,47 +2052,63 @@ try {
         </div>
 
         {/* Product Photos Section */}
-        <div className="border border-neutral-200 rounded-xl p-6">
-          <div className="text-p3 font-semibold">Product Photos <span className="text-warning-500">*</span></div>
-          <div
-            className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer mt-2"
-            onClick={() => document.getElementById("fileInput")?.click()}
-          >
-            <input
-              id="fileInput"
-              type="file"
-              multiple
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageUpload}
-            />
-            <div className="border-2 border-dashed border-neutral-300 rounded-lg w-full h-full flex items-center justify-center">
-              <div className="flex flex-col items-center">
-                <img src="/icons/FolderIcon.svg" alt="folder" className="w-10 h-10" />
-                <div className="text-label-l2 font-normal mt-4">Choose a file or drag & drop it here</div>
-                <div className="text-label-l1 font-normal text-neutral-400">Upload product images (JPEG, PNG)</div>
-              </div>
-            </div>
-          </div>
-          {errors.images && <p className="text-warning-500 text-sm mt-2">{errors.images}</p>}
+      
+         {/* Product Photos Section */}
+<div className="border border-pneutral-200 rounded-xl p-6">
+  <div className="text-label-l4 font-heading font-medium text-pneutral-900">
+    Product Photos <span className="text-warning-500">*</span>
+  </div>
+  
+  <div
+    className="w-full h-40 bg-pneutral-50 flex items-center justify-center rounded-lg cursor-pointer mt-2"
+    onClick={() => document.getElementById("fileInput")?.click()}
+  >
+    <input
+      id="fileInput"
+      type="file"
+      multiple
+      accept="image/*"
+      className="hidden"
+      onChange={handleImageUpload}
+    />
+    <div className="border-2 border-dashed border-pneutral-300 rounded-lg w-full h-full flex items-center justify-center">
+      <div className="flex flex-col items-center">
+        <img src="/icons/FolderIcon.svg" alt="folder" className="w-10 h-10" />
+        <div className="text-label-l3 font-body font-normal text-pneutral-900 mt-4">Choose a file or drag & drop it here</div>
+        <div className="text-label-l2 font-body font-normal text-pneutral-400 mt-1">or click to browse JPEG, PNG, and PDF</div>
+      </div>
+    </div>
+  </div>
+  
+  {errors.images && <p className="text-warning-500 text-p3 font-body font-normal mt-2">{errors.images}</p>}
 
-          <div className="flex flex-wrap gap-3 mt-4">
-            {existingImages.map((img, idx) => (
-              <div key={`existing-${idx}`} className="relative w-24 h-24">
-                <img src={img} alt="existing" className="w-full h-full object-cover rounded-md border" />
-                {!isEditMode && (
-                  <button onClick={() => removeExistingImage(idx)} className="absolute top-1 right-1 bg-black text-white rounded-full w-5 h-5 text-xs">✕</button>
-                )}
-              </div>
-            ))}
-            {images.map((file, idx) => (
-              <div key={`new-${idx}`} className="relative w-24 h-24">
-                <img src={URL.createObjectURL(file)} alt="new" className="w-full h-full object-cover rounded-md border" />
-                <button onClick={() => removeNewImage(idx)} className="absolute top-1 right-1 bg-black text-white rounded-full w-5 h-5 text-xs">✕</button>
-              </div>
-            ))}
-          </div>
-        </div>
+  <div className="flex flex-wrap gap-3 mt-4">
+    {existingImages.map((img, idx) => (
+      <div key={`existing-${idx}`} className="relative w-24 h-24">
+        <img src={img} alt="existing" className="w-full h-full object-cover rounded-md border border-pneutral-200" />
+        {!isEditMode && (
+          <button 
+            onClick={() => removeExistingImage(idx)} 
+            className="absolute -top-2 -right-2 w-5 h-5 bg-warning-500 text-base-white rounded-full flex items-center justify-center text-p2 font-body font-medium hover:bg-warning-600 transition-colors"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    ))}
+    {images.map((file, idx) => (
+      <div key={`new-${idx}`} className="relative w-24 h-24">
+        <img src={URL.createObjectURL(file)} alt="new" className="w-full h-full object-cover rounded-md border border-pneutral-200" />
+        <button 
+          onClick={() => removeNewImage(idx)} 
+          className="absolute -top-2 -right-2 w-5 h-5 bg-warning-500 text-base-white rounded-full flex items-center justify-center text-p2 font-body font-medium transition-colors"
+        >
+          ✕
+        </button>
+      </div>
+    ))}
+  </div>
+</div>
 
         {/* Action Buttons */}
         <div className="flex justify-between mt-6 pb-8">
