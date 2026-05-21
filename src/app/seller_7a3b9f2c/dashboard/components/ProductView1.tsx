@@ -24,6 +24,7 @@ import {
   getCosmeticAgeGroups,
   getCosmeticIntendedUseAreas,
   getCosmeticCountries,
+  getCosmeticNetQuantityUnits,
 } from "@/src/services/product/CosmeticService";
 import SupplementDetailsView from "./SupplementDetailsView";
 import ConsumableView from "./ConsumableView";
@@ -1117,6 +1118,13 @@ const ProductView1 = ({
           )
           .map(String);
 
+        // ── Extract net quantity unit ID ──
+        const netQtyUnitIdStr = String(
+          (cosAttrRaw as any).unitId ??
+            (cosAttrRaw as any).netQuantityUnitId ??
+            "",
+        );
+
         // ── Fetch all needed masters in parallel ──
         const [
           productTypesResult,
@@ -1125,6 +1133,7 @@ const ProductView1 = ({
           ageGroupsResult,
           intendedUseAreasResult,
           countriesResult,
+          netQtyUnitsResult,
         ] = await Promise.allSettled([
           getCosmeticProductTypes(),
           getCosmeticSkinTypes(),
@@ -1132,6 +1141,7 @@ const ProductView1 = ({
           getCosmeticAgeGroups(),
           getCosmeticIntendedUseAreas(),
           getCosmeticCountries(),
+          getCosmeticNetQuantityUnits(),
         ]);
 
         // ── Build option lists ──
@@ -1243,11 +1253,26 @@ const ProductView1 = ({
           (cosAttrRaw as any).activeIngredients ??
           null;
 
-        const netQuantityStrength =
+        const netQtyValue =
           (cosAttrRaw as any).NetQuantityStrength ??
           (cosAttrRaw as any).netQuantityStrength ??
           (cosAttrRaw as any).netQuantity ??
           null;
+
+        const netQtyUnitOpts = toSelectOpts(
+          netQtyUnitsResult,
+          ["netQuantityUnitId", "unitId", "id"],
+          ["unitName", "unit", "name"],
+        );
+        const netQtyUnitLabel =
+          netQtyUnitIdStr
+            ? (netQtyUnitOpts.find((o) => o.value === netQtyUnitIdStr)?.label ?? null)
+            : null;
+
+        const netQuantityStrength =
+          netQtyValue != null
+            ? [String(netQtyValue), netQtyUnitLabel].filter(Boolean).join(" ")
+            : null;
 
         const productClaims =
           (cosAttrRaw as any).ProductClaims ??

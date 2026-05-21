@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import {
   LineChart,
   Line,
@@ -24,7 +23,7 @@ const data = [
 
 const SalesChart = () => {
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-100 h-[400px]">
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-100 h-full">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-lg font-semibold text-neutral-900">
           Sales Overtime

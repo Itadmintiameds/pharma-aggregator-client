@@ -657,7 +657,7 @@ const CosmeticPersonalCareView = ({
             <div style={{ paddingTop: 12, paddingBottom: 8, paddingLeft: 16, paddingRight: 16, borderBottom: "1px #D5D5D4 solid", display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={LABEL_TEXT}>Uploaded Product Brochure</span>
-                <span style={REQUIRED_STAR}>*</span>
+                {/* <span style={REQUIRED_STAR}>*</span> */}
               </div>
               {resolvedBrochureUrl ? (
                 <a href={resolvedBrochureUrl} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, background: "#F8F8F9", borderRadius: 8, textDecoration: "none" }}>

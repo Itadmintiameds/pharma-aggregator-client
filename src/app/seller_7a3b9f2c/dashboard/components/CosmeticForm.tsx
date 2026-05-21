@@ -510,6 +510,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}`;
   };
 
+  const getMaxExpiryMonth = () => {
+    if (!form.manufacturingDate) return "";
+    const mfg = new Date(form.manufacturingDate);
+    const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
+    return `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, "0")}`;
+  };
+
   const toLocalDateTimeString = (date: Date | null): string | null => {
     if (!date) return null;
     const now = new Date();
@@ -975,6 +982,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           } else if (totalMonths < 0) {
             setErrors((p) => ({ ...p, expiryDate: "Expiry cannot be before Manufacturing Date" }));
             setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+          } else if (totalMonths > 60) {
+            setErrors((p) => ({ ...p, expiryDate: "Shelf life cannot exceed 5 years (60 months)" }));
+            setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
           } else {
             setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
             setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: totalMonths.toString() }));
@@ -1110,6 +1120,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     if (!form.activeIngredients.trim()) e.activeIngredients = "Active ingredients are required";
 
     if (!form.netQuantity.trim()) e.netQuantity = "Net quantity is required";
+    else if (form.netQuantity.length > 10) e.netQuantity = "Net quantity must not exceed 10 characters";
     else if (isNaN(Number(form.netQuantity)) || Number(form.netQuantity) <= 0)
       e.netQuantity = "Net quantity must be a positive number";
     if (!form.netQuantityUnitId) e.netQuantityUnitId = "Unit is required";
@@ -1181,6 +1192,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
           if (form.expiryDate < minExpiry)
             e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
+          else {
+            const totalMonths = (form.expiryDate.getFullYear() - form.manufacturingDate.getFullYear()) * 12 + (form.expiryDate.getMonth() - form.manufacturingDate.getMonth());
+            if (totalMonths > 60) e.expiryDate = "Shelf life cannot exceed 5 years (60 months)";
+          }
         }
       }
 
@@ -1714,6 +1729,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                   value={form.netQuantity}
                   onChange={handleChange}
                   placeholder="Placeholder"
+                  maxLength={10}
                   className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
                 />
                 <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
@@ -2040,6 +2056,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               readOnly={isEdit}
               onChange={handleChange}
               min={getMinExpiryMonth()}
+              max={getMaxExpiryMonth()}
               error={errors.expiryDate}
               required
             />

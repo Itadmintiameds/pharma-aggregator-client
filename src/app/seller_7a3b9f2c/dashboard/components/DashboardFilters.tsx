@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Plus } from "lucide-react";
+import { Plus, ChevronDown } from "lucide-react";
 import { DashboardView } from "@/src/types/seller/dashboard";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -232,66 +232,6 @@ const FOOD_INFANT_FIELD_LABELS: Record<string, string> = {
   "HSN Code*":                   "HSN Code",
 };
 
-// ─── Cosmetics required columns (from template) ───────────────────────────────
-// Starred (*) fields in the template are mandatory.
-const COSMETICS_REQUIRED_COLUMNS = [
-  "Product Category*",
-  "Product Sub Category*",
-  "Product Name*",
-  "Brand Name*",
-  "Net Quantity*",
-  "Active Ingredients*",
-  "Gender*",
-  "Age Group*",
-  "Product Claims*",
-  "Warnings / Precautions*",
-  "Product Description*",
-  "Storage Condition*",
-  "Manufacturer Name*",
-  "Country of Origin*",
-  "Certifications / Compliance*",
-  "Minimum Order Qty*",
-  "Max Order Qty*",
-  "Batch Number*",
-  "Manufacturing Date*",
-  "Expiry Date*",
-  "Stock Quantity*",
-  "MRP (INR)*",
-  "Selling Price(INR)*",
-  "GST %",
-  "HSN Code*",
-  "Intended Use Area*",
-];
-
-// Friendly name map for cosmetics columns (strips asterisk for display)
-const COSMETICS_FIELD_LABELS: Record<string, string> = {
-  "Product Category*": "Product Category",
-  "Product Sub Category*": "Product Sub Category",
-  "Product Name*": "Product Name",
-  "Brand Name*": "Brand Name",
-  "Net Quantity*": "Net Quantity",
-  "Active Ingredients*": "Active Ingredients",
-  "Gender*": "Gender",
-  "Age Group*": "Age Group",
-  "Product Claims*": "Product Claims",
-  "Warnings / Precautions*": "Warnings / Precautions",
-  "Product Description*": "Product Description",
-  "Storage Condition*": "Storage Condition",
-  "Manufacturer Name*": "Manufacturer Name",
-  "Country of Origin*": "Country of Origin",
-  "Certifications / Compliance*": "Certifications / Compliance",
-  "Minimum Order Qty*": "Minimum Order Qty",
-  "Max Order Qty*": "Max Order Qty",
-  "Batch Number*": "Batch Number",
-  "Manufacturing Date*": "Manufacturing Date",
-  "Expiry Date*": "Expiry Date",
-  "Stock Quantity*": "Stock Quantity",
-  "MRP (INR)*": "MRP (INR)",
-  "Selling Price(INR)*": "Selling Price (INR)",
-  "GST %": "GST %",
-  "HSN Code*": "HSN Code",
-  "Intended Use Area*": "Intended Use Area",
-};
 
 
 
@@ -694,100 +634,6 @@ if (mfgDateRaw && expDateRaw) {
   return errors;
 }
 
-/**
- * Client-side validation for cosmetics CSV/XLSX rows.
- * Returns an array of ValidationError objects (empty = all good).
- */
-function validateCosmeticsRows(
-  rows: Record<string, string>[],
-  headers: string[]
-): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  // Check that all required columns are present in the file at all
-  const missingCols = COSMETICS_REQUIRED_COLUMNS.filter(
-    (col) => !headers.some((h) => h.trim() === col.trim())
-  );
-
-  rows.forEach((row, idx) => {
-    const rowNumber = idx + 2; // 1-indexed, row 1 = header
-    const productName = (
-      row["Product Name*"] ?? row["Product Name"] ?? ""
-    ).trim();
-
-    // Per-column missing-value checks
-    const missingFields: string[] = [];
-
-    for (const col of COSMETICS_REQUIRED_COLUMNS) {
-      // Skip columns that aren't even in the file (already flagged above)
-      if (missingCols.includes(col)) continue;
-
-      // Find the actual key (headers may or may not have the asterisk in data)
-      const key = headers.find((h) => h.trim() === col.trim()) ?? col;
-      const val = (row[key] ?? "").toString().trim();
-
-      if (!val) {
-        missingFields.push(COSMETICS_FIELD_LABELS[col] ?? col.replace("*", ""));
-      }
-    }
-
-    // Numeric range checks
-    const mrp = parseFloat(row["MRP (INR)*"] ?? row["MRP (INR)"] ?? "");
-    const sellingPrice = parseFloat(row["Selling Price(INR)*"] ?? row["Selling Price(INR)"] ?? "");
-    const minQty = parseInt(row["Minimum Order Qty*"] ?? row["Minimum Order Qty"] ?? "", 10);
-    const maxQty = parseInt(row["Max Order Qty*"] ?? row["Max Order Qty"] ?? "", 10);
-    const stockQty = parseInt(row["Stock Quantity*"] ?? row["Stock Quantity"] ?? "", 10);
-
-    if (!isNaN(mrp) && !isNaN(sellingPrice) && sellingPrice > mrp) {
-      errors.push({ rowNumber, productName, errorMessage: "Selling Price cannot exceed MRP." });
-    }
-    if (!isNaN(minQty) && !isNaN(maxQty) && minQty > maxQty) {
-      errors.push({ rowNumber, productName, errorMessage: "Minimum Order Qty cannot exceed Max Order Qty." });
-    }
-    if (!isNaN(stockQty) && stockQty < 0) {
-      errors.push({ rowNumber, productName, errorMessage: "Stock Quantity must be 0 or greater." });
-    }
-
-    // Date checks: Manufacturing Date must be before Expiry Date
-    const mfgRaw = (row["Manufacturing Date*"] ?? row["Manufacturing Date"] ?? "").trim();
-    const expRaw = (row["Expiry Date*"] ?? row["Expiry Date"] ?? "").trim();
-    if (mfgRaw && expRaw) {
-      const mfgDate = new Date(mfgRaw);
-      const expDate = new Date(expRaw);
-      if (!isNaN(mfgDate.getTime()) && !isNaN(expDate.getTime()) && mfgDate >= expDate) {
-        errors.push({ rowNumber, productName, errorMessage: "Manufacturing Date must be before Expiry Date." });
-      }
-    }
-
-    // Discount % sanity (optional field)
-    const discountRaw = (row["Discount %"] ?? "").trim();
-    if (discountRaw) {
-      const discount = parseFloat(discountRaw);
-      if (!isNaN(discount) && (discount < 0 || discount > 100)) {
-        errors.push({ rowNumber, productName, errorMessage: "Discount % must be between 0 and 100." });
-      }
-    }
-
-    if (missingFields.length > 0) {
-      errors.push({
-        rowNumber,
-        productName,
-        errorMessage: `Missing required field(s): ${missingFields.join(", ")}.`,
-      });
-    }
-  });
-
-  // If structural columns are missing, add a single top-level error (row 1)
-  if (missingCols.length > 0) {
-    errors.unshift({
-      rowNumber: 1,
-      productName: "—",
-      errorMessage: `Template columns missing: ${missingCols.map((c) => c.replace("*", "")).join(", ")}. Please use the official Cosmetics template.`,
-    });
-  }
-
-  return errors;
-}
 
 const fileKey = (f: File) => `${f.name}-${f.size}`;
 
@@ -1331,64 +1177,6 @@ const runClientSideFoodInfantValidation = async (file: File): Promise<Validation
 
 
 
-  // ── FIX 4: Client-side cosmetics CSV validation before sending to API ────
-  const runClientSideCosmeticsValidation = async (file: File): Promise<ValidationError[]> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const text = e.target?.result as string;
-          const lines = text.split(/\r?\n/).filter((l) => l.trim());
-          if (lines.length < 2) {
-            resolve([{ rowNumber: 1, productName: "—", errorMessage: "File appears empty or has no data rows." }]);
-            return;
-          }
-
-          // Parse CSV (simple — handles quoted commas)
-          const parseCSVLine = (line: string): string[] => {
-            const result: string[] = [];
-            let cur = "";
-            let inQuote = false;
-            for (let i = 0; i < line.length; i++) {
-              const ch = line[i];
-              if (ch === '"') {
-                if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
-                else inQuote = !inQuote;
-              } else if (ch === "," && !inQuote) {
-                result.push(cur); cur = "";
-              } else {
-                cur += ch;
-              }
-            }
-            result.push(cur);
-            return result;
-          };
-
-          const headers = parseCSVLine(lines[0]);
-          const rows: Record<string, string>[] = lines.slice(1).map((line) => {
-            const vals = parseCSVLine(line);
-            const obj: Record<string, string> = {};
-            headers.forEach((h, i) => { obj[h.trim()] = (vals[i] ?? "").trim(); });
-            return obj;
-          });
-
-          resolve(validateCosmeticsRows(rows, headers));
-        } catch {
-          resolve([]); // If we can't parse, let the server handle it
-        }
-      };
-      reader.onerror = () => resolve([]);
-
-      // Only CSV can be parsed in the browser; XLSX/XLS go straight to the server
-      const ext = file.name.split(".").pop()?.toLowerCase();
-      if (ext === "csv") {
-        reader.readAsText(file, "utf-8");
-      } else {
-        resolve([]); // xlsx/xls: skip client-side, rely on server
-      }
-    });
-  };
-
   const parseUploadResponse = async (res: Response): Promise<UploadResult> => {
     let body: any;
     try { body = await res.json(); } catch {
@@ -1445,33 +1233,8 @@ const runClientSideFoodInfantValidation = async (file: File): Promise<Validation
       updateFile(key, { status: "uploading", progress: 0 });
 
       try {
-        // ── FIX 5: Run client-side validation for cosmetics CSV before uploading
-        if (effectiveProductType === "cosmetics") {
-          updateFile(key, { progress: 10 });
-          const clientErrors = await runClientSideCosmeticsValidation(uf.file);
-          if (clientErrors.length > 0) {
-            const productName = clientErrors[0]?.productName ?? "—";
-            const failureCount = clientErrors.filter((e) => e.rowNumber !== 1).length;
-            const result: UploadResult = {
-              success: false,
-              successCount: 0,
-              failureCount: Math.max(failureCount, 1),
-              totalRows: Math.max(failureCount, 1),
-              validationErrors: clientErrors,
-            };
-            updateFile(key, {
-              status: "error",
-              error: `${clientErrors.length} validation error(s) found`,
-              progress: 100,
-            });
-            setUploadResult(result);
-            setSubmitting(false);
-            return;
-          }
-        } 
-
         //Food and infant.......
-        else if (effectiveProductType === "food_infant") {
+        if (effectiveProductType === "food_infant") {
         // ── Food & Infant validation block ──
         updateFile(key, { progress: 10 });
         const clientErrors = await runClientSideFoodInfantValidation(uf.file);
@@ -2015,6 +1778,72 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
   );
 }
 
+// ─── FilterDropdown ───────────────────────────────────────────────────────────
+function FilterDropdown({ label, options }: { label: string; options: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState(label);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={dropRef} style={{ position: "relative", boxShadow: "-1px 1px 4px rgba(0, 0, 0, 0.25)", borderRadius: 8, minWidth: 108, maxHeight: 52, minHeight: 48 }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          height: 48,
+          paddingLeft: 16,
+          paddingRight: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          background: "#ffffff",
+          color: "#1E1E1D",
+          fontSize: 16,
+          fontFamily: "'Work Sans', sans-serif",
+          fontWeight: 500,
+          lineHeight: "24px",
+          borderRadius: 8,
+          border: "none",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          width: "100%",
+          outline: "none",
+          overflow: "hidden",
+        }}
+      >
+        <span>{selected}</span>
+        <ChevronDown size={20} color="#1E1E1D" />
+      </button>
+      {open && (
+        <div className="absolute top-full mt-1 left-0 z-50 bg-white border border-neutral-200 overflow-hidden min-w-full py-1" style={{ borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.12)" }}>
+          {options.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => { setSelected(opt); setOpen(false); }}
+              className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                selected === opt
+                  ? "bg-primary-100 text-primary-900 font-medium"
+                  : "text-neutral-800 hover:bg-primary-100"
+              }`}
+              style={{ fontFamily: "'Work Sans', sans-serif" }}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── DashboardFilters ─────────────────────────────────────────────────────────
 const DashboardFilters = ({ setCurrentView }: DashboardFiltersProps) => {
   const router = useRouter();
@@ -2022,24 +1851,49 @@ const DashboardFilters = ({ setCurrentView }: DashboardFiltersProps) => {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-4">
-        <select className="h-11 w-50 px-4 rounded-md border border-neutral-200 bg-white shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary-50">
-          <option>All Stocks</option>
-          <option>Low Stock</option>
-          <option>Out of Stock</option>
-        </select>
-        <select className="h-11 w-50 px-4 rounded-md border border-neutral-200 bg-white shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary-50">
-          <option>All Categories</option>
-          <option>Drugs</option>
-          <option>Vitamins</option>
-          <option>Diabetes</option>
-        </select>
-        <button
-          onClick={() => setShowModal(true)}
-          className="h-11 w-50 flex items-center justify-center gap-2 bg-primary-900 hover:bg-primary-800 text-white rounded-md shadow-md transition"
-        >
-          <Plus size={18} /> Add New Product
-        </button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <FilterDropdown
+            label="All Stocks"
+            options={["All Stocks", "Low Stock", "Out of Stock"]}
+          />
+          <FilterDropdown
+            label="All Categories"
+            options={["All Categories", "Drugs", "Vitamins", "Diabetes"]}
+          />
+        </div>
+        <div style={{ boxShadow: "-1px 1px 4px rgba(0, 0, 0, 0.25)", borderRadius: 8, minWidth: 108, maxHeight: 52, minHeight: 48 }}>
+          <button
+            onClick={() => setShowModal(true)}
+            style={{
+              height: 48,
+              paddingLeft: 16,
+              paddingRight: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              background: "#4C0080",
+              color: "#ffffff",
+              fontSize: 16,
+              fontFamily: "'Work Sans', sans-serif",
+              fontWeight: 500,
+              lineHeight: "24px",
+              borderRadius: 8,
+              border: "none",
+              outline: "1px solid #4C0080",
+              outlineOffset: "-1px",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#6C12A9"; (e.currentTarget as HTMLButtonElement).style.outline = "1px solid #6C12A9"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#4C0080"; (e.currentTarget as HTMLButtonElement).style.outline = "1px solid #4C0080"; }}
+          >
+            <Plus size={20} color="#ffffff" />
+            Add Product
+          </button>
+        </div>
       </div>
       {showModal && (
         <OnboardingModal

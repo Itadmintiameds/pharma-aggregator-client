@@ -802,6 +802,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
           if (form.expiryDate < minExpiry)
             e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
+          else {
+            const totalMonths = (form.expiryDate.getFullYear() - form.manufacturingDate.getFullYear()) * 12 + (form.expiryDate.getMonth() - form.manufacturingDate.getMonth());
+            if (totalMonths > 60) e.expiryDate = "Shelf life cannot exceed 5 years (60 months)";
+          }
         }
       }
       if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
@@ -900,6 +904,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     const minFromMfg = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
     const min = minFromMfg > minFromNow ? minFromMfg : minFromNow;
     return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}`;
+  };
+
+  const getMaxExpiryMonth = () => {
+    if (!form.manufacturingDate) return "";
+    const mfg = new Date(form.manufacturingDate);
+    const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
+    return `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, "0")}`;
   };
 
   // ─── Submit ───────────────────────────────────────────────────────────────
@@ -1544,6 +1555,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                   } else if (totalMonths < 0) {
                     setErrors((p) => ({ ...p, expiryDate: "Expiry cannot be before Manufacturing Date" }));
                     setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+                  } else if (totalMonths > 60) {
+                    setErrors((p) => ({ ...p, expiryDate: "Shelf life cannot exceed 5 years (60 months)" }));
+                    setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
                   } else {
                     setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
                     setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: totalMonths.toString() }));
@@ -1553,6 +1567,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 }
               }}
               min={getMinExpiryMonth()}
+              max={getMaxExpiryMonth()}
               error={errors.expiryDate}
               required
             />

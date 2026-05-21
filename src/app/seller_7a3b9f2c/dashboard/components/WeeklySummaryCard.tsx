@@ -48,22 +48,22 @@ const WeeklySummaryCard: React.FC<WeeklySummaryCardProps> = ({
         <div className="grid grid-cols-3 gap-6 text-center">
           {/* All Orders */}
           <div className="space-y-1">
-            <p className="text-sm text-neutral-500">{titleLeft}</p>
-            <p className="text-xl font-semibold">{valueLeft}</p>
+            <p className="text-sm font-body text-neutral-500">{titleLeft}</p>
+            <p className="text-xl font-bold font-heading">{valueLeft}</p>
           </div>
 
           {/* Pending */}
           <div className="space-y-1 border-l border-neutral-200 pl-6">
-            <p className="text-sm text-neutral-500">Pending</p>
-            <p className="text-xl font-semibold">
+            <p className="text-sm font-body text-neutral-500">Pending</p>
+            <p className="text-xl font-bold font-heading">
               {pendingCount}
             </p>
           </div>
 
           {/* Completed */}
           <div className="space-y-1 border-l border-neutral-200 pl-6">
-            <p className="text-sm text-neutral-500">{titleRight}</p>
-            <p className="text-xl font-semibold">
+            <p className="text-sm font-body text-neutral-500">{titleRight}</p>
+            <p className="text-xl font-bold font-heading">
               {valueRight}
             </p>
           </div>
@@ -73,13 +73,13 @@ const WeeklySummaryCard: React.FC<WeeklySummaryCardProps> = ({
         <div className="grid grid-cols-2 gap-6">
           {/* Left Side */}
           <div className="space-y-1">
-            <p className="text-sm text-neutral-500">{titleLeft}</p>
+            <p className="text-sm font-body text-neutral-500">{titleLeft}</p>
 
             <div className="flex items-center gap-2">
-              <p className="text-xl font-semibold">{valueLeft}</p>
+              <p className="text-xl font-bold font-heading">{valueLeft}</p>
 
               {growthLeft && (
-                <p className="text-sm text-success-1000">
+                <p className="text-sm font-body text-success-900">
                   {growthLeft}
                 </p>
               )}
@@ -88,13 +88,13 @@ const WeeklySummaryCard: React.FC<WeeklySummaryCardProps> = ({
 
           {/* Right Side */}
           <div className="border-l border-neutral-200 pl-6 space-y-1">
-            <p className="text-sm text-neutral-500">{titleRight}</p>
+            <p className="text-sm font-body text-neutral-500">{titleRight}</p>
 
             <div className="flex items-center gap-2">
-              <p className="text-xl font-semibold">{valueRight}</p>
+              <p className="text-xl font-bold font-heading">{valueRight}</p>
 
               {growthRight && (
-                <p className="text-sm text-success-1000">
+                <p className="text-sm font-body text-success-900">
                   {growthRight}
                 </p>
               )}
