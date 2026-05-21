@@ -620,11 +620,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numericOnlyFields = ["stockQuantity", "sellingPrice", "mrp", "discountPercentage", "hsnCode", "unitPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity"];
+    const numericOnlyFields = ["stockQuantity", "sellingPrice", "mrp", "discountPercentage", "hsnCode", "unitPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity", "dimensionSize"];
     if (numericOnlyFields.includes(name)) {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
+    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, modelName: 60, modelNumber: 60, udiNumber: 60, manufacturerName: 100, productDescription: 1000, warrantyPeriod: 3, dimensionSize: 10 };
+    if (name in maxLengths && value.length > maxLengths[name]) return;
     setForm((p) => ({ ...p, [name]: value }));
     if (errors[name]) setErrors((p) => { const n = { ...p }; delete n[name]; return n; });
     if (name === "hsnCode" && value.trim()) {
@@ -637,8 +639,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (isNaN(v) || v < 0 || v > 100) setErrors((p) => ({ ...p, discountPercentage: "Discount must be between 0 and 100" }));
       else setErrors((p) => { const n = { ...p }; delete n.discountPercentage; return n; });
     }
-    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, modelName: 60, modelNumber: 60, udiNumber: 60, manufacturerName: 100, productDescription: 1000, warrantyPeriod: 3, dimensionSize: 30 };
-    if (name in maxLengths && value.length > maxLengths[name]) return;
   };
 
   const handleSelectChange = (field: string, sel: SelectOption | null) => {
@@ -676,6 +676,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       ),
     );
     if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
+  };
+
+  const handleCertRemove = (certId: string) => {
+    setSelectedCertifications((prev) =>
+      prev.map((c) => c.id === certId ? { ...c, file: null, fileName: "", isUploaded: false } : c)
+    );
   };
 
   // ─── Brochure handler wired to UploadInput's onFileSelect callback ─────────
@@ -768,8 +774,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const dimSize = form.dimensionSize.trim();
       if (!dimSize) {
         e.dimensionSize = "Technical dimensions / capacity / configuration is required";
-      } else if (dimSize.length > 30) {
-        e.dimensionSize = "Technical dimensions must not exceed 30 characters";
+      } else if (isNaN(Number(dimSize)) || Number(dimSize) <= 0) {
+        e.dimensionSize = "Technical dimensions must be a positive number";
       }
       if (!form.deviceSpecificationUnitId) e.deviceSpecificationUnitId = "Unit is required";
     }
@@ -824,6 +830,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const stock = parseFloat(form.stockQuantity);
       if (!form.stockQuantity.trim()) e.stockQuantity = "Stock quantity is required";
       else if (isNaN(stock) || stock <= 0) e.stockQuantity = "Stock quantity must be a positive value greater than 0";
+      else if (!isNaN(minQ) && minQ > 0 && stock <= minQ) e.stockQuantity = "Stock quantity must be greater than minimum order quantity";
     }
 
     if (mode === "create" && images.length > 5) e.images = "Maximum 5 images allowed";
@@ -875,7 +882,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           packId: Number(form.packType),
           unitPerPack: Number(form.unitPerPack) || 0,
           numberOfPacks: Number(form.numberOfPacks) || 0,
-          packSize: Number(form.packSize) || 0,
+          packSize: Number(form.unitPerPack) * Number(form.numberOfPacks) || 0,
           minimumOrderQuantity: Number(form.minimumOrderQuantity) || 0,
           maximumOrderQuantity: Number(form.maximumOrderQuantity) || 0,
         }],
@@ -951,9 +958,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             if (!r.success) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
           }
         }
-        alert("Product updated successfully!");
         if (onSubmitSuccess) onSubmitSuccess();
-        else window.location.reload();
+        else router.push(`/seller_7a3b9f2c/products/view/${currentProductId}`);
       } else {
         const createData: ApiResponseData = await createNonConsumableProduct(payload as Record<string, unknown>);
         const dataInner = createData?.data as ApiResponseData | undefined;
@@ -1292,15 +1298,15 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                 <>
                   <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
                   <div className="relative" ref={dropdownRef}>
-                    <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
-                      <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#969793" }}>
+                    <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"}`}>
+                      <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "var(--pneutral-800)" : "var(--sneutral-400)" }}>
                         {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
                       </span>
                       <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </div>
                     {showCertDropdown && (
-                      <div className="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                        {loadingCertifications ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
+                      <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
+                        {loadingCertifications ? <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div> : (
                           certificationMasterOptions.map((opt) => (
                             <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
                               <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
@@ -1317,52 +1323,35 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             </div>
 
             {/* Certifications — upload */}
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
-              {selectedCertifications.length === 0 ? (
-                <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
-                  <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
-                  <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
+            {selectedCertifications.length === 0 ? (
+              <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
+                <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
+                <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
+                  <div className="flex items-center justify-center h-full px-4 bg-secondary-200">
+                    <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
+                    <span className="text-pneutral-500 text-sm">Select certifications first</span>
+                  </div>
                 </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {selectedCertifications.map((cert) => (
-                    <div key={cert.id}>
-                      {cert.existingUrl && !cert.file ? (
-                        <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                          <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                          <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
-                          <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.label}</p><p className="text-xs text-gray-500">Existing certificate</p></div>
-                          <div className="flex items-center gap-1 pr-3">
-                            <button type="button" title="Replace" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                            <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                          </div>
-                        </div>
-                      ) : cert.isUploaded && cert.file ? (
-                        <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                          <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                          <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
-                          <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.fileName}</p><p className="text-xs text-gray-500">{(cert.file.size / 1024).toFixed(0)} KB</p></div>
-                          <div className="flex items-center gap-1 pr-3">
-                            <button type="button" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                            <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => document.getElementById(`nc-cert-upload-${cert.id}`)?.click()}>
-                          <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
-                          <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
-                          <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">{cert.label} — click to upload</span>
-                          <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
-                        </div>
-                      )}
-                      <input id={`nc-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
-                    </div>
-                  ))}
+              </div>
+            ) : (
+              selectedCertifications.map((cert) => (
+                <div key={cert.id} className="flex flex-col gap-1 col-span-1">
+                  <label className={fieldLabel}>Upload {cert.label} {requiredStar}</label>
+                  <UploadInput
+                    onFileSelect={(file) => {
+                      if (file) handleCertFileSelect(cert.id, file);
+                      else handleCertRemove(cert.id);
+                    }}
+                    existingFile={cert.existingUrl || undefined}
+                    label=""
+                    placeholder={`Upload the ${cert.label}`}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
                 </div>
-              )}
-              <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file. Files are uploaded on Save.</p>
-            </div>
+              ))
+            )}
 
             {/* Material / Build Type */}
             {isEdit ? (

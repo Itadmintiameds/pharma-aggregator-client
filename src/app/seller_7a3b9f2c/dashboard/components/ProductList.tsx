@@ -12,6 +12,7 @@ import DeleteProduct from "./DeleteProduct";
 interface ProductListProps {
   setCurrentView: (view: DashboardView) => void;
   setSelectedProductId: (id: string) => void;
+  refreshKey?: number;
 }
 
 const categoryMap: Record<number, string> = {
@@ -67,6 +68,7 @@ const columns: Column<ProductListData>[] = [
 const ProductList = ({
   setCurrentView,
   setSelectedProductId,
+  refreshKey,
 }: ProductListProps) => {
   const [data, setData] = useState<ProductListData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -91,7 +93,7 @@ const ProductList = ({
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [refreshKey]);
 
   const categoryViewMap: Record<number, DashboardView> = {
     1: "editDrug",

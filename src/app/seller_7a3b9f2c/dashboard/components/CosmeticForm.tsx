@@ -255,7 +255,6 @@ const gstOptions: SelectOption[] = [
   { value: "5",  label: "5%"  },
   { value: "12", label: "12%" },
   { value: "18", label: "18%" },
-  { value: "28", label: "28%" },
 ];
 
 // ─── Multi-checkbox dropdown ───────────────────────────────────────────────────
@@ -499,10 +498,22 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   // ─── Helpers ──────────────────────────────────────────────────────────────────
 
   const getMinExpiryMonth = () => {
+    const today = new Date();
+    const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+    if (!form.manufacturingDate) {
+      return `${minFromNow.getFullYear()}-${String(minFromNow.getMonth() + 1).padStart(2, "0")}`;
+    }
+    const mfg = new Date(form.manufacturingDate);
+    const minFromMfg = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
+    const min = minFromMfg > minFromNow ? minFromMfg : minFromNow;
+    return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}`;
+  };
+
+  const getMaxExpiryMonth = () => {
     if (!form.manufacturingDate) return "";
     const mfg = new Date(form.manufacturingDate);
-    const min = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
-    return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}`;
+    const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
+    return `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, "0")}`;
   };
 
   const toLocalDateTimeString = (date: Date | null): string | null => {
@@ -944,6 +955,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
 
+    if (name === "activeIngredients" && /[^a-zA-Z0-9\s,.()\-%&'/]/.test(value)) return;
+
     if (name === "expiryDate") {
       if (!value) {
         setForm((prev) => ({ ...prev, expiryDate: null, shelfLifeMonths: "" }));
@@ -951,6 +964,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       } else {
         const [year, month] = value.split("-").map(Number);
         const date = new Date(year, month - 1, 1);
+        const today = new Date();
+        const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+        if (date < minFromNow) {
+          setErrors((p) => ({ ...p, expiryDate: "Expiry date must be at least 3 months from current month" }));
+          setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+          return;
+        }
         if (form.manufacturingDate) {
           const mfg = form.manufacturingDate;
           const minDate = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
@@ -960,6 +980,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
           } else if (totalMonths < 0) {
             setErrors((p) => ({ ...p, expiryDate: "Expiry cannot be before Manufacturing Date" }));
+            setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+          } else if (totalMonths > 60) {
+            setErrors((p) => ({ ...p, expiryDate: "Shelf life cannot exceed 5 years (60 months)" }));
             setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
           } else {
             setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
@@ -1096,6 +1119,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     if (!form.activeIngredients.trim()) e.activeIngredients = "Active ingredients are required";
 
     if (!form.netQuantity.trim()) e.netQuantity = "Net quantity is required";
+    else if (form.netQuantity.length > 10) e.netQuantity = "Net quantity must not exceed 10 characters";
     else if (isNaN(Number(form.netQuantity)) || Number(form.netQuantity) <= 0)
       e.netQuantity = "Net quantity must be a positive number";
     if (!form.netQuantityUnitId) e.netQuantityUnitId = "Unit is required";
@@ -1158,15 +1182,26 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       }
 
       if (!form.expiryDate) e.expiryDate = "Expiry date is required";
-      else if (form.manufacturingDate) {
-        const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
-        if (form.expiryDate < minExpiry)
-          e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
+      else {
+        const today = new Date();
+        const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+        if (form.expiryDate < minFromNow)
+          e.expiryDate = "Expiry date must be at least 3 months from current month";
+        else if (form.manufacturingDate) {
+          const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
+          if (form.expiryDate < minExpiry)
+            e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
+          else {
+            const totalMonths = (form.expiryDate.getFullYear() - form.manufacturingDate.getFullYear()) * 12 + (form.expiryDate.getMonth() - form.manufacturingDate.getMonth());
+            if (totalMonths > 60) e.expiryDate = "Shelf life cannot exceed 5 years (60 months)";
+          }
+        }
       }
 
       const stock = parseFloat(form.stockQuantity);
       if (!form.stockQuantity.trim()) e.stockQuantity = "Stock quantity is required";
       else if (isNaN(stock) || stock <= 0) e.stockQuantity = "Stock quantity must be greater than 0";
+      else if (!isNaN(minQ) && minQ > 0 && stock <= minQ) e.stockQuantity = "Stock quantity must be greater than minimum order quantity";
     }
 
     const selling = parseFloat(form.sellingPrice);
@@ -1331,9 +1366,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         }
 
         setSubmitting(false);
-        alert("Product updated successfully!");
         if (onSubmitSuccess) onSubmitSuccess();
-        else window.location.reload();
+        else router.push(`/seller_7a3b9f2c/products/view/${currentProductId}`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("Edit submit error:", err);
@@ -1525,6 +1559,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   }
 
   const isEdit = mode === "edit";
+  const hasStock = isEdit && Number(form.stockQuantity) > 0;
   const currentGenderLabel = isEdit
     ? (displayLabels.genderLabel || genderOptions.find((o) => o.value === form.gender)?.label || form.gender)
     : "";
@@ -1593,8 +1628,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             </div>
 
             <div data-field="brandName">
-              <Input label="Brand Name" name="brandName" placeholder="e.g., Lakme, Neutrogena, Mamaearth"
-                value={form.brandName} onChange={handleChange} error={errors.brandName} required />
+              {isEdit ? (
+                <NonEditableField label="Brand Name" value={form.brandName} required />
+              ) : (
+                <Input label="Brand Name" name="brandName" placeholder="e.g., Lakme, Neutrogena, Mamaearth"
+                  value={form.brandName} onChange={handleChange} error={errors.brandName} required />
+              )}
             </div>
 
             <div className="flex flex-col gap-1" data-field="productTypeId">
@@ -1669,52 +1708,73 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             />
 
             <div className="flex flex-col gap-1" data-field="productFormId">
-              <label className={fieldLabel}>Product Form {requiredStar}</label>
-              <Select
-                options={productFormOptions}
-                isLoading={loadingProductForms}
-                value={productFormOptions.find((o) => o.value === form.productFormId) || null}
-                onChange={(sel) => {
-                  handleSelectChange("productFormId", sel);
-                  if (errors.productFormId) setErrors((p) => { const n = { ...p }; delete n.productFormId; return n; });
-                }}
-                placeholder={loadingProductForms ? "Loading..." : "Eg, Gel, Powder"}
-                theme={selectTheme}
-                styles={selectStyles("productFormId")}
-              />
-              {errors.productFormId && <p className={errorMsg}>{errors.productFormId}</p>}
+              {isEdit ? (
+                <NonEditableSelect
+                  label="Product Form"
+                  value={productFormOptions.find((o) => o.value === form.productFormId)?.label || form.productFormId}
+                  required
+                />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Product Form {requiredStar}</label>
+                  <Select
+                    options={productFormOptions}
+                    isLoading={loadingProductForms}
+                    value={productFormOptions.find((o) => o.value === form.productFormId) || null}
+                    onChange={(sel) => {
+                      handleSelectChange("productFormId", sel);
+                      if (errors.productFormId) setErrors((p) => { const n = { ...p }; delete n.productFormId; return n; });
+                    }}
+                    placeholder={loadingProductForms ? "Loading..." : "Eg, Gel, Powder"}
+                    theme={selectTheme}
+                    styles={selectStyles("productFormId")}
+                  />
+                  {errors.productFormId && <p className={errorMsg}>{errors.productFormId}</p>}
+                </>
+              )}
             </div>
 
             <div className="flex flex-col gap-1" data-field="netQuantity">
-              <label className={fieldLabel}>Net Quantity {requiredStar}</label>
-              <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.netQuantity || errors.netQuantityUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
-                <input
-                  name="netQuantity"
-                  value={form.netQuantity}
-                  onChange={handleChange}
-                  placeholder="Placeholder"
-                  className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
+              {isEdit ? (
+                <NonEditableField
+                  label="Net Quantity"
+                  value={`${form.netQuantity} ${netQuantityUnitOptions.find((o) => o.value === form.netQuantityUnitId)?.label || ""}`.trim()}
+                  required
                 />
-                <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
-                <div className="w-36" data-field="netQuantityUnitId">
-                  <Select
-                    options={netQuantityUnitOptions}
-                    isLoading={loadingNetQuantityUnits}
-                    value={netQuantityUnitOptions.find((o) => o.value === form.netQuantityUnitId) || null}
-                    onChange={(sel) => {
-                      handleSelectChange("netQuantityUnitId", sel);
-                      if (errors.netQuantityUnitId) setErrors((p) => { const n = { ...p }; delete n.netQuantityUnitId; return n; });
-                    }}
-                    placeholder={loadingNetQuantityUnits ? "..." : "Select Unit"}
-                    theme={selectTheme}
-                    styles={unitSelectStyles}
-                    menuPortalTarget={typeof document !== "undefined" ? document.body : null}
-                    menuPosition="fixed"
-                  />
-                </div>
-              </div>
-              {errors.netQuantity && <p className={errorMsg}>{errors.netQuantity}</p>}
-              {errors.netQuantityUnitId && <p className={errorMsg}>{errors.netQuantityUnitId}</p>}
+              ) : (
+                <>
+                  <label className={fieldLabel}>Net Quantity {requiredStar}</label>
+                  <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.netQuantity || errors.netQuantityUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
+                    <input
+                      name="netQuantity"
+                      value={form.netQuantity}
+                      onChange={handleChange}
+                      placeholder="Placeholder"
+                      maxLength={10}
+                      className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
+                    />
+                    <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
+                    <div className="w-36" data-field="netQuantityUnitId">
+                      <Select
+                        options={netQuantityUnitOptions}
+                        isLoading={loadingNetQuantityUnits}
+                        value={netQuantityUnitOptions.find((o) => o.value === form.netQuantityUnitId) || null}
+                        onChange={(sel) => {
+                          handleSelectChange("netQuantityUnitId", sel);
+                          if (errors.netQuantityUnitId) setErrors((p) => { const n = { ...p }; delete n.netQuantityUnitId; return n; });
+                        }}
+                        placeholder={loadingNetQuantityUnits ? "..." : "Select Unit"}
+                        theme={selectTheme}
+                        styles={unitSelectStyles}
+                        menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                        menuPosition="fixed"
+                      />
+                    </div>
+                  </div>
+                  {errors.netQuantity && <p className={errorMsg}>{errors.netQuantity}</p>}
+                  {errors.netQuantityUnitId && <p className={errorMsg}>{errors.netQuantityUnitId}</p>}
+                </>
+              )}
             </div>
 
             {skinHairRule.skinType !== "hidden" && (
@@ -1728,6 +1788,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 }}
                 placeholder="Select skin type(s)"
                 errorKey="skinTypes" errors={errors} loading={loadingSkinTypes}
+                disabled={isEdit}
                 fieldRef={setFieldRef("skinTypes") as React.Ref<HTMLDivElement>}
                 dataField="skinTypes"
               />
@@ -1744,6 +1805,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 }}
                 placeholder="Select hair type(s)"
                 errorKey="hairTypes" errors={errors} loading={loadingHairTypes}
+                disabled={isEdit}
                 fieldRef={setFieldRef("hairTypes") as React.Ref<HTMLDivElement>}
                 dataField="hairTypes"
               />
@@ -1758,6 +1820,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               }}
               placeholder="Select age group(s)"
               errorKey="ageGroupId" errors={errors} loading={loadingAgeGroups}
+              disabled={isEdit}
               fieldRef={setFieldRef("ageGroupId") as React.Ref<HTMLDivElement>}
               dataField="ageGroupId"
             />
@@ -1790,15 +1853,21 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             </div>
 
             <div className="flex flex-col gap-1" data-field="storageConditionId">
-              <label className={fieldLabel}>Storage Condition {requiredStar}</label>
-              <Select
-                options={storageConditionOptions} isLoading={loadingStorageConditions}
-                value={storageConditionOptions.find((o) => o.value === form.storageConditionId) || null}
-                onChange={(sel) => handleSelectChange("storageConditionId", sel)}
-                placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
-                theme={selectTheme} styles={selectStyles("storageConditionId")}
-              />
-              {errors.storageConditionId && <p className={errorMsg}>{errors.storageConditionId}</p>}
+              {hasStock ? (
+                <NonEditableSelect label="Storage Condition" value={displayLabels.storageConditionLabel} required />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Storage Condition {requiredStar}</label>
+                  <Select
+                    options={storageConditionOptions} isLoading={loadingStorageConditions}
+                    value={storageConditionOptions.find((o) => o.value === form.storageConditionId) || null}
+                    onChange={(sel) => handleSelectChange("storageConditionId", sel)}
+                    placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
+                    theme={selectTheme} styles={selectStyles("storageConditionId")}
+                  />
+                  {errors.storageConditionId && <p className={errorMsg}>{errors.storageConditionId}</p>}
+                </>
+              )}
             </div>
 
             <div className="flex flex-col gap-1" data-field="certifications">
@@ -1806,10 +1875,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               <div className="relative" ref={certDropdownRef}>
                 <div
                   onClick={() => setShowCertDropdown((p) => !p)}
-                  className={`w-full h-[52px] px-4 border rounded-[8px] flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-[#FF3B3B]" : "border-[#C0C1BE] hover:border-[#C0C1BE]"}`}
+                  className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"}`}
                 >
                   <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
-                    style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#A3A3A3" }}>
+                    style={{ color: selectedCertifications.length > 0 ? "var(--pneutral-800)" : "var(--sneutral-400)" }}>
                     {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
                   </span>
                   <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1817,7 +1886,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                   </svg>
                 </div>
                 {showCertDropdown && (
-                  <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-[8px] shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
                     {loadingCertifications ? (
                       <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
                     ) : (
@@ -1876,8 +1945,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               <textarea
                 ref={setFieldRef("activeIngredients") as React.RefCallback<HTMLTextAreaElement>}
                 name="activeIngredients" value={form.activeIngredients} onChange={handleChange} rows={4}
+                readOnly={isEdit}
                 placeholder="e.g., Vitamin C, Vitamin E, Salicylic Acid, Hyaluronic Acid"
-                className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] transition-colors ${errors.activeIngredients ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}
+                className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border transition-colors ${isEdit ? "bg-gray-50 cursor-default focus:outline-none border-[#C0C1BE]" : `bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] ${errors.activeIngredients ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}`}
               />
               {errors.activeIngredients && <p className={errorMsg}>{errors.activeIngredients}</p>}
             </div>
@@ -1925,7 +1995,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
             <div className="flex flex-col gap-1" data-field="packTypeId">
-              {isEdit ? (
+              {hasStock ? (
                 <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
               ) : (
                 <>
@@ -1942,11 +2012,19 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               )}
             </div>
 
-            <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 1"
-              value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
+            {hasStock ? (
+              <NonEditableField label="Number of Units per Pack Type" value={form.unitsPerPack} required />
+            ) : (
+              <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 1"
+                value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
+            )}
 
-            <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 1"
-              value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
+            {hasStock ? (
+              <NonEditableField label="Number of Packs" value={form.numberOfPacks} required />
+            ) : (
+              <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 1"
+                value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
+            )}
 
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Pack Size (No. of Units per Pack Type × No. of Packs)</label>
@@ -2018,15 +2096,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               }
               readOnly={isEdit}
               onChange={handleChange}
-              onFocus={() => {
-                if (form.manufacturingDate) {
-                  setErrors((prev) => ({
-                    ...prev,
-                    expiryDate: "Expiry must be at least 3 months after Manufacturing Date",
-                  }));
-                }
-              }}
               min={getMinExpiryMonth()}
+              max={getMaxExpiryMonth()}
               error={errors.expiryDate}
               required
             />
@@ -2186,27 +2257,24 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between mt-6 mb-6">
-          <div className="space-x-6 flex">
-            <button type="button"
-              onClick={() => onSubmitSuccess ? onSubmitSuccess() : window.location.reload()}
-              disabled={submitting}
-              className="w-21 h-12 border-2 border-[#FF3B3B] rounded-lg text-label-l3 font-semibold text-[#FF3B3B] cursor-pointer disabled:opacity-50">
+        <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
+          <div className="flex gap-3">
+            <button type="button" onClick={() => onSubmitSuccess ? onSubmitSuccess() : window.location.reload()}
+              className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
               Cancel
             </button>
-            <button type="button" disabled={submitting}
-              className="w-35.25 h-12 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5 disabled:opacity-50">
-              <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 rounded-md object-cover" />
+            <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }}
+              className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
+              <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
               Save Draft
             </button>
           </div>
-          <div>
-            <button type="button" onClick={handleSubmit} disabled={submitting}
-              className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60">
-              {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
-            </button>
-          </div>
+          <button type="button" onClick={handleSubmit} disabled={submitting}
+            style={{ background: "#4B0082", borderRadius: "8px" }}
+            className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
+            {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
+          </button>
         </div>
       </div>
     </>

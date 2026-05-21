@@ -39,6 +39,7 @@ const DashboardOverview = ({
   setSelectedProductId,
   selectedProductId,
 }: DashboardOverviewProps) => {
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
   if (currentView === "editDrug") {
     if (!selectedProductId) {
@@ -87,7 +88,10 @@ const DashboardOverview = ({
   return (
     <div className="space-y-8">
       {/* Filters */}
-      <DashboardFilters setCurrentView={setCurrentView} />
+      <DashboardFilters 
+        setCurrentView={setCurrentView} 
+        onRefreshRequested={() => setRefreshKey((prev) => prev + 1)} 
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -96,7 +100,7 @@ const DashboardOverview = ({
           value={6531}
           growth="+2.24%"
           icon={<HiOutlineCircleStack size={22} />}
-          className="bg-primary-05"
+          style={{ backgroundColor: "#DED0FE" }}
         />
 
         <KpiCard
@@ -125,8 +129,12 @@ const DashboardOverview = ({
       </div>
       {/* Chart + Top Selling Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SalesChart />
-        <TopSellingCard />
+        <div className="min-h-[324px]">
+          <SalesChart />
+        </div>
+        <div className="min-h-[324px]">
+          <TopSellingCard />
+        </div>
       </div>
 
       {/* Weekly Summary Cards */}
@@ -148,7 +156,7 @@ const DashboardOverview = ({
           titleRight="Active"
           valueRight="1,180"
           growthRight="85%"
-          bgColor="bg-tertiary-50"
+          bgColor="bg-yellow-50"
         />
 
         <WeeklySummaryCard
@@ -159,13 +167,14 @@ const DashboardOverview = ({
           valueRight="445"
           pendingCount="5"
           isThreeColumn
-          // bgColor="bg-tertiary-50"
+          bgColor="bg-yellow-50"
         />
       </div>
 
       <ProductList
         setCurrentView={setCurrentView}
         setSelectedProductId={setSelectedProductId}
+        refreshKey={refreshKey}
       />
     </div>
   );

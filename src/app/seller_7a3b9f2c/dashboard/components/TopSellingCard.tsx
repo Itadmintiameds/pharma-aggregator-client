@@ -9,80 +9,72 @@ const products = [
     sales: "12,429 Sales",
     stock: "135 Stocks Remaining",
     available: true,
-    image: "/assets/images/plavix.jpg"
+    image: "/assets/images/green-glass.jpg"
   },
   {
     name: "Product name",
     sales: "12,429 Sales",
     stock: "135 Stocks Remaining",
     available: true,
-    image: "/assets/images/plavix.jpg"
+    image: "/assets/images/green-glass.jpg"
   },
   {
     name: "Product name",
     sales: "12,429 Sales",
     stock: "135 Stocks Remaining",
     available: true,
-    image: "/assets/images/plavix.jpg"
+    image: "/assets/images/green-glass.jpg"
   },
-  {
-    name: "Product name",
-    sales: "12,429 Sales",
-    stock: "135 Stocks Remaining",
-    available: true,
-    image: "/assets/images/plavix.jpg"
-  }
 ];
 
 const TopSellingCard = () => {
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-100">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-semibold text-black">
+    <div className="bg-white p-5 rounded-2xl shadow-sm border border-neutral-100 h-full flex flex-col overflow-hidden">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold font-heading text-black">
           Top Selling Product
         </h3>
 
-        <button className="text-sm px-4 py-1.5 border border-neutral-200 rounded-lg bg-neutral-50 hover:bg-primary-50">
+        <button className="text-sm px-4 py-1.5 border border-neutral-200 rounded-lg bg-white font-body text-neutral-700 hover:bg-neutral-50 shadow-sm transition">
           See All Product
         </button>
       </div>
 
-      <div className="space-y-6">
+      <div className="divide-y divide-neutral-100">
         {products.map((product, index) => (
           <div
             key={index}
-            className="flex items-center justify-between border-b border-neutral-100 pb-4 last:border-0"
+            className="flex items-center justify-between py-4"
           >
             <div className="flex items-center gap-4">
-
               <Image
                 src={product.image}
                 alt={product.name}
-                width={48}
-                height={48}
-                className="rounded-sm object-cover"
+                width={52}
+                height={52}
+                className="rounded-md object-cover flex-shrink-0"
               />
 
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-black">
+              <div className="space-y-0.5">
+                <p className="text-sm font-semibold font-heading text-black">
                   {product.name}
                 </p>
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs font-body text-neutral-500">
                   {product.sales}
                 </p>
               </div>
             </div>
 
-            <div className="text-right space-y-1">
+            <div className="text-right space-y-0.5">
               <p
-                className={`text-sm font-medium ${product.available
-                  ? "text-success-1000"
-                  : "text-warning-600"
-                  }`}
+                className={`text-sm font-medium font-body flex items-center justify-end gap-1 ${
+                  product.available ? "text-success-900" : "text-warning-600"
+                }`}
               >
+                <span className="text-base leading-none">•</span>
                 {product.available ? "Available" : "Out of Stock"}
               </p>
-              <p className="text-xs text-black">
+              <p className="text-xs font-body text-neutral-600">
                 {product.stock}
               </p>
             </div>
@@ -90,6 +82,7 @@ const TopSellingCard = () => {
         ))}
       </div>
     </div>
+
   );
 };
 

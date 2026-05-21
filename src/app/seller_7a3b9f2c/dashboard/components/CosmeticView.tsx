@@ -1,25 +1,15 @@
 "use client";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CosmeticPersonalCareView.tsx — FIXED VERSION
-//
-// Changes from original:
-//   1. intendedUseArea resolution now also handles [{areaName, useAreaId}] objects
-//      directly in case the parent hasn't pre-resolved them.
-//   2. skinHairDisplay now also handles [{skintypeId, typeName}] object arrays.
-//   3. productSubtype checks productSubcategoryId (actual API field name).
-//   4. storageCondition falls back to storageConditionId if no name available.
-//   5. All other logic unchanged.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import React, { useState } from "react";
 import { FileText, ExternalLink, Edit2, X } from "lucide-react";
 import { PiSealCheckLight } from "react-icons/pi";
 import Image from "next/image";
 
+
 /* ─────────────────────────────────────────────────────────
    TYPES
 ───────────────────────────────────────────────────────── */
+
 
 export interface CertificateDocument {
   certificationId: number;
@@ -28,6 +18,7 @@ export interface CertificateDocument {
   label?: string;
   productCertificateDocumentId?: number;
 }
+
 
 export interface PromotionalScheme {
   schemeId?: number;
@@ -38,6 +29,7 @@ export interface PromotionalScheme {
   validTo?: string;
   isOngoing?: boolean;
 }
+
 
 export interface PricingDetails {
   mrp?: number | string;
@@ -56,6 +48,7 @@ export interface PricingDetails {
   hsnCode?: string | number;
 }
 
+
 export interface PackagingDetails {
   packType?: string;
   packTypeName?: string;
@@ -67,10 +60,12 @@ export interface PackagingDetails {
   maximumOrderQuantity?: number | string;
 }
 
+
 export interface TaxDetails {
   gstPercentage?: number | string;
   hsnCode?: string | number;
 }
+
 
 export interface CosmeticAttributes {
   // Resolved label strings (set by parent via buildCosAttrForView)
@@ -115,6 +110,7 @@ export interface CosmeticAttributes {
   countryId?: number;
 }
 
+
 export interface CosmeticPersonalCareViewProps {
   productName?: string | null;
   productDescription?: string | null;
@@ -132,15 +128,26 @@ export interface CosmeticPersonalCareViewProps {
   onClose?: () => void;
 }
 
+
 /* ─────────────────────────────────────────────────────────
    SHARED STYLES
 ───────────────────────────────────────────────────────── */
+
 
 const FONTS = {
   workSans: "'Work Sans', 'Segoe UI', sans-serif",
   notoSans: "'Noto Sans', 'Segoe UI', sans-serif",
   openSans: "'Open Sans', 'Segoe UI', sans-serif",
 };
+
+
+const CERT_COLORS = [
+  { bg: "#DCF7CB", color: "#378200" },
+  { bg: "#FFD6D9", color: "#B91C1C" },
+  { bg: "#DBEAFE", color: "#1D4ED8" },
+  { bg: "#FEF9C3", color: "#A16207" },
+];
+
 
 const ROW: React.CSSProperties = {
   display: "grid",
@@ -151,6 +158,7 @@ const ROW: React.CSSProperties = {
   gap: 16,
 };
 
+
 const ROW_LABEL: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
@@ -158,6 +166,7 @@ const ROW_LABEL: React.CSSProperties = {
   flex: "1 1 0",
   minWidth: 0,
 };
+
 
 const LABEL_TEXT: React.CSSProperties = {
   color: "#5A5B58",
@@ -169,6 +178,7 @@ const LABEL_TEXT: React.CSSProperties = {
   margin: 0,
 };
 
+
 const REQUIRED_STAR: React.CSSProperties = {
   color: "#FF3B3B",
   fontSize: 16,
@@ -177,6 +187,7 @@ const REQUIRED_STAR: React.CSSProperties = {
   lineHeight: "24px",
   flexShrink: 0,
 };
+
 
 const VALUE_TEXT: React.CSSProperties = {
   color: "#3C3D3A",
@@ -190,20 +201,25 @@ const VALUE_TEXT: React.CSSProperties = {
   margin: 0,
 };
 
+
 /* ─────────────────────────────────────────────────────────
    HELPERS
 ───────────────────────────────────────────────────────── */
 
+
 const isImageUrl = (url: string) =>
   /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
 
+
 const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url);
+
 
 const isValidUrl = (url?: string | null) => {
   if (!url) return false;
   const t = url.trim().toUpperCase();
   return !["", "PENDING", "NOT_UPLOADED"].includes(t);
 };
+
 
 /**
  * Resolves intendedUseAreas / skinTypes / hairTypes which may arrive as:
@@ -218,6 +234,7 @@ function resolveListOrObjects(
   if (!val) return null;
   if (typeof val === "string") return val.trim() || null;
   if (!Array.isArray(val) || val.length === 0) return null;
+
 
   const parts: string[] = [];
   for (const item of val) {
@@ -240,6 +257,7 @@ function resolveListOrObjects(
   return parts.join(", ") || null;
 }
 
+
 const formatCurrency = (val?: number | string | null): string => {
   if (val == null || val === "") return "—";
   const num = Number(val);
@@ -247,23 +265,25 @@ const formatCurrency = (val?: number | string | null): string => {
   return `₹${num.toLocaleString("en-IN")}`;
 };
 
+
 const formatVal = (val?: number | string | null): string => {
   if (val == null || val === "") return "—";
   return String(val);
 };
 
+
 const formatDate = (val?: string | null): string => {
   if (!val) return "—";
   try {
     return new Date(val).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
+      month: "2-digit",
       year: "numeric",
     });
   } catch {
     return val;
   }
 };
+
 
 /** Resolve a field that may exist under multiple casing variants */
 const resolveField = (
@@ -280,9 +300,11 @@ const resolveField = (
   return null;
 };
 
+
 /* ─────────────────────────────────────────────────────────
    SUB-COMPONENTS
 ───────────────────────────────────────────────────────── */
+
 
 const FieldRow = ({
   label,
@@ -311,6 +333,7 @@ const FieldRow = ({
     )}
   </div>
 );
+
 
 const FullWidthBlock = ({
   label,
@@ -354,6 +377,7 @@ const FullWidthBlock = ({
   </div>
 );
 
+
 const SectionHeading = ({ title }: { title: string }) => (
   <div style={{ paddingTop: 8, paddingBottom: 8, borderBottom: "1px #D5D5D4 solid", marginTop: 32 }}>
     <h2 style={{ color: "#1E1E1D", fontSize: 28, fontFamily: FONTS.workSans, fontWeight: 500, lineHeight: "36px", margin: 0 }}>
@@ -361,6 +385,7 @@ const SectionHeading = ({ title }: { title: string }) => (
     </h2>
   </div>
 );
+
 
 const SubHeading = ({ title }: { title: string }) => (
   <div style={{ paddingTop: 8, paddingBottom: 4, borderBottom: "1px #D5D5D4 solid", marginTop: 20, marginBottom: 4 }}>
@@ -370,9 +395,11 @@ const SubHeading = ({ title }: { title: string }) => (
   </div>
 );
 
+
 /* ─────────────────────────────────────────────────────────
    SCHEME CARD COLORS
 ───────────────────────────────────────────────────────── */
+
 
 interface SchemeStyle {
   bg: string;
@@ -382,6 +409,7 @@ interface SchemeStyle {
   icon: string;
 }
 
+
 const SCHEME_STYLES: SchemeStyle[] = [
   { bg: "#F0FAE8", border: "#7CC450", iconBg: "#4CAF50", titleColor: "#2E7D32", icon: "🎁" },
   { bg: "#F3E8FF", border: "#B550FA", iconBg: "#9C27B0", titleColor: "#6A1B9A", icon: "📦" },
@@ -389,9 +417,11 @@ const SCHEME_STYLES: SchemeStyle[] = [
   { bg: "#E8F4FD", border: "#3B82F6", iconBg: "#2563EB", titleColor: "#1E3A8A", icon: "🏷️" },
 ];
 
+
 /* ─────────────────────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────────────────────── */
+
 
 const CosmeticPersonalCareView = ({
   productName,
@@ -413,10 +443,12 @@ const CosmeticPersonalCareView = ({
   const [showCertModal, setShowCertModal] = useState(false);
   const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
 
+
   /* ── Resolve cert docs ── */
   const certDocs: CertificateDocument[] = (cosAttr?.certificateDocuments ?? []).filter(
     (c) => isValidUrl(c.certificateUrl),
   );
+
 
   /* ── Resolve storage condition ──────────────────────────────────────────────
      Priority:
@@ -430,6 +462,7 @@ const CosmeticPersonalCareView = ({
     cosAttr?.storageCondition?.trim() ||
     null;
 
+
   /* ── Resolve long-form text ── */
   const resolvedProductDescription = productDescription ?? cosAttr?.productDescription ?? null;
   const resolvedWarnings =
@@ -437,23 +470,29 @@ const CosmeticPersonalCareView = ({
     resolveField(cosAttr, "warningsPrecautions", "WarningsPrecautions") ??
     null;
 
+
   /* ── Resolve variant name ── */
   const variantNameDisplay = resolveField(cosAttr, "VariantName", "variantName") ?? null;
+
 
   /* ── Resolve gender ── */
   const genderDisplay = resolveField(cosAttr, "Gender", "gender") ?? null;
 
+
   /* ── Resolve net quantity ── */
   const netQtyDisplay =
-    resolveField(cosAttr, "NetQuantityStrength", "netQuantityStrength", "netQuantity") ?? null;
+    resolveField(cosAttr, "netQuantityStrength", "NetQuantityStrength", "netQuantity") ?? null;
+
 
   /* ── Resolve active ingredients ── */
   const activeIngredientsDisplay =
     resolveField(cosAttr, "ActiveIngredients", "activeIngredients") ?? null;
 
+
   /* ── Resolve product claims ── */
   const productClaimsDisplay =
     resolveField(cosAttr, "ProductClaims", "productClaims") ?? null;
+
 
   /* ── Resolve intended use area ───────────────────────────────────────────────
      The parent should pre-resolve this via buildCosAttrForView().
@@ -466,6 +505,7 @@ const CosmeticPersonalCareView = ({
       ["areaName", "name"],           // label keys to try on object items
     ) ||
     null;
+
 
   /* ── Resolve skin/hair display ───────────────────────────────────────────────
      Parent should pre-resolve via buildCosAttrForView → cosAttr.skinHairType.
@@ -485,6 +525,7 @@ const CosmeticPersonalCareView = ({
     return parts.length ? parts.join(", ") : null;
   })();
 
+
   /* ── Resolve product subtype ─────────────────────────────────────────────────
      API field is "productSubcategoryId" (not "productSubTypeId").
      Parent should resolve this to a label string and pass it as cosAttr.productSubtype.
@@ -492,11 +533,14 @@ const CosmeticPersonalCareView = ({
   const productSubtypeDisplay =
     cosAttr?.productSubtype ?? cosAttr?.productSubType ?? null;
 
+
   /* ── Resolve country ── */
   const countryDisplay = cosAttr?.countryOfOrigin ?? cosAttr?.countryName ?? null;
 
+
   /* ── Images ── */
   const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+
 
   /* ── Brochure ── */
   const resolvedBrochureUrl = isValidUrl(brochureUrl)
@@ -506,6 +550,7 @@ const CosmeticPersonalCareView = ({
     : isValidUrl(cosAttr?.BrochurePath)
     ? cosAttr!.BrochurePath!
     : null;
+
 
   /* ── Pack size display ── */
   const packSizeDisplay = (() => {
@@ -517,11 +562,13 @@ const CosmeticPersonalCareView = ({
     return null;
   })();
 
+
   /* ── Batch / pricing helpers ── */
   const batchNumber = pricingDetails?.batchNumber ?? pricingDetails?.batchLotNumber ?? null;
   const shelfLife = pricingDetails?.shelfLife ?? null;
   const gstPct = taxDetails?.gstPercentage ?? pricingDetails?.gstPercentage ?? null;
   const hsnCode = taxDetails?.hsnCode ?? pricingDetails?.hsnCode ?? null;
+
 
   return (
     <div style={{ background: "#FFFFFF", minHeight: "100vh", fontFamily: FONTS.workSans }}>
@@ -541,6 +588,7 @@ const CosmeticPersonalCareView = ({
         </div>
       )}
 
+
       {/* ── Product Details Section ── */}
       <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ paddingTop: 8, paddingBottom: 8, borderBottom: "1px #D5D5D4 solid" }}>
@@ -548,6 +596,7 @@ const CosmeticPersonalCareView = ({
             Product Details
           </h2>
         </div>
+
 
         {/* ── Product Images ── */}
         <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -573,6 +622,7 @@ const CosmeticPersonalCareView = ({
           </div>
         </div>
 
+
         {/* ── Two-column field rows ── */}
         <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
           {/* LEFT COLUMN */}
@@ -593,6 +643,7 @@ const CosmeticPersonalCareView = ({
             <FieldRow label="Active Ingredients" value={activeIngredientsDisplay} multiline />
           </div>
 
+
           {/* RIGHT COLUMN */}
           <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
             <FieldRow label="Product Claims" value={productClaimsDisplay} multiline />
@@ -601,11 +652,12 @@ const CosmeticPersonalCareView = ({
             <FieldRow label="Manufacturer Name" value={cosAttr?.manufacturerName} />
             <FieldRow label="Country of Origin" value={countryDisplay} />
 
+
             {/* ── Uploaded Product Brochure ── */}
             <div style={{ paddingTop: 12, paddingBottom: 8, paddingLeft: 16, paddingRight: 16, borderBottom: "1px #D5D5D4 solid", display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={LABEL_TEXT}>Uploaded Product Brochure</span>
-                <span style={REQUIRED_STAR}>*</span>
+                {/* <span style={REQUIRED_STAR}>*</span> */}
               </div>
               {resolvedBrochureUrl ? (
                 <a href={resolvedBrochureUrl} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, background: "#F8F8F9", borderRadius: 8, textDecoration: "none" }}>
@@ -622,6 +674,7 @@ const CosmeticPersonalCareView = ({
               )}
             </div>
 
+
             {/* ── Certifications / Compliance ── */}
             {certDocs.length > 0 && (
               <div style={{ paddingTop: 12, paddingBottom: 8, paddingLeft: 16, paddingRight: 16, borderBottom: "1px #D5D5D4 solid", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -630,21 +683,26 @@ const CosmeticPersonalCareView = ({
                   <span style={REQUIRED_STAR}>*</span>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignContent: "flex-start" }}>
-                  {certDocs.map((cert) => (
-                    <button key={cert.certificationId} type="button" onClick={() => { setActiveCertDoc(cert); setShowCertModal(true); }} style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 8, paddingRight: 8, paddingTop: 4, paddingBottom: 4, background: "#DCF7CB", border: "none", borderRadius: 8, cursor: "pointer", fontFamily: FONTS.notoSans, fontSize: 16, fontWeight: 500, lineHeight: "24px", color: "#378200" }}>
-                      <PiSealCheckLight size={16} />
-                      {cert.certificationName ?? cert.label ?? `Cert ${cert.certificationId}`}
-                    </button>
-                  ))}
+                  {certDocs.map((cert, idx) => {
+                    const c = CERT_COLORS[idx % CERT_COLORS.length];
+                    return (
+                      <button key={cert.certificationId} type="button" onClick={() => { setActiveCertDoc(cert); setShowCertModal(true); }} style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 8, paddingRight: 8, paddingTop: 4, paddingBottom: 4, background: c.bg, border: "none", borderRadius: 8, cursor: "pointer", fontFamily: FONTS.notoSans, fontSize: 16, fontWeight: 500, lineHeight: "24px", color: c.color }}>
+                        <PiSealCheckLight size={16} />
+                        {cert.certificationName ?? cert.label ?? `Cert ${cert.certificationId}`}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
         </div>
 
+
         <FullWidthBlock label="Product Description" value={resolvedProductDescription} />
         <FullWidthBlock label="Warnings & Precautions" value={resolvedWarnings} />
       </div>
+
 
       {/* ── Promotional Schemes ── */}
       {promotionalSchemes.length > 0 && (
@@ -671,6 +729,7 @@ const CosmeticPersonalCareView = ({
         </div>
       )}
 
+
       {/* ── Packaging & Order Details ── */}
       {packagingDetails && (
         <>
@@ -690,6 +749,7 @@ const CosmeticPersonalCareView = ({
         </>
       )}
 
+
       {/* ── Batch, Stock & Expiry ── */}
       {pricingDetails && (
         <>
@@ -707,6 +767,7 @@ const CosmeticPersonalCareView = ({
             </div>
           </div>
 
+
           <SubHeading title="Pricing" />
           <div style={{ display: "flex", gap: 36, alignItems: "flex-start", marginTop: 8 }}>
             <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
@@ -718,6 +779,7 @@ const CosmeticPersonalCareView = ({
               <FieldRow label="Final Price" value={formatCurrency(pricingDetails.finalPrice)} />
             </div>
           </div>
+
 
           <SubHeading title="Tax & Billing" />
           <div style={{ display: "flex", gap: 36, alignItems: "flex-start", marginTop: 8 }}>
@@ -731,7 +793,9 @@ const CosmeticPersonalCareView = ({
         </>
       )}
 
+
       <div style={{ height: 40 }} />
+
 
       {/* ── Certificate Modal ── */}
       {showCertModal && activeCertDoc !== null && (
@@ -777,12 +841,16 @@ const CosmeticPersonalCareView = ({
             {certDocs.length > 1 && (
               <div style={{ borderTop: "1px #D5D5D4 solid", padding: "12px 24px", display: "flex", alignItems: "center", gap: 8, overflowX: "auto" }}>
                 <span style={{ color: "#5A5B58", fontSize: 12, fontFamily: FONTS.notoSans, fontWeight: 400, lineHeight: "18px", flexShrink: 0 }}>Other certs:</span>
-                {certDocs.filter((c) => c.certificationId !== activeCertDoc.certificationId).map((cert) => (
-                  <button key={cert.certificationId} type="button" onClick={() => setActiveCertDoc(cert)} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, color: "#378200", background: "#DCF7CB", fontSize: 12, fontFamily: FONTS.notoSans, fontWeight: 500, lineHeight: "18px", padding: "6px 12px", borderRadius: 9999, border: "none", cursor: "pointer" }}>
-                    <PiSealCheckLight size={12} />
-                    {cert.certificationName ?? cert.label ?? `Cert ${cert.certificationId}`}
-                  </button>
-                ))}
+                {certDocs.filter((c) => c.certificationId !== activeCertDoc.certificationId).map((cert) => {
+                  const idx = certDocs.findIndex((c) => c.certificationId === cert.certificationId);
+                  const cl = CERT_COLORS[idx % CERT_COLORS.length];
+                  return (
+                    <button key={cert.certificationId} type="button" onClick={() => setActiveCertDoc(cert)} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, color: cl.color, background: cl.bg, fontSize: 12, fontFamily: FONTS.notoSans, fontWeight: 500, lineHeight: "18px", padding: "6px 12px", borderRadius: 9999, border: "none", cursor: "pointer" }}>
+                      <PiSealCheckLight size={12} />
+                      {cert.certificationName ?? cert.label ?? `Cert ${cert.certificationId}`}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -791,6 +859,7 @@ const CosmeticPersonalCareView = ({
     </div>
   );
 };
+
 
 export { CosmeticPersonalCareView as CosmeticView };
 export default CosmeticPersonalCareView;

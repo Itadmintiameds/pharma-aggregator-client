@@ -1,5 +1,6 @@
 "use client";
 
+
 import React, { useEffect, useState } from "react";
 import {
   getProductById,
@@ -9,11 +10,23 @@ import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { HiExclamation } from "react-icons/hi";
 import { HiOutlineTrash } from "react-icons/hi2";
 
+
 interface DeleteProductProps {
   productId: string;
   onClose: () => void;
   onSuccess: () => void;
 }
+
+
+const categoryMap: Record<number, string> = {
+  1: "Drugs",
+  2: "Supplements/ Nutraceuticals",
+  3: "Food & Infant Nutrition",
+  4: "Cosmetic & Personal Care",
+  5: "Consumable Medical Devices & Equipment",
+  6: "Non-Consumable Medical Devices & Equipment",
+};
+
 
 const DeleteProduct = ({
   productId,
@@ -22,6 +35,7 @@ const DeleteProduct = ({
 }: DeleteProductProps) => {
   const [product, setProduct] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+
 
 useEffect(() => {
   const fetchProduct = async () => {
@@ -33,10 +47,13 @@ useEffect(() => {
     }
   };
 
+
   if (productId) {
     fetchProduct();
   }
 }, [productId]);
+
+
 
 
   const handleDelete = async () => {
@@ -44,7 +61,8 @@ useEffect(() => {
       setDeleting(true);
       await deleteProduct(productId);
 
-      onSuccess(); 
+
+      onSuccess();
       onClose();  
     } catch (error) {
       console.error("Delete failed:", error);
@@ -52,6 +70,9 @@ useEffect(() => {
       setDeleting(false);
     }
   };
+
+
+
 
 
 
@@ -64,15 +85,18 @@ useEffect(() => {
         </div>
       </div>
 
+
       {/* TITLE */}
       <h2 className="text-h5 font-bold text-center text-neutral-900">
         Delete Product?
       </h2>
 
+
       <p className="text-center text-p3 text-neutral-700 mt-2">
         This action cannot be undone. The product will be permanently removed
         from your inventory.
       </p>
+
 
       {/* PRODUCT INFO */}
       <div className="bg-tertiary-100 border border-tertiary-500 rounded-xl p-4 mt-5">
@@ -81,18 +105,21 @@ useEffect(() => {
           You are about to delete:
         </p>
 
+
         <p className="text-p5 font-semibold text-neutral-900 mt-1">
           {product?.productName || "-"}{" "}
           {product?.productAttributeDrugs?.[0]?.strength}{" "}
           {product?.productAttributeDrugs?.[0]?.dosageForm}
         </p>
 
+
         <div className="flex justify-between text-p3 mt-3">
           <span className="text-warning-600">Category</span>
           <span className="text-neutral-900 font-semibold">
-  {"Anti-Infectives"}
-</span>
+            {categoryMap[product?.categoryId] || "-"}
+          </span>
         </div>
+
 
         <div className="flex justify-between text-p3 mt-1">
           <span className="text-warning-600">Stock</span>
@@ -101,6 +128,7 @@ useEffect(() => {
           </span>
         </div>
       </div>
+
 
       {/* WARNING */}
       <div className="bg-red-100 rounded-xl p-4 mt-5 text-p2">
@@ -116,6 +144,7 @@ useEffect(() => {
         </ul>
       </div>
 
+
       {/* BUTTONS */}
       <div className="flex gap-4 mt-6">
         <button
@@ -124,6 +153,7 @@ useEffect(() => {
         >
           Cancel
         </button>
+
 
         <button
           className="flex-1 h-11 rounded-lg bg-warning-500 text-white font-medium flex items-center justify-center gap-2"
@@ -137,5 +167,6 @@ useEffect(() => {
     </>
   );
 };
+
 
 export default DeleteProduct;

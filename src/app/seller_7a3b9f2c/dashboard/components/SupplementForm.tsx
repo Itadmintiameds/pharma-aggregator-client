@@ -1822,8 +1822,11 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         </CommonModal>
       )}
 
-
-      <div className="flex flex-col gap-5 w-full">
+      <form 
+        autoComplete="off" 
+        onSubmit={(e) => e.preventDefault()} 
+        className="flex flex-col gap-5 w-full"
+      >
 
         {/* ── Section 1: Product Details ──────────────────────────────────────── */}
         <div className="relative border border-neutral-200 rounded-xl p-6 bg-white">
@@ -2207,9 +2210,13 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                       setShowAgeGroupDropdown((p) => !p);
                     }
                   }}
-                  className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${
-                    errors.ageGroup ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"
-                  } ${isEditMode || loadingAgeGroups ? "bg-pneutral-100 border-2 border-pneutral-300 cursor-not-allowed" : ""}`}
+                  className={`w-full outline-none transition-all duration-200 h-[52px] min-h-[52px] max-h-[56px] px-4 py-3 text-base rounded-lg border flex items-center justify-between cursor-pointer ${
+                    isEditMode || loadingAgeGroups
+                      ? "border-pneutral-200 bg-sneutral-100 text-pneutral-500 cursor-not-allowed"
+                      : errors.ageGroup
+                        ? "border-warning-500 text-pneutral-800 bg-white focus:border-warning-500 focus:ring-1 focus:ring-warning-500"
+                        : "border-pneutral-300 text-pneutral-800 bg-white hover:border-secondary-300"
+                  }`}
                 >
                   <span
                     className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
@@ -2219,16 +2226,15 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   >
                     {form.ageGroup
                       ? form.ageGroup
-                          .split(",")
-                          .map((val) => ageGroupOptions.find((o) => o.value === val)?.label)
-                          .filter(Boolean)
-                          .join(", ")
+                        .split(",")
+                        .map((val) => ageGroupOptions.find((o) => o.value === val)?.label)
+                        .filter(Boolean)
+                        .join(", ")
                       : "Select age group"}
                   </span>
                   <svg
-                    className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${
-                      showAgeGroupDropdown ? "rotate-180" : ""
-                    }`}
+                    className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showAgeGroupDropdown ? "rotate-180" : ""
+                      }`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -2467,8 +2473,11 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               <div className="relative" ref={certDropdownRef}>
                 <div
                   onClick={() => setShowCertDropdown((p) => !p)}
-                  className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"
-                    }`}
+                  className={`w-full outline-none transition-all duration-200 h-[52px] min-h-[52px] max-h-[56px] px-4 py-3 text-base rounded-lg border flex items-center justify-between cursor-pointer ${
+                    errors.certifications
+                      ? "border-warning-500 text-pneutral-800 bg-white focus:border-warning-500 focus:ring-1 focus:ring-warning-500"
+                      : "border-pneutral-300 text-pneutral-800 bg-white hover:border-secondary-300"
+                  }`}
                 >
                   <span
                     className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
@@ -2521,7 +2530,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
                 <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
-                  <div className="flex items-center justify-center h-full px-4 bg-secondary-200">
+                  <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
                   <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
@@ -2891,51 +2900,22 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             <div className="border-b border-neutral-200 col-span-2"></div>
 
-            <div className="col-span-2 flex items-end gap-4">
-              <div className="w-1/2">
-                <Input
-                  type="number"
-                  label="Discount(%)"
-                  name="discountPercentage"
-                  value={form.discountPercentage}
-                  onChange={handleChange}
-                  min={0}
-                  max={100}
-                  step={1}
-                  error={errors.discountPercentage}
-                  required
-                />
-              </div>
-
-              <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAdditionalDiscount(true)}
-                  className="w-[237px] h-[56px] bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[18px] leading-[28px] rounded-lg flex items-center justify-center gap-[12px] cursor-pointer hover:bg-purple-50 transition-all duration-200"
-                >
-                  <svg
-                    width="14.24"
-                    height="14.24"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="flex-shrink-0"
-                  >
-                    <path
-                      d="M7 1v12M1 7h12"
-                      stroke="#9659FD"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <span>Add Special Discount</span>
-                </button>
-              </div>
-            </div>
+            <Input
+              type="number"
+              label="Discount(%)"
+              name="discountPercentage"
+              value={form.discountPercentage}
+              onChange={handleChange}
+              min={0}
+              max={100}
+              step={1}
+              error={errors.discountPercentage}
+              required
+            />
 
             <Input
               type="number"
-              label="MRP"
+              label="MRP (per Pack Size)"
               name="mrp"
               id="mrp"
               placeholder=""
@@ -2954,7 +2934,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             <Input
               type="number"
-              label="Selling Price per Pack Size"
+              label="Selling Price (per Pack Size)"
               name="sellingPrice"
               id="sellingPrice"
               placeholder=""
@@ -2965,6 +2945,32 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               error={errors.sellingPrice}
               required
             />
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => setShowAdditionalDiscount(true)}
+                className="w-[237px] h-[52px] bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[18px] leading-[28px] rounded-lg flex items-center justify-center gap-[12px] cursor-pointer hover:bg-purple-50 transition-all duration-200"
+              >
+                <svg
+                  width="14.24"
+                  height="14.24"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="flex-shrink-0"
+                >
+                  <path
+                    d="M7 1v12M1 7h12"
+                    stroke="#9659FD"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <span>Add Special Discount</span>
+              </button>
+            </div>
+
             <div className="text-h6 font-normal col-span-2 mt-3">
               TAX & BILLING
             </div>
@@ -3036,6 +3042,15 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 error={errors.gstPercentage}
               />
             </div>
+          </div>
+
+          <div className="flex justify-end mt-6">
+            <button
+              type="button"
+              className="w-[108px] h-[48px] bg-[#7D32FC] rounded-[4px] text-white font-[family:var(--font-heading)] font-medium text-lg leading-normal flex items-center justify-center"
+            >
+              Save
+            </button>
           </div>
         </div>
 
@@ -3170,7 +3185,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             </button>
           </div>
         </div>
-      </div>
+      </form>
     </>
   );
 };

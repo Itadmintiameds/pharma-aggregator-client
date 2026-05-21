@@ -15,6 +15,7 @@ import { getAllMolecules } from "@/src/services/product/MoleculeService";
 import {
   getConsumableDeviceCategories,
   getConsumableDeviceSubCategories,
+  getConsumableSpecificationUnitsBySubCategory,
 } from "@/src/services/product/ConsumbaleService";
 import {
   getCosmeticProductTypes,
@@ -24,6 +25,7 @@ import {
   getCosmeticAgeGroups,
   getCosmeticIntendedUseAreas,
   getCosmeticCountries,
+  getCosmeticNetQuantityUnits,
 } from "@/src/services/product/CosmeticService";
 import SupplementDetailsView from "./SupplementDetailsView";
 import ConsumableView from "./ConsumableView";
@@ -302,6 +304,7 @@ interface ResolvedLookups {
   >;
   deviceCategoryName: string | null;
   deviceSubCategoryName: string | null;
+  specificationUnitLabel: string | null;
   loading: boolean;
 }
 
@@ -314,6 +317,7 @@ const INITIAL_LOOKUPS: ResolvedLookups = {
   moleculeDetailMap: {},
   deviceCategoryName: null,
   deviceSubCategoryName: null,
+  specificationUnitLabel: null,
   loading: false,
 };
 
@@ -408,7 +412,6 @@ const formatDate = (dateStr?: string | null): string => {
   if (!dateStr) return "—";
   try {
     return new Date(dateStr).toLocaleDateString("en-IN", {
-      day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
@@ -1006,7 +1009,19 @@ const ProductView1 = ({
         }
       }
 
-      return { deviceCategoryName, deviceSubCategoryName };
+      let specificationUnitLabel: string | null = null;
+      const specUnitId = toPositiveInt((consAttr as any).deviceSpecificationUnitId);
+      if (deviceSubCatId !== null && specUnitId !== null) {
+        try {
+          const units: any[] = await getConsumableSpecificationUnitsBySubCategory(String(deviceSubCatId));
+          const found = units.find((u) => Number(u.unitId ?? u.id) === specUnitId);
+          if (found) specificationUnitLabel = String(found.unitName ?? found.name ?? "").trim() || null;
+        } catch {
+          /* ignore */
+        }
+      }
+
+      return { deviceCategoryName, deviceSubCategoryName, specificationUnitLabel };
     };
 
     Promise.all([
@@ -1118,6 +1133,13 @@ const ProductView1 = ({
           )
           .map(String);
 
+        // ── Extract net quantity unit ID ──
+        const netQtyUnitIdStr = String(
+          (cosAttrRaw as any).unitId ??
+            (cosAttrRaw as any).netQuantityUnitId ??
+            "",
+        );
+
         // ── Fetch all needed masters in parallel ──
         const [
           productTypesResult,
@@ -1126,6 +1148,7 @@ const ProductView1 = ({
           ageGroupsResult,
           intendedUseAreasResult,
           countriesResult,
+          netQtyUnitsResult,
         ] = await Promise.allSettled([
           getCosmeticProductTypes(),
           getCosmeticSkinTypes(),
@@ -1133,6 +1156,7 @@ const ProductView1 = ({
           getCosmeticAgeGroups(),
           getCosmeticIntendedUseAreas(),
           getCosmeticCountries(),
+          getCosmeticNetQuantityUnits(),
         ]);
 
         // ── Build option lists ──
@@ -1244,11 +1268,26 @@ const ProductView1 = ({
           (cosAttrRaw as any).activeIngredients ??
           null;
 
-        const netQuantityStrength =
+        const netQtyValue =
           (cosAttrRaw as any).NetQuantityStrength ??
           (cosAttrRaw as any).netQuantityStrength ??
           (cosAttrRaw as any).netQuantity ??
           null;
+
+        const netQtyUnitOpts = toSelectOpts(
+          netQtyUnitsResult,
+          ["netQuantityUnitId", "unitId", "id"],
+          ["unitName", "unit", "name"],
+        );
+        const netQtyUnitLabel =
+          netQtyUnitIdStr
+            ? (netQtyUnitOpts.find((o) => o.value === netQtyUnitIdStr)?.label ?? null)
+            : null;
+
+        const netQuantityStrength =
+          netQtyValue != null
+            ? [String(netQtyValue), netQtyUnitLabel].filter(Boolean).join(" ")
+            : null;
 
         const productClaims =
           (cosAttrRaw as any).ProductClaims ??
@@ -1551,6 +1590,12 @@ const ProductView1 = ({
         ),
     );
 
+  const specialSchemes: any[] = (
+    productData?.pricingDetails ?? []
+  )
+    .flatMap((p: any) => p.specialSchemes || [])
+    .filter((s: any) => s.schemeName);
+
   const unitsPerPack =
     packaging?.unitPerPack ??
     packaging?.unitsPerPack ??
@@ -1769,6 +1814,7 @@ const ProductView1 = ({
           storageConditionName={storageCondition}
           deviceCategoryName={resolvedDeviceCategoryName}
           deviceSubCategoryName={resolvedDeviceSubCategoryName}
+          specificationUnitLabel={lookups.specificationUnitLabel}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
         />
@@ -2245,7 +2291,7 @@ const ProductView1 = ({
               }
             />
 
-            {additionalDiscounts.length > 0 && (
+            {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
               <>
                 <div style={{ padding: "12px 8px 8px" }}>
                   <span
@@ -2265,7 +2311,7 @@ const ProductView1 = ({
                   const endDate = d.effectiveEndDate ?? d.endDate;
                   return (
                     <div
-                      key={d.additionalDiscountId ?? i}
+                      key={`discount-${d.additionalDiscountId ?? i}`}
                       style={{
                         padding: 12,
                         borderBottom: "1px #D5D5D4 solid",
@@ -2310,6 +2356,41 @@ const ProductView1 = ({
                       >
                         {d.additionalDiscountPercentage}%
                       </span>
+                    </div>
+                  );
+                })}
+                {specialSchemes.map((s, i) => {
+                  const startDate = s.effectiveStartDate;
+                  const endDate = s.effectiveEndDate;
+                  return (
+                    <div
+                      key={`scheme-${s.id ?? i}`}
+                      style={{
+                        padding: 12,
+                        borderBottom: "1px #D5D5D4 solid",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-end",
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <p
+                          style={{
+                            color: "#5A5B58",
+                            fontSize: 14,
+                            fontFamily: "'Work Sans', sans-serif",
+                            fontWeight: 400,
+                            lineHeight: "20px",
+                            margin: 0,
+                          }}
+                        >
+                          {`${s.schemeName}${
+                            startDate && endDate
+                              ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
+                              : ""
+                          }`}
+                        </p>
+                      </div>
                     </div>
                   );
                 })}
