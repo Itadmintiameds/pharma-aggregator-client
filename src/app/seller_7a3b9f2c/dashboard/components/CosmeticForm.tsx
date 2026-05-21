@@ -255,7 +255,6 @@ const gstOptions: SelectOption[] = [
   { value: "5",  label: "5%"  },
   { value: "12", label: "12%" },
   { value: "18", label: "18%" },
-  { value: "28", label: "28%" },
 ];
 
 // ─── Multi-checkbox dropdown ───────────────────────────────────────────────────
@@ -1367,9 +1366,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         }
 
         setSubmitting(false);
-        alert("Product updated successfully!");
         if (onSubmitSuccess) onSubmitSuccess();
-        else window.location.reload();
+        else router.push(`/seller_7a3b9f2c/products/view/${currentProductId}`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("Edit submit error:", err);
@@ -1561,6 +1559,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   }
 
   const isEdit = mode === "edit";
+  const hasStock = isEdit && Number(form.stockQuantity) > 0;
   const currentGenderLabel = isEdit
     ? (displayLabels.genderLabel || genderOptions.find((o) => o.value === form.gender)?.label || form.gender)
     : "";
@@ -1629,8 +1628,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             </div>
 
             <div data-field="brandName">
-              <Input label="Brand Name" name="brandName" placeholder="e.g., Lakme, Neutrogena, Mamaearth"
-                value={form.brandName} onChange={handleChange} error={errors.brandName} required />
+              {isEdit ? (
+                <NonEditableField label="Brand Name" value={form.brandName} required />
+              ) : (
+                <Input label="Brand Name" name="brandName" placeholder="e.g., Lakme, Neutrogena, Mamaearth"
+                  value={form.brandName} onChange={handleChange} error={errors.brandName} required />
+              )}
             </div>
 
             <div className="flex flex-col gap-1" data-field="productTypeId">
@@ -1705,53 +1708,73 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             />
 
             <div className="flex flex-col gap-1" data-field="productFormId">
-              <label className={fieldLabel}>Product Form {requiredStar}</label>
-              <Select
-                options={productFormOptions}
-                isLoading={loadingProductForms}
-                value={productFormOptions.find((o) => o.value === form.productFormId) || null}
-                onChange={(sel) => {
-                  handleSelectChange("productFormId", sel);
-                  if (errors.productFormId) setErrors((p) => { const n = { ...p }; delete n.productFormId; return n; });
-                }}
-                placeholder={loadingProductForms ? "Loading..." : "Eg, Gel, Powder"}
-                theme={selectTheme}
-                styles={selectStyles("productFormId")}
-              />
-              {errors.productFormId && <p className={errorMsg}>{errors.productFormId}</p>}
+              {isEdit ? (
+                <NonEditableSelect
+                  label="Product Form"
+                  value={productFormOptions.find((o) => o.value === form.productFormId)?.label || form.productFormId}
+                  required
+                />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Product Form {requiredStar}</label>
+                  <Select
+                    options={productFormOptions}
+                    isLoading={loadingProductForms}
+                    value={productFormOptions.find((o) => o.value === form.productFormId) || null}
+                    onChange={(sel) => {
+                      handleSelectChange("productFormId", sel);
+                      if (errors.productFormId) setErrors((p) => { const n = { ...p }; delete n.productFormId; return n; });
+                    }}
+                    placeholder={loadingProductForms ? "Loading..." : "Eg, Gel, Powder"}
+                    theme={selectTheme}
+                    styles={selectStyles("productFormId")}
+                  />
+                  {errors.productFormId && <p className={errorMsg}>{errors.productFormId}</p>}
+                </>
+              )}
             </div>
 
             <div className="flex flex-col gap-1" data-field="netQuantity">
-              <label className={fieldLabel}>Net Quantity {requiredStar}</label>
-              <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.netQuantity || errors.netQuantityUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
-                <input
-                  name="netQuantity"
-                  value={form.netQuantity}
-                  onChange={handleChange}
-                  placeholder="Placeholder"
-                  maxLength={10}
-                  className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
+              {isEdit ? (
+                <NonEditableField
+                  label="Net Quantity"
+                  value={`${form.netQuantity} ${netQuantityUnitOptions.find((o) => o.value === form.netQuantityUnitId)?.label || ""}`.trim()}
+                  required
                 />
-                <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
-                <div className="w-36" data-field="netQuantityUnitId">
-                  <Select
-                    options={netQuantityUnitOptions}
-                    isLoading={loadingNetQuantityUnits}
-                    value={netQuantityUnitOptions.find((o) => o.value === form.netQuantityUnitId) || null}
-                    onChange={(sel) => {
-                      handleSelectChange("netQuantityUnitId", sel);
-                      if (errors.netQuantityUnitId) setErrors((p) => { const n = { ...p }; delete n.netQuantityUnitId; return n; });
-                    }}
-                    placeholder={loadingNetQuantityUnits ? "..." : "Select Unit"}
-                    theme={selectTheme}
-                    styles={unitSelectStyles}
-                    menuPortalTarget={typeof document !== "undefined" ? document.body : null}
-                    menuPosition="fixed"
-                  />
-                </div>
-              </div>
-              {errors.netQuantity && <p className={errorMsg}>{errors.netQuantity}</p>}
-              {errors.netQuantityUnitId && <p className={errorMsg}>{errors.netQuantityUnitId}</p>}
+              ) : (
+                <>
+                  <label className={fieldLabel}>Net Quantity {requiredStar}</label>
+                  <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.netQuantity || errors.netQuantityUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
+                    <input
+                      name="netQuantity"
+                      value={form.netQuantity}
+                      onChange={handleChange}
+                      placeholder="Placeholder"
+                      maxLength={10}
+                      className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
+                    />
+                    <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
+                    <div className="w-36" data-field="netQuantityUnitId">
+                      <Select
+                        options={netQuantityUnitOptions}
+                        isLoading={loadingNetQuantityUnits}
+                        value={netQuantityUnitOptions.find((o) => o.value === form.netQuantityUnitId) || null}
+                        onChange={(sel) => {
+                          handleSelectChange("netQuantityUnitId", sel);
+                          if (errors.netQuantityUnitId) setErrors((p) => { const n = { ...p }; delete n.netQuantityUnitId; return n; });
+                        }}
+                        placeholder={loadingNetQuantityUnits ? "..." : "Select Unit"}
+                        theme={selectTheme}
+                        styles={unitSelectStyles}
+                        menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                        menuPosition="fixed"
+                      />
+                    </div>
+                  </div>
+                  {errors.netQuantity && <p className={errorMsg}>{errors.netQuantity}</p>}
+                  {errors.netQuantityUnitId && <p className={errorMsg}>{errors.netQuantityUnitId}</p>}
+                </>
+              )}
             </div>
 
             {skinHairRule.skinType !== "hidden" && (
@@ -1765,6 +1788,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 }}
                 placeholder="Select skin type(s)"
                 errorKey="skinTypes" errors={errors} loading={loadingSkinTypes}
+                disabled={isEdit}
                 fieldRef={setFieldRef("skinTypes") as React.Ref<HTMLDivElement>}
                 dataField="skinTypes"
               />
@@ -1781,6 +1805,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 }}
                 placeholder="Select hair type(s)"
                 errorKey="hairTypes" errors={errors} loading={loadingHairTypes}
+                disabled={isEdit}
                 fieldRef={setFieldRef("hairTypes") as React.Ref<HTMLDivElement>}
                 dataField="hairTypes"
               />
@@ -1795,6 +1820,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               }}
               placeholder="Select age group(s)"
               errorKey="ageGroupId" errors={errors} loading={loadingAgeGroups}
+              disabled={isEdit}
               fieldRef={setFieldRef("ageGroupId") as React.Ref<HTMLDivElement>}
               dataField="ageGroupId"
             />
@@ -1827,15 +1853,21 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             </div>
 
             <div className="flex flex-col gap-1" data-field="storageConditionId">
-              <label className={fieldLabel}>Storage Condition {requiredStar}</label>
-              <Select
-                options={storageConditionOptions} isLoading={loadingStorageConditions}
-                value={storageConditionOptions.find((o) => o.value === form.storageConditionId) || null}
-                onChange={(sel) => handleSelectChange("storageConditionId", sel)}
-                placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
-                theme={selectTheme} styles={selectStyles("storageConditionId")}
-              />
-              {errors.storageConditionId && <p className={errorMsg}>{errors.storageConditionId}</p>}
+              {hasStock ? (
+                <NonEditableSelect label="Storage Condition" value={displayLabels.storageConditionLabel} required />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Storage Condition {requiredStar}</label>
+                  <Select
+                    options={storageConditionOptions} isLoading={loadingStorageConditions}
+                    value={storageConditionOptions.find((o) => o.value === form.storageConditionId) || null}
+                    onChange={(sel) => handleSelectChange("storageConditionId", sel)}
+                    placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
+                    theme={selectTheme} styles={selectStyles("storageConditionId")}
+                  />
+                  {errors.storageConditionId && <p className={errorMsg}>{errors.storageConditionId}</p>}
+                </>
+              )}
             </div>
 
             <div className="flex flex-col gap-1" data-field="certifications">
@@ -1913,8 +1945,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               <textarea
                 ref={setFieldRef("activeIngredients") as React.RefCallback<HTMLTextAreaElement>}
                 name="activeIngredients" value={form.activeIngredients} onChange={handleChange} rows={4}
+                readOnly={isEdit}
                 placeholder="e.g., Vitamin C, Vitamin E, Salicylic Acid, Hyaluronic Acid"
-                className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] transition-colors ${errors.activeIngredients ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}
+                className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border transition-colors ${isEdit ? "bg-gray-50 cursor-default focus:outline-none border-[#C0C1BE]" : `bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] ${errors.activeIngredients ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}`}
               />
               {errors.activeIngredients && <p className={errorMsg}>{errors.activeIngredients}</p>}
             </div>
@@ -1962,7 +1995,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
             <div className="flex flex-col gap-1" data-field="packTypeId">
-              {isEdit ? (
+              {hasStock ? (
                 <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
               ) : (
                 <>
@@ -1979,11 +2012,19 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               )}
             </div>
 
-            <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 1"
-              value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
+            {hasStock ? (
+              <NonEditableField label="Number of Units per Pack Type" value={form.unitsPerPack} required />
+            ) : (
+              <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 1"
+                value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
+            )}
 
-            <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 1"
-              value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
+            {hasStock ? (
+              <NonEditableField label="Number of Packs" value={form.numberOfPacks} required />
+            ) : (
+              <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 1"
+                value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
+            )}
 
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Pack Size (No. of Units per Pack Type × No. of Packs)</label>

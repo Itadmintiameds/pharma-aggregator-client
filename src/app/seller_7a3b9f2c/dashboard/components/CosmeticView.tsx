@@ -481,7 +481,7 @@ const CosmeticPersonalCareView = ({
 
   /* ── Resolve net quantity ── */
   const netQtyDisplay =
-    resolveField(cosAttr, "NetQuantityStrength", "netQuantityStrength", "netQuantity") ?? null;
+    resolveField(cosAttr, "netQuantityStrength", "NetQuantityStrength", "netQuantity") ?? null;
 
 
   /* ── Resolve active ingredients ── */

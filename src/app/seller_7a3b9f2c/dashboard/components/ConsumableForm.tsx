@@ -869,6 +869,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const stock = parseFloat(form.stockQuantity);
       if (!form.stockQuantity.trim()) e.stockQuantity = "Stock quantity is required";
       else if (isNaN(stock) || stock <= 0) e.stockQuantity = "Stock quantity must be a positive value greater than 0";
+      else if (!isNaN(minQ) && minQ > 0 && stock <= minQ) e.stockQuantity = "Stock quantity must be greater than minimum order quantity";
     }
 
     if (mode === "create" && images.length > 5) e.images = "Maximum 5 images allowed";
@@ -939,7 +940,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           packId: Number(form.packType),
           unitPerPack: Number(form.unitsPerPack),
           numberOfPacks: Number(form.numberOfPacks),
-          packSize: Number(form.packSize),
+          packSize: Number(form.unitsPerPack) * Number(form.numberOfPacks),
           minimumOrderQuantity: Number(form.minimumOrderQuantity),
           maximumOrderQuantity: Number(form.maximumOrderQuantity),
         }],
@@ -1002,9 +1003,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             if (!r.success) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
           }
         }
-        alert("Product updated successfully!");
         if (onSubmitSuccess) onSubmitSuccess();
-        else window.location.reload();
+        else router.push(`/seller_7a3b9f2c/products/view/${currentProductId}`);
       } else {
         const createData: ApiResponseData = await createConsumableProduct(payload as Record<string, unknown>);
         const dataInner = createData?.data as ApiResponseData | undefined;

@@ -830,6 +830,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const stock = parseFloat(form.stockQuantity);
       if (!form.stockQuantity.trim()) e.stockQuantity = "Stock quantity is required";
       else if (isNaN(stock) || stock <= 0) e.stockQuantity = "Stock quantity must be a positive value greater than 0";
+      else if (!isNaN(minQ) && minQ > 0 && stock <= minQ) e.stockQuantity = "Stock quantity must be greater than minimum order quantity";
     }
 
     if (mode === "create" && images.length > 5) e.images = "Maximum 5 images allowed";
@@ -881,7 +882,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           packId: Number(form.packType),
           unitPerPack: Number(form.unitPerPack) || 0,
           numberOfPacks: Number(form.numberOfPacks) || 0,
-          packSize: Number(form.packSize) || 0,
+          packSize: Number(form.unitPerPack) * Number(form.numberOfPacks) || 0,
           minimumOrderQuantity: Number(form.minimumOrderQuantity) || 0,
           maximumOrderQuantity: Number(form.maximumOrderQuantity) || 0,
         }],
@@ -957,7 +958,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             if (!r.success) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
           }
         }
-        alert("Product updated successfully!");
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/seller_7a3b9f2c/products/view/${currentProductId}`);
       } else {

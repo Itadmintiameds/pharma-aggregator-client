@@ -56,6 +56,8 @@ export interface ConsumableViewProps {
   deviceCategoryName?: string | null;
   /** Resolved device subcategory name (looked up from deviceSubCatId by parent) */
   deviceSubCategoryName?: string | null;
+  /** Resolved specification unit label (e.g. "mm", "cm") for the dimensionSize field */
+  specificationUnitLabel?: string | null;
   brochureUrl?: string | null;
   placeholderImage?: string;
 }
@@ -203,6 +205,7 @@ const ConsumableView = ({
   storageConditionName,
   deviceCategoryName,
   deviceSubCategoryName,
+  specificationUnitLabel,
   brochureUrl,
   placeholderImage = "/assets/images/SellerMed.jpg",
 }: ConsumableViewProps) => {
@@ -374,7 +377,14 @@ const ConsumableView = ({
                 : null
             }
           />
-          <FieldRow label="Size / Dimension / Gauge" value={consAttr?.dimensionSize} />
+          <FieldRow
+            label="Size / Dimension / Gauge"
+            value={
+              consAttr?.dimensionSize
+                ? [consAttr.dimensionSize, specificationUnitLabel].filter(Boolean).join(" ")
+                : null
+            }
+          />
           <FieldRow
             label="Usage Type"
             value={consAttr?.usageType ?? consAttr?.disposalOrReusable}

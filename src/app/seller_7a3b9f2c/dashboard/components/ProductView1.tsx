@@ -15,6 +15,7 @@ import { getAllMolecules } from "@/src/services/product/MoleculeService";
 import {
   getConsumableDeviceCategories,
   getConsumableDeviceSubCategories,
+  getConsumableSpecificationUnitsBySubCategory,
 } from "@/src/services/product/ConsumbaleService";
 import {
   getCosmeticProductTypes,
@@ -303,6 +304,7 @@ interface ResolvedLookups {
   >;
   deviceCategoryName: string | null;
   deviceSubCategoryName: string | null;
+  specificationUnitLabel: string | null;
   loading: boolean;
 }
 
@@ -315,6 +317,7 @@ const INITIAL_LOOKUPS: ResolvedLookups = {
   moleculeDetailMap: {},
   deviceCategoryName: null,
   deviceSubCategoryName: null,
+  specificationUnitLabel: null,
   loading: false,
 };
 
@@ -1006,7 +1009,19 @@ const ProductView1 = ({
         }
       }
 
-      return { deviceCategoryName, deviceSubCategoryName };
+      let specificationUnitLabel: string | null = null;
+      const specUnitId = toPositiveInt((consAttr as any).deviceSpecificationUnitId);
+      if (deviceSubCatId !== null && specUnitId !== null) {
+        try {
+          const units: any[] = await getConsumableSpecificationUnitsBySubCategory(String(deviceSubCatId));
+          const found = units.find((u) => Number(u.unitId ?? u.id) === specUnitId);
+          if (found) specificationUnitLabel = String(found.unitName ?? found.name ?? "").trim() || null;
+        } catch {
+          /* ignore */
+        }
+      }
+
+      return { deviceCategoryName, deviceSubCategoryName, specificationUnitLabel };
     };
 
     Promise.all([
@@ -1793,6 +1808,7 @@ const ProductView1 = ({
           storageConditionName={storageCondition}
           deviceCategoryName={resolvedDeviceCategoryName}
           deviceSubCategoryName={resolvedDeviceSubCategoryName}
+          specificationUnitLabel={lookups.specificationUnitLabel}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
         />
