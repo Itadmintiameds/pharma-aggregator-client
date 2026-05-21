@@ -3043,6 +3043,15 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               />
             </div>
           </div>
+
+          <div className="flex justify-end mt-6">
+            <button
+              type="button"
+              className="w-[108px] h-[48px] bg-[#7D32FC] rounded-[4px] text-white font-[family:var(--font-heading)] font-medium text-lg leading-normal flex items-center justify-center"
+            >
+              Save
+            </button>
+          </div>
         </div>
 
         {/* ── Section 2: Product Photos ──────────────────────────────────────────── */}
