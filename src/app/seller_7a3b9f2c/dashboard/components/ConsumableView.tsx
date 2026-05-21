@@ -1,13 +1,16 @@
 "use client";
 
+
 import React, { useState } from "react";
 import { FileText, ExternalLink } from "lucide-react";
 import { PiSealCheckLight } from "react-icons/pi";
 import Image from "next/image";
 
+
 /* ─────────────────────────────────────────────────────────
    TYPES
 ───────────────────────────────────────────────────────── */
+
 
 export interface CertificateDocument {
   certificationId: number;
@@ -16,6 +19,7 @@ export interface CertificateDocument {
   label?: string;
   productCertificateDocumentId?: number;
 }
+
 
 export interface ConsumableAttributes {
   brochurePath?: string;
@@ -41,6 +45,7 @@ export interface ConsumableAttributes {
   usageType?: string;
 }
 
+
 export interface ConsumableViewProps {
   productName?: string | null;
   productDescription?: string | null;
@@ -55,15 +60,26 @@ export interface ConsumableViewProps {
   placeholderImage?: string;
 }
 
+
 /* ─────────────────────────────────────────────────────────
    SHARED STYLES
 ───────────────────────────────────────────────────────── */
+
 
 const FONTS = {
   workSans: "'Work Sans', 'Segoe UI', sans-serif",
   notoSans: "'Noto Sans', 'Segoe UI', sans-serif",
   openSans: "'Open Sans', 'Segoe UI', sans-serif",
 };
+
+
+const CERT_COLORS = [
+  { bg: "#DCF7CB", color: "#378200" },
+  { bg: "#FFD6D9", color: "#B91C1C" },
+  { bg: "#DBEAFE", color: "#1D4ED8" },
+  { bg: "#FEF9C3", color: "#A16207" },
+];
+
 
 const ROW: React.CSSProperties = {
   display: "grid",
@@ -74,6 +90,7 @@ const ROW: React.CSSProperties = {
   gap: 16,
 };
 
+
 const ROW_LABEL: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
@@ -81,6 +98,7 @@ const ROW_LABEL: React.CSSProperties = {
   flex: "1 1 0",
   minWidth: 0,
 };
+
 
 const LABEL_TEXT: React.CSSProperties = {
   color: "#5A5B58",
@@ -92,6 +110,7 @@ const LABEL_TEXT: React.CSSProperties = {
   margin: 0,
 };
 
+
 const REQUIRED_STAR: React.CSSProperties = {
   color: "#FF3B3B",
   fontSize: 16,
@@ -100,6 +119,7 @@ const REQUIRED_STAR: React.CSSProperties = {
   lineHeight: "24px",
   flexShrink: 0,
 };
+
 
 const VALUE_TEXT: React.CSSProperties = {
   color: "#3C3D3A",
@@ -113,14 +133,18 @@ const VALUE_TEXT: React.CSSProperties = {
   margin: 0,
 };
 
+
 /* ─────────────────────────────────────────────────────────
    HELPERS
 ───────────────────────────────────────────────────────── */
 
+
 const isImageUrl = (url: string) =>
   /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
 
+
 const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url);
+
 
 const isValidUrl = (url?: string | null) => {
   if (!url) return false;
@@ -128,9 +152,11 @@ const isValidUrl = (url?: string | null) => {
   return !["", "PENDING", "NOT_UPLOADED"].includes(t);
 };
 
+
 /* ─────────────────────────────────────────────────────────
    SUB-COMPONENTS
 ───────────────────────────────────────────────────────── */
+
 
 const FieldRow = ({
   label,
@@ -160,12 +186,14 @@ const FieldRow = ({
   </div>
 );
 
+
 /* ─────────────────────────────────────────────────────────
    MAIN COMPONENT
    Renders only "Product Details" content.
    All common sections (Packaging, Batch, Pricing, TAX)
    are handled by the parent ProductView1.
 ───────────────────────────────────────────────────────── */
+
 
 const ConsumableView = ({
   productName,
@@ -182,15 +210,18 @@ const ConsumableView = ({
   const [showCertModal, setShowCertModal] = useState(false);
   const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
 
+
   const certDocs: CertificateDocument[] = (consAttr?.certificateDocuments ?? []).filter(
     (c) => isValidUrl(c.certificateUrl),
   );
+
 
   const storageCondition =
     storageConditionName ??
     consAttr?.storageConditionName?.trim() ??
     consAttr?.storageCondition?.trim() ??
     null;
+
 
   // Resolve device names: prefer explicit props (looked up by parent from IDs),
   // fall back to inline fields on consAttr (populated when API returns strings).
@@ -199,10 +230,13 @@ const ConsumableView = ({
   const resolvedDeviceSubCategoryName =
     deviceSubCategoryName ?? consAttr?.deviceSubCategoryName ?? null;
 
+
   const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+
 
   return (
     <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
+
 
       {/* ── Section header ── */}
       <div style={{ paddingTop: 8, paddingBottom: 8, borderBottom: "1px #D5D5D4 solid" }}>
@@ -220,6 +254,7 @@ const ConsumableView = ({
         </h2>
       </div>
 
+
       {/* ── Product Images ── */}
       <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
         <p
@@ -234,6 +269,7 @@ const ConsumableView = ({
         >
           Product Images
         </p>
+
 
         <div
           style={{
@@ -318,8 +354,10 @@ const ConsumableView = ({
         </div>
       </div>
 
+
       {/* ── Two-column field rows ── */}
       <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
+
 
         {/* LEFT COLUMN */}
         <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
@@ -344,11 +382,13 @@ const ConsumableView = ({
           <FieldRow label="Intended Use / Purpose" value={consAttr?.purpose} multiline />
         </div>
 
+
         {/* RIGHT COLUMN */}
         <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
           <FieldRow label="Sterile / Non-Sterile" value={consAttr?.sterileOrNonSterile} />
           <FieldRow label="Storage Condition" value={storageCondition} multiline />
           <FieldRow label="Manufacturer Name" value={consAttr?.manufacturerName} />
+
 
           {/* Uploaded Product Brochure */}
           <div
@@ -422,6 +462,7 @@ const ConsumableView = ({
             )}
           </div>
 
+
           {/* Certifications / Compliance */}
           {certDocs.length > 0 && (
             <div
@@ -441,42 +482,46 @@ const ConsumableView = ({
                 <span style={REQUIRED_STAR}>*</span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignContent: "flex-start" }}>
-                {certDocs.map((cert) => (
-                  <button
-                    key={cert.certificationId}
-                    type="button"
-                    onClick={() => {
-                      setActiveCertDoc(cert);
-                      setShowCertModal(true);
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      paddingLeft: 8,
-                      paddingRight: 8,
-                      paddingTop: 4,
-                      paddingBottom: 4,
-                      background: "#DCF7CB",
-                      border: "none",
-                      borderRadius: 8,
-                      cursor: "pointer",
-                      fontFamily: FONTS.notoSans,
-                      fontSize: 16,
-                      fontWeight: 500,
-                      lineHeight: "24px",
-                      color: "#378200",
-                    }}
-                  >
-                    <PiSealCheckLight size={16} />
-                    {cert.certificationName ?? `Cert ${cert.certificationId}`}
-                  </button>
-                ))}
+                {certDocs.map((cert, idx) => {
+                  const c = CERT_COLORS[idx % CERT_COLORS.length];
+                  return (
+                    <button
+                      key={cert.certificationId}
+                      type="button"
+                      onClick={() => {
+                        setActiveCertDoc(cert);
+                        setShowCertModal(true);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        paddingLeft: 8,
+                        paddingRight: 8,
+                        paddingTop: 4,
+                        paddingBottom: 4,
+                        background: c.bg,
+                        border: "none",
+                        borderRadius: 8,
+                        cursor: "pointer",
+                        fontFamily: FONTS.notoSans,
+                        fontSize: 16,
+                        fontWeight: 500,
+                        lineHeight: "24px",
+                        color: c.color,
+                      }}
+                    >
+                      <PiSealCheckLight size={16} />
+                      {cert.certificationName ?? `Cert ${cert.certificationId}`}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
       </div>
+
 
       {/* ── Key Features + Safety Instructions side by side ── */}
       <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
@@ -526,6 +571,7 @@ const ConsumableView = ({
           )}
         </div>
 
+
         <div
           style={{
             flex: "1 1 0",
@@ -559,6 +605,7 @@ const ConsumableView = ({
         </div>
       </div>
 
+
       {/* ── Product Description (full width) ── */}
       <div
         style={{
@@ -590,6 +637,7 @@ const ConsumableView = ({
           {productDescription ?? "—"}
         </p>
       </div>
+
 
       {/* ── Certificate Modal ── */}
       {showCertModal && activeCertDoc !== null && (
@@ -696,6 +744,7 @@ const ConsumableView = ({
               </div>
             </div>
 
+
             {/* Modal body */}
             <div
               style={{
@@ -769,6 +818,7 @@ const ConsumableView = ({
               )}
             </div>
 
+
             {/* Other certs strip */}
             {certDocs.length > 1 && (
               <div
@@ -786,32 +836,36 @@ const ConsumableView = ({
                 </span>
                 {certDocs
                   .filter((c) => c.certificationId !== activeCertDoc.certificationId)
-                  .map((cert) => (
-                    <button
-                      key={cert.certificationId}
-                      type="button"
-                      onClick={() => setActiveCertDoc(cert)}
-                      style={{
-                        flexShrink: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        color: "#378200",
-                        background: "#DCF7CB",
-                        fontSize: 12,
-                        fontFamily: FONTS.notoSans,
-                        fontWeight: 500,
-                        lineHeight: "18px",
-                        padding: "6px 12px",
-                        borderRadius: 9999,
-                        border: "none",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <PiSealCheckLight size={12} />
-                      {cert.certificationName ?? cert.label ?? `Cert ${cert.certificationId}`}
-                    </button>
-                  ))}
+                  .map((cert) => {
+                    const idx = certDocs.findIndex((c) => c.certificationId === cert.certificationId);
+                    const cl = CERT_COLORS[idx % CERT_COLORS.length];
+                    return (
+                      <button
+                        key={cert.certificationId}
+                        type="button"
+                        onClick={() => setActiveCertDoc(cert)}
+                        style={{
+                          flexShrink: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          color: cl.color,
+                          background: cl.bg,
+                          fontSize: 12,
+                          fontFamily: FONTS.notoSans,
+                          fontWeight: 500,
+                          lineHeight: "18px",
+                          padding: "6px 12px",
+                          borderRadius: 9999,
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <PiSealCheckLight size={12} />
+                        {cert.certificationName ?? cert.label ?? `Cert ${cert.certificationId}`}
+                      </button>
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -820,5 +874,6 @@ const ConsumableView = ({
     </div>
   );
 };
+
 
 export default ConsumableView;

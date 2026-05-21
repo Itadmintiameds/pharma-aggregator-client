@@ -666,12 +666,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numericOnlyFields = ["stockQuantity", "sellingPricePerPack", "mrp", "discountPercentage", "hsnCode", "unitsPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity"];
+    const numericOnlyFields = ["stockQuantity", "sellingPricePerPack", "mrp", "discountPercentage", "hsnCode", "unitsPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity", "sizeDimension"];
     if (numericOnlyFields.includes(name)) {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
-    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000, sizeDimension: 20 };
+    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000, sizeDimension: 10 };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
     setForm((p) => ({ ...p, [name]: value }));
@@ -726,6 +726,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
   };
 
+  const handleCertRemove = (certId: string) => {
+    setSelectedCertifications((prev) =>
+      prev.map((c) => c.id === certId ? { ...c, file: null, fileName: "", isUploaded: false } : c)
+    );
+  };
+
   const handleImageFiles = (files: FileList | File[]) => {
     const fileArr = Array.from(files);
     const allowedFormats = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml"];
@@ -760,14 +766,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const sDim = form.sizeDimension.trim();
       if (!sDim) {
         e.sizeDimension = "Size / Dimension is required";
-      } else if (sDim.length > 20) {
-        e.sizeDimension = "Size / Dimension must not exceed 20 characters";
-      } else {
-        // Allow numeric (e.g., 5, 10.50), dimensional (22 × 25, 14x40), or predefined size labels
-        const validPattern = /^[\d]+(\.\d{1,2})?(\s*[xX×]\s*[\d]+(\.\d{1,2})?)*$|^(Neonatal|Paediatric|Adult|XS|S|M|L|XL)$/i;
-        if (!validPattern.test(sDim)) {
-          e.sizeDimension = "Enter a numeric value (e.g., 10, 22×25), or a standard size (S, M, L, Adult, Neonatal)";
-        }
+      } else if (isNaN(Number(sDim)) || Number(sDim) <= 0) {
+        e.sizeDimension = "Size / Dimension must be a positive number";
       }
       if (!form.deviceSpecificationUnitId) e.deviceSpecificationUnitId = "Unit is required";
       if (!form.sterileStatus) e.sterileStatus = "Sterile status is required";
@@ -793,9 +793,16 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         if (form.manufacturingDate > currentMonth) e.manufacturingDate = "Manufacturing date cannot be in the future month";
       }
       if (!form.expiryDate) e.expiryDate = "Expiry date is required";
-      else if (form.manufacturingDate) {
-        const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
-        if (form.expiryDate < minExpiry) e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
+      else {
+        const today = new Date();
+        const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+        if (form.expiryDate < minFromNow)
+          e.expiryDate = "Expiry date must be at least 3 months from current month";
+        else if (form.manufacturingDate) {
+          const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
+          if (form.expiryDate < minExpiry)
+            e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
+        }
       }
       if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
       if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
@@ -884,9 +891,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   };
 
   const getMinExpiryMonth = () => {
-    if (!form.manufacturingDate) return "";
+    const today = new Date();
+    const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+    if (!form.manufacturingDate) {
+      return `${minFromNow.getFullYear()}-${String(minFromNow.getMonth() + 1).padStart(2, "0")}`;
+    }
     const mfg = new Date(form.manufacturingDate);
-    const min = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
+    const minFromMfg = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
+    const min = minFromMfg > minFromNow ? minFromMfg : minFromNow;
     return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}`;
   };
 
@@ -1221,7 +1233,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                     name="sizeDimension"
                     value={form.sizeDimension}
                     onChange={handleChange}
-                    placeholder="e.g., 10.5, 22×25, M, Adult"
+                    placeholder="e.g., 10.5"
                     className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
                   />
                   <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
@@ -1293,15 +1305,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 <>
                   <label className={fieldLabel}>Certifications &amp; Compliance {requiredStar}</label>
                   <div className="relative" ref={dropdownRef}>
-                    <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
-                      <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#969793" }}>
+                    <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"}`}>
+                      <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "var(--pneutral-800)" : "var(--sneutral-400)" }}>
                         {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
                       </span>
                       <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </div>
                     {showCertDropdown && (
-                      <div className="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                        {loadingCertifications ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
+                      <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
+                        {loadingCertifications ? <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div> : (
                           certificationMasterOptions.map((opt) => (
                             <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
                               <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
@@ -1318,54 +1330,35 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             </div>
 
             {/* Certifications — upload */}
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Upload Certificate Documents {requiredStar}</label>
-              {selectedCertifications.length === 0 ? (
-                <div className="w-full border border-gray-200 rounded-xl flex items-center h-12 overflow-hidden bg-gray-50">
-                  <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
-                  <span className="[color:#969793] text-base [font-family:'Open_Sans',sans-serif] px-3">Select certifications first</span>
+            {selectedCertifications.length === 0 ? (
+              <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
+                <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
+                <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
+                  <div className="flex items-center justify-center h-full px-4 bg-secondary-200">
+                    <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
+                    <span className="text-pneutral-500 text-sm">Select certifications first</span>
+                  </div>
                 </div>
-              ) : (
-                    <div className="flex flex-col gap-2">
-                      {selectedCertifications.map((cert) => (
-                        <div key={cert.id}>
-                          {cert.existingUrl && !cert.file ? (
-                            <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
-                              <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.label}</p><p className="text-xs text-gray-500">Existing certificate</p></div>
-                              <div className="flex items-center gap-1 pr-3">
-                                <button type="button" title="Replace" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                                <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                              </div>
-                            </div>
-                          ) : cert.isUploaded && cert.file ? (
-                            <div className="flex items-center border border-purple-200 rounded-xl overflow-hidden h-12 bg-purple-50">
-                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-purple-600" /></div>
-                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-200 text-purple-800 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
-                              <div className="flex-1 px-2 min-w-0"><p className="text-sm font-medium [color:#3C3D3A] truncate">{cert.fileName}</p><p className="text-xs text-gray-500">{(cert.file.size / 1024).toFixed(0)} KB</p></div>
-                              <div className="flex items-center gap-1 pr-3">
-                                <button type="button" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()} className="p-1.5 rounded-lg hover:bg-purple-200 text-purple-600"><RefreshCw size={13} /></button>
-                                <button type="button" onClick={() => setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id))} className="p-1.5 rounded-lg hover:bg-red-100 text-red-400"><X size={13} /></button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-12 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => document.getElementById(`consumable-cert-upload-${cert.id}`)?.click()}>
-                              <div className="w-11 h-full bg-purple-100 flex items-center justify-center flex-shrink-0"><UploadCloudIcon /></div>
-                              <div className="px-2 flex-shrink-0"><span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-xs font-semibold [font-family:'Open_Sans',sans-serif]">{cert.tagCode}</span></div>
-                              <span className="px-2 text-sm [font-family:'Open_Sans',sans-serif] [color:#969793] truncate flex-1">{cert.label} — click to upload</span>
-                              <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCertifications((p) => p.filter((c) => c.id !== cert.id)); }} className="pr-3 text-gray-400 hover:text-red-500"><X size={13} /></button>
-                            </div>
-                          )}
-                          <input id={`consumable-cert-upload-${cert.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
-                            onClick={(e) => { (e.target as HTMLInputElement).value = ""; }}
-                            onChange={(e) => { const file = e.target.files?.[0]; if (file) handleCertFileSelect(cert.id, file); }} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-              <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 5 MB per file.</p>
-            </div>
+              </div>
+            ) : (
+              selectedCertifications.map((cert) => (
+                <div key={cert.id} className="flex flex-col gap-1 col-span-1">
+                  <label className={fieldLabel}>Upload {cert.label} {requiredStar}</label>
+                  <UploadInput
+                    onFileSelect={(file) => {
+                      if (file) handleCertFileSelect(cert.id, file);
+                      else handleCertRemove(cert.id);
+                    }}
+                    existingFile={cert.existingUrl || undefined}
+                    label=""
+                    placeholder={`Upload the ${cert.label}`}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                </div>
+              ))
+            )}
 
             {/* Country of Origin */}
             {isEdit ? (
@@ -1529,10 +1522,18 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 const value = e.target.value;
                 if (!value) {
                   setForm((prev) => ({ ...prev, expiryDate: null, shelfLifeMonths: "" }));
+                  setErrors((prev) => { const n = { ...prev }; delete n.expiryDate; return n; });
                   return;
                 }
                 const [year, month] = value.split("-").map(Number);
                 const date = new Date(year, month - 1, 1);
+                const today = new Date();
+                const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+                if (date < minFromNow) {
+                  setErrors((p) => ({ ...p, expiryDate: "Expiry date must be at least 3 months from current month" }));
+                  setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+                  return;
+                }
                 if (form.manufacturingDate) {
                   const mfg = form.manufacturingDate;
                   const minDate = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
@@ -1540,17 +1541,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                   if (date < minDate) {
                     setErrors((p) => ({ ...p, expiryDate: "Expiry must be at least 3 months after Manufacturing Date" }));
                     setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+                  } else if (totalMonths < 0) {
+                    setErrors((p) => ({ ...p, expiryDate: "Expiry cannot be before Manufacturing Date" }));
+                    setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
                   } else {
                     setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
                     setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: totalMonths.toString() }));
                   }
                 } else {
                   setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
-                }
-              }}
-              onFocus={() => {
-                if (form.manufacturingDate) {
-                  setErrors((prev) => ({ ...prev, expiryDate: "Expiry must be at least 3 months after Manufacturing Date" }));
                 }
               }}
               min={getMinExpiryMonth()}
