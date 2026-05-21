@@ -216,18 +216,52 @@ export const uploadNutritionalInformationImage = async (
 };
 
 
+export const getNetQuantityUnits = async (categoryId: string | number) => {
+  try {
+    if (!categoryId) throw new Error("Category ID is required");
+    const response = await api.get(`net-quantity-units/${categoryId}`);
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Net Quantity Units:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Net Quantity Units: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Net Quantity Units.');
+    }
+  }
+};
+
+
+export const getServingSizeUnits = async (productFormId: string | number) => {
+  try {
+    if (!productFormId) throw new Error("Product Form ID is required");
+    const response = await api.get(`serving-size/productForm/${productFormId}`);
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Serving Size Units:', error);
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Serving Size Units: ${error.message}`);
+    } else {
+      throw new Error('An unknown error occurred while fetching Serving Size Units.');
+    }
+  }
+};
 
 
 
 
 
 
-// code dated 15.05.2026 and working code...........
+
+
+
+
+
+// working code dated 20.05.2026..........
 
 // import { api } from "@/src/utils/api";
-// import {  CreateProductRequest } from "@/src/types/product/ProductData";
+// import { CreateProductRequest } from "@/src/types/product/ProductData";
 // import { AxiosError } from "axios";
-
 
 // export const getProductCategories = async (categoryId: number) => {
 //   try {
@@ -310,7 +344,6 @@ export const uploadNutritionalInformationImage = async (
 //   }
 // };
 
-
 // export const uploadFoodInfantUserManual = async (productAttributeId: string, file: File) => {
 //   try {
 //     const formData = new FormData();
@@ -335,7 +368,6 @@ export const uploadNutritionalInformationImage = async (
 //   }
 // };
 
-
 // export const createFoodInfantProduct = async (payload: CreateProductRequest) => {
 //   try {
 //     const response = await api.post('/products/create', payload, {
@@ -345,7 +377,6 @@ export const uploadNutritionalInformationImage = async (
 //     console.log("✅ Food/Infant product created successfully:", response.data);
 //     return response.data;
 //   } catch (error: any) {
-//     // Log the full error object
 //     console.error('❌ Error creating Food/Infant Product');
 //     console.error('Error message:', error.message);
 //     console.error('Response status:', error.response?.status);
@@ -374,7 +405,6 @@ export const uploadNutritionalInformationImage = async (
 //   }
 // };
 
-
 // export const getFoodInfantAttributes = async (productId: string) => {
 //   try {
 //     const response = await api.get(`/products/getById/${productId}`);
@@ -393,7 +423,6 @@ export const uploadNutritionalInformationImage = async (
 //     return null;
 //   }
 // };
-
 
 // export const uploadFoodInfantBrochure = async (productAttributeId: string, file: File) => {
 //   try {
@@ -421,5 +450,28 @@ export const uploadNutritionalInformationImage = async (
 //   } catch (error: any) {
 //     console.error('Error updating brochure URL', error);
 //     throw new Error(error.response?.data?.message || error.message || 'Error updating brochure URL');
+//   }
+// };
+
+// // NEW: Upload nutritional information image for Food/Infant products
+// export const uploadNutritionalInformationImage = async (
+//   productAttributeId: string,
+//   categoryId: string | number,
+//   file: File
+// ) => {
+//   try {
+//     const formData = new FormData();
+//     formData.append('categoryId', String(categoryId));
+//     formData.append('images', file);
+//     const response = await api.post(
+//       `/nutritionalInformationImage/${productAttributeId}`,
+//       formData
+//     );
+//     return response.data;
+//   } catch (error: any) {
+//     console.error('Error uploading Nutritional Information Image', error);
+//     throw new Error(
+//       error.response?.data?.message || error.message || 'Error uploading Nutritional Information Image'
+//     );
 //   }
 // };

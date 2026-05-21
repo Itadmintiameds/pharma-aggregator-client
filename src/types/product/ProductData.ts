@@ -20,6 +20,12 @@ export interface CreateProductRequest {
   pricingDetails: PricingData[];
   productAttributeFoodInfants?: ProductAttributeFoodInfantData[];
 }
+
+export interface UnitOption {
+  unitId: number;
+  unitName: string;
+  unitCode: string;
+}
 export interface ProductAttributeFoodInfantData {
   productAttributeId?: string;
   productCategoryId: number;
@@ -27,8 +33,10 @@ export interface ProductAttributeFoodInfantData {
   brandName: string;
   variantName: string;
   productFormId: number;
-  netQuantity: string;
-  servingSize: string;
+  netQuantity: number;
+  unitId: number;
+  servingSize:  number;
+  servingSizeUnitId: number;
   ageGroupId: number;
   vegNonvegIndicator: "veg" | "non-veg";  
   allergenInformation: string;

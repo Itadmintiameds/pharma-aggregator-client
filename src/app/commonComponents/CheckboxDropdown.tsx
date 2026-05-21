@@ -83,7 +83,7 @@ const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
   const someSelected = selectedValues.length > 0 && selectedValues.length < options.length;
 
   return (
-    <div className={`flex flex-col gap-2 ${className}`}>
+    <div className={`flex flex-col gap-1 ${className}`}>
       {label && (
         <label className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
           {icon && <span className="text-neutral-600 text-lg">{icon}</span>}
@@ -94,23 +94,23 @@ const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
 
       <div className="relative" ref={dropdownRef}>
         <div
-          className={`w-full h-14 px-4 rounded-xl border flex items-center justify-between cursor-pointer overflow-hidden
+          className={`w-full h-13 px-4 rounded-lg border flex items-center justify-between cursor-pointer overflow-hidden
             ${!disabled
-              ? "bg-white border-secondary-200 hover:border-primary-900"
-              : "bg-neutral-50 border-neutral-100 cursor-not-allowed"
+              ? "bg-white border-pneutral-300"
+              : "bg-neutral-50 border-neutral-300 cursor-not-allowed"
             }
             ${error ? "border-red-500" : ""}
           `}
           onClick={() => !disabled && setIsOpen(!isOpen)}
         >
           <div className="flex items-center gap-2 flex-1">
-            {icon && <span className="text-neutral-500 shrink-0">{icon}</span>}
-            <span className={`text-neutral-900 truncate ${!selectedValues.length ? "text-neutral-500" : ""}`}>
+            {icon && <span className="text-pneutral-500 shrink-0">{icon}</span>}
+            <span className={`text-pneutral-500 truncate ${!selectedValues.length ? "text-pneutral-900" : ""}`}>
               {displayText}
             </span>
           </div>
           <ChevronDown
-            className={`w-5 h-5 text-neutral-500 transition-transform shrink-0 ml-2 ${
+            className={`w-5 h-5 text-pneutral-800 transition-transform shrink-0 ml-2 ${
               isOpen ? "rotate-180" : ""
             }`}
           />
