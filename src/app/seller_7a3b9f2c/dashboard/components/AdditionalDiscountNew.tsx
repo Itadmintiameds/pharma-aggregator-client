@@ -19,6 +19,7 @@ type AdditionalDiscountNewProps = {
   baseDiscountPercentage: number;
   baseMinimumOrderQuantity: number;
   onSave: (data: AdditionalDiscountData[]) => void;
+  alwaysActive: boolean;
 };
 
 type AdditionalDiscountForm = {
@@ -45,6 +46,7 @@ const AdditionalDiscountNew = forwardRef<
       baseDiscountPercentage,
       baseMinimumOrderQuantity,
       onSave,
+      alwaysActive,
     }: AdditionalDiscountNewProps,
     ref,
   ) => {
@@ -125,7 +127,7 @@ const AdditionalDiscountNew = forwardRef<
     ) => {
       const errors: Record<string, string> = {};
 
-      if (updatedForm.alwaysActive) return errors;
+      if (alwaysActive) return errors;
 
       const {
         effectiveStartDate,
@@ -407,7 +409,7 @@ const AdditionalDiscountNew = forwardRef<
       }
 
       // ✅ Date validation
-      if (!form.alwaysActive) {
+      if (!alwaysActive) {
         if (!form.effectiveStartDate)
           newErrors.effectiveStartDate = "Start Date is required";
         if (!form.effectiveStartTime)
@@ -431,10 +433,10 @@ const AdditionalDiscountNew = forwardRef<
       const slab: AdditionalDiscountData = {
         minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
         additionalDiscountPercentage: Number(form.discountPercentage),
-        effectiveStartDate: form.alwaysActive ? "" : form.effectiveStartDate,
-        effectiveStartTime: form.alwaysActive ? "" : form.effectiveStartTime,
-        effectiveEndDate: form.alwaysActive ? "" : form.effectiveEndDate,
-        effectiveEndTime: form.alwaysActive ? "" : form.effectiveEndTime,
+        effectiveStartDate: alwaysActive ? "" : form.effectiveStartDate,
+        effectiveStartTime: alwaysActive ? "" : form.effectiveStartTime,
+        effectiveEndDate: alwaysActive ? "" : form.effectiveEndDate,
+        effectiveEndTime: alwaysActive ? "" : form.effectiveEndTime,
       };
 
       const updatedSlabs = [...slabs, slab];
@@ -458,12 +460,12 @@ const AdditionalDiscountNew = forwardRef<
         <div className="flex flex-col gap-7">
           {slabs.length > 0 && (
             <div className="space-y-3">
-              <div className="text-label-l4 font-semibold">
+              <div className="text-label-l5 font-medium">
                 Use Existing Discounts
               </div>
 
-              <div className="border rounded-xl border-neutral-300 overflow-hidden">
-                <table className="w-full text-sm border-collapse">
+              <div className="border rounded-xl border-pneutral-300 overflow-hidden">
+                <table className="w-full text-label-l3 border-collapse">
                   {/* HEADER */}
                   <thead>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -471,7 +473,7 @@ const AdditionalDiscountNew = forwardRef<
                         {headerGroup.headers.map((header) => (
                           <th
                             key={header.id}
-                            className="px-4 py-3 text-left text-lable-l2 font-semibold text-neutral-900 border border-neutral-300"
+                            className="px-4 py-3 text-left text-lable-l2 font-semibold text-neutral-900 border border-pneutral-300"
                           >
                             {flexRender(
                               header.column.columnDef.header,
@@ -488,13 +490,13 @@ const AdditionalDiscountNew = forwardRef<
                       <tr
                         key={row.id}
                         className={
-                          index % 2 === 0 ? "bg-white" : "bg-neutral-100"
+                          index % 2 === 0 ? "bg-white" : "bg-pneutral-100"
                         }
                       >
                         {row.getVisibleCells().map((cell) => (
                           <td
                             key={cell.id}
-                            className="px-4 py-3 border border-neutral-300 text-center"
+                            className="px-4 py-3 border border-pneutral-300 text-center"
                           >
                             {flexRender(
                               cell.column.columnDef.cell,
@@ -508,16 +510,22 @@ const AdditionalDiscountNew = forwardRef<
                 </table>
               </div>
 
-              <div className="text-label-l4 font-semibold text-center m-8">
+              <div className="flex justify-end">
+                <button className="w-33.25 h-10 border-[1.5px] rounded-lg border-secondary-700 text-secondary-700 text-lable-l3 font-medium">
+                  Apply
+                </button>
+              </div>
+
+              <div className="text-label-l4 font-semibold text-center m-3">
                 OR
               </div>
             </div>
           )}
 
           <div className="flex flex-col gap-4">
-            <div className="text-label-l4 font-medium">Purchase Conditions</div>
-            <div className="flex flex-col gap-2">
-              <label htmlFor="" className="text-label-l3 font-medium">
+            <div className="text-label-l5 font-medium">Purchase Conditions</div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="" className="text-label-l4 font-medium">
                 Minimum Purchase Quantity
               </label>
               <input
@@ -532,10 +540,10 @@ const AdditionalDiscountNew = forwardRef<
                     e.preventDefault();
                   }
                 }}
-                className="w-113.25 h-12 border border-[#C0C1BE] rounded-lg p-4 focus:outline-none"
+                className="w-113.25 h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
               />
               {errors.minimumPurchaseQuantity && (
-                <p className="text-red-500 text-xs">
+                <p className="text-warning-500 text-xs">
                   {errors.minimumPurchaseQuantity}
                 </p>
               )}
@@ -543,9 +551,9 @@ const AdditionalDiscountNew = forwardRef<
           </div>
 
           <div className="flex flex-col gap-4">
-            <div className="text-label-l4 font-medium">DISCOUNT DETAILS</div>
-            <div className="flex flex-col gap-2">
-              <label htmlFor="" className="text-label-l3 font-medium">
+            <div className="text-label-l5 font-medium">DISCOUNT DETAILS</div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="" className="text-label-l4 font-medium">
                 Discount %
               </label>
               <input
@@ -560,10 +568,10 @@ const AdditionalDiscountNew = forwardRef<
                     e.preventDefault();
                   }
                 }}
-                className="w-113.25 h-12 border border-[#C0C1BE] rounded-lg p-4 focus:outline-none"
+                className="w-113.25 h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
               />
               {errors.discountPercentage && (
-                <p className="text-red-500 text-xs">
+                <p className="text-warning-500 text-xs">
                   {errors.discountPercentage}
                 </p>
               )}
@@ -571,11 +579,11 @@ const AdditionalDiscountNew = forwardRef<
           </div>
 
           <div className="flex flex-col gap-4">
-            <div className="text-label-l4 font-medium">VALIDITY PERIOD</div>
-            <div className="flex flex-col gap-2">
+            <div className="text-label-l5 font-medium">VALIDITY PERIOD</div>
+            <div className="flex flex-col gap-1">
               <label
                 htmlFor=""
-                className="text-label-l3 font-medium text-[#5A5B58]"
+                className="text-label-l4 font-medium text-pneutral-700"
               >
                 Start Date
               </label>
@@ -587,10 +595,15 @@ const AdditionalDiscountNew = forwardRef<
                     id="effectiveStartDate"
                     value={form.effectiveStartDate}
                     onChange={handleInputChange}
-                    className="w-[220.5px] h-12 border border-[#C0C1BE] rounded-lg p-4 focus:outline-none"
+                    disabled={alwaysActive}
+                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                      alwaysActive
+                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                        : "border-pneutral-300"
+                    }`}
                   />
                   {errors.effectiveStartDate && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-warning-500 text-xs mt-1">
                       {errors.effectiveStartDate}
                     </p>
                   )}
@@ -603,10 +616,15 @@ const AdditionalDiscountNew = forwardRef<
                     id="effectiveStartTime"
                     value={form.effectiveStartTime}
                     onChange={handleInputChange}
-                    className="w-[220.5px] h-12 border border-[#C0C1BE] rounded-lg p-4 focus:outline-none"
+                    disabled={alwaysActive}
+                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                      alwaysActive
+                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                        : "border-pneutral-300"
+                    }`}
                   />
                   {errors.effectiveStartTime && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-warning-500 text-xs mt-1">
                       {errors.effectiveStartTime}
                     </p>
                   )}
@@ -614,10 +632,10 @@ const AdditionalDiscountNew = forwardRef<
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
               <label
                 htmlFor=""
-                className="text-label-l3 font-medium text-[#5A5B58]"
+                className="text-label-l4 font-medium text-pneutral-700"
               >
                 End Date
               </label>
@@ -629,10 +647,15 @@ const AdditionalDiscountNew = forwardRef<
                     id="effectiveEndDate"
                     value={form.effectiveEndDate}
                     onChange={handleInputChange}
-                    className="w-[220.5px] h-12 border border-[#C0C1BE] rounded-lg  p-4 focus:outline-none"
+                    disabled={alwaysActive}
+                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                      alwaysActive
+                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                        : "border-pneutral-300"
+                    }`}
                   />
                   {errors.effectiveEndDate && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-warning-500 text-xs mt-1">
                       {errors.effectiveEndDate}
                     </p>
                   )}
@@ -644,10 +667,15 @@ const AdditionalDiscountNew = forwardRef<
                     id="effectiveEndTime"
                     value={form.effectiveEndTime}
                     onChange={handleInputChange}
-                    className="w-[220.5px] h-12 border border-[#C0C1BE] rounded-lg p-4 focus:outline-none"
+                    disabled={alwaysActive}
+                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                      alwaysActive
+                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                        : "border-pneutral-300"
+                    }`}
                   />
                   {errors.effectiveEndTime && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-warning-500 text-xs mt-1">
                       {errors.effectiveEndTime}
                     </p>
                   )}
@@ -656,7 +684,7 @@ const AdditionalDiscountNew = forwardRef<
             </div>
           </div>
 
-          <div className="text-label-l2 font-normal text-neutral-700">
+          <div className="text-label-l3 font-medium text-neutral-700">
             This discount will apply for orders above (MPQ to MXPQ) units from
             (Start Date & Time to End Date & Time)
           </div>

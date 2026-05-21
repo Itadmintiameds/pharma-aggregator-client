@@ -4,7 +4,10 @@ import AdditionalDiscountNew, {
   AdditionalDiscountNewRef,
 } from "./AdditionalDiscountNew";
 import SpecialSchemes, { SpecialSchemesRef } from "./SpecialSchemes";
-import { AdditionalDiscountData, SpecialSchemesData } from "@/src/types/product/ProductData";
+import {
+  AdditionalDiscountData,
+  SpecialSchemesData,
+} from "@/src/types/product/ProductData";
 
 type OptionType = {
   value: string;
@@ -99,35 +102,61 @@ const AdditionalDiscountType = ({
   onSaveSpecialSchemes,
 }: AdditionalDiscountTypeProps) => {
   const [selectedOption, setSelectedOption] = useState<OptionType | null>(null);
-
   const additionalDiscountRef = useRef<AdditionalDiscountNewRef>(null);
-
   const specialSchemesRef = useRef<SpecialSchemesRef>(null);
+  const [alwaysActive, setAlwaysActive] = useState(false);
 
   return (
     <>
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <span className="text-h6 font-normal">Additional Discount </span>
-          <span className="text-label-l2 font-normal">(Quantity-based)</span>
+          <span className="text-label-l3 font-normal">(Quantity-based)</span>
         </div>
-        <div className="text-label-l2 font-normal">
+        <div className="text-p3 font-normal">
           Create a time-based discount for bulk purchases
         </div>
-        <div className="border-b border-neutral-200"></div>
+        <div className="border-b border-pneutral-200"></div>
       </div>
 
-      <div className="flex justify-between items-center">
-        <div>
-          <div className="mt-4">
-            <Select
-              options={options}
-              placeholder="Select Offer Type"
-              styles={customStyles}
-              isSearchable={false}
-              value={selectedOption}
-              onChange={(selected) => setSelectedOption(selected)}
-            />
+      <div className="flex justify-between items-center w-full">
+        <div className="w-full">
+          <div className="flex items-center justify-between w-full">
+            <div className="mt-4">
+              <Select
+                options={options}
+                placeholder="Select Offer Type"
+                styles={customStyles}
+                isSearchable={false}
+                value={selectedOption}
+                onChange={(selected) => setSelectedOption(selected)}
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-label-l font-normal">Always Active</div>
+
+              <div
+                onClick={() => setAlwaysActive((prev) => !prev)}
+                className={`w-13 h-7 rounded-full flex items-center px-0.5 cursor-pointer transition-all duration-300 ${
+                  alwaysActive ? "bg-secondary-700" : "bg-pneutral-200"
+                }`}
+              >
+                <div
+                  className={`w-6 h-6 bg-white rounded-full transition-all duration-300 ${
+                    alwaysActive ? "translate-x-6" : "translate-x-0"
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* <div className="flex items-center gap-3">
+              <div className="text-label-l font-normal">Always Active</div>
+
+              <div className="w-13 h-7 bg-pneutral-200 rounded-full flex items-center px-0 cursor-pointer">
+                <div className="w-7 h-7 bg- bg-pneutral-400 rounded-full mr-1"></div>
+              </div>
+            </div> */}
           </div>
 
           <div className="mt-6">
@@ -138,25 +167,19 @@ const AdditionalDiscountType = ({
                 baseDiscountPercentage={baseDiscountPercentage}
                 baseMinimumOrderQuantity={baseMinimumOrderQuantity}
                 onSave={onSaveAdditionalDiscount}
+                alwaysActive={alwaysActive}
               />
             )}
             {selectedOption?.value === "special_schemes" && (
-              <SpecialSchemes 
-                ref={specialSchemesRef} 
+              <SpecialSchemes
+                ref={specialSchemesRef}
                 initialData={initialSchemesData}
                 onSave={onSaveSpecialSchemes}
+                alwaysActive={alwaysActive}
               />
             )}
           </div>
         </div>
-
-        {/* <div className="flex items-center gap-3">
-          <div className="text-label-l3 font-normal">Always Active</div>
-
-          <div className="w-13 h-7 bg-[#D9D9D9] rounded-full flex items-center px-0 cursor-pointer">
-            <div className="w-7 h-7 bg-[#A8A8A8] rounded-full mr-1"></div>
-          </div>
-        </div> */}
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-3 px-5 py-6">
@@ -165,24 +188,33 @@ const AdditionalDiscountType = ({
         <div className="flex justify-between">
           <button
             onClick={onClose}
-            className="w-27 h-10 rounded-lg border-2 border-[#FF3B3B] text-[#FF3B3B] font-semibold text-label-l2 cursor-pointer"
+            className="w-27 h-10 rounded-lg border-2 border-warning-500 text-warning-500 font-medium text-label-l3 cursor-pointer"
           >
             Cancel
           </button>
-          <button
-            onClick={() => {
-              if (selectedOption?.value === "additional_discount") {
-                additionalDiscountRef.current?.submitForm();
-              }
+          {selectedOption ? (
+            <button
+              onClick={() => {
+                if (selectedOption?.value === "additional_discount") {
+                  additionalDiscountRef.current?.submitForm();
+                }
 
-              if (selectedOption?.value === "special_schemes") {
-                specialSchemesRef.current?.submitForm();
-              }
-            }}
-            className="w-33.25 h-10 bg-[#4B0082] rounded-lg text-white font-semibold text-label-l2 cursor-pointer"
-          >
-            Submit
-          </button>
+                if (selectedOption?.value === "special_schemes") {
+                  specialSchemesRef.current?.submitForm();
+                }
+              }}
+              className="w-33.25 h-10 bg-[#4B0082] rounded-lg text-white font-medium text-label-l3 cursor-pointer"
+            >
+              Submit
+            </button>
+          ) : (
+            <button
+              disabled
+              className="w-33.25 h-10 bg-primary-200 rounded-lg text-sneutral-300 font-medium text-label-l3 cursor-not-allowed"
+            >
+              Submit
+            </button>
+          )}
         </div>
       </div>
     </>
