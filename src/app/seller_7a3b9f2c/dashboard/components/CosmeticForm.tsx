@@ -499,9 +499,14 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   // ─── Helpers ──────────────────────────────────────────────────────────────────
 
   const getMinExpiryMonth = () => {
-    if (!form.manufacturingDate) return "";
+    const today = new Date();
+    const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+    if (!form.manufacturingDate) {
+      return `${minFromNow.getFullYear()}-${String(minFromNow.getMonth() + 1).padStart(2, "0")}`;
+    }
     const mfg = new Date(form.manufacturingDate);
-    const min = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
+    const minFromMfg = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
+    const min = minFromMfg > minFromNow ? minFromMfg : minFromNow;
     return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}`;
   };
 
@@ -944,6 +949,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
 
+    if (name === "activeIngredients" && /[^a-zA-Z0-9\s,.()\-%&'/]/.test(value)) return;
+
     if (name === "expiryDate") {
       if (!value) {
         setForm((prev) => ({ ...prev, expiryDate: null, shelfLifeMonths: "" }));
@@ -951,6 +958,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       } else {
         const [year, month] = value.split("-").map(Number);
         const date = new Date(year, month - 1, 1);
+        const today = new Date();
+        const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+        if (date < minFromNow) {
+          setErrors((p) => ({ ...p, expiryDate: "Expiry date must be at least 3 months from current month" }));
+          setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
+          return;
+        }
         if (form.manufacturingDate) {
           const mfg = form.manufacturingDate;
           const minDate = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
@@ -1158,15 +1172,22 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       }
 
       if (!form.expiryDate) e.expiryDate = "Expiry date is required";
-      else if (form.manufacturingDate) {
-        const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
-        if (form.expiryDate < minExpiry)
-          e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
+      else {
+        const today = new Date();
+        const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+        if (form.expiryDate < minFromNow)
+          e.expiryDate = "Expiry date must be at least 3 months from current month";
+        else if (form.manufacturingDate) {
+          const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
+          if (form.expiryDate < minExpiry)
+            e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
+        }
       }
 
       const stock = parseFloat(form.stockQuantity);
       if (!form.stockQuantity.trim()) e.stockQuantity = "Stock quantity is required";
       else if (isNaN(stock) || stock <= 0) e.stockQuantity = "Stock quantity must be greater than 0";
+      else if (!isNaN(minQ) && minQ > 0 && stock <= minQ) e.stockQuantity = "Stock quantity must be greater than minimum order quantity";
     }
 
     const selling = parseFloat(form.sellingPrice);
@@ -1806,10 +1827,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               <div className="relative" ref={certDropdownRef}>
                 <div
                   onClick={() => setShowCertDropdown((p) => !p)}
-                  className={`w-full h-[52px] px-4 border rounded-[8px] flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-[#FF3B3B]" : "border-[#C0C1BE] hover:border-[#C0C1BE]"}`}
+                  className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"}`}
                 >
                   <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
-                    style={{ color: selectedCertifications.length > 0 ? "#3C3D3A" : "#A3A3A3" }}>
+                    style={{ color: selectedCertifications.length > 0 ? "var(--pneutral-800)" : "var(--sneutral-400)" }}>
                     {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
                   </span>
                   <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1817,7 +1838,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                   </svg>
                 </div>
                 {showCertDropdown && (
-                  <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-[8px] shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
                     {loadingCertifications ? (
                       <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
                     ) : (
@@ -2018,14 +2039,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               }
               readOnly={isEdit}
               onChange={handleChange}
-              onFocus={() => {
-                if (form.manufacturingDate) {
-                  setErrors((prev) => ({
-                    ...prev,
-                    expiryDate: "Expiry must be at least 3 months after Manufacturing Date",
-                  }));
-                }
-              }}
               min={getMinExpiryMonth()}
               error={errors.expiryDate}
               required
@@ -2186,27 +2199,24 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between mt-6 mb-6">
-          <div className="space-x-6 flex">
-            <button type="button"
-              onClick={() => onSubmitSuccess ? onSubmitSuccess() : window.location.reload()}
-              disabled={submitting}
-              className="w-21 h-12 border-2 border-[#FF3B3B] rounded-lg text-label-l3 font-semibold text-[#FF3B3B] cursor-pointer disabled:opacity-50">
+        <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
+          <div className="flex gap-3">
+            <button type="button" onClick={() => onSubmitSuccess ? onSubmitSuccess() : window.location.reload()}
+              className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
               Cancel
             </button>
-            <button type="button" disabled={submitting}
-              className="w-35.25 h-12 bg-[#9F75FC] text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5 disabled:opacity-50">
-              <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 rounded-md object-cover" />
+            <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }}
+              className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
+              <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
               Save Draft
             </button>
           </div>
-          <div>
-            <button type="button" onClick={handleSubmit} disabled={submitting}
-              className="bg-[#4B0082] text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60">
-              {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
-            </button>
-          </div>
+          <button type="button" onClick={handleSubmit} disabled={submitting}
+            style={{ background: "#4B0082", borderRadius: "8px" }}
+            className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
+            {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
+          </button>
         </div>
       </div>
     </>
