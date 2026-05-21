@@ -1590,6 +1590,12 @@ const ProductView1 = ({
         ),
     );
 
+  const specialSchemes: any[] = (
+    productData?.pricingDetails ?? []
+  )
+    .flatMap((p: any) => p.specialSchemes || [])
+    .filter((s: any) => s.schemeName);
+
   const unitsPerPack =
     packaging?.unitPerPack ??
     packaging?.unitsPerPack ??
@@ -2285,7 +2291,7 @@ const ProductView1 = ({
               }
             />
 
-            {additionalDiscounts.length > 0 && (
+            {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
               <>
                 <div style={{ padding: "12px 8px 8px" }}>
                   <span
@@ -2305,7 +2311,7 @@ const ProductView1 = ({
                   const endDate = d.effectiveEndDate ?? d.endDate;
                   return (
                     <div
-                      key={d.additionalDiscountId ?? i}
+                      key={`discount-${d.additionalDiscountId ?? i}`}
                       style={{
                         padding: 12,
                         borderBottom: "1px #D5D5D4 solid",
@@ -2350,6 +2356,41 @@ const ProductView1 = ({
                       >
                         {d.additionalDiscountPercentage}%
                       </span>
+                    </div>
+                  );
+                })}
+                {specialSchemes.map((s, i) => {
+                  const startDate = s.effectiveStartDate;
+                  const endDate = s.effectiveEndDate;
+                  return (
+                    <div
+                      key={`scheme-${s.id ?? i}`}
+                      style={{
+                        padding: 12,
+                        borderBottom: "1px #D5D5D4 solid",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-end",
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <p
+                          style={{
+                            color: "#5A5B58",
+                            fontSize: 14,
+                            fontFamily: "'Work Sans', sans-serif",
+                            fontWeight: 400,
+                            lineHeight: "20px",
+                            margin: 0,
+                          }}
+                        >
+                          {`${s.schemeName}${
+                            startDate && endDate
+                              ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
+                              : ""
+                          }`}
+                        </p>
+                      </div>
                     </div>
                   );
                 })}

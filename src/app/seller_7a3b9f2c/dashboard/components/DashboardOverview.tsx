@@ -39,6 +39,7 @@ const DashboardOverview = ({
   setSelectedProductId,
   selectedProductId,
 }: DashboardOverviewProps) => {
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
   if (currentView === "editDrug") {
     if (!selectedProductId) {
@@ -87,7 +88,10 @@ const DashboardOverview = ({
   return (
     <div className="space-y-8">
       {/* Filters */}
-      <DashboardFilters setCurrentView={setCurrentView} />
+      <DashboardFilters 
+        setCurrentView={setCurrentView} 
+        onRefreshRequested={() => setRefreshKey((prev) => prev + 1)} 
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -170,6 +174,7 @@ const DashboardOverview = ({
       <ProductList
         setCurrentView={setCurrentView}
         setSelectedProductId={setSelectedProductId}
+        refreshKey={refreshKey}
       />
     </div>
   );
