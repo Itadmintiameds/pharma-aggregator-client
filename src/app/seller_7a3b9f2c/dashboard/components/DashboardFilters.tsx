@@ -120,9 +120,9 @@ const TEMPLATES: Record<ProductType, { name: string; xlsx: string; csv: string; 
   },
   supplements: {
     name: "supplements_template",
-    xlsx: "/templates/supplements/XLSX-Supplements Template.xlsx",
-    csv: "/templates/supplements/CSV-Supplements Template.csv",
-    xls: "/templates/supplements/XLS-Supplements Template.xls",
+    xlsx: "/templates/supplements/XLSX-Supplements-Neutraceuticals_Product_Upload_Template 3.xlsx",
+    csv: "/templates/supplements/CSV-Supplements-Neutraceuticals_Product_Upload_Template_v0.1 1 3.csv",
+    xls: "/templates/supplements/XLS-Supplements-Neutraceuticals_Product_Upload_Template 3.xls",
   },
   food_infant: {
     name: "food_infant_template",
@@ -1847,7 +1847,7 @@ function SuccessView({ files, result, onClose }: {
 }
 
 // ─── OnboardingModal ──────────────────────────────────────────────────────────
-function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onManualEntry: () => void }) {
+function OnboardingModal({ onClose, onManualEntry, onSuccessAction }: { onClose: () => void; onManualEntry: () => void; onSuccessAction?: () => void }) {
   const [successData, setSuccessData] = useState<{ type: ProductType; files: UploadedFile[]; result: UploadResult } | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [transitioning, setTransitioning] = useState(false);
@@ -2005,7 +2005,10 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
                 files={successData.files}
                 result={successData.result}
                 onReset={() => { setSuccessData(null); changeView("excel", "right"); }}
-                onClose={onClose}
+                onClose={() => {
+                  if (onSuccessAction) onSuccessAction();
+                  onClose();
+                }}
               />
             )}
           </div>
@@ -2016,7 +2019,7 @@ function OnboardingModal({ onClose, onManualEntry }: { onClose: () => void; onMa
 }
 
 // ─── DashboardFilters ─────────────────────────────────────────────────────────
-const DashboardFilters = ({ setCurrentView }: DashboardFiltersProps) => {
+const DashboardFilters = ({ setCurrentView, onRefreshRequested }: DashboardFiltersProps) => {
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
 
@@ -2044,6 +2047,7 @@ const DashboardFilters = ({ setCurrentView }: DashboardFiltersProps) => {
       {showModal && (
         <OnboardingModal
           onClose={() => setShowModal(false)}
+          onSuccessAction={onRefreshRequested}
           onManualEntry={() => {
             setShowModal(false);
             router.push("/seller_7a3b9f2c/products/add");
@@ -2074,10 +2078,10 @@ export default DashboardFilters;
 // import { Plus } from "lucide-react";
 // import { DashboardView } from "@/src/types/seller/dashboard";
 
-// // ─── Types ────────────────────────────────────────────────────────────────────
-// interface DashboardFiltersProps {
-//   setCurrentView: (view: DashboardView) => void;
-// }
+interface DashboardFiltersProps {
+  setCurrentView: (view: DashboardView) => void;
+  onRefreshRequested?: () => void;
+}
 
 // type ModalView   = "methods" | "excel" | "api" | "success";
 // type ProductType = "drugs" | "medical_devices_non_consumable" | "medical_devices_consumable" | "cosmetics";
