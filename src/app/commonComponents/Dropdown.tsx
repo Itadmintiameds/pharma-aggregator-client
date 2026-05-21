@@ -57,7 +57,7 @@ const Dropdown: React.FC<CommonDropdownProps> = ({
   };
 
   return (
-    <div className={`flex flex-col gap-2 ${className}`}>
+    <div className={`flex flex-col gap-1 ${className}`}>
       {label && (
         <label className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
           {icon && <span className="text-neutral-600 text-lg">{icon}</span>}
@@ -68,9 +68,9 @@ const Dropdown: React.FC<CommonDropdownProps> = ({
 
       <div className="relative" ref={dropdownRef}>
         <div
-          className={`w-full h-14 px-4 rounded-xl border flex items-center justify-between cursor-pointer overflow-hidden
+          className={`w-full h-13 px-4 rounded-lg border flex items-center justify-between cursor-pointer overflow-hidden
             ${!isDisabled && !isLoading
-              ? "bg-white border-secondary-200 hover:border-primary-900"
+              ? "bg-white border-pneutral-300"
               : "bg-pneutral-100 border-2 border-pneutral-300 cursor-not-allowed"
             }
             ${error ? "border-red-500" : ""}
@@ -82,13 +82,13 @@ const Dropdown: React.FC<CommonDropdownProps> = ({
           }}
         >
           <div className="flex items-center gap-2 flex-1">
-            {icon && <span className="text-neutral-500 shrink-0">{icon}</span>}
-            <span className={`${!selectedOption ? "text-neutral-500" : "text-neutral-900"} truncate`}>
+            {icon && <span className="text-pneutral-500 shrink-0">{icon}</span>}
+            <span className={`${!selectedOption ? "text-pneutral-500" : "text-pneutral-900"} truncate`}>
               {isLoading ? "Loading..." : displayValue}
             </span>
           </div>
           <ChevronDown
-            className={`w-5 h-5 text-neutral-500 transition-transform shrink-0 ml-2 ${
+            className={`w-5 h-5 text-pneutral-800 transition-transform shrink-0 ml-2 ${
               isOpen ? "rotate-180" : ""
             }`}
           />
