@@ -43,7 +43,7 @@ export default function UploadInput({
   return (
     <div className="flex flex-col gap-1">
       {label && (
-        <label className="text-label-l4 font-medium text-pneutral-900">
+        <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
           {label}
         </label>
       )}

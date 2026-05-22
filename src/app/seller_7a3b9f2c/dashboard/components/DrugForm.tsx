@@ -1442,13 +1442,13 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       )}
       <div className="w-full ">
         <div className="relative border border-neutral-200 rounded-xl p-6  bg-white">
-          <div className="text-h4 font-semibold">Product Details</div>
+          <div className="text-h4 font-semibold font-heading">Product Details</div>
 
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
             <div className="flex flex-col gap-1">
-              <label className="text-label-l4 font-medium text-pneutral-900">
+              <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Therapeutic Category
                 <span className="text-warning-500 ml-1">*</span>
               </label>
@@ -1469,7 +1469,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l4 font-medium text-pneutral-900">
+              <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Therapeutic Subcategory
                 <span className="text-warning-500 ml-1">*</span>
               </label>
@@ -1503,7 +1503,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             />
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l4 font-medium text-pneutral-900">
+              <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Dosage Form (Tablet, Syrup)
                 <span className="text-warning-500 ml-1">*</span>
               </label>
@@ -1532,7 +1532,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 className="grid grid-cols-[1fr_0.87fr_auto] gap-6 col-span-2"
               >
                 <div className="flex flex-col gap-1 w-full">
-                  <label className="text-label-l4 font-medium text-pneutral-900">
+                  <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                     Molecule
                     <span className="text-warning-500 ml-1">*</span>
                   </label>
@@ -1647,7 +1647,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             />
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l4 font-medium text-pneutral-900">
+              <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Storage Condition
                 <span className="text-warning-500 ml-1">*</span>
               </label>
@@ -1686,7 +1686,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             />
 
             <div>
-              <label className="block text-label-l4 font-medium text-pneutral-900 mb-1">
+              <label className="block text-label-l4 font-medium text-pneutral-900 mb-1 font-heading">
                 Warnings & Precautions
                 <span className="text-warning-500 ml-1">*</span>
               </label>
@@ -1712,7 +1712,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             </div>
 
             <div>
-              <label className="block text-label-l4 font-medium text-pneutral-900 mb-1">
+              <label className="block text-label-l4 font-medium text-pneutral-900 mb-1 font-heading">
                 Product Description
                 <span className="text-warning-500 ml-1">*</span>
               </label>
@@ -1741,13 +1741,13 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
         {/* Packaging & Order Details */}
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
-          <div className="text-h4 font-semibold">Packaging & Order Details</div>
+          <div className="text-h4 font-semibold font-heading">Packaging & Order Details</div>
 
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
             <div className="flex flex-col gap-1">
-              <label className="text-label-l4 font-medium text-pneutral-900">
+              <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Pack Type
                 <span className="text-warning-500 ml-1">*</span>
               </label>
@@ -1814,7 +1814,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
-            <div className="text-h6 font-normal col-span-2 mt-3">
+            <div className="text-h6 font-normal col-span-2 mt-3 font-heading">
               Order Details
             </div>
 
@@ -1849,7 +1849,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
-            <div className="text-h6 font-normal col-span-2 mt-3">
+            <div className="text-h6 font-normal col-span-2 mt-3 font-heading">
               Batch Management
             </div>
 
@@ -1995,7 +1995,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
-            <div className="text-h6 font-normal col-span-2 mt-3">Pricing</div>
+            <div className="text-h6 font-normal col-span-2 mt-3 font-heading">Pricing</div>
 
             <div className="border-b border-neutral-200 col-span-2"></div>
 
@@ -2063,14 +2063,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 </button>
               </div>
             </div>
-            <div className="text-h6 font-normal col-span-2 mt-3">
+            <div className="text-h6 font-normal col-span-2 mt-3 font-heading">
               TAX & BILLING
             </div>
 
             <div className="border-b border-neutral-200 col-span-2"></div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-l4 font-medium text-pneutral-900">
+              <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 GST %<span className="text-warning-500 ml-1">*</span>
               </label>
               <Dropdown
@@ -2110,7 +2110,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         </div>
 
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
-          <div className="text-pneutral-800 text-h6 font-medium">
+          <div className="text-pneutral-800 text-h6 font-medium font-heading">
             Product Photos
             <span className="text-warning-500 text-h6 font-medium ml-2">*</span>
           </div>
