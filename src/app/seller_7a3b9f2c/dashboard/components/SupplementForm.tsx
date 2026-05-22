@@ -1801,6 +1801,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         >
           <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
             <AdditionalDiscountType
+              categoryId={effectiveCategoryId ? Number(effectiveCategoryId) : undefined}
               onClose={() => setShowAdditionalDiscount(false)}
               initialData={form.additionalDiscount}
               baseDiscountPercentage={Number(form.discountPercentage) || 0}
