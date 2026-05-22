@@ -18,6 +18,7 @@ import { FileText, X, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import Input from "@/src/app/commonComponents/Input";
+import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
 import UploadInput from "../commonComponent/UploadInput";
@@ -46,7 +47,7 @@ interface CertificationTag {
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
-const fieldLabel = "text-label-l4 text-pneutral-900 font-medium";
+const fieldLabel = "font-heading font-medium text-[16px] leading-[24px] tracking-normal align-middle text-pneutral-900";
 const requiredStar = <span className="text-warning-500 font-semibold ml-1">*</span>;
 
 const errorMsg = "font-heading font-normal text-sm leading-[28px] px-1 text-warning-500";
@@ -212,9 +213,9 @@ const NumericInputWithUnit: React.FC<NumericInputWithUnitProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="flex flex-col gap-1 w-full relative">
+    <div ref={containerRef} className="flex flex-col gap-0 w-full relative">
       {/* Label */}
-      <label className={`text-label-l4 font-medium transition-colors duration-200 ${disabled ? "text-pneutral-500" : "text-pneutral-900"}`}>
+      <label className={`font-heading font-medium text-[16px] leading-[24px] tracking-normal align-middle transition-colors duration-200 ${disabled ? "text-pneutral-500" : "text-pneutral-900"}`}>
         {label}
         {required && <span className="text-warning-500 ml-1">*</span>}
       </label>
@@ -1822,9 +1823,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         </CommonModal>
       )}
 
-      <form 
-        autoComplete="off" 
-        onSubmit={(e) => e.preventDefault()} 
+      <form
+        autoComplete="off"
+        onSubmit={(e) => e.preventDefault()}
         className="flex flex-col gap-5 w-full"
       >
 
@@ -1850,7 +1851,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               />
             </div>
             {/* Therapeutic Category */}
-            <div className="flex flex-col gap-1" data-field="therapeuticCategory">
+            <div className="flex flex-col gap-0" data-field="therapeuticCategory">
               <label className={fieldLabel}>Therapeutic Category {requiredStar}</label>
               {/*
               <Select
@@ -1884,7 +1885,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             {/* ROW 2 */}
             {/* Therapeutic Subcategory */}
-            <div className="flex flex-col gap-1" data-field="therapeuticSubcategory">
+            <div className="flex flex-col gap-0" data-field="therapeuticSubcategory">
               <label className={fieldLabel}>Therapeutic Subcategory {requiredStar}</label>
               {/*
               <Select
@@ -1945,7 +1946,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               />
             </div>
             {/* Dosage Form */}
-            <div className="flex flex-col gap-1" data-field="dosageForm">
+            <div className="flex flex-col gap-0" data-field="dosageForm">
               <label className={fieldLabel}>Dosage Form {requiredStar}</label>
               {/*
               <Select
@@ -2055,7 +2056,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             {/* ROW 6 */}
             {/* Nutritional Information Table */}
-            <div className="flex flex-col gap-1" data-field="nutritionalInfoType">
+            <div className="flex flex-col gap-0" data-field="nutritionalInfoType">
               <label className={fieldLabel}>Nutritional Information Table {requiredStar}</label>
               {/*
               <Select
@@ -2095,7 +2096,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {form.nutritionalInfoType === "image" && (
               <div data-field="nutritionalImage">
                 {/* Legacy Hardcoded Upload commented out
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-0">
                   <label className={fieldLabel}>Upload Nutritional Information {requiredStar}</label>
 
                   <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
@@ -2186,7 +2187,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             {/* ROW 7 */}
             {/* Age Group */}
-            <div className="flex flex-col gap-1" data-field="ageGroup">
+            <div className="flex flex-col gap-0" data-field="ageGroup">
               <label className={fieldLabel}>Age Group {requiredStar}</label>
               {/*
               <Select
@@ -2203,94 +2204,27 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               />
               {errors.ageGroup && <p className={errorMsg}>{errors.ageGroup}</p>}
               */}
-              <div className="relative" ref={ageGroupDropdownRef}>
-                <div
-                  onClick={() => {
-                    if (!isEditMode && !loadingAgeGroups) {
-                      setShowAgeGroupDropdown((p) => !p);
-                    }
-                  }}
-                  className={`w-full outline-none transition-all duration-200 h-[52px] min-h-[52px] max-h-[56px] px-4 py-3 text-base rounded-lg border flex items-center justify-between cursor-pointer ${
-                    isEditMode || loadingAgeGroups
-                      ? "border-pneutral-200 bg-sneutral-100 text-pneutral-500 cursor-not-allowed"
-                      : errors.ageGroup
-                        ? "border-warning-500 text-pneutral-800 bg-white focus:border-warning-500 focus:ring-1 focus:ring-warning-500"
-                        : "border-pneutral-300 text-pneutral-800 bg-white hover:border-secondary-300"
-                  }`}
-                >
-                  <span
-                    className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
-                    style={{
-                      color: form.ageGroup ? "var(--pneutral-800)" : "var(--sneutral-400)",
-                    }}
-                  >
-                    {form.ageGroup
-                      ? form.ageGroup
-                        .split(",")
-                        .map((val) => ageGroupOptions.find((o) => o.value === val)?.label)
-                        .filter(Boolean)
-                        .join(", ")
-                      : "Select age group"}
-                  </span>
-                  <svg
-                    className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showAgeGroupDropdown ? "rotate-180" : ""
-                      }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-                {showAgeGroupDropdown && (
-                  <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
-                    {loadingAgeGroups ? (
-                      <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
-                    ) : (
-                      ageGroupOptions.map((opt) => {
-                        const selectedValues = form.ageGroup ? form.ageGroup.split(",") : [];
-                        const isChecked = selectedValues.includes(opt.value);
-                        return (
-                          <label
-                            key={opt.value}
-                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {
-                                let newValues;
-                                if (isChecked) {
-                                  newValues = selectedValues.filter((v) => v !== opt.value);
-                                } else {
-                                  newValues = [...selectedValues, opt.value];
-                                }
-                                const newValString = newValues.join(",");
-                                setForm((p) => ({ ...p, ageGroup: newValString }));
-                                if (errors.ageGroup) {
-                                  setErrors((p) => {
-                                    const n = { ...p };
-                                    delete n.ageGroup;
-                                    return n;
-                                  });
-                                }
-                              }}
-                              className="accent-purple-600 w-4 h-4"
-                            />
-                            <span className="text-base [font-family:'Open_Sans',sans-serif] text-pneutral-800">
-                              {opt.label}
-                            </span>
-                          </label>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
+              <CheckboxDropdown
+                options={ageGroupOptions}
+                selectedValues={form.ageGroup ? form.ageGroup.split(",") : []}
+                onChange={(values) => {
+                  setForm((p) => ({ ...p, ageGroup: values.join(",") }));
+                  if (errors.ageGroup) {
+                    setErrors((p) => {
+                      const n = { ...p };
+                      delete n.ageGroup;
+                      return n;
+                    });
+                  }
+                }}
+                placeholder={loadingAgeGroups ? "Loading..." : "Select age group"}
+                disabled={isEditMode || loadingAgeGroups}
+                error={errors.ageGroup}
+              />
               {errors.ageGroup && <p className={errorMsg}>{errors.ageGroup}</p>}
             </div>
             {/* Gender */}
-            <div className="flex flex-col gap-1" data-field="gender">
+            <div className="flex flex-col gap-0" data-field="gender">
               <label className={fieldLabel}>Gender {requiredStar}</label>
               {/*
               <Select
@@ -2320,7 +2254,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             {/* ROW 8 */}
             {/* Dietary Classification — Radio Buttons */}
-            <div data-field="vegNonVeg" className="flex flex-col gap-1.5 pt-1.5">
+            <div data-field="vegNonVeg" className="flex flex-col gap-0.5 pt-1.5">
               <label className={fieldLabel}>
                 Dietary Classification {requiredStar}
               </label>
@@ -2361,7 +2295,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             {/* ROW 9 */}
             {/* Flavour */}
-            <div className="flex flex-col gap-1" data-field="flavour">
+            <div className="flex flex-col gap-0" data-field="flavour">
               <label className={fieldLabel}>Flavour {requiredStar}</label>
               {/*
               <Select
@@ -2406,7 +2340,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             {/* ROW 10 */}
             {/* Storage Condition */}
-            <div className="flex flex-col gap-1" data-field="storageCondition">
+            <div className="flex flex-col gap-0" data-field="storageCondition">
               <label className={fieldLabel}>Storage Condition {requiredStar}</label>
               {/*
               <Select
@@ -2453,7 +2387,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             {/* ROW 11 */}
             {/* Country of Origin */}
-            <div className="flex flex-col gap-1" data-field="countryOfOrigin">
+            <div className="flex flex-col gap-0" data-field="countryOfOrigin">
               <label className={fieldLabel}>Country of Origin {requiredStar}</label>
               <Dropdown
                 options={countryOptions}
@@ -2468,66 +2402,44 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               />
             </div>
             {/* Certifications / Compliance Checkbox Dropdown */}
-            <div className="flex flex-col gap-1" data-field="certifications">
+            <div className="flex flex-col gap-0" data-field="certifications">
               <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
-              <div className="relative" ref={certDropdownRef}>
-                <div
-                  onClick={() => setShowCertDropdown((p) => !p)}
-                  className={`w-full outline-none transition-all duration-200 h-[52px] min-h-[52px] max-h-[56px] px-4 py-3 text-base rounded-lg border flex items-center justify-between cursor-pointer ${
-                    errors.certifications
-                      ? "border-warning-500 text-pneutral-800 bg-white focus:border-warning-500 focus:ring-1 focus:ring-warning-500"
-                      : "border-pneutral-300 text-pneutral-800 bg-white hover:border-secondary-300"
-                  }`}
-                >
-                  <span
-                    className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
-                    style={{ color: selectedCertifications.length > 0 ? "var(--pneutral-800)" : "var(--sneutral-400)" }}
-                  >
-                    {selectedCertifications.length > 0
-                      ? selectedCertifications.map((c) => c.label).join(", ")
-                      : "Select certifications"}
-                  </span>
-                  <svg
-                    className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""
-                      }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-                {showCertDropdown && (
-                  <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
-                    {loadingCertifications ? (
-                      <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
-                    ) : (
-                      certificationOptions.map((opt) => (
-                        <label
-                          key={opt.value}
-                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedCertifications.some((c) => c.id === opt.value)}
-                            onChange={() => handleCertCheckbox(opt)}
-                            className="accent-purple-600 w-4 h-4"
-                          />
-                          <span className="text-base [font-family:'Open_Sans',sans-serif] text-pneutral-800">
-                            {opt.label}
-                          </span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+              <CheckboxDropdown
+                options={certificationOptions}
+                selectedValues={selectedCertifications.map(c => c.id)}
+                onChange={(values) => {
+                  const newCerts = values.map(val => {
+                    const existing = selectedCertifications.find(c => c.id === val);
+                    if (existing) return existing;
+                    const opt = certificationOptions.find(o => o.value === val);
+                    return {
+                      id: val,
+                      label: opt?.label || "",
+                      tagCode: (opt as any)?.tagCode || "",
+                      existingUrl: null,
+                      file: null,
+                      previewUrl: null
+                    } as any;
+                  });
+                  setSelectedCertifications(newCerts);
+                  if (errors.certifications) {
+                    setErrors((p) => {
+                      const n = { ...p };
+                      delete n.certifications;
+                      return n;
+                    });
+                  }
+                }}
+                placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
+                disabled={loadingCertifications}
+                error={errors.certifications}
+              />
               {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
             {/* Upload Certifications / Compliance List */}
             {selectedCertifications.length === 0 ? (
-              <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
+              <div className="flex flex-col gap-0 col-span-1" data-field="certUploadFallback">
                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
                 <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
                   <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
@@ -2540,7 +2452,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               </div>
             ) : (
               selectedCertifications.map((cert) => (
-                <div key={cert.id} className="flex flex-col gap-1 col-span-1">
+                <div key={cert.id} className="flex flex-col gap-0 col-span-1">
                   <label className={fieldLabel}>Upload {cert.label} {requiredStar}</label>
                   <UploadInput
                     onFileSelect={(file) => {
@@ -2560,7 +2472,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             )}
 
             {/* Upload Brochure */}
-            <div className="flex flex-col gap-1" data-field="brochureFile">
+            <div className="flex flex-col gap-0" data-field="brochureFile">
               <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
               <UploadInput
                 onFileSelect={(file) => {
@@ -2583,7 +2495,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Bottom Section Wrapper to protect layout from dynamic shifting above */}
             <div className="col-span-2 grid grid-cols-2 gap-x-6 gap-y-3">
               {/* Warnings / Precautions */}
-              <div className="flex flex-col gap-1" data-field="warningsPrecautions">
+              <div className="flex flex-col gap-0" data-field="warningsPrecautions">
                 <label className={fieldLabel}>Warnings / Precautions {requiredStar}</label>
                 <textarea
                   ref={setFieldRef("warningsPrecautions") as React.RefCallback<HTMLTextAreaElement>}
@@ -2592,12 +2504,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   onChange={handleChange}
                   placeholder="e.g., Not for pregnant women"
                   maxLength={255}
-                  className={`w-full h-36 px-4 rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-pneutral-800 placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.warningsPrecautions ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
+                  className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.warningsPrecautions ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
                 />
                 {errors.warningsPrecautions && <p className={errorMsg}>{errors.warningsPrecautions}</p>}
               </div>
               {/* Product Description */}
-              <div className="flex flex-col gap-1" data-field="productDescription">
+              <div className="flex flex-col gap-0" data-field="productDescription">
                 <label className={fieldLabel}>Product Description {requiredStar}</label>
                 <textarea
                   ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>}
@@ -2606,7 +2518,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   onChange={handleChange}
                   placeholder="Provide a detailed description of the product (Min 10 chars)"
                   maxLength={255}
-                  className={`w-full h-36 px-4 rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-pneutral-800 placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.productDescription ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
+                  className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.productDescription ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
                 />
                 {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
               </div>
@@ -2622,7 +2534,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0">
               <label className="text-label-l4 text-neutral-700 font-medium">
                 Pack Type
                 <span className="text-warning-500 font-semibold ml-1">*</span>
@@ -2993,7 +2905,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               required
             />
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0">
               <label className="text-label-l4 text-neutral-700 font-medium">
                 GST %
                 <span className="text-warning-500 font-semibold ml-1">*</span>
@@ -3191,3 +3103,5 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 };
 
 export default SupplementForm;
+
+

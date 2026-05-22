@@ -1,9 +1,22 @@
 import type { Metadata } from "next";
 // import { Geist, Geist_Mono } from "next/font/google";
+import { Noto_Sans, Work_Sans } from "next/font/google";
 // import "bootstrap-icons/font/bootstrap-icons.css";
 import "./global.css";
 
+const notoSans = Noto_Sans({
+  subsets: ["latin"],
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  variable: "--font-body",
+  display: "swap",
+});
 
+const workSans = Work_Sans({
+  subsets: ["latin"],
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  variable: "--font-heading",
+  display: "swap",
+});
 
 // const geistSans = Geist({
 //   variable: "--font-geist-sans",
@@ -29,7 +42,8 @@ export default function RootLayout({
     <html lang="en">
       <body
         // className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        className="antialiased"
+        // className="antialiased"
+        className={`antialiased ${notoSans.variable} ${workSans.variable}`}
       >
         {children}
         

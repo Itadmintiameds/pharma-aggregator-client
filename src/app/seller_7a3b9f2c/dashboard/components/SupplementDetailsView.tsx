@@ -200,9 +200,8 @@ export default function SupplementDetailsView({
                 <div
                   key={idx}
                   onClick={() => setSelectedImageIndex(idx)}
-                  className={`relative h-[276px] overflow-hidden rounded-xl cursor-pointer shadow-md${
-                    idx === selectedImageIndex ? " outline outline-2 outline-secondary-500 -outline-offset-1" : ""
-                  }`}
+                  className={`relative h-[276px] overflow-hidden rounded-xl cursor-pointer shadow-md${idx === selectedImageIndex ? " outline outline-2 outline-secondary-500 -outline-offset-1" : ""
+                    }`}
                 >
                   <Image
                     src={img}
@@ -296,12 +295,12 @@ export default function SupplementDetailsView({
             <FieldRow label="Manufacturer Name" value={manufacturerName} />
 
             {/* ── Uploaded Product Brochure ── */}
-            <div className="px-4 pt-3 pb-2 border-b border-pneutral-200 flex flex-col gap-2">
-              <div className="flex items-center gap-1">
-                <span className="text-pneutral-500 text-base font-heading font-medium leading-6 break-words">Uploaded Product Brochure</span>
-                <span className="text-warning-500 text-base font-heading font-medium leading-6 shrink-0">*</span>
-              </div>
-              {resolvedBrochureUrl ? (
+            {resolvedBrochureUrl && (
+              <div className="px-4 pt-3 pb-2 border-b border-pneutral-200 flex flex-col gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="text-pneutral-500 text-base font-heading font-medium leading-6 break-words">Uploaded Product Brochure</span>
+                  {/*} <span className="text-warning-500 text-base font-heading font-medium leading-6 shrink-0">*</span>  commented this because brochur is not mandatory*/}
+                </div>
                 <a
                   href={resolvedBrochureUrl}
                   target="_blank"
@@ -313,13 +312,8 @@ export default function SupplementDetailsView({
                     {resolvedBrochureUrl.split("/").pop()?.split("?")[0] || "product-brochure.pdf"}
                   </span>
                 </a>
-              ) : (
-                <div className="flex items-center gap-3 p-3 bg-pneutral-50 rounded-lg">
-                  <FileText size={24} color="var(--pneutral-800)" />
-                  <span className="text-pneutral-500 text-base font-body font-normal leading-[22px]">No brochure uploaded</span>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <FieldRow label="Country of Origin" value={suppAttr.countryName} />
 

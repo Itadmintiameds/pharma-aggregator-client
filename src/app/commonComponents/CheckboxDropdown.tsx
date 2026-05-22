@@ -74,16 +74,16 @@ const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
 
   const displayText = selectedValues.length
     ? options
-        .filter((opt) => selectedValues.includes(opt.value))
-        .map((opt) => opt.label)
-        .join(", ")
+      .filter((opt) => selectedValues.includes(opt.value))
+      .map((opt) => opt.label)
+      .join(", ")
     : placeholder;
 
   const allSelected = options.length > 0 && selectedValues.length === options.length;
   const someSelected = selectedValues.length > 0 && selectedValues.length < options.length;
 
   return (
-    <div className={`flex flex-col gap-1 ${className}`}>
+    <div className={`flex flex-col gap-0 ${className}`}>
       {label && (
         <label className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
           {icon && <span className="text-neutral-600 text-lg">{icon}</span>}
@@ -110,9 +110,8 @@ const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
             </span>
           </div>
           <ChevronDown
-            className={`w-5 h-5 text-pneutral-800 transition-transform shrink-0 ml-2 ${
-              isOpen ? "rotate-180" : ""
-            }`}
+            className={`w-5 h-5 text-pneutral-800 transition-transform shrink-0 ml-2 ${isOpen ? "rotate-180" : ""
+              }`}
           />
         </div>
 
@@ -130,7 +129,7 @@ const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
                     ref={(input) => {
                       if (input) input.indeterminate = someSelected;
                     }}
-                    onChange={() => {}}
+                    onChange={() => { }}
                     className="h-4 w-4 text-[#4B0082] rounded border-neutral-300 focus:ring-purple-200"
                   />
                   <label className="ml-3 text-sm font-medium text-[#4B0082] cursor-pointer">
@@ -148,7 +147,7 @@ const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
                   <input
                     type="checkbox"
                     checked={selectedValues.includes(option.value)}
-                    onChange={() => {}}
+                    onChange={() => { }}
                     className="h-4 w-4 text-[#4B0082] rounded border-neutral-300 focus:ring-purple-200"
                   />
                   <label className="ml-3 text-sm text-neutral-900 cursor-pointer">

@@ -57,7 +57,7 @@ const Dropdown: React.FC<CommonDropdownProps> = ({
   };
 
   return (
-    <div className={`flex flex-col gap-1 ${className}`}>
+    <div className={`flex flex-col gap-0 ${className}`}>
       {label && (
         <label className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
           {icon && <span className="text-neutral-600 text-lg">{icon}</span>}
@@ -88,9 +88,8 @@ const Dropdown: React.FC<CommonDropdownProps> = ({
             </span>
           </div>
           <ChevronDown
-            className={`w-5 h-5 text-pneutral-800 transition-transform shrink-0 ml-2 ${
-              isOpen ? "rotate-180" : ""
-            }`}
+            className={`w-5 h-5 text-pneutral-800 transition-transform shrink-0 ml-2 ${isOpen ? "rotate-180" : ""
+              }`}
           />
         </div>
 

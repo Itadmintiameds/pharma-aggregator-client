@@ -153,11 +153,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   };
 
   return (
-    <div className={`flex flex-col gap-1 w-full ${containerClassName}`}>
+    <div className={`flex flex-col gap-0 w-full ${containerClassName}`}>
       {/* Label Logic */}
       <label
         htmlFor={inputId}
-        className={`text-label-l4 font-medium transition-colors duration-200 ${disabled ? "text-pneutral-500" : "text-pneutral-900"
+        className={`font-heading font-medium text-[16px] leading-[24px] tracking-normal align-middle transition-colors duration-200 ${disabled ? "text-pneutral-500" : "text-pneutral-900"
           } ${labelClassName}`}
       >
         {label}
