@@ -6,8 +6,7 @@ import Table, { Column } from "@/src/app/commonComponents/Table";
 import { getProductList } from "@/src/services/product/ProductService";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { ProductListData } from "@/src/types/product/ProductData";
-import CommonModal from "../commonComponent/CommonModal";
-import DeleteProduct from "./DeleteProduct";
+import Delete from "./Delete";
 
 interface ProductListProps {
   setCurrentView: (view: DashboardView) => void;
@@ -203,13 +202,15 @@ const ProductList = ({
         />
       </div>
       {openDeleteModal && selectedProductIdLocal && (
-        <CommonModal onClose={() => setOpenDeleteModal(false)}>
-          <DeleteProduct
-            productId={selectedProductIdLocal}
-            onClose={() => setOpenDeleteModal(false)}
-            onSuccess={fetchProducts}
-          />
-        </CommonModal>
+        <Delete
+          isOpen={openDeleteModal}
+          onClose={() => setOpenDeleteModal(false)}
+          productId={selectedProductIdLocal}
+          onConfirm={async () => {
+            await fetchProducts();
+            setOpenDeleteModal(false);
+          }}
+        />
       )}
     </>
   );

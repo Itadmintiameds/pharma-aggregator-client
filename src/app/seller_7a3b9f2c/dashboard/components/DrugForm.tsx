@@ -27,6 +27,8 @@ import { getTherapeuticCategory } from "@/src/services/product/TherapeuticCatego
 import { getSupplementDosageForms } from "@/src/services/product/SupplementService";
 import { useRouter } from "next/navigation";
 import { validateBatchNumber } from "@/src/services/product/Pricing";
+import Dropdown from "@/src/app/commonComponents/Dropdown";
+import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 
 interface SelectOption {
   value: string;
@@ -1162,68 +1164,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     };
   };
 
-  // const selectStyles = (errorKey: string) => ({
-  //   control: (base: any, state: any) => ({
-  //     ...base,
-  //     minHeight: "52px",
-  //     height: "auto",
-  //     borderRadius: "8px",
-  //     borderWidth: state.isFocused ? "2px" : "1px",
-  //     borderColor: errors[errorKey]
-  //       ? "#FF3B3B"
-  //       : state.isFocused
-  //         ? "#C4AAFD"
-  //         : "#C0C1BE",
-  //     boxShadow: "none",
-  //     cursor: "pointer",
-
-  //     // ✅ FIX: dynamic alignment
-  //     alignItems:
-  //       state.hasValue && state.selectProps.isMulti ? "flex-start" : "center",
-
-  //     "&:hover": { borderColor: errors[errorKey] ? "#FF3B3B" : "#C0C1BE" },
-  //   }),
-
-  //   valueContainer: (base: any) => ({
-  //     ...base,
-  //     padding: "8px 16px", // slight vertical padding for multi-line
-  //     flexWrap: "wrap", // ✅ enables wrapping
-  //     overflow: "visible",
-  //   }),
-
-  //   indicatorsContainer: (base: any) => ({
-  //     ...base,
-  //     height: "52px", // ✅ keep icon aligned like other fields
-  //   }),
-
-  //   dropdownIndicator: (base: any, state: any) => ({
-  //     ...base,
-  //     color: state.isFocused ? "#C4AAFD" : "#C0C1BE",
-  //     cursor: "pointer",
-  //     "&:hover": { color: "#C4AAFD" },
-  //   }),
-
-  //   option: (base: any, state: any) => ({
-  //     ...base,
-  //     backgroundColor: state.isSelected
-  //       ? "#4B0082"
-  //       : state.isFocused
-  //         ? "#F3E8FF"
-  //         : "white",
-  //     color: state.isSelected ? "white" : "#1E1E1E",
-  //     cursor: "pointer",
-  //     "&:active": { backgroundColor: "#4B0082", color: "white" },
-  //   }),
-
-  //   placeholder: (base: any) => ({ ...base, color: "#A3A3A3" }),
-  //   singleValue: (base: any) => ({ ...base, color: "#1E1E1E" }),
-
-  //   multiValue: (base: any) => ({
-  //     ...base,
-  //     margin: "2px", // neat spacing when wrapping
-  //   }),
-  // });
-
   const selectStyles = (errorKey: string) => ({
     control: (base: any, state: any) => ({
       ...base,
@@ -1319,31 +1259,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     },
   });
 
-  // useEffect(() => {
-  //   const fetchDosage = async (categoryId: string | number) => {
-  //     try {
-  //       setLoadingDosage(true);
-
-  //       const data = await getSupplementDosageForms(categoryId);
-
-  //       const options = data.map((d: any) => ({
-  //         value: d.dosageId,
-  //         label: d.dosageName,
-  //       }));
-
-  //       setDosageOptions(options);
-  //     } catch (error) {
-  //       console.error("Error fetching dosage:", error);
-  //     } finally {
-  //       setLoadingDosage(false);
-  //     }
-  //   };
-
-  //   if (categoryId !== undefined) {
-  //     fetchDosage(categoryId);
-  //   }
-  // }, [categoryId]);
-
   const fetchDosage = async (categoryId: string | number) => {
     try {
       setLoadingDosage(true);
@@ -1435,17 +1350,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     fetchPackTypes();
   }, [form.dosageId]);
 
-  const calculateShelfLife = (mfg: Date, exp: Date) => {
-    if (!mfg || !exp) return "";
-
-    const years = exp.getFullYear() - mfg.getFullYear();
-    const months = exp.getMonth() - mfg.getMonth();
-
-    const totalMonths = years * 12 + months;
-
-    return totalMonths >= 0 ? totalMonths : "";
-  };
-
   const removeMolecule = (indexToRemove: number) => {
     if (form.molecules.length === 1) {
       alert("At least one molecule is required.");
@@ -1487,14 +1391,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     label: item.conditionName,
   }));
 
-  const selectedStorageConditions = React.useMemo(() => {
-    if (!storageConditionOptions.length) return [];
-
-    return storageConditionOptions.filter((o) =>
-      form.storageConditionIds?.includes(Number(o.value)),
-    );
-  }, [storageConditionOptions, form.storageConditionIds]);
-
   return (
     <>
       <PopupModal
@@ -1530,6 +1426,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
             <AdditionalDiscountType
               onClose={() => setShowAdditionalDiscount(false)}
+              categoryId={categoryId}
               initialData={form.additionalDiscount}
               baseDiscountPercentage={Number(form.discountPercentage) || 0}
               baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
@@ -1555,25 +1452,20 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 Therapeutic Category
                 <span className="text-warning-500 ml-1">*</span>
               </label>
-              <Select
+              <Dropdown
                 options={therapeuticCategories}
-                isLoading={loadingTherapeuticCategories}
-                value={
-                  therapeuticCategories.find(
-                    (o) => o.value === form.therapeuticCategory,
-                  ) || null
-                }
-                onChange={handleTherapeuticCategoriesChange}
+                value={form.therapeuticCategory || ""}
+                onChange={(value, label) => {
+                  handleTherapeuticCategoriesChange({
+                    value,
+                    label,
+                  });
+                }}
                 placeholder="Select category"
+                isLoading={loadingTherapeuticCategories}
                 isDisabled={isEditMode}
-                theme={selectTheme}
-                styles={selectStyles("productCategoryId")}
+                error={errors.therapeuticCategory}
               />
-              {errors.therapeuticCategory && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.therapeuticCategory}
-                </p>
-              )}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -1581,25 +1473,21 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 Therapeutic Subcategory
                 <span className="text-warning-500 ml-1">*</span>
               </label>
-              <Select
+
+              <Dropdown
                 options={subcategoryOptions}
-                isLoading={loadingSubcategories}
-                value={
-                  subcategoryOptions.find(
-                    (o) => o.value === form.therapeuticSubcategory,
-                  ) || null
-                }
-                onChange={handleSubcategoryChange}
+                value={form.therapeuticSubcategory || ""}
+                onChange={(value, label) => {
+                  handleSubcategoryChange({
+                    value,
+                    label,
+                  });
+                }}
                 placeholder="Select subcategory"
+                isLoading={loadingSubcategories}
                 isDisabled={isEditMode}
-                theme={selectTheme}
-                styles={selectStyles("therapeuticSubcategory")}
+                error={errors.therapeuticSubcategory}
               />
-              {errors.therapeuticSubcategory && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.therapeuticSubcategory}
-                </p>
-              )}
             </div>
 
             <Input
@@ -1619,22 +1507,23 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 Dosage Form (Tablet, Syrup)
                 <span className="text-warning-500 ml-1">*</span>
               </label>
-              <Select
-                options={dosageOptions}
-                isLoading={loadingDosage}
-                value={
-                  dosageOptions.find((o) => o.value === form.dosageId) || null
-                }
-                onChange={handleDosageChange}
+              <Dropdown
+                options={dosageOptions.map((option) => ({
+                  value: String(option.value),
+                  label: option.label,
+                }))}
+                value={String(form.dosageId || "")}
+                onChange={(value, label) => {
+                  handleDosageChange({
+                    value,
+                    label,
+                  });
+                }}
                 placeholder="Select dosage"
+                isLoading={loadingDosage}
                 isDisabled={isEditMode}
-                theme={selectTheme}
-                styles={selectStyles("dosageId")}
+                error={errors.dosageId}
               />
-
-              {errors.dosageId && (
-                <p className="text-red-500 text-xs mt-1">{errors.dosageId}</p>
-              )}
             </div>
 
             {form.molecules.map((molecule, index) => (
@@ -1648,34 +1537,25 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                     <span className="text-warning-500 ml-1">*</span>
                   </label>
 
-                  <Select
-                    options={moleculeOptions}
-                    isLoading={loadingMolecules}
-                    value={
-                      moleculeOptions.find(
-                        (o) => o.value.moleculeId === molecule.moleculeId,
-                      ) || null
-                    }
-                    onChange={(selected) =>
-                      handleMoleculeSelect(index, selected)
-                    }
-                    placeholder="Select molecule"
-                    theme={selectTheme}
-                    styles={{
-                      ...selectStyles("molecule"),
-                      container: (base) => ({
-                        ...base,
-                        width: "100%",
-                      }),
-                    }}
-                    isDisabled={isEditMode}
-                  />
+                  <Dropdown
+                    options={moleculeOptions.map((option) => ({
+                      value: String(option.value.moleculeId),
+                      label: option.label,
+                    }))}
+                    value={molecule.moleculeId || ""}
+                    onChange={(value, label) => {
+                      const selectedOption = moleculeOptions.find(
+                        (o) => String(o.value.moleculeId) === value,
+                      );
 
-                  {errors[`molecules.${index}.moleculeId`] && (
-                    <p className="text-red-500 text-xs">
-                      {errors[`molecules.${index}.moleculeId`]}
-                    </p>
-                  )}
+                      handleMoleculeSelect(index, selectedOption || null);
+                    }}
+                    placeholder="Select molecule"
+                    isLoading={loadingMolecules}
+                    isDisabled={isEditMode}
+                    error={errors[`molecules.${index}.moleculeId`]}
+                    className="w-full"
+                  />
                 </div>
 
                 <div className="w-full">
@@ -1692,7 +1572,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   />
 
                   {errors[`molecules.${index}.strength`] && (
-                    <p className="text-red-500 text-xs">
+                    <p className="text-red-500 text-sm">
                       {errors[`molecules.${index}.strength`]}
                     </p>
                   )}
@@ -1772,31 +1652,25 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 <span className="text-warning-500 ml-1">*</span>
               </label>
 
-              <Select
-                options={storageConditionOptions}
-                isLoading={loadingStorageConditions}
-                isMulti
-                value={selectedStorageConditions}
-                onChange={(selectedOptions) => {
-                  const ids = selectedOptions
-                    ? selectedOptions.map((opt: any) => Number(opt.value))
-                    : [];
-
+              <CheckboxDropdown
+                options={storageConditionOptions.map((option: any) => ({
+                  value: String(option.value),
+                  label: option.label,
+                }))}
+                selectedValues={
+                  form.storageConditionIds?.map((id) => String(id)) || []
+                }
+                onChange={(selectedValues) => {
                   setForm((prev) => ({
                     ...prev,
-                    storageConditionIds: ids,
+                    storageConditionIds: selectedValues.map((id) => Number(id)),
                   }));
                 }}
                 placeholder="Select storage conditions"
-                theme={selectTheme}
-                styles={selectStyles("storageConditionIds")}
+                error={errors.storageConditionIds}
+                showSelectAll={true}
+                disabled={isEditMode}
               />
-
-              {errors.storageConditionIds && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.storageConditionIds}
-                </p>
-              )}
             </div>
 
             <Input
@@ -1831,7 +1705,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 } focus:outline-none focus:ring-0`}
               />
               {errors.warningsPrecautions && (
-                <p className="text-red-500 text-xs mt-1">
+                <p className="text-red-500 text-sm mt-1">
                   {errors.warningsPrecautions}
                 </p>
               )}
@@ -1857,7 +1731,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 } focus:outline-none focus:ring-0`}
               />
               {errors.productDescription && (
-                <p className="text-red-500 text-xs mt-1">
+                <p className="text-red-500 text-sm mt-1">
                   {errors.productDescription}
                 </p>
               )}
@@ -1878,28 +1752,23 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 <span className="text-warning-500 ml-1">*</span>
               </label>
 
-              <Select
-                options={packTypeOptions}
-                value={
-                  packTypeOptions.find(
-                    (o: any) => String(o.value) === String(form.packId),
-                  ) || null
-                }
-                onChange={(selected: any) =>
+              <Dropdown
+                options={packTypeOptions.map((option: any) => ({
+                  value: String(option.value),
+                  label: option.label,
+                }))}
+                value={form.packId || ""}
+                onChange={(value, label) =>
                   setForm((prev) => ({
                     ...prev,
-                    packId: selected?.value || "", // ✅ FIX
-                    packType: selected?.label || "",
+                    packId: value,
+                    packType: label,
                   }))
                 }
                 placeholder="Select Pack Type"
                 isDisabled={isEditMode || !form.dosageId}
-                theme={selectTheme}
-                styles={selectStyles("packId")}
+                error={errors.packId}
               />
-              {errors.packId && (
-                <p className="text-red-500 text-xs mt-1">{errors.packId}</p>
-              )}
             </div>
 
             <Input
@@ -2204,35 +2073,22 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               <label className="text-label-l4 font-medium text-pneutral-900">
                 GST %<span className="text-warning-500 ml-1">*</span>
               </label>
-
-              <Select
-                options={gstOptions}
-                value={
-                  gstOptions.find((o) => o.value === form.gstPercentage) ||
-                  (form.gstPercentage
-                    ? {
-                        value: form.gstPercentage,
-                        label: `${form.gstPercentage}%`,
-                      }
-                    : null)
-                }
-                onChange={(selected: any) =>
+              <Dropdown
+                options={gstOptions.map((option: any) => ({
+                  value: String(option.value),
+                  label: option.label,
+                }))}
+                value={String(form.gstPercentage || "")}
+                onChange={(value, label) =>
                   setForm((prev) => ({
                     ...prev,
-                    gstPercentage: selected?.value || "",
+                    gstPercentage: value,
                   }))
                 }
                 placeholder="Select GST %"
                 isDisabled={isEditMode}
-                theme={selectTheme}
-                styles={selectStyles("gstPercentage")}
+                error={errors.gstPercentage}
               />
-
-              {errors.gstPercentage && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.gstPercentage}
-                </p>
-              )}
             </div>
 
             <Input
@@ -2330,7 +2186,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
 
           {errors.images && (
-            <div className="text-red-500 text-xs mt-2">{errors.images}</div>
+            <div className="text-red-500 text-sm mt-2">{errors.images}</div>
           )}
 
           <div className="flex gap-4">
