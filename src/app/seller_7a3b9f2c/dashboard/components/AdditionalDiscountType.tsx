@@ -14,10 +14,10 @@ type OptionType = {
   label: string;
 };
 
-const options: OptionType[] = [
-  { value: "additional_discount", label: "Additional Discount" },
-  { value: "special_schemes", label: "Special Schemes" },
-];
+// const options: OptionType[] = [
+//   { value: "additional_discount", label: "Additional Discount" },
+//   { value: "special_schemes", label: "Special Schemes" },
+// ];
 
 const customStyles: StylesConfig<OptionType, false> = {
   control: (provided, state) => ({
@@ -84,6 +84,7 @@ const customStyles: StylesConfig<OptionType, false> = {
 
 type AdditionalDiscountTypeProps = {
   onClose: () => void;
+  categoryId?: number;
   initialData: AdditionalDiscountData[];
   baseDiscountPercentage: number;
   baseMinimumOrderQuantity: number;
@@ -94,6 +95,7 @@ type AdditionalDiscountTypeProps = {
 
 const AdditionalDiscountType = ({
   onClose,
+  categoryId,
   initialData,
   baseDiscountPercentage,
   baseMinimumOrderQuantity,
@@ -106,6 +108,14 @@ const AdditionalDiscountType = ({
   const specialSchemesRef = useRef<SpecialSchemesRef>(null);
   const [alwaysActive, setAlwaysActive] = useState(false);
 
+  const options: OptionType[] = [
+    { value: "additional_discount", label: "Additional Discount" },
+
+    ...(categoryId === 2 || categoryId === 3 || categoryId === 4
+      ? [{ value: "special_schemes", label: "Special Schemes" }]
+      : []),
+  ];
+  
   return (
     <>
       <div className="flex flex-col gap-2">

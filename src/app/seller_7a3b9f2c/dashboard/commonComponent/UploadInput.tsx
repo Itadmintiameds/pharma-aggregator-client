@@ -8,12 +8,12 @@ type Props = {
   accept?: string;
 };
 
-export default function UploadInput({ 
-  onFileSelect, 
+export default function UploadInput({
+  onFileSelect,
   existingFile,
   label = "Upload Product Brochure / User Manual",
   placeholder = "Upload the Product Brochure",
-  accept = "application/pdf"
+  accept = "application/pdf",
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [removedExisting, setRemovedExisting] = useState(false);
@@ -22,7 +22,10 @@ export default function UploadInput({
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    if (accept === "application/pdf" && selectedFile.type !== "application/pdf") {
+    if (
+      accept === "application/pdf" &&
+      selectedFile.type !== "application/pdf"
+    ) {
       alert("Only PDF allowed");
       return;
     }
@@ -45,39 +48,40 @@ export default function UploadInput({
         </label>
       )}
 
-      <div className="flex items-center w-full h-13 rounded-lg border border-pneutral-300 bg-white overflow-hidden">
-        <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
-          <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
-        </div>
+      <label className="cursor-pointer">
+        <div className="flex items-center w-full h-13 rounded-lg border border-pneutral-300 bg-white overflow-hidden">
+          <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
+            <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
+          </div>
 
-        <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-          {file || (existingFile && !removedExisting) ? (
-            <div className="flex items-center bg-sneutral-800 text-white text-p2 px-3 py-2 rounded-lg max-w-full">
-              <span className="truncate">
-                {file ? file.name : existingFile?.split("/").pop()}
-              </span>
-              <button onClick={removeFile} className="ml-2">
-                ✕
-              </button>
-            </div>
-          ) : (
-            <span className="text-[#969793]">{placeholder}</span>
+          <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
+            {file || (existingFile && !removedExisting) ? (
+              <div className="flex items-center bg-sneutral-800 text-white text-p2 px-3 py-2 rounded-lg max-w-full">
+                <span className="truncate">
+                  {file ? file.name : existingFile?.split("/").pop()}
+                </span>
+                <button onClick={removeFile} className="ml-2">
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <span className="text-[#969793]">{placeholder}</span>
+            )}
+          </div>
+
+          {!file && (!existingFile || removedExisting) && (
+            <label className="cursor-pointer px-4">
+              <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
+              <input
+                type="file"
+                accept={accept}
+                className="hidden"
+                onChange={handleFileChange}
+              />
+            </label>
           )}
         </div>
-
-        {!file && (!existingFile || removedExisting) && (
-          <label className="cursor-pointer px-4">
-            <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
-            <input
-              type="file"
-              accept={accept}
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </label>
-        )}
-      </div>
+      </label>
     </div>
   );
 }
-
