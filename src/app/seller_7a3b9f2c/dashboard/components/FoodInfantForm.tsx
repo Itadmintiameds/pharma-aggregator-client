@@ -244,6 +244,8 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
   const isEditMode = mode === "edit";
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
 
+    const categoryId = 3;
+
   // ---------- Form state ----------
   const [form, setForm] = useState({
     productName: "",
@@ -1375,6 +1377,7 @@ try {
           <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
             <AdditionalDiscountType
               onClose={() => setShowAdditionalDiscount(false)}
+              categoryId={categoryId}
               initialData={additionalDiscounts}
               baseDiscountPercentage={Number(form.discountPercentage) || 0}
               baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
