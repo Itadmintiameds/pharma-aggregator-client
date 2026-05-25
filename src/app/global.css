@@ -16,8 +16,10 @@
      FONT FAMILY
   ========================= */
 
-  --font-body: "Noto Sans", sans-serif;
-  --font-heading: "Work Sans", sans-serif;
+  /* --font-body: "Noto Sans", sans-serif;
+  --font-heading: "Work Sans", sans-serif; */
+  --font-body: "Noto Sans";
+  --font-heading: "Work Sans";
 
   /* =========================
      FONT WEIGHTS

@@ -205,7 +205,7 @@ const NumericInputWithUnit: React.FC<NumericInputWithUnitProps> = ({
           className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 transition-colors hover:bg-neutral-100 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span className={unit ? "text-pneutral-800" : "text-pneutral-500"} style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}>
-            {loading ? "Loading..." : (selectedUnitLabel || "Select Unit")}
+            {loading ? "Select Unit" : (selectedUnitLabel || "Select Unit")}
           </span>
           <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
