@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { PiSealCheckLight } from "react-icons/pi";
-import { FileText, ExternalLink, Edit2, X } from "lucide-react";
+import { FileText, ExternalLink, Edit2, X, Gift, BadgePercent, ShoppingBag, Tag } from "lucide-react";
 import Image from "next/image";
 
 /* ─────────────────────────────────────────────────────────
@@ -27,6 +27,8 @@ interface SupplementDetailsViewProps {
   manufacturerName?: string | null;
   onEdit?: () => void;
   onClose?: () => void;
+  additionalDiscounts?: any[];
+  specialSchemes?: any[];
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -124,6 +126,8 @@ export default function SupplementDetailsView({
   brochureUrl,
   onEdit,
   onClose,
+  additionalDiscounts = [],
+  specialSchemes = [],
 }: SupplementDetailsViewProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCertModal, setShowCertModal] = useState(false);
@@ -183,45 +187,44 @@ export default function SupplementDetailsView({
       <div className="flex flex-col gap-4">
 
         {/* ── Section header ── */}
-        <div className="py-2 border-b border-pneutral-200">
+        <div className="py-2">
           <h2 className="text-pneutral-900 text-[28px] font-heading font-medium leading-9">
             Product Details
           </h2>
         </div>
 
         {/* ── Product Images ── */}
-        <div className="flex flex-col gap-4">
-          <p className="text-pneutral-900 text-[18px] font-body font-semibold leading-6">
+        <div className="flex flex-col gap-4 p-3 bg-[#F8F5FF] rounded-xl border border-pneutral-200 w-full min-h-[340px]">
+          <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-[#1E1E1D]">
             Product Images
-          </p>
-          <div className="p-3 bg-secondary-50 rounded-xl outline outline-1 outline-secondary-300 -outline-offset-1 flex flex-col gap-4">
-            <div className="grid grid-cols-4 gap-4">
-              {imagesToShow.slice(0, 4).map((img, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => setSelectedImageIndex(idx)}
-                  className={`relative h-[276px] overflow-hidden rounded-xl cursor-pointer shadow-md${idx === selectedImageIndex ? " outline outline-2 outline-secondary-500 -outline-offset-1" : ""
-                    }`}
-                >
-                  <Image
-                    src={img}
-                    alt={`Product image ${idx + 1}`}
-                    fill
-                    className="object-cover"
-                    unoptimized={img.startsWith("http")}
-                    onError={(e) => { (e.target as HTMLImageElement).src = placeholderImage; }}
-                  />
-                  {idx === 0 && (
-                    <div className="absolute left-[10px] top-[10px] px-2 py-1 bg-secondary-500 rounded-[4px]">
-                      <span className="text-white text-xs font-body font-semibold leading-[18px]">Primary</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {Array.from({ length: Math.max(0, 4 - imagesToShow.length) }).map((_, i) => (
-                <div key={`empty-${i}`} className="h-[276px] rounded-xl bg-pneutral-50 shadow-sm" />
-              ))}
-            </div>
+          </h3>
+          <div className="grid grid-cols-4 gap-4">
+            {imagesToShow.slice(0, 4).map((img, idx) => (
+              <div
+                key={idx}
+                onClick={() => setSelectedImageIndex(idx)}
+                className={`relative h-[274px] w-full overflow-hidden rounded-xl cursor-pointer shadow-sm${
+                  idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""
+                }`}
+              >
+                <Image
+                  src={img}
+                  alt={`Product image ${idx + 1}`}
+                  fill
+                  className="object-cover"
+                  unoptimized={img.startsWith("http")}
+                  onError={(e) => { (e.target as HTMLImageElement).src = placeholderImage; }}
+                />
+                {idx === 0 && (
+                  <div className="absolute left-[10px] top-[10px] px-2 py-1 bg-secondary-500 rounded-[4px]">
+                    <span className="text-white text-xs font-body font-semibold leading-[18px]">Primary</span>
+                  </div>
+                )}
+              </div>
+            ))}
+            {Array.from({ length: Math.max(0, 4 - imagesToShow.length) }).map((_, i) => (
+              <div key={`empty-${i}`} className="h-[274px] w-full rounded-xl bg-pneutral-50 shadow-sm" />
+            ))}
           </div>
         </div>
 
@@ -349,6 +352,82 @@ export default function SupplementDetailsView({
           <FullWidthBlock label="Product Description" value={productDescription} />
           <FullWidthBlock label="Warnings & Precautions" value={warningsPrecautions} />
         </div>
+
+        {/* ── SPECIAL OFFERS & PROMOTIONAL SCHEMES ── */}
+        {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
+          <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
+            <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
+              Special Offers & Promotional Schemes
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Special Schemes */}
+              {specialSchemes.map((scheme, index) => {
+                const themes = [
+                  { border: "#4EB300", bg: "#DCF7CB", text: "#47A400", Icon: Gift },
+                  { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: ShoppingBag },
+                  { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Tag },
+                ];
+                let theme = themes[index % themes.length];
+                const type = scheme.schemeType?.toLowerCase();
+                if (type === "bogo" || type === "buy_x_get_y") theme = themes[0];
+                else if (type === "bundle") theme = themes[1];
+                else if (type === "seasonal") theme = themes[2];
+
+                const dateStr = scheme.effectiveStartDate && scheme.effectiveEndDate
+                  ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
+                  : "Valid: Ongoing";
+
+                return (
+                  <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+                    {/* Icon Box */}
+                    <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
+                      <theme.Icon className="w-6 h-6 text-white" />
+                    </div>
+                    {/* Content */}
+                    <div className="flex flex-col">
+                      <h5 className="font-heading font-medium text-[20px] leading-[28px] mb-1.5" style={{ color: theme.text }}>
+                        {scheme.schemeName || "Special Scheme"}
+                      </h5>
+                      <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                        Purchase {scheme.buyQuantity} {productName || "this product"} and get {scheme.freeQuantity} absolutely free. Limited stock available!
+                      </p>
+                      <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">
+                        {dateStr}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Additional Discount */}
+              {additionalDiscounts.length > 0 && (
+                <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] bg-[#F8EDFF] border-[#6C12A9] h-[142px]">
+                  {/* Icon Box */}
+                  <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md bg-[#6C12A9]">
+                    <BadgePercent className="w-6 h-6 text-white" />
+                  </div>
+                  {/* Content */}
+                  <div className="flex flex-col">
+                    <h5 className="font-heading font-medium text-[20px] leading-[28px] text-[#6C12A9] mb-1.5">
+                      Bulk Purchase Discount
+                    </h5>
+                    <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                      {additionalDiscounts.map((discount, index) => (
+                        <span key={index}>
+                          Get {discount.additionalDiscountPercentage}% off on orders of {discount.minimumPurchaseQuantity}+ units
+                          {index < additionalDiscounts.length - 1 ? ", " : "."}
+                        </span>
+                      ))}
+                    </p>
+                    <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">
+                      Valid: Ongoing
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Certificate Modal ── */}

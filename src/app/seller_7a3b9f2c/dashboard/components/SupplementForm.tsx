@@ -376,6 +376,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [existingNutritionalImageUrl, setExistingNutritionalImageUrl] = useState<string | null>(null);
   const [nutritionalImage, setNutritionalImage] = useState<File | null>(null);
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
+  const [brochureUploadKey, setBrochureUploadKey] = useState(Date.now());
 
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
   const [showCertDropdown, setShowCertDropdown] = useState(false);
@@ -1168,11 +1169,23 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const handleBrochureUpload = (file: File | null) => {
     if (!file) {
       setBrochureFile(null);
+      setExistingBrochureUrl(null);
       return;
     }
-    if (file.type !== "application/pdf") { alert("Only PDF files are allowed"); return; }
-    if (file.size > 5 * 1024 * 1024) { alert("File size must be less than 5 MB"); return; }
+    if (file.type !== "application/pdf") {
+      alert("Only PDF files are allowed");
+      setBrochureUploadKey(Date.now());
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size must be less than 5 MB");
+      setBrochureUploadKey(Date.now());
+      return;
+    }
     setBrochureFile(file);
+    if (errors.brochureFile) {
+      setErrors((p) => { const n = { ...p }; delete n.brochureFile; return n; });
+    }
   };
 
   // ── Edit mode: fetch and populate form ──────────────────────────────────────
@@ -1464,6 +1477,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             finalPrice: Number(form.finalPrice),
             hsnCode: Number(form.hsnCode),
             additionalDiscounts: form.additionalDiscount.map((d: any) => ({
+              ...(d.additionalDiscountId ? { additionalDiscountId: d.additionalDiscountId } : {}),
               minimumPurchaseQuantity: d.minimumPurchaseQuantity,
               additionalDiscountPercentage: d.additionalDiscountPercentage,
               effectiveStartDate: d.effectiveStartDate,
@@ -1471,7 +1485,10 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               effectiveEndDate: d.effectiveEndDate,
               effectiveEndTime: d.effectiveEndTime,
             })),
-            specialSchemes: form.specialSchemes || [],
+            specialSchemes: (form.specialSchemes || []).map((s: any) => ({
+              ...s,
+              ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+            })),
           },
         ],
 
@@ -1640,6 +1657,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             finalPrice: Number(form.finalPrice),
             hsnCode: Number(form.hsnCode),
             additionalDiscounts: form.additionalDiscount.map((d: any) => ({
+              ...(d.additionalDiscountId ? { additionalDiscountId: d.additionalDiscountId } : {}),
               minimumPurchaseQuantity: d.minimumPurchaseQuantity,
               additionalDiscountPercentage: d.additionalDiscountPercentage,
               effectiveStartDate: d.effectiveStartDate,
@@ -1647,7 +1665,10 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               effectiveEndDate: d.effectiveEndDate,
               effectiveEndTime: d.effectiveEndTime,
             })),
-            specialSchemes: form.specialSchemes || [],
+            specialSchemes: (form.specialSchemes || []).map((s: any) => ({
+              ...s,
+              ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+            })),
           },
         ],
 
@@ -1880,8 +1901,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }}
                 placeholder="Select category"
                 isDisabled={isEditMode}
-                error={errors.therapeuticCategory}
+                error={errors.therapeuticCategory ? " " : ""}
               />
+              {errors.therapeuticCategory && <p className={errorMsg}>{errors.therapeuticCategory}</p>}
             </div>
 
             {/* ROW 2 */}
@@ -1914,8 +1936,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }}
                 placeholder={form.therapeuticCategory ? "Select sub-category" : "Select category first"}
                 isDisabled={isEditMode || !form.therapeuticCategory}
-                error={errors.therapeuticSubcategory}
+                error={errors.therapeuticSubcategory ? " " : ""}
               />
+              {errors.therapeuticSubcategory && <p className={errorMsg}>{errors.therapeuticSubcategory}</p>}
             </div>
             {/* Brand Name */}
             <div data-field="brandName">
@@ -1973,8 +1996,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }}
                 placeholder={loadingDosageForms ? "Loading..." : "Select dosage form"}
                 isDisabled={isEditMode || loadingDosageForms}
-                error={errors.dosageForm}
+                error={errors.dosageForm ? " " : ""}
               />
+              {errors.dosageForm && <p className={errorMsg}>{errors.dosageForm}</p>}
             </div>
 
             {/* ROW 4 */}
@@ -2090,8 +2114,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   if (errors.nutritionalInfoType) setErrors((p) => { const n = { ...p }; delete n.nutritionalInfoType; return n; });
                 }}
                 placeholder="Select option"
-                error={errors.nutritionalInfoType}
+                error={errors.nutritionalInfoType ? " " : ""}
               />
+              {errors.nutritionalInfoType && <p className={errorMsg}>{errors.nutritionalInfoType}</p>}
             </div>
 
             {form.nutritionalInfoType === "image" && (
@@ -2220,7 +2245,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }}
                 placeholder={loadingAgeGroups ? "Loading..." : "Select age group"}
                 disabled={isEditMode || loadingAgeGroups}
-                error={errors.ageGroup}
+                error={errors.ageGroup ? " " : ""}
+                showSelectAll={false}
               />
               {errors.ageGroup && <p className={errorMsg}>{errors.ageGroup}</p>}
             </div>
@@ -2249,8 +2275,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   if (errors.gender) setErrors((p) => { const n = { ...p }; delete n.gender; return n; });
                 }}
                 placeholder="Select gender"
-                error={errors.gender}
+                error={errors.gender ? " " : ""}
               />
+              {errors.gender && <p className={errorMsg}>{errors.gender}</p>}
             </div>
 
             {/* ROW 8 */}
@@ -2322,8 +2349,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }}
                 placeholder={loadingFlavours ? "Loading..." : "Select flavour"}
                 isDisabled={loadingFlavours}
-                error={errors.flavour}
+                error={errors.flavour ? " " : ""}
               />
+              {errors.flavour && <p className={errorMsg}>{errors.flavour}</p>}
             </div>
             {/* Product Claims */}
             <div data-field="productClaims">
@@ -2367,8 +2395,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }}
                 placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
                 isDisabled={hasStock || loadingStorageConditions}
-                error={errors.storageCondition}
+                error={errors.storageCondition ? " " : ""}
               />
+              {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
             </div>
             {/* Manufacturer Name */}
             <div data-field="manufacturerName">
@@ -2399,8 +2428,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }}
                 placeholder={loadingCountries ? "Loading..." : "Select country"}
                 isDisabled={isEditMode || loadingCountries}
-                error={errors.countryOfOrigin}
+                error={errors.countryOfOrigin ? " " : ""}
               />
+              {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
             </div>
             {/* Certifications / Compliance Checkbox Dropdown */}
             <div className="flex flex-col gap-0" data-field="certifications">
@@ -2433,7 +2463,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }}
                 placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
                 disabled={loadingCertifications}
-                error={errors.certifications}
+                error={errors.certifications ? " " : ""}
               />
               {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
@@ -2447,7 +2477,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
                   <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                    <span className="text-pneutral-500 text-sm">Select certifications first</span>
+                    <span className="text-pneutral-500 text-md">Select certifications first</span>
                   </div>
                 </div>
               </div>
@@ -2476,19 +2506,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             <div className="flex flex-col gap-0" data-field="brochureFile">
               <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
               <UploadInput
-                onFileSelect={(file) => {
-                  setBrochureFile(file);
-                  if (!file) {
-                    setExistingBrochureUrl(null);
-                  }
-                  if (file && errors.brochureFile) {
-                    setErrors((p) => { const n = { ...p }; delete n.brochureFile; return n; });
-                  }
-                }}
+                key={brochureUploadKey}
+                onFileSelect={handleBrochureUpload}
                 existingFile={existingBrochureUrl || undefined}
                 label=""
                 placeholder="Upload the Product Brochure"
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept="application/pdf"
               />
               {errors.brochureFile && <p className={errorMsg}>{errors.brochureFile}</p>}
             </div>
@@ -2576,8 +2599,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }
                 placeholder={loadingPackTypes ? "Loading..." : "Select Pack Type"}
                 isDisabled={isEditMode || loadingPackTypes}
-                error={errors.packId}
+                error={errors.packId ? " " : ""}
               />
+              {errors.packId && <p className={errorMsg}>{errors.packId}</p>}
             </div>
 
             <Input
@@ -2952,8 +2976,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }
                 placeholder="Select GST %"
                 isDisabled={isEditMode}
-                error={errors.gstPercentage}
+                error={errors.gstPercentage ? " " : ""}
               />
+              {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
             </div>
           </div>
 
@@ -3072,12 +3097,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             <button
               type="button"
               onClick={() => router.back()}
-              className="w-21 h-12 border-2 border-warning-500 rounded-lg text-label-l3 font-semibold text-warning-500 cursor-pointer"
+              className="w-35.25 h-12 border-2 border-warning-500 rounded-lg text-label-l4 font-medium text-warning-500 cursor-pointer"
             >
               Cancel
             </button>
 
-            <button className="w-35.25 h-12 bg-secondary-500 text-white text-label-l3 font-semibold rounded-lg flex items-center justify-center gap-2.5">
+            <button className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5">
               <img
                 src="/icons/SaveDraftIcon.svg"
                 alt="drug"
@@ -3091,7 +3116,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="bg-primary-900 text-white rounded-lg p-3 w-21.75 h-12 cursor-pointer flex items-center justify-center gap-2"
+              className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer flex items-center justify-center gap-2"
             >
               {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {submitting ? "Saving..." : "Submit"}

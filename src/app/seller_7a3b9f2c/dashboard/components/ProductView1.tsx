@@ -2120,6 +2120,8 @@ const ProductView1 = ({
           placeholderImage={PLACEHOLDER_IMAGE}
           manufacturerName={manufacturerName}
           brochureUrl={brochureUrl}
+          additionalDiscounts={additionalDiscounts}
+          specialSchemes={specialSchemes}
         />
       )}
 
@@ -2292,7 +2294,7 @@ const ProductView1 = ({
             />
 
             {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
-              <>
+              <div style={{ marginTop: 8, borderBottom: "1px solid #D5D5D4", paddingBottom: 12 }}>
                 <div style={{ padding: "12px 8px 8px" }}>
                   <span
                     style={{
@@ -2314,7 +2316,6 @@ const ProductView1 = ({
                       key={`discount-${d.additionalDiscountId ?? i}`}
                       style={{
                         padding: 12,
-                        borderBottom: "1px #D5D5D4 solid",
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "flex-end",
@@ -2367,7 +2368,6 @@ const ProductView1 = ({
                       key={`scheme-${s.id ?? i}`}
                       style={{
                         padding: 12,
-                        borderBottom: "1px #D5D5D4 solid",
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "flex-end",
@@ -2394,7 +2394,7 @@ const ProductView1 = ({
                     </div>
                   );
                 })}
-              </>
+              </div>
             )}
           </div>
         </div>
