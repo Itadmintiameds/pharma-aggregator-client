@@ -116,7 +116,7 @@ const ProductList = ({
 
   return (
     <>
-      <div className="flex justify-between gap-10">
+      <div className="flex justify-between gap-10 font-open-sans">
         <button className="w-32 h-12 bg-pneutral-50 border border-pneutral-200 rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2">
           <img
             src="/icons/FilterIcon.svg"
