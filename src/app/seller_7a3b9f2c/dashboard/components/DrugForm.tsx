@@ -260,31 +260,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     }
   }, [categoryId]);
 
-  // useEffect(() => {
-  //   const fetchTherapeuticCategories = async (id: string | number) => {
-  //     setLoadingTherapeuticCategories(true);
-
-  //     try {
-  //       const data = await getTherapeuticCategory(id);
-
-  //       const options = data.map((cat: any) => ({
-  //         value: cat.therapeuticCategoryId,
-  //         label: cat.therapeuticCategory,
-  //       }));
-
-  //       setTherapeuticCategories(options);
-  //     } catch (error) {
-  //       console.error(error);
-  //     } finally {
-  //       setLoadingTherapeuticCategories(false);
-  //     }
-  //   };
-
-  //   if (categoryId !== undefined) {
-  //     fetchTherapeuticCategories(categoryId);
-  //   }
-  // }, [categoryId]);
-
   const fetchTherapeuticCategories = async (id: string | number) => {
     setLoadingTherapeuticCategories(true);
 
@@ -876,11 +851,17 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     router.push("/seller_7a3b9f2c/dashboard");
   };
 
+  // useEffect(() => {
+  //   if (mode === "edit" && productId) {
+  //     fetchProductByIdAndFillForm(productId);
+  //   }
+  // }, [mode, productId, dosageOptions, moleculeOptions]);
+
   useEffect(() => {
-    if (mode === "edit" && productId) {
+    if (mode === "edit" && productId && moleculeOptions.length > 0) {
       fetchProductByIdAndFillForm(productId);
     }
-  }, [mode, productId, dosageOptions, moleculeOptions]);
+  }, [mode, productId, moleculeOptions.length]);
 
   const fetchProductByIdAndFillForm = async (id: string) => {
     try {
@@ -888,8 +869,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       if (!data) throw new Error("Product not found");
 
       await fetchTherapeuticCategories(data.categoryId);
-      await fetchDosage(data.categoryId);
-
+      const fetchedDosageOptions = await fetchDosage(data.categoryId);
       const pricing =
         data.pricingDetails?.length > 0
           ? data.pricingDetails.reduce((latest: any, curr: any) =>
@@ -908,11 +888,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           : {};
       const attributeDrug = data.productAttributeDrugs?.[0] || {};
       setProductAttributeId(attributeDrug.productAttributeId || null);
-      const dosageForm = attributeDrug.dosageForm || "";
-      const selectedDosage = dosageOptions.find(
-        (option) => option.label === dosageForm,
-      );
 
+      const dosageForm = attributeDrug.dosageForm?.trim().toLowerCase() || "";
+
+      const selectedDosage = fetchedDosageOptions.find(
+        (option: any) => option.label?.trim().toLowerCase() === dosageForm,
+      );
       const molecules =
         attributeDrug.molecules?.length > 0
           ? attributeDrug.molecules.map((m: any) => {
@@ -947,6 +928,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       setExistingManualFile(
         data.productAttributeDrugs?.[0]?.userManualUrl || null,
       );
+
       setForm((prev) => ({
         ...prev,
         productId: data.productId || "",
@@ -959,7 +941,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         therapeuticSubcategory: String(
           attributeDrug.therapeuticSubcategoryId || "",
         ),
-        dosageId: selectedDosage?.value || "",
+        dosageId: selectedDosage ? Number(selectedDosage.value) : "",
         strength: String(attributeDrug.strength ?? ""),
         storageConditionIds: attributeDrug.storageConditionIds || [],
 
@@ -1079,7 +1061,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             therapeuticSubcategoryId: form.therapeuticSubcategory,
 
             dosageForm:
-              dosageOptions.find((d) => d.value === form.dosageId)?.label || "",
+              dosageOptions.find(
+                (d) => Number(d.value) === Number(form.dosageId),
+              )?.label || "",
 
             strength: form.strength,
             storageConditionIds: form.storageConditionIds,
@@ -1122,46 +1106,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       console.error(err);
       alert("❌ Update failed");
     }
-  };
-
-  const calculateFinalPrice = (
-    mrp: string,
-    standardDiscount: string,
-    gst: string,
-    quantity: number,
-    additionalDiscounts: AdditionalDiscountData[],
-  ) => {
-    const mrpValue = parseFloat(mrp);
-    const stdDiscount = parseFloat(standardDiscount);
-    const gstValue = parseFloat(gst);
-
-    // ✅ ALWAYS RETURN OBJECT
-    if (isNaN(mrpValue)) {
-      return {
-        finalPerUnit: "",
-        total: "",
-        appliedDiscount: 0,
-      };
-    }
-
-    let appliedDiscount = stdDiscount;
-
-    const applicableSlab = additionalDiscounts
-      .filter((d) => quantity >= d.minimumPurchaseQuantity)
-      .sort((a, b) => b.minimumPurchaseQuantity - a.minimumPurchaseQuantity)[0];
-
-    if (applicableSlab) {
-      appliedDiscount = applicableSlab.additionalDiscountPercentage;
-    }
-
-    const discountedPrice = mrpValue - (mrpValue * appliedDiscount) / 100;
-    const finalPerUnit = discountedPrice + (discountedPrice * gstValue) / 100;
-
-    return {
-      finalPerUnit: finalPerUnit.toFixed(2),
-      total: (finalPerUnit * quantity).toFixed(2),
-      appliedDiscount,
-    };
   };
 
   const selectStyles = (errorKey: string) => ({
@@ -1259,20 +1203,26 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     },
   });
 
-  const fetchDosage = async (categoryId: string | number) => {
+
+  const fetchDosage = async (
+    categoryId: string | number,
+  ): Promise<{ value: string; label: string }[]> => {
     try {
       setLoadingDosage(true);
 
       const data = await getSupplementDosageForms(categoryId);
 
       const options = data.map((d: any) => ({
-        value: d.dosageId,
+        value: String(d.dosageId),
         label: d.dosageName,
       }));
 
       setDosageOptions(options);
+
+      return options;
     } catch (error) {
       console.error("Error fetching dosage:", error);
+      return [];
     } finally {
       setLoadingDosage(false);
     }
@@ -1442,7 +1392,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       )}
       <div className="w-full ">
         <div className="relative border border-neutral-200 rounded-xl p-6  bg-white">
-          <div className="text-h4 font-semibold font-heading">Product Details</div>
+          <div className="text-h4 font-semibold font-heading">
+            Product Details
+          </div>
 
           <div className="border-b border-neutral-200 mt-3"></div>
 
@@ -1741,7 +1693,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
         {/* Packaging & Order Details */}
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
-          <div className="text-h4 font-semibold font-heading">Packaging & Order Details</div>
+          <div className="text-h4 font-semibold font-heading">
+            Packaging & Order Details
+          </div>
 
           <div className="border-b border-neutral-200 mt-3"></div>
 
@@ -1995,7 +1949,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
-            <div className="text-h6 font-normal col-span-2 mt-3 font-heading">Pricing</div>
+            <div className="text-h6 font-normal col-span-2 mt-3 font-heading">
+              Pricing
+            </div>
 
             <div className="border-b border-neutral-200 col-span-2"></div>
 
