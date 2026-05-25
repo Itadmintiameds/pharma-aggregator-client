@@ -64,18 +64,18 @@ export default function SuccessModal({
 
         {/* Message */}
         <div className="text-center">
-          <h2 className="text-3xl font-semibold text-neutral-900">
+          <h2 className="text-3xl font-semibold text-black">
             Congratulations!
           </h2>
 
-          <p className="text-label-l3 mt-2 text-neutral-600">
-            Your application has been submitted successfully!
+          <p className="text-label-l3 mt-2 text-black">
+            You&apos;re almost ready to start trading.
           </p>
         </div>
 
         {showTick && (
           <p className="text-label-l3 text-neutral-500 mt-4 text-center">
-            Our compliance team is reviewing your details. You&apos;ll be notified once your account is approved.
+            Our compliance team is reviewing your details to maintain a secure marketplace. You&apos;ll be notified once your account is approved.
           </p>
         )}
 
@@ -83,7 +83,7 @@ export default function SuccessModal({
         <div className="flex flex-col items-center mt-6">
           {!showTick ? (
             /* LOADING STATE */
-            <div className="flex items-center gap-2 px-6 py-3 rounded-full text-white bg-[#4B0082] font-medium">
+            <div className="flex items-center gap-2 px-6 py-3 rounded-full text-pneutral-50 bg-primary-900 font-medium">
               <div
                 className="w-6 h-6"
                 style={{
@@ -97,7 +97,7 @@ export default function SuccessModal({
             /* SUCCESS STATE */
             <button
               onClick={goHome}
-              className="flex items-center gap-2 px-6 py-3 rounded-full text-white bg-[#4B0082] hover:bg-[#3a0066] transition font-medium"
+              className="flex items-center gap-2 px-6 py-3 rounded-full text-pneutral-50 bg-primary-900 transition font-medium"
               style={{
                 animation: "slideFromLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards"
               }}
