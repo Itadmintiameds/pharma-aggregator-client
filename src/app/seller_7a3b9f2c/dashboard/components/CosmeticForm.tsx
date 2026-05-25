@@ -28,7 +28,8 @@ import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 import { AlertCircle, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import Select from "react-select";
+import Dropdown from "@/src/app/commonComponents/Dropdown";
+import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
 import UploadInput from "../commonComponent/UploadInput";
@@ -236,11 +237,93 @@ function extractCertDocumentIdMapFromProduct(productData: ApiResponseData): Map<
   return map;
 }
 
+// ─── NumericInputWithUnit ─────────────────────────────────────────────────────
+
+interface NumericInputWithUnitProps {
+  label: string;
+  name: string;
+  value: string;
+  unitId: string;
+  onValueChange: (val: string) => void;
+  onUnitChange: (unitId: string) => void;
+  placeholder?: string;
+  error?: string;
+  required?: boolean;
+  disabled?: boolean;
+  readOnly?: boolean;
+  options: SelectOption[];
+  loading?: boolean;
+  unitDisabled?: boolean;
+}
+
+const NumericInputWithUnit: React.FC<NumericInputWithUnitProps> = ({
+  label, name, value, unitId, onValueChange, onUnitChange, placeholder = "", error,
+  required = false, disabled = false, readOnly = false, options, loading = false, unitDisabled = false,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selectedLabel = options.find(o => o.value === unitId)?.label || "";
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  const getBorderColor = () => {
+    if (disabled) return "border-pneutral-200 bg-sneutral-100 cursor-not-allowed";
+    if (readOnly) return "border-pneutral-100 bg-pneutral-50 cursor-default";
+    if (error) return "border-warning-500 focus-within:ring-1 focus-within:ring-warning-500 focus-within:border-warning-500";
+    return "border-neutral-500 focus-within:border-secondary-300 focus-within:ring-1 focus-within:ring-secondary-300";
+  };
+
+  return (
+    <div ref={containerRef} className="flex flex-col gap-0 w-full relative">
+      <label className={`font-heading font-medium text-[16px] leading-[24px] tracking-normal align-middle transition-colors duration-200 ${disabled ? "text-pneutral-500" : "text-pneutral-900"}`}>
+        {label}{required && <span className="text-warning-500 ml-1">*</span>}
+      </label>
+      <div className={`flex items-center h-[52px] w-full border rounded-lg bg-white overflow-hidden transition-all duration-200 ${getBorderColor()}`}>
+        <input
+          type="text" name={name} placeholder={placeholder} value={value}
+          onChange={(e) => { if (e.target.value === "" || /^\d*\.?\d*$/.test(e.target.value)) onValueChange(e.target.value); }}
+          disabled={disabled || readOnly}
+          className="flex-1 h-full px-4 text-base outline-none border-none bg-transparent text-pneutral-800 placeholder:text-pneutral-500"
+        />
+        <div className="h-full border-l border-neutral-300" />
+        <button type="button" disabled={disabled || readOnly || unitDisabled}
+          onClick={() => !disabled && !readOnly && !unitDisabled && setIsOpen(!isOpen)}
+          className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 transition-colors hover:bg-neutral-100 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60">
+          <span className={selectedLabel ? "text-pneutral-800" : "text-pneutral-500"} style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}>
+            {loading ? "Loading..." : (selectedLabel || "Select Unit")}
+          </span>
+          <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {isOpen && (
+          <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
+            {options.map(opt => (
+              <button key={opt.value} type="button"
+                onClick={() => { onUnitChange(opt.value); setIsOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer font-medium ${unitId === opt.value ? "bg-neutral-50 font-semibold" : ""}`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {error && <p className="font-heading font-normal text-sm leading-[28px] px-1 text-warning-500 mt-1">{error}</p>}
+    </div>
+  );
+};
+
 // ─── Style constants ──────────────────────────────────────────────────────────
 
-const fieldLabel   = "text-label-l4 font-medium text-pneutral-900";
-const requiredStar = <span className="text-warning-500 ml-1">*</span>;
-const errorMsg     = "text-red-500 text-xs mt-1";
+const fieldLabel   = "font-heading font-medium text-[16px] leading-[24px] tracking-normal align-middle text-pneutral-900";
+const requiredStar = <span className="text-warning-500 font-semibold ml-1">*</span>;
+const errorMsg     = "font-heading font-normal text-sm leading-[28px] px-1 text-warning-500";
 
 // ─── Static Options ───────────────────────────────────────────────────────────
 
@@ -257,122 +340,6 @@ const gstOptions: SelectOption[] = [
   { value: "18", label: "18%" },
 ];
 
-// ─── Multi-checkbox dropdown ───────────────────────────────────────────────────
-
-interface MultiCheckDropdownProps {
-  label: string;
-  required?: boolean;
-  options: SelectOption[];
-  selected: string[];
-  onChange: (vals: string[]) => void;
-  placeholder?: string;
-  errorKey?: string;
-  errors?: Record<string, string>;
-  loading?: boolean;
-  disabled?: boolean;
-  fieldRef?: React.Ref<HTMLDivElement>;
-  dataField?: string;
-}
-
-const MultiCheckDropdown = ({
-  label, required, options, selected, onChange,
-  placeholder = "Select...", errorKey = "", errors = {},
-  loading, disabled, fieldRef, dataField,
-}: MultiCheckDropdownProps) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const toggle = (val: string) =>
-    onChange(selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val]);
-
-  const displayLabel =
-    selected.length > 0
-      ? selected.map((v) => options.find((o) => o.value === v)?.label).filter(Boolean).join(", ")
-      : placeholder;
-
-  return (
-    <div className="flex flex-col gap-1" ref={fieldRef as React.RefObject<HTMLDivElement>} data-field={dataField}>
-      <label className={fieldLabel}>{label} {required && requiredStar}</label>
-      <div className="relative" ref={ref}>
-        <div
-          onClick={() => !disabled && setOpen((p) => !p)}
-          className={`w-full h-[52px] px-4 border rounded-[8px] flex items-center justify-between transition-all bg-white ${
-            disabled ? "cursor-default bg-gray-50" : "cursor-pointer"
-          } ${
-            errors[errorKey]
-              ? "border-[#FF3B3B]"
-              : open
-                ? "border-2 border-[#C4AAFD]"
-                : "border-[#C0C1BE] hover:border-[#C0C1BE]"
-          }`}
-        >
-          <span
-            className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
-            style={{ color: selected.length > 0 ? "#3C3D3A" : "#A3A3A3" }}
-          >
-            {displayLabel}
-          </span>
-          <svg
-            className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-        {open && (
-          <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-[8px] shadow-lg max-h-60 overflow-y-auto">
-            {loading ? (
-              <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
-            ) : options.length === 0 ? (
-              <div className="px-4 py-3 text-gray-400 text-sm">No options available</div>
-            ) : (
-              options.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(opt.value)}
-                    onChange={() => toggle(opt.value)}
-                    className="accent-purple-600 w-4 h-4"
-                  />
-                  <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                </label>
-              ))
-            )}
-          </div>
-        )}
-      </div>
-      {errors[errorKey] && <p className={errorMsg}>{errors[errorKey]}</p>}
-    </div>
-  );
-};
-
-// ─── Non-editable display fields ──────────────────────────────────────────────
-
-const NonEditableField = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
-  <div className="flex flex-col gap-1">
-    <label className={fieldLabel}>{label} {required && requiredStar}</label>
-    <div className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] flex items-center text-base [font-family:'Open_Sans',sans-serif] bg-gray-50" style={{ color: "#5A5B58" }}>
-      {value || "—"}
-    </div>
-  </div>
-);
-
-const NonEditableSelect = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
-  <div className="flex flex-col gap-1">
-    <label className={fieldLabel}>{label} {required && requiredStar}</label>
-    <div className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] flex items-center text-base [font-family:'Open_Sans',sans-serif] bg-gray-50" style={{ color: "#5A5B58" }}>
-      {value || "—"}
-    </div>
-  </div>
-);
 
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -467,18 +434,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [netQuantityUnitOptions, setNetQuantityUnitOptions] = useState<SelectOption[]>([]);
   const [productFormOptions, setProductFormOptions] = useState<SelectOption[]>([]);
 
-  // ─── Display labels (edit mode) ───────────────────────────────────────────────
-  const [displayLabels, setDisplayLabels] = useState({
-    productTypeLabel:     "",
-    productSubTypeLabel:  "",
-    ageGroupLabel:        "",
-    storageConditionLabel:"",
-    countryLabel:         "",
-    packTypeLabel:        "",
-    gstLabel:             "",
-    genderLabel:          "",
-  });
-
   // ─── Skin/Hair rule ───────────────────────────────────────────────────────────
   const [skinHairRule, setSkinHairRule] = useState<SkinHairRule>({ skinType: "optional", hairType: "optional" });
 
@@ -489,11 +444,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
-  const [showCertDropdown, setShowCertDropdown] = useState(false);
   // ✅ Renamed to match DrugForm's state variable name exactly
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const certDropdownRef = useRef<HTMLDivElement>(null);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -553,11 +506,11 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
   // ─── Load product for edit mode ───────────────────────────────────────────────
   const fetchProductData = useCallback(async (
-    currentProductTypeOptions: SelectOption[],
-    currentAgeGroupOptions: SelectOption[],
-    currentStorageConditionOptions: SelectOption[],
-    currentCountryOptions: SelectOption[],
-    currentPackTypeOptions: SelectOption[],
+    _currentProductTypeOptions: SelectOption[],
+    _currentAgeGroupOptions: SelectOption[],
+    _currentStorageConditionOptions: SelectOption[],
+    _currentCountryOptions: SelectOption[],
+    _currentPackTypeOptions: SelectOption[],
   ) => {
     if (mode !== "edit" || !productId) return;
     setLoadingProduct(true);
@@ -608,17 +561,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       if (productTypeIdStr && resolvedSubCats.length === 0) {
         resolvedSubCats = await fetchSubTypes(productTypeIdStr);
       }
-
-      setDisplayLabels({
-        productTypeLabel:      currentProductTypeOptions.find((o) => o.value === productTypeIdStr)?.label || productTypeIdStr,
-        productSubTypeLabel:   resolvedSubCats.find((o) => o.value === productSubTypeIdStr)?.label || productSubTypeIdStr,
-        ageGroupLabel:         ageGroupIds.map((id) => currentAgeGroupOptions.find((o) => o.value === id)?.label || id).join(", "),
-        storageConditionLabel: currentStorageConditionOptions.find((o) => o.value === storageCondIdStr)?.label || storageCondIdStr,
-        countryLabel:          currentCountryOptions.find((o) => o.value === countryIdStr)?.label || countryIdStr,
-        packTypeLabel:         currentPackTypeOptions.find((o) => o.value === packIdStr)?.label || packIdStr,
-        gstLabel:              gstOptions.find((o) => o.value === gstVal)?.label || (gstVal ? `${gstVal}%` : ""),
-        genderLabel:           genderOptions.find((o) => o.value === genderValue)?.label || genderValue,
-      });
 
       setForm({
         productName:          data.productName || "",
@@ -941,14 +883,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }));
   }, [form.sellingPrice, form.discountPercentage]);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (certDropdownRef.current && !certDropdownRef.current.contains(e.target as Node))
-        setShowCertDropdown(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -1027,26 +961,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }
   };
 
-  const handleSelectChange = (field: string, sel: SelectOption | null) => {
-    setForm((p) => ({ ...p, [field]: sel ? sel.value : "" }));
+  const handleDropdownChange = (field: string, value: string) => {
+    setForm((p) => ({ ...p, [field]: value }));
     if (errors[field]) setErrors((p) => { const n = { ...p }; delete n[field]; return n; });
-  };
-
-  const handleCertCheckbox = (option: CertificationMasterOption) => {
-    const exists = selectedCertifications.some((c) => c.id === option.value);
-    if (exists) {
-      setSelectedCertifications((p) => p.filter((c) => c.id !== option.value));
-    } else {
-      setSelectedCertifications((p) => [
-        ...p,
-        {
-          id: option.value, label: option.label, tagCode: option.tagCode,
-          productCertificateDocumentId: option.certificationId,
-          file: null, fileName: "", uploading: false, isUploaded: false, previewUrl: null,
-        },
-      ]);
-    }
-    if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
   };
 
   const handleCertFileSelect = (certId: string, file: File) => {
@@ -1468,87 +1385,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }
   };
 
-  // ─── Select styles ─────────────────────────────────────────────────────────────
-  const selectStyles = (errorKey: string) => ({
-    control: (base: any, state: any) => ({
-      ...base,
-      minHeight: "52px",
-      height: "auto",
-      borderRadius: "8px",
-      borderWidth: state.isFocused ? "2px" : "1px",
-      borderColor: errors[errorKey]
-        ? "#FF3B3B"
-        : state.isFocused
-          ? "#C4AAFD"
-          : "#C0C1BE",
-      boxShadow: "none",
-      cursor: "pointer",
-      alignItems: state.hasValue && state.selectProps.isMulti ? "flex-start" : "center",
-      "&:hover": {
-        borderColor: errors[errorKey]
-          ? "#FF3B3B"
-          : state.isFocused
-            ? "#C4AAFD"
-            : "#C0C1BE",
-      },
-    }),
-    valueContainer: (base: any) => ({ ...base, padding: "8px 16px", flexWrap: "wrap", overflow: "visible" }),
-    indicatorsContainer: (base: any) => ({ ...base, height: "52px" }),
-    dropdownIndicator: (base: any, state: any) => ({
-      ...base,
-      color: state.isFocused ? "#C4AAFD" : "#737373",
-      cursor: "pointer",
-      "&:hover": { color: "#C4AAFD" },
-    }),
-    option: (base: any, state: any) => ({
-      ...base,
-      backgroundColor: state.isSelected ? "#4B0082" : state.isFocused ? "#F3E8FF" : "white",
-      color: state.isSelected ? "white" : "#1E1E1E",
-      cursor: "pointer",
-      "&:active": { backgroundColor: "#4B0082", color: "white" },
-    }),
-    placeholder: (base: any) => ({ ...base, color: "#A3A3A3" }),
-    singleValue: (base: any) => ({ ...base, color: "#1E1E1E" }),
-    multiValue: (base: any) => ({ ...base, margin: "2px" }),
-  });
-
-  const unitSelectStyles = {
-    control: (base: any) => ({
-      ...base,
-      minHeight: "52px",
-      height: "52px",
-      border: "none",
-      boxShadow: "none",
-      borderRadius: "0",
-      cursor: "pointer",
-      backgroundColor: "transparent",
-      "&:hover": { border: "none" },
-    }),
-    valueContainer: (base: any) => ({ ...base, padding: "0 8px" }),
-    indicatorsContainer: (base: any) => ({ ...base, height: "52px" }),
-    dropdownIndicator: (base: any, state: any) => ({
-      ...base,
-      color: state.isFocused ? "#C4AAFD" : "#737373",
-      cursor: "pointer",
-      "&:hover": { color: "#C4AAFD" },
-    }),
-    option: (base: any, state: any) => ({
-      ...base,
-      backgroundColor: state.isSelected ? "#4B0082" : state.isFocused ? "#F3E8FF" : "white",
-      color: state.isSelected ? "white" : "#1E1E1E",
-      cursor: "pointer",
-      "&:active": { backgroundColor: "#4B0082", color: "white" },
-    }),
-    placeholder: (base: any) => ({ ...base, color: "#A3A3A3", fontSize: "14px" }),
-    singleValue: (base: any) => ({ ...base, color: "#1E1E1E" }),
-    menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
-  };
-
-  const selectTheme = (theme: any) => ({
-    ...theme,
-    colors: { ...theme.colors, primary: "#4B0082", primary25: "#F3E8FF", primary50: "#E9D5FF" },
-  });
-
   // ─── Loading guard ─────────────────────────────────────────────────────────────
   if (mode === "edit" && loadingProduct) {
     return (
@@ -1560,9 +1396,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
   const isEdit = mode === "edit";
   const hasStock = isEdit && Number(form.stockQuantity) > 0;
-  const currentGenderLabel = isEdit
-    ? (displayLabels.genderLabel || genderOptions.find((o) => o.value === form.gender)?.label || form.gender)
-    : "";
 
   // ─── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -1620,57 +1453,45 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
             <div data-field="productName">
-              {isEdit ? (
-                <NonEditableField label="Product Name" value={form.productName} required />
-              ) : (
-                <Input label="Product Name" name="productName" placeholder="e.g., Hydrating Face Serum"
-                  value={form.productName} onChange={handleChange} error={errors.productName} required />
-              )}
+              <Input label="Product Name" name="productName"
+                placeholder="e.g., Hydrating Face Serum"
+                value={form.productName} onChange={handleChange}
+                error={errors.productName} required readOnly={isEdit} />
             </div>
 
             <div data-field="brandName">
-              {isEdit ? (
-                <NonEditableField label="Brand Name" value={form.brandName} required />
-              ) : (
-                <Input label="Brand Name" name="brandName" placeholder="e.g., Lakme, Neutrogena, Mamaearth"
-                  value={form.brandName} onChange={handleChange} error={errors.brandName} required />
-              )}
+              <Input label="Brand Name" name="brandName"
+                placeholder="e.g., Lakme, Neutrogena, Mamaearth"
+                value={form.brandName} onChange={handleChange}
+                error={errors.brandName} required readOnly={isEdit} />
             </div>
 
-            <div className="flex flex-col gap-1" data-field="productTypeId">
-              {isEdit ? (
-                <NonEditableSelect label="Product Type" value={displayLabels.productTypeLabel} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Product Type {requiredStar}</label>
-                  <Select
-                    options={productTypeOptions} isLoading={loadingProductTypes}
-                    value={productTypeOptions.find((o) => o.value === form.productTypeId) || null}
-                    onChange={(sel) => handleSelectChange("productTypeId", sel)}
-                    placeholder={loadingProductTypes ? "Loading..." : "Select product type"}
-                    theme={selectTheme} styles={selectStyles("productTypeId")}
-                  />
-                  {errors.productTypeId && <p className={errorMsg}>{errors.productTypeId}</p>}
-                </>
-              )}
+            <div data-field="productTypeId">
+              <Dropdown
+                label="Product Type"
+                options={productTypeOptions}
+                value={form.productTypeId}
+                onChange={(value) => handleDropdownChange("productTypeId", value)}
+                isLoading={loadingProductTypes}
+                isDisabled={isEdit}
+                placeholder={loadingProductTypes ? "Loading..." : "Select product type"}
+                error={errors.productTypeId}
+                required
+              />
             </div>
 
-            <div className="flex flex-col gap-1" data-field="productSubTypeId">
-              {isEdit ? (
-                <NonEditableSelect label="Product Sub-Type" value={displayLabels.productSubTypeLabel} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Product Sub-Type {requiredStar}</label>
-                  <Select
-                    options={productSubTypeOptions} isLoading={loadingSubTypes} isDisabled={!form.productTypeId}
-                    value={productSubTypeOptions.find((o) => o.value === form.productSubTypeId) || null}
-                    onChange={(sel) => handleSelectChange("productSubTypeId", sel)}
-                    placeholder={form.productTypeId ? (loadingSubTypes ? "Loading..." : "Select sub-type") : "Select product type first"}
-                    theme={selectTheme} styles={selectStyles("productSubTypeId")}
-                  />
-                  {errors.productSubTypeId && <p className={errorMsg}>{errors.productSubTypeId}</p>}
-                </>
-              )}
+            <div data-field="productSubTypeId">
+              <Dropdown
+                label="Product Sub-Type"
+                options={productSubTypeOptions}
+                value={form.productSubTypeId}
+                onChange={(value) => handleDropdownChange("productSubTypeId", value)}
+                isLoading={loadingSubTypes}
+                isDisabled={isEdit || !form.productTypeId}
+                placeholder={form.productTypeId ? (loadingSubTypes ? "Loading..." : "Select sub-type") : "Select product type first"}
+                error={errors.productSubTypeId}
+                required
+              />
             </div>
 
             <div data-field="variantName">
@@ -1678,250 +1499,198 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 value={form.variantName} onChange={handleChange} />
             </div>
 
-            <div className="flex flex-col gap-1" data-field="gender">
-              {isEdit ? (
-                <NonEditableSelect label="Gender" value={currentGenderLabel} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Gender {requiredStar}</label>
-                  <Select
-                    options={genderOptions}
-                    value={genderOptions.find((o) => o.value === form.gender) || null}
-                    onChange={(sel) => handleSelectChange("gender", sel)}
-                    placeholder="Select gender" theme={selectTheme} styles={selectStyles("gender")}
-                  />
-                  {errors.gender && <p className={errorMsg}>{errors.gender}</p>}
-                </>
-              )}
+            <div data-field="gender">
+              <Dropdown
+                label="Gender"
+                options={genderOptions}
+                value={form.gender}
+                onChange={(value) => handleDropdownChange("gender", value)}
+                isDisabled={isEdit}
+                placeholder="Select gender"
+                error={errors.gender}
+                required
+              />
             </div>
 
-            <MultiCheckDropdown
-              label="Intended Use Area" required
-              options={intendedUseAreaOptions} selected={selectedIntendedUseAreas}
-              onChange={(vals) => {
-                setSelectedIntendedUseAreas(vals);
-                if (errors.intendedUseAreas) setErrors((p) => { const n = { ...p }; delete n.intendedUseAreas; return n; });
-              }}
-              placeholder="Select intended use area(s)"
-              errorKey="intendedUseAreas" errors={errors} loading={loadingIntendedUseAreas}
-              fieldRef={setFieldRef("intendedUseAreas") as React.Ref<HTMLDivElement>}
-              dataField="intendedUseAreas"
-            />
-
-            <div className="flex flex-col gap-1" data-field="productFormId">
-              {isEdit ? (
-                <NonEditableSelect
-                  label="Product Form"
-                  value={productFormOptions.find((o) => o.value === form.productFormId)?.label || form.productFormId}
-                  required
-                />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Product Form {requiredStar}</label>
-                  <Select
-                    options={productFormOptions}
-                    isLoading={loadingProductForms}
-                    value={productFormOptions.find((o) => o.value === form.productFormId) || null}
-                    onChange={(sel) => {
-                      handleSelectChange("productFormId", sel);
-                      if (errors.productFormId) setErrors((p) => { const n = { ...p }; delete n.productFormId; return n; });
-                    }}
-                    placeholder={loadingProductForms ? "Loading..." : "Eg, Gel, Powder"}
-                    theme={selectTheme}
-                    styles={selectStyles("productFormId")}
-                  />
-                  {errors.productFormId && <p className={errorMsg}>{errors.productFormId}</p>}
-                </>
-              )}
+            <div ref={setFieldRef("intendedUseAreas") as React.RefCallback<HTMLDivElement>} data-field="intendedUseAreas">
+              <CheckboxDropdown
+                label="Intended Use Area"
+                required
+                options={intendedUseAreaOptions}
+                selectedValues={selectedIntendedUseAreas}
+                onChange={(vals) => {
+                  setSelectedIntendedUseAreas(vals);
+                  if (errors.intendedUseAreas) setErrors((p) => { const n = { ...p }; delete n.intendedUseAreas; return n; });
+                }}
+                placeholder="Select intended use area(s)"
+                error={errors.intendedUseAreas}
+                disabled={loadingIntendedUseAreas}
+              />
             </div>
 
-            <div className="flex flex-col gap-1" data-field="netQuantity">
-              {isEdit ? (
-                <NonEditableField
-                  label="Net Quantity"
-                  value={`${form.netQuantity} ${netQuantityUnitOptions.find((o) => o.value === form.netQuantityUnitId)?.label || ""}`.trim()}
-                  required
-                />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Net Quantity {requiredStar}</label>
-                  <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.netQuantity || errors.netQuantityUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
-                    <input
-                      name="netQuantity"
-                      value={form.netQuantity}
-                      onChange={handleChange}
-                      placeholder="Placeholder"
-                      maxLength={10}
-                      className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
-                    />
-                    <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
-                    <div className="w-36" data-field="netQuantityUnitId">
-                      <Select
-                        options={netQuantityUnitOptions}
-                        isLoading={loadingNetQuantityUnits}
-                        value={netQuantityUnitOptions.find((o) => o.value === form.netQuantityUnitId) || null}
-                        onChange={(sel) => {
-                          handleSelectChange("netQuantityUnitId", sel);
-                          if (errors.netQuantityUnitId) setErrors((p) => { const n = { ...p }; delete n.netQuantityUnitId; return n; });
-                        }}
-                        placeholder={loadingNetQuantityUnits ? "..." : "Select Unit"}
-                        theme={selectTheme}
-                        styles={unitSelectStyles}
-                        menuPortalTarget={typeof document !== "undefined" ? document.body : null}
-                        menuPosition="fixed"
-                      />
-                    </div>
-                  </div>
-                  {errors.netQuantity && <p className={errorMsg}>{errors.netQuantity}</p>}
-                  {errors.netQuantityUnitId && <p className={errorMsg}>{errors.netQuantityUnitId}</p>}
-                </>
-              )}
+            <div data-field="productFormId">
+              <Dropdown
+                label="Product Form"
+                options={productFormOptions}
+                value={form.productFormId}
+                onChange={(value) => handleDropdownChange("productFormId", value)}
+                isLoading={loadingProductForms}
+                isDisabled={isEdit}
+                placeholder={loadingProductForms ? "Loading..." : "Eg, Gel, Powder"}
+                error={errors.productFormId}
+                required
+              />
+            </div>
+
+            <div data-field="netQuantity">
+              <NumericInputWithUnit
+                label="Net Quantity"
+                name="netQuantity"
+                value={form.netQuantity}
+                unitId={form.netQuantityUnitId}
+                onValueChange={(val) => {
+                  setForm((p) => ({ ...p, netQuantity: val }));
+                  if (errors.netQuantity) setErrors((p) => { const n = { ...p }; delete n.netQuantity; return n; });
+                }}
+                onUnitChange={(unitId) => { handleDropdownChange("netQuantityUnitId", unitId); }}
+                placeholder="e.g., 100"
+                error={errors.netQuantity || errors.netQuantityUnitId}
+                options={netQuantityUnitOptions}
+                loading={loadingNetQuantityUnits}
+                required
+                readOnly={isEdit}
+              />
             </div>
 
             {skinHairRule.skinType !== "hidden" && (
-              <MultiCheckDropdown
-                label={skinHairRule.skinType === "mandatory" ? "Skin Type" : "Skin Type (optional)"}
-                required={skinHairRule.skinType === "mandatory"}
-                options={skinTypeOptions} selected={selectedSkinTypes}
-                onChange={(vals) => {
-                  setSelectedSkinTypes(vals);
-                  if (errors.skinTypes) setErrors((p) => { const n = { ...p }; delete n.skinTypes; return n; });
-                }}
-                placeholder="Select skin type(s)"
-                errorKey="skinTypes" errors={errors} loading={loadingSkinTypes}
-                disabled={isEdit}
-                fieldRef={setFieldRef("skinTypes") as React.Ref<HTMLDivElement>}
-                dataField="skinTypes"
-              />
+              <div ref={setFieldRef("skinTypes") as React.RefCallback<HTMLDivElement>} data-field="skinTypes">
+                <CheckboxDropdown
+                  label={skinHairRule.skinType === "mandatory" ? "Skin Type" : "Skin Type (optional)"}
+                  required={skinHairRule.skinType === "mandatory"}
+                  options={skinTypeOptions}
+                  selectedValues={selectedSkinTypes}
+                  onChange={(vals) => {
+                    setSelectedSkinTypes(vals);
+                    if (errors.skinTypes) setErrors((p) => { const n = { ...p }; delete n.skinTypes; return n; });
+                  }}
+                  placeholder="Select skin type(s)"
+                  error={errors.skinTypes}
+                  disabled={isEdit || loadingSkinTypes}
+                />
+              </div>
             )}
 
             {skinHairRule.hairType !== "hidden" && (
-              <MultiCheckDropdown
-                label={skinHairRule.hairType === "mandatory" ? "Hair Type" : "Hair Type (optional)"}
-                required={skinHairRule.hairType === "mandatory"}
-                options={hairTypeOptions} selected={selectedHairTypes}
-                onChange={(vals) => {
-                  setSelectedHairTypes(vals);
-                  if (errors.hairTypes) setErrors((p) => { const n = { ...p }; delete n.hairTypes; return n; });
-                }}
-                placeholder="Select hair type(s)"
-                errorKey="hairTypes" errors={errors} loading={loadingHairTypes}
-                disabled={isEdit}
-                fieldRef={setFieldRef("hairTypes") as React.Ref<HTMLDivElement>}
-                dataField="hairTypes"
-              />
+              <div ref={setFieldRef("hairTypes") as React.RefCallback<HTMLDivElement>} data-field="hairTypes">
+                <CheckboxDropdown
+                  label={skinHairRule.hairType === "mandatory" ? "Hair Type" : "Hair Type (optional)"}
+                  required={skinHairRule.hairType === "mandatory"}
+                  options={hairTypeOptions}
+                  selectedValues={selectedHairTypes}
+                  onChange={(vals) => {
+                    setSelectedHairTypes(vals);
+                    if (errors.hairTypes) setErrors((p) => { const n = { ...p }; delete n.hairTypes; return n; });
+                  }}
+                  placeholder="Select hair type(s)"
+                  error={errors.hairTypes}
+                  disabled={isEdit || loadingHairTypes}
+                />
+              </div>
             )}
 
-            <MultiCheckDropdown
-              label="Age Group" required
-              options={ageGroupOptions} selected={selectedAgeGroups}
-              onChange={(vals) => {
-                setSelectedAgeGroups(vals);
-                if (errors.ageGroupId) setErrors((p) => { const n = { ...p }; delete n.ageGroupId; return n; });
-              }}
-              placeholder="Select age group(s)"
-              errorKey="ageGroupId" errors={errors} loading={loadingAgeGroups}
-              disabled={isEdit}
-              fieldRef={setFieldRef("ageGroupId") as React.Ref<HTMLDivElement>}
-              dataField="ageGroupId"
-            />
+            <div ref={setFieldRef("ageGroupId") as React.RefCallback<HTMLDivElement>} data-field="ageGroupId">
+              <CheckboxDropdown
+                label="Age Group"
+                required
+                options={ageGroupOptions}
+                selectedValues={selectedAgeGroups}
+                onChange={(vals) => {
+                  setSelectedAgeGroups(vals);
+                  if (errors.ageGroupId) setErrors((p) => { const n = { ...p }; delete n.ageGroupId; return n; });
+                }}
+                placeholder="Select age group(s)"
+                error={errors.ageGroupId}
+                disabled={isEdit || loadingAgeGroups}
+              />
+            </div>
 
-            <div className="flex flex-col gap-1" data-field="countryOfOriginId">
-              {isEdit ? (
-                <NonEditableSelect label="Country of Origin" value={displayLabels.countryLabel} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Country of Origin {requiredStar}</label>
-                  <Select
-                    options={countryOptions} isLoading={loadingCountries}
-                    value={countryOptions.find((o) => o.value === form.countryOfOriginId) || null}
-                    onChange={(sel) => handleSelectChange("countryOfOriginId", sel)}
-                    placeholder={loadingCountries ? "Loading..." : "Select country"}
-                    theme={selectTheme} styles={selectStyles("countryOfOriginId")}
-                  />
-                  {errors.countryOfOriginId && <p className={errorMsg}>{errors.countryOfOriginId}</p>}
-                </>
-              )}
+            <div data-field="countryOfOriginId">
+              <Dropdown
+                label="Country of Origin"
+                options={countryOptions}
+                value={form.countryOfOriginId}
+                onChange={(value) => handleDropdownChange("countryOfOriginId", value)}
+                isLoading={loadingCountries}
+                isDisabled={isEdit}
+                placeholder={loadingCountries ? "Loading..." : "Select country"}
+                error={errors.countryOfOriginId}
+                required
+              />
             </div>
 
             <div data-field="manufacturerName">
-              {isEdit ? (
-                <NonEditableField label="Manufacturer Name" value={form.manufacturerName} required />
-              ) : (
-                <Input label="Manufacturer Name" name="manufacturerName" placeholder="Manufacturer company name"
-                  value={form.manufacturerName} onChange={handleChange} error={errors.manufacturerName} required />
-              )}
+              <Input label="Manufacturer Name" name="manufacturerName" placeholder="Manufacturer company name"
+                value={form.manufacturerName} onChange={handleChange}
+                error={errors.manufacturerName} required readOnly={isEdit} />
             </div>
 
-            <div className="flex flex-col gap-1" data-field="storageConditionId">
-              {hasStock ? (
-                <NonEditableSelect label="Storage Condition" value={displayLabels.storageConditionLabel} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Storage Condition {requiredStar}</label>
-                  <Select
-                    options={storageConditionOptions} isLoading={loadingStorageConditions}
-                    value={storageConditionOptions.find((o) => o.value === form.storageConditionId) || null}
-                    onChange={(sel) => handleSelectChange("storageConditionId", sel)}
-                    placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
-                    theme={selectTheme} styles={selectStyles("storageConditionId")}
-                  />
-                  {errors.storageConditionId && <p className={errorMsg}>{errors.storageConditionId}</p>}
-                </>
-              )}
+            <div data-field="storageConditionId">
+              <Dropdown
+                label="Storage Condition"
+                options={storageConditionOptions}
+                value={form.storageConditionId}
+                onChange={(value) => handleDropdownChange("storageConditionId", value)}
+                isLoading={loadingStorageConditions}
+                isDisabled={hasStock}
+                placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
+                error={errors.storageConditionId}
+                required
+              />
             </div>
 
-            <div className="flex flex-col gap-1" data-field="certifications">
+            <div className="flex flex-col gap-0" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
               <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
-              <div className="relative" ref={certDropdownRef}>
-                <div
-                  onClick={() => setShowCertDropdown((p) => !p)}
-                  className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"}`}
-                >
-                  <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
-                    style={{ color: selectedCertifications.length > 0 ? "var(--pneutral-800)" : "var(--sneutral-400)" }}>
-                    {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
-                  </span>
-                  <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-                {showCertDropdown && (
-                  <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
-                    {loadingCertifications ? (
-                      <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
-                    ) : (
-                      certificationMasterOptions.map((opt) => (
-                        <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                          <input type="checkbox"
-                            checked={selectedCertifications.some((c) => c.id === opt.value)}
-                            onChange={() => handleCertCheckbox(opt)}
-                            className="accent-purple-600 w-4 h-4" />
-                          <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+              <CheckboxDropdown
+                options={certificationMasterOptions}
+                selectedValues={selectedCertifications.map((c) => c.id)}
+                disabled={loadingCertifications}
+                onChange={(newValues) => {
+                  setSelectedCertifications((prev) => {
+                    return newValues.reduce<CertificationTag[]>((acc, val) => {
+                      const existing = prev.find((c) => c.id === val);
+                      if (existing) return [...acc, existing];
+                      const master = certificationMasterOptions.find((o) => o.value === val);
+                      if (!master) return acc;
+                      return [...acc, {
+                        id: val, label: master.label, tagCode: master.tagCode,
+                        productCertificateDocumentId: master.certificationId,
+                        file: null, fileName: "", uploading: false, isUploaded: false, previewUrl: null,
+                      }];
+                    }, []);
+                  });
+                  if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
+                }}
+                placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
+                error={errors.certifications ? " " : ""}
+              />
               {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
             {selectedCertifications.length === 0 ? (
-              <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
+              <div className="flex flex-col gap-0 col-span-1" data-field="certUploadFallback">
                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
                 <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
-                  <div className="flex items-center justify-center h-full px-4 bg-secondary-200">
+                  <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
                   <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                    <span className="text-pneutral-500 text-sm">Select certifications first</span>
+                    <span className="text-pneutral-500 text-md">Select certifications first</span>
                   </div>
                 </div>
               </div>
             ) : (
               selectedCertifications.map((cert) => (
-                <div key={cert.id} className="flex flex-col gap-1 col-span-1">
+                <div key={cert.id} className="flex flex-col gap-0 col-span-1">
                   <label className={fieldLabel}>Upload {cert.label} {requiredStar}</label>
                   <UploadInput
                     onFileSelect={(file) => {
@@ -1995,37 +1764,27 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-            <div className="flex flex-col gap-1" data-field="packTypeId">
-              {hasStock ? (
-                <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Pack Type {requiredStar}</label>
-                  <Select
-                    options={packTypeOptions} isLoading={loadingPackTypes}
-                    value={packTypeOptions.find((o) => o.value === form.packTypeId) || null}
-                    onChange={(sel) => handleSelectChange("packTypeId", sel)}
-                    placeholder={loadingPackTypes ? "Loading..." : "Select pack type"}
-                    theme={selectTheme} styles={selectStyles("packTypeId")}
-                  />
-                  {errors.packTypeId && <p className={errorMsg}>{errors.packTypeId}</p>}
-                </>
-              )}
+            <div data-field="packTypeId">
+              <Dropdown
+                label="Pack Type"
+                options={packTypeOptions}
+                value={form.packTypeId}
+                onChange={(value) => handleDropdownChange("packTypeId", value)}
+                isLoading={loadingPackTypes}
+                isDisabled={hasStock}
+                placeholder={loadingPackTypes ? "Loading..." : "Select pack type"}
+                error={errors.packTypeId}
+                required
+              />
             </div>
 
-            {hasStock ? (
-              <NonEditableField label="Number of Units per Pack Type" value={form.unitsPerPack} required />
-            ) : (
-              <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 1"
-                value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
-            )}
+            <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 1"
+              value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack}
+              required readOnly={hasStock} />
 
-            {hasStock ? (
-              <NonEditableField label="Number of Packs" value={form.numberOfPacks} required />
-            ) : (
-              <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 1"
-                value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
-            )}
+            <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 1"
+              value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks}
+              required readOnly={hasStock} />
 
             <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Pack Size (No. of Units per Pack Type × No. of Packs)</label>
@@ -2049,12 +1808,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
             <div data-field="batchNumber">
-              {isEdit ? (
-                <NonEditableField label="Batch Number" value={form.batchNumber} required />
-              ) : (
-                <Input label="Batch Number" name="batchNumber" placeholder="Alphanumeric only, e.g., BAT2024001"
-                  value={form.batchNumber} onChange={handleChange} error={errors.batchNumber} required />
-              )}
+              <Input label="Batch Number" name="batchNumber" placeholder="Alphanumeric only, e.g., BAT2024001"
+                value={form.batchNumber} onChange={handleChange} error={errors.batchNumber}
+                required readOnly={isEdit} />
             </div>
 
             <Input
@@ -2112,12 +1868,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             />
 
             <div data-field="stockQuantity">
-              {isEdit ? (
-                <NonEditableField label="Stock Quantity (in terms of Pack Size)" value={form.stockQuantity} required />
-              ) : (
-                <Input label="Stock Quantity (in terms of Pack Size)" name="stockQuantity" placeholder="e.g., 100"
-                  value={form.stockQuantity} onChange={handleChange} error={errors.stockQuantity} required />
-              )}
+              <Input label="Stock Quantity (in terms of Pack Size)" name="stockQuantity" placeholder="e.g., 100"
+                value={form.stockQuantity} onChange={handleChange} error={errors.stockQuantity}
+                required readOnly={isEdit} />
             </div>
 
             <div className="flex flex-col gap-1">
@@ -2153,10 +1906,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 <button
                   type="button"
                   onClick={() => setShowAdditionalDiscount(true)}
-                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
+                  className="w-[237px] h-[52px] px-6 border-[2px] border-[#7D32FC] text-[#9659FD] text-sm font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
                 >
-                  <img src="/icons/PlusIcon.svg" alt="drug" className="w-6 h-6" />
-                  Add Special Offers
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 4V16M4 10H16" stroke="#9659FD" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  Add Special Discount
                 </button>
               </div>
             </div>
@@ -2172,30 +1927,23 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           <div className="border-b border-neutral-200 mt-2 mb-4"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            <div className="flex flex-col gap-1" data-field="gstPercentage">
-              {isEdit ? (
-                <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>GST % {requiredStar}</label>
-                  <Select
-                    options={gstOptions}
-                    value={gstOptions.find((o) => o.value === form.gstPercentage) || null}
-                    onChange={(sel) => handleSelectChange("gstPercentage", sel)}
-                    placeholder="Select GST %" theme={selectTheme} styles={selectStyles("gstPercentage")}
-                  />
-                  {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
-                </>
-              )}
+            <div data-field="gstPercentage">
+              <Dropdown
+                label="GST %"
+                options={gstOptions}
+                value={form.gstPercentage}
+                onChange={(value) => handleDropdownChange("gstPercentage", value)}
+                isDisabled={isEdit}
+                placeholder="Select GST %"
+                error={errors.gstPercentage}
+                required
+              />
             </div>
 
             <div data-field="hsnCode">
-              {isEdit ? (
-                <NonEditableField label="HSN Code" value={form.hsnCode} required />
-              ) : (
-                <Input label="HSN Code" name="hsnCode" placeholder="4, 6, or 8 digit numeric code"
-                  value={form.hsnCode} onChange={handleChange} maxLength={8} error={errors.hsnCode} required />
-              )}
+              <Input label="HSN Code" name="hsnCode" placeholder="4, 6, or 8 digit numeric code"
+                value={form.hsnCode} onChange={handleChange} maxLength={8}
+                error={errors.hsnCode} required readOnly={isEdit} />
             </div>
           </div>
         </div>
@@ -2203,9 +1951,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         {/* ── Section 3: Product Photos ─────────────────────────────────────────── */}
         <div className="relative border border-neutral-200 rounded-xl p-6 bg-white"
           ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
-          <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
-            Product Photos {mode === "create" && <span className="text-red-500">*</span>}
-          </h2>
+          <div className="text-pneutral-700 font-normal text-sm mb-3">
+            Product Photos {mode === "create" && <span className="text-warning-500 font-semibold ml-1">*</span>}
+          </div>
 
           {existingImages.length > 0 && (
             <div className="mb-4">
@@ -2220,17 +1968,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             </div>
           )}
 
-          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
+          <div className="bg-neutral-50 h-40 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer border border-dashed border-neutral-300 hover:border-purple-400 hover:bg-purple-50 transition-all"
             onClick={() => document.getElementById("cosmeticFileInput")?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}>
-            <div className="flex flex-col items-center justify-center gap-2">
-              <div className="w-12 h-12 flex items-center justify-center">
-                <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
-              </div>
-              <div className="text-sm font-medium text-gray-600 text-center">Choose a file or drag &amp; drop it here</div>
-              <div className="text-xs text-gray-400 text-center">Click to browse PNG, JPG, and SVG</div>
-            </div>
+            <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
+            <div className="text-sm font-medium text-gray-600 text-center">Choose a file or drag &amp; drop it here</div>
+            <div className="text-xs text-gray-400 text-center">PNG, JPG, SVG (max 5MB each)</div>
           </div>
 
           <input id="cosmeticFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg,image/svg+xml" className="hidden"
@@ -2260,19 +2004,18 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         {/* Actions */}
         <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
           <div className="flex gap-3">
-            <button type="button" onClick={() => onSubmitSuccess ? onSubmitSuccess() : window.location.reload()}
-              className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
+            <button type="button" onClick={() => router.back()}
+              className="px-5 py-2.5 border-2 border-warning-500 rounded-xl text-sm font-semibold text-warning-500 hover:bg-orange-50 transition-colors">
               Cancel
             </button>
-            <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }}
-              className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
+            <button type="button"
+              className="px-5 py-3 bg-secondary-700 text-white text-base font-semibold rounded-lg flex items-center gap-2 hover:opacity-90 transition-opacity">
               <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
               Save Draft
             </button>
           </div>
           <button type="button" onClick={handleSubmit} disabled={submitting}
-            style={{ background: "#4B0082", borderRadius: "8px" }}
-            className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
+            className="px-8 py-3 bg-primary-800 text-white font-semibold text-base rounded-lg hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
             {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
             {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
           </button>

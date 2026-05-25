@@ -2,13 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import Select, { StylesConfig, Theme } from "react-select";
 import Input from "@/src/app/commonComponents/Input";
+import Dropdown from "@/src/app/commonComponents/Dropdown";
+import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscount from "./AdditionalDiscount";
 import PopupModal from "../commonComponent/PopupModal";
 import CommonModal from "../commonComponent/CommonModal";
-import { X, RefreshCw, AlertCircle, FileText } from "lucide-react";
+import { X, AlertCircle } from "lucide-react";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
 import {
   getConsumableDeviceCategories,
@@ -69,8 +70,6 @@ interface CertificationMasterOption {
 
 interface MasterItem { [key: string]: unknown; }
 interface ApiResponseData { [key: string]: unknown; }
-
-type SelectStyles = StylesConfig<SelectOption, false>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -137,31 +136,98 @@ function getMasterStr(item: MasterItem, ...keys: string[]): string {
 
 // ─── Style constants ──────────────────────────────────────────────────────────
 
-const fieldLabel = "text-label-l4 font-medium text-pneutral-900";
-const requiredStar = <span className="text-warning-500 ml-1">*</span>;
-const errorMsg = "text-red-500 text-xs mt-1";
+const fieldLabel = "font-heading font-medium text-[16px] leading-[24px] tracking-normal align-middle text-pneutral-900";
+const requiredStar = <span className="text-warning-500 font-semibold ml-1">*</span>;
+const errorMsg = "font-heading font-normal text-sm leading-[28px] px-1 text-warning-500";
 const sectionCard = "relative border border-neutral-200 rounded-xl p-6 bg-white";
 const sectionTitle = "text-h4 font-semibold";
 const subSectionTitle = "text-h6 font-normal mt-5";
-const inputDisabled = "w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] bg-gray-50 cursor-default flex items-center";
 
 const UploadCloudIcon = () => (
   <img src="/icons/upload-cloud.svg" alt="upload" className="w-5 h-5 object-contain" />
 );
 
-const NonEditableField = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
-  <div className="flex flex-col gap-1">
-    <label className={fieldLabel}>{label} {required && requiredStar}</label>
-    <div className={inputDisabled} style={{ color: "#5A5B58" }}>{value || "—"}</div>
-  </div>
-);
+// ─── NumericInputWithUnit ─────────────────────────────────────────────────────
 
-const NonEditableSelect = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
-  <div className="flex flex-col gap-1">
-    <label className={fieldLabel}>{label} {required && requiredStar}</label>
-    <div className={inputDisabled} style={{ color: "#5A5B58" }}>{value || "—"}</div>
-  </div>
-);
+interface NumericInputWithUnitProps {
+  label: string;
+  name: string;
+  value: string;
+  unitId: string;
+  onValueChange: (val: string) => void;
+  onUnitChange: (unitId: string) => void;
+  placeholder?: string;
+  error?: string;
+  required?: boolean;
+  disabled?: boolean;
+  readOnly?: boolean;
+  options: SelectOption[];
+  loading?: boolean;
+  unitDisabled?: boolean;
+}
+
+const NumericInputWithUnit: React.FC<NumericInputWithUnitProps> = ({
+  label, name, value, unitId, onValueChange, onUnitChange, placeholder = "", error,
+  required = false, disabled = false, readOnly = false, options, loading = false, unitDisabled = false,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selectedLabel = options.find(o => o.value === unitId)?.label || "";
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  const getBorderColor = () => {
+    if (disabled) return "border-pneutral-200 bg-sneutral-100 cursor-not-allowed";
+    if (readOnly) return "border-pneutral-100 bg-pneutral-50 cursor-default";
+    if (error) return "border-warning-500 focus-within:ring-1 focus-within:ring-warning-500 focus-within:border-warning-500";
+    return "border-neutral-500 focus-within:border-secondary-300 focus-within:ring-1 focus-within:ring-secondary-300";
+  };
+
+  return (
+    <div ref={containerRef} className="flex flex-col gap-0 w-full relative">
+      <label className={`font-heading font-medium text-[16px] leading-[24px] tracking-normal align-middle transition-colors duration-200 ${disabled ? "text-pneutral-500" : "text-pneutral-900"}`}>
+        {label}{required && <span className="text-warning-500 ml-1">*</span>}
+      </label>
+      <div className={`flex items-center h-[52px] w-full border rounded-lg bg-white overflow-hidden transition-all duration-200 ${getBorderColor()}`}>
+        <input
+          type="text" name={name} placeholder={placeholder} value={value}
+          onChange={(e) => { if (e.target.value === "" || /^\d*\.?\d*$/.test(e.target.value)) onValueChange(e.target.value); }}
+          disabled={disabled || readOnly}
+          className="flex-1 h-full px-4 text-base outline-none border-none bg-transparent text-pneutral-800 placeholder:text-pneutral-500"
+        />
+        <div className="h-full border-l border-neutral-300" />
+        <button type="button" disabled={disabled || readOnly || unitDisabled}
+          onClick={() => !disabled && !readOnly && !unitDisabled && setIsOpen(!isOpen)}
+          className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 transition-colors hover:bg-neutral-100 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60">
+          <span className={selectedLabel ? "text-pneutral-800" : "text-pneutral-500"} style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}>
+            {loading ? "Loading..." : (selectedLabel || "Select Unit")}
+          </span>
+          <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {isOpen && (
+          <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
+            {options.map(opt => (
+              <button key={opt.value} type="button"
+                onClick={() => { onUnitChange(opt.value); setIsOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer font-medium ${unitId === opt.value ? "bg-neutral-50 font-semibold" : ""}`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {error && <p className="font-heading font-normal text-sm leading-[28px] px-1 text-warning-500 mt-1">{error}</p>}
+    </div>
+  );
+};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -235,9 +301,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
   const [materialTypeOptions, setMaterialTypeOptions] = useState<SelectOption[]>([]);
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
-  const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
-  const materialDropdownRef = useRef<HTMLDivElement>(null);
-
   const [specificationUnitOptions, setSpecificationUnitOptions] = useState<SelectOption[]>([]);
   const [loadingSpecificationUnits, setLoadingSpecificationUnits] = useState(false);
 
@@ -254,14 +317,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
-  const [showCertDropdown, setShowCertDropdown] = useState(false);
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
 
   const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const sterileOptions: SelectOption[] = [
     { value: "sterile", label: "Sterile" },
@@ -652,16 +712,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }));
   }, [form.sellingPricePerPack, form.discountPercentage]);
 
-  // Close dropdowns on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowCertDropdown(false);
-      if (materialDropdownRef.current && !materialDropdownRef.current.contains(e.target as Node)) setShowMaterialDropdown(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -1042,50 +1092,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }
   };
 
-  // ─── Select styles ────────────────────────────────────────────────────────
-
-  const selectStyles = (errorKey: string): SelectStyles => ({
-    control: (base, state) => ({
-      ...base, height: "48px", minHeight: "48px", borderRadius: "12px",
-      borderColor: errors[errorKey] ? "#ef4444" : state.isFocused ? "#7c3aed" : "#d1d5db",
-      boxShadow: state.isFocused ? (errors[errorKey] ? "0 0 0 3px rgba(239,68,68,0.15)" : "0 0 0 3px rgba(124,58,237,0.15)") : "none",
-      cursor: "pointer", backgroundColor: "#fff", "&:hover": { borderColor: errors[errorKey] ? "#ef4444" : "#7c3aed" },
-    }),
-    valueContainer: (base) => ({ ...base, padding: "0 14px", cursor: "pointer" }),
-    indicatorsContainer: (base) => ({ ...base, height: "48px", cursor: "pointer" }),
-    dropdownIndicator: (base, state) => ({ ...base, color: state.isFocused ? "#7c3aed" : "#9ca3af", cursor: "pointer", "&:hover": { color: "#7c3aed" } }),
-    option: (base, state) => ({
-      ...base, backgroundColor: state.isSelected ? "#7c3aed" : state.isFocused ? "#f3f0ff" : "white",
-      color: state.isSelected ? "white" : "#1f2937", cursor: "pointer", fontFamily: "'Open Sans', sans-serif", fontSize: "16px",
-      "&:active": { backgroundColor: "#7c3aed", color: "white" },
-    }),
-    placeholder: (base) => ({ ...base, color: "#969793", fontFamily: "'Open Sans', sans-serif", fontSize: "16px" }),
-    singleValue: (base) => ({ ...base, color: "#3C3D3A", fontFamily: "'Open Sans', sans-serif", fontSize: "16px" }),
-  });
-
-  const selectTheme = (theme: Theme) => ({
-    ...theme, colors: { ...theme.colors, primary: "#7c3aed", primary25: "#f3f0ff", primary50: "#ede9fe" },
-  });
-
-  const unitSelectStyles = {
-    control: (base: any) => ({
-      ...base, minHeight: "52px", height: "52px", border: "none", boxShadow: "none",
-      borderRadius: "0", cursor: "pointer", backgroundColor: "transparent", "&:hover": { border: "none" },
-    }),
-    valueContainer: (base: any) => ({ ...base, padding: "0 8px" }),
-    indicatorsContainer: (base: any) => ({ ...base, height: "52px" }),
-    dropdownIndicator: (base: any, state: any) => ({
-      ...base, color: state.isFocused ? "#7c3aed" : "#9ca3af", cursor: "pointer", "&:hover": { color: "#7c3aed" },
-    }),
-    option: (base: any, state: any) => ({
-      ...base, backgroundColor: state.isSelected ? "#7c3aed" : state.isFocused ? "#f3f0ff" : "white",
-      color: state.isSelected ? "white" : "#1f2937", cursor: "pointer",
-      "&:active": { backgroundColor: "#7c3aed", color: "white" },
-    }),
-    placeholder: (base: any) => ({ ...base, color: "#969793" }),
-    singleValue: (base: any) => ({ ...base, color: "#3C3D3A" }),
-  };
-
   // ─── Loading guard ────────────────────────────────────────────────────────
 
   if (loadingProduct) {
@@ -1137,7 +1143,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         </CommonModal>
       )}
 
-      <div className="flex flex-col gap-5 w-full">
+      <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-5 w-full">
         {apiError && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
             <AlertCircle size={18} className="text-red-500 mt-0.5 flex-shrink-0" />
@@ -1149,128 +1155,102 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         <div className={sectionCard}>
           <h2 className={sectionTitle}>Product Details</h2>
           <div className="border-b border-neutral-200 mt-3"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 pt-6">
 
             {isEdit ? (
-              <NonEditableField label="Product Name" value={form.productName} required />
+              <Input label="Product Name" name="productName" value={form.productName} onChange={() => {}} required readOnly />
             ) : (
               <Input label="Product Name" name="productName" placeholder="e.g., Surgical Mask, Syringe"
                 value={form.productName} onChange={handleChange} error={errors.productName} required />
             )}
 
-            {isEdit ? (
-              <NonEditableSelect label="Device Category" value={displayLabels.deviceCategoryLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("deviceCategoryId") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Device Category {requiredStar}</label>
-                <Select options={deviceCategoryOptions} isLoading={loadingCategories}
-                  value={deviceCategoryOptions.find((o) => o.value === form.deviceCategoryId) || null}
-                  onChange={(sel) => handleSelectChange("deviceCategoryId", sel)}
-                  placeholder={loadingCategories ? "Loading..." : "Select category"}
-                  theme={selectTheme} styles={selectStyles("deviceCategoryId")} />
-                {errors.deviceCategoryId && <p className={errorMsg}>{errors.deviceCategoryId}</p>}
-              </div>
-            )}
+            <div className="flex flex-col gap-0" data-field="deviceCategoryId">
+              <label className={fieldLabel}>Device Category {requiredStar}</label>
+              <Dropdown
+                options={deviceCategoryOptions}
+                value={form.deviceCategoryId}
+                onChange={(val) => {
+                  setForm(p => ({ ...p, deviceCategoryId: val }));
+                  if (errors.deviceCategoryId) setErrors(p => { const n = { ...p }; delete n.deviceCategoryId; return n; });
+                }}
+                placeholder={loadingCategories ? "Loading..." : "Select category"}
+                isLoading={loadingCategories}
+                isDisabled={isEdit}
+                error={errors.deviceCategoryId ? " " : ""}
+              />
+              {errors.deviceCategoryId && <p className={errorMsg}>{errors.deviceCategoryId}</p>}
+            </div>
+
+            <div className="flex flex-col gap-0" data-field="deviceSubCategoryId">
+              <label className={fieldLabel}>Device Sub-Category {requiredStar}</label>
+              <Dropdown
+                options={deviceSubCategoryOptions}
+                value={form.deviceSubCategoryId}
+                onChange={(val) => {
+                  setForm(p => ({ ...p, deviceSubCategoryId: val }));
+                  if (errors.deviceSubCategoryId) setErrors(p => { const n = { ...p }; delete n.deviceSubCategoryId; return n; });
+                }}
+                placeholder={form.deviceCategoryId ? (loadingSubCategories ? "Loading..." : "Select sub-category") : "Select category first"}
+                isLoading={loadingSubCategories}
+                isDisabled={isEdit || !form.deviceCategoryId}
+                error={errors.deviceSubCategoryId ? " " : ""}
+              />
+              {errors.deviceSubCategoryId && <p className={errorMsg}>{errors.deviceSubCategoryId}</p>}
+            </div>
 
             {isEdit ? (
-              <NonEditableSelect label="Device Sub-Category" value={displayLabels.deviceSubCategoryLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("deviceSubCategoryId") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Device Sub-Category {requiredStar}</label>
-                <Select options={deviceSubCategoryOptions} isLoading={loadingSubCategories} isDisabled={!form.deviceCategoryId}
-                  value={deviceSubCategoryOptions.find((o) => o.value === form.deviceSubCategoryId) || null}
-                  onChange={(sel) => handleSelectChange("deviceSubCategoryId", sel)}
-                  placeholder={form.deviceCategoryId ? (loadingSubCategories ? "Loading..." : "Select sub-category") : "Select category first"}
-                  theme={selectTheme} styles={selectStyles("deviceSubCategoryId")} />
-                {errors.deviceSubCategoryId && <p className={errorMsg}>{errors.deviceSubCategoryId}</p>}
-              </div>
-            )}
-
-            {isEdit ? (
-              <NonEditableField label="Brand Name" value={form.brandName} required />
+              <Input label="Brand Name" name="brandName" value={form.brandName} onChange={() => {}} required readOnly />
             ) : (
               <Input label="Brand Name" name="brandName" placeholder="e.g., 3M, Johnson & Johnson"
                 value={form.brandName} onChange={handleChange} error={errors.brandName} required />
             )}
 
             {/* Material Type */}
-            {isEdit ? (
-              <NonEditableField label="Material Type" value={materialTypesDisplayValue} required />
-            ) : (
-              <div className="flex flex-col gap-1" data-field="materialType">
-                <label className={fieldLabel}>Material Type {requiredStar}</label>
-                <div className="relative" ref={materialDropdownRef}>
-                  <div onClick={() => setShowMaterialDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.materialType ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
-                    <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedMaterialTypes.length > 0 ? "#3C3D3A" : "#969793" }}>
-                      {selectedMaterialTypes.length > 0
-                        ? selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")
-                        : "Select material types"}
-                    </span>
-                    <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showMaterialDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                  {showMaterialDropdown && (
-                    <div className="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                      {loadingMaterialTypes ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
-                        materialTypeOptions.map((opt) => (
-                          <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                            <input type="checkbox" checked={selectedMaterialTypes.includes(opt.value)} onChange={() => handleMaterialCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
-                            <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                          </label>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-                {errors.materialType && <p className={errorMsg}>{errors.materialType}</p>}
-              </div>
-            )}
-
-            {isEdit ? (
-              <NonEditableField
-                label="Size / Dimension"
-                value={form.sizeDimension && displayLabels.specificationUnitLabel
-                  ? `${form.sizeDimension} ${displayLabels.specificationUnitLabel}`
-                  : form.sizeDimension || "—"}
-                required
+            <div className="flex flex-col gap-0" data-field="materialType">
+              <label className={fieldLabel}>Material Type {requiredStar}</label>
+              <CheckboxDropdown
+                options={materialTypeOptions}
+                selectedValues={selectedMaterialTypes}
+                onChange={(values) => {
+                  setSelectedMaterialTypes(values);
+                  if (errors.materialType) setErrors(p => { const n = { ...p }; delete n.materialType; return n; });
+                }}
+                placeholder={loadingMaterialTypes ? "Loading..." : "Select material types"}
+                disabled={isEdit || loadingMaterialTypes}
+                error={errors.materialType ? " " : ""}
+                showSelectAll={false}
               />
-            ) : (
-              <div
-                className="flex flex-col gap-1"
-                ref={(el) => { fieldRefs.current["sizeDimension"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
-              >
-                <label className={fieldLabel}>Size / Dimension {requiredStar}</label>
-                <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.sizeDimension || errors.deviceSpecificationUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
-                  <input
-                    name="sizeDimension"
-                    value={form.sizeDimension}
-                    onChange={handleChange}
-                    placeholder="e.g., 10.5"
-                    className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
-                  />
-                  <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
-                  <div className="w-36">
-                    <Select
-                      options={specificationUnitOptions}
-                      isLoading={loadingSpecificationUnits}
-                      isDisabled={!form.deviceSubCategoryId}
-                      value={specificationUnitOptions.find((o) => o.value === form.deviceSpecificationUnitId) || null}
-                      onChange={(sel) => handleSelectChange("deviceSpecificationUnitId", sel)}
-                      placeholder={form.deviceSubCategoryId ? "Unit" : "Select sub-cat first"}
-                      theme={selectTheme}
-                      styles={unitSelectStyles}
-                      menuPortalTarget={typeof document !== "undefined" ? document.body : null}
-                      menuPosition="fixed"
-                    />
-                  </div>
-                </div>
-                {errors.sizeDimension && <p className={errorMsg}>{errors.sizeDimension}</p>}
-                {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
-              </div>
-            )}
+              {errors.materialType && <p className={errorMsg}>{errors.materialType}</p>}
+            </div>
+
+            <div data-field="sizeDimension"
+              ref={(el) => { fieldRefs.current["sizeDimension"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
+            >
+              <NumericInputWithUnit
+                label="Size / Dimension"
+                name="sizeDimension"
+                value={form.sizeDimension}
+                unitId={form.deviceSpecificationUnitId}
+                onValueChange={(val) => {
+                  setForm(p => ({ ...p, sizeDimension: val }));
+                  if (errors.sizeDimension) setErrors(p => { const n = { ...p }; delete n.sizeDimension; return n; });
+                }}
+                onUnitChange={(unitId) => {
+                  handleSelectChange("deviceSpecificationUnitId", { value: unitId, label: "" } as SelectOption);
+                }}
+                placeholder="e.g., 10.5"
+                error={errors.sizeDimension || errors.deviceSpecificationUnitId}
+                required
+                readOnly={isEdit}
+                options={specificationUnitOptions}
+                loading={loadingSpecificationUnits}
+                unitDisabled={!form.deviceSubCategoryId}
+              />
+            </div>
 
             {/* Sterile status */}
             {isEdit ? (
-              <NonEditableField label="Sterile / Non-Sterile" value={form.sterileStatus === "sterile" ? "Sterile" : form.sterileStatus ? "Non-Sterile" : "—"} required />
+              <Input label="Sterile / Non-Sterile" name="sterileStatus" value={form.sterileStatus === "sterile" ? "Sterile" : form.sterileStatus ? "Non-Sterile" : "—"} onChange={() => {}} required readOnly />
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("sterileStatus") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Sterile / Non-Sterile {requiredStar}</label>
@@ -1288,7 +1268,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
             {/* Disposable type */}
             {isEdit ? (
-              <NonEditableField label="Disposable / Reusable" value={form.disposableType === "disposable" ? "Disposable" : form.disposableType ? "Reusable" : "—"} required />
+              <Input label="Disposable / Reusable" name="disposableType" value={form.disposableType === "disposable" ? "Disposable" : form.disposableType ? "Reusable" : "—"} onChange={() => {}} required readOnly />
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("disposableType") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Disposable / Reusable {requiredStar}</label>
@@ -1308,54 +1288,49 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               value={form.intendedUse} onChange={handleChange} error={errors.intendedUse} required />
 
             {/* Certifications — dropdown */}
-            <div className="flex flex-col gap-1" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
-              {isEdit ? (
-                <NonEditableField label="Certifications &amp; Compliance"
-                  value={selectedCertifications.map((c) => c.label).join(", ")} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Certifications &amp; Compliance {requiredStar}</label>
-                  <div className="relative" ref={dropdownRef}>
-                    <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"}`}>
-                      <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "var(--pneutral-800)" : "var(--sneutral-400)" }}>
-                        {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
-                      </span>
-                      <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </div>
-                    {showCertDropdown && (
-                      <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
-                        {loadingCertifications ? <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div> : (
-                          certificationMasterOptions.map((opt) => (
-                            <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                              <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
-                              <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                            </label>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
-                </>
-              )}
+            <div className="flex flex-col gap-0" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
+              <label className={fieldLabel}>Certifications &amp; Compliance {requiredStar}</label>
+              <CheckboxDropdown
+                options={certificationMasterOptions}
+                selectedValues={selectedCertifications.map(c => c.id)}
+                onChange={(values) => {
+                  const newCerts = values.map(val => {
+                    const existing = selectedCertifications.find(c => c.id === val);
+                    if (existing) return existing;
+                    const opt = certificationMasterOptions.find(o => o.value === val);
+                    return {
+                      id: val, label: opt?.label || "", tagCode: (opt as any)?.tagCode || opt?.label || "",
+                      file: null, fileName: "", uploading: false, isUploaded: false, previewUrl: null,
+                      productCertificateDocumentId: Number(val),
+                    };
+                  });
+                  setSelectedCertifications(newCerts as any);
+                  if (errors.certifications) setErrors(p => { const n = { ...p }; delete n.certifications; return n; });
+                }}
+                placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
+                disabled={loadingCertifications}
+                error={errors.certifications ? " " : ""}
+                showSelectAll={false}
+              />
+              {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
             {/* Certifications — upload */}
             {selectedCertifications.length === 0 ? (
-              <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
+              <div className="flex flex-col gap-0 col-span-1" data-field="certUploadFallback">
                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
                 <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
-                  <div className="flex items-center justify-center h-full px-4 bg-secondary-200">
+                  <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
                   <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                    <span className="text-pneutral-500 text-sm">Select certifications first</span>
+                    <span className="text-pneutral-500 text-md">Select certifications first</span>
                   </div>
                 </div>
               </div>
             ) : (
               selectedCertifications.map((cert) => (
-                <div key={cert.id} className="flex flex-col gap-1 col-span-1">
+                <div key={cert.id} className="flex flex-col gap-0 col-span-1">
                   <label className={fieldLabel}>Upload {cert.label} {requiredStar}</label>
                   <UploadInput
                     onFileSelect={(file) => {
@@ -1372,34 +1347,41 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             )}
 
             {/* Country of Origin */}
-            {isEdit ? (
-              <NonEditableSelect label="Country of Origin" value={displayLabels.countryLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("countryOfOrigin") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Country of Origin {requiredStar}</label>
-                <Select options={countryOptions} value={countryOptions.find((o) => o.value === form.countryOfOrigin) || null}
-                  onChange={(sel) => handleSelectChange("countryOfOrigin", sel)}
-                  placeholder="Select country" theme={selectTheme} styles={selectStyles("countryOfOrigin")} />
-                {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
-              </div>
-            )}
+            <div className="flex flex-col gap-0" data-field="countryOfOrigin">
+              <label className={fieldLabel}>Country of Origin {requiredStar}</label>
+              <Dropdown
+                options={countryOptions}
+                value={form.countryOfOrigin}
+                onChange={(val) => {
+                  setForm(p => ({ ...p, countryOfOrigin: val }));
+                  if (errors.countryOfOrigin) setErrors(p => { const n = { ...p }; delete n.countryOfOrigin; return n; });
+                }}
+                placeholder="Select country"
+                isDisabled={isEdit}
+                error={errors.countryOfOrigin ? " " : ""}
+              />
+              {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
+            </div>
 
             {isEdit ? (
-              <NonEditableField label="Manufacturer Name" value={form.manufacturerName} required />
+              <Input label="Manufacturer Name" name="manufacturerName" value={form.manufacturerName} onChange={() => {}} required readOnly />
             ) : (
               <Input label="Manufacturer Name" name="manufacturerName" placeholder="Manufacturer company name"
                 value={form.manufacturerName} onChange={handleChange} error={errors.manufacturerName} required />
             )}
 
             {/* Storage Condition — editable in both modes */}
-            <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
+            <div className="flex flex-col gap-0" data-field="storageCondition">
               <label className={fieldLabel}>Storage Condition {requiredStar}</label>
-              <Select
+              <Dropdown
                 options={storageConditionOptions}
-                value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null}
-                onChange={(sel) => handleSelectChange("storageCondition", sel)}
+                value={form.storageCondition}
+                onChange={(val) => {
+                  setForm(p => ({ ...p, storageCondition: val }));
+                  if (errors.storageCondition) setErrors(p => { const n = { ...p }; delete n.storageCondition; return n; });
+                }}
                 placeholder="Select storage condition"
-                theme={selectTheme} styles={selectStyles("storageCondition")}
+                error={errors.storageCondition ? " " : ""}
               />
               {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
             </div>
@@ -1416,7 +1398,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                   <textarea ref={setFieldRef("safetyInstructions") as React.RefCallback<HTMLTextAreaElement>}
                     name="safetyInstructions" value={form.safetyInstructions} onChange={handleChange} rows={4}
                     placeholder="Enter safety warnings, precautions, and handling instructions"
-                    className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.safetyInstructions ? "border-red-400" : "border-gray-300"}`} />
+                    className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.safetyInstructions ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`} />
                   {errors.safetyInstructions && <p className={errorMsg}>{errors.safetyInstructions}</p>}
                 </div>
                 <div>
@@ -1424,7 +1406,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                   <textarea ref={setFieldRef("keyFeatures") as React.RefCallback<HTMLTextAreaElement>}
                     name="keyFeatures" value={form.keyFeatures} onChange={handleChange} rows={4}
                     placeholder="List key features, technical specifications"
-                    className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.keyFeatures ? "border-red-400" : "border-gray-300"}`} />
+                    className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.keyFeatures ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`} />
                   {errors.keyFeatures && <p className={errorMsg}>{errors.keyFeatures}</p>}
                 </div>
               </div>
@@ -1435,7 +1417,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               <textarea ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>}
                 name="productDescription" value={form.productDescription} onChange={handleChange} rows={4}
                 placeholder="Detailed product description"
-                className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.productDescription ? "border-red-400" : "border-gray-300"}`} />
+                className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.productDescription ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`} />
               {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
             </div>
           </div>
@@ -1446,19 +1428,23 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           <h2 className={sectionTitle}>Packaging &amp; Order Details</h2>
           <div className="border-b border-neutral-200 mt-3"></div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 pt-6">
 
-            {isEdit ? (
-              <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("packType") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Pack Type {requiredStar}</label>
-                <Select options={packTypeApiOptions} value={packTypeApiOptions.find((o) => o.value === form.packType) || null}
-                  onChange={(sel) => handleSelectChange("packType", sel)}
-                  placeholder="Select pack type" theme={selectTheme} styles={selectStyles("packType")} />
-                {errors.packType && <p className={errorMsg}>{errors.packType}</p>}
-              </div>
-            )}
+            <div className="flex flex-col gap-0" data-field="packType">
+              <label className={fieldLabel}>Pack Type {requiredStar}</label>
+              <Dropdown
+                options={packTypeApiOptions}
+                value={form.packType}
+                onChange={(val) => {
+                  setForm(p => ({ ...p, packType: val }));
+                  if (errors.packType) setErrors(p => { const n = { ...p }; delete n.packType; return n; });
+                }}
+                placeholder="Select pack type"
+                isDisabled={isEdit}
+                error={errors.packType ? " " : ""}
+              />
+              {errors.packType && <p className={errorMsg}>{errors.packType}</p>}
+            </div>
 
             <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 100"
               value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
@@ -1472,7 +1458,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
           <p className={subSectionTitle}>Order Details</p>
           <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
             <Input label="Min Order Qty" name="minimumOrderQuantity" placeholder="e.g., 1"
               value={form.minimumOrderQuantity} onChange={handleChange} error={errors.minimumOrderQuantity} required />
             <Input label="Max Order Qty" name="maximumOrderQuantity" placeholder="e.g., 100"
@@ -1481,10 +1467,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
           <p className={subSectionTitle}>Batch Management</p>
           <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
 
             {isEdit ? (
-              <NonEditableField label="Batch Number" value={form.batchLotNumber} required />
+              <Input label="Batch Number" name="batchLotNumber" value={form.batchLotNumber} onChange={() => {}} required readOnly />
             ) : (
               <Input label="Batch Number" name="batchLotNumber" placeholder="Alphanumeric only"
                 value={form.batchLotNumber} onChange={handleChange} error={errors.batchLotNumber} required />
@@ -1581,7 +1567,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             />
 
             {isEdit ? (
-              <NonEditableField label="Stock Quantity (in units)" value={form.stockQuantity} required />
+              <Input label="Stock Quantity (in units)" name="stockQuantity" value={form.stockQuantity} onChange={() => {}} required readOnly />
             ) : (
               <Input label="Stock Quantity (in units)" name="stockQuantity" placeholder="e.g., 10"
                 value={form.stockQuantity} onChange={handleChange} error={errors.stockQuantity} required />
@@ -1596,7 +1582,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
           <p className={subSectionTitle}>Pricing</p>
           <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
             <Input label="MRP (per Pack Size)" name="mrp" placeholder="e.g., 500"
               value={form.mrp} onChange={handleChange} error={errors.mrp} required />
             <Input label="Selling Price (per Pack Size)" name="sellingPricePerPack" placeholder="e.g., 450"
@@ -1606,14 +1592,16 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 <Input label="Discount Percentage (%)" name="discountPercentage" placeholder="0–100"
                   value={form.discountPercentage} onChange={handleChange} error={errors.discountPercentage} />
               </div>
-              <div className="mt-6">
+              <div className="flex items-end">
                 <button
                   type="button"
                   onClick={() => setShowAdditionalDiscountModal(true)}
-                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
+                  className="w-[237px] h-[52px] bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[18px] leading-[28px] rounded-lg flex items-center justify-center gap-[12px] cursor-pointer hover:bg-purple-50 transition-all duration-200"
                 >
-                  <img src="/icons/PlusIcon.svg" alt="add" className="w-6 h-6" />
-                  Add Special Offers
+                  <svg width="14.24" height="14.24" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                    <path d="M7 1v12M1 7h12" stroke="#9659FD" strokeWidth="2.5" strokeLinecap="round" />
+                  </svg>
+                  <span>Add Special Discount</span>
                 </button>
               </div>
             </div>
@@ -1621,21 +1609,25 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
           <p className={subSectionTitle}>TAX &amp; BILLING</p>
           <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-            {isEdit ? (
-              <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>GST % {requiredStar}</label>
-                <Select options={gstOptions} value={gstOptions.find((o) => o.value === form.gstPercentage) || null}
-                  onChange={(sel) => handleSelectChange("gstPercentage", sel)}
-                  placeholder="Select GST" theme={selectTheme} styles={selectStyles("gstPercentage")} />
-                {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
-              </div>
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+            <div className="flex flex-col gap-0" data-field="gstPercentage">
+              <label className={fieldLabel}>GST % {requiredStar}</label>
+              <Dropdown
+                options={gstOptions}
+                value={form.gstPercentage}
+                onChange={(val) => {
+                  setForm(p => ({ ...p, gstPercentage: val }));
+                  if (errors.gstPercentage) setErrors(p => { const n = { ...p }; delete n.gstPercentage; return n; });
+                }}
+                placeholder="Select GST"
+                isDisabled={isEdit}
+                error={errors.gstPercentage ? " " : ""}
+              />
+              {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
+            </div>
 
             {isEdit ? (
-              <NonEditableField label="HSN Code" value={form.hsnCode} required />
+              <Input label="HSN Code" name="hsnCode" value={form.hsnCode} onChange={() => {}} required readOnly />
             ) : (
               <Input label="HSN Code" name="hsnCode" placeholder="4, 6, or 8 digit numeric code"
                 value={form.hsnCode} onChange={handleChange} maxLength={8} error={errors.hsnCode} required />
@@ -1645,33 +1637,36 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
         {/* ── Section 3: Product Photos ─────────────────────────────────────────── */}
         <div className={sectionCard} ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
-          <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
-            Product Photos {mode === "create" && <span className="text-red-500">*</span>}
-          </h2>
+          <div className="text-pneutral-700 font-normal text-sm">
+            Product Photos <span className="text-warning-500 font-semibold ml-1">*</span>
+          </div>
 
           {existingImages.length > 0 && (
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-gray-600 mb-2">Current Images</p>
-              <div className="flex flex-wrap gap-3">
-                {existingImages.map((url, i) => (
-                  <div key={i} className="relative flex-shrink-0">
-                    <img src={url} alt={`existing-${i}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200" />
-                  </div>
-                ))}
-              </div>
+            <div className="flex flex-wrap gap-3 mt-4">
+              {existingImages.map((img, index) => (
+                <div key={index} className="relative w-24 h-24 flex-shrink-0">
+                  <img src={img} alt="product" className="w-full h-full object-cover rounded-md border border-pneutral-200" />
+                  <button
+                    onClick={() => setExistingImages(existingImages.filter((_, i) => i !== index))}
+                    className="absolute top-1 right-1 text-pneutral-900 cursor-pointer text-xs px-1 rounded"
+                  >✕</button>
+                </div>
+              ))}
             </div>
           )}
 
-          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
+          <div className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer"
             onClick={() => document.getElementById("ncFileInput")?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}>
-            <div className="flex flex-col items-center justify-center gap-2">
-              <div className="w-12 h-12 flex items-center justify-center">
-                <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
+            <div className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg">
+              <div className="w-285 h-34.5 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center">
+                <div className="flex flex-col items-center justify-center">
+                  <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 rounded-md object-cover" />
+                  <div className="text-label-l2 font-normal mt-4">Choose a file or drag &amp; drop it here</div>
+                  <div className="text-label-l1 font-normal text-neutral-400">or click to browse JPEG, PNG, and SVG</div>
+                </div>
               </div>
-              <div className="text-sm font-medium text-gray-600 text-center">Choose a file or drag &amp; drop it here</div>
-              <div className="text-xs text-gray-400 text-center">Click to browse PNG, JPG, and SVG</div>
             </div>
           </div>
 
@@ -1679,19 +1674,20 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); }} />
 
           {images.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {images.map((file, i) => {
-                const url = URL.createObjectURL(file);
-                return (
-                  <div key={i} className="relative group flex-shrink-0">
-                    <img src={url} alt={`Product ${i + 1}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
-                    <button type="button" onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                      <X size={12} />
-                    </button>
-                  </div>
-                );
-              })}
+            <div className="flex flex-wrap gap-3 mt-4">
+              {images.map((file, index) => (
+                <div key={index} className="relative w-24 h-24 flex-shrink-0">
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt="preview"
+                    className="w-full h-full object-cover rounded-md border border-pneutral-200"
+                  />
+                  <button
+                    onClick={() => setImages(images.filter((_, i) => i !== index))}
+                    className="absolute top-1 right-1 text-pneutral-900 cursor-pointer text-xs px-1 rounded"
+                  >✕</button>
+                </div>
+              ))}
             </div>
           )}
 
@@ -1699,26 +1695,36 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         </div>
 
         {/* ── Actions ──────────────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
-          <div className="flex gap-3">
-            <button type="button" onClick={() => onSubmitSuccess ? onSubmitSuccess() : window.location.reload()}
-              className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
+        <div className="flex justify-between mt-6 col-span-2 mb-6">
+          <div className="space-x-6 flex">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="w-35.25 h-12 border-2 border-warning-500 rounded-lg text-label-l4 font-medium text-warning-500 cursor-pointer"
+            >
               Cancel
             </button>
-            <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }}
-              className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
-              <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
+            <button
+              type="button"
+              className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5"
+            >
+              <img src="/icons/SaveDraftIcon.svg" alt="save" className="w-5 h-5 rounded-md object-cover" />
               Save Draft
             </button>
           </div>
-          <button type="button" onClick={handleSubmit} disabled={submitting}
-            style={{ background: "#4B0082", borderRadius: "8px" }}
-            className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
-            {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+          <div>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer flex items-center justify-center gap-2"
+            >
+              {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
             {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
           </button>
         </div>
       </div>
+      </form>
     </>
   );
 };

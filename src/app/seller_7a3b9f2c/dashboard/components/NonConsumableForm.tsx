@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import Select, { StylesConfig, Theme } from "react-select";
 import Input from "@/src/app/commonComponents/Input";
+import Dropdown from "@/src/app/commonComponents/Dropdown";
+import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscount from "./AdditionalDiscount";
 import PopupModal from "../commonComponent/PopupModal";
@@ -71,8 +72,6 @@ interface CertificationMasterOption {
 interface MasterItem { [key: string]: unknown; }
 interface ApiResponseData { [key: string]: unknown; }
 
-type SelectStyles = StylesConfig<SelectOption, false>;
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -131,36 +130,96 @@ function getMasterStr(item: MasterItem, ...keys: string[]): string {
   return "";
 }
 
+// ─── NumericInputWithUnit ─────────────────────────────────────────────────────
+
+interface NumericInputWithUnitProps {
+  label: string;
+  name: string;
+  value: string;
+  unitId: string;
+  onValueChange: (val: string) => void;
+  onUnitChange: (unitId: string) => void;
+  placeholder?: string;
+  error?: string;
+  required?: boolean;
+  disabled?: boolean;
+  readOnly?: boolean;
+  options: SelectOption[];
+  loading?: boolean;
+  unitDisabled?: boolean;
+}
+
+const NumericInputWithUnit: React.FC<NumericInputWithUnitProps> = ({
+  label, name, value, unitId, onValueChange, onUnitChange, placeholder = "", error,
+  required = false, disabled = false, readOnly = false, options, loading = false, unitDisabled = false,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selectedLabel = options.find(o => o.value === unitId)?.label || "";
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  const getBorderColor = () => {
+    if (disabled) return "border-pneutral-200 bg-sneutral-100 cursor-not-allowed";
+    if (readOnly) return "border-pneutral-100 bg-pneutral-50 cursor-default";
+    if (error) return "border-warning-500 focus-within:ring-1 focus-within:ring-warning-500 focus-within:border-warning-500";
+    return "border-neutral-500 focus-within:border-secondary-300 focus-within:ring-1 focus-within:ring-secondary-300";
+  };
+
+  return (
+    <div ref={containerRef} className="flex flex-col gap-0 w-full relative">
+      <label className={`font-heading font-medium text-[16px] leading-[24px] tracking-normal align-middle transition-colors duration-200 ${disabled ? "text-pneutral-500" : "text-pneutral-900"}`}>
+        {label}{required && <span className="text-warning-500 ml-1">*</span>}
+      </label>
+      <div className={`flex items-center h-[52px] w-full border rounded-lg bg-white overflow-hidden transition-all duration-200 ${getBorderColor()}`}>
+        <input
+          type="text" name={name} placeholder={placeholder} value={value}
+          onChange={(e) => { if (e.target.value === "" || /^\d*\.?\d*$/.test(e.target.value)) onValueChange(e.target.value); }}
+          disabled={disabled || readOnly}
+          className="flex-1 h-full px-4 text-base outline-none border-none bg-transparent text-pneutral-800 placeholder:text-pneutral-500"
+        />
+        <div className="h-full border-l border-neutral-300" />
+        <button type="button" disabled={disabled || readOnly || unitDisabled}
+          onClick={() => !disabled && !readOnly && !unitDisabled && setIsOpen(!isOpen)}
+          className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 transition-colors hover:bg-neutral-100 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60">
+          <span className={selectedLabel ? "text-pneutral-800" : "text-pneutral-500"} style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}>
+            {loading ? "Loading..." : (selectedLabel || "Select Unit")}
+          </span>
+          <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {isOpen && (
+          <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
+            {options.map(opt => (
+              <button key={opt.value} type="button"
+                onClick={() => { onUnitChange(opt.value); setIsOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer font-medium ${unitId === opt.value ? "bg-neutral-50 font-semibold" : ""}`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {error && <p className="font-heading font-normal text-sm leading-[28px] px-1 text-warning-500 mt-1">{error}</p>}
+    </div>
+  );
+};
+
 // ─── Style constants ──────────────────────────────────────────────────────────
 
-const fieldLabel = "text-label-l4 font-medium text-pneutral-900";
-const requiredStar = <span className="text-warning-500 ml-1">*</span>;
-const inputDisabled = "w-full h-12 px-4 border border-neutral-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] bg-gray-50 cursor-default flex items-center";
-const errorMsg = "text-red-500 text-xs mt-1";
+const fieldLabel = "font-heading font-medium text-[16px] leading-[24px] tracking-normal align-middle text-pneutral-900";
+const requiredStar = <span className="text-warning-500 font-semibold ml-1">*</span>;
+const errorMsg = "font-heading font-normal text-sm leading-[28px] px-1 text-warning-500";
 const sectionCard = "relative border border-neutral-200 rounded-xl p-6 bg-white";
 const sectionTitle = "text-h4 font-semibold";
 const subSectionTitle = "text-h6 font-normal mt-5";
-
-// Input className to match the existing design (passed as className to <Input>)
-// const inputClass = "!h-12 !rounded-xl border-gray-300 focus:border-purple-600 [font-family:'Open_Sans',sans-serif] text-base font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793]";
-
-const UploadCloudIcon = () => (
-  <img src="/icons/upload-cloud.svg" alt="upload" className="w-5 h-5 object-contain" />
-);
-
-const NonEditableField = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
-  <div className="flex flex-col gap-1">
-    <label className={fieldLabel}>{label} {required && requiredStar}</label>
-    <div className={inputDisabled} style={{ color: "#5A5B58" }}>{value}</div>
-  </div>
-);
-
-const NonEditableSelect = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
-  <div className="flex flex-col gap-1">
-    <label className={fieldLabel}>{label} {required && requiredStar}</label>
-    <div className={inputDisabled} style={{ color: "#5A5B58" }}>{value}</div>
-  </div>
-);
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
@@ -254,17 +313,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
-  const [showCertDropdown, setShowCertDropdown] = useState(false);
-  const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
 
   const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const materialDropdownRef = useRef<HTMLDivElement>(null);
 
   const deviceClassOptions: SelectOption[] = [
     { value: "Class A", label: "Class A" },
@@ -607,14 +661,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     }));
   }, [form.sellingPrice, form.discountPercentage]);
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowCertDropdown(false);
-      if (materialDropdownRef.current && !materialDropdownRef.current.contains(e.target as Node)) setShowMaterialDropdown(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -643,6 +689,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   const handleSelectChange = (field: string, sel: SelectOption | null) => {
     setForm((p) => ({ ...p, [field]: sel ? sel.value : "" }));
+    if (errors[field]) setErrors((p) => { const n = { ...p }; delete n[field]; return n; });
+  };
+
+  const handleDropdownChange = (field: string, value: string) => {
+    setForm((p) => ({ ...p, [field]: value }));
     if (errors[field]) setErrors((p) => { const n = { ...p }; delete n[field]; return n; });
   };
 
@@ -999,49 +1050,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     }
   };
 
-  // ─── Select styles ────────────────────────────────────────────────────────
-
-  const selectStyles = (errorKey: string): SelectStyles => ({
-    control: (base, state) => ({
-      ...base, height: "48px", minHeight: "48px", borderRadius: "12px",
-      borderColor: errors[errorKey] ? "#ef4444" : state.isFocused ? "#7c3aed" : "#d1d5db",
-      boxShadow: state.isFocused ? (errors[errorKey] ? "0 0 0 3px rgba(239,68,68,0.15)" : "0 0 0 3px rgba(124,58,237,0.15)") : "none",
-      cursor: "pointer", backgroundColor: "#fff", "&:hover": { borderColor: errors[errorKey] ? "#ef4444" : "#7c3aed" },
-    }),
-    valueContainer: (base) => ({ ...base, padding: "0 14px", cursor: "pointer" }),
-    indicatorsContainer: (base) => ({ ...base, height: "48px", cursor: "pointer" }),
-    dropdownIndicator: (base, state) => ({ ...base, color: state.isFocused ? "#7c3aed" : "#9ca3af", cursor: "pointer", "&:hover": { color: "#7c3aed" } }),
-    option: (base, state) => ({
-      ...base, backgroundColor: state.isSelected ? "#7c3aed" : state.isFocused ? "#f3f0ff" : "white",
-      color: state.isSelected ? "white" : "#1f2937", cursor: "pointer", fontFamily: "'Open Sans', sans-serif", fontSize: "16px",
-      "&:active": { backgroundColor: "#7c3aed", color: "white" },
-    }),
-    placeholder: (base) => ({ ...base, color: "#969793", fontFamily: "'Open Sans', sans-serif", fontSize: "16px" }),
-    singleValue: (base) => ({ ...base, color: "#3C3D3A", fontFamily: "'Open Sans', sans-serif", fontSize: "16px" }),
-  });
-
-  const selectTheme = (theme: Theme) => ({
-    ...theme, colors: { ...theme.colors, primary: "#7c3aed", primary25: "#f3f0ff", primary50: "#ede9fe" },
-  });
-
-  const unitSelectStyles = {
-    control: (base: any) => ({
-      ...base, minHeight: "52px", height: "52px", border: "none", boxShadow: "none",
-      borderRadius: "0", cursor: "pointer", backgroundColor: "transparent", "&:hover": { border: "none" },
-    }),
-    valueContainer: (base: any) => ({ ...base, padding: "0 8px" }),
-    indicatorsContainer: (base: any) => ({ ...base, height: "52px" }),
-    dropdownIndicator: (base: any, state: any) => ({
-      ...base, color: state.isFocused ? "#7c3aed" : "#9ca3af", cursor: "pointer", "&:hover": { color: "#7c3aed" },
-    }),
-    option: (base: any, state: any) => ({
-      ...base, backgroundColor: state.isSelected ? "#7c3aed" : state.isFocused ? "#f3f0ff" : "white",
-      color: state.isSelected ? "white" : "#1f2937", cursor: "pointer",
-      "&:active": { backgroundColor: "#7c3aed", color: "white" },
-    }),
-    placeholder: (base: any) => ({ ...base, color: "#969793" }),
-    singleValue: (base: any) => ({ ...base, color: "#3C3D3A" }),
-  };
 
   if (loadingProduct) {
     return (
@@ -1095,249 +1103,143 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         <div className={sectionCard}>
           <h2 className={sectionTitle}>Product Details</h2>
           <div className="border-b border-neutral-200 mt-3"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 pt-6">
 
             {/* Product Name */}
-            {isEdit ? (
-              <NonEditableField label="Product Name" value={form.productName} required />
-            ) : (
-              <div ref={setFieldRef("productName") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Product Name"
-                  name="productName"
-                  value={form.productName}
-                  onChange={handleChange}
-                  placeholder="e.g., Digital BP Monitor"
-                  required
-                  error={errors.productName}
-                  maxLength={150}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
+            <div ref={setFieldRef("productName") as React.RefCallback<HTMLDivElement>}>
+              <Input label="Product Name" name="productName" value={form.productName} onChange={handleChange}
+                placeholder="e.g., Digital BP Monitor" required error={errors.productName} maxLength={150} readOnly={isEdit} />
+            </div>
 
             {/* Device Category */}
-            {isEdit ? (
-              <NonEditableSelect label="Device Category" value={displayLabels.deviceCategoryLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("deviceCategoryId") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Device Category {requiredStar}</label>
-                <Select options={deviceCategoryOptions} isLoading={loadingCategories} value={deviceCategoryOptions.find((o) => o.value === form.deviceCategoryId) || null} onChange={(sel) => handleSelectChange("deviceCategoryId", sel)} placeholder={loadingCategories ? "Loading..." : "Select category"} theme={selectTheme} styles={selectStyles("deviceCategoryId")} />
-                {errors.deviceCategoryId && <p className={errorMsg}>{errors.deviceCategoryId}</p>}
-              </div>
-            )}
+            <div className="flex flex-col gap-0" ref={setFieldRef("deviceCategoryId") as React.RefCallback<HTMLDivElement>}>
+              {isEdit ? (
+                <Dropdown label="Device Category" options={deviceCategoryOptions} value={form.deviceCategoryId} onChange={() => {}} isDisabled required />
+              ) : (
+                <Dropdown label="Device Category" options={deviceCategoryOptions} value={form.deviceCategoryId}
+                  onChange={(value) => handleDropdownChange("deviceCategoryId", value)}
+                  placeholder={loadingCategories ? "Loading..." : "Select category"}
+                  isLoading={loadingCategories} required error={errors.deviceCategoryId} />
+              )}
+            </div>
 
             {/* Device Sub-Category */}
-            {isEdit ? (
-              <NonEditableSelect label="Device Sub-Category" value={displayLabels.deviceSubCategoryLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("deviceSubCategoryId") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Device Sub-Category {requiredStar}</label>
-                <Select options={deviceSubCategoryOptions} isLoading={loadingSubCategories} isDisabled={!form.deviceCategoryId} value={deviceSubCategoryOptions.find((o) => o.value === form.deviceSubCategoryId) || null} onChange={(sel) => handleSelectChange("deviceSubCategoryId", sel)} placeholder={form.deviceCategoryId ? (loadingSubCategories ? "Loading..." : "Select sub-category") : "Select category first"} theme={selectTheme} styles={selectStyles("deviceSubCategoryId")} />
-                {errors.deviceSubCategoryId && <p className={errorMsg}>{errors.deviceSubCategoryId}</p>}
-              </div>
-            )}
+            <div className="flex flex-col gap-0" ref={setFieldRef("deviceSubCategoryId") as React.RefCallback<HTMLDivElement>}>
+              {isEdit ? (
+                <Dropdown label="Device Sub-Category" options={deviceSubCategoryOptions} value={form.deviceSubCategoryId} onChange={() => {}} isDisabled required />
+              ) : (
+                <Dropdown label="Device Sub-Category" options={deviceSubCategoryOptions} value={form.deviceSubCategoryId}
+                  onChange={(value) => handleDropdownChange("deviceSubCategoryId", value)}
+                  placeholder={form.deviceCategoryId ? (loadingSubCategories ? "Loading..." : "Select sub-category") : "Select category first"}
+                  isLoading={loadingSubCategories} isDisabled={!form.deviceCategoryId} required error={errors.deviceSubCategoryId} />
+              )}
+            </div>
 
             {/* Brand Name */}
-            {isEdit ? (
-              <NonEditableField label="Brand Name" value={form.brandName} required />
-            ) : (
-              <div ref={setFieldRef("brandName") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Brand Name"
-                  name="brandName"
-                  value={form.brandName}
-                  onChange={handleChange}
-                  placeholder="e.g., Omron, Philips"
-                  required
-                  error={errors.brandName}
-                  maxLength={60}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
+            <div ref={setFieldRef("brandName") as React.RefCallback<HTMLDivElement>}>
+              <Input label="Brand Name" name="brandName" value={form.brandName} onChange={handleChange}
+                placeholder="e.g., Omron, Philips" required error={errors.brandName} maxLength={60} readOnly={isEdit} />
+            </div>
 
             {/* Model Name */}
-            {isEdit ? (
-              <NonEditableField label="Model Name" value={form.modelName} required />
-            ) : (
-              <div ref={setFieldRef("modelName") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Model Name"
-                  name="modelName"
-                  value={form.modelName}
-                  onChange={handleChange}
-                  placeholder="e.g., Pro X"
-                  required
-                  error={errors.modelName}
-                  maxLength={60}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
+            <div ref={setFieldRef("modelName") as React.RefCallback<HTMLDivElement>}>
+              <Input label="Model Name" name="modelName" value={form.modelName} onChange={handleChange}
+                placeholder="e.g., Pro X" required error={errors.modelName} maxLength={60} readOnly={isEdit} />
+            </div>
 
             {/* Model Number */}
-            {isEdit ? (
-              <NonEditableField label="Model Number" value={form.modelNumber} required />
-            ) : (
-              <div ref={setFieldRef("modelNumber") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Model Number"
-                  name="modelNumber"
-                  value={form.modelNumber}
-                  onChange={handleChange}
-                  placeholder="e.g., ACX-200"
-                  required
-                  error={errors.modelNumber}
-                  maxLength={60}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
+            <div ref={setFieldRef("modelNumber") as React.RefCallback<HTMLDivElement>}>
+              <Input label="Model Number" name="modelNumber" value={form.modelNumber} onChange={handleChange}
+                placeholder="e.g., ACX-200" required error={errors.modelNumber} maxLength={60} readOnly={isEdit} />
+            </div>
 
             {/* Device Classification */}
-            {isEdit ? (
-              <NonEditableSelect label="Device Classification (Class A/B/C/D)" value={displayLabels.deviceClassLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("deviceClassification") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Device Classification (Class A/B/C/D) {requiredStar}</label>
-                <Select options={deviceClassOptions} value={deviceClassOptions.find((o) => o.value === form.deviceClassification) || null} onChange={(sel) => handleSelectChange("deviceClassification", sel)} placeholder="Select device classification" theme={selectTheme} styles={selectStyles("deviceClassification")} />
-                {errors.deviceClassification && <p className={errorMsg}>{errors.deviceClassification}</p>}
-              </div>
-            )}
+            <div className="flex flex-col gap-0" ref={setFieldRef("deviceClassification") as React.RefCallback<HTMLDivElement>}>
+              {isEdit ? (
+                <Dropdown label="Device Classification (Class A/B/C/D)" options={deviceClassOptions} value={form.deviceClassification} onChange={() => {}} isDisabled required />
+              ) : (
+                <Dropdown label="Device Classification (Class A/B/C/D)" options={deviceClassOptions} value={form.deviceClassification}
+                  onChange={(value) => handleDropdownChange("deviceClassification", value)}
+                  placeholder="Select device classification" required error={errors.deviceClassification} />
+              )}
+            </div>
 
             {/* UDI Number */}
-            {isEdit ? (
-              <NonEditableField label="UDI (Unique Device Identifier) / Serial Number" value={form.udiNumber} />
-            ) : (
-              <div ref={setFieldRef("udiNumber") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="UDI (Unique Device Identifier) / Serial Number"
-                  name="udiNumber"
-                  value={form.udiNumber}
-                  onChange={handleChange}
-                  placeholder="Optional"
-                  error={errors.udiNumber}
-                  maxLength={60}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
+            <div ref={setFieldRef("udiNumber") as React.RefCallback<HTMLDivElement>}>
+              <Input label="UDI (Unique Device Identifier) / Serial Number" name="udiNumber" value={form.udiNumber}
+                onChange={handleChange} placeholder="Optional" error={errors.udiNumber} maxLength={60} readOnly={isEdit} />
+            </div>
 
-            {/* Intended Use — editable in both modes */}
+            {/* Intended Use */}
             <div ref={setFieldRef("intendedUse") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Intended Use / Purpose"
-                name="intendedUse"
-                value={form.intendedUse}
-                onChange={handleChange}
-                placeholder="e.g., Blood pressure monitoring"
-                required
-                error={errors.intendedUse}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
+              <Input label="Intended Use / Purpose" name="intendedUse" value={form.intendedUse} onChange={handleChange}
+                placeholder="e.g., Blood pressure monitoring" required error={errors.intendedUse} />
             </div>
 
             {/* Technical Dimensions / Capacity / Configuration */}
-            {isEdit ? (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
-                <div className={`flex items-center border rounded-[8px] overflow-hidden border-[#C0C1BE]`}>
-                  <div className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 flex items-center" style={{ color: "#5A5B58" }}>{form.dimensionSize || "—"}</div>
-                  <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
-                  <div className="w-36 h-[52px] px-4 bg-gray-50 flex items-center text-base truncate" style={{ color: "#5A5B58" }}>{displayLabels.specificationUnitLabel || "—"}</div>
-                </div>
-              </div>
-            ) : (
-              <div
-                className="flex flex-col gap-1"
-                ref={(el) => { fieldRefs.current["dimensionSize"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
-              >
-                <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
-                <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.dimensionSize || errors.deviceSpecificationUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
-                  <input
-                    type="text"
-                    name="dimensionSize"
-                    value={form.dimensionSize}
-                    onChange={handleChange}
-                    placeholder="e.g., 20.5"
-                    className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
-                  />
-                  <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
-                  <div className="w-36">
-                    <Select
-                      options={specificationUnitOptions}
-                      isLoading={loadingSpecificationUnits}
-                      isDisabled={!form.deviceSubCategoryId}
-                      value={specificationUnitOptions.find((o) => o.value === form.deviceSpecificationUnitId) || null}
-                      onChange={(sel) => handleSelectChange("deviceSpecificationUnitId", sel)}
-                      placeholder="Select Unit"
-                      theme={selectTheme}
-                      styles={unitSelectStyles}
-                      menuPortalTarget={typeof document !== "undefined" ? document.body : null}
-                      menuPosition="fixed"
-                    />
-                  </div>
-                </div>
-                {errors.dimensionSize && <p className={errorMsg}>{errors.dimensionSize}</p>}
-                {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
-              </div>
-            )}
+            <div ref={(el) => { fieldRefs.current["dimensionSize"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}>
+              <NumericInputWithUnit
+                label="Technical Dimensions / Capacity / Configuration"
+                name="dimensionSize"
+                value={form.dimensionSize}
+                unitId={form.deviceSpecificationUnitId}
+                onValueChange={(val) => {
+                  if (!isEdit) {
+                    setForm((p) => ({ ...p, dimensionSize: val }));
+                    if (errors.dimensionSize) setErrors((p) => { const n = { ...p }; delete n.dimensionSize; return n; });
+                  }
+                }}
+                onUnitChange={(unitId) => { handleDropdownChange("deviceSpecificationUnitId", unitId); }}
+                placeholder="e.g., 20.5"
+                error={errors.dimensionSize || errors.deviceSpecificationUnitId}
+                options={specificationUnitOptions}
+                loading={loadingSpecificationUnits}
+                required={!isEdit}
+                readOnly={isEdit}
+                unitDisabled={isEdit || !form.deviceSubCategoryId}
+              />
+            </div>
 
-            {/* Certifications — dropdown */}
-            <div className="flex flex-col gap-1" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
-              {isEdit ? (
-                <NonEditableField label="Certifications / Compliance" value={selectedCertifications.map((c) => c.label).join(", ")} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
-                  <div className="relative" ref={dropdownRef}>
-                    <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"}`}>
-                      <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "var(--pneutral-800)" : "var(--sneutral-400)" }}>
-                        {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
-                      </span>
-                      <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </div>
-                    {showCertDropdown && (
-                      <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
-                        {loadingCertifications ? <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div> : (
-                          certificationMasterOptions.map((opt) => (
-                            <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                              <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
-                              <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                            </label>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
-                </>
-              )}
+            {/* Certifications — CheckboxDropdown */}
+            <div className="flex flex-col gap-0" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
+              <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
+              <CheckboxDropdown
+                options={certificationMasterOptions}
+                selectedValues={selectedCertifications.map((c) => c.id)}
+                onChange={(newSelected) => {
+                  const updated = newSelected.reduce<CertificationTag[]>((acc, id) => {
+                    const existing = selectedCertifications.find((c) => c.id === id);
+                    if (existing) return [...acc, existing];
+                    const opt = certificationMasterOptions.find((o) => o.value === id);
+                    if (opt) return [...acc, { id: opt.value, label: opt.label, tagCode: opt.tagCode, productCertificateDocumentId: opt.certificationId, file: null, fileName: "", uploading: false, isUploaded: false, previewUrl: null }];
+                    return acc;
+                  }, []);
+                  setSelectedCertifications(updated);
+                  if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
+                }}
+                placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
+                error={errors.certifications ? " " : ""}
+                disabled={loadingCertifications}
+              />
+              {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
             {/* Certifications — upload */}
             {selectedCertifications.length === 0 ? (
-              <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
+              <div className="flex flex-col gap-0 col-span-1" data-field="certUploadFallback">
                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
                 <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
-                  <div className="flex items-center justify-center h-full px-4 bg-secondary-200">
+                  <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
                   <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                    <span className="text-pneutral-500 text-sm">Select certifications first</span>
+                    <span className="text-pneutral-500 text-md">Select certifications first</span>
                   </div>
                 </div>
               </div>
             ) : (
               selectedCertifications.map((cert) => (
-                <div key={cert.id} className="flex flex-col gap-1 col-span-1">
+                <div key={cert.id} className="flex flex-col gap-0 col-span-1">
                   <label className={fieldLabel}>Upload {cert.label} {requiredStar}</label>
                   <UploadInput
                     onFileSelect={(file) => {
@@ -1354,115 +1256,76 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             )}
 
             {/* Material / Build Type */}
-            {isEdit ? (
-              <NonEditableField
-                label="Material / Build Type (Plastic, Metal, Steel)"
-                value={selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")}
-                required
-              />
-            ) : (
-              <div className="flex flex-col gap-1" data-field="materialType">
-                <label className={fieldLabel}>Material / Build Type (Plastic, Metal, Steel) {requiredStar}</label>
-                <div className="relative" ref={materialDropdownRef}>
-                  <div onClick={() => setShowMaterialDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.materialType ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
-                    <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedMaterialTypes.length > 0 ? "#3C3D3A" : "#969793" }}>
-                      {selectedMaterialTypes.length > 0 ? selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ") : "Select material / build types"}
-                    </span>
-                    <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showMaterialDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                  {showMaterialDropdown && (
-                    <div className="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                      {loadingMaterialTypes ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
-                        materialTypeOptions.map((opt) => (
-                          <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                            <input type="checkbox" checked={selectedMaterialTypes.includes(opt.value)} onChange={() => handleMaterialCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
-                            <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                          </label>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-                {errors.materialType && <p className={errorMsg}>{errors.materialType}</p>}
-              </div>
-            )}
+            <div className="flex flex-col gap-0" data-field="materialType">
+              {isEdit ? (
+                <Input label="Material / Build Type (Plastic, Metal, Steel)"
+                  value={selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")}
+                  readOnly required />
+              ) : (
+                <CheckboxDropdown
+                  label="Material / Build Type (Plastic, Metal, Steel)"
+                  required
+                  options={materialTypeOptions}
+                  selectedValues={selectedMaterialTypes}
+                  onChange={(vals) => {
+                    setSelectedMaterialTypes(vals);
+                    if (errors.materialType) setErrors((p) => { const n = { ...p }; delete n.materialType; return n; });
+                  }}
+                  placeholder="Select material / build types"
+                  error={errors.materialType}
+                  disabled={loadingMaterialTypes}
+                />
+              )}
+            </div>
 
             {/* Power Source */}
-            {isEdit ? (
-              <NonEditableSelect label="Power Source" value={displayLabels.powerSourceLabel} />
-            ) : (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Power Source</label>
-                <Select options={powerSourceOptions} value={powerSourceOptions.find((o) => o.value === form.powerSourceId) || null} onChange={(sel) => handleSelectChange("powerSourceId", sel)} placeholder="Select power source" theme={selectTheme} styles={selectStyles("powerSourceId")} isClearable />
-              </div>
-            )}
+            <div className="flex flex-col gap-0">
+              {isEdit ? (
+                <Dropdown label="Power Source" options={powerSourceOptions} value={form.powerSourceId} onChange={() => {}} isDisabled />
+              ) : (
+                <Dropdown label="Power Source" options={powerSourceOptions} value={form.powerSourceId}
+                  onChange={(value) => handleDropdownChange("powerSourceId", value)} placeholder="Select power source" />
+              )}
+            </div>
 
             {/* Warranty Period */}
-            {isEdit ? (
-              <NonEditableField label="Warranty Period (months)" value={form.warrantyPeriod} />
-            ) : (
-              <div ref={setFieldRef("warrantyPeriod") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Warranty Period (months)"
-                  name="warrantyPeriod"
-                  value={form.warrantyPeriod}
-                  onChange={handleChange}
-                  placeholder="e.g., 12"
-                  required
-                  error={errors.warrantyPeriod}
-                  maxLength={3}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
+            <div ref={setFieldRef("warrantyPeriod") as React.RefCallback<HTMLDivElement>}>
+              <Input label="Warranty Period (months)" name="warrantyPeriod" value={form.warrantyPeriod}
+                onChange={handleChange} placeholder="e.g., 12" required error={errors.warrantyPeriod} maxLength={3} readOnly={isEdit} />
+            </div>
 
             {/* AMC / Service Availability */}
-            {isEdit ? (
-              <NonEditableSelect label="AMC / Service Availability" value={displayLabels.amcLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("amcAvailability") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>AMC / Service Availability {requiredStar}</label>
-                <Select options={amcOptions} value={amcOptions.find((o) => o.value === form.amcAvailability) || null} onChange={(sel) => handleSelectChange("amcAvailability", sel)} placeholder="Select Yes or No" theme={selectTheme} styles={selectStyles("amcAvailability")} />
-                {errors.amcAvailability && <p className={errorMsg}>{errors.amcAvailability}</p>}
-              </div>
-            )}
+            <div className="flex flex-col gap-0" ref={setFieldRef("amcAvailability") as React.RefCallback<HTMLDivElement>}>
+              {isEdit ? (
+                <Dropdown label="AMC / Service Availability" options={amcOptions} value={form.amcAvailability} onChange={() => {}} isDisabled required />
+              ) : (
+                <Dropdown label="AMC / Service Availability" options={amcOptions} value={form.amcAvailability}
+                  onChange={(value) => handleDropdownChange("amcAvailability", value)}
+                  placeholder="Select Yes or No" required error={errors.amcAvailability} />
+              )}
+            </div>
 
             {/* Country of Origin */}
-            {isEdit ? (
-              <NonEditableSelect label="Country of Origin" value={displayLabels.countryLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("countryOfOrigin") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Country of Origin {requiredStar}</label>
-                <Select options={countryOptions} value={countryOptions.find((o) => o.value === form.countryOfOrigin) || null} onChange={(sel) => handleSelectChange("countryOfOrigin", sel)} placeholder="Select country" theme={selectTheme} styles={selectStyles("countryOfOrigin")} />
-                {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
-              </div>
-            )}
+            <div className="flex flex-col gap-0" ref={setFieldRef("countryOfOrigin") as React.RefCallback<HTMLDivElement>}>
+              {isEdit ? (
+                <Dropdown label="Country of Origin" options={countryOptions} value={form.countryOfOrigin} onChange={() => {}} isDisabled required />
+              ) : (
+                <Dropdown label="Country of Origin" options={countryOptions} value={form.countryOfOrigin}
+                  onChange={(value) => handleDropdownChange("countryOfOrigin", value)}
+                  placeholder="Select country" required error={errors.countryOfOrigin} />
+              )}
+            </div>
 
             {/* Manufacturer Name */}
-            {isEdit ? (
-              <NonEditableField label="Manufacturer Name" value={form.manufacturerName} required />
-            ) : (
-              <div ref={setFieldRef("manufacturerName") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Manufacturer Name"
-                  name="manufacturerName"
-                  value={form.manufacturerName}
-                  onChange={handleChange}
-                  placeholder="Manufacturer company name"
-                  required
-                  error={errors.manufacturerName}
-                  maxLength={100}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
+            <div ref={setFieldRef("manufacturerName") as React.RefCallback<HTMLDivElement>}>
+              <Input label="Manufacturer Name" name="manufacturerName" value={form.manufacturerName}
+                onChange={handleChange} placeholder="Manufacturer company name" required error={errors.manufacturerName} maxLength={100} readOnly={isEdit} />
+            </div>
 
-            {/* Storage Condition — editable in both modes */}
-            <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
-              <label className={fieldLabel}>Storage Condition (If applicable)</label>
-              <Select options={storageConditionOptions} value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null} onChange={(sel) => handleSelectChange("storageCondition", sel)} placeholder="Select storage condition" theme={selectTheme} styles={selectStyles("storageCondition")} isClearable />
+            {/* Storage Condition */}
+            <div className="flex flex-col gap-0" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
+              <Dropdown label="Storage Condition (If applicable)" options={storageConditionOptions} value={form.storageCondition}
+                onChange={(value) => handleDropdownChange("storageCondition", value)} placeholder="Select storage condition" />
             </div>
 
             {/* Brochure Upload — uses UploadInput component */}
@@ -1506,56 +1369,31 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
 
             {/* Pack Type */}
-            {isEdit ? (
-              <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("packType") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Pack Type {requiredStar}</label>
-                <Select options={packTypeApiOptions} value={packTypeApiOptions.find((o) => o.value === form.packType) || null} onChange={(sel) => handleSelectChange("packType", sel)} placeholder="Select pack type" theme={selectTheme} styles={selectStyles("packType")} />
-                {errors.packType && <p className={errorMsg}>{errors.packType}</p>}
-              </div>
-            )}
+            <div className="flex flex-col gap-0" ref={setFieldRef("packType") as React.RefCallback<HTMLDivElement>}>
+              {isEdit ? (
+                <Dropdown label="Pack Type" options={packTypeApiOptions} value={form.packType} onChange={() => {}} isDisabled required />
+              ) : (
+                <Dropdown label="Pack Type" options={packTypeApiOptions} value={form.packType}
+                  onChange={(value) => handleDropdownChange("packType", value)}
+                  placeholder="Select pack type" required error={errors.packType} />
+              )}
+            </div>
 
             {/* Units per Pack */}
             <div ref={setFieldRef("unitPerPack") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Number of Units per Pack Type"
-                name="unitPerPack"
-                value={form.unitPerPack}
-                onChange={handleChange}
-                placeholder="e.g., 100"
-                required
-                error={errors.unitPerPack}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
+              <Input label="Number of Units per Pack Type" name="unitPerPack" value={form.unitPerPack}
+                onChange={handleChange} placeholder="e.g., 100" required error={errors.unitPerPack} />
             </div>
 
             {/* Number of Packs */}
             <div ref={setFieldRef("numberOfPacks") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Number of Packs"
-                name="numberOfPacks"
-                value={form.numberOfPacks}
-                onChange={handleChange}
-                placeholder="e.g., 10"
-                required
-                error={errors.numberOfPacks}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
+              <Input label="Number of Packs" name="numberOfPacks" value={form.numberOfPacks}
+                onChange={handleChange} placeholder="e.g., 10" required error={errors.numberOfPacks} />
             </div>
 
             {/* Pack Size — read-only, auto-computed */}
             <div>
-              <Input
-                label="Pack Size (No. of Units per Pack Type X No. of Packs)"
-                name="packSize"
-                value={form.packSize}
-                readOnly
-                className="!h-12 !rounded-xl bg-gray-50 [color:#969793] cursor-not-allowed border-gray-300 [font-family:'Open_Sans',sans-serif] text-base"
-                labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
+              <Input label="Pack Size (No. of Units per Pack Type X No. of Packs)" name="packSize" value={form.packSize} readOnly />
             </div>
           </div>
 
@@ -1626,89 +1464,43 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             </div>
 
             {/* Stock Quantity */}
-            {isEdit ? (
-              <NonEditableField label="Stock Quantity (in units)" value={form.stockQuantity} required />
-            ) : (
-              <div ref={setFieldRef("stockQuantity") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Stock Quantity (in units)"
-                  name="stockQuantity"
-                  value={form.stockQuantity}
-                  onChange={handleChange}
-                  placeholder="e.g., 10"
-                  required
-                  error={errors.stockQuantity}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
+            <div ref={setFieldRef("stockQuantity") as React.RefCallback<HTMLDivElement>}>
+              <Input label="Stock Quantity (in units)" name="stockQuantity" value={form.stockQuantity}
+                onChange={handleChange} placeholder="e.g., 10" required error={errors.stockQuantity} readOnly={isEdit} />
+            </div>
 
             {/* Date of Stock Entry — always read-only */}
             <div>
-              <Input
-                label="Date of Stock Entry"
-                name="dateOfStockEntry"
-                value={todayStr}
-                readOnly
-                required
-                className="!h-12 !rounded-xl bg-gray-50 [color:#969793] cursor-not-allowed border-gray-300 [font-family:'Open_Sans',sans-serif] text-base"
-                labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
+              <Input label="Date of Stock Entry" name="dateOfStockEntry" value={todayStr} readOnly required />
             </div>
           </div>
 
           <p className={subSectionTitle}>Pricing</p>
           <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
 
             <div ref={setFieldRef("sellingPrice") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Selling Price (per Pack Size)"
-                name="sellingPrice"
-                value={form.sellingPrice}
-                onChange={handleChange}
-                placeholder="e.g., 4500"
-                required
-                error={errors.sellingPrice}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
+              <Input label="Selling Price (per Pack Size)" name="sellingPrice" value={form.sellingPrice}
+                onChange={handleChange} placeholder="e.g., 4500" required error={errors.sellingPrice} />
             </div>
 
             <div ref={setFieldRef("mrp") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="MRP (per Pack Size)"
-                name="mrp"
-                value={form.mrp}
-                onChange={handleChange}
-                placeholder="e.g., 5000"
-                required
-                error={errors.mrp}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
+              <Input label="MRP (per Pack Size)" name="mrp" value={form.mrp}
+                onChange={handleChange} placeholder="e.g., 5000" required error={errors.mrp} />
             </div>
 
             <div className="col-span-1 md:col-span-2 flex items-end gap-4">
               <div className="w-1/2" ref={setFieldRef("discountPercentage") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Discount Percentage (%)"
-                  name="discountPercentage"
-                  value={form.discountPercentage}
-                  onChange={handleChange}
-                  placeholder="0–100"
-                  error={errors.discountPercentage}
-                />
+                <Input label="Discount Percentage (%)" name="discountPercentage" value={form.discountPercentage}
+                  onChange={handleChange} placeholder="0–100" error={errors.discountPercentage} />
               </div>
               <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAdditionalDiscountModal(true)}
-                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
-                >
-                  <img src="/icons/PlusIcon.svg" alt="add" className="w-6 h-6" />
-                  Add Special Offers
+                <button type="button" onClick={() => setShowAdditionalDiscountModal(true)}
+                  className="w-[237px] h-[52px] bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[18px] leading-[28px] rounded-lg flex items-center justify-center gap-[12px] cursor-pointer hover:bg-purple-50 transition-all duration-200">
+                  <svg width="14.24" height="14.24" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                    <path d="M7 1v12M1 7h12" stroke="#9659FD" strokeWidth="2.5" strokeLinecap="round" />
+                  </svg>
+                  <span>Add Special Discount</span>
                 </button>
               </div>
             </div>
@@ -1716,49 +1508,35 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
           <p className={subSectionTitle}>TAX &amp; BILLING</p>
           <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
 
             {/* GST % */}
-            {isEdit ? (
-              <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>GST % {requiredStar}</label>
-                <Select options={gstOptions} value={gstOptions.find((o) => o.value === form.gstPercentage) || null} onChange={(sel) => handleSelectChange("gstPercentage", sel)} placeholder="Select GST" theme={selectTheme} styles={selectStyles("gstPercentage")} />
-                {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
-              </div>
-            )}
+            <div className="flex flex-col gap-0" ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
+              {isEdit ? (
+                <Dropdown label="GST %" options={gstOptions} value={form.gstPercentage} onChange={() => {}} isDisabled required />
+              ) : (
+                <Dropdown label="GST %" options={gstOptions} value={form.gstPercentage}
+                  onChange={(value) => handleDropdownChange("gstPercentage", value)}
+                  placeholder="Select GST" required error={errors.gstPercentage} />
+              )}
+            </div>
 
             {/* HSN Code */}
-            {isEdit ? (
-              <NonEditableField label="HSN Code" value={form.hsnCode} required />
-            ) : (
-              <div ref={setFieldRef("hsnCode") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="HSN Code"
-                  name="hsnCode"
-                  value={form.hsnCode}
-                  onChange={handleChange}
-                  placeholder="4, 6, or 8 digit numeric code"
-                  required
-                  error={errors.hsnCode}
-                  maxLength={8}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
+            <div ref={setFieldRef("hsnCode") as React.RefCallback<HTMLDivElement>}>
+              <Input label="HSN Code" name="hsnCode" value={form.hsnCode} onChange={handleChange}
+                placeholder="4, 6, or 8 digit numeric code" required error={errors.hsnCode} maxLength={8} readOnly={isEdit} />
+            </div>
           </div>
         </div>
 
         {/* ── Section 3: Product Photos ──────────────────────────────────────────── */}
         <div className={sectionCard} ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
-          <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
-            Product Photos {mode === "create" && <span className="text-red-500">*</span>}
-          </h2>
+          <div className="text-pneutral-700 font-normal text-sm">
+            Product Photos {mode === "create" && <span className="text-warning-500 font-semibold ml-1">*</span>}
+          </div>
 
           {existingImages.length > 0 && (
-            <div className="mb-4">
+            <div className="mb-4 mt-2">
               <p className="text-sm font-semibold text-gray-600 mb-2">Current Images</p>
               <div className="flex flex-wrap gap-3">
                 {existingImages.map((url, i) => (
@@ -1770,16 +1548,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             </div>
           )}
 
-          <div
-            className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
+          <div className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer mt-2"
             onClick={() => document.getElementById("ncFileInput")?.click()}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}
-          >
+            onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}>
             <div className="flex flex-col items-center justify-center gap-2">
-              <div className="w-12 h-12 flex items-center justify-center">
-                <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
-              </div>
+              <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
               <div className="text-sm font-medium text-gray-600 text-center">Choose a file or drag &amp; drop it here</div>
               <div className="text-xs text-gray-400 text-center">Click to browse PNG, JPG, and SVG</div>
             </div>
@@ -1807,18 +1581,19 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         </div>
 
         {/* ── Actions ─────────────────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
-          <div className="flex gap-3">
-            <button type="button" onClick={() => onSubmitSuccess ? onSubmitSuccess() : window.location.reload()} className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">Cancel</button>
-            <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }} className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
-              <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
-              Save Draft
+        <div className="flex justify-between mt-6 mb-6">
+          <div className="space-x-6 flex">
+            <button type="button" onClick={() => router.back()} className="w-35.25 h-12 border-2 border-warning-500 rounded-lg text-label-l4 font-medium text-warning-500 cursor-pointer">Cancel</button>
+            <button type="button" className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5">
+              <img src="/icons/SaveDraftIcon.svg" alt="drug" className="w-5 h-5 rounded-md object-cover" />Save Draft
             </button>
           </div>
-          <button type="button" onClick={handleSubmit} disabled={submitting} style={{ background: "#4B0082", borderRadius: "8px" }} className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
-            {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
-          </button>
+          <div>
+            <button type="button" onClick={handleSubmit} disabled={submitting} className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer flex items-center justify-center gap-2">
+              {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              {submitting ? "Saving..." : "Submit"}
+            </button>
+          </div>
         </div>
       </div>
     </>
