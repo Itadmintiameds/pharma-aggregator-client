@@ -28,7 +28,7 @@ export default function PopupModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 font-open-sans">
       <div className="bg-white rounded-2xl w-125.25 h-90.5 p-6 shadow-xl relative">
 
         {/* Icon */}
@@ -41,13 +41,13 @@ export default function PopupModal({
         </div>
 
         {/* Title */}
-        <h2 className="text-h5 font-bold text-center text-[#1E1E1D]">
+        <h2 className="text-h5 font-bold text-center text-pneutral-900">
           {title}
         </h2>
 
         {/* Description */}
         {description && (
-          <p className="text-center text-md font-normal text-[#5A5B58] whitespace-nowrap py-5">
+          <p className="text-center text-p4 font-normal text-pneutral-700 whitespace-nowrap py-5">
             {description}
           </p>
         )}
@@ -58,7 +58,7 @@ export default function PopupModal({
           {primaryActionText && (
             <button
               onClick={onPrimaryAction}
-              className="w-100 h-12 bg-[#4B0082] text-white py-3 rounded-lg text-label-l3 font-semibold cursor-pointer"
+              className="w-100 h-12 bg-primary-900 text-white py-3 rounded-lg text-label-l4 font-semibold cursor-pointer"
             >
               {primaryActionText}
             </button>
@@ -69,7 +69,7 @@ export default function PopupModal({
             {secondaryActionText && (
               <button
                 onClick={onSecondaryAction}
-                className="w-48.5 h-12 flex-1 border border-[#D5D5D4] py-2 rounded-lg text-label-l3 font-semibold text-[#1E1E1D] cursor-pointer"
+                className="w-48.5 h-12 flex-1 border border-pneutral-200 py-2 rounded-lg text-label-l4 font-semibold text-pneutral-900 cursor-pointer"
               >
                 {secondaryActionText}
               </button>
@@ -78,7 +78,7 @@ export default function PopupModal({
             {tertiaryActionText && (
               <button
                 onClick={onTertiaryAction}
-                className="w-48.5 h-12 flex-1 border-2 border-[#4C0080] text-[#4C0080] text-label-l3 font-semibold py-2 rounded-lg cursor-pointer"
+                className="w-48.5 h-12 flex-1 border-2 border-primary-900 text-primary-900 text-label-l4 font-semibold py-2 rounded-lg cursor-pointer"
               >
                 {tertiaryActionText}
               </button>

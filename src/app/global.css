@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Work+Sans:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap");
 
 @import "tailwindcss";
 
@@ -13,10 +13,10 @@
      FONT FAMILY
   ========================= */
 
-  /* --font-body: "Noto Sans", sans-serif;
-  --font-heading: "Work Sans", sans-serif; */
-  --font-body: "Noto Sans";
-  --font-heading: "Work Sans";
+
+  --font-body: "Noto Sans", sans-serif;
+  --font-heading: "Work Sans", sans-serif;
+  --font-open-sans: "Open Sans", sans-serif;
 
   /* =========================
      FONT WEIGHTS
@@ -171,6 +171,7 @@
 
   --font-sans: var(--font-body);
   --font-heading: var(--font-heading);
+  --font-open-sans: var(--font-open-sans);
 
   /* =========================
      COLORS
