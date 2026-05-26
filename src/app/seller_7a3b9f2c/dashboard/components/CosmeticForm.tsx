@@ -25,10 +25,11 @@ import {
   uploadProductImages,
 } from "@/src/services/product/ProductService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
+import Dropdown from "@/src/app/commonComponents/Dropdown";
+import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import { AlertCircle, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import Select from "react-select";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
 import UploadInput from "../commonComponent/UploadInput";
@@ -238,9 +239,9 @@ function extractCertDocumentIdMapFromProduct(productData: ApiResponseData): Map<
 
 // ─── Style constants ──────────────────────────────────────────────────────────
 
-const fieldLabel   = "text-label-l4 font-medium text-pneutral-900";
-const requiredStar = <span className="text-warning-500 ml-1">*</span>;
-const errorMsg     = "text-red-500 text-xs mt-1";
+const fieldLabel   = "font-heading font-medium text-[16px] leading-[24px] tracking-normal align-middle text-pneutral-900";
+const requiredStar = <span className="text-warning-500 font-semibold ml-1">*</span>;
+const errorMsg     = "font-heading font-normal text-sm leading-[28px] px-1 text-warning-500";
 
 // ─── Static Options ───────────────────────────────────────────────────────────
 
@@ -257,102 +258,6 @@ const gstOptions: SelectOption[] = [
   { value: "18", label: "18%" },
 ];
 
-// ─── Multi-checkbox dropdown ───────────────────────────────────────────────────
-
-interface MultiCheckDropdownProps {
-  label: string;
-  required?: boolean;
-  options: SelectOption[];
-  selected: string[];
-  onChange: (vals: string[]) => void;
-  placeholder?: string;
-  errorKey?: string;
-  errors?: Record<string, string>;
-  loading?: boolean;
-  disabled?: boolean;
-  fieldRef?: React.Ref<HTMLDivElement>;
-  dataField?: string;
-}
-
-const MultiCheckDropdown = ({
-  label, required, options, selected, onChange,
-  placeholder = "Select...", errorKey = "", errors = {},
-  loading, disabled, fieldRef, dataField,
-}: MultiCheckDropdownProps) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const toggle = (val: string) =>
-    onChange(selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val]);
-
-  const displayLabel =
-    selected.length > 0
-      ? selected.map((v) => options.find((o) => o.value === v)?.label).filter(Boolean).join(", ")
-      : placeholder;
-
-  return (
-    <div className="flex flex-col gap-1" ref={fieldRef as React.RefObject<HTMLDivElement>} data-field={dataField}>
-      <label className={fieldLabel}>{label} {required && requiredStar}</label>
-      <div className="relative" ref={ref}>
-        <div
-          onClick={() => !disabled && setOpen((p) => !p)}
-          className={`w-full h-[52px] px-4 border rounded-[8px] flex items-center justify-between transition-all bg-white ${
-            disabled ? "cursor-default bg-gray-50" : "cursor-pointer"
-          } ${
-            errors[errorKey]
-              ? "border-[#FF3B3B]"
-              : open
-                ? "border-2 border-[#C4AAFD]"
-                : "border-[#C0C1BE] hover:border-[#C0C1BE]"
-          }`}
-        >
-          <span
-            className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
-            style={{ color: selected.length > 0 ? "#3C3D3A" : "#A3A3A3" }}
-          >
-            {displayLabel}
-          </span>
-          <svg
-            className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-        {open && (
-          <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-[8px] shadow-lg max-h-60 overflow-y-auto">
-            {loading ? (
-              <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
-            ) : options.length === 0 ? (
-              <div className="px-4 py-3 text-gray-400 text-sm">No options available</div>
-            ) : (
-              options.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(opt.value)}
-                    onChange={() => toggle(opt.value)}
-                    className="accent-purple-600 w-4 h-4"
-                  />
-                  <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                </label>
-              ))
-            )}
-          </div>
-        )}
-      </div>
-      {errors[errorKey] && <p className={errorMsg}>{errors[errorKey]}</p>}
-    </div>
-  );
-};
 
 // ─── Non-editable display fields ──────────────────────────────────────────────
 
@@ -440,6 +345,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     shelfLifeMonths:      "",
     // ✅ additionalDiscount stored directly as AdditionalDiscountData[] — same as DrugForm
     additionalDiscount:   [] as AdditionalDiscountData[],
+    specialSchemes:       [] as any[],
   });
   const [resolvedProductId, setResolvedProductId] = useState("");
   const [productAttributeId, setProductAttributeId] = useState("");
@@ -489,11 +395,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
-  const [showCertDropdown, setShowCertDropdown] = useState(false);
-  // ✅ Renamed to match DrugForm's state variable name exactly
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const certDropdownRef = useRef<HTMLDivElement>(null);
+  const unitDropdownRef = useRef<HTMLDivElement>(null);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -657,6 +562,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         shelfLifeMonths:      String(computeShelfLife(mfgDate, expDate) ?? ""),
         // ✅ Load additionalDiscount directly — same shape as DrugForm
         additionalDiscount:   Array.isArray(pricing.additionalDiscounts) ? pricing.additionalDiscounts : [],
+        specialSchemes:       Array.isArray(pricing.specialSchemes) ? pricing.specialSchemes : [],
       });
 
       let rawIntended: unknown[] = [];
@@ -943,8 +849,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (certDropdownRef.current && !certDropdownRef.current.contains(e.target as Node))
-        setShowCertDropdown(false);
+      if (unitDropdownRef.current && !unitDropdownRef.current.contains(e.target as Node))
+        setShowUnitDropdown(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -1082,7 +988,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     if (fileArr.find((f) => f.size > maxSizeBytes)) {
       setErrors((p) => ({ ...p, images: "Image file size exceeds the 5 MB limit." })); return;
     }
-    if (images.length + fileArr.length > 5) {
+    if (images.length + existingImages.length + fileArr.length > 5) {
       setErrors((p) => ({ ...p, images: "Maximum 5 images allowed" })); return;
     }
     setImages((p) => [...p, ...fileArr]);
@@ -1223,7 +1129,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
     else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
 
-    if (mode === "create" && images.length === 0) e.images = "At least one product image is required";
+    if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
+    if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
 
     return e;
   };
@@ -1302,6 +1209,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           effectiveEndDate:             d.effectiveEndDate,
           effectiveEndTime:             d.effectiveEndTime,
         })),
+        specialSchemes: (form.specialSchemes || []).map((s: any) => ({
+          ...s,
+          ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+        })),
       }],
 
       productAttributeCosmeticAndPersonalUse: [{
@@ -1335,6 +1246,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       }],
 
       productImages: images.map(() => ({ productImage: "PENDING" })),
+      retainedImageUrls: existingImages,
     };
 
     // ── EDIT MODE ──────────────────────────────────────────────────────────────
@@ -1468,86 +1380,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }
   };
 
-  // ─── Select styles ─────────────────────────────────────────────────────────────
-  const selectStyles = (errorKey: string) => ({
-    control: (base: any, state: any) => ({
-      ...base,
-      minHeight: "52px",
-      height: "auto",
-      borderRadius: "8px",
-      borderWidth: state.isFocused ? "2px" : "1px",
-      borderColor: errors[errorKey]
-        ? "#FF3B3B"
-        : state.isFocused
-          ? "#C4AAFD"
-          : "#C0C1BE",
-      boxShadow: "none",
-      cursor: "pointer",
-      alignItems: state.hasValue && state.selectProps.isMulti ? "flex-start" : "center",
-      "&:hover": {
-        borderColor: errors[errorKey]
-          ? "#FF3B3B"
-          : state.isFocused
-            ? "#C4AAFD"
-            : "#C0C1BE",
-      },
-    }),
-    valueContainer: (base: any) => ({ ...base, padding: "8px 16px", flexWrap: "wrap", overflow: "visible" }),
-    indicatorsContainer: (base: any) => ({ ...base, height: "52px" }),
-    dropdownIndicator: (base: any, state: any) => ({
-      ...base,
-      color: state.isFocused ? "#C4AAFD" : "#737373",
-      cursor: "pointer",
-      "&:hover": { color: "#C4AAFD" },
-    }),
-    option: (base: any, state: any) => ({
-      ...base,
-      backgroundColor: state.isSelected ? "#4B0082" : state.isFocused ? "#F3E8FF" : "white",
-      color: state.isSelected ? "white" : "#1E1E1E",
-      cursor: "pointer",
-      "&:active": { backgroundColor: "#4B0082", color: "white" },
-    }),
-    placeholder: (base: any) => ({ ...base, color: "#A3A3A3" }),
-    singleValue: (base: any) => ({ ...base, color: "#1E1E1E" }),
-    multiValue: (base: any) => ({ ...base, margin: "2px" }),
-  });
-
-  const unitSelectStyles = {
-    control: (base: any) => ({
-      ...base,
-      minHeight: "52px",
-      height: "52px",
-      border: "none",
-      boxShadow: "none",
-      borderRadius: "0",
-      cursor: "pointer",
-      backgroundColor: "transparent",
-      "&:hover": { border: "none" },
-    }),
-    valueContainer: (base: any) => ({ ...base, padding: "0 8px" }),
-    indicatorsContainer: (base: any) => ({ ...base, height: "52px" }),
-    dropdownIndicator: (base: any, state: any) => ({
-      ...base,
-      color: state.isFocused ? "#C4AAFD" : "#737373",
-      cursor: "pointer",
-      "&:hover": { color: "#C4AAFD" },
-    }),
-    option: (base: any, state: any) => ({
-      ...base,
-      backgroundColor: state.isSelected ? "#4B0082" : state.isFocused ? "#F3E8FF" : "white",
-      color: state.isSelected ? "white" : "#1E1E1E",
-      cursor: "pointer",
-      "&:active": { backgroundColor: "#4B0082", color: "white" },
-    }),
-    placeholder: (base: any) => ({ ...base, color: "#A3A3A3", fontSize: "14px" }),
-    singleValue: (base: any) => ({ ...base, color: "#1E1E1E" }),
-    menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
-  };
-
-  const selectTheme = (theme: any) => ({
-    ...theme,
-    colors: { ...theme.colors, primary: "#4B0082", primary25: "#F3E8FF", primary50: "#E9D5FF" },
-  });
 
   // ─── Loading guard ─────────────────────────────────────────────────────────────
   if (mode === "edit" && loadingProduct) {
@@ -1581,7 +1413,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         onClose={() => setShowSuccessModal(false)}
       />
 
-      {/* ✅ Additional Discount Modal — identical pattern to DrugForm */}
       {showAdditionalDiscount && (
         <CommonModal
           onClose={() => setShowAdditionalDiscount(false)}
@@ -1600,6 +1431,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                   additionalDiscount: data,
                 }))
               }
+              initialSchemesData={form.specialSchemes}
+              onSaveSpecialSchemes={(data: any) => {
+                setForm((prev) => ({
+                  ...prev,
+                  specialSchemes: data || [],
+                }));
+              }}
             />
           </div>
         </CommonModal>
@@ -1643,12 +1481,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               ) : (
                 <>
                   <label className={fieldLabel}>Product Type {requiredStar}</label>
-                  <Select
-                    options={productTypeOptions} isLoading={loadingProductTypes}
-                    value={productTypeOptions.find((o) => o.value === form.productTypeId) || null}
-                    onChange={(sel) => handleSelectChange("productTypeId", sel)}
+                  <Dropdown
+                    options={productTypeOptions}
+                    isLoading={loadingProductTypes}
+                    value={form.productTypeId}
+                    onChange={(val, label) => handleSelectChange("productTypeId", { value: val, label })}
                     placeholder={loadingProductTypes ? "Loading..." : "Select product type"}
-                    theme={selectTheme} styles={selectStyles("productTypeId")}
+                    error={errors.productTypeId ? " " : ""}
                   />
                   {errors.productTypeId && <p className={errorMsg}>{errors.productTypeId}</p>}
                 </>
@@ -1661,12 +1500,14 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               ) : (
                 <>
                   <label className={fieldLabel}>Product Sub-Type {requiredStar}</label>
-                  <Select
-                    options={productSubTypeOptions} isLoading={loadingSubTypes} isDisabled={!form.productTypeId}
-                    value={productSubTypeOptions.find((o) => o.value === form.productSubTypeId) || null}
-                    onChange={(sel) => handleSelectChange("productSubTypeId", sel)}
+                  <Dropdown
+                    options={productSubTypeOptions}
+                    isLoading={loadingSubTypes}
+                    isDisabled={!form.productTypeId}
+                    value={form.productSubTypeId}
+                    onChange={(val, label) => handleSelectChange("productSubTypeId", { value: val, label })}
                     placeholder={form.productTypeId ? (loadingSubTypes ? "Loading..." : "Select sub-type") : "Select product type first"}
-                    theme={selectTheme} styles={selectStyles("productSubTypeId")}
+                    error={errors.productSubTypeId ? " " : ""}
                   />
                   {errors.productSubTypeId && <p className={errorMsg}>{errors.productSubTypeId}</p>}
                 </>
@@ -1684,29 +1525,34 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               ) : (
                 <>
                   <label className={fieldLabel}>Gender {requiredStar}</label>
-                  <Select
+                  <Dropdown
                     options={genderOptions}
-                    value={genderOptions.find((o) => o.value === form.gender) || null}
-                    onChange={(sel) => handleSelectChange("gender", sel)}
-                    placeholder="Select gender" theme={selectTheme} styles={selectStyles("gender")}
+                    value={form.gender}
+                    onChange={(val, label) => handleSelectChange("gender", { value: val, label })}
+                    placeholder="Select gender"
+                    error={errors.gender ? " " : ""}
                   />
                   {errors.gender && <p className={errorMsg}>{errors.gender}</p>}
                 </>
               )}
             </div>
 
-            <MultiCheckDropdown
-              label="Intended Use Area" required
-              options={intendedUseAreaOptions} selected={selectedIntendedUseAreas}
-              onChange={(vals) => {
-                setSelectedIntendedUseAreas(vals);
-                if (errors.intendedUseAreas) setErrors((p) => { const n = { ...p }; delete n.intendedUseAreas; return n; });
-              }}
-              placeholder="Select intended use area(s)"
-              errorKey="intendedUseAreas" errors={errors} loading={loadingIntendedUseAreas}
-              fieldRef={setFieldRef("intendedUseAreas") as React.Ref<HTMLDivElement>}
-              dataField="intendedUseAreas"
-            />
+            <div className="flex flex-col gap-1" ref={setFieldRef("intendedUseAreas") as React.RefCallback<HTMLDivElement>} data-field="intendedUseAreas">
+              <label className={fieldLabel}>Intended Use Area {requiredStar}</label>
+              <CheckboxDropdown
+                options={intendedUseAreaOptions}
+                selectedValues={selectedIntendedUseAreas}
+                onChange={(vals) => {
+                  setSelectedIntendedUseAreas(vals);
+                  if (errors.intendedUseAreas) setErrors((p) => { const n = { ...p }; delete n.intendedUseAreas; return n; });
+                }}
+                placeholder={loadingIntendedUseAreas ? "Loading..." : "Select intended use area(s)"}
+                disabled={loadingIntendedUseAreas}
+                error={errors.intendedUseAreas ? " " : ""}
+                showSelectAll={false}
+              />
+              {errors.intendedUseAreas && <p className={errorMsg}>{errors.intendedUseAreas}</p>}
+            </div>
 
             <div className="flex flex-col gap-1" data-field="productFormId">
               {isEdit ? (
@@ -1718,17 +1564,16 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               ) : (
                 <>
                   <label className={fieldLabel}>Product Form {requiredStar}</label>
-                  <Select
+                  <Dropdown
                     options={productFormOptions}
                     isLoading={loadingProductForms}
-                    value={productFormOptions.find((o) => o.value === form.productFormId) || null}
-                    onChange={(sel) => {
-                      handleSelectChange("productFormId", sel);
+                    value={form.productFormId}
+                    onChange={(val, label) => {
+                      handleSelectChange("productFormId", { value: val, label });
                       if (errors.productFormId) setErrors((p) => { const n = { ...p }; delete n.productFormId; return n; });
                     }}
                     placeholder={loadingProductForms ? "Loading..." : "Eg, Gel, Powder"}
-                    theme={selectTheme}
-                    styles={selectStyles("productFormId")}
+                    error={errors.productFormId ? " " : ""}
                   />
                   {errors.productFormId && <p className={errorMsg}>{errors.productFormId}</p>}
                 </>
@@ -1745,32 +1590,51 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               ) : (
                 <>
                   <label className={fieldLabel}>Net Quantity {requiredStar}</label>
-                  <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.netQuantity || errors.netQuantityUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
-                    <input
-                      name="netQuantity"
-                      value={form.netQuantity}
-                      onChange={handleChange}
-                      placeholder="Placeholder"
-                      maxLength={10}
-                      className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
-                    />
-                    <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
-                    <div className="w-36" data-field="netQuantityUnitId">
-                      <Select
-                        options={netQuantityUnitOptions}
-                        isLoading={loadingNetQuantityUnits}
-                        value={netQuantityUnitOptions.find((o) => o.value === form.netQuantityUnitId) || null}
-                        onChange={(sel) => {
-                          handleSelectChange("netQuantityUnitId", sel);
-                          if (errors.netQuantityUnitId) setErrors((p) => { const n = { ...p }; delete n.netQuantityUnitId; return n; });
-                        }}
-                        placeholder={loadingNetQuantityUnits ? "..." : "Select Unit"}
-                        theme={selectTheme}
-                        styles={unitSelectStyles}
-                        menuPortalTarget={typeof document !== "undefined" ? document.body : null}
-                        menuPosition="fixed"
+                  <div className="relative" ref={unitDropdownRef}>
+                    <div className={`flex items-center h-[52px] border rounded-lg overflow-hidden ${errors.netQuantity || errors.netQuantityUnitId ? "border-warning-500" : "border-pneutral-300"}`}>
+                      <input
+                        name="netQuantity"
+                        value={form.netQuantity}
+                        onChange={handleChange}
+                        placeholder="e.g., 100"
+                        maxLength={10}
+                        className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
                       />
+                      <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
+                      <button
+                        type="button"
+                        onClick={() => setShowUnitDropdown(p => !p)}
+                        className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 hover:bg-neutral-100 transition-colors flex-shrink-0"
+                      >
+                        <span
+                          className={netQuantityUnitOptions.find(o => o.value === form.netQuantityUnitId)?.label ? "text-pneutral-800" : "text-pneutral-500"}
+                          style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}
+                        >
+                          {loadingNetQuantityUnits ? "..." : (netQuantityUnitOptions.find(o => o.value === form.netQuantityUnitId)?.label || "Select Unit")}
+                        </span>
+                        <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${showUnitDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
                     </div>
+                    {showUnitDropdown && (
+                      <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
+                        {netQuantityUnitOptions.map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                              handleSelectChange("netQuantityUnitId", { value: opt.value, label: opt.label });
+                              if (errors.netQuantityUnitId) setErrors(p => { const n = { ...p }; delete n.netQuantityUnitId; return n; });
+                              setShowUnitDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer ${form.netQuantityUnitId === opt.value ? "bg-neutral-50 font-semibold" : "font-medium"}`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {errors.netQuantity && <p className={errorMsg}>{errors.netQuantity}</p>}
                   {errors.netQuantityUnitId && <p className={errorMsg}>{errors.netQuantityUnitId}</p>}
@@ -1779,52 +1643,95 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             </div>
 
             {skinHairRule.skinType !== "hidden" && (
-              <MultiCheckDropdown
-                label={skinHairRule.skinType === "mandatory" ? "Skin Type" : "Skin Type (optional)"}
-                required={skinHairRule.skinType === "mandatory"}
-                options={skinTypeOptions} selected={selectedSkinTypes}
-                onChange={(vals) => {
-                  setSelectedSkinTypes(vals);
-                  if (errors.skinTypes) setErrors((p) => { const n = { ...p }; delete n.skinTypes; return n; });
-                }}
-                placeholder="Select skin type(s)"
-                errorKey="skinTypes" errors={errors} loading={loadingSkinTypes}
-                disabled={isEdit}
-                fieldRef={setFieldRef("skinTypes") as React.Ref<HTMLDivElement>}
-                dataField="skinTypes"
-              />
+              <div className="flex flex-col gap-1" ref={setFieldRef("skinTypes") as React.RefCallback<HTMLDivElement>} data-field="skinTypes">
+                {isEdit ? (
+                  <NonEditableField
+                    label={skinHairRule.skinType === "mandatory" ? "Skin Type" : "Skin Type (optional)"}
+                    value={selectedSkinTypes.map(id => skinTypeOptions.find(o => o.value === id)?.label || id).filter(Boolean).join(", ")}
+                    required={skinHairRule.skinType === "mandatory"}
+                  />
+                ) : (
+                  <>
+                    <label className={fieldLabel}>
+                      {skinHairRule.skinType === "mandatory" ? "Skin Type" : "Skin Type (optional)"}
+                      {skinHairRule.skinType === "mandatory" && requiredStar}
+                    </label>
+                    <CheckboxDropdown
+                      options={skinTypeOptions}
+                      selectedValues={selectedSkinTypes}
+                      onChange={(vals) => {
+                        setSelectedSkinTypes(vals);
+                        if (errors.skinTypes) setErrors((p) => { const n = { ...p }; delete n.skinTypes; return n; });
+                      }}
+                      placeholder={loadingSkinTypes ? "Loading..." : "Select skin type(s)"}
+                      disabled={loadingSkinTypes}
+                      error={errors.skinTypes ? " " : ""}
+                      showSelectAll={false}
+                    />
+                    {errors.skinTypes && <p className={errorMsg}>{errors.skinTypes}</p>}
+                  </>
+                )}
+              </div>
             )}
 
             {skinHairRule.hairType !== "hidden" && (
-              <MultiCheckDropdown
-                label={skinHairRule.hairType === "mandatory" ? "Hair Type" : "Hair Type (optional)"}
-                required={skinHairRule.hairType === "mandatory"}
-                options={hairTypeOptions} selected={selectedHairTypes}
-                onChange={(vals) => {
-                  setSelectedHairTypes(vals);
-                  if (errors.hairTypes) setErrors((p) => { const n = { ...p }; delete n.hairTypes; return n; });
-                }}
-                placeholder="Select hair type(s)"
-                errorKey="hairTypes" errors={errors} loading={loadingHairTypes}
-                disabled={isEdit}
-                fieldRef={setFieldRef("hairTypes") as React.Ref<HTMLDivElement>}
-                dataField="hairTypes"
-              />
+              <div className="flex flex-col gap-1" ref={setFieldRef("hairTypes") as React.RefCallback<HTMLDivElement>} data-field="hairTypes">
+                {isEdit ? (
+                  <NonEditableField
+                    label={skinHairRule.hairType === "mandatory" ? "Hair Type" : "Hair Type (optional)"}
+                    value={selectedHairTypes.map(id => hairTypeOptions.find(o => o.value === id)?.label || id).filter(Boolean).join(", ")}
+                    required={skinHairRule.hairType === "mandatory"}
+                  />
+                ) : (
+                  <>
+                    <label className={fieldLabel}>
+                      {skinHairRule.hairType === "mandatory" ? "Hair Type" : "Hair Type (optional)"}
+                      {skinHairRule.hairType === "mandatory" && requiredStar}
+                    </label>
+                    <CheckboxDropdown
+                      options={hairTypeOptions}
+                      selectedValues={selectedHairTypes}
+                      onChange={(vals) => {
+                        setSelectedHairTypes(vals);
+                        if (errors.hairTypes) setErrors((p) => { const n = { ...p }; delete n.hairTypes; return n; });
+                      }}
+                      placeholder={loadingHairTypes ? "Loading..." : "Select hair type(s)"}
+                      disabled={loadingHairTypes}
+                      error={errors.hairTypes ? " " : ""}
+                      showSelectAll={false}
+                    />
+                    {errors.hairTypes && <p className={errorMsg}>{errors.hairTypes}</p>}
+                  </>
+                )}
+              </div>
             )}
 
-            <MultiCheckDropdown
-              label="Age Group" required
-              options={ageGroupOptions} selected={selectedAgeGroups}
-              onChange={(vals) => {
-                setSelectedAgeGroups(vals);
-                if (errors.ageGroupId) setErrors((p) => { const n = { ...p }; delete n.ageGroupId; return n; });
-              }}
-              placeholder="Select age group(s)"
-              errorKey="ageGroupId" errors={errors} loading={loadingAgeGroups}
-              disabled={isEdit}
-              fieldRef={setFieldRef("ageGroupId") as React.Ref<HTMLDivElement>}
-              dataField="ageGroupId"
-            />
+            <div className="flex flex-col gap-1" ref={setFieldRef("ageGroupId") as React.RefCallback<HTMLDivElement>} data-field="ageGroupId">
+              {isEdit ? (
+                <NonEditableField
+                  label="Age Group"
+                  value={selectedAgeGroups.map(id => ageGroupOptions.find(o => o.value === id)?.label || id).filter(Boolean).join(", ")}
+                  required
+                />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Age Group {requiredStar}</label>
+                  <CheckboxDropdown
+                    options={ageGroupOptions}
+                    selectedValues={selectedAgeGroups}
+                    onChange={(vals) => {
+                      setSelectedAgeGroups(vals);
+                      if (errors.ageGroupId) setErrors((p) => { const n = { ...p }; delete n.ageGroupId; return n; });
+                    }}
+                    placeholder={loadingAgeGroups ? "Loading..." : "Select age group(s)"}
+                    disabled={loadingAgeGroups}
+                    error={errors.ageGroupId ? " " : ""}
+                    showSelectAll={false}
+                  />
+                  {errors.ageGroupId && <p className={errorMsg}>{errors.ageGroupId}</p>}
+                </>
+              )}
+            </div>
 
             <div className="flex flex-col gap-1" data-field="countryOfOriginId">
               {isEdit ? (
@@ -1832,12 +1739,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               ) : (
                 <>
                   <label className={fieldLabel}>Country of Origin {requiredStar}</label>
-                  <Select
-                    options={countryOptions} isLoading={loadingCountries}
-                    value={countryOptions.find((o) => o.value === form.countryOfOriginId) || null}
-                    onChange={(sel) => handleSelectChange("countryOfOriginId", sel)}
+                  <Dropdown
+                    options={countryOptions}
+                    isLoading={loadingCountries}
+                    value={form.countryOfOriginId}
+                    onChange={(val, label) => handleSelectChange("countryOfOriginId", { value: val, label })}
                     placeholder={loadingCountries ? "Loading..." : "Select country"}
-                    theme={selectTheme} styles={selectStyles("countryOfOriginId")}
+                    error={errors.countryOfOriginId ? " " : ""}
                   />
                   {errors.countryOfOriginId && <p className={errorMsg}>{errors.countryOfOriginId}</p>}
                 </>
@@ -1859,12 +1767,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               ) : (
                 <>
                   <label className={fieldLabel}>Storage Condition {requiredStar}</label>
-                  <Select
-                    options={storageConditionOptions} isLoading={loadingStorageConditions}
-                    value={storageConditionOptions.find((o) => o.value === form.storageConditionId) || null}
-                    onChange={(sel) => handleSelectChange("storageConditionId", sel)}
+                  <Dropdown
+                    options={storageConditionOptions}
+                    isLoading={loadingStorageConditions}
+                    value={form.storageConditionId}
+                    onChange={(val, label) => handleSelectChange("storageConditionId", { value: val, label })}
                     placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
-                    theme={selectTheme} styles={selectStyles("storageConditionId")}
+                    error={errors.storageConditionId ? " " : ""}
                   />
                   {errors.storageConditionId && <p className={errorMsg}>{errors.storageConditionId}</p>}
                 </>
@@ -1873,37 +1782,35 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
             <div className="flex flex-col gap-1" data-field="certifications">
               <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
-              <div className="relative" ref={certDropdownRef}>
-                <div
-                  onClick={() => setShowCertDropdown((p) => !p)}
-                  className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"}`}
-                >
-                  <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]"
-                    style={{ color: selectedCertifications.length > 0 ? "var(--pneutral-800)" : "var(--sneutral-400)" }}>
-                    {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
-                  </span>
-                  <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-                {showCertDropdown && (
-                  <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
-                    {loadingCertifications ? (
-                      <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div>
-                    ) : (
-                      certificationMasterOptions.map((opt) => (
-                        <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                          <input type="checkbox"
-                            checked={selectedCertifications.some((c) => c.id === opt.value)}
-                            onChange={() => handleCertCheckbox(opt)}
-                            className="accent-purple-600 w-4 h-4" />
-                          <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+              <CheckboxDropdown
+                options={certificationMasterOptions}
+                selectedValues={selectedCertifications.map(c => c.id)}
+                onChange={(values) => {
+                  const newCerts = values.map(val => {
+                    const existing = selectedCertifications.find(c => c.id === val);
+                    if (existing) return existing;
+                    const opt = certificationMasterOptions.find(o => o.value === val);
+                    return {
+                      id: val,
+                      label: opt?.label || "",
+                      tagCode: opt?.tagCode || "",
+                      file: null,
+                      fileName: "",
+                      uploading: false,
+                      isUploaded: false,
+                      previewUrl: null,
+                      productCertificateDocumentId: opt?.certificationId || 0,
+                      existingUrl: undefined,
+                    };
+                  });
+                  setSelectedCertifications(newCerts);
+                  if (errors.certifications) setErrors(p => { const n = { ...p }; delete n.certifications; return n; });
+                }}
+                placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
+                disabled={loadingCertifications}
+                error={errors.certifications ? " " : ""}
+                showSelectAll={false}
+              />
               {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
@@ -1911,11 +1818,11 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
                 <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
-                  <div className="flex items-center justify-center h-full px-4 bg-secondary-200">
+                  <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
                   <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                    <span className="text-pneutral-500 text-sm">Select certifications first</span>
+                    <span className="text-pneutral-500 text-md">Select certifications first</span>
                   </div>
                 </div>
               </div>
@@ -2001,12 +1908,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               ) : (
                 <>
                   <label className={fieldLabel}>Pack Type {requiredStar}</label>
-                  <Select
-                    options={packTypeOptions} isLoading={loadingPackTypes}
-                    value={packTypeOptions.find((o) => o.value === form.packTypeId) || null}
-                    onChange={(sel) => handleSelectChange("packTypeId", sel)}
+                  <Dropdown
+                    options={packTypeOptions}
+                    isLoading={loadingPackTypes}
+                    value={form.packTypeId}
+                    onChange={(val, label) => handleSelectChange("packTypeId", { value: val, label })}
                     placeholder={loadingPackTypes ? "Loading..." : "Select pack type"}
-                    theme={selectTheme} styles={selectStyles("packTypeId")}
+                    error={errors.packTypeId ? " " : ""}
                   />
                   {errors.packTypeId && <p className={errorMsg}>{errors.packTypeId}</p>}
                 </>
@@ -2027,11 +1935,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
             )}
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Pack Size (No. of Units per Pack Type × No. of Packs)</label>
-              <input name="packSize" value={form.packSize} readOnly
-                className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
-            </div>
+            <Input
+              label="Pack Size (No. of Units per Pack Type × No. of Packs)"
+              name="packSize"
+              value={form.packSize}
+              readOnly
+            />
           </div>
 
           <div className="text-h6 font-normal col-span-2 mt-5">Order Details</div>
@@ -2178,11 +2087,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               ) : (
                 <>
                   <label className={fieldLabel}>GST % {requiredStar}</label>
-                  <Select
+                  <Dropdown
                     options={gstOptions}
-                    value={gstOptions.find((o) => o.value === form.gstPercentage) || null}
-                    onChange={(sel) => handleSelectChange("gstPercentage", sel)}
-                    placeholder="Select GST %" theme={selectTheme} styles={selectStyles("gstPercentage")}
+                    value={form.gstPercentage}
+                    onChange={(val, label) => handleSelectChange("gstPercentage", { value: val, label })}
+                    placeholder="Select GST %"
+                    error={errors.gstPercentage ? " " : ""}
                   />
                   {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
                 </>
@@ -2212,8 +2122,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               <p className="text-sm font-semibold text-gray-600 mb-2">Current Images</p>
               <div className="flex flex-wrap gap-3">
                 {existingImages.map((url, i) => (
-                  <div key={i} className="relative flex-shrink-0">
-                    <img src={url} alt={`existing-${i}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200" />
+                  <div key={i} className="relative group flex-shrink-0">
+                    <img src={url} alt={`existing-${i}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
+                    <button type="button"
+                      onClick={() => setExistingImages((p) => p.filter((_, idx) => idx !== i))}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                      <X size={12} />
+                    </button>
                   </div>
                 ))}
               </div>
