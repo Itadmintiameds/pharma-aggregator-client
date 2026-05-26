@@ -48,41 +48,6 @@ export const drugProductSchema = z.object({
     )
     .min(1, "At least one molecule is required"),
 
-  // molecules: z
-  //   .array(
-  //     z.object({
-  //       moleculeId: z
-  //         .union([z.string(), z.number()])
-  //         .transform((val) => Number(val))
-  //         .refine((val) => val > 0, {
-  //           message: "Molecule is required",
-  //         }),
-
-  //       drugSchedule: z.string().min(1),
-
-  //       mechanismOfAction: z.string().min(1),
-
-  //       primaryUse: z.string().min(1),
-
-  //       strength: z
-  //         .string()
-  //         .min(1, "Strength is required")
-  //         .refine(
-  //           (val) => {
-  //             const normalizedValue = val.toLowerCase().trim();
-
-  //             return strengthFormats.some((format) =>
-  //               normalizedValue.endsWith(format.toLowerCase().trim())
-  //             );
-  //           },
-  //           {
-  //             message: `Invalid strength format. Allowed strengths: ${strengthFormats.join(", ")}`,
-  //           }
-  //         ),
-  //     })
-  //   )
-  //   .min(1, "At least one molecule is required"),
-
   manufacturerName: z
     .string()
     .trim()

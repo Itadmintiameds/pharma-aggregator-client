@@ -17,10 +17,15 @@ export default function UploadInput({
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [removedExisting, setRemovedExisting] = useState(false);
+  const [error, setError] = useState("");
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
+
+    setError("");
 
     if (
       accept === "application/pdf" &&
@@ -30,13 +35,20 @@ export default function UploadInput({
       return;
     }
 
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      setError("File size should not exceed 5MB");
+      return;
+    }
+
     setFile(selectedFile);
+    setRemovedExisting(false);
     onFileSelect(selectedFile);
   };
 
   const removeFile = () => {
     setFile(null);
-    setRemovedExisting(true); // ✅ this is the key fix
+    setRemovedExisting(true);
+    setError("");
     onFileSelect(null);
   };
 
@@ -82,6 +94,11 @@ export default function UploadInput({
           )}
         </div>
       </label>
+
+      {error && (
+        <p className="text-sm text-red-500 mt-1">{error}</p>
+      )}
+      
     </div>
   );
 }
