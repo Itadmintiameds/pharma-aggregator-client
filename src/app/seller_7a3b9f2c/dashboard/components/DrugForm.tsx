@@ -22,7 +22,10 @@ import UploadInput from "../commonComponent/UploadInput";
 import PopupModal from "../commonComponent/PopupModal";
 import AddDiscNew from "./AdditionalDiscountNew";
 import AdditionalDiscountType from "./AdditionalDiscountType";
-import { getTherapeuticCategory, getTherapeuticSubcategory } from "@/src/services/product/TherapeuticCategoryService";
+import {
+  getTherapeuticCategory,
+  getTherapeuticSubcategory,
+} from "@/src/services/product/TherapeuticCategoryService";
 import { getSupplementDosageForms } from "@/src/services/product/SupplementService";
 import { useRouter } from "next/navigation";
 import { validateBatchNumber } from "@/src/services/product/Pricing";
@@ -1073,26 +1076,17 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             })),
           },
         ],
+        retainedImageUrls: existingImages,
 
-        productImages: images.map((img) => ({
-          productImage: img.name,
-        })),
+        // productImages: images.map((img) => ({
+        //   productImage: img.name,
+        // })),
       };
 
       await updateProduct(form.productId, payload);
 
       if (productAttributeId && manualFile) {
         await uploadProductUserManual(productAttributeId, manualFile);
-      }
-
-      // ✅ Then images
-      if (images.length > 0) {
-        await uploadProductImages(form.productId, images);
-      }
-
-      // ✅ Then images upload
-      if (images.length > 0) {
-        await uploadProductImages(form.productId, images);
       }
 
       if (images.length > 0) {
@@ -1201,7 +1195,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       primary50: "#E9D5FF",
     },
   });
-
 
   const fetchDosage = async (
     categoryId: string | number,
@@ -2155,7 +2148,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                       className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
                     />
 
-                    {!isReadOnly && (
+                    {(!isReadOnly || mode === "edit") && (
                       <button
                         onClick={() =>
                           setExistingImages(
