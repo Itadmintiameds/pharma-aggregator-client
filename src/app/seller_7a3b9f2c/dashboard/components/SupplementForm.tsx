@@ -1715,10 +1715,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           },
         ],
 
-        productImages: [
-          ...existingImages.map((url) => ({ productImage: url })),
-          ...images.map((img) => ({ productImage: img.name })),
-        ],
+        retainedImageUrls: existingImages,
       };
 
       console.log("🚀 Sending update payload:", payload);
