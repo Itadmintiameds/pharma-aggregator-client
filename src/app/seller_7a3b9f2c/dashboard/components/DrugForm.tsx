@@ -853,11 +853,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     router.push("/seller_7a3b9f2c/dashboard");
   };
 
-  // useEffect(() => {
-  //   if (mode === "edit" && productId) {
-  //     fetchProductByIdAndFillForm(productId);
-  //   }
-  // }, [mode, productId, dosageOptions, moleculeOptions]);
 
   useEffect(() => {
     if (mode === "edit" && productId && moleculeOptions.length > 0) {
@@ -1333,6 +1328,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     label: item.conditionName,
   }));
 
+
+  //   const handleMonthChange = (month: number, year: number) => {
+  //   console.log("Selected:", month + 1, year);
+  // };
+
   return (
     <>
       <PopupModal
@@ -1740,7 +1740,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.numberOfPacks}
               onChange={handleChange}
-              // disabled={mode === "delete"}
+              readOnly={isEditMode}
               error={errors.numberOfPacks}
               required
               min={1}
@@ -1755,7 +1755,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.packSize}
               onChange={handleChange}
-              // disabled={mode === "delete"}
+               readOnly={isEditMode}
               readOnly
               required
             />
@@ -1993,7 +1993,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   max={100}
                   step={1}
                   error={errors.discountPercentage}
-                  required
+                  
                 />
               </div>
 
