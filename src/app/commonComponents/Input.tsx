@@ -143,8 +143,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
 
   // 3. State Mapping (Borders, Backgrounds, Text Colors)
   const getVariantStyles = (): string => {
-    if (disabled) return "border-pneutral-200 bg-sneutral-100 text-pneutral-500 cursor-not-allowed";
-    if (readOnly) return "border-pneutral-100 bg-pneutral-50 text-pneutral-800 cursor-default";
+    if (disabled) return "border-pneutral-300 bg-sneutral-100 text-pneutral-500 cursor-not-allowed";
+    if (readOnly) return "border-pneutral-300 bg-pneutral-50 text-pneutral-800 cursor-default";
     if (error) return "border-warning-500 text-pneutral-800 bg-white focus:border-warning-500 focus:ring-1 focus:ring-warning-500";
     if (success) return "border-success-700 text-pneutral-800 bg-white focus:border-success-700 focus:ring-1 focus:ring-success-700";
 

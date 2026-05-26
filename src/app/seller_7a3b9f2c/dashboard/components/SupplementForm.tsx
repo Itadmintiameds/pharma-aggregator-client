@@ -206,10 +206,10 @@ const NumericInputWithUnit: React.FC<NumericInputWithUnitProps> = ({
 
   // State mappings for border/shadow color matching original Input component
   const getBorderColor = () => {
-    if (disabled) return "border-pneutral-200 bg-sneutral-100 cursor-not-allowed";
-    if (readOnly) return "border-pneutral-100 bg-pneutral-50 cursor-default";
+    if (disabled) return "border-pneutral-300 bg-sneutral-100 cursor-not-allowed";
+    if (readOnly) return "border-pneutral-300 bg-pneutral-50 cursor-default";
     if (error) return "border-warning-500 focus-within:ring-1 focus-within:ring-warning-500 focus-within:border-warning-500";
-    return "border-neutral-500 focus-within:border-secondary-300 focus-within:ring-1 focus-within:ring-secondary-300";
+    return "border-pneutral-300 focus-within:border-secondary-300 focus-within:ring-1 focus-within:ring-secondary-300";
   };
 
   return (
@@ -1286,7 +1286,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         ageGroup: attr.ageGroupIds && attr.ageGroupIds.length > 0
           ? attr.ageGroupIds.map(String).join(",")
           : String(attr.ageGroupId || ""),
-        gender: attr.gender || "",
+        gender: attr.gender ? attr.gender.toLowerCase() : "",
         vegNonVeg: attr.vegOrNonVegIndicator || "",
         allergenInfo: attr.allergenInformation || "",
         flavour: String(attr.flavourId || ""),
@@ -1937,6 +1937,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 placeholder={form.therapeuticCategory ? "Select sub-category" : "Select category first"}
                 isDisabled={isEditMode || !form.therapeuticCategory}
                 error={errors.therapeuticSubcategory ? " " : ""}
+                className="[&_.border-2]:!border-t [&_.border-2]:!border-r [&_.border-2]:!border-b [&_.border-2]:!border-l"
               />
               {errors.therapeuticSubcategory && <p className={errorMsg}>{errors.therapeuticSubcategory}</p>}
             </div>
@@ -2528,7 +2529,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   onChange={handleChange}
                   placeholder="e.g., Not for pregnant women"
                   maxLength={255}
-                  className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.warningsPrecautions ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
+                  className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.warningsPrecautions ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-pneutral-300 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
                 />
                 {errors.warningsPrecautions && <p className={errorMsg}>{errors.warningsPrecautions}</p>}
               </div>
@@ -2542,7 +2543,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   onChange={handleChange}
                   placeholder="Provide a detailed description of the product (Min 10 chars)"
                   maxLength={255}
-                  className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.productDescription ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
+                  className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.productDescription ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-pneutral-300 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
                 />
                 {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
               </div>
@@ -2646,7 +2647,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               required
             />
 
-            <div className="text-h6 font-normal col-span-2 mt-3">
+            <div className="font-open-sans text-[21px] leading-[24px] tracking-[-0.02em] font-normal align-middle col-span-2 mt-3">
               Order Details
             </div>
 
@@ -2679,7 +2680,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               required
             />
 
-            <div className="text-h6 font-normal col-span-2 mt-3">
+            <div className="font-open-sans text-[21px] leading-[24px] tracking-[-0.02em] font-normal align-middle col-span-2 mt-3">
               Batch Management
             </div>
 
@@ -2833,7 +2834,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               required
             />
 
-            <div className="text-h6 font-normal col-span-2 mt-3">Pricing</div>
+            <div className="font-open-sans text-[21px] leading-[24px] tracking-[-0.02em] font-normal align-middle col-span-2 mt-3">Pricing</div>
 
             <div className="border-b border-neutral-200 col-span-2"></div>
 
