@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // Helper regex to prevent consecutive spaces (allows single spaces between words)
-const noConsecutiveSpaces = /^(?!.*\s{2,})[A-Za-z0-9\s.,#-]+$/;
+const noConsecutiveSpaces = /^(?!.*\s{2,})/;
 
 // Helper for optional fields to prevent consecutive spaces
 const optionalNoConsecutiveSpaces = (fieldName: string) => 

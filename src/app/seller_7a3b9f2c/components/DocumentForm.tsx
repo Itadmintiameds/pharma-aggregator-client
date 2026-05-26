@@ -732,7 +732,7 @@ export default function DocumentForm({
                       placeholder={licenseInfo.placeholder}
                       maxLength={30}
                       className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 uppercase ${
-                        licenseError || licenseExistsError || licenseDuplicate ? 'border-red-500' : 'border-neutral-500'
+                        licenseError || licenseExistsError || licenseDuplicate ? 'border-neutral-500' : 'border-neutral-500'
                       }`}
                     />
                     {isCheckingLicense && (
