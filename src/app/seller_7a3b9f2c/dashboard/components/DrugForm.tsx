@@ -31,6 +31,7 @@ import { useRouter } from "next/navigation";
 import { validateBatchNumber } from "@/src/services/product/Pricing";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
+import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 
 interface SelectOption {
   value: string;
@@ -252,6 +253,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [productAttributeId, setProductAttributeId] = useState<string | null>(
     null,
   );
+  const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
 
   useEffect(() => {
     if (categoryId) {
@@ -295,6 +297,19 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     const min = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
 
     return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(
+      2,
+      "0",
+    )}`;
+  };
+
+  const getMaxExpiryMonth = () => {
+    if (!form.manufacturingDate) return "";
+
+    const mfg = new Date(form.manufacturingDate);
+
+    const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
+
+    return `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(
       2,
       "0",
     )}`;
@@ -409,45 +424,48 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           if (value) {
             const [year, month] = value.split("-").map(Number);
 
-            // ✅ Normalize to month start
-            const date = new Date(year, month - 1, 1);
+            const expiry = new Date(year, month - 1, 1);
 
             delete newErrors.expiryDate;
 
-            // ✅ Validate ONLY based on Manufacturing Date
             if (updatedForm.manufacturingDate) {
               const mfg = new Date(updatedForm.manufacturingDate);
 
+              // Minimum → +3 months
               const minDate = new Date(
                 mfg.getFullYear(),
                 mfg.getMonth() + 3,
                 1,
               );
 
-              if (date < minDate) {
+              // Maximum → +5 years
+              const maxDate = new Date(
+                mfg.getFullYear() + 5,
+                mfg.getMonth(),
+                1,
+              );
+
+              if (expiry < minDate) {
                 newErrors.expiryDate =
                   "Expiry must be at least 3 months after Manufacturing Date";
+              } else if (expiry > maxDate) {
+                newErrors.expiryDate =
+                  "Expiry cannot be more than 5 years from Manufacturing Date";
               }
             }
 
-            // ✅ Set expiry date
-            updatedForm.expiryDate = date;
+            updatedForm.expiryDate = expiry;
 
-            // ✅ Shelf life calculation (PURE month-based ✅)
+            // shelf life
             if (updatedForm.manufacturingDate) {
               const mfg = new Date(updatedForm.manufacturingDate);
 
               const totalMonths =
-                (date.getFullYear() - mfg.getFullYear()) * 12 +
-                (date.getMonth() - mfg.getMonth());
+                (expiry.getFullYear() - mfg.getFullYear()) * 12 +
+                (expiry.getMonth() - mfg.getMonth());
 
-              if (totalMonths >= 0) {
-                updatedForm.shelfLifeMonths = totalMonths.toString();
-              } else {
-                updatedForm.shelfLifeMonths = "";
-                newErrors.expiryDate =
-                  "Expiry cannot be before Manufacturing Date";
-              }
+              updatedForm.shelfLifeMonths =
+                totalMonths >= 0 ? totalMonths.toString() : "";
             }
           } else {
             updatedForm.expiryDate = null;
@@ -852,7 +870,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const handleBackToDashboard = () => {
     router.push("/seller_7a3b9f2c/dashboard");
   };
-
 
   useEffect(() => {
     if (mode === "edit" && productId && moleculeOptions.length > 0) {
@@ -1328,10 +1345,23 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     label: item.conditionName,
   }));
 
+  const handleExpiryMonthSelect = (month: number, year: number) => {
+    const selectedDate = new Date(year, month, 1);
 
-  //   const handleMonthChange = (month: number, year: number) => {
-  //   console.log("Selected:", month + 1, year);
-  // };
+    setForm((prev) => ({
+      ...prev,
+      expiryDate: selectedDate,
+    }));
+
+    setShowExpiryMonthPicker(false);
+
+    if (errors.expiryDate) {
+      setErrors((prev) => ({
+        ...prev,
+        expiryDate: "",
+      }));
+    }
+  };
 
   return (
     <>
@@ -1845,7 +1875,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 setErrors((prev) => ({
                   ...prev,
                   manufacturingDate: "",
-                  expiryDate: "", // optional: clear expiry error too
+                  expiryDate:
+                    "Expiry must be between 3 months and 5 years from Manufacturing Date",
                 }));
 
                 setForm({
@@ -1890,10 +1921,46 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   }));
                 }
               }}
-              min={getMinExpiryMonth()} // ✅ update this too
+              min={getMinExpiryMonth()}
+              max={getMaxExpiryMonth()}
               error={errors.expiryDate}
               required
             />
+
+            {/* <div className="relative">
+              <Input
+                label="Expiry Date"
+                name="expiryDate"
+                type="text"
+                readOnly
+                required
+                value={
+                  form.expiryDate instanceof Date &&
+                  !isNaN(form.expiryDate.getTime())
+                    ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
+                    : ""
+                }
+                placeholder="MM/YYYY"
+                onClick={() => setShowExpiryMonthPicker(true)}
+                onFocus={() => setShowExpiryMonthPicker(true)}
+                error={errors.expiryDate}
+              />
+
+                <MonthPicker
+                  selectedMonth={
+                    form.expiryDate
+                      ? form.expiryDate.getMonth()
+                      : new Date().getMonth()
+                  }
+                  selectedYear={
+                    form.expiryDate
+                      ? form.expiryDate.getFullYear()
+                      : new Date().getFullYear()
+                  }
+                  onSelect={handleExpiryMonthSelect}
+                  onClose={() => setShowExpiryMonthPicker(false)}
+                />
+            </div> */}
 
             <Input
               type="number"
@@ -1992,7 +2059,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   max={100}
                   step={1}
                   error={errors.discountPercentage}
-                  
                 />
               </div>
 
