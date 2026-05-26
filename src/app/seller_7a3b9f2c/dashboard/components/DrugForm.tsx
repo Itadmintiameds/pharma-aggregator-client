@@ -9,7 +9,6 @@ import {
   getPackTypesByDosageId,
   getProductById,
   getStorageConditionsByCategoryId,
-  getTherapeuticSubcategory,
   updateProduct,
   uploadProductImages,
   uploadProductUserManual,
@@ -23,7 +22,7 @@ import UploadInput from "../commonComponent/UploadInput";
 import PopupModal from "../commonComponent/PopupModal";
 import AddDiscNew from "./AdditionalDiscountNew";
 import AdditionalDiscountType from "./AdditionalDiscountType";
-import { getTherapeuticCategory } from "@/src/services/product/TherapeuticCategoryService";
+import { getTherapeuticCategory, getTherapeuticSubcategory } from "@/src/services/product/TherapeuticCategoryService";
 import { getSupplementDosageForms } from "@/src/services/product/SupplementService";
 import { useRouter } from "next/navigation";
 import { validateBatchNumber } from "@/src/services/product/Pricing";

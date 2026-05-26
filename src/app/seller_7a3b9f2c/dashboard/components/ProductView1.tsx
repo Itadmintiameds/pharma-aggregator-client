@@ -745,8 +745,6 @@ const ProductView1 = ({
         ? productData.productAttributeDrugs![0]
         : (productData.drugAttributes ?? null);
 
-    // console.log("DrugENtry---------------", drugEntry);
-
     const consAttr: ConsumableAttributes | null =
       (productData.productAttributeConsumableMedicals ?? []).length > 0
         ? productData.productAttributeConsumableMedicals![0]
@@ -839,6 +837,7 @@ const ProductView1 = ({
 
     // ── Therapeutic category ──
     const catId = toPositiveInt(drugEntry?.therapeuticCategoryId);
+
     const inlineCatName =
       drugEntry?.therapeuticCategoryName?.trim() ||
       productData.therapeuticCategory?.trim() ||
@@ -856,7 +855,8 @@ const ProductView1 = ({
       }
 
       try {
-        const data = await getTherapeuticCategory(catId);
+        const data = await getTherapeuticCategoryById(String(catId));
+
         const categoryData = Array.isArray(data)
           ? data[0]
           : data?.content
@@ -878,10 +878,8 @@ const ProductView1 = ({
         return {};
       }
     };
-
     // ── Therapeutic subcategory ──
-    const subId = toPositiveInt(drugEntry?.therapeuticSubcategoryId);
-
+    const subId = drugEntry?.therapeuticSubcategoryId;
     const inlineSubName =
       drugEntry?.therapeuticSubcategoryName?.trim() ||
       productData.therapeuticSubcategory?.trim() ||
@@ -890,23 +888,19 @@ const ProductView1 = ({
     const fetchTherapeuticSubcategory = async (): Promise<
       Partial<ResolvedLookups>
     > => {
-      // Use inline value if already available
       if (inlineSubName) {
         return {
           therapeuticSubcategoryName: inlineSubName,
         };
       }
 
-      // Skip if no subcategory ID
-      if (subId === null) {
+      // Handle null / undefined
+      if (!subId) {
         return {};
       }
 
       try {
-        const data = await getTherapeuticSubcategory(subId);
-
-        console.log("Therapeutic subcategory API response:", data);
-
+        const data = await getTherapeuticSubcategoryById(String(subId));
         const subcategoryData = Array.isArray(data)
           ? data[0]
           : data?.content
@@ -1010,18 +1004,31 @@ const ProductView1 = ({
       }
 
       let specificationUnitLabel: string | null = null;
-      const specUnitId = toPositiveInt((consAttr as any).deviceSpecificationUnitId);
+      const specUnitId = toPositiveInt(
+        (consAttr as any).deviceSpecificationUnitId,
+      );
       if (deviceSubCatId !== null && specUnitId !== null) {
         try {
-          const units: any[] = await getConsumableSpecificationUnitsBySubCategory(String(deviceSubCatId));
-          const found = units.find((u) => Number(u.unitId ?? u.id) === specUnitId);
-          if (found) specificationUnitLabel = String(found.unitName ?? found.name ?? "").trim() || null;
+          const units: any[] =
+            await getConsumableSpecificationUnitsBySubCategory(
+              String(deviceSubCatId),
+            );
+          const found = units.find(
+            (u) => Number(u.unitId ?? u.id) === specUnitId,
+          );
+          if (found)
+            specificationUnitLabel =
+              String(found.unitName ?? found.name ?? "").trim() || null;
         } catch {
           /* ignore */
         }
       }
 
-      return { deviceCategoryName, deviceSubCategoryName, specificationUnitLabel };
+      return {
+        deviceCategoryName,
+        deviceSubCategoryName,
+        specificationUnitLabel,
+      };
     };
 
     Promise.all([
@@ -1279,10 +1286,10 @@ const ProductView1 = ({
           ["netQuantityUnitId", "unitId", "id"],
           ["unitName", "unit", "name"],
         );
-        const netQtyUnitLabel =
-          netQtyUnitIdStr
-            ? (netQtyUnitOpts.find((o) => o.value === netQtyUnitIdStr)?.label ?? null)
-            : null;
+        const netQtyUnitLabel = netQtyUnitIdStr
+          ? (netQtyUnitOpts.find((o) => o.value === netQtyUnitIdStr)?.label ??
+            null)
+          : null;
 
         const netQuantityStrength =
           netQtyValue != null
@@ -1590,9 +1597,7 @@ const ProductView1 = ({
         ),
     );
 
-  const specialSchemes: any[] = (
-    productData?.pricingDetails ?? []
-  )
+  const specialSchemes: any[] = (productData?.pricingDetails ?? [])
     .flatMap((p: any) => p.specialSchemes || [])
     .filter((s: any) => s.schemeName);
 
@@ -2294,7 +2299,13 @@ const ProductView1 = ({
             />
 
             {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
-              <div style={{ marginTop: 8, borderBottom: "1px solid #D5D5D4", paddingBottom: 12 }}>
+              <div
+                style={{
+                  marginTop: 8,
+                  borderBottom: "1px solid #D5D5D4",
+                  paddingBottom: 12,
+                }}
+              >
                 <div style={{ padding: "12px 8px 8px" }}>
                   <span
                     style={{

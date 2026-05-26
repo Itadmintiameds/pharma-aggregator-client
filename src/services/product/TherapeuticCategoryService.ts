@@ -7,7 +7,7 @@ export const getTherapeuticCategoryById = async (therapeuticCategoryId: string) 
     }
 
     const response = await api.get(
-      `therapeuticCategoriesById/${therapeuticCategoryId}`
+      `therapeutic/therapeuticCategoriesById/${therapeuticCategoryId}`
     );
 
     return response.data?.data ?? response.data;
@@ -33,7 +33,7 @@ export const getTherapeuticSubcategoryById = async (therapeuticSubcategoryId: st
     }
 
     const response = await api.get(
-      `therapeuticSubcategoriesById/${therapeuticSubcategoryId}`
+      `therapeutic/therapeuticSubcategoriesById/${therapeuticSubcategoryId}`
     );
 
     return response.data?.data ?? response.data;
