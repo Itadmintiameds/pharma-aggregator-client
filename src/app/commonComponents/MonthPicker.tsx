@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-type MonthPickerProps = {
-  value?: number;
-  year?: number;
-  onChange?: (month: number, year: number) => void;
+type Props = {
+  selectedMonth?: number;
+  selectedYear?: number;
+  onSelect: (month: number, year: number) => void;
+  onClose: () => void;
 };
 
 const months = [
@@ -25,46 +25,30 @@ const months = [
 ];
 
 export default function MonthPicker({
-  value = new Date().getMonth(),
-  year = new Date().getFullYear(),
-  onChange,
-}: MonthPickerProps) {
-  const [selectedMonth, setSelectedMonth] = useState(value);
-  const [selectedYear, setSelectedYear] = useState(year);
-
-  const handleMonthClick = (index: number) => {
-    setSelectedMonth(index);
-    onChange?.(index, selectedYear);
-  };
-
-  const prevYear = () => {
-    setSelectedYear((prev) => prev - 1);
-  };
-
-  const nextYear = () => {
-    setSelectedYear((prev) => prev + 1);
-  };
-
+  selectedMonth = new Date().getMonth(),
+  selectedYear = new Date().getFullYear(),
+  onSelect,
+  onClose,
+}: Props) {
   return (
-    <div className="w-[320px] rounded-xl bg-white shadow-xl border border-gray-200 p-5">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+    <div className="absolute z-50 mt-2 w-[320px] rounded-xl border bg-white p-5 shadow-xl">
+      <div className="mb-5 flex items-center justify-between">
         <button
-          onClick={prevYear}
-          className="h-10 w-10 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition"
+          type="button"
+          onClick={() => onSelect(selectedMonth, selectedYear - 1)}
+          className="w-8 h-8 border-pneutral-200 rounded-lg border flex items-center justify-center"
         >
-          <ChevronLeft size={18} />
+          <img src="/icons/CalendarLeft.svg" alt="search" className="w-4 h-4" />
         </button>
 
-        <h2 className="text-lg font-medium text-gray-800">
-          {selectedYear}
-        </h2>
+        <h2 className="text-lg font-medium">{selectedYear}</h2>
 
         <button
-          onClick={nextYear}
-          className="h-10 w-10 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition"
+          type="button"
+          onClick={() => onSelect(selectedMonth, selectedYear + 1)}
+           className="w-8 h-8 border-pneutral-200 rounded-lg border flex items-center justify-center"
         >
-          <ChevronRight size={18} />
+          <img src="/icons/CalendarRight.svg" alt="search" className="w-4 h-4" />
         </button>
       </div>
 
@@ -73,29 +57,25 @@ export default function MonthPicker({
         {months.map((month, index) => (
           <button
             key={month}
-            onClick={() => handleMonthClick(index)}
-            className={`rounded-lg py-2 text-sm font-medium transition
+            type="button"
+            onClick={() => onSelect(index, selectedYear)}
+            className={`rounded-lg py-2 text-sm
               ${
                 selectedMonth === index
-                  ? "bg-violet-200 text-violet-900 border border-violet-500"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }
-            `}
+                  ? "border border-purple-500 bg-purple-200 text-purple-900"
+                  : "bg-gray-100 hover:bg-gray-200"
+              }`}
           >
             {month}
           </button>
         ))}
       </div>
 
-      {/* Footer */}
-      <div className="mt-5 border-t pt-4 flex justify-end gap-3">
-        <button className="rounded-lg border px-4 py-2 text-gray-700 hover:bg-gray-100">
-          Cancel
-        </button>
-
+      <div className="mt-5 flex justify-end border-t pt-4">
         <button
-          className="rounded-lg bg-purple-700 text-white px-4 py-2 hover:bg-purple-800"
-          onClick={() => onChange?.(selectedMonth, selectedYear)}
+          type="button"
+          onClick={onClose}
+          className="rounded-lg bg-purple-700 px-4 py-2 text-white"
         >
           Done
         </button>

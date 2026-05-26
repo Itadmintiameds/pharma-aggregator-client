@@ -26,6 +26,7 @@ import {
   getCosmeticIntendedUseAreas,
   getCosmeticCountries,
   getCosmeticNetQuantityUnits,
+  getCosmeticProductForms,
 } from "@/src/services/product/CosmeticService";
 import SupplementDetailsView from "./SupplementDetailsView";
 import ConsumableView from "./ConsumableView";
@@ -184,6 +185,7 @@ export interface CosmeticAttributes {
   manufacturerName?: string;
   countryOfOrigin?: string;
   countryName?: string;
+  productForm?: string;
   brochurePath?: string;
   BrochurePath?: string;
   certificateDocuments?: CertificateDocument[];
@@ -1147,6 +1149,13 @@ const ProductView1 = ({
             "",
         );
 
+        // ── Extract product form ID ──
+        const productFormIdStr = String(
+          (cosAttrRaw as any).formId ??
+            (cosAttrRaw as any).productFormId ??
+            "",
+        );
+
         // ── Fetch all needed masters in parallel ──
         const [
           productTypesResult,
@@ -1156,6 +1165,7 @@ const ProductView1 = ({
           intendedUseAreasResult,
           countriesResult,
           netQtyUnitsResult,
+          productFormsResult,
         ] = await Promise.allSettled([
           getCosmeticProductTypes(),
           getCosmeticSkinTypes(),
@@ -1164,6 +1174,7 @@ const ProductView1 = ({
           getCosmeticIntendedUseAreas(),
           getCosmeticCountries(),
           getCosmeticNetQuantityUnits(),
+          getCosmeticProductForms(),
         ]);
 
         // ── Build option lists ──
@@ -1291,6 +1302,15 @@ const ProductView1 = ({
             null)
           : null;
 
+        const productFormOpts = toSelectOpts(
+          productFormsResult,
+          ["productFormId", "formId", "id"],
+          ["productFormName", "formName", "productForm", "name"],
+        );
+        const productFormLabel = productFormIdStr
+          ? (productFormOpts.find((o) => o.value === productFormIdStr)?.label ?? null)
+          : null;
+
         const netQuantityStrength =
           netQtyValue != null
             ? [String(netQtyValue), netQtyUnitLabel].filter(Boolean).join(" ")
@@ -1335,6 +1355,7 @@ const ProductView1 = ({
           productClaims: productClaims ?? cosAttrRaw.productClaims,
           warningsPrecautions:
             warningsPrecautions ?? cosAttrRaw.warningsPrecautions,
+          productForm: productFormLabel ?? (cosAttrRaw as any).productForm ?? null,
         });
       } catch (err) {
         console.error(

@@ -175,7 +175,7 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
         </button>
 
         {/* Logout */}
-        <div>
+        {/* <div>
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
@@ -196,7 +196,7 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
             <LogOut size={20} color="#FF3B3B" style={{ flexShrink: 0 }} />
             <span>{isLoggingOut ? "Logging out…" : "Logout"}</span>
           </button>
-        </div>
+        </div> */}
       </div>
     </aside>
   );

@@ -247,7 +247,7 @@ const FoodInfantView = ({
   } else if (attr.ageGroupIds && attr.ageGroupIds.length > 0) {
     ageGroupDisplay = attr.ageGroupIds
       .map(id => ageGroupLabels.get(id) || String(id))
-      .filter(Boolean)
+      .filter(Boolean)v
       .join(", ");
   } else if (attr.ageGroupId) {
     ageGroupDisplay = ageGroupLabels.get(attr.ageGroupId) || String(attr.ageGroupId);
@@ -380,7 +380,7 @@ const FoodInfantView = ({
           <FieldRow label="Storage Condition" value={storageCondition} multiline />
           <FieldRow label="Manufacturer Name" value={manufacturerName || attr.manufacturerName} />
 
-          {/* Uploaded Product Brochure - Only show if brochure exists (same as SupplementView) */}
+          {/* Uploaded Product Brochure - Only show if brochure exists */}
           {hasBrochure && (
             <div className="pt-3 pb-2 px-4 border-b border-pneutral-200 flex flex-col gap-2">
               <div className="flex items-center gap-1">
