@@ -1755,8 +1755,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.packSize}
               onChange={handleChange}
-               readOnly={isEditMode}
-              readOnly
+              readOnly={isEditMode}
               required
             />
 
