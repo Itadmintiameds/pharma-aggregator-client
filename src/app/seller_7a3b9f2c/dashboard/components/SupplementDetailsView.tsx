@@ -198,8 +198,8 @@ export default function SupplementDetailsView({
           <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-[#1E1E1D]">
             Product Images
           </h3>
-          <div className="grid grid-cols-4 gap-4">
-            {imagesToShow.slice(0, 4).map((img, idx) => (
+          <div className="grid grid-cols-5 gap-3">
+            {imagesToShow.slice(0, 5).map((img, idx) => (
               <div
                 key={idx}
                 onClick={() => setSelectedImageIndex(idx)}
@@ -222,7 +222,7 @@ export default function SupplementDetailsView({
                 )}
               </div>
             ))}
-            {Array.from({ length: Math.max(0, 4 - imagesToShow.length) }).map((_, i) => (
+            {Array.from({ length: Math.max(0, 5 - imagesToShow.length) }).map((_, i) => (
               <div key={`empty-${i}`} className="h-[274px] w-full rounded-xl bg-pneutral-50 shadow-sm" />
             ))}
           </div>

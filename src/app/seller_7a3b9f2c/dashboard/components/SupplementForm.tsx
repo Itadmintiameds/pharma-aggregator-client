@@ -1325,11 +1325,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   const getMinExpiryMonth = () => {
-
-    if (!form.manufacturingDate) return "";
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    if (!form.manufacturingDate) return currentMonth;
     const minDate = new Date(form.manufacturingDate);
     minDate.setMonth(minDate.getMonth() + 3);
-    return `${minDate.getFullYear()}-${String(minDate.getMonth() + 1).padStart(2, "0")}`;
+    const mfgMin = `${minDate.getFullYear()}-${String(minDate.getMonth() + 1).padStart(2, "0")}`;
+    return mfgMin > currentMonth ? mfgMin : currentMonth;
   };
 
   const validate = (): Record<string, string> => {
@@ -2437,7 +2438,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 options={certificationOptions}
                 selectedValues={selectedCertifications.map(c => c.id)}
                 onChange={(values) => {
-                  const newCerts = values.map(val => {
+                  const preservedIds = isEditMode
+                    ? selectedCertifications.filter((c) => c.existingUrl).map((c) => c.id)
+                    : [];
+                  const finalValues = Array.from(new Set([...values, ...preservedIds]));
+
+                  const newCerts = finalValues.map(val => {
                     const existing = selectedCertifications.find(c => c.id === val);
                     if (existing) return existing;
                     const opt = certificationOptions.find(o => o.value === val);
@@ -2845,7 +2851,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               max={100}
               step={1}
               error={errors.discountPercentage}
-              required
+              required={false}
             />
 
             <Input

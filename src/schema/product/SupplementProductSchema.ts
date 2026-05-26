@@ -193,9 +193,10 @@ export const supplementProductSchema = z
     discountPercentage: z
       .string()
       .trim()
-      .min(1, "Discount Percentage is required")
-      .regex(/^\d+(\.\d+)?$/, "Only numeric values are allowed")
-      .refine((val) => Number(val) >= 0 && Number(val) <= 100, {
+      .refine((val) => val === "" || /^\d+(\.\d+)?$/.test(val), {
+        message: "Only numeric values are allowed",
+      })
+      .refine((val) => val === "" || (Number(val) >= 0 && Number(val) <= 100), {
         message: "Discount must be between 0 and 100",
       }),
 
