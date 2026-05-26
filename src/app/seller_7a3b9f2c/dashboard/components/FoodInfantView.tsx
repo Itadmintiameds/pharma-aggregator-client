@@ -247,7 +247,7 @@ const FoodInfantView = ({
   } else if (attr.ageGroupIds && attr.ageGroupIds.length > 0) {
     ageGroupDisplay = attr.ageGroupIds
       .map(id => ageGroupLabels.get(id) || String(id))
-      .filter(Boolean)v
+      .filter(Boolean)
       .join(", ");
   } else if (attr.ageGroupId) {
     ageGroupDisplay = ageGroupLabels.get(attr.ageGroupId) || String(attr.ageGroupId);
