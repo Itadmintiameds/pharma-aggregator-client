@@ -94,10 +94,10 @@ const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
 
       <div className="relative" ref={dropdownRef}>
         <div
-          className={`w-full h-13 px-4 rounded-lg border flex items-center justify-between cursor-pointer overflow-hidden
+          className={`w-full h-13 px-4 rounded-lg border flex items-center justify-between overflow-hidden
             ${!disabled
-              ? "bg-white border-pneutral-300"
-              : "bg-neutral-50 border-neutral-300 cursor-not-allowed"
+              ? "bg-white border-pneutral-300 cursor-pointer"
+              : "bg-sneutral-100 border-pneutral-300 cursor-not-allowed"
             }
             ${error ? "border-red-500" : ""}
           `}
@@ -105,7 +105,7 @@ const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
         >
           <div className="flex items-center gap-2 flex-1">
             {icon && <span className="text-pneutral-500 shrink-0">{icon}</span>}
-            <span className={`text-pneutral-500 truncate ${!selectedValues.length ? "text-pneutral-900" : ""}`}>
+            <span className={`${!selectedValues.length ? (disabled ? "text-pneutral-400" : "text-pneutral-500") : (disabled ? "text-pneutral-500" : "text-pneutral-900")} truncate`}>
               {displayText}
             </span>
           </div>

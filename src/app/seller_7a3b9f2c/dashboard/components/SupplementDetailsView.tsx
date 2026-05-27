@@ -203,9 +203,8 @@ export default function SupplementDetailsView({
               <div
                 key={idx}
                 onClick={() => setSelectedImageIndex(idx)}
-                className={`relative h-[274px] w-full overflow-hidden rounded-xl cursor-pointer shadow-sm${
-                  idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""
-                }`}
+                className={`relative h-[274px] w-full overflow-hidden rounded-xl cursor-pointer shadow-sm${idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""
+                  }`}
               >
                 <Image
                   src={img}
@@ -240,7 +239,7 @@ export default function SupplementDetailsView({
             <FieldRow label="Variant Name" value={suppAttr.variantName} required={false} />
             <FieldRow label="Dosage Form" value={suppAttr.dosageFormName} />
             <FieldRow label="Net Quantity" value={displayNetQty} />
-            <FieldRow label="Serving Size" value={displayServingSize} />
+            {/* <FieldRow label="Serving Size" value={displayServingSize} /> */}
             <FieldRow label="Strength / Composition" value={suppAttr.strength} />
             <FieldRow label="Active Ingredients" value={suppAttr.activeIngredients} multiline />
             <FieldRow label="Other Ingredients" value={suppAttr.otherIngredients} multiline />

@@ -68,10 +68,10 @@ const Dropdown: React.FC<CommonDropdownProps> = ({
 
       <div className="relative" ref={dropdownRef}>
         <div
-          className={`w-full h-13 px-4 rounded-lg border flex items-center justify-between cursor-pointer overflow-hidden
+          className={`w-full h-13 px-4 rounded-lg border flex items-center justify-between overflow-hidden
             ${!isDisabled && !isLoading
-              ? "bg-white border-pneutral-300"
-              : "bg-pneutral-100 border-2 border-pneutral-300 cursor-not-allowed"
+              ? "bg-white border-pneutral-300 cursor-pointer"
+              : "bg-sneutral-100 border-pneutral-300 cursor-not-allowed"
             }
             ${error ? "border-red-500" : ""}
           `}
@@ -83,7 +83,7 @@ const Dropdown: React.FC<CommonDropdownProps> = ({
         >
           <div className="flex items-center gap-2 flex-1">
             {icon && <span className="text-pneutral-500 shrink-0">{icon}</span>}
-            <span className={`${!selectedOption ? "text-pneutral-500" : "text-pneutral-900"} truncate`}>
+            <span className={`${!selectedOption ? (isDisabled ? "text-pneutral-400" : "text-pneutral-500") : (isDisabled ? "text-pneutral-500" : "text-pneutral-900")} truncate`}>
               {isLoading ? "Loading..." : displayValue}
             </span>
           </div>

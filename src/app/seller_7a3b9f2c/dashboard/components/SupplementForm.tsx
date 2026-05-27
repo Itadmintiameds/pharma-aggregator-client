@@ -22,6 +22,8 @@ import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
 import UploadInput from "../commonComponent/UploadInput";
+import ProductImageUpload from "../commonComponent/ProductImageUpload";
+import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications, getServingSizeUnits, getNetQuantityUnits } from "@/src/services/product/SupplementService";
 import { getProductById, updateProduct } from "@/src/services/product/ProductService";
@@ -385,6 +387,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [showSuccess, setShowSuccess] = useState(false);
   const [modalType, setModalType] = useState<"create" | "update">("create");
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
+  const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] = useState(false);
+  const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
 
   const resetForm = () => {
     setForm({
@@ -449,6 +453,80 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     setBrochureFile(null);
     setNutritionalImage(null);
     setSelectedCertifications([]);
+  };
+
+  const handleMonthSelect = (
+    field: "manufacturingDate" | "expiryDate",
+    month: number,
+    year: number,
+  ) => {
+    const selectedDate = new Date(year, month, 1);
+
+    if (field === "manufacturingDate") {
+      const today = new Date();
+      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      if (selectedDate > currentMonth) {
+        setErrors((prev) => ({
+          ...prev,
+          manufacturingDate: "Manufacturing date cannot be in the future month",
+        }));
+        return;
+      }
+
+      setErrors((prev) => ({
+        ...prev,
+        manufacturingDate: "",
+        expiryDate: "",
+      }));
+
+      setForm((prev) => ({
+        ...prev,
+        manufacturingDate: selectedDate,
+        expiryDate: null,
+        shelfLifeMonths: "",
+      }));
+
+      setShowManufacturingMonthPicker(false);
+      return;
+    }
+
+    if (field === "expiryDate") {
+      setForm((prev) => {
+        const updatedForm = {
+          ...prev,
+          expiryDate: selectedDate,
+        };
+
+        let expiryError = "";
+
+        if (updatedForm.manufacturingDate) {
+          const mfg = new Date(updatedForm.manufacturingDate);
+          const today = new Date();
+          const minDate = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+
+          if (selectedDate < minDate) {
+            expiryError = "Expiry must be at least 3 months from current month";
+          }
+
+          const totalMonths =
+            (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
+            (selectedDate.getMonth() - mfg.getMonth());
+
+          updatedForm.shelfLifeMonths =
+            totalMonths >= 0 ? totalMonths.toString() : "";
+        }
+
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          expiryDate: expiryError,
+        }));
+
+        return updatedForm;
+      });
+
+      setShowExpiryMonthPicker(false);
+    }
   };
 
   const checkBatchNumber = async (batchLotNumber: string) => {
@@ -1358,17 +1436,17 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       e.netQuantityUnit = "Please select a unit";
     }
 
-    // ── Custom value and unit validations for Serving Size ───────────────────
-    if (!form.servingSizeValue) {
-      e.servingSizeValue = "Serving Size is required";
-    } else if (isNaN(Number(form.servingSizeValue)) || Number(form.servingSizeValue) <= 0) {
-      e.servingSizeValue = "Serving Size must be a positive number";
-    } else if (form.netQuantityValue && Number(form.servingSizeValue) > Number(form.netQuantityValue)) {
-      e.servingSizeValue = "Serving Size cannot exceed Net Quantity";
-    }
-    if (!form.servingSizeUnit) {
-      e.servingSizeUnit = "Please select a unit";
-    }
+    // ── SERVING SIZE VALIDATION (COMMENTED OUT — FIELD DISABLED AS "As prescribed by Doctor") ──
+    // if (!form.servingSizeValue) {
+    //   e.servingSizeValue = "Serving Size is required";
+    // } else if (isNaN(Number(form.servingSizeValue)) || Number(form.servingSizeValue) <= 0) {
+    //   e.servingSizeValue = "Serving Size must be a positive number";
+    // } else if (form.netQuantityValue && Number(form.servingSizeValue) > Number(form.netQuantityValue)) {
+    //   e.servingSizeValue = "Serving Size cannot exceed Net Quantity";
+    // }
+    // if (!form.servingSizeUnit) {
+    //   e.servingSizeUnit = "Please select a unit";
+    // }
 
     // ── Custom validation for shelf life (cannot exceed 5 years / 60 months) ──
     if (form.shelfLifeMonths) {
@@ -1507,13 +1585,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               form.netQuantityUnitId ||
               0
             ),
-            servingSize: Number(form.servingSizeValue),
-            servingSizeUnitId: Number(
-              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.id ||
-              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.unitId ||
-              form.servingSizeUnitId ||
-              0
-            ),
+            servingSize: form.servingSizeValue ? Number(form.servingSizeValue) : null,
+            servingSizeUnitId: form.servingSizeUnitId ? Number(form.servingSizeUnitId) : null,
             strength: form.strength,
             activeIngredients: form.activeIngredients,
             otherIngredients: form.excipients,
@@ -1687,13 +1760,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               form.netQuantityUnitId ||
               0
             ),
-            servingSize: Number(form.servingSizeValue),
-            servingSizeUnitId: Number(
-              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.id ||
-              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.unitId ||
-              form.servingSizeUnitId ||
-              0
-            ),
+            servingSize: form.servingSizeValue ? Number(form.servingSizeValue) : null,
+            servingSizeUnitId: form.servingSizeUnitId ? Number(form.servingSizeUnitId) : null,
             strength: form.strength,
             activeIngredients: form.activeIngredients,
             otherIngredients: form.excipients,
@@ -2017,8 +2085,10 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 readOnly={isEditMode}
               />
             </div>
+
             {/* Serving Size */}
             <div data-field="servingSize">
+              {/*
               <NumericInputWithUnit
                 label="Serving Size"
                 name="servingSizeValue"
@@ -2031,6 +2101,15 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 options={servingSizeUnitOptions}
                 required
                 readOnly={isEditMode}
+              />
+              */}
+              <Input
+                label="Serving Size"
+                name="servingSizeValue"
+                placeholder="As prescribed by Doctor"
+                value=""
+                onChange={() => { }}
+                disabled={true}
               />
             </div>
 
@@ -2476,7 +2555,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {selectedCertifications.length === 0 ? (
               <div className="flex flex-col gap-0 col-span-1" data-field="certUploadFallback">
                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
-                <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
+                <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-300 bg-white overflow-hidden">
                   <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
@@ -2702,6 +2781,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               maxLength={20}
             />
 
+            {/* ── OLD MANUFACTURING DATE INPUT (COMMENTED OUT) ────────────────────── */}
+            {/*
             <Input
               label="Manufacturing Date"
               type="month"
@@ -2711,61 +2792,82 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               onChange={(e) => {
                 const value = e.target.value;
                 if (!value) return;
-
                 const [year, month] = value.split("-").map(Number);
                 const date = new Date(year, month - 1, 1);
-
                 const today = new Date();
-                const currentMonth = new Date(
-                  today.getFullYear(),
-                  today.getMonth(),
-                  1,
-                );
-
+                const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
                 if (date > currentMonth) {
-                  setErrors({
-                    ...errors,
-                    manufacturingDate:
-                      "Manufacturing date cannot be in the future month",
-                  });
+                  setErrors({ ...errors, manufacturingDate: "Manufacturing date cannot be in the future month" });
                   return;
                 }
-
-                setErrors((prev) => ({
-                  ...prev,
-                  manufacturingDate: "",
-                  expiryDate: "",
-                }));
-
-                setForm({
-                  ...form,
-                  manufacturingDate: date,
-                  expiryDate: null,
-                  shelfLifeMonths: "",
-                });
+                setErrors((prev) => ({ ...prev, manufacturingDate: "", expiryDate: "" }));
+                setForm({ ...form, manufacturingDate: date, expiryDate: null, shelfLifeMonths: "" });
               }}
               value={
-                form.manufacturingDate instanceof Date &&
-                  !isNaN(form.manufacturingDate.getTime())
-                  ? `${form.manufacturingDate.getFullYear()}-${String(
-                    form.manufacturingDate.getMonth() + 1,
-                  ).padStart(2, "0")}`
+                form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
+                  ? `${form.manufacturingDate.getFullYear()}-${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}`
                   : ""
               }
               error={errors.manufacturingDate}
               required
             />
+            */}
+            {/* ── NEW MANUFACTURING DATE WITH MONTHPICKER ─────────────────────────── */}
+            <div className="relative">
+              <Input
+                label="Manufacturing Date"
+                type="text"
+                name="manufacturingDate"
+                id="manufacturingDate"
+                placeholder="MM/YYYY"
+                value={
+                  form.manufacturingDate instanceof Date &&
+                    !isNaN(form.manufacturingDate.getTime())
+                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
+                    : ""
+                }
+                readOnly={isEditMode}
+                required
+                onChange={() => { }}
+                onClick={() => {
+                  if (!isEditMode) {
+                    setShowManufacturingMonthPicker(!showManufacturingMonthPicker);
+                  }
+                }}
+                onKeyDown={(e) => e.preventDefault()}
+                error={errors.manufacturingDate}
+              />
 
+              {showManufacturingMonthPicker && !isEditMode && (
+                <MonthPicker
+                  selectedMonth={
+                    form.manufacturingDate
+                      ? form.manufacturingDate.getMonth()
+                      : new Date().getMonth()
+                  }
+                  selectedYear={
+                    form.manufacturingDate
+                      ? form.manufacturingDate.getFullYear()
+                      : new Date().getFullYear()
+                  }
+                  maxDate={new Date()}
+                  onSelect={(month, year) =>
+                    handleMonthSelect("manufacturingDate", month, year)
+                  }
+                  onClose={() => setShowManufacturingMonthPicker(false)}
+                />
+              )}
+            </div>
+
+            {/* ── OLD EXPIRY DATE INPUT (COMMENTED OUT) ──────────────────────────── */}
+            {/*
             <Input
               label="Expiry Date"
               type="month"
               name="expiryDate"
               value={
-                form.expiryDate instanceof Date &&
-                  !isNaN(form.expiryDate.getTime())
-                  ? `${form.expiryDate.getFullYear()}-${String(
-                    form.expiryDate.getMonth() + 1,
-                  ).padStart(2, "0")}`
+                form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
+                  ? `${form.expiryDate.getFullYear()}-${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}`
                   : ""
               }
               readOnly={isEditMode}
@@ -2775,22 +2877,74 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 const [year, month] = value.split("-").map(Number);
                 const date = new Date(year, month - 1, 1);
                 setForm({ ...form, expiryDate: date });
-                if (errors.expiryDate)
-                  setErrors((prev) => ({ ...prev, expiryDate: "" }));
+                if (errors.expiryDate) setErrors((prev) => ({ ...prev, expiryDate: "" }));
               }}
               onFocus={() => {
                 if (form.manufacturingDate) {
-                  setErrors((prev) => ({
-                    ...prev,
-                    expiryDate:
-                      "Expiry must be at least 3 months after Manufacturing Date",
-                  }));
+                  setErrors((prev) => ({ ...prev, expiryDate: "Expiry must be at least 3 months after Manufacturing Date" }));
                 }
               }}
               min={getMinExpiryMonth()}
               error={errors.expiryDate}
               required
             />
+            */}
+            {/* ── NEW EXPIRY DATE WITH MONTHPICKER ────────────────────────────────── */}
+            <div className="relative">
+              <Input
+                label="Expiry Date"
+                name="expiryDate"
+                type="text"
+                required
+                readOnly={isEditMode}
+                value={
+                  form.expiryDate instanceof Date &&
+                    !isNaN(form.expiryDate.getTime())
+                    ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
+                    : ""
+                }
+                placeholder="MM/YYYY"
+                onChange={() => { }}
+                onClick={() => {
+                  if (!isEditMode) {
+                    setShowExpiryMonthPicker(!showExpiryMonthPicker);
+                  }
+                }}
+                onFocus={() => {
+                  if (!isEditMode) {
+                    setShowExpiryMonthPicker(true);
+                  }
+                }}
+                onKeyDown={(e) => e.preventDefault()}
+                error={errors.expiryDate}
+              />
+
+              {showExpiryMonthPicker && !isEditMode && (
+                <MonthPicker
+                  selectedMonth={
+                    form.expiryDate
+                      ? form.expiryDate.getMonth()
+                      : new Date().getMonth()
+                  }
+                  selectedYear={
+                    form.expiryDate
+                      ? form.expiryDate.getFullYear()
+                      : new Date().getFullYear()
+                  }
+                  minDate={
+                    new Date(
+                      new Date().getFullYear(),
+                      new Date().getMonth() + 1,
+                      1,
+                    )
+                  }
+                  onSelect={(month, year) =>
+                    handleMonthSelect("expiryDate", month, year)
+                  }
+                  onClose={() => setShowExpiryMonthPicker(false)}
+                />
+              )}
+            </div>
 
             <Input
               type="number"
@@ -2996,7 +3150,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           </div>
         </div>
 
-        {/* ── Section 2: Product Photos ──────────────────────────────────────────── */}
+        {/* -- Section 2: Product Photos (Old) -------------------------------------------- */}
+        {/*
+{/* ── Section 2: Product Photos ──────────────────────────────────────────── * /}
         <div
           className="relative border border-neutral-200 rounded-xl p-6 bg-white"
           ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>}
@@ -3095,6 +3251,21 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             )}
           </div>
         </div>
+
+        */}
+
+        <ProductImageUpload
+          title="Product Photos"
+          required
+          images={images}
+          setImages={setImages}
+          existingImages={existingImages}
+          setExistingImages={setExistingImages}
+          error={errors.images}
+          setErrors={setErrors}
+          isReadOnly={false}
+          mode={mode}
+        />
 
         <div className="flex justify-between mt-6 col-span-2 mb-6">
           <div className="space-x-6 flex">
