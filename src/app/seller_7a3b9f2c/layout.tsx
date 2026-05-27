@@ -155,7 +155,7 @@ export default function SellerLayout({
         currentView={currentView}
         setCurrentView={() => {}}
       />
-      <main className="ml-64 mt-16 p-6">
+      <main className="ml-64 p-6" style={{ marginTop: 74 }}>
         {children}
       </main>
       <ToastContainer

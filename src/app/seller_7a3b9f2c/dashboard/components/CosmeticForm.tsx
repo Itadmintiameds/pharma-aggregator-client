@@ -2070,11 +2070,11 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
+            {/* <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Final Price (Auto-calculated)</label>
               <input name="finalPrice" value={form.finalPrice} readOnly
                 className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
-            </div>
+            </div> */}
           </div>
 
           <div className="text-h6 font-normal mt-5">Tax &amp; Billing</div>
