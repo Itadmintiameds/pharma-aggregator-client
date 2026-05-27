@@ -92,7 +92,10 @@ const Delete = ({ isOpen, onClose, onConfirm, productId }: DeleteProps) => {
                   You are about to delete:
                 </span>
               </div>
-              <div className="text-pneutral-900 text-base font-semibold pl-9">
+              <div
+                className="pl-9 w-full max-w-[340px] text-pneutral-900 text-base font-semibold whitespace-nowrap overflow-hidden text-ellipsis"
+                title={productDetails?.productName}
+              >
                 {productDetails?.productName || "-"}
               </div>
             </div>

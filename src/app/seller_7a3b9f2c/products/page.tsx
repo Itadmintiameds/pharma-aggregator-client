@@ -38,7 +38,7 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
 
   return (
     <>
-      <div className="mt-7 flex gap-6 font-open-sans">
+      <div className="mt-7 flex gap-6 font-open-sans ">
         <button className="w-44.5 h-12 bg-neutral-50 rounded-lg text-lable-l2 font-semibold text-pneutral-900 flex items-center justify-between px-4 gap-2 shadow-md">
           All Stocks
           <img
