@@ -247,6 +247,16 @@ export const getServingSizeUnits = async (productFormId: string | number) => {
   }
 };
 
+export const getStorageConditionsByCategory = async (categoryId: number) => {
+  try {
+    const response = await api.get(`storageConditions/${categoryId}`);
+    return response.data?.data ?? [];
+  } catch (error) {
+    console.error("getStorageConditionsByCategory error", error);
+    return [];
+  }
+};
+
 
 
 

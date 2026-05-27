@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import Select, { StylesConfig, Theme } from "react-select";
 import Input from "@/src/app/commonComponents/Input";
+import Dropdown from "@/src/app/commonComponents/Dropdown";
+import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscount from "./AdditionalDiscount";
 import PopupModal from "../commonComponent/PopupModal";
@@ -70,8 +71,6 @@ interface CertificationMasterOption {
 interface MasterItem { [key: string]: unknown; }
 interface ApiResponseData { [key: string]: unknown; }
 
-type SelectStyles = StylesConfig<SelectOption, false>;
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function validateHSNCode(hsnCode: string): string | null {
@@ -137,9 +136,9 @@ function getMasterStr(item: MasterItem, ...keys: string[]): string {
 
 // ─── Style constants ──────────────────────────────────────────────────────────
 
-const fieldLabel = "text-label-l4 font-medium text-pneutral-900";
-const requiredStar = <span className="text-warning-500 ml-1">*</span>;
-const errorMsg = "text-red-500 text-xs mt-1";
+const fieldLabel = "font-heading font-medium text-[16px] leading-[24px] tracking-normal align-middle text-pneutral-900";
+const requiredStar = <span className="text-warning-500 font-semibold ml-1">*</span>;
+const errorMsg = "font-heading font-normal text-sm leading-[28px] px-1 text-warning-500";
 const sectionCard = "relative border border-neutral-200 rounded-xl p-6 bg-white";
 const sectionTitle = "text-h4 font-semibold";
 const subSectionTitle = "text-h6 font-normal mt-5";
@@ -235,8 +234,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
   const [materialTypeOptions, setMaterialTypeOptions] = useState<SelectOption[]>([]);
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
-  const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
-  const materialDropdownRef = useRef<HTMLDivElement>(null);
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const unitDropdownRef = useRef<HTMLDivElement>(null);
 
   const [specificationUnitOptions, setSpecificationUnitOptions] = useState<SelectOption[]>([]);
   const [loadingSpecificationUnits, setLoadingSpecificationUnits] = useState(false);
@@ -254,14 +253,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
-  const [showCertDropdown, setShowCertDropdown] = useState(false);
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
 
   const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const sterileOptions: SelectOption[] = [
     { value: "sterile", label: "Sterile" },
@@ -652,11 +648,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }));
   }, [form.sellingPricePerPack, form.discountPercentage]);
 
-  // Close dropdowns on outside click
+  // Close unit dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowCertDropdown(false);
-      if (materialDropdownRef.current && !materialDropdownRef.current.contains(e.target as Node)) setShowMaterialDropdown(false);
+      if (unitDropdownRef.current && !unitDropdownRef.current.contains(e.target as Node)) setShowUnitDropdown(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -738,7 +733,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     const maxSizeBytes = 5 * 1024 * 1024;
     if (fileArr.find((f) => !allowedFormats.includes(f.type))) { setErrors((p) => ({ ...p, images: "Unsupported image format. Only JPG, JPEG, PNG are allowed." })); return; }
     if (fileArr.find((f) => f.size > maxSizeBytes)) { setErrors((p) => ({ ...p, images: "Image file size exceeds the maximum limit." })); return; }
-    if (images.length + fileArr.length > 5) { setErrors((p) => ({ ...p, images: "Maximum 5 images allowed" })); return; }
+    if (images.length + existingImages.length + fileArr.length > 5) { setErrors((p) => ({ ...p, images: "Maximum 5 images allowed" })); return; }
     setImages((p) => [...p, ...fileArr]);
     setErrors((p) => { const n = { ...p }; delete n.images; return n; });
   };
@@ -812,7 +807,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
       else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
       if (!form.storageCondition) e.storageCondition = "Storage condition is required";
-      if (images.length === 0) e.images = "Product Image upload is mandatory.";
     }
 
     const iUse = form.intendedUse.trim();
@@ -872,7 +866,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       else if (!isNaN(minQ) && minQ > 0 && stock <= minQ) e.stockQuantity = "Stock quantity must be greater than minimum order quantity";
     }
 
-    if (mode === "create" && images.length > 5) e.images = "Maximum 5 images allowed";
+    if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
+    if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
 
     return e;
   };
@@ -984,6 +979,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           })),
         }],
         productImages: images.map(() => ({ productImage: "PENDING" })),
+        retainedImageUrls: existingImages,
       };
 
       let currentProductId = resolvedProductId || productId || "";
@@ -1040,50 +1036,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     } finally {
       setSubmitting(false);
     }
-  };
-
-  // ─── Select styles ────────────────────────────────────────────────────────
-
-  const selectStyles = (errorKey: string): SelectStyles => ({
-    control: (base, state) => ({
-      ...base, height: "48px", minHeight: "48px", borderRadius: "12px",
-      borderColor: errors[errorKey] ? "#ef4444" : state.isFocused ? "#7c3aed" : "#d1d5db",
-      boxShadow: state.isFocused ? (errors[errorKey] ? "0 0 0 3px rgba(239,68,68,0.15)" : "0 0 0 3px rgba(124,58,237,0.15)") : "none",
-      cursor: "pointer", backgroundColor: "#fff", "&:hover": { borderColor: errors[errorKey] ? "#ef4444" : "#7c3aed" },
-    }),
-    valueContainer: (base) => ({ ...base, padding: "0 14px", cursor: "pointer" }),
-    indicatorsContainer: (base) => ({ ...base, height: "48px", cursor: "pointer" }),
-    dropdownIndicator: (base, state) => ({ ...base, color: state.isFocused ? "#7c3aed" : "#9ca3af", cursor: "pointer", "&:hover": { color: "#7c3aed" } }),
-    option: (base, state) => ({
-      ...base, backgroundColor: state.isSelected ? "#7c3aed" : state.isFocused ? "#f3f0ff" : "white",
-      color: state.isSelected ? "white" : "#1f2937", cursor: "pointer", fontFamily: "'Open Sans', sans-serif", fontSize: "16px",
-      "&:active": { backgroundColor: "#7c3aed", color: "white" },
-    }),
-    placeholder: (base) => ({ ...base, color: "#969793", fontFamily: "'Open Sans', sans-serif", fontSize: "16px" }),
-    singleValue: (base) => ({ ...base, color: "#3C3D3A", fontFamily: "'Open Sans', sans-serif", fontSize: "16px" }),
-  });
-
-  const selectTheme = (theme: Theme) => ({
-    ...theme, colors: { ...theme.colors, primary: "#7c3aed", primary25: "#f3f0ff", primary50: "#ede9fe" },
-  });
-
-  const unitSelectStyles = {
-    control: (base: any) => ({
-      ...base, minHeight: "52px", height: "52px", border: "none", boxShadow: "none",
-      borderRadius: "0", cursor: "pointer", backgroundColor: "transparent", "&:hover": { border: "none" },
-    }),
-    valueContainer: (base: any) => ({ ...base, padding: "0 8px" }),
-    indicatorsContainer: (base: any) => ({ ...base, height: "52px" }),
-    dropdownIndicator: (base: any, state: any) => ({
-      ...base, color: state.isFocused ? "#7c3aed" : "#9ca3af", cursor: "pointer", "&:hover": { color: "#7c3aed" },
-    }),
-    option: (base: any, state: any) => ({
-      ...base, backgroundColor: state.isSelected ? "#7c3aed" : state.isFocused ? "#f3f0ff" : "white",
-      color: state.isSelected ? "white" : "#1f2937", cursor: "pointer",
-      "&:active": { backgroundColor: "#7c3aed", color: "white" },
-    }),
-    placeholder: (base: any) => ({ ...base, color: "#969793" }),
-    singleValue: (base: any) => ({ ...base, color: "#3C3D3A" }),
   };
 
   // ─── Loading guard ────────────────────────────────────────────────────────
@@ -1163,11 +1115,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("deviceCategoryId") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Device Category {requiredStar}</label>
-                <Select options={deviceCategoryOptions} isLoading={loadingCategories}
-                  value={deviceCategoryOptions.find((o) => o.value === form.deviceCategoryId) || null}
-                  onChange={(sel) => handleSelectChange("deviceCategoryId", sel)}
+                <Dropdown
+                  options={deviceCategoryOptions}
+                  isLoading={loadingCategories}
+                  value={form.deviceCategoryId}
+                  onChange={(val, label) => handleSelectChange("deviceCategoryId", { value: val, label })}
                   placeholder={loadingCategories ? "Loading..." : "Select category"}
-                  theme={selectTheme} styles={selectStyles("deviceCategoryId")} />
+                  error={errors.deviceCategoryId ? " " : ""}
+                />
                 {errors.deviceCategoryId && <p className={errorMsg}>{errors.deviceCategoryId}</p>}
               </div>
             )}
@@ -1177,11 +1132,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("deviceSubCategoryId") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Device Sub-Category {requiredStar}</label>
-                <Select options={deviceSubCategoryOptions} isLoading={loadingSubCategories} isDisabled={!form.deviceCategoryId}
-                  value={deviceSubCategoryOptions.find((o) => o.value === form.deviceSubCategoryId) || null}
-                  onChange={(sel) => handleSelectChange("deviceSubCategoryId", sel)}
+                <Dropdown
+                  options={deviceSubCategoryOptions}
+                  isLoading={loadingSubCategories}
+                  value={form.deviceSubCategoryId}
+                  onChange={(val, label) => handleSelectChange("deviceSubCategoryId", { value: val, label })}
                   placeholder={form.deviceCategoryId ? (loadingSubCategories ? "Loading..." : "Select sub-category") : "Select category first"}
-                  theme={selectTheme} styles={selectStyles("deviceSubCategoryId")} />
+                  isDisabled={!form.deviceCategoryId}
+                  error={errors.deviceSubCategoryId ? " " : ""}
+                />
                 {errors.deviceSubCategoryId && <p className={errorMsg}>{errors.deviceSubCategoryId}</p>}
               </div>
             )}
@@ -1199,28 +1158,18 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <div className="flex flex-col gap-1" data-field="materialType">
                 <label className={fieldLabel}>Material Type {requiredStar}</label>
-                <div className="relative" ref={materialDropdownRef}>
-                  <div onClick={() => setShowMaterialDropdown((p) => !p)} className={`w-full h-12 px-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.materialType ? "border-red-400" : "border-gray-300 hover:border-purple-600"}`}>
-                    <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedMaterialTypes.length > 0 ? "#3C3D3A" : "#969793" }}>
-                      {selectedMaterialTypes.length > 0
-                        ? selectedMaterialTypes.map((v) => materialTypeOptions.find((o) => o.value === v)?.label).filter(Boolean).join(", ")
-                        : "Select material types"}
-                    </span>
-                    <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showMaterialDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                  {showMaterialDropdown && (
-                    <div className="absolute z-20 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                      {loadingMaterialTypes ? <div className="px-4 py-3 text-gray-500 text-sm">Loading...</div> : (
-                        materialTypeOptions.map((opt) => (
-                          <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                            <input type="checkbox" checked={selectedMaterialTypes.includes(opt.value)} onChange={() => handleMaterialCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
-                            <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                          </label>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
+                <CheckboxDropdown
+                  options={materialTypeOptions}
+                  selectedValues={selectedMaterialTypes}
+                  onChange={(vals) => {
+                    setSelectedMaterialTypes(vals);
+                    if (errors.materialType) setErrors((p) => { const n = { ...p }; delete n.materialType; return n; });
+                  }}
+                  placeholder={loadingMaterialTypes ? "Loading..." : "Select material types"}
+                  disabled={loadingMaterialTypes}
+                  error={errors.materialType ? " " : ""}
+                  showSelectAll={false}
+                />
                 {errors.materialType && <p className={errorMsg}>{errors.materialType}</p>}
               </div>
             )}
@@ -1239,29 +1188,49 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 ref={(el) => { fieldRefs.current["sizeDimension"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
               >
                 <label className={fieldLabel}>Size / Dimension {requiredStar}</label>
-                <div className={`flex items-center border rounded-[8px] overflow-hidden ${errors.sizeDimension || errors.deviceSpecificationUnitId ? "border-[#FF3B3B]" : "border-[#C0C1BE]"}`}>
-                  <input
-                    name="sizeDimension"
-                    value={form.sizeDimension}
-                    onChange={handleChange}
-                    placeholder="e.g., 10.5"
-                    className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-white focus:outline-none border-none outline-none"
-                  />
-                  <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
-                  <div className="w-36">
-                    <Select
-                      options={specificationUnitOptions}
-                      isLoading={loadingSpecificationUnits}
-                      isDisabled={!form.deviceSubCategoryId}
-                      value={specificationUnitOptions.find((o) => o.value === form.deviceSpecificationUnitId) || null}
-                      onChange={(sel) => handleSelectChange("deviceSpecificationUnitId", sel)}
-                      placeholder={form.deviceSubCategoryId ? "Unit" : "Select sub-cat first"}
-                      theme={selectTheme}
-                      styles={unitSelectStyles}
-                      menuPortalTarget={typeof document !== "undefined" ? document.body : null}
-                      menuPosition="fixed"
+                <div className="relative" ref={unitDropdownRef}>
+                  <div className={`flex items-center h-[52px] border rounded-lg overflow-hidden ${errors.sizeDimension || errors.deviceSpecificationUnitId ? "border-warning-500" : "border-pneutral-300"}`}>
+                    <input
+                      name="sizeDimension"
+                      value={form.sizeDimension}
+                      onChange={handleChange}
+                      placeholder="e.g., 10.5"
+                      maxLength={10}
+                      className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
                     />
+                    <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
+                    <button
+                      type="button"
+                      onClick={() => form.deviceSubCategoryId && setShowUnitDropdown(p => !p)}
+                      disabled={!form.deviceSubCategoryId}
+                      className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 hover:bg-neutral-100 transition-colors flex-shrink-0 disabled:cursor-not-allowed"
+                    >
+                      <span className="truncate text-pneutral-800" style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}>
+                        {loadingSpecificationUnits ? "..." : (specificationUnitOptions.find(o => o.value === form.deviceSpecificationUnitId)?.label || (form.deviceSubCategoryId ? "Select Unit" : "Select sub-cat first"))}
+                      </span>
+                      <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 flex-shrink-0 ${showUnitDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
                   </div>
+                  {showUnitDropdown && form.deviceSubCategoryId && (
+                    <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
+                      {specificationUnitOptions.map(opt => (
+                        <button key={opt.value} type="button"
+                          onClick={() => {
+                            handleSelectChange("deviceSpecificationUnitId", { value: opt.value, label: opt.label });
+                            if (errors.deviceSpecificationUnitId) setErrors(p => { const n = { ...p }; delete n.deviceSpecificationUnitId; return n; });
+                            setShowUnitDropdown(false);
+                          }}
+                          className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer ${form.deviceSpecificationUnitId === opt.value ? "bg-neutral-50 font-semibold" : "font-medium"}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                      {specificationUnitOptions.length === 0 && (
+                        <div className="px-4 py-2 text-sm text-neutral-500">No units available</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {errors.sizeDimension && <p className={errorMsg}>{errors.sizeDimension}</p>}
                 {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
@@ -1315,41 +1284,54 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               ) : (
                 <>
                   <label className={fieldLabel}>Certifications &amp; Compliance {requiredStar}</label>
-                  <div className="relative" ref={dropdownRef}>
-                    <div onClick={() => setShowCertDropdown((p) => !p)} className={`w-full h-14 px-4 border rounded-2xl flex items-center justify-between cursor-pointer transition-all bg-white ${errors.certifications ? "border-warning-500" : "border-neutral-500 hover:border-primary-900"}`}>
-                      <span className="truncate pr-2 text-base leading-[22px] [font-family:'Open_Sans',sans-serif]" style={{ color: selectedCertifications.length > 0 ? "var(--pneutral-800)" : "var(--sneutral-400)" }}>
-                        {selectedCertifications.length > 0 ? selectedCertifications.map((c) => c.label).join(", ") : "Select certifications"}
-                      </span>
-                      <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform ${showCertDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </div>
-                    {showCertDropdown && (
-                      <div className="absolute z-20 w-full bg-white border border-neutral-200 mt-1 rounded-2xl shadow-lg max-h-60 overflow-y-auto">
-                        {loadingCertifications ? <div className="px-4 py-3 text-neutral-500 text-sm">Loading...</div> : (
-                          certificationMasterOptions.map((opt) => (
-                            <label key={opt.value} className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple-50 cursor-pointer">
-                              <input type="checkbox" checked={selectedCertifications.some((c) => c.id === opt.value)} onChange={() => handleCertCheckbox(opt)} className="accent-purple-600 w-4 h-4" />
-                              <span className="text-base [font-family:'Open_Sans',sans-serif] [color:#3C3D3A]">{opt.label}</span>
-                            </label>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <CheckboxDropdown
+                    options={certificationMasterOptions}
+                    selectedValues={selectedCertifications.map(c => c.id)}
+                    onChange={(values) => {
+                      const newCerts = values.map(val => {
+                        const existing = selectedCertifications.find(c => c.id === val);
+                        if (existing) return existing;
+                        const opt = certificationMasterOptions.find(o => o.value === val);
+                        return {
+                          id: val, label: opt?.label || "", tagCode: opt?.tagCode || "",
+                          file: null, fileName: "", uploading: false, isUploaded: false,
+                          previewUrl: null, productCertificateDocumentId: opt?.certificationId || 0,
+                          existingUrl: undefined,
+                        };
+                      });
+                      setSelectedCertifications(newCerts);
+                      if (errors.certifications) setErrors(p => { const n = { ...p }; delete n.certifications; return n; });
+                    }}
+                    placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
+                    disabled={loadingCertifications}
+                    error={errors.certifications ? " " : ""}
+                    showSelectAll={false}
+                  />
                   {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
                 </>
               )}
             </div>
 
             {/* Certifications — upload */}
-            {selectedCertifications.length === 0 ? (
+            {isEdit ? (
+              selectedCertifications.map((cert) => (
+                <div key={cert.id} className="flex flex-col gap-1 col-span-1">
+                  <NonEditableField
+                    label={`Upload ${cert.label}`}
+                    value={cert.existingUrl ? (cert.existingUrl.split("/").pop() || cert.label) : "Not uploaded"}
+                    required
+                  />
+                </div>
+              ))
+            ) : selectedCertifications.length === 0 ? (
               <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
-                <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
-                  <div className="flex items-center justify-center h-full px-4 bg-secondary-200">
+                <div className="flex items-center w-full h-[52px] rounded-lg border border-pneutral-300 bg-white overflow-hidden">
+                  <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
                   <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                    <span className="text-pneutral-500 text-sm">Select certifications first</span>
+                    <span className="text-pneutral-500 text-md">Select certifications first</span>
                   </div>
                 </div>
               </div>
@@ -1377,9 +1359,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("countryOfOrigin") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Country of Origin {requiredStar}</label>
-                <Select options={countryOptions} value={countryOptions.find((o) => o.value === form.countryOfOrigin) || null}
-                  onChange={(sel) => handleSelectChange("countryOfOrigin", sel)}
-                  placeholder="Select country" theme={selectTheme} styles={selectStyles("countryOfOrigin")} />
+                <Dropdown
+                  options={countryOptions}
+                  value={form.countryOfOrigin}
+                  onChange={(val, label) => handleSelectChange("countryOfOrigin", { value: val, label })}
+                  placeholder="Select country"
+                  error={errors.countryOfOrigin ? " " : ""}
+                />
                 {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
               </div>
             )}
@@ -1394,12 +1380,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {/* Storage Condition — editable in both modes */}
             <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
               <label className={fieldLabel}>Storage Condition {requiredStar}</label>
-              <Select
+              <Dropdown
                 options={storageConditionOptions}
-                value={storageConditionOptions.find((o) => o.value === form.storageCondition) || null}
-                onChange={(sel) => handleSelectChange("storageCondition", sel)}
+                value={form.storageCondition}
+                onChange={(val, label) => handleSelectChange("storageCondition", { value: val, label })}
                 placeholder="Select storage condition"
-                theme={selectTheme} styles={selectStyles("storageCondition")}
+                error={errors.storageCondition ? " " : ""}
               />
               {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
             </div>
@@ -1453,9 +1439,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("packType") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>Pack Type {requiredStar}</label>
-                <Select options={packTypeApiOptions} value={packTypeApiOptions.find((o) => o.value === form.packType) || null}
-                  onChange={(sel) => handleSelectChange("packType", sel)}
-                  placeholder="Select pack type" theme={selectTheme} styles={selectStyles("packType")} />
+                <Dropdown
+                  options={packTypeApiOptions}
+                  value={form.packType}
+                  onChange={(val, label) => handleSelectChange("packType", { value: val, label })}
+                  placeholder="Select pack type"
+                  error={errors.packType ? " " : ""}
+                />
                 {errors.packType && <p className={errorMsg}>{errors.packType}</p>}
               </div>
             )}
@@ -1627,9 +1617,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
                 <label className={fieldLabel}>GST % {requiredStar}</label>
-                <Select options={gstOptions} value={gstOptions.find((o) => o.value === form.gstPercentage) || null}
-                  onChange={(sel) => handleSelectChange("gstPercentage", sel)}
-                  placeholder="Select GST" theme={selectTheme} styles={selectStyles("gstPercentage")} />
+                <Dropdown
+                  options={gstOptions}
+                  value={form.gstPercentage}
+                  onChange={(val, label) => handleSelectChange("gstPercentage", { value: val, label })}
+                  placeholder="Select GST"
+                  error={errors.gstPercentage ? " " : ""}
+                />
                 {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
               </div>
             )}
@@ -1654,8 +1648,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               <p className="text-sm font-semibold text-gray-600 mb-2">Current Images</p>
               <div className="flex flex-wrap gap-3">
                 {existingImages.map((url, i) => (
-                  <div key={i} className="relative flex-shrink-0">
-                    <img src={url} alt={`existing-${i}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200" />
+                  <div key={i} className="relative group flex-shrink-0">
+                    <img src={url} alt={`existing-${i}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
+                    <button type="button"
+                      onClick={() => setExistingImages((p) => p.filter((_, idx) => idx !== i))}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                      <X size={12} />
+                    </button>
                   </div>
                 ))}
               </div>

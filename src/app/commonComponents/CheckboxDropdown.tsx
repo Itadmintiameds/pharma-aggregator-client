@@ -83,9 +83,9 @@ const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
   const someSelected = selectedValues.length > 0 && selectedValues.length < options.length;
 
   return (
-    <div className={`flex flex-col gap-0 ${className}`}>
+    <div className={`flex flex-col ${className}`}>
       {label && (
-        <label className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
+        <label className="flex items-center gap-2 text-sm font-semibold text-neutral-700 mb-0 leading-[24px]">
           {icon && <span className="text-neutral-600 text-lg">{icon}</span>}
           {label}
           {required && <span className="text-warning-500">*</span>}

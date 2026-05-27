@@ -97,6 +97,7 @@ export interface CosmeticAttributes {
   manufacturerName?: string;
   countryOfOrigin?: string;
   countryName?: string;
+  productForm?: string;
   brochurePath?: string;
   BrochurePath?: string;
   certificateDocuments?: CertificateDocument[];
@@ -636,6 +637,7 @@ const CosmeticPersonalCareView = ({
             <FieldRow label="Gender" value={genderDisplay} />
             {/* FIX: intendedUseArea now handles both string and [{areaName}] objects */}
             <FieldRow label="Intended Use Area" value={intendedUseDisplay} multiline />
+            <FieldRow label="Product Form" value={cosAttr?.productForm ?? null} />
             {/* FIX: skinHairDisplay now handles [{typeName}] object arrays */}
             <FieldRow label="Skin / Hair Type" value={skinHairDisplay} multiline required={false} />
             <FieldRow label="Age Group" value={cosAttr?.ageGroup} />
