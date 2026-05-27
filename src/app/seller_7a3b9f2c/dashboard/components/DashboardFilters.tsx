@@ -1038,7 +1038,7 @@ function SuccessView({ files, result, onClose }: {
 }
 
 // ─── OnboardingModal ──────────────────────────────────────────────────────────
-function OnboardingModal({ onClose, onManualEntry, onSuccessAction }: { onClose: () => void; onManualEntry: () => void; onSuccessAction?: () => void }) {
+export function OnboardingModal({ onClose, onManualEntry, onSuccessAction }: { onClose: () => void; onManualEntry: () => void; onSuccessAction?: () => void }) {
   const [successData, setSuccessData] = useState<{ type: ProductType; files: UploadedFile[]; result: UploadResult } | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [transitioning, setTransitioning] = useState(false);
