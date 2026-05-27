@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
 
 type Props = {
   selectedMonth?: number;
@@ -10,18 +10,9 @@ type Props = {
 };
 
 const months = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
+  "Jan", "Feb", "Mar", "Apr",
+  "May", "Jun", "Jul", "Aug",
+  "Sep", "Oct", "Nov", "Dec",
 ];
 
 export default function MonthPicker({
@@ -30,52 +21,66 @@ export default function MonthPicker({
   onSelect,
   onClose,
 }: Props) {
+  const [tempMonth, setTempMonth] = useState(selectedMonth);
+  const [tempYear, setTempYear] = useState(selectedYear);
+
+  const handleDone = () => {
+    onSelect(tempMonth, tempYear);
+    onClose();
+  };
+
   return (
-    <div className="absolute z-50 mt-2 w-[320px] rounded-xl border bg-white p-5 shadow-xl">
-      <div className="mb-5 flex items-center justify-between">
+    <div className="absolute z-50 mt-2 w-71 h-61 rounded-lg border border-pneutral-100 bg-white p-3 shadow-xl">
+      <div className="mb-2 flex items-center justify-between">
         <button
           type="button"
-          onClick={() => onSelect(selectedMonth, selectedYear - 1)}
+          onClick={() => setTempYear((prev) => prev - 1)}
           className="w-8 h-8 border-pneutral-200 rounded-lg border flex items-center justify-center"
         >
-          <img src="/icons/CalendarLeft.svg" alt="search" className="w-4 h-4" />
+          <img src="/icons/CalendarLeft.svg" className="w-4 h-4" />
         </button>
 
-        <h2 className="text-lg font-medium">{selectedYear}</h2>
+        <h2 className="text-lg font-medium">{tempYear}</h2>
 
         <button
           type="button"
-          onClick={() => onSelect(selectedMonth, selectedYear + 1)}
-           className="w-8 h-8 border-pneutral-200 rounded-lg border flex items-center justify-center"
+          onClick={() => setTempYear((prev) => prev + 1)}
+          className="w-8 h-8 border-pneutral-200 rounded-lg border flex items-center justify-center"
         >
-          <img src="/icons/CalendarRight.svg" alt="search" className="w-4 h-4" />
+          <img src="/icons/CalendarRight.svg" className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Month Grid */}
       <div className="grid grid-cols-4 gap-3">
         {months.map((month, index) => (
           <button
             key={month}
             type="button"
-            onClick={() => onSelect(index, selectedYear)}
-            className={`rounded-lg py-2 text-sm
-              ${
-                selectedMonth === index
-                  ? "border border-purple-500 bg-purple-200 text-purple-900"
-                  : "bg-gray-100 hover:bg-gray-200"
-              }`}
+            onClick={() => setTempMonth(index)}
+            className={`rounded-lg py-2 text-p3 text-pneutral-900 ${
+              tempMonth === index
+                ? "border border-primary-900 bg-secondary-300"
+                : "bg-pneutral-50"
+            }`}
           >
             {month}
           </button>
         ))}
       </div>
 
-      <div className="mt-5 flex justify-end border-t pt-4">
+      <div className="mt-2 py-2 flex justify-end border-t border-pneutral-200 gap-1.5">
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg bg-purple-700 px-4 py-2 text-white"
+          className="w-15.25 h-8 rounded-lg border border-pneutral-200"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          onClick={handleDone}
+          className="w-13 h-8 rounded-lg bg-primary-900 text-white"
         >
           Done
         </button>

@@ -1898,7 +1898,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
-            <Input
+            {/* <Input
               label="Expiry Date"
               type="month"
               name="expiryDate"
@@ -1925,9 +1925,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               max={getMaxExpiryMonth()}
               error={errors.expiryDate}
               required
-            />
+            /> */}
 
-            {/* <div className="relative">
+            <div className="relative">
               <Input
                 label="Expiry Date"
                 name="expiryDate"
@@ -1946,6 +1946,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 error={errors.expiryDate}
               />
 
+              {showExpiryMonthPicker && (
                 <MonthPicker
                   selectedMonth={
                     form.expiryDate
@@ -1960,7 +1961,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   onSelect={handleExpiryMonthSelect}
                   onClose={() => setShowExpiryMonthPicker(false)}
                 />
-            </div> */}
+              )}
+            </div>
 
             <Input
               type="number"
