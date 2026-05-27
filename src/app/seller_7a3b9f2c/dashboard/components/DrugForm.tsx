@@ -32,6 +32,7 @@ import { validateBatchNumber } from "@/src/services/product/Pricing";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
+import ProductImageUpload from "../commonComponent/ProductImageUpload";
 
 interface SelectOption {
   value: string;
@@ -2279,7 +2280,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
         </div>
 
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
+        {/* <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
           <div className="text-pneutral-800 text-h6 font-medium font-heading">
             Product Photos
             <span className="text-warning-500 text-h6 font-medium ml-2">*</span>
@@ -2412,7 +2413,20 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               </div>
             )}
           </div>
-        </div>
+        </div> */}
+
+        <ProductImageUpload
+          title="Product Photos"
+          required
+          images={images}
+          setImages={setImages}
+          existingImages={existingImages}
+          setExistingImages={setExistingImages}
+          error={errors.images}
+          setErrors={setErrors}
+          isReadOnly={isReadOnly}
+          mode={mode}
+        />
 
         <div className="flex justify-between mt-6 col-span-2">
           <div className="space-x-6 flex">
