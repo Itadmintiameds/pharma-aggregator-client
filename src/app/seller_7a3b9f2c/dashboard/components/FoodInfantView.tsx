@@ -269,11 +269,11 @@ const FoodInfantView = ({
   // ─────────────────────────────────────────────────────────
   // Format Serving Size - Value + Unit
   // ─────────────────────────────────────────────────────────
-  let servingSizeDisplay = "—";
-  if (attr.servingSize) {
-    const unit = attr.servingSizeUnitName || "";
-    servingSizeDisplay = unit ? `${attr.servingSize} ${unit}` : String(attr.servingSize);
-  }
+  // let servingSizeDisplay = "—";
+  // if (attr.servingSize) {
+  //   const unit = attr.servingSizeUnitName || "";
+  //   servingSizeDisplay = unit ? `${attr.servingSize} ${unit}` : String(attr.servingSize);
+  // }
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -334,7 +334,7 @@ const FoodInfantView = ({
           <FieldRow label="Variant Name" value={attr.variantName} required={false} />
           <FieldRow label="Product Form" value={attr.productFormName} />
           <FieldRow label="Net Quantity" value={netQuantityDisplay} />
-          <FieldRow label="Serving Size" value={servingSizeDisplay} />
+          {/* <FieldRow label="Serving Size" value={servingSizeDisplay} /> */}
           <FieldRow label="Age Group" value={ageGroupDisplay} />
           <FieldRow label="Product Claims" value={attr.productClaims} multiline />
           <FieldRow label="Active Ingredients" value={attr.activeIngredients} multiline />
