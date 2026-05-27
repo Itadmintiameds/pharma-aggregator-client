@@ -2831,7 +2831,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 onChange={() => { }}
                 onClick={() => {
                   if (!isEditMode) {
-                    setShowManufacturingMonthPicker(!showManufacturingMonthPicker);
+                    setShowManufacturingMonthPicker(true);
                   }
                 }}
                 onKeyDown={(e) => e.preventDefault()}
@@ -2907,7 +2907,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 onChange={() => { }}
                 onClick={() => {
                   if (!isEditMode) {
-                    setShowExpiryMonthPicker(!showExpiryMonthPicker);
+                    setShowExpiryMonthPicker(true);
                   }
                 }}
                 onFocus={() => {
