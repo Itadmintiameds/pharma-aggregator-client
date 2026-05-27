@@ -126,9 +126,9 @@ const TEMPLATES: Record<ProductType, { name: string; xlsx: string; csv: string; 
   },
   food_infant: {
     name: "food_infant_template",
-    xlsx: "/templates/food&Infant/XLSX-FoodInfant.xlsx",
-    csv:  "/templates/food&Infant/CSV-FoodInfant.csv",
-    xls:  "/templates/food&Infant/XLS-FoodInfant.xls",
+    xlsx: "/templates/food&Infant/XLSX-Food&InfantHeader.xlsx", 
+    csv:  "/templates/food&Infant/CSV-Food&InfantHeader.csv",
+    xls:  "/templates/food&Infant/XLS-Food&InfantHeader.xls",
   },
 };
 

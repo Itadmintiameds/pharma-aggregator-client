@@ -2097,7 +2097,7 @@ const handleIfscChange = async (value: string) => {
     setEmailExistsError("");
 
     try {
-      const exists = await sellerRegService.checkCoordinatorEmail(email);
+      const exists = await updateProfileService.checkCoordinatorProfileEmail(email);
       if (exists) {
         setEmailExistsError("⚠️ This email is already registered. Please use a different email address.");
         return true;
@@ -2760,6 +2760,13 @@ for (const productName of formData.productTypes) {
 
     return true;
   };
+
+  const validateGSTNumberFormat = (value: string): boolean => {
+  if (!value || value.length !== 15) return false;
+  // Exact GST pattern from registration
+  const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+  return gstRegex.test(value);
+};
 
   // Replace validateGSTNumber function
   const validateGSTNumber = (value: string): string | null => {
@@ -4583,51 +4590,54 @@ if (isIfscCodeChanged) {
           >
             <div className="grid grid-cols-2 gap-6">
               <div className="flex flex-col">
-                <label className="text-label-l4 font-heading font-medium text-pneutral-900">
-                  GSTIN Number
-                  <span className="text-warning-500 ml-1">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={formData.gstNumber}
-                    onChange={handleGSTChangeWithValidation}
-                    onBlur={handleGSTBlur}
-                    disabled={!editingSection}
-                    maxLength={15}
-                    placeholder="22AAAAA0000A1Z"
-                    className={`w-full h-[52px] px-4 rounded-md text-p4 font-body font-regular uppercase pr-10
-                      ${editingSection
-                        ? `bg-base-white border ${gstExistsError ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:ring-2 focus:ring-secondary-500'} ${gstExistsError ? 'text-pneutral-800' : 'text-pneutral-800'}`
-                        : "bg-pneutral-50 border border-pneutral-100 cursor-not-allowed text-pneutral-800"
-                      }`}
-                  />
-                  {isCheckingGST && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-900"></div>
-                    </div>
-                  )}
-                  {!isCheckingGST && formData.gstNumber && formData.gstNumber.length === 15 && !gstExistsError && profileData?.sellerGST?.gstNumber !== formData.gstNumber && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <GoCheckCircle className="text-success-600" size={20} />
-                    </div>
-                  )}
-                  {!isCheckingGST && gstExistsError && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <span className="text-warning-500 text-xl">⚠️</span>
-                    </div>
-                  )}
-                </div>
-                {gstExistsError && (
-                  <p className="text-p2 text-warning-500">{gstExistsError}</p>
-                )}
-                {!gstExistsError && formData.gstNumber && formData.gstNumber.length === 15 && !isCheckingGST && profileData?.sellerGST?.gstNumber !== formData.gstNumber && (
-                  <p className="text-p2 text-success-600">✓ Valid GST number format</p>
-                )}
-                {formData.gstNumber && formData.gstNumber.length > 0 && formData.gstNumber.length !== 15 && (
-                  <p className="text-p2 text-warning-500">GST number must be 15 characters</p>
-                )}
-              </div>
+  <label className="text-label-l4 font-heading font-medium text-pneutral-900">
+    GSTIN Number
+    <span className="text-warning-500 ml-1">*</span>
+  </label>
+  <div className="relative">
+    <input
+      type="text"
+      value={formData.gstNumber}
+      onChange={handleGSTChangeWithValidation}
+      onBlur={handleGSTBlur}
+      disabled={!editingSection}
+      maxLength={15}
+      placeholder="22AAAAA0000A1Z"
+      className={`w-full h-[52px] px-4 rounded-md text-p4 font-body font-regular uppercase pr-10
+        ${editingSection
+          ? `bg-base-white border ${gstExistsError || gstNumberError ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:ring-2 focus:ring-secondary-500'}`
+          : "bg-pneutral-50 border border-pneutral-100 cursor-not-allowed text-pneutral-800"
+        }`}
+    />
+    {/* {isCheckingGST && (
+      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-900"></div>
+      </div>
+    )} */}
+    {/* {!isCheckingGST && formData.gstNumber && formData.gstNumber.length === 15 && validateGSTNumberFormat(formData.gstNumber) && !gstExistsError && !gstNumberError && profileData?.sellerGST?.gstNumber !== formData.gstNumber && (
+      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+        <GoCheckCircle className="text-success-600" size={20} />
+      </div>
+    )} */}
+    {/* {!isCheckingGST && (gstExistsError || gstNumberError) && (
+      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+        <span className="text-warning-500 text-xl">⚠️</span>
+      </div>
+    )} */}
+  </div>
+  {gstNumberError && (
+    <p className="text-p2 text-warning-500">{gstNumberError}</p>
+  )}
+  {gstExistsError && (
+    <p className="text-p2 text-warning-500">{gstExistsError}</p>
+  )}
+  {!gstNumberError && !gstExistsError && formData.gstNumber && formData.gstNumber.length === 15 && validateGSTNumberFormat(formData.gstNumber) && !isCheckingGST && profileData?.sellerGST?.gstNumber !== formData.gstNumber && (
+    <p className="text-p2 text-success-600">✓ Valid GST number format</p>
+  )}
+  {formData.gstNumber && formData.gstNumber.length > 0 && formData.gstNumber.length !== 15 && (
+    <p className="text-p2 text-warning-500">GST number must be 15 characters</p>
+  )}
+</div>
 
               <FileField
                 key={formData.gstFileUrl}
