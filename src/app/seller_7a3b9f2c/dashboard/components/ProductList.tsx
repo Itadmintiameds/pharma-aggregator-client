@@ -38,9 +38,14 @@ const columns: Column<ProductListData>[] = [
       );
     },
   },
+
   {
     header: "Product Name",
-    accessor: (row) => row.productName ?? "-",
+    accessor: (row) => (
+      <div className="max-w-55 truncate whitespace-nowrap overflow-hidden">
+        {row.productName ?? "-"}
+      </div>
+    ),
   },
   {
     header: "Category",
