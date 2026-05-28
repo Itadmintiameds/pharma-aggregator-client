@@ -396,6 +396,7 @@ export default function CompanyForm({
         alt="Upload"
         width={18}
         height={18}
+        className="brightness-0 invert"
       />
     </div>
 

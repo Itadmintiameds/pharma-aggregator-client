@@ -2169,6 +2169,8 @@ const ProductView1 = ({
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
           manufacturerName={manufacturerName}
+          additionalDiscounts={additionalDiscounts}
+    specialSchemes={specialSchemes}
         />
       )}
       {console.log("FoodAttr from ProductView1:", {
