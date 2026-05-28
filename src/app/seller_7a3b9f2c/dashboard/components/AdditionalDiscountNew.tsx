@@ -515,6 +515,14 @@ const AdditionalDiscountNew = forwardRef<
       return Object.keys(newErrors).length === 0;
     };
 
+    const formatDateForApi = (dateStr: string) => {
+      if (!dateStr) return "";
+
+      const [day, month, year] = dateStr.split("/");
+
+      return `${year}-${month}-${day}`;
+    };
+
     const handleSubmit = () => {
       const isValid = validateForm();
 
@@ -523,9 +531,13 @@ const AdditionalDiscountNew = forwardRef<
       const slab: AdditionalDiscountData = {
         minimumPurchaseQuantity: Number(form.minimumPurchaseQuantity),
         additionalDiscountPercentage: Number(form.discountPercentage),
-        effectiveStartDate: alwaysActive ? "" : form.effectiveStartDate,
+        effectiveStartDate: alwaysActive
+          ? ""
+          : formatDateForApi(form.effectiveStartDate),
         effectiveStartTime: alwaysActive ? "" : form.effectiveStartTime,
-        effectiveEndDate: alwaysActive ? "" : form.effectiveEndDate,
+        effectiveEndDate: alwaysActive
+          ? ""
+          : formatDateForApi(form.effectiveEndDate),
         effectiveEndTime: alwaysActive ? "" : form.effectiveEndTime,
       };
 
