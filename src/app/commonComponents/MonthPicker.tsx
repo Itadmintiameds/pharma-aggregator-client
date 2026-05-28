@@ -85,7 +85,7 @@ export default function MonthPicker({
           <img src="/icons/CalendarLeft.svg" className="w-4 h-4" />
         </button>
 
-        <h2 className="text-lg font-medium">{tempYear}</h2>
+        <h2 className="text-p3 font-medium text-pneutral-900">{tempYear}</h2>
 
         <button
           type="button"
@@ -153,8 +153,7 @@ export default function MonthPicker({
         <button
           type="button"
           onClick={handleDone}
-          className="w-13 h-8 rounded-lg bg-primary-900 text-white shadow-[inset_0px_-2px_2px_0px_#3030301A,inset_0px_12px_12px_0px_#FFFFFF1F]
-"
+          className="w-13 h-8 rounded-lg bg-primary-900 text-white shadow-[inset_0px_-2px_2px_0px_#3030301A,inset_0px_12px_12px_0px_#FFFFFF1F]"
         >
           Done
         </button>
