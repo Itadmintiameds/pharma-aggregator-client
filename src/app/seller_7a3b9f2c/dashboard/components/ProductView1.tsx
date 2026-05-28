@@ -1843,6 +1843,9 @@ const ProductView1 = ({
           specificationUnitLabel={lookups.specificationUnitLabel}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
+          countryName={(consAttr as any)?.countryName ?? (consAttr as any)?.countryOfOrigin ?? null}
+          additionalDiscounts={additionalDiscounts}
+          specialSchemes={specialSchemes}
         />
       )}
 
@@ -1868,6 +1871,8 @@ const ProductView1 = ({
           deviceSubCategoryName={resolvedDeviceSubCategoryName}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
+          additionalDiscounts={additionalDiscounts}
+          specialSchemes={specialSchemes}
         />
       )}
 
@@ -1905,6 +1910,8 @@ const ProductView1 = ({
             storageConditionName={storageCondition}
             brochureUrl={brochureUrl}
             placeholderImage={PLACEHOLDER_IMAGE}
+            additionalDiscounts={additionalDiscounts}
+            specialSchemes={specialSchemes}
           />
         ))}
 
@@ -1943,8 +1950,8 @@ const ProductView1 = ({
                 Product Images
               </div>
 
-              <div className="grid grid-cols-4 gap-4">
-                {displayImages.slice(0, 4).map((img, idx) => (
+              <div className="grid grid-cols-5 gap-4">
+                {displayImages.slice(0, 5).map((img, idx) => (
                   <div
                     key={idx}
                     className="relative h-67.5 overflow-hidden rounded-xl bg-[#F5F5F5]"
@@ -1970,7 +1977,7 @@ const ProductView1 = ({
                 ))}
 
                 {Array.from({
-                  length: Math.max(0, 4 - displayImages.length),
+                  length: Math.max(0, 5 - displayImages.length),
                 }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
@@ -2260,15 +2267,20 @@ const ProductView1 = ({
         >
           <SectionTitle>Batch Management</SectionTitle>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <FieldRow label="Batch Number" value={pricing?.batchLotNumber} />
+            {/* Non-consumables don't use batch numbers — only show if value exists */}
+            {(!isNonConsumable || pricing?.batchLotNumber) && (
+              <FieldRow label="Batch Number" value={pricing?.batchLotNumber} />
+            )}
             <FieldRow
               label="Manufacturing Date"
               value={formatDate(pricing?.manufacturingDate)}
             />
-            <FieldRow
-              label="Expiry Date"
-              value={formatDate(pricing?.expiryDate)}
-            />
+            {(!isNonConsumable || pricing?.expiryDate) && (
+              <FieldRow
+                label="Expiry Date"
+                value={formatDate(pricing?.expiryDate)}
+              />
+            )}
             <FieldRow
               label="Stock Quantity (in terms of Pack Size)"
               value={
@@ -2281,7 +2293,10 @@ const ProductView1 = ({
               label="Date of Stock Entry"
               value={formatDate(pricing?.dateOfStockEntry)}
             />
-            <FieldRow label="Shelf Life" value={shelfLifeDisplay} />
+            {/* Non-consumables don't expire — only show shelf life if value exists */}
+            {(!isNonConsumable || shelfLifeDisplay) && (
+              <FieldRow label="Shelf Life" value={shelfLifeDisplay} />
+            )}
           </div>
         </div>
 

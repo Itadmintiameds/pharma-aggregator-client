@@ -2,7 +2,7 @@
 
 
 import React, { useState } from "react";
-import { FileText, ExternalLink } from "lucide-react";
+import { FileText, ExternalLink, Gift, ShoppingBag, Tag, BadgePercent } from "lucide-react";
 import { PiSealCheckLight } from "react-icons/pi";
 import Image from "next/image";
 
@@ -60,6 +60,11 @@ export interface ConsumableViewProps {
   specificationUnitLabel?: string | null;
   brochureUrl?: string | null;
   placeholderImage?: string;
+  countryName?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  additionalDiscounts?: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  specialSchemes?: any[];
 }
 
 
@@ -208,6 +213,9 @@ const ConsumableView = ({
   specificationUnitLabel,
   brochureUrl,
   placeholderImage = "/assets/images/SellerMed.jpg",
+  countryName,
+  additionalDiscounts = [],
+  specialSchemes = [],
 }: ConsumableViewProps) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCertModal, setShowCertModal] = useState(false);
@@ -286,8 +294,8 @@ const ConsumableView = ({
             gap: 16,
           }}
         >
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-            {imagesToShow.slice(0, 4).map((img, idx) => (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
+            {imagesToShow.slice(0, 5).map((img, idx) => (
               <div
                 key={idx}
                 onClick={() => setSelectedImageIndex(idx)}
@@ -342,7 +350,7 @@ const ConsumableView = ({
                 )}
               </div>
             ))}
-            {Array.from({ length: Math.max(0, 4 - imagesToShow.length) }).map((_, i) => (
+            {Array.from({ length: Math.max(0, 5 - imagesToShow.length) }).map((_, i) => (
               <div
                 key={`empty-${i}`}
                 style={{
@@ -398,6 +406,7 @@ const ConsumableView = ({
           <FieldRow label="Sterile / Non-Sterile" value={consAttr?.sterileOrNonSterile} />
           <FieldRow label="Storage Condition" value={storageCondition} multiline />
           <FieldRow label="Manufacturer Name" value={consAttr?.manufacturerName} />
+          <FieldRow label="Country of Origin" value={countryName ?? (consAttr as any)?.countryName ?? (consAttr as any)?.countryOfOrigin ?? null} />
 
 
           {/* Uploaded Product Brochure */}
@@ -647,6 +656,70 @@ const ConsumableView = ({
           {productDescription ?? "—"}
         </p>
       </div>
+
+
+      {/* ── SPECIAL OFFERS & PROMOTIONAL SCHEMES ── */}
+      {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
+        <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
+          <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
+            Special Offers &amp; Promotional Schemes
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            {specialSchemes.map((scheme, index) => {
+              const themes = [
+                { border: "#4EB300", bg: "#DCF7CB", text: "#47A400", Icon: Gift },
+                { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: ShoppingBag },
+                { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Tag },
+              ];
+              let theme = themes[index % themes.length];
+              const type = (scheme.schemeType ?? "").toLowerCase();
+              if (type === "bogo" || type === "buy_x_get_y") theme = themes[0];
+              else if (type === "bundle") theme = themes[1];
+              else if (type === "seasonal") theme = themes[2];
+              const dateStr = scheme.effectiveStartDate && scheme.effectiveEndDate
+                ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
+                : "Valid: Ongoing";
+              return (
+                <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+                  <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
+                    <theme.Icon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex flex-col">
+                    <h5 className="font-heading font-medium text-[20px] leading-[28px] mb-1.5" style={{ color: theme.text }}>
+                      {scheme.schemeName || "Special Scheme"}
+                    </h5>
+                    <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                      Purchase {scheme.buyQuantity} {productName || "this product"} and get {scheme.freeQuantity} absolutely free. Limited stock available!
+                    </p>
+                    <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">{dateStr}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {additionalDiscounts.length > 0 && (
+              <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] bg-[#F8EDFF] border-[#6C12A9] h-[142px]">
+                <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md bg-[#6C12A9]">
+                  <BadgePercent className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex flex-col">
+                  <h5 className="font-heading font-medium text-[20px] leading-[28px] text-[#6C12A9] mb-1.5">
+                    Bulk Purchase Discount
+                  </h5>
+                  <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                    {additionalDiscounts.map((discount, i) => (
+                      <span key={i}>
+                        Get {discount.additionalDiscountPercentage}% off on orders of {discount.minimumPurchaseQuantity}+ units
+                        {i < additionalDiscounts.length - 1 ? ", " : "."}
+                      </span>
+                    ))}
+                  </p>
+                  <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">Valid: Ongoing</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
 
       {/* ── Certificate Modal ── */}

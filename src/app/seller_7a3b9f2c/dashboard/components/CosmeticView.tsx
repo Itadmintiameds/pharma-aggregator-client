@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileText, ExternalLink, Edit2, X } from "lucide-react";
+import { FileText, ExternalLink, Edit2, X, Gift, ShoppingBag, Tag, BadgePercent } from "lucide-react";
 import { PiSealCheckLight } from "react-icons/pi";
 import Image from "next/image";
 
@@ -127,6 +127,10 @@ export interface CosmeticPersonalCareViewProps {
   taxDetails?: TaxDetails | null;
   onEdit?: () => void;
   onClose?: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  additionalDiscounts?: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  specialSchemes?: any[];
 }
 
 
@@ -439,6 +443,8 @@ const CosmeticPersonalCareView = ({
   taxDetails,
   onEdit,
   onClose,
+  additionalDiscounts = [],
+  specialSchemes = [],
 }: CosmeticPersonalCareViewProps) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCertModal, setShowCertModal] = useState(false);
@@ -605,8 +611,8 @@ const CosmeticPersonalCareView = ({
             Product Images
           </p>
           <div style={{ padding: 12, background: "#F8F5FF", borderRadius: 12, outline: "1px #B550FA solid", outlineOffset: -1, display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-              {imagesToShow.slice(0, 4).map((img, idx) => (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
+              {imagesToShow.slice(0, 5).map((img, idx) => (
                 <div key={idx} onClick={() => setSelectedImageIndex(idx)} style={{ position: "relative", height: 276, boxShadow: "0px 2px 4px -2px rgba(0,0,0,0.10), 0px 4px 6px -1px rgba(0,0,0,0.10)", overflow: "hidden", borderRadius: 12, outline: idx === selectedImageIndex ? "1px #B550FA solid" : "none", outlineOffset: -1, cursor: "pointer" }}>
                   <Image src={img} alt={`Product image ${idx + 1}`} fill style={{ objectFit: "cover" }} unoptimized={img.startsWith("http")} onError={(e) => { (e.target as HTMLImageElement).src = placeholderImage; }} />
                   {idx === 0 && (
@@ -616,7 +622,7 @@ const CosmeticPersonalCareView = ({
                   )}
                 </div>
               ))}
-              {Array.from({ length: Math.max(0, 4 - imagesToShow.length) }).map((_, i) => (
+              {Array.from({ length: Math.max(0, 5 - imagesToShow.length) }).map((_, i) => (
                 <div key={`empty-${i}`} style={{ height: 276, borderRadius: 12, background: "#F5F5F5", boxShadow: "0px 1px 2px -1px rgba(0,0,0,0.10)" }} />
               ))}
             </div>
@@ -795,6 +801,69 @@ const CosmeticPersonalCareView = ({
         </>
       )}
 
+
+      {/* ── SPECIAL OFFERS & PROMOTIONAL SCHEMES ── */}
+      {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
+        <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
+          <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
+            Special Offers &amp; Promotional Schemes
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            {specialSchemes.map((scheme, index) => {
+              const themes = [
+                { border: "#4EB300", bg: "#DCF7CB", text: "#47A400", Icon: Gift },
+                { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: ShoppingBag },
+                { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Tag },
+              ];
+              let theme = themes[index % themes.length];
+              const type = (scheme.schemeType ?? "").toLowerCase();
+              if (type === "bogo" || type === "buy_x_get_y") theme = themes[0];
+              else if (type === "bundle") theme = themes[1];
+              else if (type === "seasonal") theme = themes[2];
+              const dateStr = scheme.effectiveStartDate && scheme.effectiveEndDate
+                ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
+                : "Valid: Ongoing";
+              return (
+                <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+                  <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
+                    <theme.Icon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex flex-col">
+                    <h5 className="font-heading font-medium text-[20px] leading-[28px] mb-1.5" style={{ color: theme.text }}>
+                      {scheme.schemeName || "Special Scheme"}
+                    </h5>
+                    <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                      Purchase {scheme.buyQuantity} {productName || "this product"} and get {scheme.freeQuantity} absolutely free. Limited stock available!
+                    </p>
+                    <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">{dateStr}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {additionalDiscounts.length > 0 && (
+              <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] bg-[#F8EDFF] border-[#6C12A9] h-[142px]">
+                <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md bg-[#6C12A9]">
+                  <BadgePercent className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex flex-col">
+                  <h5 className="font-heading font-medium text-[20px] leading-[28px] text-[#6C12A9] mb-1.5">
+                    Bulk Purchase Discount
+                  </h5>
+                  <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                    {additionalDiscounts.map((discount, i) => (
+                      <span key={i}>
+                        Get {discount.additionalDiscountPercentage}% off on orders of {discount.minimumPurchaseQuantity}+ units
+                        {i < additionalDiscounts.length - 1 ? ", " : "."}
+                      </span>
+                    ))}
+                  </p>
+                  <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">Valid: Ongoing</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div style={{ height: 40 }} />
 
