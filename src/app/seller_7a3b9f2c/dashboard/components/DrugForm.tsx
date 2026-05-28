@@ -485,7 +485,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
   const checkBatchNumber = async (batchLotNumber: string) => {
     try {
-      const response = await validateBatchNumber(batchLotNumber);
+      const response = await validateBatchNumber(
+        batchLotNumber,
+        Number(form.categoryId),
+      );
 
       if (response.exists) {
         setErrors((prev) => ({
@@ -701,7 +704,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       return;
     }
 
-    const batchValidation = await validateBatchNumber(form.batchLotNumber);
+    const batchValidation = await validateBatchNumber(
+      form.batchLotNumber,
+      Number(form.categoryId),
+    );
 
     if (batchValidation.exists) {
       setErrors((prev) => ({
@@ -2035,7 +2041,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               )}
             </div>
 
-            
             <Input
               type="number"
               label="Shelf Life (In Months)"

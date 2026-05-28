@@ -529,25 +529,48 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     }
   };
 
-  const checkBatchNumber = async (batchLotNumber: string) => {
-    try {
-      const response = await validateBatchNumber(batchLotNumber);
-      if (response.exists) {
-        setErrors((prev) => ({
-          ...prev,
-          batchLotNumber: "Batch number already exists",
-        }));
-      } else {
-        setErrors((prev) => {
-          const copy = { ...prev };
-          delete copy.batchLotNumber;
-          return copy;
-        });
+  // const checkBatchNumber = async (batchLotNumber: string) => {
+  //   try {
+  //     const response = await validateBatchNumber(batchLotNumber);
+  //     if (response.exists) {
+  //       setErrors((prev) => ({
+  //         ...prev,
+  //         batchLotNumber: "Batch number already exists",
+  //       }));
+  //     } else {
+  //       setErrors((prev) => {
+  //         const copy = { ...prev };
+  //         delete copy.batchLotNumber;
+  //         return copy;
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error("Batch validation failed:", error);
+  //   }
+  // };
+
+   const checkBatchNumber = async (batchLotNumber: string) => {
+      try {
+        const response = await validateBatchNumber(
+          batchLotNumber,
+          Number(categoryId),
+        );
+  
+        if (response.exists) {
+          setErrors((prev) => ({
+            ...prev,
+            batchLotNumber: "Batch number already exists",
+          }));
+        } else {
+          setErrors((prev) => ({
+            ...prev,
+            batchLotNumber: "",
+          }));
+        }
+      } catch (error) {
+        console.error("Batch validation failed:", error);
       }
-    } catch (error) {
-      console.error("Batch validation failed:", error);
-    }
-  };
+    };
 
   const handleViewProduct = () => {
     router.push("/seller_7a3b9f2c/products");
@@ -1503,7 +1526,11 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       return;
     }
 
-    const batchValidation = await validateBatchNumber(form.batchLotNumber);
+    // const batchValidation = await validateBatchNumber(form.batchLotNumber);
+    const batchValidation = await validateBatchNumber(
+          form.batchLotNumber,
+          Number(categoryId),
+        );
     if (batchValidation.exists) {
       setErrors((prev) => ({
         ...prev,
