@@ -36,26 +36,14 @@ export default function DatePicker({
 
     document.addEventListener("mousedown", handleClickOutside);
 
-    return () =>
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onClose]);
 
   const days = useMemo(() => {
     const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-    const daysInMonth = new Date(
-      currentYear,
-      currentMonth + 1,
-      0
-    ).getDate();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-    const prevMonthDays = new Date(
-      currentYear,
-      currentMonth,
-      0
-    ).getDate();
+    const prevMonthDays = new Date(currentYear, currentMonth, 0).getDate();
 
     const calendarDays = [];
 
@@ -84,15 +72,11 @@ export default function DatePicker({
   }, [currentMonth, currentYear]);
 
   const handlePrevMonth = () => {
-    setTempDate(
-      new Date(currentYear, currentMonth - 1, 1)
-    );
+    setTempDate(new Date(currentYear, currentMonth - 1, 1));
   };
 
   const handleNextMonth = () => {
-    setTempDate(
-      new Date(currentYear, currentMonth + 1, 1)
-    );
+    setTempDate(new Date(currentYear, currentMonth + 1, 1));
   };
 
   const handleDateClick = (day: number, isCurrentMonth: boolean) => {
@@ -117,22 +101,17 @@ export default function DatePicker({
   return (
     <div
       ref={pickerRef}
-      className="absolute z-50 mt-2 w-[350px] rounded-2xl border border-pneutral-100 bg-white px-4 pt-4 pb-3 shadow-xl"
-    >
-      {/* Header */}
-      <div className="mb-5 flex items-center justify-between">
+      className="absolute z-50 mt-2 w-71 h-91 rounded-lg border border-pneutral-100 bg-white p-3 shadow-xl">
+      <div className="mb-3 flex items-center justify-between">
         <button
           type="button"
           onClick={handlePrevMonth}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-pneutral-200"
+          className="w-8 h-8 border-pneutral-200 rounded-lg border flex items-center justify-center"
         >
-          <img
-            src="/icons/CalendarLeft.svg"
-            className="h-4 w-4"
-          />
+          <img src="/icons/CalendarLeft.svg" className="h-4 w-4" />
         </button>
 
-        <h2 className="text-lg font-medium text-pneutral-900">
+        <h2 className="text-p3 font-medium text-pneutral-900">
           {tempDate.toLocaleString("default", {
             month: "long",
             year: "numeric",
@@ -142,33 +121,26 @@ export default function DatePicker({
         <button
           type="button"
           onClick={handleNextMonth}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-pneutral-200"
+         className="w-8 h-8 border-pneutral-200 rounded-lg border flex items-center justify-center"
         >
-          <img
-            src="/icons/CalendarRight.svg"
-            className="h-4 w-4"
-          />
+          <img src="/icons/CalendarRight.svg" className="h-4 w-4" />
         </button>
       </div>
 
       {/* Week Labels */}
-      <div className="mb-3 grid grid-cols-7">
+      <div className="grid grid-cols-7">
         {weekDays.map((day) => (
-          <div
-            key={day}
-            className="text-center text-sm text-pneutral-400"
-          >
+          <div key={day} className="text-center text-p3 font-normal text-pneutral-400">
             {day}
           </div>
         ))}
       </div>
 
       {/* Dates */}
-      <div className="grid grid-cols-7 gap-y-2">
+      <div className="grid grid-cols-7">
         {days.map((dayObj, index) => {
           const isSelected =
-            dayObj.date === tempDate.getDate() &&
-            dayObj.currentMonth;
+            dayObj.date === tempDate.getDate() && dayObj.currentMonth;
 
           const isToday =
             dayObj.date === today.getDate() &&
@@ -180,22 +152,17 @@ export default function DatePicker({
             <button
               key={index}
               type="button"
-              onClick={() =>
-                handleDateClick(
-                  dayObj.date,
-                  dayObj.currentMonth
-                )
-              }
+              onClick={() => handleDateClick(dayObj.date, dayObj.currentMonth)}
               className={`
-                mx-auto flex h-10 w-10 items-center justify-center rounded-xl text-base
+                mx-auto flex h-9 w-9 items-center justify-center rounded-xl text-p3 font-medium text-pneutral-400
                 ${
                   isSelected
                     ? "bg-primary-900 text-white"
                     : isToday
-                    ? "bg-pneutral-100 text-pneutral-900"
-                    : dayObj.currentMonth
-                    ? "text-pneutral-900"
-                    : "text-primary-100"
+                      ? "bg-sneutral-100 text-pneutral-900"
+                      : dayObj.currentMonth
+                        ? "text-pneutral-900"
+                        : "text-primary-100"
                 }
               `}
             >
@@ -206,11 +173,11 @@ export default function DatePicker({
       </div>
 
       {/* Footer */}
-      <div className="mt-4 flex justify-end gap-2 border-t border-pneutral-200 pt-4">
+      <div className="mt-2 flex justify-end gap-2 border-t border-pneutral-200 pt-4">
         <button
           type="button"
           onClick={onClose}
-          className="h-10 rounded-xl border border-pneutral-200 px-4 text-pneutral-900"
+          className="w-15.25 h-8 rounded-lg border border-pneutral-200"
         >
           Cancel
         </button>
@@ -218,7 +185,7 @@ export default function DatePicker({
         <button
           type="button"
           onClick={handleDone}
-          className="h-10 rounded-xl bg-primary-900 px-4 text-white shadow-[inset_0px_-2px_2px_0px_#3030301A,inset_0px_12px_12px_0px_#FFFFFF1F]"
+          className="w-13 h-8 rounded-lg bg-primary-900 text-white shadow-[inset_0px_-2px_2px_0px_#3030301A,inset_0px_12px_12px_0px_#FFFFFF1F]"
         >
           Done
         </button>

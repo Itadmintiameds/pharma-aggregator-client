@@ -366,6 +366,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                 id="schemeName"
                 value={form.schemeName}
                 onChange={handleInputChange}
+                maxLength={50}
                 className="w-113.25 h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
               />
               {errors.schemeName && (
