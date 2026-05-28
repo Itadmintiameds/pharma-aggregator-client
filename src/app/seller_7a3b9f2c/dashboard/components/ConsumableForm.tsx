@@ -865,7 +865,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     if (!pDesc) e.productDescription = "Product description is required";
     else if (pDesc.length > 1000) e.productDescription = "Product description must not exceed 1000 characters";
 
-    if (mode === "edit") {
+    if (mode === "edit" && Number(form.stockQuantity) === 0) {
       if (!form.storageCondition) e.storageCondition = "Storage condition is required";
     }
 
@@ -1090,6 +1090,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   }
 
   const isEdit = mode === "edit";
+  const hasStock = isEdit && Number(form.stockQuantity) > 0;
 
   // Resolved display for material types multi-select in edit mode
   const materialTypesDisplayValue = isEdit
@@ -1400,18 +1401,22 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 value={form.manufacturerName} onChange={handleChange} error={errors.manufacturerName} required />
             )}
 
-            {/* Storage Condition — editable in both modes */}
-            <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
-              <label className={fieldLabel}>Storage Condition {requiredStar}</label>
-              <Dropdown
-                options={storageConditionOptions}
-                value={form.storageCondition}
-                onChange={(val, label) => handleSelectChange("storageCondition", { value: val, label })}
-                placeholder="Select storage condition"
-                error={errors.storageCondition ? " " : ""}
-              />
-              {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
-            </div>
+            {/* Storage Condition — locked after stock entry */}
+            {hasStock ? (
+              <NonEditableSelect label="Storage Condition" value={displayLabels.storageConditionLabel} required />
+            ) : (
+              <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
+                <label className={fieldLabel}>Storage Condition {requiredStar}</label>
+                <Dropdown
+                  options={storageConditionOptions}
+                  value={form.storageCondition}
+                  onChange={(val, label) => handleSelectChange("storageCondition", { value: val, label })}
+                  placeholder="Select storage condition"
+                  error={errors.storageCondition ? " " : ""}
+                />
+                {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
+              </div>
+            )}
 
             {/* Brochure */}
             <div ref={setFieldRef("brochure") as React.RefCallback<HTMLDivElement>}>
@@ -1457,7 +1462,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
 
-            {isEdit ? (
+            {/* Pack Type — locked after stock entry */}
+            {hasStock ? (
               <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
             ) : (
               <div className="flex flex-col gap-1" ref={setFieldRef("packType") as React.RefCallback<HTMLDivElement>}>
@@ -1473,11 +1479,21 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               </div>
             )}
 
-            <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 100"
-              value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
+            {/* Units per Pack — locked after stock entry */}
+            {hasStock ? (
+              <NonEditableField label="Number of Units per Pack Type" value={form.unitsPerPack} required />
+            ) : (
+              <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 100"
+                value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
+            )}
 
-            <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 10"
-              value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
+            {/* Number of Packs — locked after stock entry */}
+            {hasStock ? (
+              <NonEditableField label="Number of Packs" value={form.numberOfPacks} required />
+            ) : (
+              <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 10"
+                value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
+            )}
 
             <Input label="Pack Size (No. of Units per Pack Type X No. of Packs)" name="packSize"
               value={form.packSize} readOnly />

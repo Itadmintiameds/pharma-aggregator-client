@@ -737,7 +737,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (!form.deviceClassification) e.deviceClassification = "Device classification is required";
       if (form.udiNumber.trim().length > 60) e.udiNumber = "UDI / Serial number must not exceed 60 characters";
       if (selectedMaterialTypes.length === 0) e.materialType = "At least one material / build type is required";
-      if (!form.amcAvailability) e.amcAvailability = "AMC / Service availability is required";
       if (!form.countryOfOrigin) e.countryOfOrigin = "Country of origin is required";
       const manName = form.manufacturerName.trim();
       if (!manName) e.manufacturerName = "Manufacturer name is required";
@@ -746,12 +745,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
       if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
       else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
-      if (!form.warrantyPeriod.trim()) {
-        e.warrantyPeriod = "Warranty period is required";
-      } else {
-        const wp = Number(form.warrantyPeriod);
-        if (isNaN(wp) || wp < 0 || !Number.isInteger(wp)) e.warrantyPeriod = "Warranty period must be a non-negative integer (months)";
-      }
       if (!form.manufacturingDate) {
         e.manufacturingDate = "Manufacturing date is required";
       } else {
@@ -770,6 +763,15 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       }
       if (!form.deviceSpecificationUnitId) e.deviceSpecificationUnitId = "Unit is required";
     }
+
+    // Warranty Period and AMC are editable in both create and edit modes
+    if (!form.warrantyPeriod.trim()) {
+      e.warrantyPeriod = "Warranty period is required";
+    } else {
+      const wp = Number(form.warrantyPeriod);
+      if (isNaN(wp) || wp < 0 || !Number.isInteger(wp)) e.warrantyPeriod = "Warranty period must be a non-negative integer (months)";
+    }
+    if (!form.amcAvailability) e.amcAvailability = "AMC / Service availability is required";
 
     const iUse = form.intendedUse.trim();
     if (!iUse) e.intendedUse = "Intended use / purpose is required";
@@ -1289,53 +1291,37 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
             </div>
 
-            {/* Certifications — dropdown */}
+            {/* Certifications — dropdown (editable in both create and edit modes) */}
             <div className="flex flex-col gap-1" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
-              {isEdit ? (
-                <NonEditableField label="Certifications / Compliance" value={selectedCertifications.map((c) => c.label).join(", ")} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
-                  <CheckboxDropdown
-                    options={certificationMasterOptions}
-                    selectedValues={selectedCertifications.map(c => c.id)}
-                    onChange={(values) => {
-                      const newCerts = values.map(val => {
-                        const existing = selectedCertifications.find(c => c.id === val);
-                        if (existing) return existing;
-                        const opt = certificationMasterOptions.find(o => o.value === val);
-                        return {
-                          id: val, label: opt?.label || "", tagCode: opt?.tagCode || "",
-                          file: null, fileName: "", uploading: false, isUploaded: false,
-                          previewUrl: null, productCertificateDocumentId: opt?.certificationId || 0,
-                          existingUrl: undefined,
-                        };
-                      });
-                      setSelectedCertifications(newCerts);
-                      if (errors.certifications) setErrors(p => { const n = { ...p }; delete n.certifications; return n; });
-                    }}
-                    placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
-                    disabled={loadingCertifications}
-                    error={errors.certifications ? " " : ""}
-                    showSelectAll={false}
-                  />
-                  {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
-                </>
-              )}
+              <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
+              <CheckboxDropdown
+                options={certificationMasterOptions}
+                selectedValues={selectedCertifications.map(c => c.id)}
+                onChange={(values) => {
+                  const newCerts = values.map(val => {
+                    const existing = selectedCertifications.find(c => c.id === val);
+                    if (existing) return existing;
+                    const opt = certificationMasterOptions.find(o => o.value === val);
+                    return {
+                      id: val, label: opt?.label || "", tagCode: opt?.tagCode || "",
+                      file: null, fileName: "", uploading: false, isUploaded: false,
+                      previewUrl: null, productCertificateDocumentId: opt?.certificationId || 0,
+                      existingUrl: undefined,
+                    };
+                  });
+                  setSelectedCertifications(newCerts);
+                  if (errors.certifications) setErrors(p => { const n = { ...p }; delete n.certifications; return n; });
+                }}
+                placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
+                disabled={loadingCertifications}
+                error={errors.certifications ? " " : ""}
+                showSelectAll={false}
+              />
+              {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
-            {/* Certifications — upload */}
-            {isEdit ? (
-              selectedCertifications.map((cert) => (
-                <div key={cert.id} className="flex flex-col gap-1 col-span-1">
-                  <NonEditableField
-                    label={`Upload ${cert.label}`}
-                    value={cert.existingUrl ? (cert.existingUrl.split("/").pop() || cert.label) : "Not uploaded"}
-                    required
-                  />
-                </div>
-              ))
-            ) : selectedCertifications.length === 0 ? (
+            {/* Certifications — upload (editable in both create and edit modes) */}
+            {selectedCertifications.length === 0 ? (
               <div className="flex flex-col gap-1 col-span-1" data-field="certUploadFallback">
                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
                 <div className="flex items-center w-full h-[52px] rounded-lg border border-pneutral-300 bg-white overflow-hidden">
@@ -1406,42 +1392,32 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {/* Warranty Period */}
-            {isEdit ? (
-              <NonEditableField label="Warranty Period (months)" value={form.warrantyPeriod} />
-            ) : (
-              <div ref={setFieldRef("warrantyPeriod") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Warranty Period (months)"
-                  name="warrantyPeriod"
-                  value={form.warrantyPeriod}
-                  onChange={handleChange}
-                  placeholder="e.g., 12"
-                  required
-                  error={errors.warrantyPeriod}
-                  maxLength={3}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
+            {/* Warranty Period — editable in both create and edit modes */}
+            <div ref={setFieldRef("warrantyPeriod") as React.RefCallback<HTMLDivElement>}>
+              <Input
+                label="Warranty Period (months)"
+                name="warrantyPeriod"
+                value={form.warrantyPeriod}
+                onChange={handleChange}
+                placeholder="e.g., 12"
+                required
+                error={errors.warrantyPeriod}
+                maxLength={3}
+              />
+            </div>
 
-            {/* AMC / Service Availability */}
-            {isEdit ? (
-              <NonEditableSelect label="AMC / Service Availability" value={displayLabels.amcLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("amcAvailability") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>AMC / Service Availability {requiredStar}</label>
-                <Dropdown
-                  options={amcOptions}
-                  value={form.amcAvailability}
-                  onChange={(val, label) => handleSelectChange("amcAvailability", { value: val, label })}
-                  placeholder="Select Yes or No"
-                  error={errors.amcAvailability ? " " : ""}
-                />
-                {errors.amcAvailability && <p className={errorMsg}>{errors.amcAvailability}</p>}
-              </div>
-            )}
+            {/* AMC / Service Availability — editable in both create and edit modes */}
+            <div className="flex flex-col gap-1" ref={setFieldRef("amcAvailability") as React.RefCallback<HTMLDivElement>}>
+              <label className={fieldLabel}>AMC / Service Availability {requiredStar}</label>
+              <Dropdown
+                options={amcOptions}
+                value={form.amcAvailability}
+                onChange={(val, label) => handleSelectChange("amcAvailability", { value: val, label })}
+                placeholder="Select Yes or No"
+                error={errors.amcAvailability ? " " : ""}
+              />
+              {errors.amcAvailability && <p className={errorMsg}>{errors.amcAvailability}</p>}
+            </div>
 
             {/* Country of Origin */}
             {isEdit ? (
@@ -1552,35 +1528,39 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {/* Units per Pack */}
-            <div ref={setFieldRef("unitPerPack") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Number of Units per Pack Type"
-                name="unitPerPack"
-                value={form.unitPerPack}
-                onChange={handleChange}
-                placeholder="e.g., 100"
-                required
-                error={errors.unitPerPack}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
+            {/* Units per Pack — locked after stock entry */}
+            {isEdit && Number(form.stockQuantity) > 0 ? (
+              <NonEditableField label="Number of Units per Pack Type" value={form.unitPerPack} required />
+            ) : (
+              <div ref={setFieldRef("unitPerPack") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="Number of Units per Pack Type"
+                  name="unitPerPack"
+                  value={form.unitPerPack}
+                  onChange={handleChange}
+                  placeholder="e.g., 100"
+                  required
+                  error={errors.unitPerPack}
+                />
+              </div>
+            )}
 
-            {/* Number of Packs */}
-            <div ref={setFieldRef("numberOfPacks") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Number of Packs"
-                name="numberOfPacks"
-                value={form.numberOfPacks}
-                onChange={handleChange}
-                placeholder="e.g., 10"
-                required
-                error={errors.numberOfPacks}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
+            {/* Number of Packs — locked after stock entry */}
+            {isEdit && Number(form.stockQuantity) > 0 ? (
+              <NonEditableField label="Number of Packs" value={form.numberOfPacks} required />
+            ) : (
+              <div ref={setFieldRef("numberOfPacks") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="Number of Packs"
+                  name="numberOfPacks"
+                  value={form.numberOfPacks}
+                  onChange={handleChange}
+                  placeholder="e.g., 10"
+                  required
+                  error={errors.numberOfPacks}
+                />
+              </div>
+            )}
 
             {/* Pack Size — read-only, auto-computed */}
             <div>

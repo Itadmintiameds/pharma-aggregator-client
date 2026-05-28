@@ -1150,7 +1150,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
     else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
 
-    if (mode === "create" && images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
+    if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
     if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
 
     return e;
