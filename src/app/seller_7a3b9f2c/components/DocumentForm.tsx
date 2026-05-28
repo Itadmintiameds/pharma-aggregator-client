@@ -788,6 +788,7 @@ export default function DocumentForm({
                         alt="Upload"
                         width={18}
                         height={18}
+                        className="brightness-0 invert"
                       />
                     </div>
 
@@ -1130,6 +1131,7 @@ export default function DocumentForm({
                   alt="Upload"
                   width={18}
                   height={18}
+                  className="brightness-0 invert"
                 />
               </div>
 

@@ -27,7 +27,9 @@ import {
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import MonthPicker from "@/src/app/commonComponents/MonthPicker";
+import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import CommonModal from "../commonComponent/CommonModal";
@@ -395,31 +397,14 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
+  const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] = useState(false);
+  const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const unitDropdownRef = useRef<HTMLDivElement>(null);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-  const getMinExpiryMonth = () => {
-    const today = new Date();
-    const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
-    if (!form.manufacturingDate) {
-      return `${minFromNow.getFullYear()}-${String(minFromNow.getMonth() + 1).padStart(2, "0")}`;
-    }
-    const mfg = new Date(form.manufacturingDate);
-    const minFromMfg = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
-    const min = minFromMfg > minFromNow ? minFromMfg : minFromNow;
-    return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}`;
-  };
-
-  const getMaxExpiryMonth = () => {
-    if (!form.manufacturingDate) return "";
-    const mfg = new Date(form.manufacturingDate);
-    const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
-    return `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, "0")}`;
-  };
 
   const toLocalDateTimeString = (date: Date | null): string | null => {
     if (!date) return null;
@@ -553,8 +538,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         expiryDate:           expDate,
         stockQuantity:        String(pricing.stockQuantity || ""),
         dateOfStockEntry:     pricing.dateOfStockEntry ? new Date(pricing.dateOfStockEntry) : new Date(),
-        sellingPrice:         String(pricing.sellingPrice || ""),
-        mrp:                  String(pricing.mrp || ""),
+        sellingPrice:         pricing.sellingPrice != null ? String(pricing.sellingPrice) : "",
+        mrp:                  pricing.mrp != null ? String(pricing.mrp) : "",
         discountPercentage:   String(pricing.discountPercentage || ""),
         gstPercentage:        gstVal,
         hsnCode:              String(pricing.hsnCode || ""),
@@ -978,21 +963,57 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       ),
     );
 
-  const handleImageFiles = (files: FileList | File[]) => {
-    const fileArr = Array.from(files);
-    const allowedFormats = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml"];
-    const maxSizeBytes = 5 * 1024 * 1024;
-    if (fileArr.find((f) => !allowedFormats.includes(f.type))) {
-      setErrors((p) => ({ ...p, images: "Unsupported image format. Only JPG, JPEG, PNG, SVG are allowed." })); return;
+  const handleMonthSelect = (
+    field: "manufacturingDate" | "expiryDate",
+    month: number,
+    year: number,
+  ) => {
+    const selectedDate = new Date(year, month, 1);
+
+    if (field === "manufacturingDate") {
+      const today = new Date();
+      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      if (selectedDate > currentMonth) {
+        setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
+        return;
+      }
+      setErrors((prev) => ({ ...prev, manufacturingDate: "", expiryDate: "" }));
+      setForm({ ...form, manufacturingDate: selectedDate, expiryDate: null, shelfLifeMonths: "" });
+      setShowManufacturingMonthPicker(false);
+      return;
     }
-    if (fileArr.find((f) => f.size > maxSizeBytes)) {
-      setErrors((p) => ({ ...p, images: "Image file size exceeds the 5 MB limit." })); return;
+
+    if (field === "expiryDate") {
+      const today = new Date();
+      const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+      if (selectedDate < minFromNow) {
+        setErrors((p) => ({ ...p, expiryDate: "Expiry date must be at least 3 months from current month" }));
+        setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: "" }));
+        setShowExpiryMonthPicker(false);
+        return;
+      }
+      if (form.manufacturingDate) {
+        const mfg = form.manufacturingDate;
+        const minExpiry = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
+        const totalMonths = (selectedDate.getFullYear() - mfg.getFullYear()) * 12 + (selectedDate.getMonth() - mfg.getMonth());
+        if (selectedDate < minExpiry) {
+          setErrors((p) => ({ ...p, expiryDate: "Expiry must be at least 3 months after Manufacturing Date" }));
+          setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: "" }));
+        } else if (selectedDate < mfg) {
+          setErrors((p) => ({ ...p, expiryDate: "Expiry cannot be before Manufacturing Date" }));
+          setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: "" }));
+        } else if (totalMonths > 60) {
+          setErrors((p) => ({ ...p, expiryDate: "Shelf life cannot exceed 5 years (60 months)" }));
+          setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: "" }));
+        } else {
+          setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
+          setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: totalMonths.toString() }));
+        }
+      } else {
+        setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: "" }));
+      }
+      setShowExpiryMonthPicker(false);
     }
-    if (images.length + existingImages.length + fileArr.length > 5) {
-      setErrors((p) => ({ ...p, images: "Maximum 5 images allowed" })); return;
-    }
-    setImages((p) => [...p, ...fileArr]);
-    setErrors((p) => { const n = { ...p }; delete n.images; return n; });
   };
 
   // ─── Validation ───────────────────────────────────────────────────────────────
@@ -1129,7 +1150,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
     else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
 
-    if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
+    if (mode === "create" && images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
     if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
 
     return e;
@@ -1251,18 +1272,33 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
     // ── EDIT MODE ──────────────────────────────────────────────────────────────
     if (mode === "edit") {
-      const currentProductId  = resolvedProductId || productId || "";
-      const currentAttributeId = productAttributeId;
+      const currentProductId = resolvedProductId || productId || "";
+      let currentAttributeId = productAttributeId;
 
       try {
-        await updateProduct(currentProductId, payload as never);
+        const updateData = await updateProduct(currentProductId, payload as never) as ApiResponseData;
+
+        // For Excel-uploaded products the attributeId may not be pre-populated
+        if (!currentAttributeId) {
+          currentAttributeId = extractProductAttributeId(updateData) || extractAttributeIdFromProduct(updateData) || "";
+        }
+
+        // Extract server-assigned productCertificateDocumentId values from the update response
+        let certDocMap = extractCertDocumentIdMap(updateData);
+        if (certDocMap.size === 0) {
+          certDocMap = extractCertDocumentIdMapFromProduct(updateData);
+        }
+        const finalCertsToUpload = certsToUpload.map((c) => {
+          const serverDocId = certDocMap.get(Number(c.id));
+          return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
+        });
 
         if (hasImageUpload) {
           await uploadProductImages(currentProductId, images);
         }
 
         if (currentAttributeId) {
-          for (const cert of certsToUpload) {
+          for (const cert of finalCertsToUpload) {
             const result = await uploadCosmeticCertificate(currentAttributeId, cert.productCertificateDocumentId, cert.file!);
             if (!result.success) {
               throw new Error(`Failed to upload certificate "${cert.label}": ${result.message}`);
@@ -1279,7 +1315,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
         setSubmitting(false);
         if (onSubmitSuccess) onSubmitSuccess();
-        else router.push(`/seller_7a3b9f2c/products/view/${currentProductId}`);
+        else setShowSuccessModal(true);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("Edit submit error:", err);
@@ -1402,13 +1438,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
       <PopupModal
         isOpen={showSuccessModal}
-        title="Product Saved Successfully!"
-        description="Your cosmetic product has been saved and is now live on the platform"
+        title={isEdit ? "Product Updated Successfully!" : "Product Saved Successfully!"}
+        description={isEdit ? "Your product has been updated successfully." : "Your cosmetic product has been saved and is now live on the platform"}
         primaryActionText="View Product"
-        secondaryActionText="Continue Adding"
+        secondaryActionText={isEdit ? "Continue Editing" : "Continue Adding"}
         tertiaryActionText="Back to Dashboard"
         onPrimaryAction={() => { router.push(`/seller_7a3b9f2c/products/view/${resolvedProductId}`); }}
-        onSecondaryAction={() => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); }}
+        onSecondaryAction={isEdit ? () => setShowSuccessModal(false) : () => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); }}
         onTertiaryAction={() => { router.push("/seller_7a3b9f2c/dashboard"); }}
         onClose={() => setShowSuccessModal(false)}
       />
@@ -1966,51 +2002,72 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               )}
             </div>
 
-            <Input
-              label="Manufacturing Date"
-              type="month"
-              name="manufacturingDate"
-              id="manufacturingDate"
-              readOnly={isEdit}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (!value) return;
-                const [year, month] = value.split("-").map(Number);
-                const date = new Date(year, month - 1, 1);
-                const today = new Date();
-                const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                if (date > currentMonth) {
-                  setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
-                  return;
+            <div className="relative">
+              <Input
+                label="Manufacturing Date"
+                type="text"
+                name="manufacturingDate"
+                id="manufacturingDate"
+                required
+                readOnly={isEdit}
+                value={
+                  form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
+                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
+                    : ""
                 }
-                setErrors((prev) => ({ ...prev, manufacturingDate: "", expiryDate: "" }));
-                setForm({ ...form, manufacturingDate: date, expiryDate: null, shelfLifeMonths: "" });
-              }}
-              value={
-                form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
-                  ? `${form.manufacturingDate.getFullYear()}-${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}`
-                  : ""
-              }
-              error={errors.manufacturingDate}
-              required
-            />
+                placeholder="MM/YYYY"
+                onChange={() => {}}
+                onClick={() => { if (!isEdit) setShowManufacturingMonthPicker(true); }}
+                onKeyDown={(e) => e.preventDefault()}
+                onPaste={(e) => e.preventDefault()}
+                error={errors.manufacturingDate}
+              />
+              {showManufacturingMonthPicker && !isEdit && (
+                <MonthPicker
+                  selectedMonth={form.manufacturingDate ? form.manufacturingDate.getMonth() : new Date().getMonth()}
+                  selectedYear={form.manufacturingDate ? form.manufacturingDate.getFullYear() : new Date().getFullYear()}
+                  maxDate={new Date()}
+                  onSelect={(month, year) => handleMonthSelect("manufacturingDate", month, year)}
+                  onClose={() => setShowManufacturingMonthPicker(false)}
+                />
+              )}
+            </div>
 
-            <Input
-              label="Expiry Date"
-              type="month"
-              name="expiryDate"
-              value={
-                form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
-                  ? `${form.expiryDate.getFullYear()}-${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}`
-                  : ""
-              }
-              readOnly={isEdit}
-              onChange={handleChange}
-              min={getMinExpiryMonth()}
-              max={getMaxExpiryMonth()}
-              error={errors.expiryDate}
-              required
-            />
+            <div className="relative">
+              <Input
+                label="Expiry Date"
+                name="expiryDate"
+                type="text"
+                required
+                readOnly={isEdit}
+                value={
+                  form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
+                    ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
+                    : ""
+                }
+                placeholder="MM/YYYY"
+                onChange={() => {}}
+                onClick={() => { if (!isEdit) setShowExpiryMonthPicker(true); }}
+                onFocus={() => { if (!isEdit) setShowExpiryMonthPicker(true); }}
+                onKeyDown={(e) => e.preventDefault()}
+                onPaste={(e) => e.preventDefault()}
+                error={errors.expiryDate}
+              />
+              {showExpiryMonthPicker && !isEdit && (
+                <MonthPicker
+                  selectedMonth={form.expiryDate ? form.expiryDate.getMonth() : new Date().getMonth()}
+                  selectedYear={form.expiryDate ? form.expiryDate.getFullYear() : new Date().getFullYear()}
+                  minDate={new Date(new Date().getFullYear(), new Date().getMonth() + 4, 1)}
+                  maxDate={
+                    form.manufacturingDate
+                      ? new Date(form.manufacturingDate.getFullYear() + 5, form.manufacturingDate.getMonth(), 1)
+                      : undefined
+                  }
+                  onSelect={(month, year) => handleMonthSelect("expiryDate", month, year)}
+                  onClose={() => setShowExpiryMonthPicker(false)}
+                />
+              )}
+            </div>
 
             <Input
               type="number"
@@ -2111,65 +2168,19 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         </div>
 
         {/* ── Section 3: Product Photos ─────────────────────────────────────────── */}
-        <div className="relative border border-neutral-200 rounded-xl p-6 bg-white"
-          ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
-          <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
-            Product Photos {mode === "create" && <span className="text-red-500">*</span>}
-          </h2>
-
-          {existingImages.length > 0 && (
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-gray-600 mb-2">Current Images</p>
-              <div className="flex flex-wrap gap-3">
-                {existingImages.map((url, i) => (
-                  <div key={i} className="relative group flex-shrink-0">
-                    <img src={url} alt={`existing-${i}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
-                    <button type="button"
-                      onClick={() => setExistingImages((p) => p.filter((_, idx) => idx !== i))}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
-            onClick={() => document.getElementById("cosmeticFileInput")?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}>
-            <div className="flex flex-col items-center justify-center gap-2">
-              <div className="w-12 h-12 flex items-center justify-center">
-                <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
-              </div>
-              <div className="text-sm font-medium text-gray-600 text-center">Choose a file or drag &amp; drop it here</div>
-              <div className="text-xs text-gray-400 text-center">Click to browse PNG, JPG, and SVG</div>
-            </div>
-          </div>
-
-          <input id="cosmeticFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg,image/svg+xml" className="hidden"
-            onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); }} />
-
-          {images.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {images.map((file, i) => {
-                const url = URL.createObjectURL(file);
-                return (
-                  <div key={i} className="relative group flex-shrink-0">
-                    <img src={url} alt={`Product ${i + 1}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
-                    <button type="button"
-                      onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                      <X size={12} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {errors.images && <p className={`${errorMsg} mt-2`}>{errors.images}</p>}
+        <div ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
+          <ProductImageUpload
+            title="Product Photos"
+            required={mode === "create"}
+            images={images}
+            setImages={setImages}
+            existingImages={existingImages}
+            setExistingImages={setExistingImages}
+            error={errors.images}
+            setErrors={setErrors}
+            isReadOnly={isEdit}
+            mode={mode}
+          />
         </div>
 
         {/* Actions */}

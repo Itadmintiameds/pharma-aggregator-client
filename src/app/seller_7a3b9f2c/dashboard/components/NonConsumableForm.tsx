@@ -9,7 +9,9 @@ import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscount from "./AdditionalDiscount";
 import PopupModal from "../commonComponent/PopupModal";
 import CommonModal from "../commonComponent/CommonModal";
-import { FileText, X, RefreshCw, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import MonthPicker from "@/src/app/commonComponents/MonthPicker";
+import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
 import {
   getNonConsumableDeviceCategories,
@@ -254,6 +256,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
+  const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] = useState(false);
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const unitDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
@@ -412,8 +415,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         manufacturingDate: pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null,
         dateOfStockEntry: pricing.dateOfStockEntry ? new Date(pricing.dateOfStockEntry) : new Date(),
         stockQuantity: String(pricing.stockQuantity || ""),
-        sellingPrice: String(pricing.sellingPrice || ""),
-        mrp: String(pricing.mrp || ""),
+        sellingPrice: pricing.sellingPrice != null ? String(pricing.sellingPrice) : "",
+        mrp: pricing.mrp != null ? String(pricing.mrp) : "",
         gstPercentage: String(pricing.gstPercentage ?? ""),
         discountPercentage: String(pricing.discountPercentage || ""),
         finalPrice: String(pricing.finalPrice || ""),
@@ -693,17 +696,17 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     setExistingBrochureUrl("");
   };
 
-  const handleImageFiles = (files: FileList | File[]) => {
-    const fileArr = Array.from(files);
-    const allowedFormats = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml"];
-    const maxSizeBytes = 5 * 1024 * 1024;
-    const invalid = fileArr.find((f) => !allowedFormats.includes(f.type));
-    if (invalid) { setErrors((p) => ({ ...p, images: "Unsupported image format. Only JPG, JPEG, PNG are allowed." })); return; }
-    const oversized = fileArr.find((f) => f.size > maxSizeBytes);
-    if (oversized) { setErrors((p) => ({ ...p, images: "Image file size exceeds the maximum limit." })); return; }
-    if (images.length + existingImages.length + fileArr.length > 5) { setErrors((p) => ({ ...p, images: "Maximum 5 images allowed" })); return; }
-    setImages((p) => [...p, ...fileArr]);
-    setErrors((p) => { const n = { ...p }; delete n.images; return n; });
+  const handleManufacturingMonthSelect = (month: number, year: number) => {
+    const selectedDate = new Date(year, month, 1);
+    const today = new Date();
+    const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    if (selectedDate > currentMonth) {
+      setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
+      return;
+    }
+    setErrors((prev) => ({ ...prev, manufacturingDate: "" }));
+    setForm((p) => ({ ...p, manufacturingDate: selectedDate }));
+    setShowManufacturingMonthPicker(false);
   };
 
   const handleViewProduct = () => { router.push(`/seller_7a3b9f2c/products/view/${resolvedProductId}`); };
@@ -733,12 +736,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       else if (mNumber.length > 60) e.modelNumber = "Model number must not exceed 60 characters";
       if (!form.deviceClassification) e.deviceClassification = "Device classification is required";
       if (form.udiNumber.trim().length > 60) e.udiNumber = "UDI / Serial number must not exceed 60 characters";
-      if (selectedCertifications.length === 0) {
-        e.certifications = "At least one certification / compliance is required";
-      } else {
-        const missing = selectedCertifications.find((c) => !c.file && !c.existingUrl);
-        if (missing) e.certifications = `Please upload the certificate file for "${missing.label}"`;
-      }
       if (selectedMaterialTypes.length === 0) e.materialType = "At least one material / build type is required";
       if (!form.amcAvailability) e.amcAvailability = "AMC / Service availability is required";
       if (!form.countryOfOrigin) e.countryOfOrigin = "Country of origin is required";
@@ -829,6 +826,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
     if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
     if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
+
+    if (selectedCertifications.length === 0) {
+      e.certifications = "At least one certification / compliance is required";
+    } else {
+      const missing = selectedCertifications.find((c) => !c.file && !c.existingUrl);
+      if (missing) e.certifications = `Please upload the certificate file for "${missing.label}"`;
+    }
 
     return e;
   };
@@ -942,7 +946,22 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
       if (mode === "edit" && currentProductId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await updateProduct(currentProductId, payload as any);
+        const updateData = await updateProduct(currentProductId, payload as any) as ApiResponseData;
+
+        // For Excel-uploaded products the attributeId may not be pre-populated
+        if (!currentAttributeId) {
+          currentAttributeId = extractProductAttributeId(updateData) || "";
+        }
+
+        // Extract server-assigned productCertificateDocumentId values from the update response
+        const certDocMap = extractCertDocumentIdMap(updateData);
+        if (certDocMap.size > 0) {
+          certsToUpload = certsToUpload.map((c) => {
+            const serverDocId = certDocMap.get(Number(c.id));
+            return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
+          });
+        }
+
         if (images.length > 0) await uploadProductImages(currentProductId, images);
         if (currentAttributeId) {
           for (const cert of certsToUpload.filter((c) => c.file && !c.existingUrl)) {
@@ -955,7 +974,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           }
         }
         if (onSubmitSuccess) onSubmitSuccess();
-        else router.push(`/seller_7a3b9f2c/products/view/${currentProductId}`);
+        else setShowSuccessModal(true);
       } else {
         const createData: ApiResponseData = await createNonConsumableProduct(payload as Record<string, unknown>);
         const dataInner = createData?.data as ApiResponseData | undefined;
@@ -1009,29 +1028,27 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     <>
       <PopupModal
         isOpen={showSuccessModal}
-        title="Product Saved Successfully!"
-        description="Your product has been saved and is now live on the platform"
+        title={isEdit ? "Product Updated Successfully!" : "Product Saved Successfully!"}
+        description={isEdit ? "Your product has been updated successfully." : "Your product has been saved and is now live on the platform"}
         primaryActionText="View Product"
-        secondaryActionText="Continue Adding"
+        secondaryActionText={isEdit ? "Continue Editing" : "Continue Adding"}
         tertiaryActionText="Back to Dashboard"
         onPrimaryAction={handleViewProduct}
-        onSecondaryAction={handleContinueAdding}
+        onSecondaryAction={isEdit ? () => setShowSuccessModal(false) : handleContinueAdding}
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
       />
 
       {showAdditionalDiscountModal && (
         <CommonModal onClose={() => setShowAdditionalDiscountModal(false)} width="w-[600px]">
-          <div className="h-[80vh] overflow-hidden flex flex-col">
-            <AdditionalDiscount
-              initialData={convertToDiscountData(additionalDiscountSlabs)}
-              onSave={(slabs?: AdditionalDiscountData[]) => {
-                if (slabs) setAdditionalDiscountSlabs(convertToDiscountSlab(slabs));
-                setShowAdditionalDiscountModal(false);
-              }}
-              onClose={() => setShowAdditionalDiscountModal(false)}
-            />
-          </div>
+          <AdditionalDiscount
+            initialData={convertToDiscountData(additionalDiscountSlabs)}
+            onSave={(slabs?: AdditionalDiscountData[]) => {
+              if (slabs) setAdditionalDiscountSlabs(convertToDiscountSlab(slabs));
+              setShowAdditionalDiscountModal(false);
+            }}
+            onClose={() => setShowAdditionalDiscountModal(false)}
+          />
         </CommonModal>
       )}
 
@@ -1217,71 +1234,60 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               />
             </div>
 
-            {/* Technical Dimensions / Capacity / Configuration */}
-            {isEdit ? (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
-                <div className={`flex items-center border rounded-[8px] overflow-hidden border-[#C0C1BE]`}>
-                  <div className="flex-1 h-[52px] px-4 text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 flex items-center" style={{ color: "#5A5B58" }}>{form.dimensionSize || "—"}</div>
-                  <div className="w-px h-8 bg-[#C0C1BE] flex-shrink-0" />
-                  <div className="w-36 h-[52px] px-4 bg-gray-50 flex items-center text-base truncate" style={{ color: "#5A5B58" }}>{displayLabels.specificationUnitLabel || "—"}</div>
+            {/* Technical Dimensions / Capacity / Configuration — editable in both create and edit */}
+            <div
+              className="flex flex-col gap-1"
+              ref={(el) => { fieldRefs.current["dimensionSize"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
+            >
+              <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
+              <div className="relative" ref={unitDropdownRef}>
+                <div className={`flex items-center h-[52px] border rounded-lg overflow-hidden ${errors.dimensionSize || errors.deviceSpecificationUnitId ? "border-warning-500" : "border-pneutral-300"}`}>
+                  <input
+                    type="text"
+                    name="dimensionSize"
+                    value={form.dimensionSize}
+                    onChange={handleChange}
+                    placeholder="e.g., 20.5"
+                    maxLength={10}
+                    className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
+                  />
+                  <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
+                  <button
+                    type="button"
+                    onClick={() => form.deviceSubCategoryId && setShowUnitDropdown(p => !p)}
+                    disabled={!form.deviceSubCategoryId}
+                    className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 hover:bg-neutral-100 transition-colors flex-shrink-0 disabled:cursor-not-allowed"
+                  >
+                    <span className="truncate text-pneutral-800" style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}>
+                      {loadingSpecificationUnits ? "..." : (specificationUnitOptions.find(o => o.value === form.deviceSpecificationUnitId)?.label || (form.deviceSubCategoryId ? "Select Unit" : "Select sub-cat first"))}
+                    </span>
+                    <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 flex-shrink-0 ${showUnitDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
                 </div>
-              </div>
-            ) : (
-              <div
-                className="flex flex-col gap-1"
-                ref={(el) => { fieldRefs.current["dimensionSize"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
-              >
-                <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
-                <div className="relative" ref={unitDropdownRef}>
-                  <div className={`flex items-center h-[52px] border rounded-lg overflow-hidden ${errors.dimensionSize || errors.deviceSpecificationUnitId ? "border-warning-500" : "border-pneutral-300"}`}>
-                    <input
-                      type="text"
-                      name="dimensionSize"
-                      value={form.dimensionSize}
-                      onChange={handleChange}
-                      placeholder="e.g., 20.5"
-                      maxLength={10}
-                      className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
-                    />
-                    <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
-                    <button
-                      type="button"
-                      onClick={() => form.deviceSubCategoryId && setShowUnitDropdown(p => !p)}
-                      disabled={!form.deviceSubCategoryId}
-                      className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 hover:bg-neutral-100 transition-colors flex-shrink-0 disabled:cursor-not-allowed"
-                    >
-                      <span className="truncate text-pneutral-800" style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}>
-                        {loadingSpecificationUnits ? "..." : (specificationUnitOptions.find(o => o.value === form.deviceSpecificationUnitId)?.label || (form.deviceSubCategoryId ? "Select Unit" : "Select sub-cat first"))}
-                      </span>
-                      <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 flex-shrink-0 ${showUnitDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
+                {showUnitDropdown && form.deviceSubCategoryId && (
+                  <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
+                    {specificationUnitOptions.map(opt => (
+                      <button key={opt.value} type="button"
+                        onClick={() => {
+                          handleSelectChange("deviceSpecificationUnitId", { value: opt.value, label: opt.label });
+                          if (errors.deviceSpecificationUnitId) setErrors(p => { const n = { ...p }; delete n.deviceSpecificationUnitId; return n; });
+                          setShowUnitDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer ${form.deviceSpecificationUnitId === opt.value ? "bg-neutral-50 font-semibold" : "font-medium"}`}>
+                        {opt.label}
+                      </button>
+                    ))}
+                    {specificationUnitOptions.length === 0 && (
+                      <div className="px-4 py-2 text-sm text-neutral-500">No units available</div>
+                    )}
                   </div>
-                  {showUnitDropdown && form.deviceSubCategoryId && (
-                    <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
-                      {specificationUnitOptions.map(opt => (
-                        <button key={opt.value} type="button"
-                          onClick={() => {
-                            handleSelectChange("deviceSpecificationUnitId", { value: opt.value, label: opt.label });
-                            if (errors.deviceSpecificationUnitId) setErrors(p => { const n = { ...p }; delete n.deviceSpecificationUnitId; return n; });
-                            setShowUnitDropdown(false);
-                          }}
-                          className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer ${form.deviceSpecificationUnitId === opt.value ? "bg-neutral-50 font-semibold" : "font-medium"}`}>
-                          {opt.label}
-                        </button>
-                      ))}
-                      {specificationUnitOptions.length === 0 && (
-                        <div className="px-4 py-2 text-sm text-neutral-500">No units available</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {errors.dimensionSize && <p className={errorMsg}>{errors.dimensionSize}</p>}
-                {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
+                )}
               </div>
-            )}
+              {errors.dimensionSize && <p className={errorMsg}>{errors.dimensionSize}</p>}
+              {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
+            </div>
 
             {/* Certifications — dropdown */}
             <div className="flex flex-col gap-1" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
@@ -1474,16 +1480,20 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
-            {/* Storage Condition — editable in both modes */}
-            <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
-              <label className={fieldLabel}>Storage Condition (If applicable)</label>
-              <Dropdown
-                options={storageConditionOptions}
-                value={form.storageCondition}
-                onChange={(val, label) => handleSelectChange("storageCondition", { value: val, label })}
-                placeholder="Select storage condition"
-              />
-            </div>
+            {/* Storage Condition — editable only when stock is 0 */}
+            {isEdit && Number(form.stockQuantity) > 0 ? (
+              <NonEditableSelect label="Storage Condition (If applicable)" value={displayLabels.storageConditionLabel || "—"} />
+            ) : (
+              <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
+                <label className={fieldLabel}>Storage Condition (If applicable)</label>
+                <Dropdown
+                  options={storageConditionOptions}
+                  value={form.storageCondition}
+                  onChange={(val, label) => handleSelectChange("storageCondition", { value: val, label })}
+                  placeholder="Select storage condition"
+                />
+              </div>
+            )}
 
             {/* Brochure Upload — uses UploadInput component */}
             <div ref={setFieldRef("brochure") as React.RefCallback<HTMLDivElement>}>
@@ -1621,34 +1631,34 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
             {/* Manufacturing Date */}
-            <div ref={setFieldRef("manufacturingDate") as React.RefCallback<HTMLDivElement>}>
+            <div ref={setFieldRef("manufacturingDate") as React.RefCallback<HTMLDivElement>} className="relative">
               <Input
                 label="Manufacturing Date"
-                type="month"
+                type="text"
                 name="manufacturingDate"
                 required={!isEdit}
                 readOnly={isEdit}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) return;
-                  const [year, month] = value.split("-").map(Number);
-                  const date = new Date(year, month - 1, 1);
-                  const today = new Date();
-                  const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                  if (date > currentMonth) {
-                    setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
-                    return;
-                  }
-                  setErrors((prev) => ({ ...prev, manufacturingDate: "" }));
-                  setForm((p) => ({ ...p, manufacturingDate: date }));
-                }}
                 value={
                   form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
-                    ? `${form.manufacturingDate.getFullYear()}-${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}`
+                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
                     : ""
                 }
+                placeholder="MM/YYYY"
+                onChange={() => {}}
+                onClick={() => { if (!isEdit) setShowManufacturingMonthPicker(true); }}
+                onKeyDown={(e) => e.preventDefault()}
+                onPaste={(e) => e.preventDefault()}
                 error={errors.manufacturingDate}
               />
+              {showManufacturingMonthPicker && !isEdit && (
+                <MonthPicker
+                  selectedMonth={form.manufacturingDate ? form.manufacturingDate.getMonth() : new Date().getMonth()}
+                  selectedYear={form.manufacturingDate ? form.manufacturingDate.getFullYear() : new Date().getFullYear()}
+                  maxDate={new Date()}
+                  onSelect={handleManufacturingMonthSelect}
+                  onClose={() => setShowManufacturingMonthPicker(false)}
+                />
+              )}
             </div>
 
             {/* Stock Quantity */}
@@ -1784,63 +1794,19 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         </div>
 
         {/* ── Section 3: Product Photos ──────────────────────────────────────────── */}
-        <div className={sectionCard} ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
-          <h2 className="text-[14px] [font-family:'Open_Sans',sans-serif] font-semibold leading-8 [color:#1E1E1D] mb-1">
-            Product Photos {mode === "create" && <span className="text-red-500">*</span>}
-          </h2>
-
-          {existingImages.length > 0 && (
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-gray-600 mb-2">Current Images</p>
-              <div className="flex flex-wrap gap-3">
-                {existingImages.map((url, i) => (
-                  <div key={i} className="relative group flex-shrink-0">
-                    <img src={url} alt={`existing-${i}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
-                    <button type="button"
-                      onClick={() => setExistingImages((p) => p.filter((_, idx) => idx !== i))}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div
-            className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
-            onClick={() => document.getElementById("ncFileInput")?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}
-          >
-            <div className="flex flex-col items-center justify-center gap-2">
-              <div className="w-12 h-12 flex items-center justify-center">
-                <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 object-contain" />
-              </div>
-              <div className="text-sm font-medium text-gray-600 text-center">Choose a file or drag &amp; drop it here</div>
-              <div className="text-xs text-gray-400 text-center">Click to browse PNG, JPG, and SVG</div>
-            </div>
-          </div>
-
-          <input id="ncFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg,image/svg+xml" className="hidden" onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); }} />
-
-          {images.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {images.map((file, i) => {
-                const url = URL.createObjectURL(file);
-                return (
-                  <div key={i} className="relative group flex-shrink-0">
-                    <img src={url} alt={`Product ${i + 1}`} className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 group-hover:border-purple-300 transition" />
-                    <button type="button" onClick={() => { URL.revokeObjectURL(url); setImages((p) => p.filter((_, idx) => idx !== i)); }} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                      <X size={12} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {errors.images && <p className={`${errorMsg} mt-2`}>{errors.images}</p>}
+        <div ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
+          <ProductImageUpload
+            title="Product Photos"
+            required={mode === "create"}
+            images={images}
+            setImages={setImages}
+            existingImages={existingImages}
+            setExistingImages={setExistingImages}
+            error={errors.images}
+            setErrors={setErrors}
+            isReadOnly={isEdit}
+            mode={mode}
+          />
         </div>
 
         {/* ── Actions ─────────────────────────────────────────────────────────────── */}
