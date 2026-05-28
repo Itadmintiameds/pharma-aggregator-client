@@ -2079,7 +2079,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 unit={form.netQuantityUnit}
                 onValueChange={handleNetQuantityValueChange}
                 onUnitChange={handleNetQuantityUnitChange}
-                error={errors.netQuantityValue || errors.netQuantity}
+                error={errors.netQuantityValue || errors.netQuantity || errors.netQuantityUnit}
                 options={netQuantityUnitOptions}
                 required
                 readOnly={isEditMode}
@@ -2986,7 +2986,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   ? form.dateOfStockEntry.toISOString().split("T")[0]
                   : ""
               }
-              disabled
+              readOnly
               error={errors.dateOfStockEntry}
               required
             />

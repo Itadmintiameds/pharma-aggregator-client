@@ -799,7 +799,7 @@ const ProductView1 = ({
       ncAttr?.storageConditionId ??
       cosAttrRaw?.storageConditionId ??
       (Array.isArray(drugEntry?.storageConditionIds) &&
-      (drugEntry?.storageConditionIds?.length ?? 0) > 0
+        (drugEntry?.storageConditionIds?.length ?? 0) > 0
         ? drugEntry!.storageConditionIds![0]
         : undefined);
 
@@ -996,9 +996,9 @@ const ProductView1 = ({
             deviceSubCategoryName =
               String(
                 found.deviceSubCatName ??
-                  found.subCategoryName ??
-                  found.name ??
-                  "",
+                found.subCategoryName ??
+                found.name ??
+                "",
               ).trim() || null;
         } catch {
           /* ignore */
@@ -1075,13 +1075,13 @@ const ProductView1 = ({
         // ── Extract raw IDs from the attribute object (handle every casing variant) ──
         const productTypeIdStr = String(
           (cosAttrRaw as any).productCategoryId ??
-            (cosAttrRaw as any).productTypeId ??
-            "",
+          (cosAttrRaw as any).productTypeId ??
+          "",
         );
         const productSubTypeIdStr = String(
           (cosAttrRaw as any).productSubcategoryId ??
-            (cosAttrRaw as any).productSubTypeId ??
-            "",
+          (cosAttrRaw as any).productSubTypeId ??
+          "",
         );
         const ageGroupIdStr = String((cosAttrRaw as any).ageGroupId ?? "");
         // ageGroupIds is an array of IDs (may include 0 as sentinel); filter those out
@@ -1089,15 +1089,15 @@ const ProductView1 = ({
           (cosAttrRaw as any).ageGroupIds,
         )
           ? (cosAttrRaw as any).ageGroupIds
-              .filter((v: unknown) => Number(v) > 0)
-              .map(String)
+            .filter((v: unknown) => Number(v) > 0)
+            .map(String)
           : ageGroupIdStr && ageGroupIdStr !== "0"
             ? [ageGroupIdStr]
             : [];
         const countryIdStr = String(
           (cosAttrRaw as any).countryId ??
-            (cosAttrRaw as any).countryOfOriginId ??
-            "",
+          (cosAttrRaw as any).countryOfOriginId ??
+          "",
         );
 
         // Raw array IDs for multi-select fields
@@ -1145,15 +1145,15 @@ const ProductView1 = ({
         // ── Extract net quantity unit ID ──
         const netQtyUnitIdStr = String(
           (cosAttrRaw as any).unitId ??
-            (cosAttrRaw as any).netQuantityUnitId ??
-            "",
+          (cosAttrRaw as any).netQuantityUnitId ??
+          "",
         );
 
         // ── Extract product form ID ──
         const productFormIdStr = String(
           (cosAttrRaw as any).formId ??
-            (cosAttrRaw as any).productFormId ??
-            "",
+          (cosAttrRaw as any).productFormId ??
+          "",
         );
 
         // ── Fetch all needed masters in parallel ──
@@ -1248,25 +1248,25 @@ const ProductView1 = ({
         const intendedUseArea =
           rawIntendedIds.length > 0
             ? rawIntendedIds
-                .map((id) => intendedOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => intendedOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const skinPart =
           rawSkinIds.length > 0
             ? rawSkinIds
-                .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const hairPart =
           rawHairIds.length > 0
             ? rawHairIds
-                .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const skinHairType =
@@ -1336,9 +1336,9 @@ const ProductView1 = ({
           ageGroup:
             (rawAgeGroupIds.length > 0
               ? rawAgeGroupIds
-                  .map((id) => ageGroupOpts.find((o) => o.value === id)?.label)
-                  .filter(Boolean)
-                  .join(", ") || null
+                .map((id) => ageGroupOpts.find((o) => o.value === id)?.label)
+                .filter(Boolean)
+                .join(", ") || null
               : null) ?? cosAttrRaw.ageGroup,
           intendedUseArea: intendedUseArea ?? cosAttrRaw.intendedUseArea,
           skinHairType: skinHairType ?? cosAttrRaw.skinHairType,
@@ -1481,22 +1481,22 @@ const ProductView1 = ({
     molecules.length > 0
       ? molecules
       : ([
-          drugEntry?.molecule1Name || drugEntry?.molecule1Strength
-            ? {
-                resolvedName: drugEntry?.molecule1Name ?? "—",
-                resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
-              }
-            : null,
-          drugEntry?.molecule2Name || drugEntry?.molecule2Strength
-            ? {
-                resolvedName: drugEntry?.molecule2Name ?? "—",
-                resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
-              }
-            : null,
-        ].filter(Boolean) as {
-          resolvedName: string;
-          resolvedStrength: string;
-        }[]);
+        drugEntry?.molecule1Name || drugEntry?.molecule1Strength
+          ? {
+            resolvedName: drugEntry?.molecule1Name ?? "—",
+            resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
+          }
+          : null,
+        drugEntry?.molecule2Name || drugEntry?.molecule2Strength
+          ? {
+            resolvedName: drugEntry?.molecule2Name ?? "—",
+            resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
+          }
+          : null,
+      ].filter(Boolean) as {
+        resolvedName: string;
+        resolvedStrength: string;
+      }[]);
 
   const drugSchedule =
     drugEntry?.drugSchedule ??
@@ -1630,8 +1630,8 @@ const ProductView1 = ({
   const packSizeDisplay =
     packaging?.numberOfPacks != null && unitsPerPack != null
       ? `${packaging.numberOfPacks} packs × ${unitsPerPack} units = ${(
-          packaging.numberOfPacks * unitsPerPack
-        ).toLocaleString()} units`
+        packaging.numberOfPacks * unitsPerPack
+      ).toLocaleString()} units`
       : null;
 
   const productImages = resolveProductImages(productData);
@@ -1855,12 +1855,12 @@ const ProductView1 = ({
           nonConsAttr={
             ncAttr
               ? {
-                  ...ncAttr,
-                  safetyInstructions:
-                    ncAttr.safetyInstructions ??
-                    productData.warningsPrecautions ??
-                    undefined,
-                }
+                ...ncAttr,
+                safetyInstructions:
+                  ncAttr.safetyInstructions ??
+                  productData.warningsPrecautions ??
+                  undefined,
+              }
               : null
           }
           storageConditionName={storageCondition}
@@ -2088,7 +2088,7 @@ const ProductView1 = ({
                     <span className="text-pneutral-800 text-base font-normal leading-[22px] break-all">
                       {decodeURIComponent(
                         brochureUrl.split("/").pop()?.split("?")[0] ||
-                          "user-manual.pdf",
+                        "user-manual.pdf",
                       )}
                     </span>
                   </a>
@@ -2364,15 +2364,13 @@ const ProductView1 = ({
                             margin: 0,
                           }}
                         >
-                          {`Bulk order discount (${d.minimumPurchaseQuantity}${
-                            d.maximumPurchaseQuantity
-                              ? `-${d.maximumPurchaseQuantity}`
-                              : "+"
-                          } units)${
-                            startDate && endDate
+                          {`Bulk order discount (${d.minimumPurchaseQuantity}${d.maximumPurchaseQuantity
+                            ? `-${d.maximumPurchaseQuantity}`
+                            : "+"
+                            } units)${startDate && endDate
                               ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
                               : ""
-                          }`}
+                            }`}
                         </p>
                       </div>
                       <span
@@ -2405,23 +2403,34 @@ const ProductView1 = ({
                         alignItems: "flex-end",
                       }}
                     >
-                      <div style={{ flex: 1 }}>
-                        <p
-                          style={{
-                            color: "#5A5B58",
-                            fontSize: 14,
-                            fontFamily: "'Work Sans', sans-serif",
-                            fontWeight: 400,
-                            lineHeight: "20px",
-                            margin: 0,
-                          }}
-                        >
-                          {`${s.schemeName}${
-                            startDate && endDate
-                              ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
-                              : ""
-                          }`}
-                        </p>
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
+                        <span style={{
+                          color: "#1E1E1D",
+                          fontSize: 16,
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontWeight: 600,
+                        }}>
+                          {s.schemeName || "Special Scheme"}
+                        </span>
+                        <span style={{
+                          color: "#3C3D3A",
+                          fontSize: 14,
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontWeight: 400,
+                          lineHeight: "20px",
+                        }}>
+                          Purchase {s.buyQuantity || 1} {productData.productName || "this product"} and get {s.freeQuantity || 1} absolutely free. Limited stock available!
+                        </span>
+                        <span style={{
+                          color: "#5A5B58",
+                          fontSize: 12,
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontWeight: 400,
+                        }}>
+                          {startDate && endDate
+                            ? `${formatDate(startDate)} - ${formatDate(endDate)}`
+                            : "Ongoing"}
+                        </span>
                       </div>
                     </div>
                   );
