@@ -258,6 +258,43 @@ export const getStorageConditionsByCategory = async (categoryId: number) => {
 };
 
 
+// Upload certificates for Food & Infant products
+export const uploadFoodInfantCertificates = async (
+  productAttributeId: string,
+  certificateFiles: File[],
+  documentIds: number[]
+) => {
+  try {
+    const formData = new FormData();
+    
+    // Append all files first, then all documentIds
+    certificateFiles.forEach((file) => {
+      formData.append('certificateFiles', file);
+    });
+    
+    documentIds.forEach((id) => {
+      formData.append('documentIds', String(id));
+    });
+    
+    const response = await api.post(
+      `/product-documents/food/${productAttributeId}/certificates`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    
+    return response.data;
+  } catch (error: any) {
+    console.error("Error uploading Food/Infant certificates:", error);
+    throw new Error(
+      error.response?.data?.message || error.message || "Error uploading certificates"
+    );
+  }
+};
+
 
 
 
