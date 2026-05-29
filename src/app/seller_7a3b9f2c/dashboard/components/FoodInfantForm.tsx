@@ -8,7 +8,8 @@ import PopupModal from "../commonComponent/PopupModal";
 import { foodInfantSchema } from "@/src/schema/product/FoodandInfantSchema";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
-import { validateBatchNumber } from "@/src/services/product/PricingFoodInfant";
+// import { validateBatchNumber } from "@/src/services/product/PricingFoodInfant";
+import { validateBatchNumber } from "@/src/services/product/Pricing";
 import {
   getProductById,
   updateProduct,
@@ -610,19 +611,21 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
   };
 
 const checkBatchNumber = async (batchLotNumber: string) => {
-  if (!batchLotNumber || batchLotNumber.trim() === "") return;
+  // Skip validation in edit mode since field is read-only
+  if (isEditMode) {
+    console.log("⚠️ Edit mode - skipping batch number validation");
+    return;
+  }
   
   try {
-    // Pass categoryId (3 for Food & Infant)
     const response = await validateBatchNumber(batchLotNumber, categoryId);
     
-    if (response && response.exists === true) {
+    if (response.exists) {
       setErrors((prev) => ({
         ...prev,
-        batchLotNumber: "Batch number already exists.",
+        batchLotNumber: "Batch number already exists",
       }));
     } else {
-      // Clear error if batch number is unique
       setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors.batchLotNumber;
@@ -631,12 +634,6 @@ const checkBatchNumber = async (batchLotNumber: string) => {
     }
   } catch (error) {
     console.error("Batch validation failed:", error);
-    // Don't block the user if API fails
-    setErrors((prev) => {
-      const newErrors = { ...prev };
-      delete newErrors.batchLotNumber;
-      return newErrors;
-    });
   }
 };
 
@@ -741,9 +738,12 @@ if (name === "warningsPrecautions") {
     });
   }
 }
+if (name === "batchLotNumber" && value.trim() && !isEditMode) {
+  checkBatchNumber(value);
+}
 
     // Clear other field errors (for non-textarea fields)
-    if (name !== "productDescription" && name !== "warningsPrecautions") {
+    if (name !== "productDescription" && name !== "warningsPrecautions"&& name !== "batchLotNumber") {
       setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[name];
@@ -798,9 +798,7 @@ if (name === "warningsPrecautions") {
         });
       }
 
-      if (name === "batchLotNumber" && value.trim()) {
-  checkBatchNumber(value);
-}
+      
       
       if (name === "hsnCode") {
         if (currentHsn && currentHsn.trim() !== "") {
@@ -1465,6 +1463,8 @@ if (name === "warningsPrecautions") {
   };
 
   const handleSubmit = async () => {
+    console.log("🔍 isEditMode value:", isEditMode);
+  console.log("🔍 mode prop:", mode);
     const certError = validateCertifications();
     if (certError) {
       setErrors((prev) => ({ ...prev, certifications: certError }));
@@ -1489,20 +1489,32 @@ if (name === "warningsPrecautions") {
       return;
     }
 
+ if (!isEditMode) {
+    console.log("🔍 Submit - Checking batch number:", form.batchLotNumber);
+    console.log("🔍 Submit - Category ID:", categoryId);
+
     try {
-  const batchValidation = await validateBatchNumber(form.batchLotNumber, categoryId);
-  if (batchValidation && batchValidation.exists === true) {
-    setErrors((prev) => ({
-      ...prev,
-      batchLotNumber: "Batch number already exists.",
-    }));
-    const el = fieldRefs.current["batchLotNumber"] || document.querySelector<HTMLElement>(`[data-field="batchLotNumber"]`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    return;
+      const batchValidation = await validateBatchNumber(form.batchLotNumber, categoryId);
+      console.log("📡 Submit - Batch validation response:", batchValidation);
+      console.log("📡 Submit - batchValidation.exists:", batchValidation?.exists);
+      
+      if (batchValidation.exists) {
+        console.log("❌ Submit - Batch number exists, blocking submission");
+        setErrors((prev) => ({
+          ...prev,
+          batchLotNumber: "Batch number already exists",
+        }));
+        const el = fieldRefs.current["batchLotNumber"] || document.querySelector<HTMLElement>(`[data-field="batchLotNumber"]`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      console.log("✅ Submit - Batch number is unique, continuing");
+    } catch (error) {
+      console.warn("Batch validation API error during submit:", error);
+    }
+  } else {
+    console.log("✏️ Edit mode - skipping batch validation");
   }
-} catch (error) {
-  console.warn("Batch validation API error during submit:", error);
-}
 
     const payload = buildPayload();
 
