@@ -10,7 +10,7 @@ import {
 
 const Footer = () => {
   return (
-    <footer className="relative bg-primary-900 py-2 px-6 lg:px-8">
+    <footer className="relative bg-primary-900 py-1 px-6 lg:px-8">
       <div className="mx-auto max-w-7xl mt-20">
         {/* Main Footer Content */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
@@ -178,14 +178,14 @@ const Footer = () => {
           </div>
 
           {/* Certification Badge */}
-          <div className="mt-2 flex justify-center">
+          {/* <div className="mt-2 flex justify-center">
             <div className="inline-flex items-center px-4 py-2 rounded-full bg-neutral-900/50 border border-neutral-800">
               <span className="w-2 h-2 rounded-full bg-primary-600 animate-pulse mr-2"></span>
               <span className="text-neutral-500 text-xs">
                 ISO 27001 Certified • HIPAA Compliant
               </span>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </footer>

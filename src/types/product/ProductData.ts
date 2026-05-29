@@ -19,6 +19,7 @@ export interface CreateProductRequest {
   packagingDetails: PackagingData[];
   pricingDetails: PricingData[];
   productAttributeFoodInfants?: ProductAttributeFoodInfantData[];
+  retainedImageUrls?: string[];
 }
 
 export interface UnitOption {
