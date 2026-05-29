@@ -711,8 +711,8 @@ if (name === "productDescription") {
     setErrors((prev) => ({ ...prev, productDescription: "Product Description is required" }));
   } else if (trimmedValue.length < 10) {
     setErrors((prev) => ({ ...prev, productDescription: "Product Description must be at least 10 characters" }));
-  } else if (value.length > 1000) {
-    setErrors((prev) => ({ ...prev, productDescription: "Maximum 1000 characters allowed" }));
+  } else if (value.length > 250) {
+    setErrors((prev) => ({ ...prev, productDescription: "Maximum 250 characters allowed" }));
   } else {
     setErrors((prev) => {
       const newErrors = { ...prev };
@@ -729,8 +729,8 @@ if (name === "warningsPrecautions") {
     setErrors((prev) => ({ ...prev, warningsPrecautions: "Warnings/Precautions is required" }));
   } else if (trimmedValue.length < 10) {
     setErrors((prev) => ({ ...prev, warningsPrecautions: "Warnings/Precautions must be at least 10 characters" }));
-  } else if (value.length > 1000) {
-    setErrors((prev) => ({ ...prev, warningsPrecautions: "Maximum 1000 characters allowed" }));
+  } else if (value.length > 250) {
+    setErrors((prev) => ({ ...prev, warningsPrecautions: "Maximum 250 characters allowed" }));
   } else {
     setErrors((prev) => {
       const newErrors = { ...prev };
@@ -1421,8 +1421,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       newErrors.productDescription = "Product Description is required";
     } else if (form.productDescription.trim().length < 10) {
       newErrors.productDescription = "Product Description must be at least 10 characters";
-    } else if (form.productDescription.length > 1000) {
-      newErrors.productDescription = "Product Description must not exceed 1000 characters";
+    } else if (form.productDescription.length > 250) {
+      newErrors.productDescription = "Product Description must not exceed 250 characters";
     }
     
     // Warnings & Precautions validation
@@ -1430,8 +1430,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       newErrors.warningsPrecautions = "Warnings/Precautions is required";
     } else if (form.warningsPrecautions.trim().length < 10) {
       newErrors.warningsPrecautions = "Warnings/Precautions must be at least 10 characters";
-    } else if (form.warningsPrecautions.length > 1000) {
-      newErrors.warningsPrecautions = "Warnings/Precautions must not exceed 1000 characters";
+    } else if (form.warningsPrecautions.length > 250) {
+      newErrors.warningsPrecautions = "Warnings/Precautions must not exceed 250 characters";
     }
     
     if (!form.packType) newErrors.packType = "Pack type is required";
@@ -2147,13 +2147,13 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
     name="productDescription"
     value={form.productDescription}
     onChange={handleChange}
-    placeholder="Detailed product description (Minimum 10 characters, Maximum 1000 characters)"
+    placeholder="Detailed product description (Minimum 10 characters, Maximum 250 characters)"
     rows={4}
-    maxLength={1000}
+    maxLength={250}
     className={`w-full rounded-lg p-3 resize-none border bg-white focus:outline-none transition-all duration-200 ${
       errors.productDescription 
         ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" 
-        : form.productDescription.length >= 980 && form.productDescription.length < 1000
+        : form.productDescription.length >= 240 && form.productDescription.length < 250
           ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500"
           : "border-pneutral-300 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"
     }`}
@@ -2164,9 +2164,9 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       Need {10 - form.productDescription.length} more characters (minimum 10)
     </p>
   )}
-  {form.productDescription.length >= 980 && form.productDescription.length < 1000 && (
+  {form.productDescription.length >= 240 && form.productDescription.length < 250 && (
     <p className="text-warning-500 text-sm mt-1">
-      Warning: Only {1000 - form.productDescription.length} characters remaining out of 1000 characters
+      Warning: Only {250 - form.productDescription.length} characters remaining out of 250 characters
     </p>
   )}
 </div>
@@ -2180,13 +2180,13 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
     name="warningsPrecautions"
     value={form.warningsPrecautions}
     onChange={handleChange}
-    placeholder="Enter warnings, precautions, and safety information (Minimum 10 characters, Maximum 1000 characters)"
+    placeholder="Enter warnings, precautions, and safety information (Minimum 10 characters, Maximum 250 characters)"
     rows={4}
-    maxLength={1000}
+    maxLength={250}
     className={`w-full rounded-lg p-3 resize-none border bg-white focus:outline-none transition-all duration-200 ${
       errors.warningsPrecautions 
         ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" 
-        : form.warningsPrecautions.length >= 980 && form.warningsPrecautions.length < 1000
+        : form.warningsPrecautions.length >= 240 && form.warningsPrecautions.length < 250
           ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500"
           : "border-pneutral-300 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"
     }`}
@@ -2197,9 +2197,9 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       Need {10 - form.warningsPrecautions.length} more characters (minimum 10)
     </p>
   )}
-  {form.warningsPrecautions.length >= 980 && form.warningsPrecautions.length < 1000 && (
+  {form.warningsPrecautions.length >= 240 && form.warningsPrecautions.length < 250 && (
     <p className="text-warning-500 text-sm mt-1">
-      Warning: Only {1000 - form.warningsPrecautions.length} characters remaining out of 1000 characters
+      Warning: Only {250 - form.warningsPrecautions.length} characters remaining out of 250 characters
     </p>
   )}
 </div>
