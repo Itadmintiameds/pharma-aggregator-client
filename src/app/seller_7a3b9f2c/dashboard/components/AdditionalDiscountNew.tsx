@@ -72,6 +72,8 @@ const AdditionalDiscountNew = forwardRef<
     const [showStartDatePicker, setShowStartDatePicker] = useState(false);
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
+    const formContainerRef = React.useRef<HTMLDivElement>(null);
+
     const columns: ColumnDef<AdditionalDiscountData>[] = [
       // {
       //   id: "select",
@@ -92,12 +94,12 @@ const AdditionalDiscountNew = forwardRef<
       {
         accessorKey: "effectiveStartDate",
         header: "Start Date",
-        cell: (info) => info.getValue() as string,
+        cell: (info) => formatDate(info.getValue() as string),
       },
       {
         accessorKey: "effectiveEndDate",
         header: "End Date",
-        cell: (info) => info.getValue() as string,
+        cell: (info) => formatDate(info.getValue() as string),
       },
       {
         id: "actions",
@@ -124,98 +126,6 @@ const AdditionalDiscountNew = forwardRef<
       columns,
       getCoreRowModel: getCoreRowModel(),
     });
-
-    // const validateDateTime = (
-    //   updatedForm: AdditionalDiscountForm,
-    //   touched: Record<string, boolean>,
-    // ) => {
-    //   const errors: Record<string, string> = {};
-
-    //   if (alwaysActive) return errors;
-
-    //   const {
-    //     effectiveStartDate,
-    //     effectiveEndDate,
-    //     effectiveStartTime,
-    //     effectiveEndTime,
-    //   } = updatedForm;
-
-    //   // ✅ FIELD-LEVEL VALIDATION (only if touched)
-
-    //   if (touched.effectiveStartDate && !effectiveStartDate) {
-    //     errors.effectiveStartDate = "Start Date is required";
-    //   }
-
-    //   if (touched.effectiveEndDate && !effectiveEndDate) {
-    //     errors.effectiveEndDate = "End Date is required";
-    //   }
-
-    //   if (touched.effectiveStartTime && !effectiveStartTime) {
-    //     errors.effectiveStartTime = "Start Time is required";
-    //   }
-
-    //   if (touched.effectiveEndTime && !effectiveEndTime) {
-    //     errors.effectiveEndTime = "End Time is required";
-    //   }
-
-    //   const today = new Date();
-    //   today.setHours(0, 0, 0, 0);
-
-    //   if (effectiveStartDate) {
-    //     const sDate = new Date(effectiveStartDate);
-    //     sDate.setHours(0, 0, 0, 0);
-
-    //     if (sDate < today && touched.effectiveStartDate) {
-    //       errors.effectiveStartDate = "Start Date cannot be in the past";
-    //     }
-    //   }
-
-    //   if (effectiveEndDate) {
-    //     const eDate = new Date(effectiveEndDate);
-    //     eDate.setHours(0, 0, 0, 0);
-
-    //     if (eDate < today && touched.effectiveEndDate) {
-    //       errors.effectiveEndDate = "End Date cannot be in the past";
-    //     }
-    //   }
-
-    //   // ✅ DATE COMPARISON (only if BOTH values exist)
-    //   if (effectiveStartDate && effectiveEndDate) {
-    //     const sDate = new Date(effectiveStartDate);
-    //     const eDate = new Date(effectiveEndDate);
-
-    //     if (sDate > eDate) {
-    //       // Only show error if either field is touched
-    //       if (touched.effectiveStartDate) {
-    //         errors.effectiveStartDate = "Start Date must be ≤ End Date";
-    //       }
-    //       if (touched.effectiveEndDate) {
-    //         errors.effectiveEndDate = "End Date must be ≥ Start Date";
-    //       }
-    //     }
-    //   }
-
-    //   // ✅ TIME COMPARISON (only if same day + both exist)
-    //   if (
-    //     effectiveStartDate &&
-    //     effectiveEndDate &&
-    //     effectiveStartDate === effectiveEndDate &&
-    //     effectiveStartTime &&
-    //     effectiveEndTime
-    //   ) {
-    //     if (effectiveStartTime >= effectiveEndTime) {
-    //       if (touched.effectiveStartTime) {
-    //         errors.effectiveStartTime = "Start Time must be less than End Time";
-    //       }
-    //       if (touched.effectiveEndTime) {
-    //         errors.effectiveEndTime =
-    //           "End Time must be greater than Start Time";
-    //       }
-    //     }
-    //   }
-
-    //   return errors;
-    // };
 
     const validateDateTime = (
       updatedForm: AdditionalDiscountForm,
@@ -559,7 +469,10 @@ const AdditionalDiscountNew = forwardRef<
 
     return (
       <>
-        <div className="flex flex-col gap-7">
+        <div
+          ref={formContainerRef}
+          className="flex flex-col gap-7 overflow-y-auto"
+        >
           {slabs.length > 0 && (
             <div className="space-y-3">
               <div className="text-label-l5 font-medium">
@@ -722,9 +635,18 @@ const AdditionalDiscountNew = forwardRef<
                     disabled={alwaysActive}
                     placeholder="dd/mm/yyyy"
                     value={form.effectiveStartDate}
-                    onClick={() =>
-                      !alwaysActive && setShowStartDatePicker(true)
-                    }
+                    onClick={() => {
+                      if (!alwaysActive) {
+                        setShowStartDatePicker(true);
+
+                        setTimeout(() => {
+                          formContainerRef.current?.scrollBy({
+                            top: 220,
+                            behavior: "smooth",
+                          });
+                        }, 100);
+                      }
+                    }}
                     className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
                       alwaysActive
                         ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
@@ -834,7 +756,18 @@ const AdditionalDiscountNew = forwardRef<
                     disabled={alwaysActive}
                     placeholder="dd/mm/yyyy"
                     value={form.effectiveEndDate}
-                    onClick={() => !alwaysActive && setShowEndDatePicker(true)}
+                    onClick={() => {
+                      if (!alwaysActive) {
+                        setShowEndDatePicker(true);
+
+                        setTimeout(() => {
+                          formContainerRef.current?.scrollBy({
+                            top: 220,
+                            behavior: "smooth",
+                          });
+                        }, 100);
+                      }
+                    }}
                     className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
                       alwaysActive
                         ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
