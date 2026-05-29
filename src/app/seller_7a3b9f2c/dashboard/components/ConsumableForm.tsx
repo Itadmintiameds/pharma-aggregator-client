@@ -13,6 +13,7 @@ import { AlertCircle } from "lucide-react";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
+import { validateBatchNumber } from "@/src/services/product/Pricing";
 import {
   getConsumableDeviceCategories,
   getConsumableDeviceSubCategories,
@@ -686,6 +687,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (isNaN(v) || v < 0 || v > 100) setErrors((p) => ({ ...p, discountPercentage: "Discount must be between 0 and 100" }));
       else setErrors((p) => { const n = { ...p }; delete n.discountPercentage; return n; });
     }
+    if (name === "batchLotNumber" && value.trim()) {
+      checkBatchNumber(value);
+    }
   };
 
   const handleSelectChange = (field: string, sel: SelectOption | null) => {
@@ -787,6 +791,21 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const handleViewProduct = () => { router.push(`/seller_7a3b9f2c/products/view/${resolvedProductId}`); };
   const handleContinueAdding = () => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); };
   const handleBackToDashboard = () => { router.push("/seller_7a3b9f2c/dashboard"); };
+
+  // ─── Batch number uniqueness check ────────────────────────────────────────
+
+  const checkBatchNumber = async (batchLotNumber: string) => {
+    try {
+      const response = await validateBatchNumber(batchLotNumber, productCategoryId);
+      if (response.exists) {
+        setErrors((prev) => ({ ...prev, batchLotNumber: "Batch number already exists" }));
+      } else {
+        setErrors((prev) => { const n = { ...prev }; delete n.batchLotNumber; return n; });
+      }
+    } catch (error) {
+      console.error("Batch validation failed:", error);
+    }
+  };
 
   // ─── Validation ───────────────────────────────────────────────────────────
 
@@ -951,6 +970,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     setApiError(null);
 
     try {
+      if (mode === "create" && form.batchLotNumber.trim()) {
+        const batchValidation = await validateBatchNumber(form.batchLotNumber, productCategoryId);
+        if (batchValidation.exists) {
+          setErrors((prev) => ({ ...prev, batchLotNumber: "Batch number already exists" }));
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const payload = {
         productName: form.productName,
         warningsPrecautions: form.safetyInstructions,

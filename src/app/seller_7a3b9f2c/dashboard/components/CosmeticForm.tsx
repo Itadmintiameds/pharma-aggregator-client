@@ -24,6 +24,7 @@ import {
   updateProduct,
   uploadProductImages,
 } from "@/src/services/product/ProductService";
+import { validateBatchNumber } from "@/src/services/product/Pricing";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
@@ -916,6 +917,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       else
         setErrors((p) => { const n = { ...p }; delete n.discountPercentage; return n; });
     }
+    if (name === "batchNumber" && value.trim()) {
+      checkBatchNumber(value);
+    }
   };
 
   const handleSelectChange = (field: string, sel: SelectOption | null) => {
@@ -1013,6 +1017,21 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: "" }));
       }
       setShowExpiryMonthPicker(false);
+    }
+  };
+
+  // ─── Batch number uniqueness check ────────────────────────────────────────────
+
+  const checkBatchNumber = async (batchNumber: string) => {
+    try {
+      const response = await validateBatchNumber(batchNumber, productCategoryId);
+      if (response.exists) {
+        setErrors((prev) => ({ ...prev, batchNumber: "Batch number already exists" }));
+      } else {
+        setErrors((prev) => { const n = { ...prev }; delete n.batchNumber; return n; });
+      }
+    } catch (error) {
+      console.error("Batch validation failed:", error);
     }
   };
 
@@ -1189,6 +1208,19 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     const hasImageUpload = images.length > 0;
 
     setSubmitting(true);
+
+    if (mode === "create" && form.batchNumber.trim()) {
+      try {
+        const batchValidation = await validateBatchNumber(form.batchNumber, productCategoryId);
+        if (batchValidation.exists) {
+          setErrors((prev) => ({ ...prev, batchNumber: "Batch number already exists" }));
+          setSubmitting(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Batch validation failed:", error);
+      }
+    }
 
     const payload = {
       productName:          form.productName,

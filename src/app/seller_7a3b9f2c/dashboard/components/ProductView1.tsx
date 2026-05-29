@@ -205,6 +205,7 @@ export interface CosmeticAttributes {
   intendedarea?: (number | string)[];
   skintypeId?: (number | string)[];
   skinTypeIds?: (number | string)[];
+  typeId?: (number | string)[];
   hairType?: (number | string)[];
   hairTypeIds?: (number | string)[];
 }
@@ -1131,6 +1132,7 @@ const ProductView1 = ({
 
         const rawHairIds: string[] = (
           (cosAttrRaw as any).hairTypeIds ??
+          (cosAttrRaw as any).typeId ??
           (cosAttrRaw as any).hairType ??
           (cosAttrRaw as any).hairTypes ??
           []
