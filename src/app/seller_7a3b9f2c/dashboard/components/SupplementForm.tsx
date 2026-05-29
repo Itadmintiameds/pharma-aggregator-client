@@ -1682,17 +1682,16 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       if (productAttributeId && selectedCertifications.length > 0) {
         try {
           const certDocs = response?.data?.productAttributeSupplementsOrNutraceuticals?.[0]?.certificateDocuments ?? [];
-          const documentIds: number[] = [];
-          const certFiles: File[] = [];
+          const filesToUpload: { docId: number; file: File }[] = [];
           selectedCertifications.forEach((cert) => {
             const matched = certDocs.find((c: any) => c.certificationId === Number(cert.id));
             if (matched?.productCertificateDocumentId && cert.file) {
-              documentIds.push(matched.productCertificateDocumentId);
-              certFiles.push(cert.file);
+              filesToUpload.push({ docId: matched.productCertificateDocumentId, file: cert.file });
             }
           });
-          if (documentIds.length > 0 && certFiles.length > 0) {
-            await uploadSupplementCertifications(productAttributeId, documentIds, certFiles);
+
+          for (const item of filesToUpload) {
+            await uploadSupplementCertifications(productAttributeId, item.docId, item.file);
           }
         } catch (certErr: any) {
           console.warn("⚠️ Certifications upload returned error (likely a backend 500 bug):", certErr.message);
@@ -1855,8 +1854,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         const newCerts = selectedCertifications.filter((c) => c.file && !c.existingUrl);
         if (newCerts.length > 0) {
           try {
-            const documentIds: number[] = [];
-            const certFiles: File[] = [];
+            const filesToUpload: { docId: number; file: File }[] = [];
 
             newCerts.forEach((cert) => {
               // Match by certificationId (the master ID) to find the new productCertificateDocumentId
@@ -1864,14 +1862,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 (rc: any) => Number(rc.certificationId) === Number(cert.id)
               );
               if (matched?.productCertificateDocumentId) {
-                documentIds.push(matched.productCertificateDocumentId);
-                certFiles.push(cert.file as File);
+                filesToUpload.push({ docId: matched.productCertificateDocumentId, file: cert.file as File });
               }
             });
 
-            if (documentIds.length > 0) {
-              console.log("📂 Uploading cert files for DB IDs:", documentIds);
-              await uploadSupplementCertifications(attrId, documentIds, certFiles);
+            for (const item of filesToUpload) {
+              await uploadSupplementCertifications(attrId, item.docId, item.file);
             }
           } catch (e: any) {
             console.warn("⚠️ Cert upload failed:", e.message);
