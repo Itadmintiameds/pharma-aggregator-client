@@ -17,6 +17,7 @@ import {
   getConsumableDeviceSubCategories,
   getConsumableSpecificationUnitsBySubCategory,
 } from "@/src/services/product/ConsumbaleService";
+import { getSpecificationUnitsBySubCategory } from "@/src/services/product/NonConsumbaleService";
 import {
   getCosmeticProductTypes,
   getCosmeticProductSubTypes,
@@ -131,6 +132,10 @@ interface NonConsumableAttributes {
   certificateDocuments?: CertificateDocument[];
   brochurePath?: string;
   userManualUrl?: string;
+  dimensionSize?: number | string | null;
+  deviceSpecificationUnitId?: number | string | null;
+  deviceSubCategoryId?: number | string | null;
+  deviceSubCatId?: number | string | null;
 }
 
 interface ConsumableAttributes {
@@ -961,6 +966,29 @@ const ProductView1 = ({
     const deviceSubCatId = toPositiveInt(consAttr?.deviceSubCatId);
 
     const fetchDeviceNames = async (): Promise<Partial<ResolvedLookups>> => {
+      // Non-consumable: only need to resolve the spec unit label (device names come inline from API)
+      if (ncAttr && !consAttr) {
+        const ncSpecUnitId = toPositiveInt((ncAttr as any).deviceSpecificationUnitId);
+        const ncSubCatId = toPositiveInt(
+          (ncAttr as any).deviceSubCategoryId ?? (ncAttr as any).deviceSubCatId,
+        );
+        if (ncSpecUnitId !== null && ncSubCatId !== null) {
+          try {
+            const units: any[] = await getSpecificationUnitsBySubCategory(String(ncSubCatId));
+            const found = units.find((u) => Number(u.unitId ?? u.id) === ncSpecUnitId);
+            if (found) {
+              return {
+                specificationUnitLabel:
+                  String(found.unitName ?? found.name ?? "").trim() || null,
+              };
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        return {};
+      }
+
       if (!consAttr) return {};
       let deviceCategoryName: string | null = inlineDeviceCatName;
       let deviceSubCategoryName: string | null = inlineDeviceSubCatName;
@@ -1878,6 +1906,7 @@ const ProductView1 = ({
           storageConditionName={storageCondition}
           deviceCategoryName={resolvedDeviceCategoryName}
           deviceSubCategoryName={resolvedDeviceSubCategoryName}
+          specificationUnitLabel={lookups.specificationUnitLabel}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
           additionalDiscounts={additionalDiscounts}

@@ -54,6 +54,9 @@ export interface NonConsumableAttributes {
   /** Alias used by some API versions */
   powerSource?: string;
   safetyInstructions?: string;
+  dimensionSize?: number | string | null;
+  deviceSpecificationUnitId?: number | string | null;
+  deviceSubCategoryId?: number | string | null;
 }
 
 
@@ -67,6 +70,8 @@ export interface NonConsumableViewProps {
   deviceCategoryName?: string | null;
   /** Resolved device subcategory name (looked up from deviceSubCatId by parent) */
   deviceSubCategoryName?: string | null;
+  /** Resolved specification unit label (e.g. "mm", "L") for the dimensionSize field */
+  specificationUnitLabel?: string | null;
   brochureUrl?: string | null;
   placeholderImage?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,21 +176,23 @@ const isValidUrl = (url?: string | null) => {
 /**
  * Resolve AMC/service availability from the multiple formats the API may return.
  * Handles boolean true/false, string "true"/"false", and "Yes"/"No".
+ * Booleans are checked first because the edit form updates amcAvailability/serviceAvailability
+ * as booleans; the amcServiceAvailability string may be stale after an edit.
  */
 const resolveAmcLabel = (attr: NonConsumableAttributes | null): string | null => {
   if (!attr) return null;
 
 
-  // String "Yes" / "No" variant
-  if (typeof attr.amcServiceAvailability === "string" && attr.amcServiceAvailability.trim() !== "") {
-    return attr.amcServiceAvailability.trim();
-  }
-
-
-  // Boolean from amcAvailability or serviceAvailability
+  // Boolean from amcAvailability or serviceAvailability (updated by the edit form)
   const raw = attr.amcAvailability ?? attr.serviceAvailability;
   if (raw === true) return "Yes";
   if (raw === false) return "No";
+
+
+  // Fall back to string "Yes" / "No" variant (legacy / initial creation data)
+  if (typeof attr.amcServiceAvailability === "string" && attr.amcServiceAvailability.trim() !== "") {
+    return attr.amcServiceAvailability.trim();
+  }
 
 
   return null;
@@ -257,6 +264,7 @@ const NonConsumableView = ({
   storageConditionName,
   deviceCategoryName,
   deviceSubCategoryName,
+  specificationUnitLabel,
   brochureUrl,
   placeholderImage = "/assets/images/SellerMed.jpg",
   additionalDiscounts = [],
@@ -475,6 +483,15 @@ const NonConsumableView = ({
             label="Warranty Period"
             required={false}
             value={warrantyDisplay}
+          />
+          <FieldRow
+            label="Technical Dimensions / Capacity / Configuration"
+            required={false}
+            value={
+              nonConsAttr?.dimensionSize != null && String(nonConsAttr.dimensionSize).trim() !== ""
+                ? [String(nonConsAttr.dimensionSize), specificationUnitLabel].filter(Boolean).join(" ")
+                : null
+            }
           />
           <FieldRow
             label="AMC / Service Availability"

@@ -405,7 +405,14 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         warrantyPeriod: String(attribute.warrantyPeriod || ""),
         dimensionSize: attribute.dimensionSize != null ? String(attribute.dimensionSize) : "",
         deviceSpecificationUnitId: String(attribute.deviceSpecificationUnitId || ""),
-        amcAvailability: (attribute.amcAvailability === true || attribute.serviceAvailability === true) ? "true" : "false",
+        amcAvailability: (() => {
+          if (attribute.amcAvailability === true || attribute.serviceAvailability === true) return "true";
+          if (attribute.amcAvailability === false || attribute.serviceAvailability === false) return "false";
+          const s = String(attribute.amcServiceAvailability ?? attribute.amcAvailability ?? "").trim().toLowerCase();
+          if (s === "yes" || s === "true") return "true";
+          if (s === "no" || s === "false") return "false";
+          return "";
+        })(),
         packType: packIdVal,
         unitPerPack: String(packaging.unitPerPack || ""),
         numberOfPacks: String(packaging.numberOfPacks || ""),
