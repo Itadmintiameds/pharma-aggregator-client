@@ -317,7 +317,7 @@ const NonConsumableView = ({
   const materialTypesLabel = resolveMaterialTypes(nonConsAttr);
 
 
-  const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+  const imagesToShow = displayImages;
 
 
   return (

@@ -546,7 +546,7 @@ const CosmeticPersonalCareView = ({
 
 
   /* ── Images ── */
-  const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+  const imagesToShow = displayImages;
 
 
   /* ── Brochure ── */
@@ -560,11 +560,12 @@ const CosmeticPersonalCareView = ({
 
 
   /* ── Pack size display ── */
+  const resolvedPackLabel = packagingDetails?.packTypeName?.trim() || packagingDetails?.packType?.trim() || "packs";
   const packSizeDisplay = (() => {
     if (!packagingDetails) return null;
     const n = packagingDetails.numberOfPacks;
     const u = packagingDetails.unitsPerPack ?? packagingDetails.unitPerPack;
-    if (n && u) return `${n} packs × ${u} units = ${Number(n) * Number(u)} units`;
+    if (n && u) return `${n} ${resolvedPackLabel} × ${u} units = ${Number(n) * Number(u)} units`;
     if (packagingDetails.packSize) return String(packagingDetails.packSize);
     return null;
   })();
@@ -746,7 +747,7 @@ const CosmeticPersonalCareView = ({
             <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
               <FieldRow label="Pack Type" value={packagingDetails.packTypeName ?? packagingDetails.packType ?? null} />
               <FieldRow label="Units per Pack" value={formatVal(packagingDetails.unitsPerPack ?? packagingDetails.unitPerPack)} />
-              <FieldRow label="Number of Packs" value={formatVal(packagingDetails.numberOfPacks)} />
+              <FieldRow label="Number of Packs" value={packagingDetails.numberOfPacks != null ? `${packagingDetails.numberOfPacks} ${resolvedPackLabel}` : null} />
               <FieldRow label="Pack Size (Total Units)" value={packSizeDisplay} />
             </div>
             <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>

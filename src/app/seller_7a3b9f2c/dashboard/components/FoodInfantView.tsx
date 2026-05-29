@@ -238,7 +238,7 @@ const FoodInfantView = ({
     (c) => isValidUrl(c.certificateUrl),
   );
   const storageCondition = attr.storageConditionName || null;
-  const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+  const imagesToShow = displayImages;
   const resolvedBrochureUrl = isValidUrl(brochureUrl)
     ? brochureUrl
     : isValidUrl(attr.productUserManual)
@@ -913,7 +913,7 @@ export default FoodInfantView;
 //     (c) => isValidUrl(c.certificateUrl),
 //   );
 //   const storageCondition = attr.storageConditionName || null;
-//   const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+//   const imagesToShow = displayImages;
 //   const resolvedBrochureUrl = isValidUrl(brochureUrl)
 //     ? brochureUrl
 //     : isValidUrl(attr.productUserManual)
@@ -1522,7 +1522,7 @@ export default FoodInfantView;
 //     (c) => isValidUrl(c.certificateUrl),
 //   );
 //   const storageCondition = attr.storageConditionName || null;
-//   const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+//   const imagesToShow = displayImages;
 //   const resolvedBrochureUrl = isValidUrl(brochureUrl)
 //     ? brochureUrl
 //     : isValidUrl(attr.productUserManual)

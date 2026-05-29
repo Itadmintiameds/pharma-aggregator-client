@@ -242,7 +242,7 @@ const ConsumableView = ({
     deviceSubCategoryName ?? consAttr?.deviceSubCategoryName ?? null;
 
 
-  const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+  const imagesToShow = displayImages;
 
 
   return (

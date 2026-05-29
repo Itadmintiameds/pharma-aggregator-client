@@ -1377,13 +1377,21 @@ const ProductView1 = ({
      DERIVED VALUES
   ───────────────────────────────────────────────────── */
 
-  const packaging: PackagingDetails | undefined = Array.isArray(
-    productData?.packagingDetails,
-  )
-    ? productData?.packagingDetails[0]
-    : productData?.packagingDetails;
+  const packagingArr = Array.isArray(productData?.packagingDetails)
+    ? productData!.packagingDetails!
+    : productData?.packagingDetails
+    ? [productData.packagingDetails]
+    : [];
+  const packaging: PackagingDetails | undefined = packagingArr.length > 0
+    ? (packagingArr as any[]).reduce((latest: any, curr: any) =>
+        new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest)
+    : undefined;
 
-  const pricing: PricingDetails | undefined = productData?.pricingDetails?.[0];
+  const pricingArr = productData?.pricingDetails ?? [];
+  const pricing: PricingDetails | undefined = pricingArr.length > 0
+    ? (pricingArr as any[]).reduce((latest: any, curr: any) =>
+        new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest)
+    : undefined;
 
   const ncAttr: NonConsumableAttributes | null =
     (productData?.productAttributeNonConsumableMedicals ?? []).length > 0
@@ -1631,14 +1639,13 @@ const ProductView1 = ({
 
   const packSizeDisplay =
     packaging?.numberOfPacks != null && unitsPerPack != null
-      ? `${packaging.numberOfPacks} packs × ${unitsPerPack} units = ${(
+      ? `${packaging.numberOfPacks} ${resolvedPackType ?? "packs"} × ${unitsPerPack} units = ${(
         packaging.numberOfPacks * unitsPerPack
       ).toLocaleString()} units`
       : null;
 
   const productImages = resolveProductImages(productData);
-  const displayImages =
-    productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
+  const displayImages = productImages;
 
   const brochureUrl: string | null =
     validUrl(drugEntry?.brochurePath) ??
@@ -1912,6 +1919,8 @@ const ProductView1 = ({
             storageConditionName={storageCondition}
             brochureUrl={brochureUrl}
             placeholderImage={PLACEHOLDER_IMAGE}
+            pricingDetails={pricing ? { ...(pricing as any), shelfLife: shelfLifeDisplay ?? (pricing as any)?.shelfLife } : null}
+            packagingDetails={packaging ? { ...(packaging as any), packTypeName: resolvedPackType ?? (packaging as any)?.packTypeName } : null}
             additionalDiscounts={additionalDiscounts}
             specialSchemes={specialSchemes}
           />
@@ -2213,7 +2222,7 @@ const ProductView1 = ({
               label="Number of Packs"
               value={
                 packaging?.numberOfPacks != null
-                  ? `${packaging.numberOfPacks} Box`
+                  ? `${packaging.numberOfPacks} ${resolvedPackType ?? "packs"}`
                   : null
               }
             />

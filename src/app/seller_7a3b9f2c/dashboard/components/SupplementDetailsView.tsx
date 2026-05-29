@@ -145,7 +145,7 @@ export default function SupplementDetailsView({
       : String(suppAttr.servingSize)
     : "—";
 
-  const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+  const imagesToShow = displayImages;
 
   /* ── Resolve cert docs ── */
   const certDocs: CertificateDocument[] = (suppAttr.certificateDocuments ?? []).filter((c: any) => isValidUrl(c.certificateUrl));

@@ -6,7 +6,7 @@ import Input from "@/src/app/commonComponents/Input";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import UploadInput from "../commonComponent/UploadInput";
-import AdditionalDiscount from "./AdditionalDiscount";
+import AdditionalDiscountType from "./AdditionalDiscountType";
 import PopupModal from "../commonComponent/PopupModal";
 import CommonModal from "../commonComponent/CommonModal";
 import { AlertCircle } from "lucide-react";
@@ -1043,10 +1043,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
       {showAdditionalDiscountModal && (
         <CommonModal onClose={() => setShowAdditionalDiscountModal(false)} width="w-[600px]">
-          <AdditionalDiscount
+          <AdditionalDiscountType
             initialData={convertToDiscountData(additionalDiscountSlabs)}
-            onSave={(slabs?: AdditionalDiscountData[]) => {
-              if (slabs) setAdditionalDiscountSlabs(convertToDiscountSlab(slabs));
+            baseDiscountPercentage={Number(form.discountPercentage) || 0}
+            baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
+            onSaveAdditionalDiscount={(data: AdditionalDiscountData[]) => {
+              setAdditionalDiscountSlabs(convertToDiscountSlab(data));
               setShowAdditionalDiscountModal(false);
             }}
             onClose={() => setShowAdditionalDiscountModal(false)}

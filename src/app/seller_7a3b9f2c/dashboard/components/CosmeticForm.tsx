@@ -365,6 +365,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   // ─── Master options ───────────────────────────────────────────────────────────
   const [productTypeOptions, setProductTypeOptions] = useState<SelectOption[]>([]);
   const [productSubTypeOptions, setProductSubTypeOptions] = useState<SelectOption[]>([]);
+  const productSubTypeOptionsRef = useRef<SelectOption[]>([]);
+  productSubTypeOptionsRef.current = productSubTypeOptions;
   const [skinTypeOptions, setSkinTypeOptions] = useState<SelectOption[]>([]);
   const [hairTypeOptions, setHairTypeOptions] = useState<SelectOption[]>([]);
   const [ageGroupOptions, setAgeGroupOptions] = useState<SelectOption[]>([]);
@@ -462,8 +464,19 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                      ?? data.productAttributeCosmetics?.[0]
                      ?? {};
 
-      const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) ?? {};
-      const pricing = data.pricingDetails?.[0] ?? {};
+      const packagingArr: any[] = Array.isArray(data.packagingDetails)
+        ? data.packagingDetails
+        : data.packagingDetails ? [data.packagingDetails] : [];
+      const packaging = packagingArr.length > 0
+        ? packagingArr.reduce((latest: any, curr: any) =>
+            new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest)
+        : {};
+
+      const pricingArr: any[] = Array.isArray(data.pricingDetails) ? data.pricingDetails : [];
+      const pricing = pricingArr.length > 0
+        ? pricingArr.reduce((latest: any, curr: any) =>
+            new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest)
+        : {};
 
       setProductAttributeId(String(attribute.productAttributeId || ""));
       setPackagingId(String(packaging.packagingId || ""));
@@ -495,7 +508,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       const warningsValue         = data.warningsPrecautions ?? attribute.WarningsPrecautions ?? attribute.warningsPrecautions ?? "";
       const descriptionValue      = data.productDescription || "";
 
-      let resolvedSubCats = productSubTypeOptions;
+      let resolvedSubCats = productSubTypeOptionsRef.current;
       if (productTypeIdStr && resolvedSubCats.length === 0) {
         resolvedSubCats = await fetchSubTypes(productTypeIdStr);
       }
@@ -616,7 +629,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     } finally {
       setLoadingProduct(false);
     }
-  }, [mode, productId, fetchSubTypes, productSubTypeOptions]);
+  }, [mode, productId, fetchSubTypes]);
 
   // ─── Load all master data ─────────────────────────────────────────────────────
   useEffect(() => {
