@@ -1377,7 +1377,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       setErrors((prev) => ({
         ...prev,
         manufacturingDate: "",
-        expiryDate: "Expiry must be 5 years from Manufacturing Date",
+        expiryDate: "Expiry must be within 5 years from Manufacturing Date",
       }));
 
       setForm((prev) => ({
@@ -2066,7 +2066,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   ? form.dateOfStockEntry.toISOString().split("T")[0]
                   : ""
               }
-              disabled
+              readOnly
               error={errors.dateOfStockEntry}
               required
             />

@@ -8,6 +8,7 @@ import {
 import React, { forwardRef, useImperativeHandle, useState } from "react";
 import Select, { StylesConfig } from "react-select";
 import { formatDate } from "../commonComponent/DateFormat";
+import DatePicker from "@/src/app/commonComponents/DatePicker";
 
 type OptionType = {
   value: string;
@@ -76,6 +77,10 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
       initialData || [],
     );
 
+    const [touched, setTouched] = useState<Record<string, boolean>>({});
+    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+    const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+
     React.useEffect(() => {
       if (initialData) {
         setTableData(initialData);
@@ -126,6 +131,14 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
       columns,
       getCoreRowModel: getCoreRowModel(),
     });
+
+    const parseDate = (value: string) => {
+      if (!value) return null;
+
+      const [day, month, year] = value.split("/");
+
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    };
 
     const validateForm = (
       updatedForm: SpecialSchemesData = form,
@@ -183,12 +196,15 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const startDate = new Date(updatedForm.effectiveStartDate);
-            startDate.setHours(0, 0, 0, 0);
+            const startDate = parseDate(updatedForm.effectiveStartDate);
 
-            if (startDate < today) {
-              newErrors.effectiveStartDate =
-                "Start Date cannot be less than today";
+            if (startDate) {
+              startDate.setHours(0, 0, 0, 0);
+
+              if (startDate < today) {
+                newErrors.effectiveStartDate =
+                  "Start Date cannot be less than today";
+              }
             }
           }
         }
@@ -219,21 +235,52 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
 
         // End Date >= Start Date
         if (updatedForm.effectiveStartDate && updatedForm.effectiveEndDate) {
-          const startDate = new Date(updatedForm.effectiveStartDate);
-          const endDate = new Date(updatedForm.effectiveEndDate);
+          const startDate = parseDate(updatedForm.effectiveStartDate);
 
-          startDate.setHours(0, 0, 0, 0);
-          endDate.setHours(0, 0, 0, 0);
+          const endDate = parseDate(updatedForm.effectiveEndDate);
 
-          if (endDate < startDate) {
-            newErrors.effectiveEndDate =
-              "End Date must be greater than or equal to Start Date";
+          if (startDate && endDate) {
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(0, 0, 0, 0);
+
+            if (endDate < startDate) {
+              newErrors.effectiveEndDate =
+                "End Date must be greater than or equal to Start Date";
+            }
           }
         }
       }
 
       return newErrors;
     };
+
+    // const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    //   const { name, value } = e.target;
+
+    //   const updatedForm = {
+    //     ...form,
+    //     [name]:
+    //       name === "buyQuantity" || name === "freeQuantity"
+    //         ? Number(value)
+    //         : value,
+    //   };
+
+    //   setForm(updatedForm);
+
+    //   const fieldErrors = validateForm(updatedForm, name);
+
+    //   setErrors((prev) => {
+    //     const updatedErrors = { ...prev };
+
+    //     // remove old error of current field
+    //     delete updatedErrors[name];
+
+    //     return {
+    //       ...updatedErrors,
+    //       ...fieldErrors,
+    //     };
+    //   });
+    // };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { name, value } = e.target;
@@ -248,19 +295,34 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
 
       setForm(updatedForm);
 
+      const updatedTouched = {
+        ...touched,
+        [name]: true,
+      };
+
+      setTouched(updatedTouched);
+
       const fieldErrors = validateForm(updatedForm, name);
 
       setErrors((prev) => {
         const updatedErrors = { ...prev };
 
-        // remove old error of current field
         delete updatedErrors[name];
 
-        return {
-          ...updatedErrors,
-          ...fieldErrors,
-        };
+        if (fieldErrors[name]) {
+          updatedErrors[name] = fieldErrors[name];
+        }
+
+        return updatedErrors;
       });
+    };
+
+    const formatDateForApi = (dateStr: string | null) => {
+      if (!dateStr) return "";
+
+      const [day, month, year] = dateStr.split("/");
+
+      return `${year}-${month}-${day}`;
     };
 
     const handleSubmit = () => {
@@ -270,11 +332,19 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
 
       if (Object.keys(validationErrors).length > 0) return;
 
+      const payload = {
+        ...form,
+        effectiveStartDate: formatDateForApi(form.effectiveStartDate),
+        effectiveEndDate: formatDateForApi(form.effectiveEndDate),
+      };
+
+      // table UI keeps dd/mm/yyyy
       const updatedTableData = [...tableData, form];
       setTableData(updatedTableData);
 
+      // backend gets yyyy-mm-dd
       if (onSave) {
-        onSave(updatedTableData);
+        onSave([...tableData, payload]);
       }
 
       setForm({
@@ -288,8 +358,9 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
         effectiveEndTime: "",
       });
 
-      console.log("FORM SUBMITTED", form);
+      setErrors({});
     };
+
     useImperativeHandle(ref, () => ({
       submitForm: handleSubmit,
     }));
@@ -461,7 +532,80 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                 Start Date
               </label>
               <div className="flex gap-3">
-                <div className="flex flex-col">
+                <div className="relative flex flex-col">
+                  <input
+                    type="text"
+                    name="effectiveStartDate"
+                    id="effectiveStartDate"
+                    readOnly
+                    disabled={alwaysActive}
+                    placeholder="dd/mm/yyyy"
+                    value={form.effectiveStartDate || ""}
+                    onClick={() =>
+                      !alwaysActive && setShowStartDatePicker(true)
+                    }
+                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                      alwaysActive
+                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                        : "border-pneutral-300 cursor-pointer"
+                    }`}
+                  />
+
+                  {showStartDatePicker && (
+                    <DatePicker
+                      selectedDate={
+                        form.effectiveStartDate
+                          ? new Date(
+                              form.effectiveStartDate
+                                .split("/")
+                                .reverse()
+                                .join("-"),
+                            )
+                          : new Date()
+                      }
+                      onSelect={(date) => {
+                        const formattedDate = `${String(
+                          date.getDate(),
+                        ).padStart(2, "0")}/${String(
+                          date.getMonth() + 1,
+                        ).padStart(2, "0")}/${date.getFullYear()}`;
+
+                        const updatedForm = {
+                          ...form,
+                          effectiveStartDate: formattedDate,
+                        };
+
+                        setForm(updatedForm);
+
+                        setTouched((prev) => ({
+                          ...prev,
+                          effectiveStartDate: true,
+                        }));
+
+                        const validationErrors = validateForm(
+                          updatedForm,
+                          "effectiveStartDate",
+                        );
+
+                        setErrors((prev) => ({
+                          ...prev,
+                          effectiveStartDate:
+                            validationErrors.effectiveStartDate || "",
+                        }));
+
+                        setShowStartDatePicker(false);
+                      }}
+                      onClose={() => setShowStartDatePicker(false)}
+                    />
+                  )}
+
+                  {errors.effectiveStartDate && (
+                    <p className="text-warning-500 text-xs mt-1">
+                      {errors.effectiveStartDate}
+                    </p>
+                  )}
+                </div>
+                {/* <div className="flex flex-col">
                   <input
                     type="date"
                     name="effectiveStartDate"
@@ -480,7 +624,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                       {errors.effectiveStartDate}
                     </p>
                   )}
-                </div>
+                </div> */}
 
                 <div className="flex flex-col">
                   <input
@@ -513,7 +657,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                 End Date
               </label>
               <div className="flex gap-3">
-                <div className="flex flex-col">
+                {/* <div className="flex flex-col">
                   <input
                     type="date"
                     name="effectiveEndDate"
@@ -527,6 +671,77 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                         : "border-pneutral-300"
                     }`}
                   />
+                  {errors.effectiveEndDate && (
+                    <p className="text-warning-500 text-xs mt-1">
+                      {errors.effectiveEndDate}
+                    </p>
+                  )}
+                </div> */}
+                <div className="relative flex flex-col">
+                  <input
+                    type="text"
+                    name="effectiveEndDate"
+                    id="effectiveEndDate"
+                    readOnly
+                    disabled={alwaysActive}
+                    placeholder="dd/mm/yyyy"
+                    value={form.effectiveEndDate || ""}
+                    onClick={() => !alwaysActive && setShowEndDatePicker(true)}
+                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                      alwaysActive
+                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                        : "border-pneutral-300 cursor-pointer"
+                    }`}
+                  />
+
+                  {showEndDatePicker && (
+                    <DatePicker
+                      selectedDate={
+                        form.effectiveEndDate
+                          ? new Date(
+                              form.effectiveEndDate
+                                .split("/")
+                                .reverse()
+                                .join("-"),
+                            )
+                          : new Date()
+                      }
+                      onSelect={(date) => {
+                        const formattedDate = `${String(
+                          date.getDate(),
+                        ).padStart(2, "0")}/${String(
+                          date.getMonth() + 1,
+                        ).padStart(2, "0")}/${date.getFullYear()}`;
+
+                        const updatedForm = {
+                          ...form,
+                          effectiveEndDate: formattedDate,
+                        };
+
+                        setForm(updatedForm);
+
+                        setTouched((prev) => ({
+                          ...prev,
+                          effectiveEndDate: true,
+                        }));
+
+                        const validationErrors = validateForm(
+                          updatedForm,
+                          "effectiveEndDate",
+                        );
+
+                        setErrors((prev) => ({
+                          ...prev,
+                          effectiveEndDate:
+                            validationErrors.effectiveEndDate || "",
+                        }));
+
+                        setShowEndDatePicker(false);
+                      }}
+                      onClose={() => setShowEndDatePicker(false)}
+                    />
+                  )}
+
                   {errors.effectiveEndDate && (
                     <p className="text-warning-500 text-xs mt-1">
                       {errors.effectiveEndDate}
