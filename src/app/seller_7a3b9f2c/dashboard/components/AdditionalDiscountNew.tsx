@@ -825,27 +825,6 @@ const AdditionalDiscountNew = forwardRef<
                 End Date
               </label>
               <div className="flex gap-3">
-                {/* <div className="flex flex-col">
-                  <input
-                    type="date"
-                    name="effectiveEndDate"
-                    id="effectiveEndDate"
-                    value={form.effectiveEndDate}
-                    onChange={handleInputChange}
-                    disabled={alwaysActive}
-                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
-                      alwaysActive
-                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                        : "border-pneutral-300"
-                    }`}
-                  />
-                  {errors.effectiveEndDate && (
-                    <p className="text-warning-500 text-xs mt-1">
-                      {errors.effectiveEndDate}
-                    </p>
-                  )}
-                </div> */}
-
                 <div className="relative flex flex-col">
                   <input
                     type="text"
