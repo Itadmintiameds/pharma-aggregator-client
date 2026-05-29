@@ -325,7 +325,6 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
       return `${year}-${month}-${day}`;
     };
 
-
     const handleSubmit = () => {
       const validationErrors = validateForm();
 
@@ -339,11 +338,13 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
         effectiveEndDate: formatDateForApi(form.effectiveEndDate),
       };
 
+      // table UI keeps dd/mm/yyyy
       const updatedTableData = [...tableData, form];
       setTableData(updatedTableData);
 
+      // backend gets yyyy-mm-dd
       if (onSave) {
-        onSave(updatedTableData);
+        onSave([...tableData, payload]);
       }
 
       setForm({
@@ -357,8 +358,9 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
         effectiveEndTime: "",
       });
 
-      console.log("FORM SUBMITTED", form);
+      setErrors({});
     };
+
     useImperativeHandle(ref, () => ({
       submitForm: handleSubmit,
     }));
