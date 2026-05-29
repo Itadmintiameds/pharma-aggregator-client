@@ -135,8 +135,8 @@ export default function SupplementDetailsView({
 
   if (!suppAttr) return null;
 
-  const displayNetQty = suppAttr.netQuantityValue != null && suppAttr.netQuantityValue !== "" && (suppAttr.netQuantityUnitName || suppAttr.netQuantityUnitSymbol || suppAttr.netQuantityUnit)
-    ? `${suppAttr.netQuantityValue} ${suppAttr.netQuantityUnitName || suppAttr.netQuantityUnitSymbol || suppAttr.netQuantityUnit}`
+  const displayNetQty = suppAttr.netQuantity != null && suppAttr.netQuantity !== "" && (suppAttr.netQuantityUnitName || suppAttr.netQuantityUnitSymbol || suppAttr.netQuantityUnit)
+    ? `${suppAttr.netQuantity} ${suppAttr.netQuantityUnitName || suppAttr.netQuantityUnitSymbol || suppAttr.netQuantityUnit}`
     : suppAttr.netQuantity || "—";
 
   const displayServingSize = suppAttr.servingSize != null && suppAttr.servingSize !== ""
@@ -198,12 +198,12 @@ export default function SupplementDetailsView({
           <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-[#1E1E1D]">
             Product Images
           </h3>
-          <div className="grid grid-cols-5 gap-3">
+          <div className="flex justify-center flex-wrap gap-3">
             {imagesToShow.slice(0, 5).map((img, idx) => (
               <div
                 key={idx}
                 onClick={() => setSelectedImageIndex(idx)}
-                className={`relative h-[274px] w-full overflow-hidden rounded-xl cursor-pointer shadow-sm${idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""
+                className={`relative h-[274px] w-full max-w-[calc(20%-10px)] overflow-hidden rounded-xl cursor-pointer shadow-sm${idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""
                   }`}
               >
                 <Image
@@ -221,9 +221,7 @@ export default function SupplementDetailsView({
                 )}
               </div>
             ))}
-            {Array.from({ length: Math.max(0, 5 - imagesToShow.length) }).map((_, i) => (
-              <div key={`empty-${i}`} className="h-[274px] w-full rounded-xl bg-pneutral-50 shadow-sm" />
-            ))}
+
           </div>
         </div>
 

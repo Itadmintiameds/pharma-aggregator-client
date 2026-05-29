@@ -549,28 +549,28 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   //   }
   // };
 
-   const checkBatchNumber = async (batchLotNumber: string) => {
-      try {
-        const response = await validateBatchNumber(
-          batchLotNumber,
-          Number(categoryId),
-        );
-  
-        if (response.exists) {
-          setErrors((prev) => ({
-            ...prev,
-            batchLotNumber: "Batch number already exists",
-          }));
-        } else {
-          setErrors((prev) => ({
-            ...prev,
-            batchLotNumber: "",
-          }));
-        }
-      } catch (error) {
-        console.error("Batch validation failed:", error);
+  const checkBatchNumber = async (batchLotNumber: string) => {
+    try {
+      const response = await validateBatchNumber(
+        batchLotNumber,
+        Number(categoryId),
+      );
+
+      if (response.exists) {
+        setErrors((prev) => ({
+          ...prev,
+          batchLotNumber: "Batch number already exists",
+        }));
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          batchLotNumber: "",
+        }));
       }
-    };
+    } catch (error) {
+      console.error("Batch validation failed:", error);
+    }
+  };
 
   const handleViewProduct = () => {
     router.push("/seller_7a3b9f2c/products");
@@ -1528,9 +1528,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
     // const batchValidation = await validateBatchNumber(form.batchLotNumber);
     const batchValidation = await validateBatchNumber(
-          form.batchLotNumber,
-          Number(categoryId),
-        );
+      form.batchLotNumber,
+      Number(categoryId),
+    );
     if (batchValidation.exists) {
       setErrors((prev) => ({
         ...prev,
@@ -2113,23 +2113,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               />
             </div>
 
-            {/* Serving Size */}
+            {/* Serving Size - Commented out for future use
             <div data-field="servingSize">
-              {/*
-              <NumericInputWithUnit
-                label="Serving Size"
-                name="servingSizeValue"
-                placeholder="e.g., 1, 5, 10"
-                value={form.servingSizeValue}
-                unit={form.servingSizeUnit}
-                onValueChange={handleServingSizeValueChange}
-                onUnitChange={handleServingSizeUnitChange}
-                error={errors.servingSizeValue}
-                options={servingSizeUnitOptions}
-                required
-                readOnly={isEditMode}
-              />
-              */}
               <Input
                 label="Serving Size"
                 name="servingSizeValue"
@@ -2139,6 +2124,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 disabled={true}
               />
             </div>
+            */}
 
             {/* ROW 5 */}
             {/* Strength / Composition */}

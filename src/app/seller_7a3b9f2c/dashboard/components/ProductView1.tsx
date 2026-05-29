@@ -2172,7 +2172,7 @@ const ProductView1 = ({
           placeholderImage={PLACEHOLDER_IMAGE}
           manufacturerName={manufacturerName}
           additionalDiscounts={additionalDiscounts}
-    specialSchemes={specialSchemes}
+          specialSchemes={specialSchemes}
         />
       )}
       {console.log("FoodAttr from ProductView1:", {
@@ -2423,6 +2423,7 @@ const ProductView1 = ({
                       }}
                     >
                       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
+                        {/*
                         <span style={{
                           color: "#1E1E1D",
                           fontSize: 16,
@@ -2431,6 +2432,7 @@ const ProductView1 = ({
                         }}>
                           {s.schemeName || "Special Scheme"}
                         </span>
+                        */}
                         <span style={{
                           color: "#3C3D3A",
                           fontSize: 14,
