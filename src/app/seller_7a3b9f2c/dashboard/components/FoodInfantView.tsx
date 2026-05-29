@@ -82,7 +82,11 @@ export interface FoodInfantViewProps {
 const isValidUrl = (url?: string | null) => {
   if (!url) return false;
   const t = url.trim().toUpperCase();
-  // Also check if it's a valid HTTP URL
+  
+  // Reject blob URLs
+  if (url.startsWith('blob:')) return false;
+  
+  // Check if it's a valid HTTP URL
   if (t.startsWith('HTTP://') || t.startsWith('HTTPS://')) {
     return true;
   }
@@ -211,6 +215,10 @@ const FoodInfantView = ({
           storageConditionName: findName(storageConditions, foodAttr.storageConditionId, "storageConditionId", "conditionName"),
           
         });
+          console.log("✅ ResolvedAttr updated:", {
+        nutritionalInformation: foodAttr.nutritionalInformation,
+        nutritionalInformationImageUrl: foodAttr.nutritionalInformationImageUrl,
+      });
       } catch (err) {
         console.error("Failed to resolve Food/Infant master data:", err);
         setResolvedAttr(foodAttr);

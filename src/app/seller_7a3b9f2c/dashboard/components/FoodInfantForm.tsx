@@ -367,6 +367,7 @@ const [certificateDocumentIds, setCertificateDocumentIds] = useState<Map<number,
   const [loadingPackTypes, setLoadingPackTypes] = useState(false);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
   const [ageGroupOptionsMap, setAgeGroupOptionsMap] = useState<Map<string, string>>(new Map());
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Stock-based edit restrictions
   const currentStockQuantity = Number(form.stockQuantity) || 0;
@@ -611,12 +612,31 @@ const [certificateDocumentIds, setCertificateDocumentIds] = useState<Map<number,
     return null;
   };
 
+  
+
 const checkBatchNumber = async (batchLotNumber: string) => {
   // Skip validation in edit mode since field is read-only
   if (isEditMode) {
     console.log("⚠️ Edit mode - skipping batch number validation");
     return;
   }
+
+   // Clear any existing timer
+  if (debounceTimerRef.current) {
+    clearTimeout(debounceTimerRef.current);
+  }
+
+   // If batch number is empty, clear error
+  if (!batchLotNumber || batchLotNumber.trim() === "") {
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.batchLotNumber;
+      return newErrors;
+    });
+    return;
+  }
+
+  debounceTimerRef.current = setTimeout(async () => {
   
   try {
     const response = await validateBatchNumber(batchLotNumber, categoryId);
@@ -634,10 +654,24 @@ const checkBatchNumber = async (batchLotNumber: string) => {
       });
     }
   } catch (error) {
-    console.error("Batch validation failed:", error);
+   console.error("Batch validation failed:", error);
+    // On API error, clear error to not block user
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.batchLotNumber;
+      return newErrors;
+    });
   }
+}, 500); // Wait 500ms after user stops typing
 };
 
+useEffect(() => {
+  return () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+  };
+}, []);
   // Validation functions
   const validateCrossFields = () => {
     const newErrors: Record<string, string> = {};
@@ -711,8 +745,8 @@ if (name === "productDescription") {
     setErrors((prev) => ({ ...prev, productDescription: "Product Description is required" }));
   } else if (trimmedValue.length < 10) {
     setErrors((prev) => ({ ...prev, productDescription: "Product Description must be at least 10 characters" }));
-  } else if (value.length > 250) {
-    setErrors((prev) => ({ ...prev, productDescription: "Maximum 250 characters allowed" }));
+  } else if (value.length > 1000) {
+    setErrors((prev) => ({ ...prev, productDescription: "Maximum 1000 characters allowed" }));
   } else {
     setErrors((prev) => {
       const newErrors = { ...prev };
@@ -729,8 +763,8 @@ if (name === "warningsPrecautions") {
     setErrors((prev) => ({ ...prev, warningsPrecautions: "Warnings/Precautions is required" }));
   } else if (trimmedValue.length < 10) {
     setErrors((prev) => ({ ...prev, warningsPrecautions: "Warnings/Precautions must be at least 10 characters" }));
-  } else if (value.length > 250) {
-    setErrors((prev) => ({ ...prev, warningsPrecautions: "Maximum 250 characters allowed" }));
+  } else if (value.length > 1000) {
+    setErrors((prev) => ({ ...prev, warningsPrecautions: "Maximum 1000 characters allowed" }));
   } else {
     setErrors((prev) => {
       const newErrors = { ...prev };
@@ -1213,33 +1247,39 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
           setProductAttributeId((attr as any).productAttributeId || null);
 
           // Load certificates - INCLUDING pending ones
-          if ((attr as any).certificateDocuments?.length) {
-            const selected = (attr as any).certificateDocuments.map((c: any) => String(c.certificationId));
-            setSelectedCertificationValues(selected);
-            const certDocMap = new Map();
-            (attr as any).certificateDocuments.forEach((doc: any) => {
-              certDocMap.set(String(doc.certificationId), doc);
-            });
-            
-            setCertificationsDetails(
-              selected.map((id: string) => {
-                const certDoc = certDocMap.get(id);
-                const url = certDoc?.certificateUrl;
-                const isValidUrl = url && url !== "NOT_UPLOADED" && url !== "PENDING";
-                
-                return {
-                  id,
-                  label: certDoc?.certificationName || "",
-                  tagCode: "",
-                  file: null,
-                  fileName: "",
-                  uploading: false,
-                  isUploaded: isValidUrl,
-                  existingUrl: url || "",
-                };
-              })
-            );
-          }
+          // Load certificates - INCLUDING pending ones, but skip blob URLs
+if ((attr as any).certificateDocuments?.length) {
+  const selected = (attr as any).certificateDocuments.map((c: any) => String(c.certificationId));
+  setSelectedCertificationValues(selected);
+  const certDocMap = new Map();
+  (attr as any).certificateDocuments.forEach((doc: any) => {
+    certDocMap.set(String(doc.certificationId), doc);
+  });
+  
+  setCertificationsDetails(
+    selected.map((id: string) => {
+      const certDoc = certDocMap.get(id);
+      const url = certDoc?.certificateUrl;
+      
+      // Check if it's a valid S3 URL (not blob, not pending)
+      const isValidUrl = url && 
+        url !== "NOT_UPLOADED" && 
+        url !== "PENDING" &&
+        !url.startsWith('blob:');  // ← Skip blob URLs from Excel imports
+      
+      return {
+        id,
+        label: certDoc?.certificationName || "",
+        tagCode: "",
+        file: null,
+        fileName: "",
+        uploading: false,
+        isUploaded: isValidUrl,
+        existingUrl: isValidUrl ? url : "",  
+      };
+    })
+  );
+}
 
           // Load subcategories
           if (categoryId) {
@@ -1350,7 +1390,10 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       vegNonvegIndicator: form.dietaryClassification as "veg" | "non-veg",
       allergenInformation: form.allergenInformation,
       nutritionalInformation: form.nutritionalInfoType,
-      nutritionalInformationImageUrl: "",
+      // nutritionalInformationImageUrl: "",
+        nutritionalInformationImageUrl: isEditMode && existingNutritionalImageUrl 
+    ? existingNutritionalImageUrl 
+    : "",
       activeIngredients: form.activeIngredients,
       additivesPreservatives: form.additivesPreservatives,
       productClaims: form.productClaims,
@@ -1360,14 +1403,16 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
         .filter((c) => {
           const hasValidExistingUrl = c.existingUrl && 
             c.existingUrl !== "NOT_UPLOADED" && 
-            c.existingUrl !== "PENDING";
+            c.existingUrl !== "PENDING" &&
+            !c.existingUrl.startsWith('blob:');
           return c.isUploaded || hasValidExistingUrl;
         })
         .map((c) => ({
           certificationId: Number(c.id),
           certificateUrl: c.existingUrl && 
             c.existingUrl !== "NOT_UPLOADED" && 
-            c.existingUrl !== "PENDING" 
+            c.existingUrl !== "PENDING" &&
+      !c.existingUrl.startsWith('blob:')
               ? c.existingUrl 
               : (c.file ? URL.createObjectURL(c.file) : ""),
         })),
@@ -1421,8 +1466,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       newErrors.productDescription = "Product Description is required";
     } else if (form.productDescription.trim().length < 10) {
       newErrors.productDescription = "Product Description must be at least 10 characters";
-    } else if (form.productDescription.length > 250) {
-      newErrors.productDescription = "Product Description must not exceed 250 characters";
+    } else if (form.productDescription.length > 1000) {
+      newErrors.productDescription = "Product Description must not exceed 1000 characters";
     }
     
     // Warnings & Precautions validation
@@ -1430,8 +1475,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       newErrors.warningsPrecautions = "Warnings/Precautions is required";
     } else if (form.warningsPrecautions.trim().length < 10) {
       newErrors.warningsPrecautions = "Warnings/Precautions must be at least 10 characters";
-    } else if (form.warningsPrecautions.length > 250) {
-      newErrors.warningsPrecautions = "Warnings/Precautions must not exceed 250 characters";
+    } else if (form.warningsPrecautions.length > 1000) {
+      newErrors.warningsPrecautions = "Warnings/Precautions must not exceed 1000 characters";
     }
     
     if (!form.packType) newErrors.packType = "Pack type is required";
@@ -1489,6 +1534,16 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
+
+     // Wait for any pending debounce to complete
+  if (debounceTimerRef.current) {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+  }
+  
+  // Clear any pending timer
+  if (debounceTimerRef.current) {
+    clearTimeout(debounceTimerRef.current);
+  }
 
  if (!isEditMode) {
     console.log("🔍 Submit - Checking batch number:", form.batchLotNumber);
@@ -1548,13 +1603,18 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
           }
         }
 
-        if (form.nutritionalInfoImage && newProductAttributeId) {
-          try {
-            await uploadNutritionalInformationImage(newProductAttributeId, 3, form.nutritionalInfoImage);
-          } catch (err) {
-            console.warn("⚠️ Nutritional image upload failed:", err);
-          }
-        }
+        // ✅ THIS IS WHERE YOU NEED TO UPDATE THE CODE
+  if (form.nutritionalInfoImage && newProductAttributeId) {
+    try {
+      const response = await uploadNutritionalInformationImage(newProductAttributeId, 3, form.nutritionalInfoImage);
+      if (response?.data?.imageUrl) {
+        setExistingNutritionalImageUrl(response.data.imageUrl);
+        console.log("✅ Nutritional image URL updated:", response.data.imageUrl);
+      }
+    } catch (err) {
+      console.warn("⚠️ Nutritional image upload failed:", err);
+    }
+  }
        // ✅ FOR EDIT MODE - Upload new certificates (only the newly added ones)
   if (newProductAttributeId && certificationsDetails.length > 0) {
     // Get the certificate documents from response
@@ -1614,13 +1674,17 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
           }
         }
 
-        if (form.nutritionalInfoImage && newProductAttributeId) {
-          try {
-            await uploadNutritionalInformationImage(newProductAttributeId, 3, form.nutritionalInfoImage);
-          } catch (err) {
-            console.warn("⚠️ Nutritional image upload failed:", err);
-          }
-        }
+       if (form.nutritionalInfoImage && newProductAttributeId) {
+  try {
+    const response = await uploadNutritionalInformationImage(newProductAttributeId, 3, form.nutritionalInfoImage);
+    if (response?.data?.imageUrl) {
+      setExistingNutritionalImageUrl(response.data.imageUrl);
+      console.log("✅ Nutritional image URL updated in create mode:", response.data.imageUrl);
+    }
+  } catch (err) {
+    console.warn("⚠️ Nutritional image upload failed:", err);
+  }
+}
 
          // ─── Upload Certificates in Create Mode ─────────────────────────────────
        // ─── Upload Certificates using documentIds from response ─────────────────
@@ -1781,12 +1845,13 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
               <Input
                 label="Product Name"
                 name="productName"
-                placeholder="e.g., Organic Protein Powder"
+                placeholder="e.g., Organic P  rotein Powder"
                 onChange={handleChange}
                 value={form.productName}
                 error={errors.productName}
                 required
-                readOnly={isEditMode}
+                // readOnly={isEditMode}
+                disabled={isEditMode}
                 maxLength={150}
               />
             </div>
@@ -1824,7 +1889,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
                 placeholder="e.g., Nestle, Abbott"
                 onChange={handleChange}
                 value={form.brandName}
-                readOnly={isEditMode}
+                // readOnly={isEditMode}
+                disabled={isEditMode}
                 error={errors.brandName}
                 required
                 maxLength={60}
@@ -1874,7 +1940,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
                 onUnitChange={handleNetQuantityUnitChange}
                 error={errors.netQuantityValue || errors.netQuantityUnit}
                 required
-                readOnly={isEditMode}
+                // readOnly={isEditMode}
+                disabled={isEditMode}
                 options={netQuantityUnitOptions}
                 loading={loadingNetQuantityUnits}
               />
@@ -1995,7 +2062,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
                 placeholder="e.g., Vitamin C, Protein"
                 onChange={handleChange}
                 value={form.activeIngredients}
-                readOnly={isEditMode}
+                // readOnly={isEditMode}
+                disabled={isEditMode}
                 error={errors.activeIngredients}
                 required
               />
@@ -2049,7 +2117,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
                 placeholder="Manufacturer company name"
                 onChange={handleChange}
                 value={form.manufacturerName}
-                readOnly={isEditMode}
+                // readOnly={isEditMode}
+                disabled={isEditMode}
                 error={errors.manufacturerName}
                 required
               />
@@ -2147,13 +2216,13 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
     name="productDescription"
     value={form.productDescription}
     onChange={handleChange}
-    placeholder="Detailed product description (Minimum 10 characters, Maximum 250 characters)"
+    placeholder="Detailed product description (Minimum 10 characters, Maximum 1000 characters)"
     rows={4}
-    maxLength={250}
+    maxLength={1000}
     className={`w-full rounded-lg p-3 resize-none border bg-white focus:outline-none transition-all duration-200 ${
       errors.productDescription 
         ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" 
-        : form.productDescription.length >= 240 && form.productDescription.length < 250
+        : form.productDescription.length >= 980 && form.productDescription.length < 1000
           ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500"
           : "border-pneutral-300 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"
     }`}
@@ -2164,9 +2233,9 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       Need {10 - form.productDescription.length} more characters (minimum 10)
     </p>
   )}
-  {form.productDescription.length >= 240 && form.productDescription.length < 250 && (
+  {form.productDescription.length >= 980 && form.productDescription.length < 1000 && (
     <p className="text-warning-500 text-sm mt-1">
-      Warning: Only {250 - form.productDescription.length} characters remaining out of 250 characters
+      Warning: Only {1000 - form.productDescription.length} characters remaining out of 1000 characters
     </p>
   )}
 </div>
@@ -2180,13 +2249,13 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
     name="warningsPrecautions"
     value={form.warningsPrecautions}
     onChange={handleChange}
-    placeholder="Enter warnings, precautions, and safety information (Minimum 10 characters, Maximum 250 characters)"
+    placeholder="Enter warnings, precautions, and safety information (Minimum 10 characters, Maximum 1000 characters)"
     rows={4}
-    maxLength={250}
+    maxLength={1000}
     className={`w-full rounded-lg p-3 resize-none border bg-white focus:outline-none transition-all duration-200 ${
       errors.warningsPrecautions 
         ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" 
-        : form.warningsPrecautions.length >= 240 && form.warningsPrecautions.length < 250
+        : form.warningsPrecautions.length >= 980 && form.warningsPrecautions.length < 1000
           ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500"
           : "border-pneutral-300 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"
     }`}
@@ -2197,9 +2266,9 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       Need {10 - form.warningsPrecautions.length} more characters (minimum 10)
     </p>
   )}
-  {form.warningsPrecautions.length >= 240 && form.warningsPrecautions.length < 250 && (
+  {form.warningsPrecautions.length >= 980 && form.warningsPrecautions.length < 1000 && (
     <p className="text-warning-500 text-sm mt-1">
-      Warning: Only {250 - form.warningsPrecautions.length} characters remaining out of 250 characters
+      Warning: Only {1000 - form.warningsPrecautions.length} characters remaining out of 1000 characters
     </p>
   )}
 </div>
@@ -2307,7 +2376,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
                 placeholder="Enter batch number"
                 onChange={handleChange}
                 value={form.batchLotNumber}
-                readOnly={isEditMode}
+                // readOnly={isEditMode}
+                disabled={isEditMode}
                 error={errors.batchLotNumber}
                 required
               />
@@ -2320,7 +2390,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
                 type="text"
                 name="manufacturingDate"
                 required
-                readOnly={isEditMode}
+                // readOnly={isEditMode}
+                disabled={isEditMode}
                 value={
                   form.manufacturingDate instanceof Date &&
                   !isNaN(form.manufacturingDate.getTime())
@@ -2367,7 +2438,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
                 name="expiryDate"
                 type="text"
                 required
-                readOnly={isEditMode}
+                // readOnly={isEditMode}
+                disabled={isEditMode}
                 value={
                   form.expiryDate instanceof Date &&
                   !isNaN(form.expiryDate.getTime())
@@ -2457,7 +2529,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
                 placeholder="Number of packs in stock"
                 onChange={handleChange}
                 value={form.stockQuantity}
-                readOnly={isEditMode}
+                // readOnly={isEditMode}
+                disabled={isEditMode}
                 error={errors.stockQuantity}
                 required
               />
@@ -2534,7 +2607,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
                 placeholder="HSN Code"
                 onChange={handleChange}
                 value={form.hsnCode}
-                readOnly={isEditMode}
+                // readOnly={isEditMode}
+                disabled={isEditMode}
                 error={errors.hsnCode}
                 required
               />
@@ -2592,6 +2666,11 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
 };
 
 export default FoodInfantForm;
+
+
+
+
+
 
 
 
