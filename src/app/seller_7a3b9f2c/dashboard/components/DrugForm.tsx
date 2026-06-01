@@ -424,59 +424,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           checkBatchNumber(value);
         }
 
-        // if (name === "expiryDate") {
-        //   if (value) {
-        //     const [year, month] = value.split("-").map(Number);
-
-        //     const expiry = new Date(year, month - 1, 1);
-
-        //     delete newErrors.expiryDate;
-
-        //     if (updatedForm.manufacturingDate) {
-        //       const mfg = new Date(updatedForm.manufacturingDate);
-
-        //       // Minimum → +3 months
-        //       const minDate = new Date(
-        //         mfg.getFullYear(),
-        //         mfg.getMonth() + 3,
-        //         1,
-        //       );
-
-        //       // Maximum → +5 years
-        //       const maxDate = new Date(
-        //         mfg.getFullYear() + 5,
-        //         mfg.getMonth(),
-        //         1,
-        //       );
-
-        //       if (expiry < minDate) {
-        //         newErrors.expiryDate =
-        //           "Expiry must be at least 3 months after Manufacturing Date";
-        //       } else if (expiry > maxDate) {
-        //         newErrors.expiryDate =
-        //           "Expiry cannot be more than 5 years from Manufacturing Date";
-        //       }
-        //     }
-
-        //     updatedForm.expiryDate = expiry;
-
-        //     // shelf life
-        //     if (updatedForm.manufacturingDate) {
-        //       const mfg = new Date(updatedForm.manufacturingDate);
-
-        //       const totalMonths =
-        //         (expiry.getFullYear() - mfg.getFullYear()) * 12 +
-        //         (expiry.getMonth() - mfg.getMonth());
-
-        //       updatedForm.shelfLifeMonths =
-        //         totalMonths >= 0 ? totalMonths.toString() : "";
-        //     }
-        //   } else {
-        //     updatedForm.expiryDate = null;
-        //     updatedForm.shelfLifeMonths = "";
-        //   }
-        // }
-
         return newErrors;
       });
 
@@ -1403,8 +1350,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
         if (updatedForm.manufacturingDate) {
           const mfg = new Date(updatedForm.manufacturingDate);
-
-          // current month
           const today = new Date();
 
           // minimum = current month + 3 months
@@ -1416,21 +1361,25 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
           // maximum = manufacturing + 5 years
           const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
-          if (selectedDate < minDate) {
-            expiryError =
-              "This product expires within the next 3 months, but it can still be added.";
-          } else if (selectedDate > maxDate) {
-            expiryError =
-              "Expiry cannot be more than 5 years from Manufacturing Date";
-          }
 
           // shelf life calculation
           const totalMonths =
             (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
-            (selectedDate.getMonth() - mfg.getMonth());
+            (selectedDate.getMonth() - mfg.getMonth()) +
+            1;
 
           updatedForm.shelfLifeMonths =
             totalMonths >= 0 ? totalMonths.toString() : "";
+
+          if (selectedDate < minDate && totalMonths <= 3) {
+            expiryError =
+              totalMonths === 1
+                ? "This product expires within 1 month, but it can still be added."
+                : `This product expires within ${totalMonths} months, but it can still be added.`;
+          } else if (selectedDate > maxDate) {
+            expiryError =
+              "Expiry cannot be more than 5 years from Manufacturing Date";
+          }
         }
 
         setErrors((prevErrors) => ({
@@ -2002,7 +1951,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
             <div className="relative">
               <Input
-                label="Manufacturing Date"
+                label="Manufacturing Month"
                 type="text"
                 name="manufacturingDate"
                 id="manufacturingDate"
@@ -2052,7 +2001,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
             <div className="relative">
               <Input
-                label="Expiry Date"
+                label="Expiry Month"
                 name="expiryDate"
                 type="text"
                 required
