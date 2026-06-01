@@ -13,6 +13,7 @@ import { AlertCircle } from "lucide-react";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
+import { validateBatchNumber } from "@/src/services/product/Pricing";
 import {
   getNonConsumableDeviceCategories,
   getNonConsumableDeviceSubCategories,
@@ -201,6 +202,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     packSize: "",
     minimumOrderQuantity: "",
     maximumOrderQuantity: "",
+    batchLotNumber: "",
     manufacturingDate: null as Date | null,
     dateOfStockEntry: new Date(),
     stockQuantity: "",
@@ -428,12 +430,14 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         discountPercentage: String(pricing.discountPercentage || ""),
         finalPrice: String(pricing.finalPrice || ""),
         hsnCode: String(pricing.hsnCode || ""),
+        batchLotNumber: pricing.batchLotNumber || "",
       });
 
       if (pricing.additionalDiscounts?.length) setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
       if (attribute.materialTypeIds?.length) setSelectedMaterialTypes(attribute.materialTypeIds.map(String));
       if (data.productImages?.length) setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
-      if (attribute.brochurePath && attribute.brochurePath !== "PENDING") setExistingBrochureUrl(attribute.brochurePath);
+      const isRealUrl = (u: string) => !!u && !["PENDING", "NOT_UPLOADED"].includes(u.toUpperCase());
+      if (isRealUrl(attribute.brochurePath)) setExistingBrochureUrl(attribute.brochurePath);
 
       if (attribute.certificateDocuments?.length) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -442,12 +446,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           label: cert.certificationName || `Certificate ${cert.certificationId}`,
           tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
           file: null,
-          fileName: cert.certificateUrl && cert.certificateUrl !== "PENDING" ? cert.certificateUrl.split("/").pop() || "" : "",
+          fileName: isRealUrl(cert.certificateUrl) ? cert.certificateUrl.split("/").pop() || "" : "",
           uploading: false,
-          isUploaded: !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
+          isUploaded: isRealUrl(cert.certificateUrl),
           previewUrl: null,
           productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-          existingUrl: cert.certificateUrl && cert.certificateUrl !== "PENDING" ? cert.certificateUrl : undefined,
+          existingUrl: isRealUrl(cert.certificateUrl) ? cert.certificateUrl : undefined,
         })));
       }
 
@@ -623,6 +627,19 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
+  const checkBatchNumber = async (batchLotNumber: string) => {
+    try {
+      const response = await validateBatchNumber(batchLotNumber, productCategoryId);
+      if (response.exists) {
+        setErrors((prev) => ({ ...prev, batchLotNumber: "Batch number already exists" }));
+      } else {
+        setErrors((prev) => { const n = { ...prev }; delete n.batchLotNumber; return n; });
+      }
+    } catch {
+      // silent — uniqueness re-checked on submit
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     const numericOnlyFields = ["stockQuantity", "sellingPrice", "mrp", "discountPercentage", "hsnCode", "unitPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity", "dimensionSize"];
@@ -630,10 +647,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
-    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, modelName: 60, modelNumber: 60, udiNumber: 60, manufacturerName: 100, productDescription: 1000, warrantyPeriod: 3, dimensionSize: 10 };
+    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, modelName: 60, modelNumber: 60, udiNumber: 60, manufacturerName: 100, productDescription: 1000, warrantyPeriod: 3, dimensionSize: 10, batchLotNumber: 20 };
     if (name in maxLengths && value.length > maxLengths[name]) return;
     setForm((p) => ({ ...p, [name]: value }));
     if (errors[name]) setErrors((p) => { const n = { ...p }; delete n[name]; return n; });
+    if (name === "batchLotNumber" && value.trim()) checkBatchNumber(value);
     if (name === "hsnCode" && value.trim()) {
       const hsnError = validateHSNCode(value);
       if (hsnError) setErrors((p) => ({ ...p, hsnCode: hsnError }));
@@ -667,7 +685,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         file: null, fileName: "", uploading: false, isUploaded: false, previewUrl: null,
       }]);
     }
-    if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
   };
 
   const handleCertFileSelect = (certId: string, file: File) => {
@@ -680,7 +697,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         : c,
       ),
     );
-    if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
+    const key = `certFile_${certId}`;
+    if (errors[key]) setErrors((p) => { const n = { ...p }; delete n[key]; return n; });
   };
 
   const handleCertRemove = (certId: string) => {
@@ -692,7 +710,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   // ─── Brochure handler wired to UploadInput's onFileSelect callback ─────────
   const handleBrochureFileSelect = (file: File | null) => {
     if (!file) {
-      // User removed the file (either new or existing)
       setBrochureFile(null);
       setExistingBrochureUrl("");
       return;
@@ -749,6 +766,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (!manName) e.manufacturerName = "Manufacturer name is required";
       else if (manName.length > 100) e.manufacturerName = "Manufacturer name must not exceed 100 characters";
       if (!form.packType) e.packType = "Pack type is required";
+      const bNum = form.batchLotNumber.trim();
+      if (!bNum) e.batchLotNumber = "Batch / lot number is required";
+      else if (!/^[a-zA-Z0-9]+$/.test(bNum)) e.batchLotNumber = "Batch number must be alphanumeric only";
+      else if (bNum.length < 3) e.batchLotNumber = "Batch number must be at least 3 characters";
+      else if (bNum.length > 20) e.batchLotNumber = "Batch number must not exceed 20 characters";
       if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
       if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
       else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
@@ -836,11 +858,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
     if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
 
-    if (selectedCertifications.length === 0) {
-      e.certifications = "At least one certification / compliance is required";
-    } else {
-      const missing = selectedCertifications.find((c) => !c.file && !c.existingUrl);
-      if (missing) e.certifications = `Please upload the certificate file for "${missing.label}"`;
+    for (const cert of selectedCertifications) {
+      if (!cert.file && !cert.existingUrl) {
+        e[`certFile_${cert.id}`] = `Please upload the certificate file for "${cert.label}"`;
+      }
     }
 
     return e;
@@ -875,6 +896,19 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     }
     setErrors({}); setSubmitting(true); setApiError(null);
 
+    if (mode === "create" && form.batchLotNumber.trim()) {
+      try {
+        const batchValidation = await validateBatchNumber(form.batchLotNumber, productCategoryId);
+        if (batchValidation.exists) {
+          setErrors((prev) => ({ ...prev, batchLotNumber: "Batch number already exists" }));
+          setSubmitting(false);
+          return;
+        }
+      } catch {
+        // non-fatal — proceed
+      }
+    }
+
     try {
       const amcValue = form.amcAvailability === "true";
 
@@ -905,7 +939,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           gstPercentage: Number(form.gstPercentage) || 0,
           finalPrice: Number(form.finalPrice) || 0,
           hsnCode: Number(form.hsnCode) || 0,
-          batchLotNumber: "",
+          batchLotNumber: form.batchLotNumber,
           expiryDate: "",
           additionalDiscounts: additionalDiscountSlabs.map((slab) => ({
             minimumPurchaseQuantity: slab.minimumPurchaseQuantity,
@@ -1319,14 +1353,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                     };
                   });
                   setSelectedCertifications(newCerts);
-                  if (errors.certifications) setErrors(p => { const n = { ...p }; delete n.certifications; return n; });
                 }}
                 placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
                 disabled={loadingCertifications}
-                error={errors.certifications ? " " : ""}
                 showSelectAll={false}
               />
-              {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
             {/* Certifications — upload (editable in both create and edit modes) */}
@@ -1355,7 +1386,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                     label=""
                     placeholder={`Upload the ${cert.label}`}
                     accept=".pdf,.jpg,.jpeg,.png"
+                    hasError={!!errors[`certFile_${cert.id}`]}
                   />
+                  {errors[`certFile_${cert.id}`] && <p className={errorMsg}>{errors[`certFile_${cert.id}`]}</p>}
                 </div>
               ))
             )}
@@ -1488,24 +1521,22 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               />
             </div>
 
-            {/* Safety Instructions & Key Features */}
-            <div className="col-span-1 md:col-span-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className={fieldLabel}>Safety Instructions / Precautions {requiredStar}</label>
-                  <textarea ref={setFieldRef("safetyInstructions") as React.RefCallback<HTMLTextAreaElement>} name="safetyInstructions" value={form.safetyInstructions} onChange={handleChange} rows={4} placeholder="Enter safety warnings, precautions, and handling instructions" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.safetyInstructions ? "border-red-400" : "border-gray-300"}`} />
-                  {errors.safetyInstructions && <p className={errorMsg}>{errors.safetyInstructions}</p>}
-                </div>
-                <div>
-                  <label className={fieldLabel}>Key Features / Technical Specifications {requiredStar}</label>
-                  <textarea ref={setFieldRef("keyFeatures") as React.RefCallback<HTMLTextAreaElement>} name="keyFeatures" value={form.keyFeatures} onChange={handleChange} rows={4} placeholder="List key features, technical specifications" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.keyFeatures ? "border-red-400" : "border-gray-300"}`} />
-                  {errors.keyFeatures && <p className={errorMsg}>{errors.keyFeatures}</p>}
-                </div>
-              </div>
+            {/* Safety Instructions */}
+            <div className="flex flex-col gap-1">
+              <label className={fieldLabel}>Safety Instructions / Precautions {requiredStar}</label>
+              <textarea ref={setFieldRef("safetyInstructions") as React.RefCallback<HTMLTextAreaElement>} name="safetyInstructions" value={form.safetyInstructions} onChange={handleChange} rows={4} placeholder="Enter safety warnings, precautions, and handling instructions" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.safetyInstructions ? "border-red-400" : "border-gray-300"}`} />
+              {errors.safetyInstructions && <p className={errorMsg}>{errors.safetyInstructions}</p>}
+            </div>
+
+            {/* Key Features */}
+            <div className="flex flex-col gap-1">
+              <label className={fieldLabel}>Key Features / Technical Specifications {requiredStar}</label>
+              <textarea ref={setFieldRef("keyFeatures") as React.RefCallback<HTMLTextAreaElement>} name="keyFeatures" value={form.keyFeatures} onChange={handleChange} rows={4} placeholder="List key features, technical specifications" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.keyFeatures ? "border-red-400" : "border-gray-300"}`} />
+              {errors.keyFeatures && <p className={errorMsg}>{errors.keyFeatures}</p>}
             </div>
 
             {/* Product Description */}
-            <div className="col-span-1 md:col-span-2">
+            <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
               <label className={fieldLabel}>Product Description {requiredStar}</label>
               <textarea ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>} name="productDescription" value={form.productDescription} onChange={handleChange} rows={4} placeholder="Detailed product description" className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.productDescription ? "border-red-400" : "border-gray-300"}`} />
               {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
@@ -1618,6 +1649,16 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           <p className={subSectionTitle}>Batch Management</p>
           <div className="border-b border-neutral-200 mt-2 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+
+            {/* Batch Number */}
+            <div ref={setFieldRef("batchLotNumber") as React.RefCallback<HTMLDivElement>}>
+              {isEdit ? (
+                <NonEditableField label="Batch Number" value={form.batchLotNumber} required />
+              ) : (
+                <Input label="Batch Number" name="batchLotNumber" placeholder="Alphanumeric only"
+                  value={form.batchLotNumber} onChange={handleChange} error={errors.batchLotNumber} required maxLength={20} />
+              )}
+            </div>
 
             {/* Manufacturing Date */}
             <div ref={setFieldRef("manufacturingDate") as React.RefCallback<HTMLDivElement>} className="relative">
