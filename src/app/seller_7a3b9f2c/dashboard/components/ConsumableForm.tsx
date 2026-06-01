@@ -457,7 +457,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         );
       }
 
-      if (attribute.brochurePath && attribute.brochurePath !== "PENDING") {
+      const isRealUrl = (u: string) => !!u && !["PENDING", "NOT_UPLOADED"].includes(u.toUpperCase());
+      if (isRealUrl(attribute.brochurePath)) {
         setExistingBrochureUrl(attribute.brochurePath);
       }
 
@@ -469,18 +470,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             label: cert.certificationName || `Certificate ${cert.certificationId}`,
             tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
             file: null,
-            fileName:
-              cert.certificateUrl && cert.certificateUrl !== "PENDING"
-                ? cert.certificateUrl.split("/").pop() || ""
-                : "",
+            fileName: isRealUrl(cert.certificateUrl) ? cert.certificateUrl.split("/").pop() || "" : "",
             uploading: false,
-            isUploaded: !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
+            isUploaded: isRealUrl(cert.certificateUrl),
             previewUrl: null,
             productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-            existingUrl:
-              cert.certificateUrl && cert.certificateUrl !== "PENDING"
-                ? cert.certificateUrl
-                : undefined,
+            existingUrl: isRealUrl(cert.certificateUrl) ? cert.certificateUrl : undefined,
           })),
         );
       }
@@ -671,7 +666,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
-    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000, sizeDimension: 10 };
+    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000, sizeDimension: 10, batchLotNumber: 20 };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
     setForm((p) => ({ ...p, [name]: value }));
@@ -713,7 +708,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         file: null, fileName: "", uploading: false, isUploaded: false, previewUrl: null,
       }]);
     }
-    if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
   };
 
   const handleCertFileSelect = (certId: string, file: File) => {
@@ -726,7 +720,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         : c,
       ),
     );
-    if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
+    const key = `certFile_${certId}`;
+    if (errors[key]) setErrors((p) => { const n = { ...p }; delete n[key]; return n; });
   };
 
   const handleCertRemove = (certId: string) => {
@@ -840,6 +835,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const bNum = form.batchLotNumber.trim();
       if (!bNum) e.batchLotNumber = "Batch / lot number is required";
       else if (!/^[a-zA-Z0-9]+$/.test(bNum)) e.batchLotNumber = "Batch number must be alphanumeric only";
+      else if (bNum.length < 3) e.batchLotNumber = "Batch number must be at least 3 characters";
+      else if (bNum.length > 20) e.batchLotNumber = "Batch number must not exceed 20 characters";
       if (!form.manufacturingDate) e.manufacturingDate = "Manufacturing date is required";
       else {
         const today = new Date();
@@ -928,11 +925,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
     if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
 
-    if (selectedCertifications.length === 0) {
-      e.certifications = "At least one certification / compliance is required";
-    } else {
-      const missing = selectedCertifications.find((c) => !c.file && !c.existingUrl);
-      if (missing) e.certifications = `Please upload the certificate file for "${missing.label}"`;
+    for (const cert of selectedCertifications) {
+      if (!cert.file && !cert.existingUrl) {
+        e[`certFile_${cert.id}`] = `Please upload the certificate file for "${cert.label}"`;
+      }
     }
 
     return e;
@@ -1366,14 +1362,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                     };
                   });
                   setSelectedCertifications(newCerts);
-                  if (errors.certifications) setErrors(p => { const n = { ...p }; delete n.certifications; return n; });
                 }}
                 placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
                 disabled={loadingCertifications}
-                error={errors.certifications ? " " : ""}
                 showSelectAll={false}
               />
-              {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
             {/* Certifications — upload (editable in both modes) */}
@@ -1402,7 +1395,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                     label=""
                     placeholder={`Upload the ${cert.label}`}
                     accept=".pdf,.jpg,.jpeg,.png"
+                    hasError={!!errors[`certFile_${cert.id}`]}
                   />
+                  {errors[`certFile_${cert.id}`] && <p className={errorMsg}>{errors[`certFile_${cert.id}`]}</p>}
                 </div>
               ))
             )}
@@ -1450,31 +1445,31 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
             {/* Brochure */}
             <div ref={setFieldRef("brochure") as React.RefCallback<HTMLDivElement>}>
-              <UploadInput onFileSelect={(file) => setBrochureFile(file)} existingFile={existingBrochureUrl || undefined} />
+              <UploadInput
+                onFileSelect={(file) => setBrochureFile(file)}
+                existingFile={existingBrochureUrl || undefined}
+              />
             </div>
 
-            <div className="col-span-1 md:col-span-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className={fieldLabel}>Safety Instructions &amp; Precautions {requiredStar}</label>
-                  <textarea ref={setFieldRef("safetyInstructions") as React.RefCallback<HTMLTextAreaElement>}
-                    name="safetyInstructions" value={form.safetyInstructions} onChange={handleChange} rows={4}
-                    placeholder="Enter safety warnings, precautions, and handling instructions"
-                    className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.safetyInstructions ? "border-red-400" : "border-gray-300"}`} />
-                  {errors.safetyInstructions && <p className={errorMsg}>{errors.safetyInstructions}</p>}
-                </div>
-                <div>
-                  <label className={fieldLabel}>Key Features &amp; Specifications {requiredStar}</label>
-                  <textarea ref={setFieldRef("keyFeatures") as React.RefCallback<HTMLTextAreaElement>}
-                    name="keyFeatures" value={form.keyFeatures} onChange={handleChange} rows={4}
-                    placeholder="List key features, technical specifications"
-                    className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.keyFeatures ? "border-red-400" : "border-gray-300"}`} />
-                  {errors.keyFeatures && <p className={errorMsg}>{errors.keyFeatures}</p>}
-                </div>
-              </div>
+            <div className="flex flex-col gap-1">
+              <label className={fieldLabel}>Safety Instructions &amp; Precautions {requiredStar}</label>
+              <textarea ref={setFieldRef("safetyInstructions") as React.RefCallback<HTMLTextAreaElement>}
+                name="safetyInstructions" value={form.safetyInstructions} onChange={handleChange} rows={4}
+                placeholder="Enter safety warnings, precautions, and handling instructions"
+                className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.safetyInstructions ? "border-red-400" : "border-gray-300"}`} />
+              {errors.safetyInstructions && <p className={errorMsg}>{errors.safetyInstructions}</p>}
             </div>
 
-            <div className="col-span-1 md:col-span-2">
+            <div className="flex flex-col gap-1">
+              <label className={fieldLabel}>Key Features &amp; Specifications {requiredStar}</label>
+              <textarea ref={setFieldRef("keyFeatures") as React.RefCallback<HTMLTextAreaElement>}
+                name="keyFeatures" value={form.keyFeatures} onChange={handleChange} rows={4}
+                placeholder="List key features, technical specifications"
+                className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.keyFeatures ? "border-red-400" : "border-gray-300"}`} />
+              {errors.keyFeatures && <p className={errorMsg}>{errors.keyFeatures}</p>}
+            </div>
+
+            <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
               <label className={fieldLabel}>Product Description {requiredStar}</label>
               <textarea ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>}
                 name="productDescription" value={form.productDescription} onChange={handleChange} rows={4}

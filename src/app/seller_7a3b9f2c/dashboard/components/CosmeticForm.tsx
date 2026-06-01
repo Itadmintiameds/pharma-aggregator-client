@@ -568,8 +568,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       let rawSkin: unknown[]     = [];
       let rawHair: unknown[]     = [];
 
-      if (Array.isArray(attribute.intendedUseAreaIds))  rawIntended = attribute.intendedUseAreaIds;
-      else if (Array.isArray(attribute.useAreaId))      rawIntended = attribute.useAreaId;
+      const rawUseArea = attribute.intendedUseAreaIds ?? attribute.useAreaId;
+      if (Array.isArray(rawUseArea))                    rawIntended = rawUseArea;
+      else if (rawUseArea != null)                      rawIntended = [rawUseArea];
       else if (Array.isArray(attribute.intendedarea))   rawIntended = attribute.intendedarea;
       else if (Array.isArray(attribute.intendedUseAreas)) rawIntended = attribute.intendedUseAreas;
 
@@ -603,7 +604,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       }
 
       const brochurePath = attribute.brochurePath || attribute.BrochurePath || "";
-      if (brochurePath && brochurePath !== "PENDING") {
+      const isRealUrl = (u: string) => !!u && !["PENDING", "NOT_UPLOADED"].includes(u.toUpperCase());
+      if (isRealUrl(brochurePath)) {
         setExistingBrochureUrl(brochurePath);
       }
 
@@ -613,13 +615,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           label:                        cert.certificationName || `Certificate ${cert.certificationId}`,
           tagCode:                      `Tag ${String(cert.certificationId).padStart(2, "0")}`,
           file:                         null,
-          fileName:                     cert.certificateUrl && cert.certificateUrl !== "PENDING"
+          fileName:                     isRealUrl(cert.certificateUrl)
                                           ? cert.certificateUrl.split("/").pop() || "" : "",
           uploading:                    false,
-          isUploaded:                   !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
+          isUploaded:                   isRealUrl(cert.certificateUrl),
           previewUrl:                   null,
           productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-          existingUrl:                  cert.certificateUrl && cert.certificateUrl !== "PENDING"
+          existingUrl:                  isRealUrl(cert.certificateUrl)
                                           ? cert.certificateUrl : undefined,
         })));
       }
@@ -954,7 +956,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         },
       ]);
     }
-    if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
   };
 
   const handleCertFileSelect = (certId: string, file: File) => {
@@ -970,7 +971,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           : c,
       ),
     );
-    if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
+    const key = `certFile_${certId}`;
+    if (errors[key]) setErrors((p) => { const n = { ...p }; delete n[key]; return n; });
   };
 
   const handleCertRemove = (certId: string) =>
@@ -1100,11 +1102,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
     if (!form.countryOfOriginId) e.countryOfOriginId = "Country of origin is required";
 
-    if (selectedCertifications.length === 0) {
-      e.certifications = "At least one certification / compliance is required";
-    } else {
-      const missing = selectedCertifications.find((c) => !c.file && !c.existingUrl);
-      if (missing) e.certifications = `Please upload the certificate file for "${missing.label}"`;
+    for (const cert of selectedCertifications) {
+      if (!cert.file && !cert.existingUrl) {
+        e[`certFile_${cert.id}`] = `Please upload the certificate file for "${cert.label}"`;
+      }
     }
 
     if (mode === "create" && !form.packTypeId) e.packTypeId = "Pack type is required";
@@ -1499,7 +1500,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]"
         >
-          <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
             <AdditionalDiscountType
               onClose={() => setShowAdditionalDiscount(false)}
               categoryId={productCategoryId}
@@ -1520,7 +1520,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 }));
               }}
             />
-          </div>
         </CommonModal>
       )}
 
@@ -1885,14 +1884,11 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                     };
                   });
                   setSelectedCertifications(newCerts);
-                  if (errors.certifications) setErrors(p => { const n = { ...p }; delete n.certifications; return n; });
                 }}
                 placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
                 disabled={loadingCertifications}
-                error={errors.certifications ? " " : ""}
                 showSelectAll={false}
               />
-              {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
             {selectedCertifications.length === 0 ? (
@@ -1920,20 +1916,25 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                     label=""
                     placeholder={`Upload the ${cert.label}`}
                     accept=".pdf,.jpg,.jpeg,.png"
+                    hasError={!!errors[`certFile_${cert.id}`]}
                   />
+                  {errors[`certFile_${cert.id}`] && <p className={errorMsg}>{errors[`certFile_${cert.id}`]}</p>}
                 </div>
               ))
             )}
 
             <div data-field="brochure">
-              <UploadInput onFileSelect={(file) => setBrochureFile(file)} existingFile={existingBrochureUrl || undefined} />
+              <UploadInput
+                onFileSelect={(file) => setBrochureFile(file)}
+                existingFile={existingBrochureUrl || undefined}
+              />
             </div>
 
             <div className="flex flex-col gap-1" data-field="activeIngredients">
               <label className={fieldLabel}>Active Ingredients {requiredStar}</label>
               <textarea
                 ref={setFieldRef("activeIngredients") as React.RefCallback<HTMLTextAreaElement>}
-                name="activeIngredients" value={form.activeIngredients} onChange={handleChange} rows={4}
+                name="activeIngredients" value={form.activeIngredients} onChange={handleChange} rows={2}
                 readOnly={isEdit}
                 placeholder="e.g., Vitamin C, Vitamin E, Salicylic Acid, Hyaluronic Acid"
                 className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border transition-colors ${isEdit ? "bg-gray-50 cursor-default focus:outline-none border-[#C0C1BE]" : `bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] ${errors.activeIngredients ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}`}
@@ -1945,7 +1946,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               <label className={fieldLabel}>Product Claims {requiredStar}</label>
               <textarea
                 ref={setFieldRef("productClaims") as React.RefCallback<HTMLTextAreaElement>}
-                name="productClaims" value={form.productClaims} onChange={handleChange} rows={4}
+                name="productClaims" value={form.productClaims} onChange={handleChange} rows={2}
                 placeholder={`e.g., "Paraben Free", "Dermatologically Tested", "Clinically Proven"`}
                 className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] transition-colors ${errors.productClaims ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}
               />
@@ -1963,7 +1964,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               {errors.warningsPrecautions && <p className={errorMsg}>{errors.warningsPrecautions}</p>}
             </div>
 
-            <div className="col-span-2 flex flex-col gap-1" data-field="productDescription">
+            <div className="flex flex-col gap-1" data-field="productDescription">
               <label className={fieldLabel}>Product Description {requiredStar}</label>
               <textarea
                 ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>}
@@ -2043,7 +2044,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 <NonEditableField label="Batch Number" value={form.batchNumber} required />
               ) : (
                 <Input label="Batch Number" name="batchNumber" placeholder="Alphanumeric only, e.g., BAT2024001"
-                  value={form.batchNumber} onChange={handleChange} error={errors.batchNumber} required />
+                  value={form.batchNumber} onChange={handleChange} error={errors.batchNumber} required maxLength={20} />
               )}
             </div>
 

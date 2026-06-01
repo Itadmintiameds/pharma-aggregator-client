@@ -469,6 +469,8 @@ const AdditionalDiscountNew = forwardRef<
 
     return (
       <>
+      <form autoComplete="off">
+        
         <div
           ref={formContainerRef}
           className="flex flex-col gap-7 overflow-y-auto"
@@ -566,7 +568,7 @@ const AdditionalDiscountNew = forwardRef<
                     e.preventDefault();
                   }
                 }}
-                className="w-113.25 h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
+                className="w-full h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
               />
               {errors.minimumPurchaseQuantity && (
                 <p className="text-warning-500 text-xs">
@@ -606,7 +608,7 @@ const AdditionalDiscountNew = forwardRef<
                     e.preventDefault();
                   }
                 }}
-                className="w-113.25 h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
+                className="w-full h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
               />
               {errors.discountPercentage && (
                 <p className="text-warning-500 text-xs">
@@ -625,7 +627,7 @@ const AdditionalDiscountNew = forwardRef<
               >
                 Start Date
               </label>
-              <div className="flex gap-3">
+              <div className="flex w-full gap-3">
                 <div className="relative flex flex-col">
                   <input
                     type="text"
@@ -647,7 +649,7 @@ const AdditionalDiscountNew = forwardRef<
                         }, 100);
                       }
                     }}
-                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                    className={`w-full min-w-0 h-12 border rounded-lg p-4 focus:outline-none ${
                       alwaysActive
                         ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
                         : "border-pneutral-300 cursor-pointer"
@@ -716,7 +718,7 @@ const AdditionalDiscountNew = forwardRef<
                   )}
                 </div>
 
-                <div className="flex flex-col">
+                <div className="flex flex-col flex-1 min-w-0">
                   <input
                     type="time"
                     name="effectiveStartTime"
@@ -724,7 +726,7 @@ const AdditionalDiscountNew = forwardRef<
                     value={form.effectiveStartTime}
                     onChange={handleInputChange}
                     disabled={alwaysActive}
-                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                    className={`w-full h-12 border rounded-lg p-4 focus:outline-none ${
                       alwaysActive
                         ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
                         : "border-pneutral-300"
@@ -746,7 +748,7 @@ const AdditionalDiscountNew = forwardRef<
               >
                 End Date
               </label>
-              <div className="flex gap-3">
+              <div className="flex w-full gap-3">
                 <div className="relative flex flex-col">
                   <input
                     type="text"
@@ -768,7 +770,7 @@ const AdditionalDiscountNew = forwardRef<
                         }, 100);
                       }
                     }}
-                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                    className={`w-full min-w-0 h-12 border rounded-lg p-4 focus:outline-none ${
                       alwaysActive
                         ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
                         : "border-pneutral-300 cursor-pointer"
@@ -837,7 +839,7 @@ const AdditionalDiscountNew = forwardRef<
                   )}
                 </div>
 
-                <div className="flex flex-col">
+                <div className="flex flex-col flex-1 min-w-0">
                   <input
                     type="time"
                     name="effectiveEndTime"
@@ -845,7 +847,7 @@ const AdditionalDiscountNew = forwardRef<
                     value={form.effectiveEndTime}
                     onChange={handleInputChange}
                     disabled={alwaysActive}
-                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                    className={`w-full h-12 border rounded-lg p-4 focus:outline-none ${
                       alwaysActive
                         ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
                         : "border-pneutral-300"
@@ -866,6 +868,7 @@ const AdditionalDiscountNew = forwardRef<
             (Start Date & Time to End Date & Time)
           </div>
         </div>
+        </form>
       </>
     );
   },

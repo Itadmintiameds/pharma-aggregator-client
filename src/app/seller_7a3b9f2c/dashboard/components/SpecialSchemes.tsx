@@ -254,34 +254,6 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
       return newErrors;
     };
 
-    // const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    //   const { name, value } = e.target;
-
-    //   const updatedForm = {
-    //     ...form,
-    //     [name]:
-    //       name === "buyQuantity" || name === "freeQuantity"
-    //         ? Number(value)
-    //         : value,
-    //   };
-
-    //   setForm(updatedForm);
-
-    //   const fieldErrors = validateForm(updatedForm, name);
-
-    //   setErrors((prev) => {
-    //     const updatedErrors = { ...prev };
-
-    //     // remove old error of current field
-    //     delete updatedErrors[name];
-
-    //     return {
-    //       ...updatedErrors,
-    //       ...fieldErrors,
-    //     };
-    //   });
-    // };
-
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { name, value } = e.target;
 
@@ -367,6 +339,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
 
     return (
       <>
+        <form autoComplete="off">
         <div className="flex flex-col gap-7">
           {tableData.length > 0 && (
             <div>
@@ -447,35 +420,6 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
               )}
             </div>
 
-            {/* <div className="flex flex-col gap-2">
-            <label htmlFor="" className="text-label-l3 font-medium">
-              Scheme Type
-            </label>
-            <Select
-              options={schemeOptions}
-              placeholder="Select Scheme Type"
-              styles={customStyles}
-              isSearchable={false}
-              value={schemeOptions.find(
-                (option) => option.value === form.schemeType,
-              )}
-              onChange={(selected) => {
-                setForm((prev) => ({
-                  ...prev,
-                  schemeType: selected?.value || "",
-                }));
-
-                setErrors((prev) => ({
-                  ...prev,
-                  schemeType: "",
-                }));
-              }}
-            />
-
-            {errors.schemeType && (
-              <p className="text-warning-500 text-xs mt-1">{errors.schemeType}</p>
-            )}
-          </div> */}
           </div>
 
           <div className="flex flex-col gap-3">
@@ -605,26 +549,6 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                     </p>
                   )}
                 </div>
-                {/* <div className="flex flex-col">
-                  <input
-                    type="date"
-                    name="effectiveStartDate"
-                    id="effectiveStartDate"
-                    value={form.effectiveStartDate || ""}
-                    onChange={handleInputChange}
-                    disabled={alwaysActive}
-                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
-                      alwaysActive
-                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                        : "border-pneutral-300"
-                    }`}
-                  />
-                  {errors.effectiveStartDate && (
-                    <p className="text-warning-500 text-xs mt-1">
-                      {errors.effectiveStartDate}
-                    </p>
-                  )}
-                </div> */}
 
                 <div className="flex flex-col">
                   <input
@@ -778,6 +702,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
             (Start Date & Time to End Date & Time)
           </div>
         </div>
+        </form>
       </>
     );
   },

@@ -1812,7 +1812,6 @@ if ((attr as any).certificateDocuments?.length) {
 
       {showAdditionalDiscount && (
         <CommonModal onClose={() => setShowAdditionalDiscount(false)} width="w-[600px]">
-          <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
             <AdditionalDiscountType
               onClose={() => setShowAdditionalDiscount(false)}
               categoryId={categoryId}
@@ -1827,7 +1826,6 @@ if ((attr as any).certificateDocuments?.length) {
                 setSpecialSchemes(data || []);
               }}
             />
-          </div>
         </CommonModal>
       )}
 

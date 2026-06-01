@@ -504,17 +504,30 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           const mfg = new Date(updatedForm.manufacturingDate);
           const today = new Date();
           const minDate = new Date(today.getFullYear(), today.getMonth() + 3, 1);
-
-          if (selectedDate < minDate) {
-            expiryError = "Expiry must be at least 3 months from current month";
-          }
+          const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
 
           const totalMonths =
             (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
-            (selectedDate.getMonth() - mfg.getMonth());
+            (selectedDate.getMonth() - mfg.getMonth()) +
+            1;
+
+          const monthsUntilExpiry =
+            (selectedDate.getFullYear() - today.getFullYear()) * 12 +
+            (selectedDate.getMonth() - today.getMonth()) +
+            1;
 
           updatedForm.shelfLifeMonths =
             totalMonths >= 0 ? totalMonths.toString() : "";
+
+          if (monthsUntilExpiry > 0 && monthsUntilExpiry <= 3) {
+            expiryError =
+              monthsUntilExpiry === 1
+                ? "This product expires within 1 month, but it can still be added."
+                : `This product expires within ${monthsUntilExpiry} months, but it can still be added.`;
+          } else if (selectedDate > maxDate) {
+            expiryError =
+              "Expiry cannot be more than 5 years from Manufacturing Date";
+          }
         }
 
         setErrors((prevErrors) => ({
@@ -876,7 +889,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     if (form.manufacturingDate instanceof Date && form.expiryDate instanceof Date) {
       const mfg = form.manufacturingDate;
       const exp = form.expiryDate;
-      const totalMonths = (exp.getFullYear() - mfg.getFullYear()) * 12 + (exp.getMonth() - mfg.getMonth());
+      const totalMonths = (exp.getFullYear() - mfg.getFullYear()) * 12 + (exp.getMonth() - mfg.getMonth()) + 1;
       setForm((prev) => ({
         ...prev,
         shelfLifeMonths: totalMonths > 0 ? totalMonths.toString() : "",
@@ -1909,7 +1922,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]"
         >
-          <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
             <AdditionalDiscountType
               categoryId={effectiveCategoryId ? Number(effectiveCategoryId) : undefined}
               onClose={() => setShowAdditionalDiscount(false)}
@@ -1930,7 +1942,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }));
               }}
             />
-          </div>
         </CommonModal>
       )}
 
@@ -2824,7 +2835,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* ── NEW MANUFACTURING DATE WITH MONTHPICKER ─────────────────────────── */}
             <div className="relative">
               <Input
-                label="Manufacturing Date"
+                label="Manufacturing Month"
                 type="text"
                 name="manufacturingDate"
                 id="manufacturingDate"
@@ -2901,7 +2912,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* ── NEW EXPIRY DATE WITH MONTHPICKER ────────────────────────────────── */}
             <div className="relative">
               <Input
-                label="Expiry Date"
+                label="Expiry Month"
                 name="expiryDate"
                 type="text"
                 required
@@ -2941,11 +2952,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                       : new Date().getFullYear()
                   }
                   minDate={
-                    new Date(
-                      new Date().getFullYear(),
-                      new Date().getMonth() + 1,
-                      1,
-                    )
+                    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
                   }
                   onSelect={(month, year) =>
                     handleMonthSelect("expiryDate", month, year)
