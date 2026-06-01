@@ -1500,7 +1500,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]"
         >
-          <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
+          <div className="h-[80vh] overflow-y-auto flex flex-col">
             <AdditionalDiscountType
               onClose={() => setShowAdditionalDiscount(false)}
               categoryId={productCategoryId}
