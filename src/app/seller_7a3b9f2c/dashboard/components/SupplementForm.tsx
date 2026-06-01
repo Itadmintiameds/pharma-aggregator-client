@@ -1909,7 +1909,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]"
         >
-          <div className="h-[80vh] overflow-y-auto flex flex-col">
             <AdditionalDiscountType
               categoryId={effectiveCategoryId ? Number(effectiveCategoryId) : undefined}
               onClose={() => setShowAdditionalDiscount(false)}
@@ -1930,7 +1929,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }));
               }}
             />
-          </div>
         </CommonModal>
       )}
 
