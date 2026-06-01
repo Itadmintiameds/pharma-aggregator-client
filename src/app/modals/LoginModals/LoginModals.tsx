@@ -10,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { 
-  loginSchema, 
+  loginSchema,
   resetPasswordSchema,
   type LoginFormData, 
   type ResetPasswordFormData 
@@ -762,7 +762,7 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
             type="text"
             placeholder="Enter your email/Username"
             autoComplete="off"
-            className="w-full h-12 pl-12 pr-4 leading-none rounded-xl border border-pneutral-300 bg-pneutral-50 text-pneutral-500 outline-none focus:outline-none focus:ring-0 focus:ring-pneutral-300"
+            className="w-full h-12 pl-12 pr-4 leading-none rounded-xl border border-pneutral-300 bg-pneutral-50 text-pneutral-900 outline-none focus:outline-none focus:ring-0 focus:ring-pneutral-300"
             disabled={isLoading || isNavigating}
           />
         </div>
@@ -789,7 +789,7 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
             type={showPassword ? "text" : "password"}
             placeholder="Password"
             autoComplete="off"
-            className="w-full h-12 pl-12 pr-12 leading-none rounded-xl border border-pneutral-300 bg-pneutral-50 text-pneutral-500 focus:outline-none focus:ring-0 focus:ring-pneutral-300"
+            className="w-full h-12 pl-12 pr-12 leading-none rounded-xl border border-pneutral-300 bg-pneutral-50 text-pneutral-900 focus:outline-none focus:ring-0 focus:ring-pneutral-300"
             disabled={isLoading || isNavigating}
           />
           <button
