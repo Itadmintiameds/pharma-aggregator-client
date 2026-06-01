@@ -1368,14 +1368,19 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             (selectedDate.getMonth() - mfg.getMonth()) +
             1;
 
+          const monthsUntilExpiry =
+            (selectedDate.getFullYear() - today.getFullYear()) * 12 +
+            (selectedDate.getMonth() - today.getMonth()) +
+            1;
+
           updatedForm.shelfLifeMonths =
             totalMonths >= 0 ? totalMonths.toString() : "";
 
-          if (selectedDate < minDate && totalMonths <= 3) {
+          if (monthsUntilExpiry > 0 && monthsUntilExpiry <= 3) {
             expiryError =
-              totalMonths === 1
+              monthsUntilExpiry === 1
                 ? "This product expires within 1 month, but it can still be added."
-                : `This product expires within ${totalMonths} months, but it can still be added.`;
+                : `This product expires within ${monthsUntilExpiry} months, but it can still be added.`;
           } else if (selectedDate > maxDate) {
             expiryError =
               "Expiry cannot be more than 5 years from Manufacturing Date";
@@ -1426,20 +1431,19 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]"
         >
-
-            <AdditionalDiscountType
-              onClose={() => setShowAdditionalDiscount(false)}
-              categoryId={categoryId}
-              initialData={form.additionalDiscount}
-              baseDiscountPercentage={Number(form.discountPercentage) || 0}
-              baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
-              onSaveAdditionalDiscount={(data) =>
-                setForm((prev) => ({
-                  ...prev,
-                  additionalDiscount: data,
-                }))
-              }
-            />
+          <AdditionalDiscountType
+            onClose={() => setShowAdditionalDiscount(false)}
+            categoryId={categoryId}
+            initialData={form.additionalDiscount}
+            baseDiscountPercentage={Number(form.discountPercentage) || 0}
+            baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
+            onSaveAdditionalDiscount={(data) =>
+              setForm((prev) => ({
+                ...prev,
+                additionalDiscount: data,
+              }))
+            }
+          />
         </CommonModal>
       )}
       <form className="w-full" autoComplete="off">
@@ -1530,88 +1534,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 error={errors.dosageId}
               />
             </div>
-
-            {/* {form.molecules.map((molecule, index) => (
-              <div
-                key={index}
-                className="grid grid-cols-[1fr_0.87fr_auto] gap-6 col-span-2"
-              >
-                <div className="flex flex-col w-full">
-                  <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
-                    Molecule
-                    <span className="text-warning-500 ml-1">*</span>
-                  </label>
-
-                  <Dropdown
-                    options={moleculeOptions.map((option) => ({
-                      value: String(option.value.moleculeId),
-                      label: option.label,
-                    }))}
-                    value={molecule.moleculeId || ""}
-                    onChange={(value, label) => {
-                      const selectedOption = moleculeOptions.find(
-                        (o) => String(o.value.moleculeId) === value,
-                      );
-
-                      handleMoleculeSelect(index, selectedOption || null);
-                    }}
-                    placeholder="Select molecule"
-                    isLoading={loadingMolecules}
-                    isDisabled={isEditMode}
-                    error={errors[`molecules.${index}.moleculeId`]}
-                    className="w-full"
-                  />
-                </div>
-
-                <div className="w-full">
-                  <Input
-                    label="Molecule Strength"
-                    name="strength"
-                    placeholder={strengthFormats.join(", ") || "Enter strength"}
-                    value={molecule.strength || ""}
-                    onChange={(e) =>
-                      handleStrengthChange(index, e.target.value)
-                    }
-                    readOnly={isEditMode}
-                    required
-                  />
-
-                  {errors[`molecules.${index}.strength`] && (
-                    <p className="text-red-500 text-sm">
-                      {errors[`molecules.${index}.strength`]}
-                    </p>
-                  )}
-                </div>
-
-                {!isEditMode && (
-                  <div className="flex items-end">
-                    <button
-                      onClick={() => removeMolecule(index)}
-                      className="border-2 border-[#FF3B3B] w-13 h-12 rounded-lg flex items-center justify-center"
-                    >
-                      <img
-                        src="/icons/RedMinusIcon.svg"
-                        alt="remove"
-                        className="w-5 h-5 object-contain"
-                      />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-            {!isEditMode && (
-              <button
-                onClick={addMolecule}
-                className="col-span-2 w-40 h-12 border-2 border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5"
-              >
-                <img
-                  src="/icons/PlusIcon.svg"
-                  alt="drug"
-                  className="w-5 h-5 rounded-md object-cover"
-                />
-                Add Molecule
-              </button>
-            )} */}
 
             {form.molecules.map((molecule, index) => (
               <div
