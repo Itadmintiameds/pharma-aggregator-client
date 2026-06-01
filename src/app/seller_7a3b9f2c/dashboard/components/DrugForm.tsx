@@ -1426,6 +1426,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]"
         >
+          <div className="h-[80vh] overflow-y-auto flex flex-col">
             <AdditionalDiscountType
               onClose={() => setShowAdditionalDiscount(false)}
               categoryId={categoryId}
@@ -1439,6 +1440,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 }))
               }
             />
+          </div>
         </CommonModal>
       )}
       <form className="w-full" autoComplete="off">
