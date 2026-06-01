@@ -469,6 +469,7 @@ const AdditionalDiscountNew = forwardRef<
 
     return (
       <>
+      <form autoComplete="off">
         <div
           ref={formContainerRef}
           className="flex flex-col gap-7 overflow-y-auto"
@@ -866,6 +867,7 @@ const AdditionalDiscountNew = forwardRef<
             (Start Date & Time to End Date & Time)
           </div>
         </div>
+        </form>
       </>
     );
   },

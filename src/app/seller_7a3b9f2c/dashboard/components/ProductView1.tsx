@@ -797,51 +797,108 @@ const ProductView1 = ({
       cosAttrRaw?.storageCondition?.trim() ||
       null;
 
+    // const rawStorageId =
+    //   (consAttr as any)?.storageConditionId ??
+    //   (consAttr as any)?.storageCondition_id ??
+    //   (consAttr as any)?.storage_condition_id ??
+    //   (consAttr as any)?.storageconditionid ??
+    //   ncAttr?.storageConditionId ??
+    //   cosAttrRaw?.storageConditionId ??
+    //   (Array.isArray(drugEntry?.storageConditionIds) &&
+    //     (drugEntry?.storageConditionIds?.length ?? 0) > 0
+    //     ? drugEntry!.storageConditionIds![0]
+    //     : undefined);
+
     const rawStorageId =
       (consAttr as any)?.storageConditionId ??
       (consAttr as any)?.storageCondition_id ??
       (consAttr as any)?.storage_condition_id ??
       (consAttr as any)?.storageconditionid ??
+      drugEntry?.storageConditionIds ??
       ncAttr?.storageConditionId ??
       cosAttrRaw?.storageConditionId ??
-      (Array.isArray(drugEntry?.storageConditionIds) &&
-        (drugEntry?.storageConditionIds?.length ?? 0) > 0
-        ? drugEntry!.storageConditionIds![0]
-        : undefined);
+      [];
 
     const storageId = toPositiveInt(rawStorageId);
 
+    // const fetchStorageCondition = async (): Promise<
+    //   Partial<ResolvedLookups>
+    // > => {
+    //   if (inlineStorageName) return { storageConditionName: inlineStorageName };
+    //   if (storageId === null) {
+    //     console.warn(
+    //       "[ProductView] storageConditionId missing for product",
+    //       productData?.productId,
+    //       "| consAttr keys:",
+    //       consAttr ? Object.keys(consAttr) : "n/a",
+    //     );
+    //     return {};
+    //   }
+    //   try {
+    //     const data = await getStorageConditionById(storageId);
+    //     const name =
+    //       data?.conditionName ??
+    //       data?.storageConditionName ??
+    //       data?.name ??
+    //       data?.condition ??
+    //       null;
+    //     return { storageConditionName: name ? String(name).trim() : null };
+    //   } catch (e) {
+    //     console.error(
+    //       "[ProductView] fetchStorageCondition failed for id",
+    //       storageId,
+    //       e,
+    //     );
+    //     return {};
+    //   }
+    // };
+
     const fetchStorageCondition = async (): Promise<
-      Partial<ResolvedLookups>
-    > => {
-      if (inlineStorageName) return { storageConditionName: inlineStorageName };
-      if (storageId === null) {
-        console.warn(
-          "[ProductView] storageConditionId missing for product",
-          productData?.productId,
-          "| consAttr keys:",
-          consAttr ? Object.keys(consAttr) : "n/a",
-        );
-        return {};
-      }
-      try {
-        const data = await getStorageConditionById(storageId);
-        const name =
+  Partial<ResolvedLookups>
+> => {
+  if (inlineStorageName) {
+    return {
+      storageConditionName: inlineStorageName,
+    };
+  }
+
+  if (!rawStorageId.length) {
+    console.warn(
+      "[ProductView] storageConditionIds missing for product",
+      productData?.productId,
+    );
+    return {};
+  }
+
+  try {
+    const responses = await Promise.all(
+      rawStorageId.map((id: number) =>
+        getStorageConditionById(id),
+      ),
+    );
+
+    const names = responses
+      .map(
+        (data) =>
           data?.conditionName ??
           data?.storageConditionName ??
           data?.name ??
-          data?.condition ??
-          null;
-        return { storageConditionName: name ? String(name).trim() : null };
-      } catch (e) {
-        console.error(
-          "[ProductView] fetchStorageCondition failed for id",
-          storageId,
-          e,
-        );
-        return {};
-      }
+          data?.condition,
+      )
+      .filter(Boolean)
+      .map((name) => String(name).trim());
+
+    return {
+      storageConditionName: names.join(", "),
     };
+  } catch (e) {
+    console.error(
+      "[ProductView] fetchStorageCondition failed",
+      e,
+    );
+    return {};
+  }
+};
 
     // ── Therapeutic category ──
     const catId = toPositiveInt(drugEntry?.therapeuticCategoryId);
@@ -968,14 +1025,20 @@ const ProductView1 = ({
     const fetchDeviceNames = async (): Promise<Partial<ResolvedLookups>> => {
       // Non-consumable: only need to resolve the spec unit label (device names come inline from API)
       if (ncAttr && !consAttr) {
-        const ncSpecUnitId = toPositiveInt((ncAttr as any).deviceSpecificationUnitId);
+        const ncSpecUnitId = toPositiveInt(
+          (ncAttr as any).deviceSpecificationUnitId,
+        );
         const ncSubCatId = toPositiveInt(
           (ncAttr as any).deviceSubCategoryId ?? (ncAttr as any).deviceSubCatId,
         );
         if (ncSpecUnitId !== null && ncSubCatId !== null) {
           try {
-            const units: any[] = await getSpecificationUnitsBySubCategory(String(ncSubCatId));
-            const found = units.find((u) => Number(u.unitId ?? u.id) === ncSpecUnitId);
+            const units: any[] = await getSpecificationUnitsBySubCategory(
+              String(ncSubCatId),
+            );
+            const found = units.find(
+              (u) => Number(u.unitId ?? u.id) === ncSpecUnitId,
+            );
             if (found) {
               return {
                 specificationUnitLabel:
@@ -1025,9 +1088,9 @@ const ProductView1 = ({
             deviceSubCategoryName =
               String(
                 found.deviceSubCatName ??
-                found.subCategoryName ??
-                found.name ??
-                "",
+                  found.subCategoryName ??
+                  found.name ??
+                  "",
               ).trim() || null;
         } catch {
           /* ignore */
@@ -1104,13 +1167,13 @@ const ProductView1 = ({
         // ── Extract raw IDs from the attribute object (handle every casing variant) ──
         const productTypeIdStr = String(
           (cosAttrRaw as any).productCategoryId ??
-          (cosAttrRaw as any).productTypeId ??
-          "",
+            (cosAttrRaw as any).productTypeId ??
+            "",
         );
         const productSubTypeIdStr = String(
           (cosAttrRaw as any).productSubcategoryId ??
-          (cosAttrRaw as any).productSubTypeId ??
-          "",
+            (cosAttrRaw as any).productSubTypeId ??
+            "",
         );
         const ageGroupIdStr = String((cosAttrRaw as any).ageGroupId ?? "");
         // ageGroupIds is an array of IDs (may include 0 as sentinel); filter those out
@@ -1118,15 +1181,15 @@ const ProductView1 = ({
           (cosAttrRaw as any).ageGroupIds,
         )
           ? (cosAttrRaw as any).ageGroupIds
-            .filter((v: unknown) => Number(v) > 0)
-            .map(String)
+              .filter((v: unknown) => Number(v) > 0)
+              .map(String)
           : ageGroupIdStr && ageGroupIdStr !== "0"
             ? [ageGroupIdStr]
             : [];
         const countryIdStr = String(
           (cosAttrRaw as any).countryId ??
-          (cosAttrRaw as any).countryOfOriginId ??
-          "",
+            (cosAttrRaw as any).countryOfOriginId ??
+            "",
         );
 
         // Raw array IDs for multi-select fields
@@ -1175,15 +1238,13 @@ const ProductView1 = ({
         // ── Extract net quantity unit ID ──
         const netQtyUnitIdStr = String(
           (cosAttrRaw as any).unitId ??
-          (cosAttrRaw as any).netQuantityUnitId ??
-          "",
+            (cosAttrRaw as any).netQuantityUnitId ??
+            "",
         );
 
         // ── Extract product form ID ──
         const productFormIdStr = String(
-          (cosAttrRaw as any).formId ??
-          (cosAttrRaw as any).productFormId ??
-          "",
+          (cosAttrRaw as any).formId ?? (cosAttrRaw as any).productFormId ?? "",
         );
 
         // ── Fetch all needed masters in parallel ──
@@ -1278,25 +1339,25 @@ const ProductView1 = ({
         const intendedUseArea =
           rawIntendedIds.length > 0
             ? rawIntendedIds
-              .map((id) => intendedOpts.find((o) => o.value === id)?.label)
-              .filter(Boolean)
-              .join(", ")
+                .map((id) => intendedOpts.find((o) => o.value === id)?.label)
+                .filter(Boolean)
+                .join(", ")
             : null;
 
         const skinPart =
           rawSkinIds.length > 0
             ? rawSkinIds
-              .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
-              .filter(Boolean)
-              .join(", ")
+                .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
+                .filter(Boolean)
+                .join(", ")
             : null;
 
         const hairPart =
           rawHairIds.length > 0
             ? rawHairIds
-              .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
-              .filter(Boolean)
-              .join(", ")
+                .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
+                .filter(Boolean)
+                .join(", ")
             : null;
 
         const skinHairType =
@@ -1338,7 +1399,8 @@ const ProductView1 = ({
           ["productFormName", "formName", "productForm", "name"],
         );
         const productFormLabel = productFormIdStr
-          ? (productFormOpts.find((o) => o.value === productFormIdStr)?.label ?? null)
+          ? (productFormOpts.find((o) => o.value === productFormIdStr)?.label ??
+            null)
           : null;
 
         const netQuantityStrength =
@@ -1366,9 +1428,9 @@ const ProductView1 = ({
           ageGroup:
             (rawAgeGroupIds.length > 0
               ? rawAgeGroupIds
-                .map((id) => ageGroupOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ") || null
+                  .map((id) => ageGroupOpts.find((o) => o.value === id)?.label)
+                  .filter(Boolean)
+                  .join(", ") || null
               : null) ?? cosAttrRaw.ageGroup,
           intendedUseArea: intendedUseArea ?? cosAttrRaw.intendedUseArea,
           skinHairType: skinHairType ?? cosAttrRaw.skinHairType,
@@ -1385,7 +1447,8 @@ const ProductView1 = ({
           productClaims: productClaims ?? cosAttrRaw.productClaims,
           warningsPrecautions:
             warningsPrecautions ?? cosAttrRaw.warningsPrecautions,
-          productForm: productFormLabel ?? (cosAttrRaw as any).productForm ?? null,
+          productForm:
+            productFormLabel ?? (cosAttrRaw as any).productForm ?? null,
         });
       } catch (err) {
         console.error(
@@ -1408,18 +1471,26 @@ const ProductView1 = ({
   const packagingArr = Array.isArray(productData?.packagingDetails)
     ? productData!.packagingDetails!
     : productData?.packagingDetails
-    ? [productData.packagingDetails]
-    : [];
-  const packaging: PackagingDetails | undefined = packagingArr.length > 0
-    ? (packagingArr as any[]).reduce((latest: any, curr: any) =>
-        new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest)
-    : undefined;
+      ? [productData.packagingDetails]
+      : [];
+  const packaging: PackagingDetails | undefined =
+    packagingArr.length > 0
+      ? (packagingArr as any[]).reduce((latest: any, curr: any) =>
+          new Date(curr.createdDate) > new Date(latest.createdDate)
+            ? curr
+            : latest,
+        )
+      : undefined;
 
   const pricingArr = productData?.pricingDetails ?? [];
-  const pricing: PricingDetails | undefined = pricingArr.length > 0
-    ? (pricingArr as any[]).reduce((latest: any, curr: any) =>
-        new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest)
-    : undefined;
+  const pricing: PricingDetails | undefined =
+    pricingArr.length > 0
+      ? (pricingArr as any[]).reduce((latest: any, curr: any) =>
+          new Date(curr.createdDate) > new Date(latest.createdDate)
+            ? curr
+            : latest,
+        )
+      : undefined;
 
   const ncAttr: NonConsumableAttributes | null =
     (productData?.productAttributeNonConsumableMedicals ?? []).length > 0
@@ -1519,22 +1590,22 @@ const ProductView1 = ({
     molecules.length > 0
       ? molecules
       : ([
-        drugEntry?.molecule1Name || drugEntry?.molecule1Strength
-          ? {
-            resolvedName: drugEntry?.molecule1Name ?? "—",
-            resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
-          }
-          : null,
-        drugEntry?.molecule2Name || drugEntry?.molecule2Strength
-          ? {
-            resolvedName: drugEntry?.molecule2Name ?? "—",
-            resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
-          }
-          : null,
-      ].filter(Boolean) as {
-        resolvedName: string;
-        resolvedStrength: string;
-      }[]);
+          drugEntry?.molecule1Name || drugEntry?.molecule1Strength
+            ? {
+                resolvedName: drugEntry?.molecule1Name ?? "—",
+                resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
+              }
+            : null,
+          drugEntry?.molecule2Name || drugEntry?.molecule2Strength
+            ? {
+                resolvedName: drugEntry?.molecule2Name ?? "—",
+                resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
+              }
+            : null,
+        ].filter(Boolean) as {
+          resolvedName: string;
+          resolvedStrength: string;
+        }[]);
 
   const drugSchedule =
     drugEntry?.drugSchedule ??
@@ -1668,8 +1739,8 @@ const ProductView1 = ({
   const packSizeDisplay =
     packaging?.numberOfPacks != null && unitsPerPack != null
       ? `${packaging.numberOfPacks} ${resolvedPackType ?? "packs"} × ${unitsPerPack} units = ${(
-        packaging.numberOfPacks * unitsPerPack
-      ).toLocaleString()} units`
+          packaging.numberOfPacks * unitsPerPack
+        ).toLocaleString()} units`
       : null;
 
   const productImages = resolveProductImages(productData);
@@ -1880,7 +1951,11 @@ const ProductView1 = ({
           specificationUnitLabel={lookups.specificationUnitLabel}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
-          countryName={(consAttr as any)?.countryName ?? (consAttr as any)?.countryOfOrigin ?? null}
+          countryName={
+            (consAttr as any)?.countryName ??
+            (consAttr as any)?.countryOfOrigin ??
+            null
+          }
           additionalDiscounts={additionalDiscounts}
           specialSchemes={specialSchemes}
         />
@@ -1895,12 +1970,12 @@ const ProductView1 = ({
           nonConsAttr={
             ncAttr
               ? {
-                ...ncAttr,
-                safetyInstructions:
-                  ncAttr.safetyInstructions ??
-                  productData.warningsPrecautions ??
-                  undefined,
-              }
+                  ...ncAttr,
+                  safetyInstructions:
+                    ncAttr.safetyInstructions ??
+                    productData.warningsPrecautions ??
+                    undefined,
+                }
               : null
           }
           storageConditionName={storageCondition}
@@ -1948,8 +2023,23 @@ const ProductView1 = ({
             storageConditionName={storageCondition}
             brochureUrl={brochureUrl}
             placeholderImage={PLACEHOLDER_IMAGE}
-            pricingDetails={pricing ? { ...(pricing as any), shelfLife: shelfLifeDisplay ?? (pricing as any)?.shelfLife } : null}
-            packagingDetails={packaging ? { ...(packaging as any), packTypeName: resolvedPackType ?? (packaging as any)?.packTypeName } : null}
+            pricingDetails={
+              pricing
+                ? {
+                    ...(pricing as any),
+                    shelfLife: shelfLifeDisplay ?? (pricing as any)?.shelfLife,
+                  }
+                : null
+            }
+            packagingDetails={
+              packaging
+                ? {
+                    ...(packaging as any),
+                    packTypeName:
+                      resolvedPackType ?? (packaging as any)?.packTypeName,
+                  }
+                : null
+            }
             additionalDiscounts={additionalDiscounts}
             specialSchemes={specialSchemes}
           />
@@ -2135,7 +2225,7 @@ const ProductView1 = ({
                     <span className="text-pneutral-800 text-base font-normal leading-[22px] break-all">
                       {decodeURIComponent(
                         brochureUrl.split("/").pop()?.split("?")[0] ||
-                        "user-manual.pdf",
+                          "user-manual.pdf",
                       )}
                     </span>
                   </a>
@@ -2421,13 +2511,15 @@ const ProductView1 = ({
                             margin: 0,
                           }}
                         >
-                          {`Bulk order discount (${d.minimumPurchaseQuantity}${d.maximumPurchaseQuantity
-                            ? `-${d.maximumPurchaseQuantity}`
-                            : "+"
-                            } units)${startDate && endDate
+                          {`Bulk order discount (${d.minimumPurchaseQuantity}${
+                            d.maximumPurchaseQuantity
+                              ? `-${d.maximumPurchaseQuantity}`
+                              : "+"
+                          } units)${
+                            startDate && endDate
                               ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
                               : ""
-                            }`}
+                          }`}
                         </p>
                       </div>
                       <span
@@ -2460,7 +2552,14 @@ const ProductView1 = ({
                         alignItems: "flex-end",
                       }}
                     >
-                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <div
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "4px",
+                        }}
+                      >
                         {/*
                         <span style={{
                           color: "#1E1E1D",
@@ -2471,21 +2570,28 @@ const ProductView1 = ({
                           {s.schemeName || "Special Scheme"}
                         </span>
                         */}
-                        <span style={{
-                          color: "#3C3D3A",
-                          fontSize: 14,
-                          fontFamily: "'Work Sans', sans-serif",
-                          fontWeight: 400,
-                          lineHeight: "20px",
-                        }}>
-                          Purchase {s.buyQuantity || 1} {productData.productName || "this product"} and get {s.freeQuantity || 1} absolutely free. Limited stock available!
+                        <span
+                          style={{
+                            color: "#3C3D3A",
+                            fontSize: 14,
+                            fontFamily: "'Work Sans', sans-serif",
+                            fontWeight: 400,
+                            lineHeight: "20px",
+                          }}
+                        >
+                          Purchase {s.buyQuantity || 1}{" "}
+                          {productData.productName || "this product"} and get{" "}
+                          {s.freeQuantity || 1} absolutely free. Limited stock
+                          available!
                         </span>
-                        <span style={{
-                          color: "#5A5B58",
-                          fontSize: 12,
-                          fontFamily: "'Work Sans', sans-serif",
-                          fontWeight: 400,
-                        }}>
+                        <span
+                          style={{
+                            color: "#5A5B58",
+                            fontSize: 12,
+                            fontFamily: "'Work Sans', sans-serif",
+                            fontWeight: 400,
+                          }}
+                        >
                           {startDate && endDate
                             ? `${formatDate(startDate)} - ${formatDate(endDate)}`
                             : "Ongoing"}

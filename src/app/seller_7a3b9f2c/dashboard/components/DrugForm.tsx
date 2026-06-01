@@ -318,21 +318,22 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     )}`;
   };
 
-  const validateStrengthFormat = (value: string) => {
-    if (!value.trim()) return "Strength is required";
+  //Molecule Strent Format -  Maybe required in future
+  // const validateStrengthFormat = (value: string) => {
+  //   if (!value.trim()) return "Strength is required";
 
-    const normalizedValue = value.toLowerCase().trim();
+  //   const normalizedValue = value.toLowerCase().trim();
 
-    const isValid = strengthFormats.some((format) =>
-      normalizedValue.endsWith(format.toLowerCase().trim()),
-    );
+  //   const isValid = strengthFormats.some((format) =>
+  //     normalizedValue.endsWith(format.toLowerCase().trim()),
+  //   );
 
-    if (!isValid) {
-      return `Invalid strength format. Allowed strengths: ${strengthFormats.join(", ")}`;
-    }
+  //   if (!isValid) {
+  //     return `Invalid strength format. Allowed strengths: ${strengthFormats.join(", ")}`;
+  //   }
 
-    return "";
-  };
+  //   return "";
+  // };
 
   const handleChange = (
     e:
@@ -645,19 +646,19 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     }));
 
     // ✅ Strength validation
-    const strengthError = validateStrengthFormat(value);
+    // const strengthError = validateStrengthFormat(value);
 
-    setErrors((prev) => {
-      const newErrors = { ...prev };
+    // setErrors((prev) => {
+    //   const newErrors = { ...prev };
 
-      if (strengthError) {
-        newErrors[`molecules.${index}.strength`] = strengthError;
-      } else {
-        delete newErrors[`molecules.${index}.strength`];
-      }
+    //   if (strengthError) {
+    //     newErrors[`molecules.${index}.strength`] = strengthError;
+    //   } else {
+    //     delete newErrors[`molecules.${index}.strength`];
+    //   }
 
-      return newErrors;
-    });
+    //   return newErrors;
+    // });
   };
 
   const getFinalDrugSchedule = (molecules: any[]) => {
@@ -730,24 +731,24 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       return;
     }
 
-    const strengthErrors: Record<string, string> = {};
+    // const strengthErrors: Record<string, string> = {};
 
-    form.molecules.forEach((molecule, index) => {
-      const error = validateStrengthFormat(molecule.strength);
+    // form.molecules.forEach((molecule, index) => {
+    //   const error = validateStrengthFormat(molecule.strength);
 
-      if (error) {
-        strengthErrors[`molecules.${index}.strength`] = error;
-      }
-    });
+    //   if (error) {
+    //     strengthErrors[`molecules.${index}.strength`] = error;
+    //   }
+    // });
 
-    if (Object.keys(strengthErrors).length > 0) {
-      setErrors((prev) => ({
-        ...prev,
-        ...strengthErrors,
-      }));
+    // if (Object.keys(strengthErrors).length > 0) {
+    //   setErrors((prev) => ({
+    //     ...prev,
+    //     ...strengthErrors,
+    //   }));
 
-      return;
-    }
+    //   return;
+    // }
 
     setErrors({});
     try {
@@ -1416,7 +1417,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           // maximum = manufacturing + 5 years
           const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
           if (selectedDate < minDate) {
-            expiryError = "Expiry must be at least 3 months from current month";
+            expiryError =
+              "This product expires within the next 3 months, but it can still be added.";
           } else if (selectedDate > maxDate) {
             expiryError =
               "Expiry cannot be more than 5 years from Manufacturing Date";
@@ -1492,7 +1494,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
         </CommonModal>
       )}
-      <div className="w-full ">
+      <form className="w-full" autoComplete="off">
+        {/* <form className="w-full"> */}
         <div className="relative border border-neutral-200 rounded-xl p-6  bg-white">
           <div className="text-h4 font-semibold font-heading">
             Product Details
@@ -1501,7 +1504,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Therapeutic Category
                 <span className="text-warning-500 ml-1">*</span>
@@ -1522,7 +1525,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               />
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Therapeutic Subcategory
                 <span className="text-warning-500 ml-1">*</span>
@@ -1556,7 +1559,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col ">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Dosage Form (Tablet, Syrup)
                 <span className="text-warning-500 ml-1">*</span>
@@ -1580,12 +1583,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               />
             </div>
 
-            {form.molecules.map((molecule, index) => (
+            {/* {form.molecules.map((molecule, index) => (
               <div
                 key={index}
                 className="grid grid-cols-[1fr_0.87fr_auto] gap-6 col-span-2"
               >
-                <div className="flex flex-col gap-1 w-full">
+                <div className="flex flex-col w-full">
                   <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                     Molecule
                     <span className="text-warning-500 ml-1">*</span>
@@ -1660,7 +1663,81 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 />
                 Add Molecule
               </button>
-            )}
+            )} */}
+
+            {form.molecules.map((molecule, index) => (
+              <div
+                key={index}
+                className="grid grid-cols-[1fr_0.87fr_52px] gap-6 col-span-2 items-start"
+              >
+                {/* Molecule */}
+                <div className="w-full min-w-0">
+                  <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
+                    Molecule
+                    <span className="text-warning-500 ml-1">*</span>
+                  </label>
+
+                  <Dropdown
+                    options={moleculeOptions.map((option) => ({
+                      value: String(option.value.moleculeId),
+                      label: option.label,
+                    }))}
+                    value={molecule.moleculeId || ""}
+                    onChange={(value) => {
+                      const selectedOption = moleculeOptions.find(
+                        (o) => String(o.value.moleculeId) === value,
+                      );
+
+                      handleMoleculeSelect(index, selectedOption || null);
+                    }}
+                    placeholder="Select molecule"
+                    isLoading={loadingMolecules}
+                    isDisabled={isEditMode}
+                    error={errors[`molecules.${index}.moleculeId`]}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Strength */}
+                <div className="w-full min-w-0">
+                  <Input
+                    label="Molecule Strength"
+                    name="strength"
+                    placeholder={strengthFormats.join(", ") || "Enter strength"}
+                    value={molecule.strength || ""}
+                    onChange={(e) =>
+                      handleStrengthChange(index, e.target.value)
+                    }
+                    readOnly={isEditMode}
+                    required
+                  />
+
+                  {errors[`molecules.${index}.strength`] && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors[`molecules.${index}.strength`]}
+                    </p>
+                  )}
+                </div>
+
+                {/* Remove button / spacer */}
+                <div className="flex items-end h-full">
+                  {!isEditMode ? (
+                    <button
+                      onClick={() => removeMolecule(index)}
+                      className="border-2 border-[#FF3B3B] w-13 h-12 rounded-lg flex items-center justify-center"
+                    >
+                      <img
+                        src="/icons/RedMinusIcon.svg"
+                        alt="remove"
+                        className="w-5 h-5 object-contain"
+                      />
+                    </button>
+                  ) : (
+                    <div className="w-13 h-12" />
+                  )}
+                </div>
+              </div>
+            ))}
 
             <Input
               label="Drug Schedule"
@@ -1700,7 +1777,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               existingFile={existingManualFile || undefined}
             />
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col ">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Storage Condition
                 <span className="text-warning-500 ml-1">*</span>
@@ -1750,7 +1827,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 placeholder="Enter contraindications, side effects, storage conditions"
                 value={form.warningsPrecautions}
                 onChange={handleChange}
-                // disabled={mode === "delete"}
+                maxLength={1000}
                 rows={4}
                 className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${
                   errors.warningsPrecautions
@@ -1776,7 +1853,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 placeholder="Brief product overview, indications, pack details"
                 value={form.productDescription}
                 onChange={handleChange}
-                // disabled={mode === "delete"}
+                maxLength={1000}
                 rows={4}
                 className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${
                   errors.productDescription
@@ -1802,7 +1879,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col ">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Pack Type
                 <span className="text-warning-500 ml-1">*</span>
@@ -1822,7 +1899,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   }))
                 }
                 placeholder="Select Pack Type"
-                isDisabled={isEditMode || !form.dosageId}
+                isDisabled={isEditMode}
+                // isDisabled={isEditMode || !form.dosageId}
                 error={errors.packId}
               />
             </div>
@@ -2018,11 +2096,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                       : new Date().getFullYear()
                   }
                   minDate={
-                    new Date(
-                      new Date().getFullYear(),
-                      new Date().getMonth() + 4,
-                      1,
-                    )
+                    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
                   }
                   maxDate={
                     form.manufacturingDate
@@ -2161,7 +2235,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
             <div className="border-b border-neutral-200 col-span-2"></div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col ">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 GST %<span className="text-warning-500 ml-1">*</span>
               </label>
@@ -2253,7 +2327,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
         </div>
         {/* </div> */}
-      </div>
+      </form>
     </>
   );
 };
