@@ -153,7 +153,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   };
 
   return (
-    <div className={`flex flex-col gap-1 w-full ${containerClassName}`}>
+    <div className={`flex flex-col gap-0 w-full ${containerClassName}`}>
       {/* Label Logic */}
       <label
         htmlFor={inputId}
