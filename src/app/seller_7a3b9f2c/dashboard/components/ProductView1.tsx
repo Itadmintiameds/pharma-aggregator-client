@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { DashboardView } from "@/src/types/seller/dashboard";
-import { getDrugProductById } from "@/src/services/product/ProductService";
+import { getDrugProductById, getCountries } from "@/src/services/product/ProductService";
 import { getPackTypeById } from "@/src/services/product/PackType";
 import { getStorageConditionById } from "@/src/services/product/StorageCondition";
 import {
@@ -160,6 +160,9 @@ interface ConsumableAttributes {
   usageType?: string;
   deviceCatId?: number | string;
   deviceSubCatId?: number | string;
+  countryId?: number;
+  countryName?: string;
+  countryOfOrigin?: string;
 }
 
 export interface CosmeticAttributes {
@@ -313,6 +316,7 @@ interface ResolvedLookups {
   deviceCategoryName: string | null;
   deviceSubCategoryName: string | null;
   specificationUnitLabel: string | null;
+  countryName: string | null;
   loading: boolean;
 }
 
@@ -326,6 +330,7 @@ const INITIAL_LOOKUPS: ResolvedLookups = {
   deviceCategoryName: null,
   deviceSubCategoryName: null,
   specificationUnitLabel: null,
+  countryName: null,
   loading: false,
 };
 
@@ -729,6 +734,8 @@ const ProductView1 = ({
         const response = (await getDrugProductById(
           productId,
         )) as ProductApiData;
+        const ncArr = response?.productAttributeNonConsumableMedicals ?? [];
+        console.log("[ProductView] ncAttr array length:", ncArr.length, "entries:", ncArr.map((e: any) => ({ productAttributeId: e.productAttributeId, warrantyPeriod: e.warrantyPeriod, dimensionSize: e.dimensionSize, deviceSpecificationUnitId: e.deviceSpecificationUnitId, serviceAvailability: e.serviceAvailability, amcAvailability: e.amcAvailability, createdDate: e.createdDate, modifiedDate: e.modifiedDate, updatedDate: e.updatedDate })));
         setProductData(response);
       } catch (err) {
         console.error("[ProductView] Error fetching product:", err);
@@ -753,14 +760,26 @@ const ProductView1 = ({
         ? productData.productAttributeDrugs![0]
         : (productData.drugAttributes ?? null);
 
+    const consAttrArr = productData.productAttributeConsumableMedicals ?? [];
     const consAttr: ConsumableAttributes | null =
-      (productData.productAttributeConsumableMedicals ?? []).length > 0
-        ? productData.productAttributeConsumableMedicals![0]
+      consAttrArr.length > 0
+        ? (consAttrArr as any[]).reduce((latest: any, curr: any) =>
+            new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest,
+          )
         : null;
 
+    const ncAttrArr = productData.productAttributeNonConsumableMedicals ?? [];
     const ncAttr: NonConsumableAttributes | null =
-      (productData.productAttributeNonConsumableMedicals ?? []).length > 0
-        ? productData.productAttributeNonConsumableMedicals![0]
+      ncAttrArr.length > 0
+        ? (ncAttrArr as any[]).reduce((latest: any, curr: any) => {
+            const toMs = (e: any) => {
+              const d = e.updatedDate ?? e.modifiedDate ?? e.createdDate;
+              if (!d) return Infinity;
+              const t = new Date(d).getTime();
+              return isNaN(t) ? Infinity : t;
+            };
+            return toMs(curr) >= toMs(latest) ? curr : latest;
+          })
         : (productData.nonConsumableAttributes ?? null);
 
     const cosAttrRaw: CosmeticAttributes | null =
@@ -809,17 +828,21 @@ const ProductView1 = ({
     //     ? drugEntry!.storageConditionIds![0]
     //     : undefined);
 
-    const rawStorageId =
+    const _rawStorageIdOrArray =
+      drugEntry?.storageConditionIds ??
       (consAttr as any)?.storageConditionId ??
       (consAttr as any)?.storageCondition_id ??
       (consAttr as any)?.storage_condition_id ??
       (consAttr as any)?.storageconditionid ??
-      drugEntry?.storageConditionIds ??
       ncAttr?.storageConditionId ??
       cosAttrRaw?.storageConditionId ??
-      [];
+      null;
 
-    const storageId = toPositiveInt(rawStorageId);
+    const rawStorageId: number[] = Array.isArray(_rawStorageIdOrArray)
+      ? (_rawStorageIdOrArray as unknown[]).map(Number).filter((n) => n > 0)
+      : _rawStorageIdOrArray != null && Number(_rawStorageIdOrArray) > 0
+        ? [Number(_rawStorageIdOrArray)]
+        : [];
 
     // const fetchStorageCondition = async (): Promise<
     //   Partial<ResolvedLookups>
@@ -1118,10 +1141,33 @@ const ProductView1 = ({
         }
       }
 
+      let countryName: string | null =
+        consAttr?.countryName?.trim() ||
+        consAttr?.countryOfOrigin?.trim() ||
+        null;
+
+      if (!countryName) {
+        const countryId = toPositiveInt(consAttr?.countryId);
+        if (countryId !== null) {
+          try {
+            const countries: any[] = await getCountries();
+            const found = countries.find(
+              (c) => Number(c.countryId ?? c.id) === countryId,
+            );
+            if (found)
+              countryName =
+                String(found.countryName ?? found.name ?? "").trim() || null;
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+
       return {
         deviceCategoryName,
         deviceSubCategoryName,
         specificationUnitLabel,
+        countryName,
       };
     };
 
@@ -1492,15 +1538,29 @@ const ProductView1 = ({
         )
       : undefined;
 
-  const ncAttr: NonConsumableAttributes | null =
-    (productData?.productAttributeNonConsumableMedicals ?? []).length > 0
-      ? productData!.productAttributeNonConsumableMedicals![0]
-      : (productData?.nonConsumableAttributes ?? null);
+  const ncAttr: NonConsumableAttributes | null = (() => {
+    const arr = productData?.productAttributeNonConsumableMedicals ?? [];
+    if (arr.length === 0) return productData?.nonConsumableAttributes ?? null;
+    const result = (arr as any[]).reduce((latest: any, curr: any) => {
+      const toMs = (e: any) => {
+        const d = e.updatedDate ?? e.modifiedDate ?? e.createdDate;
+        if (!d) return Infinity;
+        const t = new Date(d).getTime();
+        return isNaN(t) ? Infinity : t;
+      };
+      return toMs(curr) >= toMs(latest) ? curr : latest;
+    });
+    console.log("[ProductView] selected ncAttr:", { productAttributeId: result?.productAttributeId, warrantyPeriod: result?.warrantyPeriod, dimensionSize: result?.dimensionSize, deviceSpecificationUnitId: result?.deviceSpecificationUnitId, serviceAvailability: result?.serviceAvailability, createdDate: result?.createdDate, modifiedDate: result?.modifiedDate });
+    return result;
+  })();
 
-  const consAttr: ConsumableAttributes | null =
-    (productData?.productAttributeConsumableMedicals ?? []).length > 0
-      ? productData!.productAttributeConsumableMedicals![0]
-      : null;
+  const consAttr: ConsumableAttributes | null = (() => {
+    const arr = productData?.productAttributeConsumableMedicals ?? [];
+    if (arr.length === 0) return null;
+    return (arr as any[]).reduce((latest: any, curr: any) =>
+      new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest,
+    );
+  })();
 
   const drugEntry: DrugAttributeEntry | null =
     (productData?.productAttributeDrugs ?? []).length > 0
@@ -1952,8 +2012,9 @@ const ProductView1 = ({
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
           countryName={
-            (consAttr as any)?.countryName ??
-            (consAttr as any)?.countryOfOrigin ??
+            lookups.countryName ??
+            consAttr?.countryName ??
+            consAttr?.countryOfOrigin ??
             null
           }
           additionalDiscounts={additionalDiscounts}

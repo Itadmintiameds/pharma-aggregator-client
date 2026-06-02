@@ -363,7 +363,18 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const data = await getProductById(productId);
       if (!data) throw new Error("Product not found");
 
-      const attribute = data.productAttributeNonConsumableMedicals?.[0] || {};
+      const ncArr: any[] = data.productAttributeNonConsumableMedicals ?? [];
+      const attribute = ncArr.length > 0
+        ? ncArr.reduce((latest: any, curr: any) => {
+            const toMs = (e: any) => {
+              const d = e.updatedDate ?? e.modifiedDate ?? e.createdDate;
+              if (!d) return Infinity;
+              const t = new Date(d).getTime();
+              return isNaN(t) ? Infinity : t;
+            };
+            return toMs(curr) >= toMs(latest) ? curr : latest;
+          })
+        : {};
       const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) || {};
       const pricing = data.pricingDetails?.[0] || {};
 
@@ -733,7 +744,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     setShowManufacturingMonthPicker(false);
   };
 
-  const handleViewProduct = () => { router.push(`/seller_7a3b9f2c/products/view/${resolvedProductId}`); };
+  const handleViewProduct = () => {
+    // Full page navigation ensures ProductView1 mounts fresh and fetches
+    // the latest data — router.push would serve a cached React tree instead.
+    window.location.href = `/seller_7a3b9f2c/products/view/${resolvedProductId}`;
+  };
   const handleContinueAdding = () => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); };
   const handleBackToDashboard = () => { router.push("/seller_7a3b9f2c/dashboard"); };
 
@@ -970,6 +985,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           udiNumber: form.udiNumber || "",
           deviceClassification: form.deviceClassification,
           safetyInstructions: form.safetyInstructions,
+          amcServiceAvailability: amcValue ? "Yes" : "No",
           serviceAvailability: amcValue,
           amcAvailability: amcValue,
           brochureType: "PDF",
@@ -988,8 +1004,19 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       let certsToUpload: CertificationTag[] = [...selectedCertifications];
 
       if (mode === "edit" && currentProductId) {
+        // Diagnostic: confirm exact values being sent for the 3 fields
+        const attrPayload = (payload as any).productAttributeNonConsumableMedicals?.[0];
+        console.log("[NonConsumableForm] SENDING UPDATE - productAttributeId:", attrPayload?.productAttributeId, "| warrantyPeriod:", attrPayload?.warrantyPeriod, "| dimensionSize:", attrPayload?.dimensionSize, "| deviceSpecificationUnitId:", attrPayload?.deviceSpecificationUnitId, "| serviceAvailability:", attrPayload?.serviceAvailability);
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updateData = await updateProduct(currentProductId, payload as any) as ApiResponseData;
+
+        // Diagnostic: confirm what the backend returned for the 3 fields
+        const returnedAttrs = (updateData as any)?.data?.productAttributeNonConsumableMedicals ?? (updateData as any)?.productAttributeNonConsumableMedicals ?? [];
+        if (returnedAttrs.length > 0) {
+          const r = returnedAttrs[returnedAttrs.length - 1];
+          console.log("[NonConsumableForm] BACKEND RESPONSE - warrantyPeriod:", r?.warrantyPeriod, "| dimensionSize:", r?.dimensionSize, "| serviceAvailability:", r?.serviceAvailability);
+        }
 
         // For Excel-uploaded products the attributeId may not be pre-populated
         if (!currentAttributeId) {
@@ -1279,59 +1306,68 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               />
             </div>
 
-            {/* Technical Dimensions / Capacity / Configuration — editable in both create and edit */}
+            {/* Technical Dimensions / Capacity / Configuration */}
             <div
               className="flex flex-col gap-1"
               ref={(el) => { fieldRefs.current["dimensionSize"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
             >
-              <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
-              <div className="relative" ref={unitDropdownRef}>
-                <div className={`flex items-center h-[52px] border rounded-lg overflow-hidden ${errors.dimensionSize || errors.deviceSpecificationUnitId ? "border-warning-500" : "border-pneutral-300"}`}>
-                  <input
-                    type="text"
-                    name="dimensionSize"
-                    value={form.dimensionSize}
-                    onChange={handleChange}
-                    placeholder="e.g., 20.5"
-                    maxLength={10}
-                    className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
-                  />
-                  <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
-                  <button
-                    type="button"
-                    onClick={() => form.deviceSubCategoryId && setShowUnitDropdown(p => !p)}
-                    disabled={!form.deviceSubCategoryId}
-                    className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 hover:bg-neutral-100 transition-colors flex-shrink-0 disabled:cursor-not-allowed"
-                  >
-                    <span className="truncate text-pneutral-800" style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}>
-                      {loadingSpecificationUnits ? "..." : (specificationUnitOptions.find(o => o.value === form.deviceSpecificationUnitId)?.label || (form.deviceSubCategoryId ? "Select Unit" : "Select sub-cat first"))}
-                    </span>
-                    <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 flex-shrink-0 ${showUnitDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                </div>
-                {showUnitDropdown && form.deviceSubCategoryId && (
-                  <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
-                    {specificationUnitOptions.map(opt => (
-                      <button key={opt.value} type="button"
-                        onClick={() => {
-                          handleSelectChange("deviceSpecificationUnitId", { value: opt.value, label: opt.label });
-                          if (errors.deviceSpecificationUnitId) setErrors(p => { const n = { ...p }; delete n.deviceSpecificationUnitId; return n; });
-                          setShowUnitDropdown(false);
-                        }}
-                        className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer ${form.deviceSpecificationUnitId === opt.value ? "bg-neutral-50 font-semibold" : "font-medium"}`}>
-                        {opt.label}
+              {isEdit ? (
+                <NonEditableField
+                  label="Technical Dimensions / Capacity / Configuration"
+                  value={[form.dimensionSize, specificationUnitOptions.find(o => o.value === form.deviceSpecificationUnitId)?.label].filter(Boolean).join(" ")}
+                />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
+                  <div className="relative" ref={unitDropdownRef}>
+                    <div className={`flex items-center h-[52px] border rounded-lg overflow-hidden ${errors.dimensionSize || errors.deviceSpecificationUnitId ? "border-warning-500" : "border-pneutral-300"}`}>
+                      <input
+                        type="text"
+                        name="dimensionSize"
+                        value={form.dimensionSize}
+                        onChange={handleChange}
+                        placeholder="e.g., 20.5"
+                        maxLength={10}
+                        className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
+                      />
+                      <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
+                      <button
+                        type="button"
+                        onClick={() => form.deviceSubCategoryId && setShowUnitDropdown(p => !p)}
+                        disabled={!form.deviceSubCategoryId}
+                        className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 hover:bg-neutral-100 transition-colors flex-shrink-0 disabled:cursor-not-allowed"
+                      >
+                        <span className="truncate text-pneutral-800" style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}>
+                          {loadingSpecificationUnits ? "..." : (specificationUnitOptions.find(o => o.value === form.deviceSpecificationUnitId)?.label || (form.deviceSubCategoryId ? "Select Unit" : "Select sub-cat first"))}
+                        </span>
+                        <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 flex-shrink-0 ${showUnitDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
                       </button>
-                    ))}
-                    {specificationUnitOptions.length === 0 && (
-                      <div className="px-4 py-2 text-sm text-neutral-500">No units available</div>
+                    </div>
+                    {showUnitDropdown && form.deviceSubCategoryId && (
+                      <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
+                        {specificationUnitOptions.map(opt => (
+                          <button key={opt.value} type="button"
+                            onClick={() => {
+                              handleSelectChange("deviceSpecificationUnitId", { value: opt.value, label: opt.label });
+                              if (errors.deviceSpecificationUnitId) setErrors(p => { const n = { ...p }; delete n.deviceSpecificationUnitId; return n; });
+                              setShowUnitDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer ${form.deviceSpecificationUnitId === opt.value ? "bg-neutral-50 font-semibold" : "font-medium"}`}>
+                            {opt.label}
+                          </button>
+                        ))}
+                        {specificationUnitOptions.length === 0 && (
+                          <div className="px-4 py-2 text-sm text-neutral-500">No units available</div>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-              {errors.dimensionSize && <p className={errorMsg}>{errors.dimensionSize}</p>}
-              {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
+                  {errors.dimensionSize && <p className={errorMsg}>{errors.dimensionSize}</p>}
+                  {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
+                </>
+              )}
             </div>
 
             {/* Certifications — dropdown (editable in both create and edit modes) */}
@@ -1663,7 +1699,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             {/* Manufacturing Date */}
             <div ref={setFieldRef("manufacturingDate") as React.RefCallback<HTMLDivElement>} className="relative">
               <Input
-                label="Manufacturing Date"
+                label="Manufacturing Month"
                 type="text"
                 name="manufacturingDate"
                 required={!isEdit}

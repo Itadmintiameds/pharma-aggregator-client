@@ -175,25 +175,23 @@ const isValidUrl = (url?: string | null) => {
 
 /**
  * Resolve AMC/service availability from the multiple formats the API may return.
- * Handles boolean true/false, string "true"/"false", and "Yes"/"No".
- * Booleans are checked first because the edit form updates amcAvailability/serviceAvailability
- * as booleans; the amcServiceAvailability string may be stale after an edit.
+ * Handles boolean true/false, numeric 1/0, string "true"/"false"/"yes"/"no", and "Yes"/"No".
+ * Boolean/numeric fields are checked first; falls back to the amcServiceAvailability string.
  */
 const resolveAmcLabel = (attr: NonConsumableAttributes | null): string | null => {
   if (!attr) return null;
 
-
-  // Boolean from amcAvailability or serviceAvailability (updated by the edit form)
-  const raw = attr.amcAvailability ?? attr.serviceAvailability;
-  if (raw === true) return "Yes";
-  if (raw === false) return "No";
-
-
-  // Fall back to string "Yes" / "No" variant (legacy / initial creation data)
-  if (typeof attr.amcServiceAvailability === "string" && attr.amcServiceAvailability.trim() !== "") {
-    return attr.amcServiceAvailability.trim();
+  // Check amcAvailability and serviceAvailability (handles boolean, numeric, and string forms)
+  const boolVal = attr.amcAvailability ?? attr.serviceAvailability;
+  if (boolVal != null) {
+    const norm = String(boolVal).toLowerCase().trim();
+    if (norm === "true" || norm === "yes" || norm === "1") return "Yes";
+    if (norm === "false" || norm === "no" || norm === "0") return "No";
   }
 
+  // Fall back to the string variant
+  const strVal = attr.amcServiceAvailability?.trim();
+  if (strVal) return strVal;
 
   return null;
 };

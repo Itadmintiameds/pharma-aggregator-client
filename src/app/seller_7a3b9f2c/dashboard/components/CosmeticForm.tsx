@@ -1003,34 +1003,49 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }
 
     if (field === "expiryDate") {
-      const today = new Date();
-      const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
-      if (selectedDate < minFromNow) {
-        setErrors((p) => ({ ...p, expiryDate: "Expiry date must be at least 3 months from current month" }));
-        setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: "" }));
-        setShowExpiryMonthPicker(false);
-        return;
-      }
-      if (form.manufacturingDate) {
-        const mfg = form.manufacturingDate;
-        const minExpiry = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
-        const totalMonths = (selectedDate.getFullYear() - mfg.getFullYear()) * 12 + (selectedDate.getMonth() - mfg.getMonth());
-        if (selectedDate < minExpiry) {
-          setErrors((p) => ({ ...p, expiryDate: "Expiry must be at least 3 months after Manufacturing Date" }));
-          setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: "" }));
-        } else if (selectedDate < mfg) {
-          setErrors((p) => ({ ...p, expiryDate: "Expiry cannot be before Manufacturing Date" }));
-          setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: "" }));
-        } else if (totalMonths > 60) {
-          setErrors((p) => ({ ...p, expiryDate: "Shelf life cannot exceed 5 years (60 months)" }));
-          setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: "" }));
-        } else {
-          setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
-          setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: totalMonths.toString() }));
+      setForm((prev) => {
+        const updatedForm = { ...prev, expiryDate: selectedDate };
+
+        let expiryError = "";
+
+        if (updatedForm.manufacturingDate) {
+          const mfg = new Date(updatedForm.manufacturingDate);
+          const today = new Date();
+
+          const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
+
+          const totalMonths =
+            (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
+            (selectedDate.getMonth() - mfg.getMonth()) +
+            1;
+
+          const monthsUntilExpiry =
+            (selectedDate.getFullYear() - today.getFullYear()) * 12 +
+            (selectedDate.getMonth() - today.getMonth()) +
+            1;
+
+          updatedForm.shelfLifeMonths =
+            totalMonths >= 0 ? totalMonths.toString() : "";
+
+          if (monthsUntilExpiry > 0 && monthsUntilExpiry <= 3) {
+            expiryError =
+              monthsUntilExpiry === 1
+                ? "This product expires within 1 month, but it can still be added."
+                : `This product expires within ${monthsUntilExpiry} months, but it can still be added.`;
+          } else if (selectedDate > maxDate) {
+            expiryError =
+              "Expiry cannot be more than 5 years from Manufacturing Date";
+          }
         }
-      } else {
-        setForm((prev) => ({ ...prev, expiryDate: selectedDate, shelfLifeMonths: "" }));
-      }
+
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          expiryDate: expiryError,
+        }));
+
+        return updatedForm;
+      });
+
       setShowExpiryMonthPicker(false);
     }
   };
@@ -1142,20 +1157,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       }
 
       if (!form.expiryDate) e.expiryDate = "Expiry date is required";
-      else {
-        const today = new Date();
-        const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
-        if (form.expiryDate < minFromNow)
-          e.expiryDate = "Expiry date must be at least 3 months from current month";
-        else if (form.manufacturingDate) {
-          const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
-          if (form.expiryDate < minExpiry)
-            e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
-          else {
-            const totalMonths = (form.expiryDate.getFullYear() - form.manufacturingDate.getFullYear()) * 12 + (form.expiryDate.getMonth() - form.manufacturingDate.getMonth());
-            if (totalMonths > 60) e.expiryDate = "Shelf life cannot exceed 5 years (60 months)";
-          }
-        }
+      else if (form.manufacturingDate) {
+        const maxDate = new Date(form.manufacturingDate.getFullYear() + 5, form.manufacturingDate.getMonth(), 1);
+        if (form.expiryDate > maxDate)
+          e.expiryDate = "Expiry cannot be more than 5 years from Manufacturing Date";
       }
 
       const stock = parseFloat(form.stockQuantity);
@@ -2050,7 +2055,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
             <div className="relative">
               <Input
-                label="Manufacturing Date"
+                label="Manufacturing Month"
                 type="text"
                 name="manufacturingDate"
                 id="manufacturingDate"
@@ -2081,7 +2086,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
             <div className="relative">
               <Input
-                label="Expiry Date"
+                label="Expiry Month"
                 name="expiryDate"
                 type="text"
                 required
