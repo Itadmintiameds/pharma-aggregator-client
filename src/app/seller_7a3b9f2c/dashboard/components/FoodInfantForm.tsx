@@ -348,6 +348,7 @@ const [certificateDocumentIds, setCertificateDocumentIds] = useState<Map<number,
 
   // UI state
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [expiryDateWarning, setExpiryDateWarning] = useState<string>("");
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [existingManualFile, setExistingManualFile] = useState<string | null>(null);
@@ -402,7 +403,7 @@ const [certificateDocumentIds, setCertificateDocumentIds] = useState<Map<number,
     const mfg = form.manufacturingDate instanceof Date ? form.manufacturingDate : new Date(form.manufacturingDate);
     const exp = form.expiryDate instanceof Date ? form.expiryDate : new Date(form.expiryDate);
     if (isNaN(mfg.getTime()) || isNaN(exp.getTime())) return "";
-    const months = (exp.getFullYear() - mfg.getFullYear()) * 12 + (exp.getMonth() - mfg.getMonth());
+    const months = (exp.getFullYear() - mfg.getFullYear()) * 12 + (exp.getMonth() - mfg.getMonth()) + 1;
     return months >= 0 ? months.toString() : "";
   };
 
@@ -441,6 +442,7 @@ const [certificateDocumentIds, setCertificateDocumentIds] = useState<Map<number,
         manufacturingDate: "",
         expiryDate: "",
       }));
+      setExpiryDateWarning("");
 
       setForm((prev) => ({
         ...prev,
@@ -453,45 +455,67 @@ const [certificateDocumentIds, setCertificateDocumentIds] = useState<Map<number,
       return;
     }
 
-    if (field === "expiryDate") {
-      setForm((prev) => {
-        const updatedForm = {
-          ...prev,
-          expiryDate: selectedDate,
-        };
+   if (field === "expiryDate") {
+  setForm((prev) => {
+    const updatedForm = {
+      ...prev,
+      expiryDate: selectedDate,
+    };
 
-        let expiryError = "";
+    let expiryError = "";
+    let warning = "";
 
-        if (updatedForm.manufacturingDate) {
-          const mfg = new Date(updatedForm.manufacturingDate);
-          const today = new Date();
-          const threeMonthsFromNow = new Date();
-          threeMonthsFromNow.setMonth(today.getMonth() + 3);
-          const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
+    if (updatedForm.manufacturingDate) {
+      const mfg = new Date(updatedForm.manufacturingDate);
+      const today = new Date();
+      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
 
-          if (selectedDate < threeMonthsFromNow) {
-            expiryError = "Expiry date must be at least 3 months from today";
-          } else if (selectedDate > maxDate) {
-            expiryError = "Expiry cannot be more than 5 years from Manufacturing Date";
-          }
+      // Check if expiry date is in the past
+      if (selectedDate < currentMonth) {
+        expiryError = "Expiry date cannot be in the past";
+      } 
+      // Check if expiry exceeds 5 years from manufacturing
+      else if (selectedDate > maxDate) {
+        expiryError = "Expiry cannot be more than 5 years from Manufacturing Date";
+      }
+      // Check for warning conditions (within 1-3 months)
+      else {
+        // Calculate months until expiry
+        const monthsUntilExpiry = 
+          (selectedDate.getFullYear() - today.getFullYear()) * 12 +
+          (selectedDate.getMonth() - today.getMonth()) +1;
 
-          const totalMonths =
-            (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
-            (selectedDate.getMonth() - mfg.getMonth());
-
-          updatedForm.shelfLifeMonths = totalMonths >= 0 ? totalMonths.toString() : "";
+           
+        
+        // Warning for expiry within 1-3 months (but not blocking)
+        if (monthsUntilExpiry > 0 && monthsUntilExpiry <= 3) {
+          warning = monthsUntilExpiry === 1
+            ? "This product expires within 1 month, but it can still be added."
+            : `This product expires within ${monthsUntilExpiry} months, but it can still be added.`;
         }
+      }
 
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          expiryDate: expiryError,
-        }));
+      
+      // ✅ Calculate shelf life WITH +1 
+      const totalMonths = (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
+        (selectedDate.getMonth() - mfg.getMonth()) + 1;
 
-        return updatedForm;
-      });
-
-      setShowExpiryMonthPicker(false);
+      updatedForm.shelfLifeMonths = totalMonths >= 0 ? totalMonths.toString() : "";
     }
+
+    // Set error and warning separately
+    setErrors((prevErrors) => ({
+      ...prevErrors,
+      expiryDate: expiryError,
+    }));
+    setExpiryDateWarning(warning);
+
+    return updatedForm;
+  });
+
+  setShowExpiryMonthPicker(false);
+}
   };
 
   // CERTIFICATION FUNCTIONS
@@ -2430,72 +2454,78 @@ if ((attr as any).certificateDocuments?.length) {
             </div>
 
             {/* Expiry Date with MonthPicker */}
-            <div className="relative" data-field="expiryDate">
-              <Input
-                label="Expiry Date"
-                name="expiryDate"
-                type="text"
-                required
-                // readOnly={isEditMode}
-                disabled={isEditMode}
-                value={
-                  form.expiryDate instanceof Date &&
-                  !isNaN(form.expiryDate.getTime())
-                    ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
-                    : ""
-                }
-                placeholder="MM/YYYY"
-                onChange={() => {}}
-                onClick={() => {
-                  if (!isEditMode) {
-                    setShowExpiryMonthPicker(true);
-                  }
-                }}
-                onFocus={() => {
-                  if (!isEditMode) {
-                    setShowExpiryMonthPicker(true);
-                  }
-                }}
-                onKeyDown={(e) => e.preventDefault()}
-                onPaste={(e) => e.preventDefault()}
-                error={errors.expiryDate}
-              />
+<div className="relative" data-field="expiryDate">
+  <Input
+    label="Expiry Date"
+    name="expiryDate"
+    type="text"
+    required
+    disabled={isEditMode}
+    value={
+      form.expiryDate instanceof Date &&
+      !isNaN(form.expiryDate.getTime())
+        ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
+        : ""
+    }
+    placeholder="MM/YYYY"
+    onChange={() => {}}
+    onClick={() => {
+      if (!isEditMode) {
+        setShowExpiryMonthPicker(true);
+      }
+    }}
+    onFocus={() => {
+      if (!isEditMode) {
+        setShowExpiryMonthPicker(true);
+      }
+    }}
+    onKeyDown={(e) => e.preventDefault()}
+    onPaste={(e) => e.preventDefault()}
+    error={errors.expiryDate}
+  />
+  
+  {/* Show warning message if exists */}
+  {expiryDateWarning && !errors.expiryDate && (
+    <p className="text-warning-500 text-sm mt-1">
+      {expiryDateWarning}
+    </p>
+  )}
 
-              {showExpiryMonthPicker && !isEditMode && (
-                <MonthPicker
-                  selectedMonth={
-                    form.expiryDate
-                      ? form.expiryDate.getMonth()
-                      : new Date().getMonth()
-                  }
-                  selectedYear={
-                    form.expiryDate
-                      ? form.expiryDate.getFullYear()
-                      : new Date().getFullYear()
-                  }
-                  minDate={
-                    new Date(
-                      new Date().getFullYear(),
-                      new Date().getMonth() + 4,
-                      1,
-                    )
-                  }
-                  maxDate={
-                    form.manufacturingDate
-                      ? new Date(
-                          form.manufacturingDate.getFullYear() + 5,
-                          form.manufacturingDate.getMonth(),
-                          1,
-                        )
-                      : undefined
-                  }
-                  onSelect={(month, year) =>
-                    handleMonthSelect("expiryDate", month, year)
-                  }
-                  onClose={() => setShowExpiryMonthPicker(false)}
-                />
-              )}
-            </div>
+  {showExpiryMonthPicker && !isEditMode && (
+    <MonthPicker
+      selectedMonth={
+        form.expiryDate
+          ? form.expiryDate.getMonth()
+          : new Date().getMonth()
+      }
+      selectedYear={
+        form.expiryDate
+          ? form.expiryDate.getFullYear()
+          : new Date().getFullYear()
+      }
+      minDate={
+        new Date(
+          new Date().getFullYear(),
+          new Date().getMonth(),
+          1,
+        )
+      }
+      maxDate={
+        form.manufacturingDate
+          ? new Date(
+              form.manufacturingDate.getFullYear() + 5,
+              form.manufacturingDate.getMonth(),
+              1,
+            )
+          : undefined
+      }
+      onSelect={(month, year) =>
+        handleMonthSelect("expiryDate", month, year)
+      }
+      onClose={() => setShowExpiryMonthPicker(false)}
+    />
+  )}
+</div>
 
             <div data-field="shelfLifeMonths">
               <Input
@@ -2670,11 +2700,7 @@ export default FoodInfantForm;
 
 
 
-
-
-
-
-// code dated 29.05.2026 time 12.30 pm
+// working code dated 02.06.2026 ...........
 
 // "use client";
 
@@ -2686,7 +2712,6 @@ export default FoodInfantForm;
 // import { foodInfantSchema } from "@/src/schema/product/FoodandInfantSchema";
 // import Dropdown from "@/src/app/commonComponents/Dropdown";
 // import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
-// // import { validateBatchNumber } from "@/src/services/product/PricingFoodInfant";
 // import { validateBatchNumber } from "@/src/services/product/Pricing";
 // import {
 //   getProductById,
@@ -3046,6 +3071,7 @@ export default FoodInfantForm;
 //   const [loadingPackTypes, setLoadingPackTypes] = useState(false);
 //   const [loadingCertifications, setLoadingCertifications] = useState(false);
 //   const [ageGroupOptionsMap, setAgeGroupOptionsMap] = useState<Map<string, string>>(new Map());
+//   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
 //   // Stock-based edit restrictions
 //   const currentStockQuantity = Number(form.stockQuantity) || 0;
@@ -3290,12 +3316,31 @@ export default FoodInfantForm;
 //     return null;
 //   };
 
+  
+
 // const checkBatchNumber = async (batchLotNumber: string) => {
 //   // Skip validation in edit mode since field is read-only
 //   if (isEditMode) {
 //     console.log("⚠️ Edit mode - skipping batch number validation");
 //     return;
 //   }
+
+//    // Clear any existing timer
+//   if (debounceTimerRef.current) {
+//     clearTimeout(debounceTimerRef.current);
+//   }
+
+//    // If batch number is empty, clear error
+//   if (!batchLotNumber || batchLotNumber.trim() === "") {
+//     setErrors((prev) => {
+//       const newErrors = { ...prev };
+//       delete newErrors.batchLotNumber;
+//       return newErrors;
+//     });
+//     return;
+//   }
+
+//   debounceTimerRef.current = setTimeout(async () => {
   
 //   try {
 //     const response = await validateBatchNumber(batchLotNumber, categoryId);
@@ -3313,10 +3358,24 @@ export default FoodInfantForm;
 //       });
 //     }
 //   } catch (error) {
-//     console.error("Batch validation failed:", error);
+//    console.error("Batch validation failed:", error);
+//     // On API error, clear error to not block user
+//     setErrors((prev) => {
+//       const newErrors = { ...prev };
+//       delete newErrors.batchLotNumber;
+//       return newErrors;
+//     });
 //   }
+// }, 500); // Wait 500ms after user stops typing
 // };
 
+// useEffect(() => {
+//   return () => {
+//     if (debounceTimerRef.current) {
+//       clearTimeout(debounceTimerRef.current);
+//     }
+//   };
+// }, []);
 //   // Validation functions
 //   const validateCrossFields = () => {
 //     const newErrors: Record<string, string> = {};
@@ -3892,33 +3951,39 @@ export default FoodInfantForm;
 //           setProductAttributeId((attr as any).productAttributeId || null);
 
 //           // Load certificates - INCLUDING pending ones
-//           if ((attr as any).certificateDocuments?.length) {
-//             const selected = (attr as any).certificateDocuments.map((c: any) => String(c.certificationId));
-//             setSelectedCertificationValues(selected);
-//             const certDocMap = new Map();
-//             (attr as any).certificateDocuments.forEach((doc: any) => {
-//               certDocMap.set(String(doc.certificationId), doc);
-//             });
-            
-//             setCertificationsDetails(
-//               selected.map((id: string) => {
-//                 const certDoc = certDocMap.get(id);
-//                 const url = certDoc?.certificateUrl;
-//                 const isValidUrl = url && url !== "NOT_UPLOADED" && url !== "PENDING";
-                
-//                 return {
-//                   id,
-//                   label: certDoc?.certificationName || "",
-//                   tagCode: "",
-//                   file: null,
-//                   fileName: "",
-//                   uploading: false,
-//                   isUploaded: isValidUrl,
-//                   existingUrl: url || "",
-//                 };
-//               })
-//             );
-//           }
+//           // Load certificates - INCLUDING pending ones, but skip blob URLs
+// if ((attr as any).certificateDocuments?.length) {
+//   const selected = (attr as any).certificateDocuments.map((c: any) => String(c.certificationId));
+//   setSelectedCertificationValues(selected);
+//   const certDocMap = new Map();
+//   (attr as any).certificateDocuments.forEach((doc: any) => {
+//     certDocMap.set(String(doc.certificationId), doc);
+//   });
+  
+//   setCertificationsDetails(
+//     selected.map((id: string) => {
+//       const certDoc = certDocMap.get(id);
+//       const url = certDoc?.certificateUrl;
+      
+//       // Check if it's a valid S3 URL (not blob, not pending)
+//       const isValidUrl = url && 
+//         url !== "NOT_UPLOADED" && 
+//         url !== "PENDING" &&
+//         !url.startsWith('blob:');  // ← Skip blob URLs from Excel imports
+      
+//       return {
+//         id,
+//         label: certDoc?.certificationName || "",
+//         tagCode: "",
+//         file: null,
+//         fileName: "",
+//         uploading: false,
+//         isUploaded: isValidUrl,
+//         existingUrl: isValidUrl ? url : "",  
+//       };
+//     })
+//   );
+// }
 
 //           // Load subcategories
 //           if (categoryId) {
@@ -4029,7 +4094,10 @@ export default FoodInfantForm;
 //       vegNonvegIndicator: form.dietaryClassification as "veg" | "non-veg",
 //       allergenInformation: form.allergenInformation,
 //       nutritionalInformation: form.nutritionalInfoType,
-//       nutritionalInformationImageUrl: "",
+//       // nutritionalInformationImageUrl: "",
+//         nutritionalInformationImageUrl: isEditMode && existingNutritionalImageUrl 
+//     ? existingNutritionalImageUrl 
+//     : "",
 //       activeIngredients: form.activeIngredients,
 //       additivesPreservatives: form.additivesPreservatives,
 //       productClaims: form.productClaims,
@@ -4039,14 +4107,16 @@ export default FoodInfantForm;
 //         .filter((c) => {
 //           const hasValidExistingUrl = c.existingUrl && 
 //             c.existingUrl !== "NOT_UPLOADED" && 
-//             c.existingUrl !== "PENDING";
+//             c.existingUrl !== "PENDING" &&
+//             !c.existingUrl.startsWith('blob:');
 //           return c.isUploaded || hasValidExistingUrl;
 //         })
 //         .map((c) => ({
 //           certificationId: Number(c.id),
 //           certificateUrl: c.existingUrl && 
 //             c.existingUrl !== "NOT_UPLOADED" && 
-//             c.existingUrl !== "PENDING" 
+//             c.existingUrl !== "PENDING" &&
+//       !c.existingUrl.startsWith('blob:')
 //               ? c.existingUrl 
 //               : (c.file ? URL.createObjectURL(c.file) : ""),
 //         })),
@@ -4169,6 +4239,16 @@ export default FoodInfantForm;
 //       return;
 //     }
 
+//      // Wait for any pending debounce to complete
+//   if (debounceTimerRef.current) {
+//     await new Promise((resolve) => setTimeout(resolve, 600));
+//   }
+  
+//   // Clear any pending timer
+//   if (debounceTimerRef.current) {
+//     clearTimeout(debounceTimerRef.current);
+//   }
+
 //  if (!isEditMode) {
 //     console.log("🔍 Submit - Checking batch number:", form.batchLotNumber);
 //     console.log("🔍 Submit - Category ID:", categoryId);
@@ -4227,13 +4307,18 @@ export default FoodInfantForm;
 //           }
 //         }
 
-//         if (form.nutritionalInfoImage && newProductAttributeId) {
-//           try {
-//             await uploadNutritionalInformationImage(newProductAttributeId, 3, form.nutritionalInfoImage);
-//           } catch (err) {
-//             console.warn("⚠️ Nutritional image upload failed:", err);
-//           }
-//         }
+//         // ✅ THIS IS WHERE YOU NEED TO UPDATE THE CODE
+//   if (form.nutritionalInfoImage && newProductAttributeId) {
+//     try {
+//       const response = await uploadNutritionalInformationImage(newProductAttributeId, 3, form.nutritionalInfoImage);
+//       if (response?.data?.imageUrl) {
+//         setExistingNutritionalImageUrl(response.data.imageUrl);
+//         console.log("✅ Nutritional image URL updated:", response.data.imageUrl);
+//       }
+//     } catch (err) {
+//       console.warn("⚠️ Nutritional image upload failed:", err);
+//     }
+//   }
 //        // ✅ FOR EDIT MODE - Upload new certificates (only the newly added ones)
 //   if (newProductAttributeId && certificationsDetails.length > 0) {
 //     // Get the certificate documents from response
@@ -4293,13 +4378,17 @@ export default FoodInfantForm;
 //           }
 //         }
 
-//         if (form.nutritionalInfoImage && newProductAttributeId) {
-//           try {
-//             await uploadNutritionalInformationImage(newProductAttributeId, 3, form.nutritionalInfoImage);
-//           } catch (err) {
-//             console.warn("⚠️ Nutritional image upload failed:", err);
-//           }
-//         }
+//        if (form.nutritionalInfoImage && newProductAttributeId) {
+//   try {
+//     const response = await uploadNutritionalInformationImage(newProductAttributeId, 3, form.nutritionalInfoImage);
+//     if (response?.data?.imageUrl) {
+//       setExistingNutritionalImageUrl(response.data.imageUrl);
+//       console.log("✅ Nutritional image URL updated in create mode:", response.data.imageUrl);
+//     }
+//   } catch (err) {
+//     console.warn("⚠️ Nutritional image upload failed:", err);
+//   }
+// }
 
 //          // ─── Upload Certificates in Create Mode ─────────────────────────────────
 //        // ─── Upload Certificates using documentIds from response ─────────────────
@@ -4427,7 +4516,6 @@ export default FoodInfantForm;
 
 //       {showAdditionalDiscount && (
 //         <CommonModal onClose={() => setShowAdditionalDiscount(false)} width="w-[600px]">
-//           <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
 //             <AdditionalDiscountType
 //               onClose={() => setShowAdditionalDiscount(false)}
 //               categoryId={categoryId}
@@ -4442,7 +4530,6 @@ export default FoodInfantForm;
 //                 setSpecialSchemes(data || []);
 //               }}
 //             />
-//           </div>
 //         </CommonModal>
 //       )}
 
@@ -4460,12 +4547,13 @@ export default FoodInfantForm;
 //               <Input
 //                 label="Product Name"
 //                 name="productName"
-//                 placeholder="e.g., Organic Protein Powder"
+//                 placeholder="e.g., Organic P  rotein Powder"
 //                 onChange={handleChange}
 //                 value={form.productName}
 //                 error={errors.productName}
 //                 required
-//                 readOnly={isEditMode}
+//                 // readOnly={isEditMode}
+//                 disabled={isEditMode}
 //                 maxLength={150}
 //               />
 //             </div>
@@ -4503,7 +4591,8 @@ export default FoodInfantForm;
 //                 placeholder="e.g., Nestle, Abbott"
 //                 onChange={handleChange}
 //                 value={form.brandName}
-//                 readOnly={isEditMode}
+//                 // readOnly={isEditMode}
+//                 disabled={isEditMode}
 //                 error={errors.brandName}
 //                 required
 //                 maxLength={60}
@@ -4553,15 +4642,16 @@ export default FoodInfantForm;
 //                 onUnitChange={handleNetQuantityUnitChange}
 //                 error={errors.netQuantityValue || errors.netQuantityUnit}
 //                 required
-//                 readOnly={isEditMode}
+//                 // readOnly={isEditMode}
+//                 disabled={isEditMode}
 //                 options={netQuantityUnitOptions}
 //                 loading={loadingNetQuantityUnits}
 //               />
 //             </div>
 
-//             <div data-field="servingSize">
+//             {/* <div data-field="servingSize">
 //               <ServingSizeDisabled label="Serving Size" required={false} />
-//             </div>
+//             </div> */}
 
 //             <div className="flex flex-col gap-0" data-field="ageGroup">
 //               <label className={fieldLabel}>Age Group {requiredStar}</label>
@@ -4586,7 +4676,7 @@ export default FoodInfantForm;
 //               {errors.ageGroup && <p className={errorMsg}>{errors.ageGroup}</p>}
 //             </div>
 
-//             <div className="flex flex-col gap-1" data-field="dietaryClassification">
+//             <div className="flex flex-col gap-0" data-field="dietaryClassification">
 //               <label className={fieldLabel}>Dietary Classification {requiredStar}</label>
 //               <div className="flex gap-6 mt-2">
 //                 {dietaryOptions.map((option) => (
@@ -4674,7 +4764,8 @@ export default FoodInfantForm;
 //                 placeholder="e.g., Vitamin C, Protein"
 //                 onChange={handleChange}
 //                 value={form.activeIngredients}
-//                 readOnly={isEditMode}
+//                 // readOnly={isEditMode}
+//                 disabled={isEditMode}
 //                 error={errors.activeIngredients}
 //                 required
 //               />
@@ -4728,65 +4819,62 @@ export default FoodInfantForm;
 //                 placeholder="Manufacturer company name"
 //                 onChange={handleChange}
 //                 value={form.manufacturerName}
-//                 readOnly={isEditMode}
+//                 // readOnly={isEditMode}
+//                 disabled={isEditMode}
 //                 error={errors.manufacturerName}
 //                 required
 //               />
 //             </div>
 
-//             {/* Certifications / Compliance - CheckboxDropdown */}
-//             <div className="flex flex-col gap-0" data-field="certifications">
-//               <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
-//               <CheckboxDropdown
-//                 label=""
-//                 options={certificationsMaster}
-//                 selectedValues={selectedCertificationValues}
-//                 onChange={handleCertificationSelectionChange}
-//                 placeholder="Select certifications"
-//                 disabled={loadingCertifications}
-//                 showSelectAll={false}
-//                 error={errors.certifications ? " " : ""}
-//               />
-//               {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
-//             </div>
+//            {/* Certifications / Compliance - CheckboxDropdown - Takes left column */}
+// <div className="flex flex-col gap-0" data-field="certifications">
+//   <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
+//   <CheckboxDropdown
+//     label=""
+//     options={certificationsMaster}
+//     selectedValues={selectedCertificationValues}
+//     onChange={handleCertificationSelectionChange}
+//     placeholder="Select certifications"
+//     disabled={loadingCertifications}
+//     showSelectAll={false}
+//     error={errors.certifications ? " " : ""}
+//   />
+//   {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
+// </div>
 
-//             {/* Upload Certifications - Individual UploadInputs */}
-//             {selectedCertificationValues.length === 0 ? (
-//               <div className="flex flex-col gap-0" data-field="certUploadFallback">
-//                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
-//                 <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
-//                   <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
-//                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
-//                   </div>
-//                   <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-//                     <span className="text-pneutral-500 text-md">Select certifications first</span>
-//                   </div>
-//                 </div>
-//               </div>
-//             ) : (
-//               certificationsDetails.map((cert) => {
-//                 const isPending = cert.existingUrl === "PENDING" || cert.existingUrl === "NOT_UPLOADED";
-                
-//                 return (
-//                   <div key={cert.id} className="flex flex-col gap-0">
-//                     <UploadInput
-//                       onFileSelect={(file) => {
-//                         if (file) {
-//                           handleCertificationFileUpload(cert.id, file);
-//                         } else {
-//                           handleCertRemove(cert.id);
-//                         }
-//                       }}
-//                       existingFile={isPending ? undefined : cert.existingUrl}
-//                       label=""
-//                       placeholder={`Upload the ${cert.label}`}
-//                       accept=".pdf,.jpg,.jpeg,.png"
-//                     />
-//                   </div>
-//                 );
-//               })
-//             )}
-
+// {/* Upload Certifications - Each as separate grid items */}
+// {selectedCertificationValues.map((certId) => {
+//   const cert = certificationsDetails.find(c => c.id === certId);
+//   if (!cert) return null;
+  
+//   const isPending = cert.existingUrl === "PENDING" || cert.existingUrl === "NOT_UPLOADED";
+  
+//   return (
+//     <div key={cert.id} className="flex flex-col gap-0">
+//       <div className="flex justify-between items-center">
+//         <label className={fieldLabel}>Upload {cert.label} {requiredStar}</label>
+//         {isPending && isEditMode && (
+//           <span className="text-xs text-warning-500 bg-warning-50 px-2 py-1 rounded">
+//             File required
+//           </span>
+//         )}
+//       </div>
+//       <UploadInput
+//         onFileSelect={(file) => {
+//           if (file) {
+//             handleCertificationFileUpload(cert.id, file);
+//           } else {
+//             handleCertRemove(cert.id);
+//           }
+//         }}
+//         existingFile={isPending ? undefined : cert.existingUrl}
+//         label=""
+//         placeholder={`Upload the ${cert.label}`}
+//         accept=".pdf,.jpg,.jpeg,.png"
+//       />
+//     </div>
+//   );
+// })}
 //             <div className="flex flex-col gap-0" data-field="countryOfOrigin">
 //               <label className={fieldLabel}>Country of Origin {requiredStar}</label>
 //               <Dropdown
@@ -4800,7 +4888,7 @@ export default FoodInfantForm;
 //               {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
 //             </div>
 
-//             <div className="flex flex-col gap-1" data-field="manualFile">
+//             <div className="flex flex-col gap-0" data-field="manualFile">
 //               <label className={fieldLabel}>Upload Product Brochure / User Manual</label>
 //               <UploadInput
 //                 onFileSelect={(file) => {
@@ -4990,7 +5078,8 @@ export default FoodInfantForm;
 //                 placeholder="Enter batch number"
 //                 onChange={handleChange}
 //                 value={form.batchLotNumber}
-//                 readOnly={isEditMode}
+//                 // readOnly={isEditMode}
+//                 disabled={isEditMode}
 //                 error={errors.batchLotNumber}
 //                 required
 //               />
@@ -5003,7 +5092,8 @@ export default FoodInfantForm;
 //                 type="text"
 //                 name="manufacturingDate"
 //                 required
-//                 readOnly={isEditMode}
+//                 // readOnly={isEditMode}
+//                 disabled={isEditMode}
 //                 value={
 //                   form.manufacturingDate instanceof Date &&
 //                   !isNaN(form.manufacturingDate.getTime())
@@ -5050,7 +5140,8 @@ export default FoodInfantForm;
 //                 name="expiryDate"
 //                 type="text"
 //                 required
-//                 readOnly={isEditMode}
+//                 // readOnly={isEditMode}
+//                 disabled={isEditMode}
 //                 value={
 //                   form.expiryDate instanceof Date &&
 //                   !isNaN(form.expiryDate.getTime())
@@ -5140,7 +5231,8 @@ export default FoodInfantForm;
 //                 placeholder="Number of packs in stock"
 //                 onChange={handleChange}
 //                 value={form.stockQuantity}
-//                 readOnly={isEditMode}
+//                 // readOnly={isEditMode}
+//                 disabled={isEditMode}
 //                 error={errors.stockQuantity}
 //                 required
 //               />
@@ -5217,7 +5309,8 @@ export default FoodInfantForm;
 //                 placeholder="HSN Code"
 //                 onChange={handleChange}
 //                 value={form.hsnCode}
-//                 readOnly={isEditMode}
+//                 // readOnly={isEditMode}
+//                 disabled={isEditMode}
 //                 error={errors.hsnCode}
 //                 required
 //               />
