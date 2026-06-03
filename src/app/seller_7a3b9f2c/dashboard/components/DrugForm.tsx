@@ -2102,7 +2102,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
               <div className="mt-6">
                 <button
-                  onClick={() => setShowAdditionalDiscount(true)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowAdditionalDiscount(true);
+                  }}
                   className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
                 >
                   <img
