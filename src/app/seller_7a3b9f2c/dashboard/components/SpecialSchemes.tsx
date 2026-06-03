@@ -114,12 +114,12 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
             <img
               src="/icons/EditIcon.svg"
               alt="edit"
-              className="w-4 h-4 cursor-pointer"
+              className="w-4 h-4"
             />
             <img
               src="/icons/DeleteIcon.svg"
               alt="delete"
-              className="w-4 h-4 cursor-pointer"
+              className="w-4 h-4"
             />
           </div>
         ),
@@ -339,7 +339,6 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
 
     return (
       <>
-        <form autoComplete="off">
         <div className="flex flex-col gap-7">
           {tableData.length > 0 && (
             <div>
@@ -399,189 +398,190 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
               </div>
             </div>
           )}
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="" className="text-label-l4 font-medium">
-                Scheme Name
-              </label>
-              <input
-                type="text"
-                name="schemeName"
-                id="schemeName"
-                value={form.schemeName}
-                onChange={handleInputChange}
-                maxLength={50}
-                className="w-113.25 h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
-              />
-              {errors.schemeName && (
-                <p className="text-warning-500 text-xs mt-1">
-                  {errors.schemeName}
-                </p>
-              )}
-            </div>
 
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <div className="text-label-l5 font-medium">DISCOUNT DETAILS</div>
-            <div className="flex gap-3">
+          <form autoComplete="off" className="flex flex-col gap-7">
+            <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
                 <label htmlFor="" className="text-label-l4 font-medium">
-                  Buy Quantity
-                </label>
-
-                <input
-                  type="text"
-                  name="buyQuantity"
-                  id="buyQuantity"
-                  value={form.buyQuantity || ""}
-                  onChange={handleInputChange}
-                  className="w-[220.5px] h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
-                />
-                {errors.buyQuantity && (
-                  <p className="text-warning-500 text-xs mt-1">
-                    {errors.buyQuantity}
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <label htmlFor="" className="text-label-l4 font-medium">
-                  Free Quantity
+                  Scheme Name
                 </label>
                 <input
                   type="text"
-                  name="freeQuantity"
-                  id="freeQuantity"
-                  value={form.freeQuantity || ""}
+                  name="schemeName"
+                  id="schemeName"
+                  value={form.schemeName}
                   onChange={handleInputChange}
-                  className="w-[220.5px] h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
+                  maxLength={50}
+                  className="w-113.25 h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
                 />
-
-                {errors.freeQuantity && (
+                {errors.schemeName && (
                   <p className="text-warning-500 text-xs mt-1">
-                    {errors.freeQuantity}
+                    {errors.schemeName}
                   </p>
                 )}
               </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-4">
-            <div className="text-label-l5 font-medium">VALIDITY PERIOD</div>
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor=""
-                className="text-label-l4 font-medium  text-pneutral-700"
-              >
-                Start Date
-              </label>
+            <div className="flex flex-col gap-3">
+              <div className="text-label-l5 font-medium">DISCOUNT DETAILS</div>
               <div className="flex gap-3">
-                <div className="relative flex flex-col">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="" className="text-label-l4 font-medium">
+                    Buy Quantity
+                  </label>
+
                   <input
                     type="text"
-                    name="effectiveStartDate"
-                    id="effectiveStartDate"
-                    readOnly
-                    disabled={alwaysActive}
-                    placeholder="dd/mm/yyyy"
-                    value={form.effectiveStartDate || ""}
-                    onClick={() =>
-                      !alwaysActive && setShowStartDatePicker(true)
-                    }
-                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
-                      alwaysActive
-                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                        : "border-pneutral-300 cursor-pointer"
-                    }`}
+                    name="buyQuantity"
+                    id="buyQuantity"
+                    value={form.buyQuantity || ""}
+                    onChange={handleInputChange}
+                    className="w-[220.5px] h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
                   />
-
-                  {showStartDatePicker && (
-                    <DatePicker
-                      selectedDate={
-                        form.effectiveStartDate
-                          ? new Date(
-                              form.effectiveStartDate
-                                .split("/")
-                                .reverse()
-                                .join("-"),
-                            )
-                          : new Date()
-                      }
-                      onSelect={(date) => {
-                        const formattedDate = `${String(
-                          date.getDate(),
-                        ).padStart(2, "0")}/${String(
-                          date.getMonth() + 1,
-                        ).padStart(2, "0")}/${date.getFullYear()}`;
-
-                        const updatedForm = {
-                          ...form,
-                          effectiveStartDate: formattedDate,
-                        };
-
-                        setForm(updatedForm);
-
-                        setTouched((prev) => ({
-                          ...prev,
-                          effectiveStartDate: true,
-                        }));
-
-                        const validationErrors = validateForm(
-                          updatedForm,
-                          "effectiveStartDate",
-                        );
-
-                        setErrors((prev) => ({
-                          ...prev,
-                          effectiveStartDate:
-                            validationErrors.effectiveStartDate || "",
-                        }));
-
-                        setShowStartDatePicker(false);
-                      }}
-                      onClose={() => setShowStartDatePicker(false)}
-                    />
-                  )}
-
-                  {errors.effectiveStartDate && (
+                  {errors.buyQuantity && (
                     <p className="text-warning-500 text-xs mt-1">
-                      {errors.effectiveStartDate}
+                      {errors.buyQuantity}
                     </p>
                   )}
                 </div>
-
-                <div className="flex flex-col">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="" className="text-label-l4 font-medium">
+                    Free Quantity
+                  </label>
                   <input
-                    type="time"
-                    name="effectiveStartTime"
-                    id="effectiveStartTime"
-                    value={form.effectiveStartTime || ""}
+                    type="text"
+                    name="freeQuantity"
+                    id="freeQuantity"
+                    value={form.freeQuantity || ""}
                     onChange={handleInputChange}
-                    disabled={alwaysActive}
-                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
-                      alwaysActive
-                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                        : "border-pneutral-300"
-                    }`}
+                    className="w-[220.5px] h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
                   />
-                  {errors.effectiveStartTime && (
+
+                  {errors.freeQuantity && (
                     <p className="text-warning-500 text-xs mt-1">
-                      {errors.effectiveStartTime}
+                      {errors.freeQuantity}
                     </p>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor=""
-                className="text-label-l3=4 font-medium text-pneutral-700"
-              >
-                End Date
-              </label>
-              <div className="flex gap-3">
-                {/* <div className="flex flex-col">
+            <div className="flex flex-col gap-4">
+              <div className="text-label-l5 font-medium">VALIDITY PERIOD</div>
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor=""
+                  className="text-label-l4 font-medium  text-pneutral-700"
+                >
+                  Start Date
+                </label>
+                <div className="flex gap-3">
+                  <div className="relative flex flex-col">
+                    <input
+                      type="text"
+                      name="effectiveStartDate"
+                      id="effectiveStartDate"
+                      readOnly
+                      disabled={alwaysActive}
+                      placeholder="dd/mm/yyyy"
+                      value={form.effectiveStartDate || ""}
+                      onClick={() =>
+                        !alwaysActive && setShowStartDatePicker(true)
+                      }
+                      className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                        alwaysActive
+                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                          : "border-pneutral-300 cursor-pointer"
+                      }`}
+                    />
+
+                    {showStartDatePicker && (
+                      <DatePicker
+                        selectedDate={
+                          form.effectiveStartDate
+                            ? new Date(
+                                form.effectiveStartDate
+                                  .split("/")
+                                  .reverse()
+                                  .join("-"),
+                              )
+                            : new Date()
+                        }
+                        onSelect={(date) => {
+                          const formattedDate = `${String(
+                            date.getDate(),
+                          ).padStart(2, "0")}/${String(
+                            date.getMonth() + 1,
+                          ).padStart(2, "0")}/${date.getFullYear()}`;
+
+                          const updatedForm = {
+                            ...form,
+                            effectiveStartDate: formattedDate,
+                          };
+
+                          setForm(updatedForm);
+
+                          setTouched((prev) => ({
+                            ...prev,
+                            effectiveStartDate: true,
+                          }));
+
+                          const validationErrors = validateForm(
+                            updatedForm,
+                            "effectiveStartDate",
+                          );
+
+                          setErrors((prev) => ({
+                            ...prev,
+                            effectiveStartDate:
+                              validationErrors.effectiveStartDate || "",
+                          }));
+
+                          setShowStartDatePicker(false);
+                        }}
+                        onClose={() => setShowStartDatePicker(false)}
+                      />
+                    )}
+
+                    {errors.effectiveStartDate && (
+                      <p className="text-warning-500 text-xs mt-1">
+                        {errors.effectiveStartDate}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col">
+                    <input
+                      type="time"
+                      name="effectiveStartTime"
+                      id="effectiveStartTime"
+                      value={form.effectiveStartTime || ""}
+                      onChange={handleInputChange}
+                      disabled={alwaysActive}
+                      className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                        alwaysActive
+                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                          : "border-pneutral-300"
+                      }`}
+                    />
+                    {errors.effectiveStartTime && (
+                      <p className="text-warning-500 text-xs mt-1">
+                        {errors.effectiveStartTime}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor=""
+                  className="text-label-l3=4 font-medium text-pneutral-700"
+                >
+                  End Date
+                </label>
+                <div className="flex gap-3">
+                  {/* <div className="flex flex-col">
                   <input
                     type="date"
                     name="effectiveEndDate"
@@ -601,108 +601,109 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                     </p>
                   )}
                 </div> */}
-                <div className="relative flex flex-col">
-                  <input
-                    type="text"
-                    name="effectiveEndDate"
-                    id="effectiveEndDate"
-                    readOnly
-                    disabled={alwaysActive}
-                    placeholder="dd/mm/yyyy"
-                    value={form.effectiveEndDate || ""}
-                    onClick={() => !alwaysActive && setShowEndDatePicker(true)}
-                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
-                      alwaysActive
-                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                        : "border-pneutral-300 cursor-pointer"
-                    }`}
-                  />
-
-                  {showEndDatePicker && (
-                    <DatePicker
-                      selectedDate={
-                        form.effectiveEndDate
-                          ? new Date(
-                              form.effectiveEndDate
-                                .split("/")
-                                .reverse()
-                                .join("-"),
-                            )
-                          : new Date()
+                  <div className="relative flex flex-col">
+                    <input
+                      type="text"
+                      name="effectiveEndDate"
+                      id="effectiveEndDate"
+                      readOnly
+                      disabled={alwaysActive}
+                      placeholder="dd/mm/yyyy"
+                      value={form.effectiveEndDate || ""}
+                      onClick={() =>
+                        !alwaysActive && setShowEndDatePicker(true)
                       }
-                      onSelect={(date) => {
-                        const formattedDate = `${String(
-                          date.getDate(),
-                        ).padStart(2, "0")}/${String(
-                          date.getMonth() + 1,
-                        ).padStart(2, "0")}/${date.getFullYear()}`;
-
-                        const updatedForm = {
-                          ...form,
-                          effectiveEndDate: formattedDate,
-                        };
-
-                        setForm(updatedForm);
-
-                        setTouched((prev) => ({
-                          ...prev,
-                          effectiveEndDate: true,
-                        }));
-
-                        const validationErrors = validateForm(
-                          updatedForm,
-                          "effectiveEndDate",
-                        );
-
-                        setErrors((prev) => ({
-                          ...prev,
-                          effectiveEndDate:
-                            validationErrors.effectiveEndDate || "",
-                        }));
-
-                        setShowEndDatePicker(false);
-                      }}
-                      onClose={() => setShowEndDatePicker(false)}
+                      className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                        alwaysActive
+                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                          : "border-pneutral-300 cursor-pointer"
+                      }`}
                     />
-                  )}
 
-                  {errors.effectiveEndDate && (
-                    <p className="text-warning-500 text-xs mt-1">
-                      {errors.effectiveEndDate}
-                    </p>
-                  )}
-                </div>
+                    {showEndDatePicker && (
+                      <DatePicker
+                        selectedDate={
+                          form.effectiveEndDate
+                            ? new Date(
+                                form.effectiveEndDate
+                                  .split("/")
+                                  .reverse()
+                                  .join("-"),
+                              )
+                            : new Date()
+                        }
+                        onSelect={(date) => {
+                          const formattedDate = `${String(
+                            date.getDate(),
+                          ).padStart(2, "0")}/${String(
+                            date.getMonth() + 1,
+                          ).padStart(2, "0")}/${date.getFullYear()}`;
 
-                <div className="flex flex-col">
-                  <input
-                    type="time"
-                    name="effectiveEndTime"
-                    id="effectiveEndTime"
-                    value={form.effectiveEndTime || ""}
-                    onChange={handleInputChange}
-                    disabled={alwaysActive}
-                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
-                      alwaysActive
-                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                        : "border-pneutral-300"
-                    }`}
-                  />
-                  {errors.effectiveEndTime && (
-                    <p className="text-warning-500 text-xs mt-1">
-                      {errors.effectiveEndTime}
-                    </p>
-                  )}
+                          const updatedForm = {
+                            ...form,
+                            effectiveEndDate: formattedDate,
+                          };
+
+                          setForm(updatedForm);
+
+                          setTouched((prev) => ({
+                            ...prev,
+                            effectiveEndDate: true,
+                          }));
+
+                          const validationErrors = validateForm(
+                            updatedForm,
+                            "effectiveEndDate",
+                          );
+
+                          setErrors((prev) => ({
+                            ...prev,
+                            effectiveEndDate:
+                              validationErrors.effectiveEndDate || "",
+                          }));
+
+                          setShowEndDatePicker(false);
+                        }}
+                        onClose={() => setShowEndDatePicker(false)}
+                      />
+                    )}
+
+                    {errors.effectiveEndDate && (
+                      <p className="text-warning-500 text-xs mt-1">
+                        {errors.effectiveEndDate}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col">
+                    <input
+                      type="time"
+                      name="effectiveEndTime"
+                      id="effectiveEndTime"
+                      value={form.effectiveEndTime || ""}
+                      onChange={handleInputChange}
+                      disabled={alwaysActive}
+                      className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                        alwaysActive
+                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                          : "border-pneutral-300"
+                      }`}
+                    />
+                    {errors.effectiveEndTime && (
+                      <p className="text-warning-500 text-xs mt-1">
+                        {errors.effectiveEndTime}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-
+          </form>
           <div className="text-label-l3 font-medium text-neutral-700">
             This discount will apply for orders above (MPQ to MXPQ) units from
             (Start Date & Time to End Date & Time)
           </div>
         </div>
-        </form>
       </>
     );
   },

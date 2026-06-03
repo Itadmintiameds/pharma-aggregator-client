@@ -111,7 +111,7 @@ const AdditionalDiscountType = ({
   const options: OptionType[] = [
     { value: "additional_discount", label: "Additional Discount" },
 
-    ...(categoryId === 2 || categoryId === 3 || categoryId === 4
+    ...(categoryId === 1 || categoryId === 3 || categoryId === 4
       ? [{ value: "special_schemes", label: "Special Schemes" }]
       : []),
   ];
