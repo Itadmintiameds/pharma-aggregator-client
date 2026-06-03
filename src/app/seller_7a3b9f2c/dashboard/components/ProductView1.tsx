@@ -2269,9 +2269,7 @@ const ProductView1 = ({
                     Uploaded User Manual
                   </span>
 
-                  <span className="text-warning-500 text-base font-medium leading-6">
-                    *
-                  </span>
+                  
                 </div>
 
                 {brochureUrl ? (

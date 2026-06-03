@@ -1609,6 +1609,21 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               </div>
             ))}
 
+            {!isEditMode && (
+              <button
+                onClick={addMolecule}
+                className="col-span-2 w-40 h-12 border-2 border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5"
+              >
+                {" "}
+                <img
+                  src="/icons/PlusIcon.svg"
+                  alt="drug"
+                  className="w-5 h-5 rounded-md object-cover"
+                />{" "}
+                Add Molecule{" "}
+              </button>
+            )}
+
             <Input
               label="Drug Schedule"
               name="drugSchedule"
