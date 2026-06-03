@@ -506,10 +506,21 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           const minDate = new Date(today.getFullYear(), today.getMonth() + 3, 1);
           const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
 
-          const totalMonths =
-            (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
-            (selectedDate.getMonth() - mfg.getMonth()) +
-            1;
+          // OLD LOGIC
+          // const totalMonths =
+          //   (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
+          //   (selectedDate.getMonth() - mfg.getMonth()) +
+          //   1;
+
+          // NEW LOGIC
+          const isSameMonthAndYear =
+            selectedDate.getFullYear() === mfg.getFullYear() &&
+            selectedDate.getMonth() === mfg.getMonth();
+
+          const totalMonths = isSameMonthAndYear
+            ? 1
+            : (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
+              (selectedDate.getMonth() - mfg.getMonth());
 
           const monthsUntilExpiry =
             (selectedDate.getFullYear() - today.getFullYear()) * 12 +
@@ -889,7 +900,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     if (form.manufacturingDate instanceof Date && form.expiryDate instanceof Date) {
       const mfg = form.manufacturingDate;
       const exp = form.expiryDate;
-      const totalMonths = (exp.getFullYear() - mfg.getFullYear()) * 12 + (exp.getMonth() - mfg.getMonth()) + 1;
+      // OLD LOGIC
+      // const totalMonths = (exp.getFullYear() - mfg.getFullYear()) * 12 + (exp.getMonth() - mfg.getMonth()) + 1;
+      
+      // NEW LOGIC
+      const isSameMonthAndYear =
+        exp.getFullYear() === mfg.getFullYear() &&
+        exp.getMonth() === mfg.getMonth();
+
+      const totalMonths = isSameMonthAndYear
+        ? 1
+        : (exp.getFullYear() - mfg.getFullYear()) * 12 +
+          (exp.getMonth() - mfg.getMonth());
       setForm((prev) => ({
         ...prev,
         shelfLifeMonths: totalMonths > 0 ? totalMonths.toString() : "",
@@ -3156,6 +3178,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             </div>
           </div>
 
+          {/* FUTURE FEATURE: Save Button
           <div className="flex justify-end mt-6">
             <button
               type="button"
@@ -3164,6 +3187,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               Save
             </button>
           </div>
+          */}
         </div>
 
         {/* -- Section 2: Product Photos (Old) -------------------------------------------- */}

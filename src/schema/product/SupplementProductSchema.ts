@@ -251,18 +251,18 @@ export const supplementProductSchema = z
       });
     }
 
-    // Cross-field: expiryDate >= manufacturingDate + 3 months
-    if (data.manufacturingDate && data.expiryDate) {
-      const minExpiry = new Date(data.manufacturingDate);
-      minExpiry.setMonth(minExpiry.getMonth() + 3);
-      if (data.expiryDate < minExpiry) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["expiryDate"],
-          message: "Expiry must be at least 3 months after Manufacturing Date",
-        });
-      }
-    }
+    // // Cross-field: expiryDate >= manufacturingDate + 3 months
+    // if (data.manufacturingDate && data.expiryDate) {
+    //   const minExpiry = new Date(data.manufacturingDate);
+    //   minExpiry.setMonth(minExpiry.getMonth() + 3);
+    //   if (data.expiryDate < minExpiry) {
+    //     ctx.addIssue({
+    //       code: z.ZodIssueCode.custom,
+    //       path: ["expiryDate"],
+    //       message: "Expiry must be at least 3 months after Manufacturing Date",
+    //     });
+    //   }
+    // }
   });
 
 export type SupplementProductFormData = z.infer<typeof supplementProductSchema>;
