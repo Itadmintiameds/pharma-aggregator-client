@@ -109,12 +109,12 @@ const AdditionalDiscountNew = forwardRef<
             <img
               src="/icons/EditIcon.svg"
               alt="edit"
-              className="w-4 h-4 rounded-md object-cover cursor-pointer"
+              className="w-4 h-4 rounded-md object-cover"
             />
             <img
               src="/icons/DeleteIcon.svg"
               alt="delete"
-              className="w-4 h-4 rounded-md object-cover cursor-pointer"
+              className="w-4 h-4 rounded-md object-cover"
             />
           </div>
         ),
@@ -469,8 +469,6 @@ const AdditionalDiscountNew = forwardRef<
 
     return (
       <>
-      <form autoComplete="off">
-        
         <div
           ref={formContainerRef}
           className="flex flex-col gap-7 overflow-y-auto"
@@ -539,336 +537,339 @@ const AdditionalDiscountNew = forwardRef<
             </div>
           )}
 
-          <div className="flex flex-col gap-4">
-            <div className="text-label-l5 font-medium">Purchase Conditions</div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="" className="text-label-l4 font-medium">
-                Minimum Purchase Quantity
-              </label>
-              <input
-                type="number"
-                inputMode="numeric"
-                name="minimumPurchaseQuantity"
-                id="minimumPurchaseQuantity"
-                value={form.minimumPurchaseQuantity || ""}
-                onChange={(e) => {
-                  if (e.target.value.length <= 15) {
-                    handleInputChange(e);
-                  }
-                }}
-                min={1}
-                step="1"
-                onKeyDown={(e) => {
-                  if (
-                    e.key === "-" ||
-                    e.key === "e" ||
-                    e.key === "+" ||
-                    e.key === "."
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-                className="w-full h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
-              />
-              {errors.minimumPurchaseQuantity && (
-                <p className="text-warning-500 text-xs">
-                  {errors.minimumPurchaseQuantity}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="text-label-l5 font-medium">DISCOUNT DETAILS</div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="" className="text-label-l4 font-medium">
-                Discount %
-              </label>
-              <input
-                type="number"
-                inputMode="numeric"
-                name="discountPercentage"
-                id="discountPercentage"
-                value={form.discountPercentage || ""}
-                onChange={(e) => {
-                  if (e.target.value.length <= 3) {
-                    handleInputChange(e);
-                  }
-                }}
-                min={1}
-                max={100}
-                step="1"
-                onKeyDown={(e) => {
-                  if (
-                    e.key === "-" ||
-                    e.key === "e" ||
-                    e.key === "+" ||
-                    e.key === "."
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-                className="w-full h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
-              />
-              {errors.discountPercentage && (
-                <p className="text-warning-500 text-xs">
-                  {errors.discountPercentage}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="text-label-l5 font-medium">VALIDITY PERIOD</div>
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor=""
-                className="text-label-l4 font-medium text-pneutral-700"
-              >
-                Start Date
-              </label>
-              <div className="flex w-full gap-3">
-                <div className="relative flex flex-col">
-                  <input
-                    type="text"
-                    name="effectiveStartDate"
-                    id="effectiveStartDate"
-                    readOnly
-                    disabled={alwaysActive}
-                    placeholder="dd/mm/yyyy"
-                    value={form.effectiveStartDate}
-                    onClick={() => {
-                      if (!alwaysActive) {
-                        setShowStartDatePicker(true);
-
-                        setTimeout(() => {
-                          formContainerRef.current?.scrollBy({
-                            top: 220,
-                            behavior: "smooth",
-                          });
-                        }, 100);
-                      }
-                    }}
-                    className={`w-full min-w-0 h-12 border rounded-lg p-4 focus:outline-none ${
-                      alwaysActive
-                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                        : "border-pneutral-300 cursor-pointer"
-                    }`}
-                  />
-
-                  {showStartDatePicker && (
-                    <DatePicker
-                      selectedDate={
-                        form.effectiveStartDate
-                          ? new Date(
-                              form.effectiveStartDate
-                                .split("/")
-                                .reverse()
-                                .join("-"),
-                            )
-                          : new Date()
-                      }
-                      onSelect={(date) => {
-                        const formattedDate = `${String(
-                          date.getDate(),
-                        ).padStart(2, "0")}/${String(
-                          date.getMonth() + 1,
-                        ).padStart(2, "0")}/${date.getFullYear()}`;
-
-                        const updatedForm = {
-                          ...form,
-                          effectiveStartDate: formattedDate,
-                        };
-
-                        const updatedTouched = {
-                          ...touched,
-                          effectiveStartDate: true,
-                        };
-
-                        setForm(updatedForm);
-                        setTouched(updatedTouched);
-
-                        const dateErrors = validateDateTime(
-                          updatedForm,
-                          updatedTouched,
-                        );
-
-                        setErrors((prev) => {
-                          const updatedErrors = { ...prev };
-
-                          delete updatedErrors.effectiveStartDate;
-                          delete updatedErrors.effectiveEndDate;
-
-                          return {
-                            ...updatedErrors,
-                            ...dateErrors,
-                          };
-                        });
-
-                        setShowStartDatePicker(false);
-                      }}
-                      onClose={() => setShowStartDatePicker(false)}
-                    />
-                  )}
-
-                  {errors.effectiveStartDate && (
-                    <p className="mt-1 text-xs text-warning-500">
-                      {errors.effectiveStartDate}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex flex-col flex-1 min-w-0">
-                  <input
-                    type="time"
-                    name="effectiveStartTime"
-                    id="effectiveStartTime"
-                    value={form.effectiveStartTime}
-                    onChange={handleInputChange}
-                    disabled={alwaysActive}
-                    className={`w-full h-12 border rounded-lg p-4 focus:outline-none ${
-                      alwaysActive
-                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                        : "border-pneutral-300"
-                    }`}
-                  />
-                  {errors.effectiveStartTime && (
-                    <p className="text-warning-500 text-xs mt-1">
-                      {errors.effectiveStartTime}
-                    </p>
-                  )}
-                </div>
+          <form autoComplete="off"  className="flex flex-col gap-7">
+            <div className="flex flex-col gap-4">
+              <div className="text-label-l5 font-medium">
+                Purchase Conditions
+              </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="" className="text-label-l4 font-medium">
+                  Minimum Purchase Quantity
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  name="minimumPurchaseQuantity"
+                  id="minimumPurchaseQuantity"
+                  value={form.minimumPurchaseQuantity || ""}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 15) {
+                      handleInputChange(e);
+                    }
+                  }}
+                  min={1}
+                  step="1"
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === "-" ||
+                      e.key === "e" ||
+                      e.key === "+" ||
+                      e.key === "."
+                    ) {
+                      e.preventDefault();
+                    }
+                  }}
+                  className="w-full h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
+                />
+                {errors.minimumPurchaseQuantity && (
+                  <p className="text-warning-500 text-xs">
+                    {errors.minimumPurchaseQuantity}
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor=""
-                className="text-label-l4 font-medium text-pneutral-700"
-              >
-                End Date
-              </label>
-              <div className="flex w-full gap-3">
-                <div className="relative flex flex-col">
-                  <input
-                    type="text"
-                    name="effectiveEndDate"
-                    id="effectiveEndDate"
-                    readOnly
-                    disabled={alwaysActive}
-                    placeholder="dd/mm/yyyy"
-                    value={form.effectiveEndDate}
-                    onClick={() => {
-                      if (!alwaysActive) {
-                        setShowEndDatePicker(true);
+            <div className="flex flex-col gap-4">
+              <div className="text-label-l5 font-medium">DISCOUNT DETAILS</div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="" className="text-label-l4 font-medium">
+                  Discount %
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  name="discountPercentage"
+                  id="discountPercentage"
+                  value={form.discountPercentage || ""}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 3) {
+                      handleInputChange(e);
+                    }
+                  }}
+                  min={1}
+                  max={100}
+                  step="1"
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === "-" ||
+                      e.key === "e" ||
+                      e.key === "+" ||
+                      e.key === "."
+                    ) {
+                      e.preventDefault();
+                    }
+                  }}
+                  className="w-full h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
+                />
+                {errors.discountPercentage && (
+                  <p className="text-warning-500 text-xs">
+                    {errors.discountPercentage}
+                  </p>
+                )}
+              </div>
+            </div>
 
-                        setTimeout(() => {
-                          formContainerRef.current?.scrollBy({
-                            top: 220,
-                            behavior: "smooth",
-                          });
-                        }, 100);
-                      }
-                    }}
-                    className={`w-full min-w-0 h-12 border rounded-lg p-4 focus:outline-none ${
-                      alwaysActive
-                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                        : "border-pneutral-300 cursor-pointer"
-                    }`}
-                  />
+            <div className="flex flex-col gap-4">
+              <div className="text-label-l5 font-medium">VALIDITY PERIOD</div>
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor=""
+                  className="text-label-l4 font-medium text-pneutral-700"
+                >
+                  Start Date
+                </label>
+                <div className="flex w-full gap-3">
+                  <div className="relative flex flex-col">
+                    <input
+                      type="text"
+                      name="effectiveStartDate"
+                      id="effectiveStartDate"
+                      readOnly
+                      disabled={alwaysActive}
+                      placeholder="dd/mm/yyyy"
+                      value={form.effectiveStartDate}
+                      onClick={() => {
+                        if (!alwaysActive) {
+                          setShowStartDatePicker(true);
 
-                  {showEndDatePicker && (
-                    <DatePicker
-                      selectedDate={
-                        form.effectiveEndDate
-                          ? new Date(
-                              form.effectiveEndDate
-                                .split("/")
-                                .reverse()
-                                .join("-"),
-                            )
-                          : new Date()
-                      }
-                      onSelect={(date) => {
-                        const formattedDate = `${String(
-                          date.getDate(),
-                        ).padStart(2, "0")}/${String(
-                          date.getMonth() + 1,
-                        ).padStart(2, "0")}/${date.getFullYear()}`;
-
-                        const updatedForm = {
-                          ...form,
-                          effectiveEndDate: formattedDate,
-                        };
-
-                        const updatedTouched = {
-                          ...touched,
-                          effectiveEndDate: true,
-                        };
-
-                        setForm(updatedForm);
-                        setTouched(updatedTouched);
-
-                        const dateErrors = validateDateTime(
-                          updatedForm,
-                          updatedTouched,
-                        );
-
-                        setErrors((prev) => {
-                          const updatedErrors = { ...prev };
-
-                          delete updatedErrors.effectiveStartDate;
-                          delete updatedErrors.effectiveEndDate;
-
-                          return {
-                            ...updatedErrors,
-                            ...dateErrors,
-                          };
-                        });
-
-                        setShowEndDatePicker(false);
+                          setTimeout(() => {
+                            formContainerRef.current?.scrollBy({
+                              top: 220,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }
                       }}
-                      onClose={() => setShowEndDatePicker(false)}
+                      className={`w-full min-w-0 h-12 border rounded-lg p-4 focus:outline-none ${
+                        alwaysActive
+                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                          : "border-pneutral-300 cursor-pointer"
+                      }`}
                     />
-                  )}
 
-                  {errors.effectiveEndDate && (
-                    <p className="text-warning-500 text-xs mt-1">
-                      {errors.effectiveEndDate}
-                    </p>
-                  )}
+                    {showStartDatePicker && (
+                      <DatePicker
+                        selectedDate={
+                          form.effectiveStartDate
+                            ? new Date(
+                                form.effectiveStartDate
+                                  .split("/")
+                                  .reverse()
+                                  .join("-"),
+                              )
+                            : new Date()
+                        }
+                        onSelect={(date) => {
+                          const formattedDate = `${String(
+                            date.getDate(),
+                          ).padStart(2, "0")}/${String(
+                            date.getMonth() + 1,
+                          ).padStart(2, "0")}/${date.getFullYear()}`;
+
+                          const updatedForm = {
+                            ...form,
+                            effectiveStartDate: formattedDate,
+                          };
+
+                          const updatedTouched = {
+                            ...touched,
+                            effectiveStartDate: true,
+                          };
+
+                          setForm(updatedForm);
+                          setTouched(updatedTouched);
+
+                          const dateErrors = validateDateTime(
+                            updatedForm,
+                            updatedTouched,
+                          );
+
+                          setErrors((prev) => {
+                            const updatedErrors = { ...prev };
+
+                            delete updatedErrors.effectiveStartDate;
+                            delete updatedErrors.effectiveEndDate;
+
+                            return {
+                              ...updatedErrors,
+                              ...dateErrors,
+                            };
+                          });
+
+                          setShowStartDatePicker(false);
+                        }}
+                        onClose={() => setShowStartDatePicker(false)}
+                      />
+                    )}
+
+                    {errors.effectiveStartDate && (
+                      <p className="mt-1 text-xs text-warning-500">
+                        {errors.effectiveStartDate}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <input
+                      type="time"
+                      name="effectiveStartTime"
+                      id="effectiveStartTime"
+                      value={form.effectiveStartTime}
+                      onChange={handleInputChange}
+                      disabled={alwaysActive}
+                      className={`w-full h-12 border rounded-lg p-4 focus:outline-none ${
+                        alwaysActive
+                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                          : "border-pneutral-300"
+                      }`}
+                    />
+                    {errors.effectiveStartTime && (
+                      <p className="text-warning-500 text-xs mt-1">
+                        {errors.effectiveStartTime}
+                      </p>
+                    )}
+                  </div>
                 </div>
+              </div>
 
-                <div className="flex flex-col flex-1 min-w-0">
-                  <input
-                    type="time"
-                    name="effectiveEndTime"
-                    id="effectiveEndTime"
-                    value={form.effectiveEndTime}
-                    onChange={handleInputChange}
-                    disabled={alwaysActive}
-                    className={`w-full h-12 border rounded-lg p-4 focus:outline-none ${
-                      alwaysActive
-                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                        : "border-pneutral-300"
-                    }`}
-                  />
-                  {errors.effectiveEndTime && (
-                    <p className="text-warning-500 text-xs mt-1">
-                      {errors.effectiveEndTime}
-                    </p>
-                  )}
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor=""
+                  className="text-label-l4 font-medium text-pneutral-700"
+                >
+                  End Date
+                </label>
+                <div className="flex w-full gap-3">
+                  <div className="relative flex flex-col">
+                    <input
+                      type="text"
+                      name="effectiveEndDate"
+                      id="effectiveEndDate"
+                      readOnly
+                      disabled={alwaysActive}
+                      placeholder="dd/mm/yyyy"
+                      value={form.effectiveEndDate}
+                      onClick={() => {
+                        if (!alwaysActive) {
+                          setShowEndDatePicker(true);
+
+                          setTimeout(() => {
+                            formContainerRef.current?.scrollBy({
+                              top: 220,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }
+                      }}
+                      className={`w-full min-w-0 h-12 border rounded-lg p-4 focus:outline-none ${
+                        alwaysActive
+                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                          : "border-pneutral-300 cursor-pointer"
+                      }`}
+                    />
+
+                    {showEndDatePicker && (
+                      <DatePicker
+                        selectedDate={
+                          form.effectiveEndDate
+                            ? new Date(
+                                form.effectiveEndDate
+                                  .split("/")
+                                  .reverse()
+                                  .join("-"),
+                              )
+                            : new Date()
+                        }
+                        onSelect={(date) => {
+                          const formattedDate = `${String(
+                            date.getDate(),
+                          ).padStart(2, "0")}/${String(
+                            date.getMonth() + 1,
+                          ).padStart(2, "0")}/${date.getFullYear()}`;
+
+                          const updatedForm = {
+                            ...form,
+                            effectiveEndDate: formattedDate,
+                          };
+
+                          const updatedTouched = {
+                            ...touched,
+                            effectiveEndDate: true,
+                          };
+
+                          setForm(updatedForm);
+                          setTouched(updatedTouched);
+
+                          const dateErrors = validateDateTime(
+                            updatedForm,
+                            updatedTouched,
+                          );
+
+                          setErrors((prev) => {
+                            const updatedErrors = { ...prev };
+
+                            delete updatedErrors.effectiveStartDate;
+                            delete updatedErrors.effectiveEndDate;
+
+                            return {
+                              ...updatedErrors,
+                              ...dateErrors,
+                            };
+                          });
+
+                          setShowEndDatePicker(false);
+                        }}
+                        onClose={() => setShowEndDatePicker(false)}
+                      />
+                    )}
+
+                    {errors.effectiveEndDate && (
+                      <p className="text-warning-500 text-xs mt-1">
+                        {errors.effectiveEndDate}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <input
+                      type="time"
+                      name="effectiveEndTime"
+                      id="effectiveEndTime"
+                      value={form.effectiveEndTime}
+                      onChange={handleInputChange}
+                      disabled={alwaysActive}
+                      className={`w-full h-12 border rounded-lg p-4 focus:outline-none ${
+                        alwaysActive
+                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
+                          : "border-pneutral-300"
+                      }`}
+                    />
+                    {errors.effectiveEndTime && (
+                      <p className="text-warning-500 text-xs mt-1">
+                        {errors.effectiveEndTime}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </form>
 
           <div className="text-label-l3 font-medium text-neutral-700">
             This discount will apply for orders above (MPQ to MXPQ) units from
             (Start Date & Time to End Date & Time)
           </div>
         </div>
-        </form>
       </>
     );
   },
