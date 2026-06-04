@@ -42,7 +42,9 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
     setIsLoggingOut(true);
     try {
       toast.loading("Logging out...", { id: "logout" });
-      await sellerAuthService.logout(false);
+      const refreshToken = localStorage.getItem('refreshToken');
+      await sellerAuthService.logout(refreshToken || undefined);
+      // await sellerAuthService.logout(false);
       toast.success("Logged out successfully", { id: "logout" });
       router.push("/?showLogin=true");
     } catch (error) {
