@@ -172,7 +172,7 @@ const NumericInputWithUnit: React.FC<NumericInputWithUnitProps> = ({
 
   const getBorderColor = () => {
     if (disabled) return "border-pneutral-300 bg-sneutral-100 cursor-not-allowed";
-    if (readOnly) return "border-pneutral-300 bg-pneutral-50 cursor-default";
+    if (readOnly) return "border-pneutral-300 bg-sneutral-100 cursor-default";
     if (error) return "border-warning-500 focus-within:ring-1 focus-within:ring-warning-500 focus-within:border-warning-500";
     return "border-pneutral-300 focus-within:border-secondary-300 focus-within:ring-1 focus-within:ring-secondary-300";
   };
@@ -1856,12 +1856,12 @@ if ((attr as any).certificateDocuments?.length) {
       <form
         autoComplete="off"
         onSubmit={(e) => e.preventDefault()}
-        className="flex flex-col gap-5 w-full max-w-full mx-auto bg-white"
+        className="flex flex-col gap-5 w-full max-w-full mx-auto bg-secondary-50"
       >
         {/* Product Details Section */}
-        <div className="border border-neutral-200 rounded-xl p-6">
+        <div className="border border-neutral-200 rounded-xl p-6 bg-white">
           <div className="text-h4 font-semibold">Product Details</div>
-          <div className="border-b border-neutral-200 mt-3"></div>
+          <div className="border-b border-pneutral-200 mt-3"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 pt-6">
             <div data-field="productName">
               <Input
@@ -1872,8 +1872,8 @@ if ((attr as any).certificateDocuments?.length) {
                 value={form.productName}
                 error={errors.productName}
                 required
-                // readOnly={isEditMode}
-                disabled={isEditMode}
+                readOnly={isEditMode}
+                // disabled={isEditMode}
                 maxLength={150}
               />
             </div>
@@ -1911,8 +1911,8 @@ if ((attr as any).certificateDocuments?.length) {
                 placeholder="e.g., Nestle, Abbott"
                 onChange={handleChange}
                 value={form.brandName}
-                // readOnly={isEditMode}
-                disabled={isEditMode}
+                readOnly={isEditMode}
+                // disabled={isEditMode}
                 error={errors.brandName}
                 required
                 maxLength={60}
@@ -1962,8 +1962,8 @@ if ((attr as any).certificateDocuments?.length) {
                 onUnitChange={handleNetQuantityUnitChange}
                 error={errors.netQuantityValue || errors.netQuantityUnit}
                 required
-                // readOnly={isEditMode}
-                disabled={isEditMode}
+                readOnly={isEditMode}
+                // disabled={isEditMode}
                 options={netQuantityUnitOptions}
                 loading={loadingNetQuantityUnits}
               />
@@ -2084,8 +2084,8 @@ if ((attr as any).certificateDocuments?.length) {
                 placeholder="e.g., Vitamin C, Protein"
                 onChange={handleChange}
                 value={form.activeIngredients}
-                // readOnly={isEditMode}
-                disabled={isEditMode}
+                readOnly={isEditMode}
+                // disabled={isEditMode}
                 error={errors.activeIngredients}
                 required
               />
@@ -2139,8 +2139,8 @@ if ((attr as any).certificateDocuments?.length) {
                 placeholder="Manufacturer company name"
                 onChange={handleChange}
                 value={form.manufacturerName}
-                // readOnly={isEditMode}
-                disabled={isEditMode}
+                readOnly={isEditMode}
+                // disabled={isEditMode}
                 error={errors.manufacturerName}
                 required
               />
@@ -2300,10 +2300,10 @@ if ((attr as any).certificateDocuments?.length) {
         </div>
 
         {/* Packaging & Order Details Section */}
-        <div className="border border-neutral-200 rounded-xl p-6">
+        <div className="border border-pneutral-200 rounded-xl p-6 bg-white -mb-6">
           <div className="text-h4 font-semibold">Packaging & Order Details</div>
-          <div className="border-b border-neutral-200 mt-3"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 pt-6">
+          <div className="border-b border-pneutral-200 mt-3"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 pt-6">
             <div className="flex flex-col gap-0" data-field="packType">
               <label className={fieldLabel}>Pack Type {requiredStar}</label>
               <Dropdown
@@ -2326,7 +2326,7 @@ if ((attr as any).certificateDocuments?.length) {
                 onChange={handleChange}
                 value={form.unitsPerPack}
                 readOnly={isFieldDisabled(false, true)}
-                disabled={isFieldDisabled(false, true)}
+                // disabled={isFieldDisabled(false, true)}
                 error={errors.unitsPerPack}
                 required
               />
@@ -2341,7 +2341,7 @@ if ((attr as any).certificateDocuments?.length) {
                 onChange={handleChange}
                 value={form.numberOfPacks}
                 readOnly={isFieldDisabled(false, true)}
-                disabled={isFieldDisabled(false, true)}
+                // disabled={isFieldDisabled(false, true)}
                 error={errors.numberOfPacks}
                 required
               />
@@ -2358,7 +2358,7 @@ if ((attr as any).certificateDocuments?.length) {
             </div>
 
             <div className="col-span-2 text-h6 font-normal mt-2">Order Details</div>
-            <div className="col-span-2 border-b border-neutral-200"></div>
+            <div className="col-span-2 border-b border-pneutral-200"></div>
 
             <div data-field="minimumOrderQuantity">
               <Input
@@ -2389,7 +2389,7 @@ if ((attr as any).certificateDocuments?.length) {
             </div>
 
             <div className="col-span-2 text-h6 font-normal mt-2">Batch Management</div>
-            <div className="col-span-2 border-b"></div>
+            <div className="col-span-2 border-b border-pneutral-200 "></div>
 
             <div data-field="batchLotNumber">
               <Input
@@ -2398,8 +2398,8 @@ if ((attr as any).certificateDocuments?.length) {
                 placeholder="Enter batch number"
                 onChange={handleChange}
                 value={form.batchLotNumber}
-                // readOnly={isEditMode}
-                disabled={isEditMode}
+                readOnly={isEditMode}
+                // disabled={isEditMode}
                 error={errors.batchLotNumber}
                 required
               />
@@ -2412,8 +2412,8 @@ if ((attr as any).certificateDocuments?.length) {
                 type="text"
                 name="manufacturingDate"
                 required
-                // readOnly={isEditMode}
-                disabled={isEditMode}
+                readOnly={isEditMode}
+                // disabled={isEditMode}
                 value={
                   form.manufacturingDate instanceof Date &&
                   !isNaN(form.manufacturingDate.getTime())
@@ -2460,7 +2460,8 @@ if ((attr as any).certificateDocuments?.length) {
     name="expiryDate"
     type="text"
     required
-    disabled={isEditMode}
+    // disabled={isEditMode}
+    readOnly={isEditMode}
     value={
       form.expiryDate instanceof Date &&
       !isNaN(form.expiryDate.getTime())
@@ -2557,15 +2558,15 @@ if ((attr as any).certificateDocuments?.length) {
                 placeholder="Number of packs in stock"
                 onChange={handleChange}
                 value={form.stockQuantity}
-                // readOnly={isEditMode}
-                disabled={isEditMode}
+                readOnly={isEditMode}
+                // disabled={isEditMode}
                 error={errors.stockQuantity}
                 required
               />
             </div>
 
             <div className="col-span-2 text-h6 font-normal mt-2">Pricing</div>
-            <div className="col-span-2 border-b"></div>
+            <div className="col-span-2 border-b border-pneutral-200"></div>
 
             <div className="col-span-2">
               <div className="grid grid-cols-2 gap-4">
@@ -2625,7 +2626,7 @@ if ((attr as any).certificateDocuments?.length) {
             </div>
 
             <div className="col-span-2 text-h6 font-normal mt-2">TAX & BILLING</div>
-            <div className="col-span-2 border-b"></div>
+            <div className="col-span-2 border-b border-pneutral-200"></div>
 
             <div data-field="hsnCode">
               <Input
@@ -2635,8 +2636,8 @@ if ((attr as any).certificateDocuments?.length) {
                 placeholder="HSN Code"
                 onChange={handleChange}
                 value={form.hsnCode}
-                // readOnly={isEditMode}
-                disabled={isEditMode}
+                readOnly={isEditMode}
+                // disabled={isEditMode}
                 error={errors.hsnCode}
                 required
               />
