@@ -538,12 +538,18 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           form.therapeuticSubcategoryId,
         );
 
-        setMoleculeOptions(
-          molecules.map((m: any) => ({
-            label: m.moleculeName,
-            value: m,
-          })),
+        const enrichedMolecules = (Array.isArray(molecules) ? molecules : []).map(
+          (m: any) => {
+            const fullMolecule = allMoleculeMap[String(m.moleculeId)] || m;
+
+            return {
+              label: fullMolecule.moleculeName || m.moleculeName,
+              value: fullMolecule,
+            };
+          },
         );
+
+        setMoleculeOptions(enrichedMolecules);
       } catch (error) {
         console.error("Error fetching molecules:", error);
         setMoleculeOptions([]);
@@ -580,7 +586,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       return newErrors;
     });
 
-    const fullMolecule = allMoleculeMap[String(m.moleculeId)] || m;
+    const fullMolecule = (selected?.value && typeof selected.value === "object"
+      ? selected.value
+      : allMoleculeMap[String(m.moleculeId)] || m) as any;
 
     // ✅ Update form (your original logic)
     setForm((prev) => {
@@ -869,10 +877,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   useEffect(() => {
-    if (mode === "edit" && productId && moleculeOptions.length > 0) {
+    if (mode === "edit" && productId) {
       fetchProductByIdAndFillForm(productId);
     }
-  }, [mode, productId, moleculeOptions.length]);
+  }, [mode, productId]);
 
   const fetchProductByIdAndFillForm = async (id: string) => {
     try {
@@ -901,6 +909,47 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       setProductAttributeId(attributeDrug.productAttributeId || null);
 
       const dosageForm = attributeDrug.dosageForm?.trim().toLowerCase() || "";
+      const therapeuticSubcategoryId = String(
+        attributeDrug.therapeuticSubcategoryId || "",
+      );
+
+      let fetchedMolecules: any[] = [];
+      let fullMoleculeMap = allMoleculeMap;
+
+      if (!Object.keys(fullMoleculeMap).length) {
+        try {
+          const allMolecules = await getAllMolecules();
+          fullMoleculeMap = Object.fromEntries(
+            (Array.isArray(allMolecules) ? allMolecules : []).map((m: any) => [
+              String(m.moleculeId),
+              m,
+            ]),
+          );
+          setAllMoleculeMap(fullMoleculeMap);
+        } catch (error) {
+          console.error("Error fetching all molecules for edit prefill:", error);
+        }
+      }
+
+      if (therapeuticSubcategoryId) {
+        const response = await getMoleculeByTherapeuticSubcategoryId(
+          therapeuticSubcategoryId,
+        );
+        fetchedMolecules = Array.isArray(response)
+          ? response
+          : response?.data || response?.result || [];
+
+        setMoleculeOptions(
+          fetchedMolecules.map((m: any) => {
+            const fullMolecule = fullMoleculeMap[String(m.moleculeId)] || m;
+
+            return {
+              label: fullMolecule.moleculeName || m.moleculeName,
+              value: fullMolecule,
+            };
+          }),
+        );
+      }
 
       const selectedDosage = fetchedDosageOptions.find(
         (option: any) => option.label?.trim().toLowerCase() === dosageForm,
@@ -908,9 +957,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       const molecules =
         attributeDrug.molecules?.length > 0
           ? attributeDrug.molecules.map((m: any) => {
-              const full = moleculeOptions.find(
-                (opt) => opt.value.moleculeId === m.moleculeId,
-              )?.value;
+              const full =
+                fullMoleculeMap[String(m.moleculeId)] ||
+                fetchedMolecules.find(
+                  (opt: any) => String(opt.moleculeId) === String(m.moleculeId),
+                ) ||
+                moleculeOptions.find(
+                  (opt) => String(opt.value.moleculeId) === String(m.moleculeId),
+                )?.value;
 
               return {
                 moleculeId: m.moleculeId ?? "",
@@ -2230,13 +2284,17 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         <div className="flex justify-between mt-6 col-span-2">
           <div className="space-x-6 flex">
             <button
+              type="button"
               onClick={() => router.back()}
               className="w-35.25 h-12 border-2 border-warning-500 rounded-lg text-label-l4 font-medium text-warning-500 cursor-pointer"
             >
               Cancel
             </button>
 
-            <button className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5">
+            <button
+              type="button"
+              className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5"
+            >
               <img
                 src="/icons/SaveDraftIcon.svg"
                 alt="drug"
