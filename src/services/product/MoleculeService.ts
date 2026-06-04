@@ -29,3 +29,29 @@ export const getMoleculeByName = async (name: string) => {
     }
   }
 };
+
+
+export const getMoleculeByTherapeuticSubcategoryId = async (
+  therapeuticSubcategoryId: string | number
+) => {
+  try {
+    const response = await api.get(
+      `/molecules/getByTherapeuticSubcategoryId/${therapeuticSubcategoryId}`
+    );
+
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error(
+      "Error fetching Molecule by Therapeutic Subcategory:",
+      error
+    );
+
+    if (error instanceof Error) {
+      throw new Error(`Error fetching Molecule: ${error.message}`);
+    }
+
+    throw new Error(
+      "An unknown error occurred while fetching Molecule."
+    );
+  }
+};

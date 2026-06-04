@@ -1,6 +1,9 @@
 import Input from "@/src/app/commonComponents/Input";
 import { drugProductSchema } from "@/src/schema/product/DrugProductSchema";
-import { getAllMolecules } from "@/src/services/product/MoleculeService";
+import {
+  getAllMolecules,
+  getMoleculeByTherapeuticSubcategoryId,
+} from "@/src/services/product/MoleculeService";
 import {
   createDrugProduct,
   drugProductDelete,
@@ -70,6 +73,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     molecules: {
       moleculeId: string;
       moleculeName: string;
+      moleculeStrengthFormat: string;
       drugSchedule: string;
       mechanismOfAction: string;
       primaryUse: string;
@@ -123,6 +127,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       {
         moleculeId: "",
         moleculeName: "",
+        moleculeStrengthFormat: "",
         drugSchedule: "",
         mechanismOfAction: "",
         primaryUse: "",
@@ -175,6 +180,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       {
         moleculeId: "",
         moleculeName: "",
+        moleculeStrengthFormat: "",
         drugSchedule: "",
         mechanismOfAction: "",
         primaryUse: "",
@@ -232,6 +238,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [images, setImages] = useState<File[]>([]);
   const [moleculeOptions, setMoleculeOptions] = useState<any[]>([]);
   const [loadingMolecules, setLoadingMolecules] = useState(false);
+  const [allMoleculeMap, setAllMoleculeMap] = useState<Record<string, any>>({});
   const [packTypeOptions, setPackTypeOptions] = useState([]);
   const [strengthFormats, setStrengthFormats] = useState<string[]>([]);
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
@@ -458,6 +465,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     setForm((prev) => ({
       ...prev,
       therapeuticCategory: selected ? selected.value : "",
+      therapeuticSubcategoryId: "",
       therapeuticSubcategory: "", // reset
     }));
   };
@@ -491,34 +499,61 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   }, [form.therapeuticCategory]);
 
   const handleSubcategoryChange = (selected: SelectOption | null) => {
+    const value = selected ? String(selected.value) : "";
+
     setForm((prev) => ({
       ...prev,
-      therapeuticSubcategory: selected ? selected.value : "",
+      therapeuticSubcategoryId: value,
+      therapeuticSubcategory: value,
     }));
   };
 
   useEffect(() => {
+    const loadAllMolecules = async () => {
+      try {
+        const data = await getAllMolecules();
+        const map = Object.fromEntries(
+          (Array.isArray(data) ? data : []).map((m: any) => [String(m.moleculeId), m]),
+        );
+        setAllMoleculeMap(map);
+      } catch (error) {
+        console.error("Error fetching all molecules:", error);
+      }
+    };
+
+    loadAllMolecules();
+  }, []);
+
+  useEffect(() => {
+    if (!form.therapeuticSubcategoryId) {
+      setMoleculeOptions([]);
+      return;
+    }
+
     const fetchMolecules = async () => {
       try {
         setLoadingMolecules(true);
 
-        const data = await getAllMolecules();
+        const molecules = await getMoleculeByTherapeuticSubcategoryId(
+          form.therapeuticSubcategoryId,
+        );
 
-        const formatted = data.map((m: any) => ({
-          label: m.moleculeName,
-          value: m, // 🔥 store full object
-        }));
-
-        setMoleculeOptions(formatted);
+        setMoleculeOptions(
+          molecules.map((m: any) => ({
+            label: m.moleculeName,
+            value: m,
+          })),
+        );
       } catch (error) {
         console.error("Error fetching molecules:", error);
+        setMoleculeOptions([]);
       } finally {
         setLoadingMolecules(false);
       }
     };
 
     fetchMolecules();
-  }, []);
+  }, [form.therapeuticSubcategoryId]);
 
   const handleMoleculeSelect = (index: number, selected: any) => {
     const m = selected?.value;
@@ -545,17 +580,20 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       return newErrors;
     });
 
+    const fullMolecule = allMoleculeMap[String(m.moleculeId)] || m;
+
     // ✅ Update form (your original logic)
     setForm((prev) => {
       const updated = [...prev.molecules];
 
       updated[index] = {
         ...updated[index],
-        moleculeId: m.moleculeId,
-        moleculeName: m.moleculeName,
-        drugSchedule: m.drugSchedule,
-        mechanismOfAction: m.mechanismOfAction,
-        primaryUse: m.primaryUse,
+        moleculeId: fullMolecule.moleculeId || "",
+        moleculeName: fullMolecule.moleculeName || "",
+        moleculeStrengthFormat: fullMolecule.moleculeStrengthFormat || "",
+        drugSchedule: fullMolecule.drugSchedule || "",
+        mechanismOfAction: fullMolecule.mechanismOfAction || "",
+        primaryUse: fullMolecule.primaryUse || "",
       };
 
       return {
@@ -573,6 +611,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         {
           moleculeId: "",
           moleculeName: "",
+          moleculeStrengthFormat: "",
           drugSchedule: "",
           mechanismOfAction: "",
           primaryUse: "",
@@ -750,7 +789,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         productAttributeDrugs: [
           {
             therapeuticCategoryId: form.therapeuticCategory,
-            therapeuticSubcategoryId: form.therapeuticSubcategory,
+            therapeuticSubcategoryId:
+              form.therapeuticSubcategoryId || form.therapeuticSubcategory,
 
             dosageForm:
               dosageOptions.find((d) => d.value === form.dosageId)?.label || "",
@@ -875,6 +915,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               return {
                 moleculeId: m.moleculeId ?? "",
                 moleculeName: full?.moleculeName || "",
+                moleculeStrengthFormat: full?.moleculeStrengthFormat || "",
                 drugSchedule: full?.drugSchedule || "",
                 mechanismOfAction: full?.mechanismOfAction || "",
                 primaryUse: full?.primaryUse || "",
@@ -885,6 +926,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               {
                 moleculeId: "",
                 moleculeName: "",
+                moleculeStrengthFormat: "",
                 drugSchedule: "",
                 mechanismOfAction: "",
                 primaryUse: "",
@@ -909,6 +951,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         warningsPrecautions: data.warningsPrecautions || "",
         manufacturerName: data.manufacturerName || "",
         therapeuticCategory: String(attributeDrug.therapeuticCategoryId || ""),
+        therapeuticSubcategoryId: String(
+          attributeDrug.therapeuticSubcategoryId || "",
+        ),
         therapeuticSubcategory: String(
           attributeDrug.therapeuticSubcategoryId || "",
         ),
@@ -1029,7 +1074,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         productAttributeDrugs: [
           {
             therapeuticCategoryId: form.therapeuticCategory,
-            therapeuticSubcategoryId: form.therapeuticSubcategory,
+            therapeuticSubcategoryId:
+              form.therapeuticSubcategoryId || form.therapeuticSubcategory,
 
             dosageForm:
               dosageOptions.find(
@@ -1207,6 +1253,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         {
           moleculeId: "",
           moleculeName: "",
+          moleculeStrengthFormat: "",
           drugSchedule: "",
           strength: "",
           mechanismOfAction: "",
@@ -1573,7 +1620,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   <Input
                     label="Molecule Strength"
                     name="strength"
-                    placeholder={strengthFormats.join(", ") || "Enter strength"}
+                    placeholder={
+                      molecule.moleculeStrengthFormat ||
+                      strengthFormats.join(", ") ||
+                      "Enter strength"
+                    }
                     value={molecule.strength || ""}
                     onChange={(e) =>
                       handleStrengthChange(index, e.target.value)
