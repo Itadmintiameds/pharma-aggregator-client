@@ -1,4 +1,5 @@
-import axios, { AxiosError } from "axios";
+
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -6,51 +7,137 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
 });
-delete api.defaults.headers.post["Content-Type"];
 
-// ✅ REQUEST INTERCEPTOR
+// Track refresh state
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value: unknown) => void;
+  reject: (reason?: any) => void;
+}> = [];
+
+const processQueue = (error: any = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(api);
+    }
+  });
+  failedQueue = [];
+};
+
+// Request interceptor - Add token to every request
 api.interceptors.request.use(
   (config) => {
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("token")
-        : null;
- 
+    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    
     if (token) {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
- 
+    
+    // Handle FormData
     if (config.data instanceof FormData) {
-
       delete config.headers["Content-Type"];
       delete config.headers["content-type"];
-    } else {
-      config.headers = config.headers || {};
+    } else if (config.headers) {
       config.headers["Content-Type"] = "application/json";
     }
- 
+    
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// ✅ RESPONSE INTERCEPTOR
+// Response interceptor - Handle 401 and refresh token
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    // ✅ Handle Unauthorized
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    
+    // Don't retry refresh endpoint
+    if (originalRequest.url?.includes('/refresh')) {
+      return Promise.reject(error);
+    }
+    
+    // If 401 and not retried yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Queue this request while refreshing
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(() => {
+          return api(originalRequest);
+        }).catch((err) => {
+          return Promise.reject(err);
+        });
+      }
+      
+      originalRequest._retry = true;
+      isRefreshing = true;
+      
+      const refreshToken = localStorage.getItem("refreshToken");
+      
+      if (!refreshToken) {
+        // No refresh token, force logout
+        if (typeof window !== "undefined") {
+          localStorage.clear();
+          document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+          window.location.href = "/?showLogin=true&session=expired";
+        }
+        return Promise.reject(error);
+      }
+      
+      try {
+        // Call refresh endpoint
+        const response = await axios.post(`${API_BASE_URL}/authentication/refresh`, {
+          refreshToken: refreshToken
+        });
+        
+        const { accessToken, refreshToken: newRefreshToken } = response.data;
+        
+        // Store new tokens
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", newRefreshToken);
+        
+        // Update cookie for middleware
+        document.cookie = `token=${accessToken}; path=/; max-age=${24 * 60 * 60}`;
+        
+        // Update authorization header
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        
+        // Process queued requests
+        processQueue();
+        
+        // Retry original request
+        return api(originalRequest);
+        
+      } catch (refreshError) {
+        // Refresh failed - clear everything and redirect to login
+        processQueue(refreshError);
+        
+        if (typeof window !== "undefined") {
+          localStorage.clear();
+          sessionStorage.clear();
+          document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+          window.location.href = "/?showLogin=true&session=expired";
+        }
+        
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+    
+    // Handle other 401 errors
     if (error.response?.status === 401) {
       if (typeof window !== "undefined") {
         localStorage.clear();
-
-        document.cookie =
-          "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-
+        document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         window.location.href = "/?showLogin=true&session=expired";
       }
     }
-
+    
     return Promise.reject(error);
   }
 );
@@ -62,6 +149,10 @@ export default api;
 
 
 
+
+
+// old code without response token ........
+
 // import axios, { AxiosError } from "axios";
 
 // const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -70,6 +161,7 @@ export default api;
 //   baseURL: API_BASE_URL,
 //   withCredentials: true,
 // });
+// delete api.defaults.headers.post["Content-Type"];
 
 // // ✅ REQUEST INTERCEPTOR
 // api.interceptors.request.use(
@@ -78,27 +170,21 @@ export default api;
 //       typeof window !== "undefined"
 //         ? localStorage.getItem("token")
 //         : null;
-
-//     // ✅ Attach token
+ 
 //     if (token) {
 //       config.headers = config.headers || {};
 //       config.headers.Authorization = `Bearer ${token}`;
 //     }
+ 
+//     if (config.data instanceof FormData) {
 
-//     // ✅ Handle Content-Type properly
-//    if (config.data instanceof FormData) {
-//   config.headers = config.headers || {};
-
-//   delete config.headers["Content-Type"];
-//   delete config.headers["content-type"];
-
-
-//   config.transformRequest = [(data) => data];
-// } else {
-//   config.headers = config.headers || {};
-//   config.headers["Content-Type"] = "application/json";
-// }
-
+//       delete config.headers["Content-Type"];
+//       delete config.headers["content-type"];
+//     } else {
+//       config.headers = config.headers || {};
+//       config.headers["Content-Type"] = "application/json";
+//     }
+ 
 //     return config;
 //   },
 //   (error) => Promise.reject(error)
@@ -125,79 +211,3 @@ export default api;
 // );
 
 // export default api;
-
-
-
-
-
-
-
-
-
-// import axios, { AxiosError } from "axios";
-
-// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-
-// const api = axios.create({
-//   baseURL: API_BASE_URL,
-//   headers: {
-//     "Content-Type": "application/json",
-//   },
-//   withCredentials: true, 
-// });
-
-// /**
-//  * 🔐 REQUEST INTERCEPTOR
-//  * Automatically attach JWT token to every request
-//  */
-// api.interceptors.request.use(
-//   (config) => {
-//     // Get token from localStorage
-//     const token = typeof window !== "undefined"
-//       ? localStorage.getItem("token")
-//       : null;
-
-//     if (token) {
-//       config.headers.Authorization = `Bearer ${token}`;
-//     }
-
-//     return config;
-//   },
-//   (error) => Promise.reject(error)
-// );
-
-// /**
-//  * 🚨 RESPONSE INTERCEPTOR
-//  * Handle global API errors
-//  */
-// // src/lib/api.ts
-
-// api.interceptors.response.use(
-//   (response) => response,
-//   async (error: AxiosError) => {
-//     if (error.response?.status === 401) {
-//       console.error("Unauthorized! Token may be expired.");
-
-//       // Clear all auth data
-//       localStorage.removeItem("token");
-//       localStorage.removeItem("user");
-//       localStorage.removeItem("userId");
-//       localStorage.removeItem("resetEmail");
-      
-//       // Clear cookie
-//       document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-
-//       // Redirect to home with login modal
-//       if (typeof window !== "undefined") {
-//         if (!window.location.pathname.includes("/forgot-password")) {
-//           window.location.href = "/?showLogin=true&session=expired";
-//         }
-//       }
-//     }
-//     return Promise.reject(error);
-//   }
-// );
-
-// export default api;
-
-

@@ -19,12 +19,12 @@ export function proxy(request: NextRequest) {
 
   // If token exists in either, allow access
   if (token || authHeader) {
-    console.log("✅ Token found, allowing access to dashboard");
+    // console.log("✅ Token found, allowing access to dashboard");
     return NextResponse.next();
   }
 
   // If no token, redirect to home with login modal
-  console.log("🚫 No token found, redirecting to login");
+  // console.log("🚫 No token found, redirecting to login");
   const url = new URL("/", request.url);
   url.searchParams.set("showLogin", "true");
   url.searchParams.set("redirect", pathname);
@@ -37,22 +37,3 @@ export const config = {
     "/seller_7a3b9f2c/dashboard/:path*",
   ],
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import { NextRequest, NextResponse } from 'next/server';
-
-// // eslint-disable-next-line @typescript-eslint/no-unused-vars
-// export default function proxy(request: NextRequest) {
-//   return NextResponse.next();
-// }
