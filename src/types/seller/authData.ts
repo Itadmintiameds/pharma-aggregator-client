@@ -64,7 +64,7 @@ export interface OtpResponse {
 export interface ApiResponse<T> {
   status: string;
   message: string;
-   count: null | number;
+  count: null | number;
   data: T;
 }
 
@@ -93,7 +93,8 @@ export interface User {
   temporaryPassword?: string;
 }
 
-export type AuthStep = "login" | "otp" | "resetPassword" | "forgotPassword";
+// Updated AuthStep to include forgotPasswordOtp
+export type AuthStep = "login" | "otp" | "resetPassword" | "forgotPassword" | "forgotPasswordOtp";
 
 // New interface for logout request
 export interface LogoutRequest {
@@ -109,29 +110,79 @@ export interface SessionInfo {
   user: User | null;
 }
 
+// ========== NEW: FORGOT PASSWORD WITH OTP FLOW ==========
+
+// Request: Send OTP for forgot password
+export interface ForgotPasswordOtpRequest {
+  email: string;
+}
+
+// Response: Send OTP response
+export interface ForgotPasswordOtpResponse {
+  status: string;
+  message: string;
+  count: null | number;
+  data: {
+    status: string;
+    message: string;
+    data: null;
+  };
+}
+
+// Request: Verify OTP for forgot password
+export interface VerifyForgotPasswordOtpRequest {
+  email: string;
+  otp: string;
+}
+
+// Response: Verify OTP response with reset token
+export interface VerifyForgotPasswordOtpResponse {
+  status: string;
+  message: string;
+  count: null | number;
+  data: {
+    status: string;
+    message: string;
+    data: {
+      resetToken: string;
+    };
+  };
+}
 
 
 
-
-
-
-
-
-//code dated 03.06.2026 withoput refresh token ....................................
+// these data types are without forget password ............
 
 // export interface LoginRequest {
 //   username: string;
 //   password: string;
 // }
 
+// // Updated to match backend response (accessToken instead of token, added refreshToken)
 // export interface LoginResponse {
-//   token: string;
+//   accessToken: string;   
+//   refreshToken: string;   
 //   type: string;
 //   userId: number;
 //   username: string;
 //   roles: string[];
 //   passwordTemporary: boolean;
 //   message?: string;
+// }
+
+// // New interface for refresh token request
+// export interface RefreshTokenRequest {
+//   refreshToken: string;
+// }
+
+// // New interface for refresh token response
+// export interface RefreshTokenResponse {
+//   accessToken: string;
+//   refreshToken: string;
+//   type: string;
+//   userId: number;
+//   username: string;
+//   roles: string[];
 // }
 
 // export interface ResetPasswordRequest {
@@ -168,6 +219,7 @@ export interface SessionInfo {
 // export interface ApiResponse<T> {
 //   status: string;
 //   message: string;
+//    count: null | number;
 //   data: T;
 // }
 
@@ -193,16 +245,21 @@ export interface SessionInfo {
 //   roles: string[];
 //   email?: string;
 //   passwordTemporary?: boolean;
-// }
-
-// export interface ValidateTokenResponse {
-//   valid: boolean;
-//   email?: string;
-// }
-
-// export interface ResetPasswordWithTokenRequest {
-//   token: string;
-//   newPassword: string;
+//   temporaryPassword?: string;
 // }
 
 // export type AuthStep = "login" | "otp" | "resetPassword" | "forgotPassword";
+
+// // New interface for logout request
+// export interface LogoutRequest {
+//   refreshToken: string;
+// }
+
+// // New interface for session info (optional)
+// export interface SessionInfo {
+//   isAuthenticated: boolean;
+//   accessTokenExpiry: Date | null;
+//   refreshTokenExpiry: Date | null;
+//   timeUntilExpiry: number | null; // in milliseconds
+//   user: User | null;
+// }
