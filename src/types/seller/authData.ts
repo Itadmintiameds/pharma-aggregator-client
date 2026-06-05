@@ -90,6 +90,7 @@ export interface User {
   roles: string[];
   email?: string;
   passwordTemporary?: boolean;
+  temporaryPassword?: string;
 }
 
 export type AuthStep = "login" | "otp" | "resetPassword" | "forgotPassword";

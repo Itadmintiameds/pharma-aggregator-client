@@ -305,31 +305,79 @@ private storeTokens(accessToken: string, refreshToken: string): void {
    */
 // Update the verifyOtp method in your authService.ts
 
+// async verifyOtp(credentials: EmailOtpVerifyRequest): Promise<LoginResponse> {
+//   try {
+//     const payload = {
+//       username: credentials.username || credentials.email,
+//       otp: credentials.otp
+//     };
+    
+//     const response = await api.post<VerifyOtpApiResponse>(`${this.authBaseUrl}/verify-otp`, payload);
+//     const responseData = response.data;
+    
+//     if (responseData.status === "SUCCESS" && responseData.data) {
+//       const loginData = responseData.data;
+      
+//       // ✅ Store access token
+//       if (loginData.accessToken) {
+//         localStorage.setItem('accessToken', loginData.accessToken);
+//         setCookie('token', loginData.accessToken, 1); // For middleware
+//       }
+      
+//       // ✅ Store refresh token
+//       if (loginData.refreshToken) {
+//         localStorage.setItem('refreshToken', loginData.refreshToken);
+//       }
+      
+//       // Store user data
+//       const userData = {
+//         userId: loginData.userId,
+//         username: loginData.username,
+//         roles: loginData.roles,
+//         passwordTemporary: loginData.passwordTemporary
+//       };
+//       localStorage.setItem('user', JSON.stringify(userData));
+//       localStorage.setItem('lastLogin', Date.now().toString());
+      
+//       // Set token expiry info (decode JWT to get expiry)
+//       try {
+//         const tokenPayload = JSON.parse(atob(loginData.accessToken.split('.')[1]));
+//         localStorage.setItem('tokenExpiresAt', (tokenPayload.exp * 1000).toString());
+//       } catch (e) {
+//         console.error('Failed to decode token', e);
+//       }
+      
+//       return loginData;
+//     } else {
+//       throw new Error(responseData.message || "OTP verification failed");
+//     }
+//   } catch (error) {
+//     console.error("OTP verification error:", error);
+//     throw error;
+//   }
+// }
+
 async verifyOtp(credentials: EmailOtpVerifyRequest): Promise<LoginResponse> {
+  // console.log("=========================================");
+  // console.log("🔐 [AUTH SERVICE] VERIFY OTP METHOD CALLED");
+  // console.log("=========================================");
+  
   try {
+    // Prepare payload for backend - use username if available, otherwise email
     const payload = {
       username: credentials.username || credentials.email,
       otp: credentials.otp
     };
     
+    // console.log("📤 Sending POST request to:", `${this.authBaseUrl}/verify-otp`);
     const response = await api.post<VerifyOtpApiResponse>(`${this.authBaseUrl}/verify-otp`, payload);
+    
     const responseData = response.data;
     
     if (responseData.status === "SUCCESS" && responseData.data) {
       const loginData = responseData.data;
       
-      // ✅ Store access token
-      if (loginData.accessToken) {
-        localStorage.setItem('accessToken', loginData.accessToken);
-        setCookie('token', loginData.accessToken, 1); // For middleware
-      }
-      
-      // ✅ Store refresh token
-      if (loginData.refreshToken) {
-        localStorage.setItem('refreshToken', loginData.refreshToken);
-      }
-      
-      // Store user data
+      // Store user data (always needed)
       const userData = {
         userId: loginData.userId,
         username: loginData.username,
@@ -339,20 +387,98 @@ async verifyOtp(credentials: EmailOtpVerifyRequest): Promise<LoginResponse> {
       localStorage.setItem('user', JSON.stringify(userData));
       localStorage.setItem('lastLogin', Date.now().toString());
       
-      // Set token expiry info (decode JWT to get expiry)
-      try {
-        const tokenPayload = JSON.parse(atob(loginData.accessToken.split('.')[1]));
-        localStorage.setItem('tokenExpiresAt', (tokenPayload.exp * 1000).toString());
-      } catch (e) {
-        console.error('Failed to decode token', e);
+      // Check if this is a first-time login (temporary password)
+      const isFirstTimeLogin = loginData.passwordTemporary === true;
+      
+      if (!isFirstTimeLogin) {
+        // ✅ Regular login - Store tokens
+        if (loginData.accessToken) {
+          // Store access token in localStorage
+          localStorage.setItem('accessToken', loginData.accessToken);
+          // Store token in cookie for middleware authentication
+          setCookie('token', loginData.accessToken, 1);
+          // console.log("✅ Access token stored in localStorage and cookie");
+        }
+        
+        // Store refresh token
+        if (loginData.refreshToken) {
+          localStorage.setItem('refreshToken', loginData.refreshToken);
+          // console.log("✅ Refresh token stored in localStorage");
+        }
+        
+        // Set token expiry info (decode JWT to get expiry)
+        if (loginData.accessToken) {
+          try {
+            const tokenPayload = JSON.parse(atob(loginData.accessToken.split('.')[1]));
+            const expiresAt = tokenPayload.exp * 1000; // Convert to milliseconds
+            localStorage.setItem('tokenExpiresAt', expiresAt.toString());
+            // console.log("✅ Token expiry set to:", new Date(expiresAt).toISOString());
+          } catch (e) {
+            console.error("❌ Failed to decode token", e);
+            // Fallback: set expiry to 24 hours from now
+            const expiresAt = Date.now() + (24 * 60 * 60 * 1000);
+            localStorage.setItem('tokenExpiresAt', expiresAt.toString());
+          }
+        }
+        
+        // Verify storage was successful
+        const storedToken = localStorage.getItem('accessToken');
+        const cookieToken = getCookie('token');
+        
+        if (!storedToken || !cookieToken) {
+          console.error("⚠️ WARNING: Token was not stored successfully in both locations!");
+        }
+        
+        // console.log("✅ Regular login - Tokens stored successfully");
+      } else {
+        // ✅ First-time login - Do NOT store tokens
+        // Clear any existing tokens just in case
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('tokenExpiresAt');
+        deleteCookie('token');
+        
+        // console.log("🆕 First-time login detected - No tokens stored. User must reset password.");
       }
       
+      // console.log("✅ OTP verification successful");
+      // console.log("=========================================");
       return loginData;
     } else {
-      throw new Error(responseData.message || "OTP verification failed");
+      const errorMsg = responseData.message || "OTP verification failed";
+      console.error("❌ OTP verification failed - invalid response");
+      console.error("Response status:", responseData.status);
+      console.error("Response message:", responseData.message);
+      console.error("=========================================");
+      throw new Error(errorMsg);
     }
-  } catch (error) {
-    console.error("OTP verification error:", error);
+  } catch (error: any) {
+    console.error("=========================================");
+    console.error("❌ [AUTH SERVICE] OTP VERIFICATION ERROR");
+    console.error("=========================================");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Error status:", error.response?.status);
+    console.error("Error status text:", error.response?.statusText);
+    console.error("Error response data:", error.response?.data);
+    
+    // Handle specific error status codes
+    if (error.response?.status === 410) {
+      console.error("⏰ OTP EXPIRED (410)");
+      throw new Error('OTP has expired. Please login again to receive a new OTP.');
+    }
+    if (error.response?.status === 429) {
+      console.error("🚫 TOO MANY ATTEMPTS (429)");
+      throw new Error('Too many failed attempts. Please try again later.');
+    }
+    if (error.response?.status === 401) {
+      console.error("🔒 UNAUTHORIZED (401) - Invalid OTP");
+    }
+    if (error.response?.status === 403) {
+      console.error("🔒 FORBIDDEN (403) - Account locked or inactive");
+    }
+    
+    console.error("=========================================");
     throw error;
   }
 }
