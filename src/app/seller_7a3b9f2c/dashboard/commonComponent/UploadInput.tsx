@@ -2,10 +2,11 @@ import { useState } from "react";
 
 type Props = {
   onFileSelect: (file: File | null) => void;
-  existingFile?: string; // ✅ NEW
+  existingFile?: string;
   label?: string;
   placeholder?: string;
   accept?: string;
+  hasError?: boolean;
 };
 
 export default function UploadInput({
@@ -14,13 +15,19 @@ export default function UploadInput({
   label = "Upload Product Brochure / User Manual",
   placeholder = "Upload the Product Brochure",
   accept = "application/pdf",
+  hasError = false,
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [removedExisting, setRemovedExisting] = useState(false);
+  const [error, setError] = useState("");
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
+
+    setError("");
 
     if (
       accept === "application/pdf" &&
@@ -30,13 +37,20 @@ export default function UploadInput({
       return;
     }
 
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      setError("File size should not exceed 5MB");
+      return;
+    }
+
     setFile(selectedFile);
+    setRemovedExisting(false);
     onFileSelect(selectedFile);
   };
 
   const removeFile = () => {
     setFile(null);
-    setRemovedExisting(true); // ✅ this is the key fix
+    setRemovedExisting(true);
+    setError("");
     onFileSelect(null);
   };
 
@@ -49,7 +63,7 @@ export default function UploadInput({
       )}
 
       <label className="cursor-pointer">
-        <div className="flex items-center w-full h-13 rounded-lg border border-pneutral-300 bg-white overflow-hidden">
+        <div className={`flex items-center w-full h-13 rounded-lg border bg-white overflow-hidden ${hasError ? "border-2 border-red-500" : "border-pneutral-300"}`}>
           <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
             <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
           </div>
@@ -82,6 +96,11 @@ export default function UploadInput({
           )}
         </div>
       </label>
+
+      {error && (
+        <p className="text-sm text-red-500 mt-1">{error}</p>
+      )}
+      
     </div>
   );
 }

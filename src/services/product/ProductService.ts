@@ -18,21 +18,6 @@ export const getDrugCategory = async () => {
   }
 };
 
-export const getTherapeuticSubcategory = async (therapeuticCategoryId: string) => {
-  try {
-    if (!therapeuticCategoryId) throw new Error("Category ID is required");
-    const response = await api.get(`therapeutic/therapeuticSubcategories/${therapeuticCategoryId}`);
-    return response.data?.data ?? response.data;
-  } catch (error: unknown) {
-    console.error('Error fetching Subcategory:', error);
-    if (error instanceof Error) {
-      throw new Error(`Error fetching Subcategory: ${error.message}`);
-    } else {
-      throw new Error('An unknown error occurred while fetching Subcategory.');
-    }
-  }
-};
-
 //OLD 
 export const getDosage = async () => {
   try {
@@ -362,18 +347,4 @@ export const drugProductDelete = async (productId: string) => {
 export const editDrugProduct = async (productId: string, payload: CreateDrugProductRequest) => {
   const response = await api.put(`products/update/${productId}`, payload);
   return response.data;
-};
-
-export const getTherapeuticCategory = async () => {
-  try {
-    const response = await api.get('therapeutic/therapeuticCategories');
-    return response.data.data;
-  } catch (error: unknown) {
-    console.error('Error fetching Drug Category:', error);
-    if (error instanceof Error) {
-      throw new Error(`Error fetching Drug Category: ${error.message}`);
-    } else {
-      throw new Error('An unknown error occurred while fetching Drug Category.');
-    }
-  }
 };

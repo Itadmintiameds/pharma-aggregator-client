@@ -1,6 +1,9 @@
 import Input from "@/src/app/commonComponents/Input";
 import { drugProductSchema } from "@/src/schema/product/DrugProductSchema";
-import { getAllMolecules } from "@/src/services/product/MoleculeService";
+import {
+  getAllMolecules,
+  getMoleculeByTherapeuticSubcategoryId,
+} from "@/src/services/product/MoleculeService";
 import {
   createDrugProduct,
   drugProductDelete,
@@ -9,7 +12,6 @@ import {
   getPackTypesByDosageId,
   getProductById,
   getStorageConditionsByCategoryId,
-  getTherapeuticSubcategory,
   updateProduct,
   uploadProductImages,
   uploadProductUserManual,
@@ -21,14 +23,20 @@ import CommonModal from "../commonComponent/CommonModal";
 import AdditionalDiscount from "./AdditionalDiscount";
 import UploadInput from "../commonComponent/UploadInput";
 import PopupModal from "../commonComponent/PopupModal";
+import AppliedOffersView from "./AppliedOffersView";
 import AddDiscNew from "./AdditionalDiscountNew";
 import AdditionalDiscountType from "./AdditionalDiscountType";
-import { getTherapeuticCategory } from "@/src/services/product/TherapeuticCategoryService";
+import {
+  getTherapeuticCategory,
+  getTherapeuticSubcategory,
+} from "@/src/services/product/TherapeuticCategoryService";
 import { getSupplementDosageForms } from "@/src/services/product/SupplementService";
 import { useRouter } from "next/navigation";
 import { validateBatchNumber } from "@/src/services/product/Pricing";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
+import MonthPicker from "@/src/app/commonComponents/MonthPicker";
+import ProductImageUpload from "../commonComponent/ProductImageUpload";
 
 interface SelectOption {
   value: string;
@@ -66,6 +74,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     molecules: {
       moleculeId: string;
       moleculeName: string;
+      moleculeStrengthFormat: string;
       drugSchedule: string;
       mechanismOfAction: string;
       primaryUse: string;
@@ -119,6 +128,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       {
         moleculeId: "",
         moleculeName: "",
+        moleculeStrengthFormat: "",
         drugSchedule: "",
         mechanismOfAction: "",
         primaryUse: "",
@@ -171,6 +181,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       {
         moleculeId: "",
         moleculeName: "",
+        moleculeStrengthFormat: "",
         drugSchedule: "",
         mechanismOfAction: "",
         primaryUse: "",
@@ -228,6 +239,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [images, setImages] = useState<File[]>([]);
   const [moleculeOptions, setMoleculeOptions] = useState<any[]>([]);
   const [loadingMolecules, setLoadingMolecules] = useState(false);
+  const [allMoleculeMap, setAllMoleculeMap] = useState<Record<string, any>>({});
   const [packTypeOptions, setPackTypeOptions] = useState([]);
   const [strengthFormats, setStrengthFormats] = useState<string[]>([]);
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
@@ -250,6 +262,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [productAttributeId, setProductAttributeId] = useState<string | null>(
     null,
   );
+  const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
+  const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] =
+    useState(false);
 
   useEffect(() => {
     if (categoryId) {
@@ -298,21 +313,35 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     )}`;
   };
 
-  const validateStrengthFormat = (value: string) => {
-    if (!value.trim()) return "Strength is required";
+  const getMaxExpiryMonth = () => {
+    if (!form.manufacturingDate) return "";
 
-    const normalizedValue = value.toLowerCase().trim();
+    const mfg = new Date(form.manufacturingDate);
 
-    const isValid = strengthFormats.some((format) =>
-      normalizedValue.endsWith(format.toLowerCase().trim()),
-    );
+    const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
 
-    if (!isValid) {
-      return `Invalid strength format. Allowed strengths: ${strengthFormats.join(", ")}`;
-    }
-
-    return "";
+    return `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(
+      2,
+      "0",
+    )}`;
   };
+
+  //Molecule Strent Format -  Maybe required in future
+  // const validateStrengthFormat = (value: string) => {
+  //   if (!value.trim()) return "Strength is required";
+
+  //   const normalizedValue = value.toLowerCase().trim();
+
+  //   const isValid = strengthFormats.some((format) =>
+  //     normalizedValue.endsWith(format.toLowerCase().trim()),
+  //   );
+
+  //   if (!isValid) {
+  //     return `Invalid strength format. Allowed strengths: ${strengthFormats.join(", ")}`;
+  //   }
+
+  //   return "";
+  // };
 
   const handleChange = (
     e:
@@ -403,56 +432,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           checkBatchNumber(value);
         }
 
-        if (name === "expiryDate") {
-          if (value) {
-            const [year, month] = value.split("-").map(Number);
-
-            // ✅ Normalize to month start
-            const date = new Date(year, month - 1, 1);
-
-            delete newErrors.expiryDate;
-
-            // ✅ Validate ONLY based on Manufacturing Date
-            if (updatedForm.manufacturingDate) {
-              const mfg = new Date(updatedForm.manufacturingDate);
-
-              const minDate = new Date(
-                mfg.getFullYear(),
-                mfg.getMonth() + 3,
-                1,
-              );
-
-              if (date < minDate) {
-                newErrors.expiryDate =
-                  "Expiry must be at least 3 months after Manufacturing Date";
-              }
-            }
-
-            // ✅ Set expiry date
-            updatedForm.expiryDate = date;
-
-            // ✅ Shelf life calculation (PURE month-based ✅)
-            if (updatedForm.manufacturingDate) {
-              const mfg = new Date(updatedForm.manufacturingDate);
-
-              const totalMonths =
-                (date.getFullYear() - mfg.getFullYear()) * 12 +
-                (date.getMonth() - mfg.getMonth());
-
-              if (totalMonths >= 0) {
-                updatedForm.shelfLifeMonths = totalMonths.toString();
-              } else {
-                updatedForm.shelfLifeMonths = "";
-                newErrors.expiryDate =
-                  "Expiry cannot be before Manufacturing Date";
-              }
-            }
-          } else {
-            updatedForm.expiryDate = null;
-            updatedForm.shelfLifeMonths = "";
-          }
-        }
-
         return newErrors;
       });
 
@@ -462,7 +441,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
   const checkBatchNumber = async (batchLotNumber: string) => {
     try {
-      const response = await validateBatchNumber(batchLotNumber);
+      const response = await validateBatchNumber(
+        batchLotNumber,
+        Number(form.categoryId),
+      );
 
       if (response.exists) {
         setErrors((prev) => ({
@@ -484,6 +466,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     setForm((prev) => ({
       ...prev,
       therapeuticCategory: selected ? selected.value : "",
+      therapeuticSubcategoryId: "",
       therapeuticSubcategory: "", // reset
     }));
   };
@@ -517,34 +500,67 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   }, [form.therapeuticCategory]);
 
   const handleSubcategoryChange = (selected: SelectOption | null) => {
+    const value = selected ? String(selected.value) : "";
+
     setForm((prev) => ({
       ...prev,
-      therapeuticSubcategory: selected ? selected.value : "",
+      therapeuticSubcategoryId: value,
+      therapeuticSubcategory: value,
     }));
   };
 
   useEffect(() => {
+    const loadAllMolecules = async () => {
+      try {
+        const data = await getAllMolecules();
+        const map = Object.fromEntries(
+          (Array.isArray(data) ? data : []).map((m: any) => [String(m.moleculeId), m]),
+        );
+        setAllMoleculeMap(map);
+      } catch (error) {
+        console.error("Error fetching all molecules:", error);
+      }
+    };
+
+    loadAllMolecules();
+  }, []);
+
+  useEffect(() => {
+    if (!form.therapeuticSubcategoryId) {
+      setMoleculeOptions([]);
+      return;
+    }
+
     const fetchMolecules = async () => {
       try {
         setLoadingMolecules(true);
 
-        const data = await getAllMolecules();
+        const molecules = await getMoleculeByTherapeuticSubcategoryId(
+          form.therapeuticSubcategoryId,
+        );
 
-        const formatted = data.map((m: any) => ({
-          label: m.moleculeName,
-          value: m, // 🔥 store full object
-        }));
+        const enrichedMolecules = (Array.isArray(molecules) ? molecules : []).map(
+          (m: any) => {
+            const fullMolecule = allMoleculeMap[String(m.moleculeId)] || m;
 
-        setMoleculeOptions(formatted);
+            return {
+              label: fullMolecule.moleculeName || m.moleculeName,
+              value: fullMolecule,
+            };
+          },
+        );
+
+        setMoleculeOptions(enrichedMolecules);
       } catch (error) {
         console.error("Error fetching molecules:", error);
+        setMoleculeOptions([]);
       } finally {
         setLoadingMolecules(false);
       }
     };
 
     fetchMolecules();
-  }, []);
+  }, [form.therapeuticSubcategoryId]);
 
   const handleMoleculeSelect = (index: number, selected: any) => {
     const m = selected?.value;
@@ -571,17 +587,22 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       return newErrors;
     });
 
+    const fullMolecule = (selected?.value && typeof selected.value === "object"
+      ? selected.value
+      : allMoleculeMap[String(m.moleculeId)] || m) as any;
+
     // ✅ Update form (your original logic)
     setForm((prev) => {
       const updated = [...prev.molecules];
 
       updated[index] = {
         ...updated[index],
-        moleculeId: m.moleculeId,
-        moleculeName: m.moleculeName,
-        drugSchedule: m.drugSchedule,
-        mechanismOfAction: m.mechanismOfAction,
-        primaryUse: m.primaryUse,
+        moleculeId: fullMolecule.moleculeId || "",
+        moleculeName: fullMolecule.moleculeName || "",
+        moleculeStrengthFormat: fullMolecule.moleculeStrengthFormat || "",
+        drugSchedule: fullMolecule.drugSchedule || "",
+        mechanismOfAction: fullMolecule.mechanismOfAction || "",
+        primaryUse: fullMolecule.primaryUse || "",
       };
 
       return {
@@ -599,6 +620,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         {
           moleculeId: "",
           moleculeName: "",
+          moleculeStrengthFormat: "",
           drugSchedule: "",
           mechanismOfAction: "",
           primaryUse: "",
@@ -619,19 +641,19 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     }));
 
     // ✅ Strength validation
-    const strengthError = validateStrengthFormat(value);
+    // const strengthError = validateStrengthFormat(value);
 
-    setErrors((prev) => {
-      const newErrors = { ...prev };
+    // setErrors((prev) => {
+    //   const newErrors = { ...prev };
 
-      if (strengthError) {
-        newErrors[`molecules.${index}.strength`] = strengthError;
-      } else {
-        delete newErrors[`molecules.${index}.strength`];
-      }
+    //   if (strengthError) {
+    //     newErrors[`molecules.${index}.strength`] = strengthError;
+    //   } else {
+    //     delete newErrors[`molecules.${index}.strength`];
+    //   }
 
-      return newErrors;
-    });
+    //   return newErrors;
+    // });
   };
 
   const getFinalDrugSchedule = (molecules: any[]) => {
@@ -678,7 +700,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       return;
     }
 
-    const batchValidation = await validateBatchNumber(form.batchLotNumber);
+    const batchValidation = await validateBatchNumber(
+      form.batchLotNumber,
+      Number(form.categoryId),
+    );
 
     if (batchValidation.exists) {
       setErrors((prev) => ({
@@ -701,24 +726,24 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       return;
     }
 
-    const strengthErrors: Record<string, string> = {};
+    // const strengthErrors: Record<string, string> = {};
 
-    form.molecules.forEach((molecule, index) => {
-      const error = validateStrengthFormat(molecule.strength);
+    // form.molecules.forEach((molecule, index) => {
+    //   const error = validateStrengthFormat(molecule.strength);
 
-      if (error) {
-        strengthErrors[`molecules.${index}.strength`] = error;
-      }
-    });
+    //   if (error) {
+    //     strengthErrors[`molecules.${index}.strength`] = error;
+    //   }
+    // });
 
-    if (Object.keys(strengthErrors).length > 0) {
-      setErrors((prev) => ({
-        ...prev,
-        ...strengthErrors,
-      }));
+    // if (Object.keys(strengthErrors).length > 0) {
+    //   setErrors((prev) => ({
+    //     ...prev,
+    //     ...strengthErrors,
+    //   }));
 
-      return;
-    }
+    //   return;
+    // }
 
     setErrors({});
     try {
@@ -773,7 +798,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         productAttributeDrugs: [
           {
             therapeuticCategoryId: form.therapeuticCategory,
-            therapeuticSubcategoryId: form.therapeuticSubcategory,
+            therapeuticSubcategoryId:
+              form.therapeuticSubcategoryId || form.therapeuticSubcategory,
 
             dosageForm:
               dosageOptions.find((d) => d.value === form.dosageId)?.label || "",
@@ -851,17 +877,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     router.push("/seller_7a3b9f2c/dashboard");
   };
 
-  // useEffect(() => {
-  //   if (mode === "edit" && productId) {
-  //     fetchProductByIdAndFillForm(productId);
-  //   }
-  // }, [mode, productId, dosageOptions, moleculeOptions]);
-
   useEffect(() => {
-    if (mode === "edit" && productId && moleculeOptions.length > 0) {
+    if (mode === "edit" && productId) {
       fetchProductByIdAndFillForm(productId);
     }
-  }, [mode, productId, moleculeOptions.length]);
+  }, [mode, productId]);
 
   const fetchProductByIdAndFillForm = async (id: string) => {
     try {
@@ -873,23 +893,64 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       const pricing =
         data.pricingDetails?.length > 0
           ? data.pricingDetails.reduce((latest: any, curr: any) =>
-              new Date(curr.createdDate) > new Date(latest.createdDate)
-                ? curr
-                : latest,
-            )
+            new Date(curr.createdDate) > new Date(latest.createdDate)
+              ? curr
+              : latest,
+          )
           : {};
       const packaging =
         data.packagingDetails?.length > 0
           ? data.packagingDetails.reduce((latest: any, curr: any) =>
-              new Date(curr.createdDate) > new Date(latest.createdDate)
-                ? curr
-                : latest,
-            )
+            new Date(curr.createdDate) > new Date(latest.createdDate)
+              ? curr
+              : latest,
+          )
           : {};
       const attributeDrug = data.productAttributeDrugs?.[0] || {};
       setProductAttributeId(attributeDrug.productAttributeId || null);
 
       const dosageForm = attributeDrug.dosageForm?.trim().toLowerCase() || "";
+      const therapeuticSubcategoryId = String(
+        attributeDrug.therapeuticSubcategoryId || "",
+      );
+
+      let fetchedMolecules: any[] = [];
+      let fullMoleculeMap = allMoleculeMap;
+
+      if (!Object.keys(fullMoleculeMap).length) {
+        try {
+          const allMolecules = await getAllMolecules();
+          fullMoleculeMap = Object.fromEntries(
+            (Array.isArray(allMolecules) ? allMolecules : []).map((m: any) => [
+              String(m.moleculeId),
+              m,
+            ]),
+          );
+          setAllMoleculeMap(fullMoleculeMap);
+        } catch (error) {
+          console.error("Error fetching all molecules for edit prefill:", error);
+        }
+      }
+
+      if (therapeuticSubcategoryId) {
+        const response = await getMoleculeByTherapeuticSubcategoryId(
+          therapeuticSubcategoryId,
+        );
+        fetchedMolecules = Array.isArray(response)
+          ? response
+          : response?.data || response?.result || [];
+
+        setMoleculeOptions(
+          fetchedMolecules.map((m: any) => {
+            const fullMolecule = fullMoleculeMap[String(m.moleculeId)] || m;
+
+            return {
+              label: fullMolecule.moleculeName || m.moleculeName,
+              value: fullMolecule,
+            };
+          }),
+        );
+      }
 
       const selectedDosage = fetchedDosageOptions.find(
         (option: any) => option.label?.trim().toLowerCase() === dosageForm,
@@ -897,29 +958,36 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       const molecules =
         attributeDrug.molecules?.length > 0
           ? attributeDrug.molecules.map((m: any) => {
-              const full = moleculeOptions.find(
-                (opt) => opt.value.moleculeId === m.moleculeId,
+            const full =
+              fullMoleculeMap[String(m.moleculeId)] ||
+              fetchedMolecules.find(
+                (opt: any) => String(opt.moleculeId) === String(m.moleculeId),
+              ) ||
+              moleculeOptions.find(
+                (opt) => String(opt.value.moleculeId) === String(m.moleculeId),
               )?.value;
 
-              return {
-                moleculeId: m.moleculeId ?? "",
-                moleculeName: full?.moleculeName || "",
-                drugSchedule: full?.drugSchedule || "",
-                mechanismOfAction: full?.mechanismOfAction || "",
-                primaryUse: full?.primaryUse || "",
-                strength: m.strength ?? "",
-              };
-            })
+            return {
+              moleculeId: m.moleculeId ?? "",
+              moleculeName: full?.moleculeName || "",
+              moleculeStrengthFormat: full?.moleculeStrengthFormat || "",
+              drugSchedule: full?.drugSchedule || "",
+              mechanismOfAction: full?.mechanismOfAction || "",
+              primaryUse: full?.primaryUse || "",
+              strength: m.strength ?? "",
+            };
+          })
           : [
-              {
-                moleculeId: "",
-                moleculeName: "",
-                drugSchedule: "",
-                mechanismOfAction: "",
-                primaryUse: "",
-                strength: "",
-              },
-            ];
+            {
+              moleculeId: "",
+              moleculeName: "",
+              moleculeStrengthFormat: "",
+              drugSchedule: "",
+              mechanismOfAction: "",
+              primaryUse: "",
+              strength: "",
+            },
+          ];
 
       setExistingImages(
         data.productImages?.map((img: any) => img.productImage) || [],
@@ -938,6 +1006,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         warningsPrecautions: data.warningsPrecautions || "",
         manufacturerName: data.manufacturerName || "",
         therapeuticCategory: String(attributeDrug.therapeuticCategoryId || ""),
+        therapeuticSubcategoryId: String(
+          attributeDrug.therapeuticSubcategoryId || "",
+        ),
         therapeuticSubcategory: String(
           attributeDrug.therapeuticSubcategoryId || "",
         ),
@@ -1058,7 +1129,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         productAttributeDrugs: [
           {
             therapeuticCategoryId: form.therapeuticCategory,
-            therapeuticSubcategoryId: form.therapeuticSubcategory,
+            therapeuticSubcategoryId:
+              form.therapeuticSubcategoryId || form.therapeuticSubcategory,
 
             dosageForm:
               dosageOptions.find(
@@ -1074,26 +1146,17 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             })),
           },
         ],
+        retainedImageUrls: existingImages,
 
-        productImages: images.map((img) => ({
-          productImage: img.name,
-        })),
+        // productImages: images.map((img) => ({
+        //   productImage: img.name,
+        // })),
       };
 
       await updateProduct(form.productId, payload);
 
       if (productAttributeId && manualFile) {
         await uploadProductUserManual(productAttributeId, manualFile);
-      }
-
-      // ✅ Then images
-      if (images.length > 0) {
-        await uploadProductImages(form.productId, images);
-      }
-
-      // ✅ Then images upload
-      if (images.length > 0) {
-        await uploadProductImages(form.productId, images);
       }
 
       if (images.length > 0) {
@@ -1203,7 +1266,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     },
   });
 
-
   const fetchDosage = async (
     categoryId: string | number,
   ): Promise<{ value: string; label: string }[]> => {
@@ -1246,6 +1308,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         {
           moleculeId: "",
           moleculeName: "",
+          moleculeStrengthFormat: "",
           drugSchedule: "",
           strength: "",
           mechanismOfAction: "",
@@ -1341,6 +1404,103 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     label: item.conditionName,
   }));
 
+  const handleMonthSelect = (
+    field: "manufacturingDate" | "expiryDate",
+    month: number,
+    year: number,
+  ) => {
+    const selectedDate = new Date(year, month, 1);
+
+    if (field === "manufacturingDate") {
+      const today = new Date();
+
+      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      if (selectedDate > currentMonth) {
+        setErrors((prev) => ({
+          ...prev,
+          manufacturingDate: "Manufacturing date cannot be in the future month",
+        }));
+        return;
+      }
+
+      setErrors((prev) => ({
+        ...prev,
+        manufacturingDate: "",
+        expiryDate: "Expiry must be within 5 years from Manufacturing Date",
+      }));
+
+      setForm((prev) => ({
+        ...prev,
+        manufacturingDate: selectedDate,
+        expiryDate: null,
+        shelfLifeMonths: "",
+      }));
+
+      setShowManufacturingMonthPicker(false);
+      return;
+    }
+
+    if (field === "expiryDate") {
+      setForm((prev) => {
+        const updatedForm = {
+          ...prev,
+          expiryDate: selectedDate,
+        };
+
+        let expiryError = "";
+
+        if (updatedForm.manufacturingDate) {
+          const mfg = new Date(updatedForm.manufacturingDate);
+          const today = new Date();
+
+          // minimum = current month + 3 months
+          const minDate = new Date(
+            today.getFullYear(),
+            today.getMonth() + 3,
+            1,
+          );
+
+          // maximum = manufacturing + 5 years
+          const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
+
+          // shelf life calculation
+          const totalMonths =
+            (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
+            (selectedDate.getMonth() - mfg.getMonth()) +
+            1;
+
+          const monthsUntilExpiry =
+            (selectedDate.getFullYear() - today.getFullYear()) * 12 +
+            (selectedDate.getMonth() - today.getMonth()) +
+            1;
+
+          updatedForm.shelfLifeMonths =
+            totalMonths >= 0 ? totalMonths.toString() : "";
+
+          if (monthsUntilExpiry > 0 && monthsUntilExpiry <= 3) {
+            expiryError =
+              monthsUntilExpiry === 1
+                ? "This product expires within 1 month, but it can still be added."
+                : `This product expires within ${monthsUntilExpiry} months, but it can still be added.`;
+          } else if (selectedDate > maxDate) {
+            expiryError =
+              "Expiry cannot be more than 5 years from Manufacturing Date";
+          }
+        }
+
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          expiryDate: expiryError,
+        }));
+
+        return updatedForm;
+      });
+
+      setShowExpiryMonthPicker(false);
+    }
+  };
+
   return (
     <>
       <PopupModal
@@ -1373,24 +1533,23 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]"
         >
-          <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
-            <AdditionalDiscountType
-              onClose={() => setShowAdditionalDiscount(false)}
-              categoryId={categoryId}
-              initialData={form.additionalDiscount}
-              baseDiscountPercentage={Number(form.discountPercentage) || 0}
-              baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
-              onSaveAdditionalDiscount={(data) =>
-                setForm((prev) => ({
-                  ...prev,
-                  additionalDiscount: data,
-                }))
-              }
-            />
-          </div>
+          <AdditionalDiscountType
+            onClose={() => setShowAdditionalDiscount(false)}
+            categoryId={categoryId}
+            initialData={form.additionalDiscount}
+            baseDiscountPercentage={Number(form.discountPercentage) || 0}
+            baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
+            onSaveAdditionalDiscount={(data) =>
+              setForm((prev) => ({
+                ...prev,
+                additionalDiscount: data,
+              }))
+            }
+          />
         </CommonModal>
       )}
-      <div className="w-full ">
+      <form className="w-full" autoComplete="off">
+        {/* <form className="w-full"> */}
         <div className="relative border border-neutral-200 rounded-xl p-6  bg-white">
           <div className="text-h4 font-semibold font-heading">
             Product Details
@@ -1399,7 +1558,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Therapeutic Category
                 <span className="text-warning-500 ml-1">*</span>
@@ -1420,7 +1579,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               />
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Therapeutic Subcategory
                 <span className="text-warning-500 ml-1">*</span>
@@ -1454,7 +1613,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col ">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Dosage Form (Tablet, Syrup)
                 <span className="text-warning-500 ml-1">*</span>
@@ -1481,9 +1640,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             {form.molecules.map((molecule, index) => (
               <div
                 key={index}
-                className="grid grid-cols-[1fr_0.87fr_auto] gap-6 col-span-2"
+                className="grid grid-cols-[1fr_0.87fr_52px] gap-6 col-span-2 items-start"
               >
-                <div className="flex flex-col gap-1 w-full">
+                {/* Molecule */}
+                <div className="w-full min-w-0">
                   <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                     Molecule
                     <span className="text-warning-500 ml-1">*</span>
@@ -1495,7 +1655,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                       label: option.label,
                     }))}
                     value={molecule.moleculeId || ""}
-                    onChange={(value, label) => {
+                    onChange={(value) => {
                       const selectedOption = moleculeOptions.find(
                         (o) => String(o.value.moleculeId) === value,
                       );
@@ -1510,11 +1670,16 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   />
                 </div>
 
-                <div className="w-full">
+                {/* Strength */}
+                <div className="w-full min-w-0">
                   <Input
                     label="Molecule Strength"
                     name="strength"
-                    placeholder={strengthFormats.join(", ") || "Enter strength"}
+                    placeholder={
+                      molecule.moleculeStrengthFormat ||
+                      strengthFormats.join(", ") ||
+                      "Enter strength"
+                    }
                     value={molecule.strength || ""}
                     onChange={(e) =>
                       handleStrengthChange(index, e.target.value)
@@ -1524,14 +1689,15 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   />
 
                   {errors[`molecules.${index}.strength`] && (
-                    <p className="text-red-500 text-sm">
+                    <p className="text-red-500 text-sm mt-1">
                       {errors[`molecules.${index}.strength`]}
                     </p>
                   )}
                 </div>
 
-                {!isEditMode && (
-                  <div className="flex items-end">
+                {/* Remove button / spacer */}
+                <div className="flex items-end h-full">
+                  {!isEditMode ? (
                     <button
                       onClick={() => removeMolecule(index)}
                       className="border-2 border-[#FF3B3B] w-13 h-12 rounded-lg flex items-center justify-center"
@@ -1542,21 +1708,25 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                         className="w-5 h-5 object-contain"
                       />
                     </button>
-                  </div>
-                )}
+                  ) : (
+                    <div className="w-13 h-12" />
+                  )}
+                </div>
               </div>
             ))}
+
             {!isEditMode && (
               <button
                 onClick={addMolecule}
                 className="col-span-2 w-40 h-12 border-2 border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5"
               >
+                {" "}
                 <img
                   src="/icons/PlusIcon.svg"
                   alt="drug"
                   className="w-5 h-5 rounded-md object-cover"
-                />
-                Add Molecule
+                />{" "}
+                Add Molecule{" "}
               </button>
             )}
 
@@ -1598,7 +1768,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               existingFile={existingManualFile || undefined}
             />
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col ">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Storage Condition
                 <span className="text-warning-500 ml-1">*</span>
@@ -1648,13 +1818,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 placeholder="Enter contraindications, side effects, storage conditions"
                 value={form.warningsPrecautions}
                 onChange={handleChange}
-                // disabled={mode === "delete"}
+                maxLength={1000}
                 rows={4}
-                className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${
-                  errors.warningsPrecautions
+                className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${errors.warningsPrecautions
                     ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
                     : "border-pneutral-300 focus:border-2 focus:border-[#C4AAFD]"
-                } focus:outline-none focus:ring-0`}
+                  } focus:outline-none focus:ring-0`}
               />
               {errors.warningsPrecautions && (
                 <p className="text-red-500 text-sm mt-1">
@@ -1674,13 +1843,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 placeholder="Brief product overview, indications, pack details"
                 value={form.productDescription}
                 onChange={handleChange}
-                // disabled={mode === "delete"}
+                maxLength={1000}
                 rows={4}
-                className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${
-                  errors.productDescription
+                className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${errors.productDescription
                     ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
                     : "border-pneutral-300 focus:border-2 focus:border-[#C4AAFD]"
-                } focus:outline-none focus:ring-0`}
+                  } focus:outline-none focus:ring-0`}
               />
               {errors.productDescription && (
                 <p className="text-red-500 text-sm mt-1">
@@ -1700,7 +1868,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col ">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 Pack Type
                 <span className="text-warning-500 ml-1">*</span>
@@ -1720,7 +1888,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   }))
                 }
                 placeholder="Select Pack Type"
-                isDisabled={isEditMode || !form.dosageId}
+                isDisabled={isEditMode}
+                // isDisabled={isEditMode || !form.dosageId}
                 error={errors.packId}
               />
             </div>
@@ -1733,7 +1902,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.unitPerPack}
               onChange={handleChange}
-              // disabled={mode === "delete"}
+              readOnly={isEditMode}
               error={errors.unitPerPack}
               required
               min={1}
@@ -1748,7 +1917,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.numberOfPacks}
               onChange={handleChange}
-              // disabled={mode === "delete"}
+              readOnly={isEditMode}
               error={errors.numberOfPacks}
               required
               min={1}
@@ -1763,8 +1932,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.packSize}
               onChange={handleChange}
-              // disabled={mode === "delete"}
-              readOnly
+              readOnly={isEditMode}
               required
             />
 
@@ -1821,88 +1989,120 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
-            <Input
-              label="Manufacturing Date"
-              type="month"
-              name="manufacturingDate"
-              id="manufacturingDate"
-              readOnly={isEditMode}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (!value) return;
-
-                const [year, month] = value.split("-").map(Number);
-                const date = new Date(year, month - 1, 1);
-
-                const today = new Date();
-                const currentMonth = new Date(
-                  today.getFullYear(),
-                  today.getMonth(),
-                  1,
-                );
-
-                if (date > currentMonth) {
-                  setErrors({
-                    ...errors,
-                    manufacturingDate:
-                      "Manufacturing date cannot be in the future month",
-                  });
-                  return;
+            <div className="relative">
+              <Input
+                label="Manufacturing Month"
+                type="text"
+                name="manufacturingDate"
+                id="manufacturingDate"
+                required
+                readOnly={isEditMode}
+                value={
+                  form.manufacturingDate instanceof Date &&
+                    !isNaN(form.manufacturingDate.getTime())
+                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(
+                      2,
+                      "0",
+                    )}/${form.manufacturingDate.getFullYear()}`
+                    : ""
                 }
+                placeholder="MM/YYYY"
+                onChange={() => { }} // prevents React warning
+                onClick={() => {
+                  if (!isEditMode) {
+                    setShowManufacturingMonthPicker(true);
+                  }
+                }}
+                onKeyDown={(e) => e.preventDefault()} // block typing
+                onPaste={(e) => e.preventDefault()}
+                error={errors.manufacturingDate}
+              />
 
-                // ✅ Clear errors
-                setErrors((prev) => ({
-                  ...prev,
-                  manufacturingDate: "",
-                  expiryDate: "", // optional: clear expiry error too
-                }));
+              {showManufacturingMonthPicker && !isEditMode && (
+                <MonthPicker
+                  selectedMonth={
+                    form.manufacturingDate
+                      ? form.manufacturingDate.getMonth()
+                      : new Date().getMonth()
+                  }
+                  selectedYear={
+                    form.manufacturingDate
+                      ? form.manufacturingDate.getFullYear()
+                      : new Date().getFullYear()
+                  }
+                  maxDate={new Date()}
+                  onSelect={(month, year) =>
+                    handleMonthSelect("manufacturingDate", month, year)
+                  }
+                  onClose={() => setShowManufacturingMonthPicker(false)}
+                />
+              )}
+            </div>
 
-                setForm({
-                  ...form,
-                  manufacturingDate: date,
-                  expiryDate: null, // ✅ cleared
-                  shelfLifeMonths: "", // ✅ cleared
-                });
-              }}
-              value={
-                form.manufacturingDate instanceof Date &&
-                !isNaN(form.manufacturingDate.getTime())
-                  ? `${form.manufacturingDate.getFullYear()}-${String(
-                      form.manufacturingDate.getMonth() + 1,
-                    ).padStart(2, "0")}`
-                  : ""
-              }
-              error={errors.manufacturingDate}
-              required
-            />
-
-            <Input
-              label="Expiry Date"
-              type="month"
-              name="expiryDate"
-              value={
-                form.expiryDate instanceof Date &&
-                !isNaN(form.expiryDate.getTime())
-                  ? `${form.expiryDate.getFullYear()}-${String(
-                      form.expiryDate.getMonth() + 1,
-                    ).padStart(2, "0")}`
-                  : ""
-              }
-              readOnly={isEditMode}
-              onChange={handleChange}
-              onFocus={() => {
-                if (form.manufacturingDate) {
-                  setErrors((prev) => ({
-                    ...prev,
-                    expiryDate:
-                      "Expiry must be at least 3 months after Manufacturing Date",
-                  }));
+            <div className="relative">
+              <Input
+                label="Expiry Month"
+                name="expiryDate"
+                type="text"
+                required
+                readOnly={isEditMode}
+                value={
+                  form.expiryDate instanceof Date &&
+                    !isNaN(form.expiryDate.getTime())
+                    ? `${String(form.expiryDate.getMonth() + 1).padStart(
+                      2,
+                      "0",
+                    )}/${form.expiryDate.getFullYear()}`
+                    : ""
                 }
-              }}
-              min={getMinExpiryMonth()} // ✅ update this too
-              error={errors.expiryDate}
-              required
-            />
+                placeholder="MM/YYYY"
+                onChange={() => { }} // prevents React warning
+                onClick={() => {
+                  if (!isEditMode) {
+                    setShowExpiryMonthPicker(true);
+                  }
+                }}
+                onFocus={() => {
+                  if (!isEditMode) {
+                    setShowExpiryMonthPicker(true);
+                  }
+                }}
+                onKeyDown={(e) => e.preventDefault()}
+                onPaste={(e) => e.preventDefault()}
+                error={errors.expiryDate}
+              />
+
+              {showExpiryMonthPicker && !isEditMode && (
+                <MonthPicker
+                  selectedMonth={
+                    form.expiryDate
+                      ? form.expiryDate.getMonth()
+                      : new Date().getMonth()
+                  }
+                  selectedYear={
+                    form.expiryDate
+                      ? form.expiryDate.getFullYear()
+                      : new Date().getFullYear()
+                  }
+                  minDate={
+                    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+                  }
+                  maxDate={
+                    form.manufacturingDate
+                      ? new Date(
+                        form.manufacturingDate.getFullYear() + 5,
+                        form.manufacturingDate.getMonth(),
+                        1,
+                      )
+                      : undefined
+                  }
+                  onSelect={(month, year) =>
+                    handleMonthSelect("expiryDate", month, year)
+                  }
+                  onClose={() => setShowExpiryMonthPicker(false)}
+                />
+              )}
+            </div>
 
             <Input
               type="number"
@@ -1929,7 +2129,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   ? form.dateOfStockEntry.toISOString().split("T")[0]
                   : ""
               }
-              disabled
+              readOnly
               error={errors.dateOfStockEntry}
               required
             />
@@ -2001,13 +2201,15 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   max={100}
                   step={1}
                   error={errors.discountPercentage}
-                  required
                 />
               </div>
 
               <div className="mt-6">
                 <button
-                  onClick={() => setShowAdditionalDiscount(true)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowAdditionalDiscount(true);
+                  }}
                   className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
                 >
                   <img
@@ -2019,13 +2221,28 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 </button>
               </div>
             </div>
+            <AppliedOffersView
+              additionalDiscounts={form.additionalDiscount}
+              specialSchemes={[]}
+              productName={form.productName}
+              onEditDiscount={() => setShowAdditionalDiscount(true)}
+              onDeleteDiscount={(index) => {
+                setForm(prev => ({
+                  ...prev,
+                  additionalDiscount: prev.additionalDiscount.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } : d)
+                }));
+              }}
+              hideDeleteScheme={true}
+              isEditMode={isEditMode}
+            />
+
             <div className="text-h6 font-normal col-span-2 mt-3 font-heading">
               TAX & BILLING
             </div>
 
             <div className="border-b border-neutral-200 col-span-2"></div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col ">
               <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
                 GST %<span className="text-warning-500 ml-1">*</span>
               </label>
@@ -2065,151 +2282,33 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
         </div>
 
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
-          <div className="text-pneutral-800 text-h6 font-medium font-heading">
-            Product Photos
-            <span className="text-warning-500 text-h6 font-medium ml-2">*</span>
-          </div>
-
-          <div
-            className="w-full h-40 bg-pneutral-50 flex items-center justify-center rounded-lg cursor-pointer"
-            onClick={() => {
-              if (!isReadOnly || mode === "edit") {
-                document.getElementById("fileInput")?.click();
-              }
-            }}
-          >
-            <input
-              id="fileInput"
-              type="file"
-              disabled={isReadOnly && mode !== "edit"}
-              multiple
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) {
-                  const newFiles = Array.from(e.target.files);
-
-                  const totalFiles =
-                    images.length + existingImages.length + newFiles.length;
-
-                  if (totalFiles > 5) {
-                    setErrors((prev) => ({
-                      ...prev,
-                      images: "Maximum 5 images are allowed",
-                    }));
-
-                    const remainingSlots =
-                      5 - (images.length + existingImages.length);
-
-                    const allowedFiles = newFiles.slice(0, remainingSlots);
-
-                    if (allowedFiles.length > 0) {
-                      setImages((prev) => [...prev, ...allowedFiles]);
-                    }
-
-                    return;
-                  }
-
-                  setErrors((prev) => ({
-                    ...prev,
-                    images: "",
-                  }));
-
-                  setImages((prev) => [...prev, ...newFiles]);
-                }
-              }}
-            />
-
-            <div className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg">
-              <div className="w-285 h-34.5 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center ">
-                <div className="flex flex-col items-center justify-center">
-                  <img
-                    src="/icons/FolderIcon.svg"
-                    alt="drug"
-                    className="w-10 h-10 rounded-md object-cover"
-                  />
-
-                  <div className="text-label-l3 font-normal text-pneutral-900 mt-4">
-                    Choose a file or drag & drop it here
-                  </div>
-                  <div className="text-label-l2 font-normal text-pneutral-400 mt-1">
-                    or click to browse JPEG, PNG, and Pdf{" "}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {errors.images && (
-            <div className="text-red-500 text-sm mt-2">{errors.images}</div>
-          )}
-
-          <div className="flex gap-4">
-            {existingImages.length > 0 && (
-              <div className="flex flex-wrap gap-3 mt-4">
-                {existingImages.map((img, index) => (
-                  <div key={index} className="relative w-24 h-24 flex-shrink-0">
-                    <img
-                      src={img}
-                      alt="product"
-                      className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
-                    />
-
-                    {!isReadOnly && (
-                      <button
-                        onClick={() =>
-                          setExistingImages(
-                            existingImages.filter((_, i) => i !== index),
-                          )
-                        }
-                        className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {images.length > 0 && (
-              <div className="flex flex-wrap gap-3 mt-4">
-                {images.map((file, index) => (
-                  <div key={index} className="relative w-24 h-24 flex-shrink-0">
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt="preview"
-                      className="w-full h-full object-cover rounded-md border border-[#D5D5D4]"
-                    />
-
-                    {(!isReadOnly || mode === "edit") && (
-                      <button
-                        onClick={() =>
-                          setImages(images.filter((_, i) => i !== index))
-                        }
-                        className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <ProductImageUpload
+          title="Product Photos"
+          required
+          images={images}
+          setImages={setImages}
+          existingImages={existingImages}
+          setExistingImages={setExistingImages}
+          error={errors.images}
+          setErrors={setErrors}
+          isReadOnly={isReadOnly}
+          mode={mode}
+        />
 
         <div className="flex justify-between mt-6 col-span-2">
           <div className="space-x-6 flex">
             <button
+              type="button"
               onClick={() => router.back()}
               className="w-35.25 h-12 border-2 border-warning-500 rounded-lg text-label-l4 font-medium text-warning-500 cursor-pointer"
             >
               Cancel
             </button>
 
-            <button className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5">
+            <button
+              type="button"
+              className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5"
+            >
               <img
                 src="/icons/SaveDraftIcon.svg"
                 alt="drug"
@@ -2239,7 +2338,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
         </div>
         {/* </div> */}
-      </div>
+      </form>
     </>
   );
 };

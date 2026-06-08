@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FileText, ExternalLink } from "lucide-react";
+import { FileText, ExternalLink, Gift, BadgePercent, ShoppingBag, Tag } from "lucide-react";
 import { PiSealCheckLight } from "react-icons/pi";
 import Image from "next/image";
 import {
@@ -10,7 +10,7 @@ import {
   getAgeGroups,
   getProductForms,
   getCountries,
-  getStorageConditions,
+  getStorageConditionsByCategory,
   getNetQuantityUnits,
 } from "@/src/services/product/FoodInfantService";
 
@@ -71,6 +71,8 @@ export interface FoodInfantViewProps {
   brochureUrl?: string | null;
   placeholderImage?: string;
   manufacturerName?: string | null;
+  additionalDiscounts?: any[];
+  specialSchemes?: any[];
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -80,11 +82,21 @@ export interface FoodInfantViewProps {
 const isValidUrl = (url?: string | null) => {
   if (!url) return false;
   const t = url.trim().toUpperCase();
+  
+  // Reject blob URLs
+  if (url.startsWith('blob:')) return false;
+  
+  // Check if it's a valid HTTP URL
+  if (t.startsWith('HTTP://') || t.startsWith('HTTPS://')) {
+    return true;
+  }
   return !["", "PENDING", "NOT_UPLOADED"].includes(t);
 };
 
 const isImageUrl = (url: string) =>
   /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
+
+const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url);
 
 /* ─────────────────────────────────────────────────────────
    MAIN COMPONENT
@@ -99,6 +111,8 @@ const FoodInfantView = ({
   brochureUrl,
   manufacturerName,
   placeholderImage = "/assets/images/SellerMed.jpg",
+  additionalDiscounts = [],
+  specialSchemes = [],
 }: FoodInfantViewProps) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCertModal, setShowCertModal] = useState(false);
@@ -175,7 +189,7 @@ const FoodInfantView = ({
           getAgeGroups(),
           getProductForms(),
           getCountries(),
-          getStorageConditions(),
+          getStorageConditionsByCategory(3),
         ]);
 
         const findName = (data: any[], id: number | undefined, idKey: string, nameKey: string): string | null => {
@@ -199,7 +213,12 @@ const FoodInfantView = ({
           productFormName: findName(productForms, foodAttr.productFormId, "productFormId", "productForm"),
           countryName: findName(countries, foodAttr.countryId, "countryId", "countryName"),
           storageConditionName: findName(storageConditions, foodAttr.storageConditionId, "storageConditionId", "conditionName"),
+          
         });
+          console.log("✅ ResolvedAttr updated:", {
+        nutritionalInformation: foodAttr.nutritionalInformation,
+        nutritionalInformationImageUrl: foodAttr.nutritionalInformationImageUrl,
+      });
       } catch (err) {
         console.error("Failed to resolve Food/Infant master data:", err);
         setResolvedAttr(foodAttr);
@@ -210,6 +229,7 @@ const FoodInfantView = ({
 
     resolveMasterData();
   }, [foodAttr]);
+  
 
   if (loading) {
     return (
@@ -226,17 +246,17 @@ const FoodInfantView = ({
     (c) => isValidUrl(c.certificateUrl),
   );
   const storageCondition = attr.storageConditionName || null;
-  const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+  const imagesToShow = displayImages;
   const resolvedBrochureUrl = isValidUrl(brochureUrl)
     ? brochureUrl
     : isValidUrl(attr.productUserManual)
     ? attr.productUserManual
     : null;
 
-  // ─────────────────────────────────────────────────────────
-  // Format Age Group Display - Comma separated list
-  // Supports both manual entry (ageGroupMastersDto) and Excel upload (ageGroupIds)
-  // ─────────────────────────────────────────────────────────
+  // Check if brochure exists
+  const hasBrochure = resolvedBrochureUrl !== null;
+
+  // Format Age Group Display
   let ageGroupDisplay = "—";
   if (attr.ageGroupMastersDto && attr.ageGroupMastersDto.length > 0) {
     ageGroupDisplay = attr.ageGroupMastersDto.map(ag => ag.ageGroup).join(", ");
@@ -249,10 +269,7 @@ const FoodInfantView = ({
     ageGroupDisplay = ageGroupLabels.get(attr.ageGroupId) || String(attr.ageGroupId);
   }
 
-  // ─────────────────────────────────────────────────────────
-  // Format Net Quantity - Value + Unit
-  // Priority: unitName from API (manual entry) → lookup from unitLabels (Excel upload)
-  // ─────────────────────────────────────────────────────────
+  // Format Net Quantity
   let netQuantityDisplay = "—";
   if (attr.netQuantity) {
     let unit = attr.unitName || "";
@@ -262,17 +279,13 @@ const FoodInfantView = ({
     netQuantityDisplay = unit ? `${attr.netQuantity} ${unit}` : String(attr.netQuantity);
   }
 
-  // ─────────────────────────────────────────────────────────
-  // Format Serving Size - Value + Unit
-  // ─────────────────────────────────────────────────────────
-  let servingSizeDisplay = "—";
-  if (attr.servingSize) {
-    const unit = attr.servingSizeUnitName || "";
-    servingSizeDisplay = unit ? `${attr.servingSize} ${unit}` : String(attr.servingSize);
-  }
+  console.log('Certificate URL:', activeCertDoc?.certificateUrl);
+console.log('Is Image:', isImageUrl(activeCertDoc?.certificateUrl || ''));
+
+
 
   return (
-    <div className="w-full flex flex-col gap-4">
+    <div className="bg-base-white min-h-screen font-heading w-full flex flex-col gap-4">
       {/* Section header */}
       <div className="pt-2 pb-2 border-b border-pneutral-200">
         <h2 className="text-h4 font-heading font-medium text-pneutral-900 m-0">
@@ -280,42 +293,38 @@ const FoodInfantView = ({
         </h2>
       </div>
 
-      {/* Product Images */}
-      <div className="w-full flex flex-col gap-4">
-        <p className="text-label-l4 font-heading font-semibold text-pneutral-900 m-0">
+      {/* Product Images - 5 images grid like Supplement */}
+      <div className="flex flex-col gap-4 p-3 bg-[#F8F5FF] rounded-xl border border-pneutral-200 w-full">
+        <p className="font-heading font-semibold text-[18px] leading-[24px] text-[#1E1E1D]">
           Product Images
         </p>
-        <div className="p-3 bg-secondary-50 rounded-lg outline outline-1 outline-primary-600 -outline-offset-1 flex flex-col gap-4">
-          <div className="grid grid-cols-4 gap-4">
-            {imagesToShow.slice(0, 4).map((img, idx) => (
-              <div
-                key={idx}
-                onClick={() => setSelectedImageIndex(idx)}
-                className={`relative h-64 shadow-sm overflow-hidden rounded-lg cursor-pointer ${
-                  idx === selectedImageIndex ? "outline outline-1 outline-primary-600 -outline-offset-1" : ""
-                }`}
-              >
-                <Image
-                  src={img}
-                  alt={`Product image ${idx + 1}`}
-                  fill
-                  className="object-cover"
-                  unoptimized={img.startsWith("http")}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = placeholderImage;
-                  }}
-                />
-                {idx === 0 && (
-                  <div className="absolute left-2.5 top-2.5 px-2 py-1 bg-primary-600 rounded">
-                    <span className="text-white text-p2 font-heading font-semibold leading-[18px]">Primary</span>
-                  </div>
-                )}
-              </div>
-            ))}
-            {Array.from({ length: Math.max(0, 4 - imagesToShow.length) }).map((_, i) => (
-              <div key={`empty-${i}`} className="h-64 rounded-lg bg-sneutral-50 shadow-sm" />
-            ))}
-          </div>
+        <div className="grid grid-cols-5 gap-3">
+          {imagesToShow.slice(0, 5).map((img, idx) => (
+            <div
+              key={idx}
+              onClick={() => setSelectedImageIndex(idx)}
+              className={`relative h-[274px] w-full overflow-hidden rounded-xl cursor-pointer shadow-sm ${idx === selectedImageIndex ? "outline outline-2 outline-primary-500 -outline-offset-1" : ""}`}
+            >
+              <Image
+                src={img}
+                alt={`Product image ${idx + 1}`}
+                fill
+                className="object-cover"
+                unoptimized={img.startsWith("http")}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = placeholderImage;
+                }}
+              />
+              {idx === 0 && (
+                <div className="absolute left-[10px] top-[10px] px-2 py-1 bg-secondary-500 rounded-[4px]">
+                  <span className="text-white text-xs font-body font-semibold leading-[18px]">Primary</span>
+                </div>
+              )}
+            </div>
+          ))}
+          {Array.from({ length: Math.max(0, 5 - imagesToShow.length) }).map((_, i) => (
+            <div key={`empty-${i}`} className="h-[274px] w-full rounded-xl bg-pneutral-50 shadow-sm" />
+          ))}
         </div>
       </div>
 
@@ -330,7 +339,6 @@ const FoodInfantView = ({
           <FieldRow label="Variant Name" value={attr.variantName} required={false} />
           <FieldRow label="Product Form" value={attr.productFormName} />
           <FieldRow label="Net Quantity" value={netQuantityDisplay} />
-          <FieldRow label="Serving Size" value={servingSizeDisplay} />
           <FieldRow label="Age Group" value={ageGroupDisplay} />
           <FieldRow label="Product Claims" value={attr.productClaims} multiline />
           <FieldRow label="Active Ingredients" value={attr.activeIngredients} multiline />
@@ -343,6 +351,9 @@ const FoodInfantView = ({
               <span className="text-warning-500 font-heading font-medium text-p4">*</span>
             </div>
             <div className="flex justify-end">
+                {(() => {
+      return null;
+    })()}
               {attr.nutritionalInformation === "image-upload" && attr.nutritionalInformationImageUrl ? (
                 <a href={attr.nutritionalInformationImageUrl} target="_blank" rel="noopener noreferrer">
                   <img
@@ -377,25 +388,19 @@ const FoodInfantView = ({
           <FieldRow label="Manufacturer Name" value={manufacturerName || attr.manufacturerName} />
 
           {/* Uploaded Product Brochure */}
-          <div className="pt-3 pb-2 px-4 border-b border-pneutral-200 flex flex-col gap-2">
-            <div className="flex items-center gap-1">
-              <span className="text-p4 font-heading font-medium text-pneutral-700">Uploaded Product Brochure</span>
-              <span className="text-warning-500 font-heading font-medium text-p4">*</span>
-            </div>
-            {resolvedBrochureUrl ? (
-              <a href={resolvedBrochureUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-sneutral-50 rounded-md no-underline">
+          {hasBrochure && (
+            <div className="pt-3 pb-2 px-4 border-b border-pneutral-200 flex flex-col gap-2">
+              <div className="flex items-center gap-1">
+                <span className="text-p4 font-heading font-medium text-pneutral-700">Uploaded Product Brochure</span>
+              </div>
+              <a href={resolvedBrochureUrl!} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-sneutral-50 rounded-md no-underline">
                 <FileText size={24} color="#3C3D3A" />
                 <span className="text-p4 font-body font-normal text-pneutral-800">
-                  {resolvedBrochureUrl.split("/").pop()?.split("?")[0] || "product-brochure.pdf"}
+                  {resolvedBrochureUrl!.split("/").pop()?.split("?")[0] || "product-brochure.pdf"}
                 </span>
               </a>
-            ) : (
-              <div className="flex items-center gap-3 p-3 bg-sneutral-50 rounded-md">
-                <FileText size={24} color="#3C3D3A" />
-                <span className="text-p4 font-body font-normal text-pneutral-500">No brochure uploaded</span>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
           <FieldRow label="Country of Origin" value={attr.countryName} />
 
@@ -430,29 +435,102 @@ const FoodInfantView = ({
       <FullWidthBlock label="Warnings & Precautions" value={warningsPrecautions} />
       <FullWidthBlock label="Product Description" value={productDescription} />
 
-      {/* Certificate Modal */}
+      {/* SPECIAL OFFERS & PROMOTIONAL SCHEMES */}
+      {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
+        <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
+          <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
+            Special Offers & Promotional Schemes
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Special Schemes */}
+            {specialSchemes.map((scheme, index) => {
+              const themes = [
+                { border: "#4EB300", bg: "#DCF7CB", text: "#47A400", Icon: Gift },
+                { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: ShoppingBag },
+                { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Tag },
+              ];
+              let theme = themes[index % themes.length];
+              const type = scheme.schemeType?.toLowerCase();
+              if (type === "bogo" || type === "buy_x_get_y") theme = themes[0];
+              else if (type === "bundle") theme = themes[1];
+              else if (type === "seasonal") theme = themes[2];
+
+              const dateStr = scheme.effectiveStartDate && scheme.effectiveEndDate
+                ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
+                : "Valid: Ongoing";
+
+              return (
+                <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+                  <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
+                    <theme.Icon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex flex-col">
+                    <h5 className="font-heading font-medium text-[20px] leading-[28px] mb-1.5" style={{ color: theme.text }}>
+                      {scheme.schemeName || "Special Scheme"}
+                    </h5>
+                    <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                      Purchase {scheme.buyQuantity} {productName || "this product"} and get {scheme.freeQuantity} absolutely free. Limited stock available!
+                    </p>
+                    <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">
+                      {dateStr}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Additional Discount */}
+            {additionalDiscounts.length > 0 && (
+              <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] bg-[#F8EDFF] border-[#6C12A9] h-[142px]">
+                <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md bg-[#6C12A9]">
+                  <BadgePercent className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex flex-col">
+                  <h5 className="font-heading font-medium text-[20px] leading-[28px] text-[#6C12A9] mb-1.5">
+                    Bulk Purchase Discount
+                  </h5>
+                  <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                    {additionalDiscounts.map((discount, index) => (
+                      <span key={index}>
+                        Get {discount.additionalDiscountPercentage}% off on orders of {discount.minimumPurchaseQuantity}+ units
+                        {index < additionalDiscounts.length - 1 ? ", " : "."}
+                      </span>
+                    ))}
+                  </p>
+                  <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">
+                    Valid: Ongoing
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Certificate Modal - FIXED to show images correctly */}
       {showCertModal && activeCertDoc !== null && (
         <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.5)]"
           onClick={() => {
             setShowCertModal(false);
             setActiveCertDoc(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
         >
           <div
+            className="bg-base-white rounded-2xl shadow-2xl w-full max-w-[672px] mx-4 overflow-hidden flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[90vh]"
           >
+            {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-pneutral-200">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-success-50 rounded-md flex items-center justify-center">
-                  <PiSealCheckLight size={20} color="#378200" />
+                <div className="w-9 h-9 bg-success-50 rounded-lg flex items-center justify-center">
+                  <PiSealCheckLight size={20} color="var(--success-900)" />
                 </div>
                 <div>
-                  <p className="text-p4 font-heading font-semibold text-pneutral-900 m-0">
+                  <p className="text-pneutral-900 text-base font-heading font-semibold leading-[22px]">
                     {activeCertDoc.certificationName ?? activeCertDoc.label ?? `Certificate ${activeCertDoc.certificationId}`}
                   </p>
-                  <p className="text-p2 font-body font-normal text-pneutral-500 m-0">Certification Document</p>
+                  <p className="text-pneutral-500 text-xs font-body font-normal leading-[18px]">Certification Document</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -460,7 +538,7 @@ const FoodInfantView = ({
                   href={activeCertDoc.certificateUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 text-success-900 text-p3 font-heading font-semibold no-underline px-3 py-1.5 rounded-md"
+                  className="flex items-center gap-[6px] text-success-900 text-sm font-heading font-semibold leading-5 no-underline px-3 py-[6px] rounded-lg"
                 >
                   <ExternalLink size={14} /> Open
                 </a>
@@ -470,36 +548,44 @@ const FoodInfantView = ({
                     setShowCertModal(false);
                     setActiveCertDoc(null);
                   }}
-                  className="w-8 h-8 rounded-md border-none bg-transparent cursor-pointer text-pneutral-500 text-xl flex items-center justify-center"
+                  className="w-8 h-8 rounded-lg border-none bg-transparent cursor-pointer text-pneutral-500 text-xl flex items-center justify-center"
                 >
                   ×
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto bg-sneutral-50 p-4 flex items-center justify-center min-h-[400px]">
+
+            {/* Modal Body - FIXED: Now properly checks for both image and PDF */}
+            <div className="flex-1 overflow-y-auto bg-pneutral-50 p-4 flex items-center justify-center min-h-[400px]">
               {isImageUrl(activeCertDoc.certificateUrl) ? (
                 <img
                   src={activeCertDoc.certificateUrl}
                   alt={activeCertDoc.certificationName ?? "Certificate"}
-                  className="max-w-full max-h-[600px] object-contain rounded-md"
+                  className="max-w-full max-h-[600px] object-contain rounded-lg"
+                />
+              ) : isPdfUrl(activeCertDoc.certificateUrl) ? (
+                <iframe
+                  src={activeCertDoc.certificateUrl}
+                  title="Certificate PDF"
+                  className="w-full border-none rounded-lg h-[560px]"
                 />
               ) : (
                 <div className="flex flex-col items-center gap-4 py-8">
-                  <div className="w-16 h-16 bg-success-50 rounded-lg flex items-center justify-center">
-                    <FileText size={32} color="#378200" />
+                  <div className="w-16 h-16 bg-success-50 rounded-2xl flex items-center justify-center">
+                    <FileText size={32} color="var(--success-900)" />
                   </div>
                   <div className="text-center">
-                    <p className="text-p4 font-heading font-semibold text-pneutral-900 m-0 mb-2">
+                    <p className="text-pneutral-900 text-base font-heading font-semibold leading-[22px] mb-2">
                       {activeCertDoc.certificationName ?? activeCertDoc.label ?? `Certificate ${activeCertDoc.certificationId}`}
                     </p>
-                    <p className="text-p3 font-body font-normal text-pneutral-500 m-0 mb-4">
+                    <p className="text-pneutral-500 text-sm font-body font-normal leading-5 mb-4">
                       This file cannot be previewed in the browser.
                     </p>
                     <a
                       href={activeCertDoc.certificateUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-2 bg-success-800 text-white text-p3 font-heading font-semibold py-2.5 px-5 rounded-md no-underline"
+                      className="inline-flex items-center gap-2 bg-success-700 text-white text-sm font-heading font-semibold leading-5 px-5 py-[10px] rounded-lg no-underline"
                     >
                       <ExternalLink size={14} /> Open / Download
                     </a>
@@ -507,9 +593,11 @@ const FoodInfantView = ({
                 </div>
               )}
             </div>
+
+            {/* Modal Footer - Other certificates */}
             {certDocs.length > 1 && (
               <div className="border-t border-pneutral-200 px-6 py-3 flex items-center gap-2 overflow-x-auto">
-                <span className="text-p2 font-body font-normal text-pneutral-500 flex-shrink-0">Other certs:</span>
+                <span className="text-pneutral-500 text-xs font-body font-normal leading-[18px] shrink-0">Other certs:</span>
                 {certDocs
                   .filter((c) => c.certificationId !== activeCertDoc.certificationId)
                   .map((cert) => (
@@ -517,7 +605,7 @@ const FoodInfantView = ({
                       key={cert.certificationId}
                       type="button"
                       onClick={() => setActiveCertDoc(cert)}
-                      className="flex-shrink-0 flex items-center gap-1.5 text-success-900 bg-success-50 text-p2 font-body font-medium px-3 py-1.5 rounded-full border-none cursor-pointer"
+                      className="shrink-0 flex items-center gap-[6px] text-success-900 bg-success-50 text-xs font-body font-medium leading-[18px] px-3 py-[6px] rounded-full border-none cursor-pointer"
                     >
                       <PiSealCheckLight size={12} />
                       {cert.certificationName ?? cert.label ?? `Cert ${cert.certificationId}`}
@@ -602,9 +690,7 @@ export default FoodInfantView;
 
 
 
-
-// for manual entry it is working , not for the excel unit
-
+// code dated 28.05.2026
 
 // "use client";
 
@@ -618,7 +704,8 @@ export default FoodInfantView;
 //   getAgeGroups,
 //   getProductForms,
 //   getCountries,
-//   getStorageConditions,
+//   // getStorageConditions,
+//   getStorageConditionsByCategory,
 //   getNetQuantityUnits,
 // } from "@/src/services/product/FoodInfantService";
 
@@ -754,6 +841,12 @@ export default FoodInfantView;
 //     fetchUnits();
 //   }, []);
 
+//   // Helper to get unit name from unitId
+//   const getUnitNameFromId = (unitId: number | undefined): string => {
+//     if (!unitId) return "";
+//     return unitLabels.get(unitId) || "";
+//   };
+
 //   // Resolve master data names from IDs
 //   useEffect(() => {
 //     if (!foodAttr) {
@@ -777,7 +870,7 @@ export default FoodInfantView;
 //           getAgeGroups(),
 //           getProductForms(),
 //           getCountries(),
-//           getStorageConditions(),
+//           getStorageConditionsByCategory(3),
 //         ]);
 
 //         const findName = (data: any[], id: number | undefined, idKey: string, nameKey: string): string | null => {
@@ -793,11 +886,11 @@ export default FoodInfantView;
 //         const countries = countriesResult.status === "fulfilled" ? countriesResult.value : [];
 //         const storageConditions = storageConditionsResult.status === "fulfilled" ? storageConditionsResult.value : [];
 
+//         // Preserve all original foodAttr data while adding resolved names
 //         setResolvedAttr({
 //           ...foodAttr,
 //           productCategoryName: findName(categories, foodAttr.productCategoryId, "productCategoryId", "productCategory"),
 //           productSubcategoryName: findName(subcategories, foodAttr.productSubcategoryId, "productSubcategoryId", "productSubcategory"),
-//           ageGroupName: findName(ageGroups, foodAttr.ageGroupId, "ageGroupId", "ageGroup"),
 //           productFormName: findName(productForms, foodAttr.productFormId, "productFormId", "productForm"),
 //           countryName: findName(countries, foodAttr.countryId, "countryId", "countryName"),
 //           storageConditionName: findName(storageConditions, foodAttr.storageConditionId, "storageConditionId", "conditionName"),
@@ -828,15 +921,19 @@ export default FoodInfantView;
 //     (c) => isValidUrl(c.certificateUrl),
 //   );
 //   const storageCondition = attr.storageConditionName || null;
-//   const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+//   const imagesToShow = displayImages;
 //   const resolvedBrochureUrl = isValidUrl(brochureUrl)
 //     ? brochureUrl
 //     : isValidUrl(attr.productUserManual)
 //     ? attr.productUserManual
 //     : null;
 
+//   // Check if brochure exists (same as SupplementView)
+//   const hasBrochure = resolvedBrochureUrl !== null;
+
 //   // ─────────────────────────────────────────────────────────
 //   // Format Age Group Display - Comma separated list
+//   // Supports both manual entry (ageGroupMastersDto) and Excel upload (ageGroupIds)
 //   // ─────────────────────────────────────────────────────────
 //   let ageGroupDisplay = "—";
 //   if (attr.ageGroupMastersDto && attr.ageGroupMastersDto.length > 0) {
@@ -851,14 +948,14 @@ export default FoodInfantView;
 //   }
 
 //   // ─────────────────────────────────────────────────────────
-//   // Format Net Quantity - Value + Unit (map unitId to unit name)
+//   // Format Net Quantity - Value + Unit
+//   // Priority: unitName from API (manual entry) → lookup from unitLabels (Excel upload)
 //   // ─────────────────────────────────────────────────────────
 //   let netQuantityDisplay = "—";
 //   if (attr.netQuantity) {
-//     // Try to get unit name from multiple sources
 //     let unit = attr.unitName || "";
-//     if (!unit && attr.unitId && unitLabels.has(attr.unitId)) {
-//       unit = unitLabels.get(attr.unitId) || "";
+//     if (!unit && attr.unitId) {
+//       unit = getUnitNameFromId(attr.unitId);
 //     }
 //     netQuantityDisplay = unit ? `${attr.netQuantity} ${unit}` : String(attr.netQuantity);
 //   }
@@ -866,12 +963,11 @@ export default FoodInfantView;
 //   // ─────────────────────────────────────────────────────────
 //   // Format Serving Size - Value + Unit
 //   // ─────────────────────────────────────────────────────────
-//   let servingSizeDisplay = "—";
-//   if (attr.servingSize) {
-//     const unit = attr.servingSizeUnitName || "";
-//     servingSizeDisplay = unit ? `${attr.servingSize} ${unit}` : String(attr.servingSize);
-//   }
-
+//   // let servingSizeDisplay = "—";
+//   // if (attr.servingSize) {
+//   //   const unit = attr.servingSizeUnitName || "";
+//   //   servingSizeDisplay = unit ? `${attr.servingSize} ${unit}` : String(attr.servingSize);
+//   // }
 
 //   return (
 //     <div className="w-full flex flex-col gap-4">
@@ -932,7 +1028,7 @@ export default FoodInfantView;
 //           <FieldRow label="Variant Name" value={attr.variantName} required={false} />
 //           <FieldRow label="Product Form" value={attr.productFormName} />
 //           <FieldRow label="Net Quantity" value={netQuantityDisplay} />
-//           <FieldRow label="Serving Size" value={servingSizeDisplay} />
+//           {/* <FieldRow label="Serving Size" value={servingSizeDisplay} /> */}
 //           <FieldRow label="Age Group" value={ageGroupDisplay} />
 //           <FieldRow label="Product Claims" value={attr.productClaims} multiline />
 //           <FieldRow label="Active Ingredients" value={attr.activeIngredients} multiline />
@@ -978,26 +1074,20 @@ export default FoodInfantView;
 //           <FieldRow label="Storage Condition" value={storageCondition} multiline />
 //           <FieldRow label="Manufacturer Name" value={manufacturerName || attr.manufacturerName} />
 
-//           {/* Uploaded Product Brochure */}
-//           <div className="pt-3 pb-2 px-4 border-b border-pneutral-200 flex flex-col gap-2">
-//             <div className="flex items-center gap-1">
-//               <span className="text-p4 font-heading font-medium text-pneutral-700">Uploaded Product Brochure</span>
-//               <span className="text-warning-500 font-heading font-medium text-p4">*</span>
-//             </div>
-//             {resolvedBrochureUrl ? (
-//               <a href={resolvedBrochureUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-sneutral-50 rounded-md no-underline">
+//           {/* Uploaded Product Brochure - Only show if brochure exists */}
+//           {hasBrochure && (
+//             <div className="pt-3 pb-2 px-4 border-b border-pneutral-200 flex flex-col gap-2">
+//               <div className="flex items-center gap-1">
+//                 <span className="text-p4 font-heading font-medium text-pneutral-700">Uploaded Product Brochure</span>
+//               </div>
+//               <a href={resolvedBrochureUrl!} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-sneutral-50 rounded-md no-underline">
 //                 <FileText size={24} color="#3C3D3A" />
 //                 <span className="text-p4 font-body font-normal text-pneutral-800">
-//                   {resolvedBrochureUrl.split("/").pop()?.split("?")[0] || "product-brochure.pdf"}
+//                   {resolvedBrochureUrl!.split("/").pop()?.split("?")[0] || "product-brochure.pdf"}
 //                 </span>
 //               </a>
-//             ) : (
-//               <div className="flex items-center gap-3 p-3 bg-sneutral-50 rounded-md">
-//                 <FileText size={24} color="#3C3D3A" />
-//                 <span className="text-p4 font-body font-normal text-pneutral-500">No brochure uploaded</span>
-//               </div>
-//             )}
-//           </div>
+//             </div>
+//           )}
 
 //           <FieldRow label="Country of Origin" value={attr.countryName} />
 
@@ -1209,8 +1299,7 @@ export default FoodInfantView;
 
 
 
-
-// old code  dated 21.05.2026
+// code dated 26.05.2026
 
 // "use client";
 
@@ -1224,7 +1313,9 @@ export default FoodInfantView;
 //   getAgeGroups,
 //   getProductForms,
 //   getCountries,
-//   getStorageConditions,
+//   // getStorageConditions,
+//   getStorageConditionsByCategory,
+//   getNetQuantityUnits,
 // } from "@/src/services/product/FoodInfantService";
 
 // /* ─────────────────────────────────────────────────────────
@@ -1240,16 +1331,23 @@ export default FoodInfantView;
 // }
 
 // export interface FoodInfantAttributes {
+//   productAttributeId?: string;
 //   productCategoryId?: number;
 //   productSubcategoryId?: number;
 //   productFormId?: number;
 //   ageGroupId?: number;
+//   ageGroupIds?: number[];
+//   ageGroupMastersDto?: Array<{ ageGroupId: number; ageGroup: string }>;
 //   storageConditionId?: number;
 //   countryId?: number;
 //   brandName?: string;
 //   variantName?: string;
-//   netQuantity?: string;
-//   servingSize?: string;
+//   netQuantity?: number;
+//   unitId?: number;
+//   unitName?: string;
+//   servingSize?: number;
+//   servingSizeUnitId?: number;
+//   servingSizeUnitName?: string;
 //   vegNonvegIndicator?: "veg" | "non-veg";
 //   allergenInformation?: string;
 //   nutritionalInformation?: string;
@@ -1311,6 +1409,52 @@ export default FoodInfantView;
 //   const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
 //   const [resolvedAttr, setResolvedAttr] = useState<FoodInfantAttributes | null>(null);
 //   const [loading, setLoading] = useState(true);
+//   const [ageGroupLabels, setAgeGroupLabels] = useState<Map<number, string>>(new Map());
+//   const [unitLabels, setUnitLabels] = useState<Map<number, string>>(new Map());
+
+//   // Fetch age groups for mapping IDs to labels
+//   useEffect(() => {
+//     const fetchAgeGroups = async () => {
+//       try {
+//         const ageData = await getAgeGroups();
+//         const map = new Map<number, string>();
+//         ageData.forEach((item: any) => {
+//           map.set(item.ageGroupId, item.ageGroup);
+//         });
+//         setAgeGroupLabels(map);
+//       } catch (err) {
+//         console.error("Failed to fetch age groups for view:", err);
+//       }
+//     };
+//     fetchAgeGroups();
+//   }, []);
+
+//   // Fetch net quantity units for mapping unitId to unit name
+//   useEffect(() => {
+//     const fetchUnits = async () => {
+//       try {
+//         const unitData = await getNetQuantityUnits(3);
+//         const map = new Map<number, string>();
+//         unitData.forEach((item: any) => {
+//           const unitId = item.unitId || item.id;
+//           const unitName = item.unitName || item.name || item.unitSymbol || "";
+//           if (unitId && unitName) {
+//             map.set(unitId, unitName);
+//           }
+//         });
+//         setUnitLabels(map);
+//       } catch (err) {
+//         console.error("Failed to fetch units for view:", err);
+//       }
+//     };
+//     fetchUnits();
+//   }, []);
+
+//   // Helper to get unit name from unitId
+//   const getUnitNameFromId = (unitId: number | undefined): string => {
+//     if (!unitId) return "";
+//     return unitLabels.get(unitId) || "";
+//   };
 
 //   // Resolve master data names from IDs
 //   useEffect(() => {
@@ -1335,7 +1479,7 @@ export default FoodInfantView;
 //           getAgeGroups(),
 //           getProductForms(),
 //           getCountries(),
-//           getStorageConditions(),
+//           getStorageConditionsByCategory(3),
 //         ]);
 
 //         const findName = (data: any[], id: number | undefined, idKey: string, nameKey: string): string | null => {
@@ -1351,11 +1495,11 @@ export default FoodInfantView;
 //         const countries = countriesResult.status === "fulfilled" ? countriesResult.value : [];
 //         const storageConditions = storageConditionsResult.status === "fulfilled" ? storageConditionsResult.value : [];
 
+//         // Preserve all original foodAttr data while adding resolved names
 //         setResolvedAttr({
 //           ...foodAttr,
 //           productCategoryName: findName(categories, foodAttr.productCategoryId, "productCategoryId", "productCategory"),
 //           productSubcategoryName: findName(subcategories, foodAttr.productSubcategoryId, "productSubcategoryId", "productSubcategory"),
-//           ageGroupName: findName(ageGroups, foodAttr.ageGroupId, "ageGroupId", "ageGroup"),
 //           productFormName: findName(productForms, foodAttr.productFormId, "productFormId", "productForm"),
 //           countryName: findName(countries, foodAttr.countryId, "countryId", "countryName"),
 //           storageConditionName: findName(storageConditions, foodAttr.storageConditionId, "storageConditionId", "conditionName"),
@@ -1386,12 +1530,50 @@ export default FoodInfantView;
 //     (c) => isValidUrl(c.certificateUrl),
 //   );
 //   const storageCondition = attr.storageConditionName || null;
-//   const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+//   const imagesToShow = displayImages;
 //   const resolvedBrochureUrl = isValidUrl(brochureUrl)
 //     ? brochureUrl
 //     : isValidUrl(attr.productUserManual)
 //     ? attr.productUserManual
 //     : null;
+
+//   // ─────────────────────────────────────────────────────────
+//   // Format Age Group Display - Comma separated list
+//   // Supports both manual entry (ageGroupMastersDto) and Excel upload (ageGroupIds)
+//   // ─────────────────────────────────────────────────────────
+//   let ageGroupDisplay = "—";
+//   if (attr.ageGroupMastersDto && attr.ageGroupMastersDto.length > 0) {
+//     ageGroupDisplay = attr.ageGroupMastersDto.map(ag => ag.ageGroup).join(", ");
+//   } else if (attr.ageGroupIds && attr.ageGroupIds.length > 0) {
+//     ageGroupDisplay = attr.ageGroupIds
+//       .map(id => ageGroupLabels.get(id) || String(id))
+//       .filter(Boolean)
+//       .join(", ");
+//   } else if (attr.ageGroupId) {
+//     ageGroupDisplay = ageGroupLabels.get(attr.ageGroupId) || String(attr.ageGroupId);
+//   }
+
+//   // ─────────────────────────────────────────────────────────
+//   // Format Net Quantity - Value + Unit
+//   // Priority: unitName from API (manual entry) → lookup from unitLabels (Excel upload)
+//   // ─────────────────────────────────────────────────────────
+//   let netQuantityDisplay = "—";
+//   if (attr.netQuantity) {
+//     let unit = attr.unitName || "";
+//     if (!unit && attr.unitId) {
+//       unit = getUnitNameFromId(attr.unitId);
+//     }
+//     netQuantityDisplay = unit ? `${attr.netQuantity} ${unit}` : String(attr.netQuantity);
+//   }
+
+//   // ─────────────────────────────────────────────────────────
+//   // Format Serving Size - Value + Unit
+//   // ─────────────────────────────────────────────────────────
+//   let servingSizeDisplay = "—";
+//   if (attr.servingSize) {
+//     const unit = attr.servingSizeUnitName || "";
+//     servingSizeDisplay = unit ? `${attr.servingSize} ${unit}` : String(attr.servingSize);
+//   }
 
 //   return (
 //     <div className="w-full flex flex-col gap-4">
@@ -1451,9 +1633,9 @@ export default FoodInfantView;
 //           <FieldRow label="Brand Name" value={attr.brandName} />
 //           <FieldRow label="Variant Name" value={attr.variantName} required={false} />
 //           <FieldRow label="Product Form" value={attr.productFormName} />
-//           <FieldRow label="Net Quantity" value={attr.netQuantity} />
-//           <FieldRow label="Serving Size" value={attr.servingSize} />
-//           <FieldRow label="Age Group" value={attr.ageGroupName} />
+//           <FieldRow label="Net Quantity" value={netQuantityDisplay} />
+//           <FieldRow label="Serving Size" value={servingSizeDisplay} />
+//           <FieldRow label="Age Group" value={ageGroupDisplay} />
 //           <FieldRow label="Product Claims" value={attr.productClaims} multiline />
 //           <FieldRow label="Active Ingredients" value={attr.activeIngredients} multiline />
 //           <FieldRow label="Additives / Preservatives" value={attr.additivesPreservatives} multiline required={false} />
@@ -1502,7 +1684,7 @@ export default FoodInfantView;
 //           <div className="pt-3 pb-2 px-4 border-b border-pneutral-200 flex flex-col gap-2">
 //             <div className="flex items-center gap-1">
 //               <span className="text-p4 font-heading font-medium text-pneutral-700">Uploaded Product Brochure</span>
-//               <span className="text-warning-500 font-heading font-medium text-p4">*</span>
+//               {/* <span className="text-warning-500 font-heading font-medium text-p4">*</span> */}
 //             </div>
 //             {resolvedBrochureUrl ? (
 //               <a href={resolvedBrochureUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-sneutral-50 rounded-md no-underline">
@@ -1549,9 +1731,8 @@ export default FoodInfantView;
 //         </div>
 //       </div>
 
-// <FullWidthBlock label="Warnings & Precautions" value={warningsPrecautions} />
+//       <FullWidthBlock label="Warnings & Precautions" value={warningsPrecautions} />
 //       <FullWidthBlock label="Product Description" value={productDescription} />
-      
 
 //       {/* Certificate Modal */}
 //       {showCertModal && activeCertDoc !== null && (

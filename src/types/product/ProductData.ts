@@ -19,6 +19,7 @@ export interface CreateProductRequest {
   packagingDetails: PackagingData[];
   pricingDetails: PricingData[];
   productAttributeFoodInfants?: ProductAttributeFoodInfantData[];
+  retainedImageUrls?: string[];
 }
 
 export interface UnitOption {
@@ -35,8 +36,8 @@ export interface ProductAttributeFoodInfantData {
   productFormId: number;
   netQuantity: number;
   unitId: number;
-  servingSize:  number;
-  servingSizeUnitId: number;
+  servingSize?: number | null;  
+  servingSizeUnitId?: number | null; 
   ageGroupId: number;
   vegNonvegIndicator: "veg" | "non-veg";  
   allergenInformation: string;
@@ -146,6 +147,8 @@ export interface AdditionalDiscountData {
   effectiveStartTime: string | null;
   effectiveEndDate: string | null;
   effectiveEndTime: string | null;
+  isSelected?: boolean;
+  displayOffer?: boolean;
 }
 
 export interface SpecialSchemesData {
@@ -158,6 +161,8 @@ export interface SpecialSchemesData {
   effectiveStartTime: string | null;
   effectiveEndDate: string | null;
   effectiveEndTime: string | null;
+  isSelected?: boolean;
+  displayOfferScheme?: boolean;
 }
 
 export interface MoleculeData {

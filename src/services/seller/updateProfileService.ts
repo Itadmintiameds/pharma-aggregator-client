@@ -720,7 +720,7 @@ class UpdateProfileService {
  * @param email - Email address to check
  * @returns Promise<boolean> - true if email exists, false if not
  */
-  async checkCoordinatorEmail(email: string): Promise<boolean> {
+  async checkCoordinatorProfileEmail(email: string): Promise<boolean> {
     try {
       if (!email || !email.includes('@') || !email.includes('.')) {
         return false;
@@ -730,7 +730,6 @@ class UpdateProfileService {
         params: { email: email }
       });
 
-      // Adjust based on your actual API response structure
       const data = response.data;
 
       if (data && typeof data === 'object') {

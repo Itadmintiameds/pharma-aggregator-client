@@ -193,9 +193,10 @@ export const supplementProductSchema = z
     discountPercentage: z
       .string()
       .trim()
-      .min(1, "Discount Percentage is required")
-      .regex(/^\d+(\.\d+)?$/, "Only numeric values are allowed")
-      .refine((val) => Number(val) >= 0 && Number(val) <= 100, {
+      .refine((val) => val === "" || /^\d+(\.\d+)?$/.test(val), {
+        message: "Only numeric values are allowed",
+      })
+      .refine((val) => val === "" || (Number(val) >= 0 && Number(val) <= 100), {
         message: "Discount must be between 0 and 100",
       }),
 
@@ -250,18 +251,18 @@ export const supplementProductSchema = z
       });
     }
 
-    // Cross-field: expiryDate >= manufacturingDate + 3 months
-    if (data.manufacturingDate && data.expiryDate) {
-      const minExpiry = new Date(data.manufacturingDate);
-      minExpiry.setMonth(minExpiry.getMonth() + 3);
-      if (data.expiryDate < minExpiry) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["expiryDate"],
-          message: "Expiry must be at least 3 months after Manufacturing Date",
-        });
-      }
-    }
+    // // Cross-field: expiryDate >= manufacturingDate + 3 months
+    // if (data.manufacturingDate && data.expiryDate) {
+    //   const minExpiry = new Date(data.manufacturingDate);
+    //   minExpiry.setMonth(minExpiry.getMonth() + 3);
+    //   if (data.expiryDate < minExpiry) {
+    //     ctx.addIssue({
+    //       code: z.ZodIssueCode.custom,
+    //       path: ["expiryDate"],
+    //       message: "Expiry must be at least 3 months after Manufacturing Date",
+    //     });
+    //   }
+    // }
   });
 
 export type SupplementProductFormData = z.infer<typeof supplementProductSchema>;

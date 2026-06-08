@@ -20,7 +20,7 @@ function Table<T extends object>({
 }: TableProps<T>) {
   return (
     <div className="w-full overflow-x-auto border border-pneutral-200 rounded-xl font-open-sans">
-      <table className="min-w-full text-sm">
+      <table className="min-w-full text-sm bg-white">
         
         {/* Table Head */}
         <thead className="text-label-l4 text-black bg-pneutral-50 h-13.5">

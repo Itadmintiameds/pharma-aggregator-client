@@ -135,8 +135,8 @@ export default function SupplementDetailsView({
 
   if (!suppAttr) return null;
 
-  const displayNetQty = suppAttr.netQuantityValue != null && suppAttr.netQuantityValue !== "" && (suppAttr.netQuantityUnitName || suppAttr.netQuantityUnitSymbol || suppAttr.netQuantityUnit)
-    ? `${suppAttr.netQuantityValue} ${suppAttr.netQuantityUnitName || suppAttr.netQuantityUnitSymbol || suppAttr.netQuantityUnit}`
+  const displayNetQty = suppAttr.netQuantity != null && suppAttr.netQuantity !== "" && (suppAttr.netQuantityUnitName || suppAttr.netQuantityUnitSymbol || suppAttr.netQuantityUnit)
+    ? `${suppAttr.netQuantity} ${suppAttr.netQuantityUnitName || suppAttr.netQuantityUnitSymbol || suppAttr.netQuantityUnit}`
     : suppAttr.netQuantity || "—";
 
   const displayServingSize = suppAttr.servingSize != null && suppAttr.servingSize !== ""
@@ -145,7 +145,7 @@ export default function SupplementDetailsView({
       : String(suppAttr.servingSize)
     : "—";
 
-  const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+  const imagesToShow = displayImages;
 
   /* ── Resolve cert docs ── */
   const certDocs: CertificateDocument[] = (suppAttr.certificateDocuments ?? []).filter((c: any) => isValidUrl(c.certificateUrl));
@@ -198,14 +198,13 @@ export default function SupplementDetailsView({
           <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-[#1E1E1D]">
             Product Images
           </h3>
-          <div className="grid grid-cols-4 gap-4">
-            {imagesToShow.slice(0, 4).map((img, idx) => (
+          <div className="flex justify-center flex-wrap gap-3">
+            {imagesToShow.slice(0, 5).map((img, idx) => (
               <div
                 key={idx}
                 onClick={() => setSelectedImageIndex(idx)}
-                className={`relative h-[274px] w-full overflow-hidden rounded-xl cursor-pointer shadow-sm${
-                  idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""
-                }`}
+                className={`relative h-[274px] w-full max-w-[calc(20%-10px)] overflow-hidden rounded-xl cursor-pointer shadow-sm${idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""
+                  }`}
               >
                 <Image
                   src={img}
@@ -222,9 +221,7 @@ export default function SupplementDetailsView({
                 )}
               </div>
             ))}
-            {Array.from({ length: Math.max(0, 4 - imagesToShow.length) }).map((_, i) => (
-              <div key={`empty-${i}`} className="h-[274px] w-full rounded-xl bg-pneutral-50 shadow-sm" />
-            ))}
+
           </div>
         </div>
 
@@ -240,7 +237,7 @@ export default function SupplementDetailsView({
             <FieldRow label="Variant Name" value={suppAttr.variantName} required={false} />
             <FieldRow label="Dosage Form" value={suppAttr.dosageFormName} />
             <FieldRow label="Net Quantity" value={displayNetQty} />
-            <FieldRow label="Serving Size" value={displayServingSize} />
+            {/* <FieldRow label="Serving Size" value={displayServingSize} /> */}
             <FieldRow label="Strength / Composition" value={suppAttr.strength} />
             <FieldRow label="Active Ingredients" value={suppAttr.activeIngredients} multiline />
             <FieldRow label="Other Ingredients" value={suppAttr.otherIngredients} multiline />
@@ -354,18 +351,18 @@ export default function SupplementDetailsView({
         </div>
 
         {/* ── SPECIAL OFFERS & PROMOTIONAL SCHEMES ── */}
-        {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
+        {specialSchemes.length > 0 && (
           <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
             <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
               Special Offers & Promotional Schemes
             </h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className={`grid gap-4 ${specialSchemes.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
               {/* Special Schemes */}
               {specialSchemes.map((scheme, index) => {
                 const themes = [
                   { border: "#4EB300", bg: "#DCF7CB", text: "#47A400", Icon: Gift },
-                  { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: ShoppingBag },
-                  { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Tag },
+                  { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: Gift },
+                  { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Gift },
                 ];
                 let theme = themes[index % themes.length];
                 const type = scheme.schemeType?.toLowerCase();
@@ -398,33 +395,6 @@ export default function SupplementDetailsView({
                   </div>
                 );
               })}
-
-              {/* Additional Discount */}
-              {additionalDiscounts.length > 0 && (
-                <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] bg-[#F8EDFF] border-[#6C12A9] h-[142px]">
-                  {/* Icon Box */}
-                  <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md bg-[#6C12A9]">
-                    <BadgePercent className="w-6 h-6 text-white" />
-                  </div>
-                  {/* Content */}
-                  <div className="flex flex-col">
-                    <h5 className="font-heading font-medium text-[20px] leading-[28px] text-[#6C12A9] mb-1.5">
-                      Bulk Purchase Discount
-                    </h5>
-                    <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
-                      {additionalDiscounts.map((discount, index) => (
-                        <span key={index}>
-                          Get {discount.additionalDiscountPercentage}% off on orders of {discount.minimumPurchaseQuantity}+ units
-                          {index < additionalDiscounts.length - 1 ? ", " : "."}
-                        </span>
-                      ))}
-                    </p>
-                    <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">
-                      Valid: Ongoing
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}

@@ -24,16 +24,25 @@ import {
   updateProduct,
   uploadProductImages,
 } from "@/src/services/product/ProductService";
+import { validateBatchNumber } from "@/src/services/product/Pricing";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
-import { AlertCircle, X } from "lucide-react";
-import { useRouter } from "next/navigation";
-import React, { useCallback, useEffect, useRef, useState } from "react";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
+import { AlertCircle } from "lucide-react";
+import MonthPicker from "@/src/app/commonComponents/MonthPicker";
+import ProductImageUpload from "../commonComponent/ProductImageUpload";
+import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+<<<<<<< HEAD
+import Dropdown from "@/src/app/commonComponents/Dropdown";
+import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
+=======
+>>>>>>> dev
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
 import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
+import AppliedOffersView from "./AppliedOffersView";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -340,6 +349,29 @@ const gstOptions: SelectOption[] = [
   { value: "18", label: "18%" },
 ];
 
+<<<<<<< HEAD
+=======
+
+// ─── Non-editable display fields ──────────────────────────────────────────────
+
+const NonEditableField = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
+  <div className="flex flex-col gap-1">
+    <label className={fieldLabel}>{label} {required && requiredStar}</label>
+    <div className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] flex items-center text-base [font-family:'Open_Sans',sans-serif] bg-gray-50" style={{ color: "#5A5B58" }}>
+      {value || "—"}
+    </div>
+  </div>
+);
+
+const NonEditableSelect = ({ label, value, required }: { label: string; value: string; required?: boolean }) => (
+  <div className="flex flex-col gap-1">
+    <label className={fieldLabel}>{label} {required && requiredStar}</label>
+    <div className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] flex items-center text-base [font-family:'Open_Sans',sans-serif] bg-gray-50" style={{ color: "#5A5B58" }}>
+      {value || "—"}
+    </div>
+  </div>
+);
+>>>>>>> dev
 
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -407,6 +439,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     shelfLifeMonths:      "",
     // ✅ additionalDiscount stored directly as AdditionalDiscountData[] — same as DrugForm
     additionalDiscount:   [] as AdditionalDiscountData[],
+    specialSchemes:       [] as any[],
   });
   const [resolvedProductId, setResolvedProductId] = useState("");
   const [productAttributeId, setProductAttributeId] = useState("");
@@ -423,6 +456,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   // ─── Master options ───────────────────────────────────────────────────────────
   const [productTypeOptions, setProductTypeOptions] = useState<SelectOption[]>([]);
   const [productSubTypeOptions, setProductSubTypeOptions] = useState<SelectOption[]>([]);
+  const productSubTypeOptionsRef = useRef<SelectOption[]>([]);
+  productSubTypeOptionsRef.current = productSubTypeOptions;
   const [skinTypeOptions, setSkinTypeOptions] = useState<SelectOption[]>([]);
   const [hairTypeOptions, setHairTypeOptions] = useState<SelectOption[]>([]);
   const [ageGroupOptions, setAgeGroupOptions] = useState<SelectOption[]>([]);
@@ -444,30 +479,20 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [brochureFile, setBrochureFile] = useState<File | null>(null);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
+<<<<<<< HEAD
   // ✅ Renamed to match DrugForm's state variable name exactly
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+=======
+  const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] = useState(false);
+  const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const unitDropdownRef = useRef<HTMLDivElement>(null);
+>>>>>>> dev
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-  const getMinExpiryMonth = () => {
-    const today = new Date();
-    const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
-    if (!form.manufacturingDate) {
-      return `${minFromNow.getFullYear()}-${String(minFromNow.getMonth() + 1).padStart(2, "0")}`;
-    }
-    const mfg = new Date(form.manufacturingDate);
-    const minFromMfg = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
-    const min = minFromMfg > minFromNow ? minFromMfg : minFromNow;
-    return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}`;
-  };
-
-  const getMaxExpiryMonth = () => {
-    if (!form.manufacturingDate) return "";
-    const mfg = new Date(form.manufacturingDate);
-    const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
-    return `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, "0")}`;
-  };
 
   const toLocalDateTimeString = (date: Date | null): string | null => {
     if (!date) return null;
@@ -524,8 +549,19 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                      ?? data.productAttributeCosmetics?.[0]
                      ?? {};
 
-      const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) ?? {};
-      const pricing = data.pricingDetails?.[0] ?? {};
+      const packagingArr: any[] = Array.isArray(data.packagingDetails)
+        ? data.packagingDetails
+        : data.packagingDetails ? [data.packagingDetails] : [];
+      const packaging = packagingArr.length > 0
+        ? packagingArr.reduce((latest: any, curr: any) =>
+            new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest)
+        : {};
+
+      const pricingArr: any[] = Array.isArray(data.pricingDetails) ? data.pricingDetails : [];
+      const pricing = pricingArr.length > 0
+        ? pricingArr.reduce((latest: any, curr: any) =>
+            new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest)
+        : {};
 
       setProductAttributeId(String(attribute.productAttributeId || ""));
       setPackagingId(String(packaging.packagingId || ""));
@@ -557,7 +593,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       const warningsValue         = data.warningsPrecautions ?? attribute.WarningsPrecautions ?? attribute.warningsPrecautions ?? "";
       const descriptionValue      = data.productDescription || "";
 
-      let resolvedSubCats = productSubTypeOptions;
+      let resolvedSubCats = productSubTypeOptionsRef.current;
       if (productTypeIdStr && resolvedSubCats.length === 0) {
         resolvedSubCats = await fetchSubTypes(productTypeIdStr);
       }
@@ -590,8 +626,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         expiryDate:           expDate,
         stockQuantity:        String(pricing.stockQuantity || ""),
         dateOfStockEntry:     pricing.dateOfStockEntry ? new Date(pricing.dateOfStockEntry) : new Date(),
-        sellingPrice:         String(pricing.sellingPrice || ""),
-        mrp:                  String(pricing.mrp || ""),
+        sellingPrice:         pricing.sellingPrice != null ? String(pricing.sellingPrice) : "",
+        mrp:                  pricing.mrp != null ? String(pricing.mrp) : "",
         discountPercentage:   String(pricing.discountPercentage || ""),
         gstPercentage:        gstVal,
         hsnCode:              String(pricing.hsnCode || ""),
@@ -599,16 +635,20 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         shelfLifeMonths:      String(computeShelfLife(mfgDate, expDate) ?? ""),
         // ✅ Load additionalDiscount directly — same shape as DrugForm
         additionalDiscount:   Array.isArray(pricing.additionalDiscounts) ? pricing.additionalDiscounts : [],
+        specialSchemes:       Array.isArray(pricing.specialSchemes) ? pricing.specialSchemes : [],
       });
 
       let rawIntended: unknown[] = [];
       let rawSkin: unknown[]     = [];
       let rawHair: unknown[]     = [];
 
-      if (Array.isArray(attribute.intendedUseAreaIds))  rawIntended = attribute.intendedUseAreaIds;
-      else if (Array.isArray(attribute.useAreaId))      rawIntended = attribute.useAreaId;
-      else if (Array.isArray(attribute.intendedarea))   rawIntended = attribute.intendedarea;
-      else if (Array.isArray(attribute.intendedUseAreas)) rawIntended = attribute.intendedUseAreas;
+      // API returns field as "IntendedUseArea" (capital I, array of objects {useAreaId, areaName})
+      const rawUseArea = attribute.IntendedUseArea ?? attribute.intendedUseAreaIds ?? attribute.useAreaId ?? attribute.useAreaIds;
+      if (Array.isArray(rawUseArea))                       rawIntended = rawUseArea;
+      else if (rawUseArea != null)                         rawIntended = [rawUseArea];
+      else if (Array.isArray(attribute.intendedarea))      rawIntended = attribute.intendedarea;
+      else if (Array.isArray(attribute.intendedUseAreas))  rawIntended = attribute.intendedUseAreas;
+      else if (Array.isArray(attribute.intendedAreas))     rawIntended = attribute.intendedAreas;
 
       if (Array.isArray(attribute.skinTypeIds))   rawSkin = attribute.skinTypeIds;
       else if (Array.isArray(attribute.skintypeId)) rawSkin = attribute.skintypeId;
@@ -640,7 +680,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       }
 
       const brochurePath = attribute.brochurePath || attribute.BrochurePath || "";
-      if (brochurePath && brochurePath !== "PENDING") {
+      const isRealUrl = (u: string) => !!u && !["PENDING", "NOT_UPLOADED"].includes(u.toUpperCase());
+      if (isRealUrl(brochurePath)) {
         setExistingBrochureUrl(brochurePath);
       }
 
@@ -650,13 +691,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           label:                        cert.certificationName || `Certificate ${cert.certificationId}`,
           tagCode:                      `Tag ${String(cert.certificationId).padStart(2, "0")}`,
           file:                         null,
-          fileName:                     cert.certificateUrl && cert.certificateUrl !== "PENDING"
+          fileName:                     isRealUrl(cert.certificateUrl)
                                           ? cert.certificateUrl.split("/").pop() || "" : "",
           uploading:                    false,
-          isUploaded:                   !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
+          isUploaded:                   isRealUrl(cert.certificateUrl),
           previewUrl:                   null,
           productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-          existingUrl:                  cert.certificateUrl && cert.certificateUrl !== "PENDING"
+          existingUrl:                  isRealUrl(cert.certificateUrl)
                                           ? cert.certificateUrl : undefined,
         })));
       }
@@ -666,7 +707,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     } finally {
       setLoadingProduct(false);
     }
-  }, [mode, productId, fetchSubTypes, productSubTypeOptions]);
+  }, [mode, productId, fetchSubTypes]);
 
   // ─── Load all master data ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -883,11 +924,23 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }));
   }, [form.sellingPrice, form.discountPercentage]);
 
+<<<<<<< HEAD
+=======
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (unitDropdownRef.current && !unitDropdownRef.current.contains(e.target as Node))
+        setShowUnitDropdown(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+>>>>>>> dev
 
   // ─── Handlers ─────────────────────────────────────────────────────────────────
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    let value = e.target.value;
 
     if (name === "activeIngredients" && /[^a-zA-Z0-9\s,.()\-%&'/]/.test(value)) return;
 
@@ -929,22 +982,77 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       return;
     }
 
-    const numericOnlyFields = [
-      "stockQuantity", "sellingPrice", "mrp", "discountPercentage",
-      "hsnCode", "unitsPerPack", "numberOfPacks",
-      "minimumOrderQuantity", "maximumOrderQuantity", "netQuantity",
-    ];
-    if (numericOnlyFields.includes(name)) {
+    // Field-specific sanitization (matches SupplementForm pattern)
+    if (name === "unitsPerPack") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 5) value = value.slice(0, 5);
+    } else if (name === "numberOfPacks") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 4) value = value.slice(0, 4);
+    } else if (name === "minimumOrderQuantity" || name === "maximumOrderQuantity") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 7) value = value.slice(0, 7);
+    } else if (name === "mrp" || name === "sellingPrice") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts[0].length > 13) parts[0] = parts[0].slice(0, 13);
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+    } else if (name === "discountPercentage") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+      if (Number(value) > 100) value = "100";
+    } else if (name === "stockQuantity" || name === "hsnCode") {
+      if (value !== "" && !/^\d*$/.test(value)) return;
+      if (name === "hsnCode" && value.length > 8) value = value.slice(0, 8);
+    } else if (name === "netQuantity") {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
+
     const maxLengths: Record<string, number> = {
       productName: 150, brandName: 60, variantName: 60,
       manufacturerName: 100, productDescription: 1000, batchNumber: 20,
     };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
-    setForm((p) => ({ ...p, [name]: value }));
+    setForm((p) => {
+      const updated = { ...p, [name]: value };
+
+      // Cross-field: maxQty >= minQty
+      const minQ = Number(updated.minimumOrderQuantity) || 0;
+      const maxQ = Number(updated.maximumOrderQuantity) || 0;
+      if ((name === "minimumOrderQuantity" || name === "maximumOrderQuantity") && minQ && maxQ) {
+        setErrors((prev) => {
+          const n = { ...prev };
+          if (maxQ < minQ) n.maximumOrderQuantity = "Max Order Qty must be ≥ Min Order Qty";
+          else delete n.maximumOrderQuantity;
+          return n;
+        });
+      }
+
+      // Cross-field: sellingPrice <= mrp
+      const mrpVal = Number(updated.mrp) || 0;
+      const spVal  = Number(updated.sellingPrice) || 0;
+      if ((name === "mrp" || name === "sellingPrice") && mrpVal && spVal) {
+        setErrors((prev) => {
+          const n = { ...prev };
+          if (spVal > mrpVal) n.sellingPrice = "Selling Price must be ≤ MRP";
+          else delete n.sellingPrice;
+          return n;
+        });
+      }
+
+      return updated;
+    });
     if (errors[name]) setErrors((p) => { const n = { ...p }; delete n[name]; return n; });
 
     if (name === "hsnCode" && value.trim()) {
@@ -959,6 +1067,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       else
         setErrors((p) => { const n = { ...p }; delete n.discountPercentage; return n; });
     }
+    if (name === "batchNumber" && value.trim()) {
+      checkBatchNumber(value);
+    }
   };
 
   const handleDropdownChange = (field: string, value: string) => {
@@ -966,6 +1077,25 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     if (errors[field]) setErrors((p) => { const n = { ...p }; delete n[field]; return n; });
   };
 
+<<<<<<< HEAD
+=======
+  const handleCertCheckbox = (option: CertificationMasterOption) => {
+    const exists = selectedCertifications.some((c) => c.id === option.value);
+    if (exists) {
+      setSelectedCertifications((p) => p.filter((c) => c.id !== option.value));
+    } else {
+      setSelectedCertifications((p) => [
+        ...p,
+        {
+          id: option.value, label: option.label, tagCode: option.tagCode,
+          productCertificateDocumentId: option.certificationId,
+          file: null, fileName: "", uploading: false, isUploaded: false, previewUrl: null,
+        },
+      ]);
+    }
+  };
+
+>>>>>>> dev
   const handleCertFileSelect = (certId: string, file: File) => {
     if (file.size > 5 * 1024 * 1024) { alert("Certificate file size must be less than 5 MB"); return; }
     const allowedTypes = ["application/pdf", "image/jpeg", "image/jpg", "image/png", "image/svg+xml"];
@@ -979,7 +1109,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           : c,
       ),
     );
-    if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
+    const key = `certFile_${certId}`;
+    if (errors[key]) setErrors((p) => { const n = { ...p }; delete n[key]; return n; });
   };
 
   const handleCertRemove = (certId: string) =>
@@ -989,21 +1120,87 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       ),
     );
 
-  const handleImageFiles = (files: FileList | File[]) => {
-    const fileArr = Array.from(files);
-    const allowedFormats = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml"];
-    const maxSizeBytes = 5 * 1024 * 1024;
-    if (fileArr.find((f) => !allowedFormats.includes(f.type))) {
-      setErrors((p) => ({ ...p, images: "Unsupported image format. Only JPG, JPEG, PNG, SVG are allowed." })); return;
+  const handleMonthSelect = (
+    field: "manufacturingDate" | "expiryDate",
+    month: number,
+    year: number,
+  ) => {
+    const selectedDate = new Date(year, month, 1);
+
+    if (field === "manufacturingDate") {
+      const today = new Date();
+      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      if (selectedDate > currentMonth) {
+        setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
+        return;
+      }
+      setErrors((prev) => ({ ...prev, manufacturingDate: "", expiryDate: "" }));
+      setForm({ ...form, manufacturingDate: selectedDate, expiryDate: null, shelfLifeMonths: "" });
+      setShowManufacturingMonthPicker(false);
+      return;
     }
-    if (fileArr.find((f) => f.size > maxSizeBytes)) {
-      setErrors((p) => ({ ...p, images: "Image file size exceeds the 5 MB limit." })); return;
+
+    if (field === "expiryDate") {
+      setForm((prev) => {
+        const updatedForm = { ...prev, expiryDate: selectedDate };
+
+        let expiryError = "";
+
+        if (updatedForm.manufacturingDate) {
+          const mfg = new Date(updatedForm.manufacturingDate);
+          const today = new Date();
+
+          const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
+
+          const totalMonths =
+            (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
+            (selectedDate.getMonth() - mfg.getMonth()) +
+            1;
+
+          const monthsUntilExpiry =
+            (selectedDate.getFullYear() - today.getFullYear()) * 12 +
+            (selectedDate.getMonth() - today.getMonth()) +
+            1;
+
+          updatedForm.shelfLifeMonths =
+            totalMonths >= 0 ? totalMonths.toString() : "";
+
+          if (monthsUntilExpiry > 0 && monthsUntilExpiry <= 3) {
+            expiryError =
+              monthsUntilExpiry === 1
+                ? "This product expires within 1 month, but it can still be added."
+                : `This product expires within ${monthsUntilExpiry} months, but it can still be added.`;
+          } else if (selectedDate > maxDate) {
+            expiryError =
+              "Expiry cannot be more than 5 years from Manufacturing Date";
+          }
+        }
+
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          expiryDate: expiryError,
+        }));
+
+        return updatedForm;
+      });
+
+      setShowExpiryMonthPicker(false);
     }
-    if (images.length + fileArr.length > 5) {
-      setErrors((p) => ({ ...p, images: "Maximum 5 images allowed" })); return;
+  };
+
+  // ─── Batch number uniqueness check ────────────────────────────────────────────
+
+  const checkBatchNumber = async (batchNumber: string) => {
+    try {
+      const response = await validateBatchNumber(batchNumber, productCategoryId);
+      if (response.exists) {
+        setErrors((prev) => ({ ...prev, batchNumber: "Batch number already exists" }));
+      } else {
+        setErrors((prev) => { const n = { ...prev }; delete n.batchNumber; return n; });
+      }
+    } catch (error) {
+      console.error("Batch validation failed:", error);
     }
-    setImages((p) => [...p, ...fileArr]);
-    setErrors((p) => { const n = { ...p }; delete n.images; return n; });
   };
 
   // ─── Validation ───────────────────────────────────────────────────────────────
@@ -1058,11 +1255,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
     if (!form.countryOfOriginId) e.countryOfOriginId = "Country of origin is required";
 
-    if (selectedCertifications.length === 0) {
-      e.certifications = "At least one certification / compliance is required";
-    } else {
-      const missing = selectedCertifications.find((c) => !c.file && !c.existingUrl);
-      if (missing) e.certifications = `Please upload the certificate file for "${missing.label}"`;
+    for (const cert of selectedCertifications) {
+      if (!cert.file && !cert.existingUrl) {
+        e[`certFile_${cert.id}`] = `Please upload the certificate file for "${cert.label}"`;
+      }
     }
 
     if (mode === "create" && !form.packTypeId) e.packTypeId = "Pack type is required";
@@ -1099,20 +1295,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       }
 
       if (!form.expiryDate) e.expiryDate = "Expiry date is required";
-      else {
-        const today = new Date();
-        const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
-        if (form.expiryDate < minFromNow)
-          e.expiryDate = "Expiry date must be at least 3 months from current month";
-        else if (form.manufacturingDate) {
-          const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
-          if (form.expiryDate < minExpiry)
-            e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
-          else {
-            const totalMonths = (form.expiryDate.getFullYear() - form.manufacturingDate.getFullYear()) * 12 + (form.expiryDate.getMonth() - form.manufacturingDate.getMonth());
-            if (totalMonths > 60) e.expiryDate = "Shelf life cannot exceed 5 years (60 months)";
-          }
-        }
+      else if (form.manufacturingDate) {
+        const maxDate = new Date(form.manufacturingDate.getFullYear() + 5, form.manufacturingDate.getMonth(), 1);
+        if (form.expiryDate > maxDate)
+          e.expiryDate = "Expiry cannot be more than 5 years from Manufacturing Date";
       }
 
       const stock = parseFloat(form.stockQuantity);
@@ -1140,7 +1326,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
     else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
 
-    if (mode === "create" && images.length === 0) e.images = "At least one product image is required";
+    if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
+    if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
 
     return e;
   };
@@ -1178,6 +1365,19 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     const hasImageUpload = images.length > 0;
 
     setSubmitting(true);
+
+    if (mode === "create" && form.batchNumber.trim()) {
+      try {
+        const batchValidation = await validateBatchNumber(form.batchNumber, productCategoryId);
+        if (batchValidation.exists) {
+          setErrors((prev) => ({ ...prev, batchNumber: "Batch number already exists" }));
+          setSubmitting(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Batch validation failed:", error);
+      }
+    }
 
     const payload = {
       productName:          form.productName,
@@ -1219,6 +1419,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           effectiveEndDate:             d.effectiveEndDate,
           effectiveEndTime:             d.effectiveEndTime,
         })),
+        specialSchemes: (form.specialSchemes || []).map((s: any) => ({
+          ...s,
+          ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+        })),
       }],
 
       productAttributeCosmeticAndPersonalUse: [{
@@ -1229,6 +1433,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         VariantName:          form.variantName || null,
         Gender:               form.gender,
         useAreaId:            selectedIntendedUseAreas.map(Number),
+        intendedUseAreaIds:   selectedIntendedUseAreas.map(Number),
+        IntendedUseArea:      selectedIntendedUseAreas.map((id) => ({ useAreaId: Number(id) })),
         skintypeId:           skinHairRule.skinType !== "hidden" ? selectedSkinTypes.map(Number) : [],
         typeId:           skinHairRule.hairType !== "hidden" ? selectedHairTypes.map(Number) : [],
         ActiveIngredients:    form.activeIngredients,
@@ -1252,22 +1458,38 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       }],
 
       productImages: images.map(() => ({ productImage: "PENDING" })),
+      retainedImageUrls: existingImages,
     };
 
     // ── EDIT MODE ──────────────────────────────────────────────────────────────
     if (mode === "edit") {
-      const currentProductId  = resolvedProductId || productId || "";
-      const currentAttributeId = productAttributeId;
+      const currentProductId = resolvedProductId || productId || "";
+      let currentAttributeId = productAttributeId;
 
       try {
-        await updateProduct(currentProductId, payload as never);
+        const updateData = await updateProduct(currentProductId, payload as never) as ApiResponseData;
+
+        // For Excel-uploaded products the attributeId may not be pre-populated
+        if (!currentAttributeId) {
+          currentAttributeId = extractProductAttributeId(updateData) || extractAttributeIdFromProduct(updateData) || "";
+        }
+
+        // Extract server-assigned productCertificateDocumentId values from the update response
+        let certDocMap = extractCertDocumentIdMap(updateData);
+        if (certDocMap.size === 0) {
+          certDocMap = extractCertDocumentIdMapFromProduct(updateData);
+        }
+        const finalCertsToUpload = certsToUpload.map((c) => {
+          const serverDocId = certDocMap.get(Number(c.id));
+          return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
+        });
 
         if (hasImageUpload) {
           await uploadProductImages(currentProductId, images);
         }
 
         if (currentAttributeId) {
-          for (const cert of certsToUpload) {
+          for (const cert of finalCertsToUpload) {
             const result = await uploadCosmeticCertificate(currentAttributeId, cert.productCertificateDocumentId, cert.file!);
             if (!result.success) {
               throw new Error(`Failed to upload certificate "${cert.label}": ${result.message}`);
@@ -1284,7 +1506,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
         setSubmitting(false);
         if (onSubmitSuccess) onSubmitSuccess();
-        else router.push(`/seller_7a3b9f2c/products/view/${currentProductId}`);
+        else setShowSuccessModal(true);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("Edit submit error:", err);
@@ -1385,6 +1607,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }
   };
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> dev
   // ─── Loading guard ─────────────────────────────────────────────────────────────
   if (mode === "edit" && loadingProduct) {
     return (
@@ -1403,24 +1629,22 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
       <PopupModal
         isOpen={showSuccessModal}
-        title="Product Saved Successfully!"
-        description="Your cosmetic product has been saved and is now live on the platform"
+        title={isEdit ? "Product Updated Successfully!" : "Product Saved Successfully!"}
+        description={isEdit ? "Your product has been updated successfully." : "Your cosmetic product has been saved and is now live on the platform"}
         primaryActionText="View Product"
-        secondaryActionText="Continue Adding"
+        secondaryActionText={isEdit ? "Continue Editing" : "Continue Adding"}
         tertiaryActionText="Back to Dashboard"
         onPrimaryAction={() => { router.push(`/seller_7a3b9f2c/products/view/${resolvedProductId}`); }}
-        onSecondaryAction={() => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); }}
+        onSecondaryAction={isEdit ? () => setShowSuccessModal(false) : () => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); }}
         onTertiaryAction={() => { router.push("/seller_7a3b9f2c/dashboard"); }}
         onClose={() => setShowSuccessModal(false)}
       />
 
-      {/* ✅ Additional Discount Modal — identical pattern to DrugForm */}
       {showAdditionalDiscount && (
         <CommonModal
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]"
         >
-          <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
             <AdditionalDiscountType
               onClose={() => setShowAdditionalDiscount(false)}
               categoryId={productCategoryId}
@@ -1433,8 +1657,14 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                   additionalDiscount: data,
                 }))
               }
+              initialSchemesData={form.specialSchemes}
+              onSaveSpecialSchemes={(data: any) => {
+                setForm((prev) => ({
+                  ...prev,
+                  specialSchemes: data || [],
+                }));
+              }}
             />
-          </div>
         </CommonModal>
       )}
 
@@ -1466,6 +1696,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 error={errors.brandName} required readOnly={isEdit} />
             </div>
 
+<<<<<<< HEAD
             <div data-field="productTypeId">
               <Dropdown
                 label="Product Type"
@@ -1492,6 +1723,45 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 error={errors.productSubTypeId}
                 required
               />
+=======
+            <div className="flex flex-col gap-1" data-field="productTypeId">
+              {isEdit ? (
+                <NonEditableSelect label="Product Type" value={displayLabels.productTypeLabel} required />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Product Type {requiredStar}</label>
+                  <Dropdown
+                    options={productTypeOptions}
+                    isLoading={loadingProductTypes}
+                    value={form.productTypeId}
+                    onChange={(val, label) => handleSelectChange("productTypeId", { value: val, label })}
+                    placeholder={loadingProductTypes ? "Loading..." : "Select product type"}
+                    error={errors.productTypeId ? " " : ""}
+                  />
+                  {errors.productTypeId && <p className={errorMsg}>{errors.productTypeId}</p>}
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1" data-field="productSubTypeId">
+              {isEdit ? (
+                <NonEditableSelect label="Product Sub-Type" value={displayLabels.productSubTypeLabel} required />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Product Sub-Type {requiredStar}</label>
+                  <Dropdown
+                    options={productSubTypeOptions}
+                    isLoading={loadingSubTypes}
+                    isDisabled={!form.productTypeId}
+                    value={form.productSubTypeId}
+                    onChange={(val, label) => handleSelectChange("productSubTypeId", { value: val, label })}
+                    placeholder={form.productTypeId ? (loadingSubTypes ? "Loading..." : "Select sub-type") : "Select product type first"}
+                    error={errors.productSubTypeId ? " " : ""}
+                  />
+                  {errors.productSubTypeId && <p className={errorMsg}>{errors.productSubTypeId}</p>}
+                </>
+              )}
+>>>>>>> dev
             </div>
 
             <div data-field="variantName">
@@ -1499,6 +1769,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 value={form.variantName} onChange={handleChange} />
             </div>
 
+<<<<<<< HEAD
             <div data-field="gender">
               <Dropdown
                 label="Gender"
@@ -1516,12 +1787,36 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               <CheckboxDropdown
                 label="Intended Use Area"
                 required
+=======
+            <div className="flex flex-col gap-1" data-field="gender">
+              {isEdit ? (
+                <NonEditableSelect label="Gender" value={currentGenderLabel} required />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Gender {requiredStar}</label>
+                  <Dropdown
+                    options={genderOptions}
+                    value={form.gender}
+                    onChange={(val, label) => handleSelectChange("gender", { value: val, label })}
+                    placeholder="Select gender"
+                    error={errors.gender ? " " : ""}
+                  />
+                  {errors.gender && <p className={errorMsg}>{errors.gender}</p>}
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1" ref={setFieldRef("intendedUseAreas") as React.RefCallback<HTMLDivElement>} data-field="intendedUseAreas">
+              <label className={fieldLabel}>Intended Use Area {requiredStar}</label>
+              <CheckboxDropdown
+>>>>>>> dev
                 options={intendedUseAreaOptions}
                 selectedValues={selectedIntendedUseAreas}
                 onChange={(vals) => {
                   setSelectedIntendedUseAreas(vals);
                   if (errors.intendedUseAreas) setErrors((p) => { const n = { ...p }; delete n.intendedUseAreas; return n; });
                 }}
+<<<<<<< HEAD
                 placeholder="Select intended use area(s)"
                 error={errors.intendedUseAreas}
                 disabled={loadingIntendedUseAreas}
@@ -1577,10 +1872,138 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                   error={errors.skinTypes}
                   disabled={isEdit || loadingSkinTypes}
                 />
+=======
+                placeholder={loadingIntendedUseAreas ? "Loading..." : "Select intended use area(s)"}
+                disabled={loadingIntendedUseAreas}
+                error={errors.intendedUseAreas ? " " : ""}
+                showSelectAll={false}
+              />
+              {errors.intendedUseAreas && <p className={errorMsg}>{errors.intendedUseAreas}</p>}
+            </div>
+
+            <div className="flex flex-col gap-1" data-field="productFormId">
+              {isEdit ? (
+                <NonEditableSelect
+                  label="Product Form"
+                  value={productFormOptions.find((o) => o.value === form.productFormId)?.label || form.productFormId}
+                  required
+                />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Product Form {requiredStar}</label>
+                  <Dropdown
+                    options={productFormOptions}
+                    isLoading={loadingProductForms}
+                    value={form.productFormId}
+                    onChange={(val, label) => {
+                      handleSelectChange("productFormId", { value: val, label });
+                      if (errors.productFormId) setErrors((p) => { const n = { ...p }; delete n.productFormId; return n; });
+                    }}
+                    placeholder={loadingProductForms ? "Loading..." : "Eg, Gel, Powder"}
+                    error={errors.productFormId ? " " : ""}
+                  />
+                  {errors.productFormId && <p className={errorMsg}>{errors.productFormId}</p>}
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1" data-field="netQuantity">
+              {isEdit ? (
+                <NonEditableField
+                  label="Net Quantity"
+                  value={`${form.netQuantity} ${netQuantityUnitOptions.find((o) => o.value === form.netQuantityUnitId)?.label || ""}`.trim()}
+                  required
+                />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Net Quantity {requiredStar}</label>
+                  <div className="relative" ref={unitDropdownRef}>
+                    <div className={`flex items-center h-[52px] border rounded-lg overflow-hidden ${errors.netQuantity || errors.netQuantityUnitId ? "border-warning-500" : "border-pneutral-300"}`}>
+                      <input
+                        name="netQuantity"
+                        value={form.netQuantity}
+                        onChange={handleChange}
+                        placeholder="e.g., 100"
+                        maxLength={10}
+                        className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
+                      />
+                      <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
+                      <button
+                        type="button"
+                        onClick={() => setShowUnitDropdown(p => !p)}
+                        className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 hover:bg-neutral-100 transition-colors flex-shrink-0"
+                      >
+                        <span
+                          className={netQuantityUnitOptions.find(o => o.value === form.netQuantityUnitId)?.label ? "text-pneutral-800" : "text-pneutral-500"}
+                          style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}
+                        >
+                          {loadingNetQuantityUnits ? "..." : (netQuantityUnitOptions.find(o => o.value === form.netQuantityUnitId)?.label || "Select Unit")}
+                        </span>
+                        <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${showUnitDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                    {showUnitDropdown && (
+                      <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
+                        {netQuantityUnitOptions.map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                              handleSelectChange("netQuantityUnitId", { value: opt.value, label: opt.label });
+                              if (errors.netQuantityUnitId) setErrors(p => { const n = { ...p }; delete n.netQuantityUnitId; return n; });
+                              setShowUnitDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer ${form.netQuantityUnitId === opt.value ? "bg-neutral-50 font-semibold" : "font-medium"}`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {errors.netQuantity && <p className={errorMsg}>{errors.netQuantity}</p>}
+                  {errors.netQuantityUnitId && <p className={errorMsg}>{errors.netQuantityUnitId}</p>}
+                </>
+              )}
+            </div>
+
+            {skinHairRule.skinType !== "hidden" && (
+              <div className="flex flex-col gap-1" ref={setFieldRef("skinTypes") as React.RefCallback<HTMLDivElement>} data-field="skinTypes">
+                {isEdit ? (
+                  <NonEditableField
+                    label={skinHairRule.skinType === "mandatory" ? "Skin Type" : "Skin Type (optional)"}
+                    value={selectedSkinTypes.map(id => skinTypeOptions.find(o => o.value === id)?.label || id).filter(Boolean).join(", ")}
+                    required={skinHairRule.skinType === "mandatory"}
+                  />
+                ) : (
+                  <>
+                    <label className={fieldLabel}>
+                      {skinHairRule.skinType === "mandatory" ? "Skin Type" : "Skin Type (optional)"}
+                      {skinHairRule.skinType === "mandatory" && requiredStar}
+                    </label>
+                    <CheckboxDropdown
+                      options={skinTypeOptions}
+                      selectedValues={selectedSkinTypes}
+                      onChange={(vals) => {
+                        setSelectedSkinTypes(vals);
+                        if (errors.skinTypes) setErrors((p) => { const n = { ...p }; delete n.skinTypes; return n; });
+                      }}
+                      placeholder={loadingSkinTypes ? "Loading..." : "Select skin type(s)"}
+                      disabled={loadingSkinTypes}
+                      error={errors.skinTypes ? " " : ""}
+                      showSelectAll={false}
+                    />
+                    {errors.skinTypes && <p className={errorMsg}>{errors.skinTypes}</p>}
+                  </>
+                )}
+>>>>>>> dev
               </div>
             )}
 
             {skinHairRule.hairType !== "hidden" && (
+<<<<<<< HEAD
               <div ref={setFieldRef("hairTypes") as React.RefCallback<HTMLDivElement>} data-field="hairTypes">
                 <CheckboxDropdown
                   label={skinHairRule.hairType === "mandatory" ? "Hair Type" : "Hair Type (optional)"}
@@ -1626,6 +2049,83 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 error={errors.countryOfOriginId}
                 required
               />
+=======
+              <div className="flex flex-col gap-1" ref={setFieldRef("hairTypes") as React.RefCallback<HTMLDivElement>} data-field="hairTypes">
+                {isEdit ? (
+                  <NonEditableField
+                    label={skinHairRule.hairType === "mandatory" ? "Hair Type" : "Hair Type (optional)"}
+                    value={selectedHairTypes.map(id => hairTypeOptions.find(o => o.value === id)?.label || id).filter(Boolean).join(", ")}
+                    required={skinHairRule.hairType === "mandatory"}
+                  />
+                ) : (
+                  <>
+                    <label className={fieldLabel}>
+                      {skinHairRule.hairType === "mandatory" ? "Hair Type" : "Hair Type (optional)"}
+                      {skinHairRule.hairType === "mandatory" && requiredStar}
+                    </label>
+                    <CheckboxDropdown
+                      options={hairTypeOptions}
+                      selectedValues={selectedHairTypes}
+                      onChange={(vals) => {
+                        setSelectedHairTypes(vals);
+                        if (errors.hairTypes) setErrors((p) => { const n = { ...p }; delete n.hairTypes; return n; });
+                      }}
+                      placeholder={loadingHairTypes ? "Loading..." : "Select hair type(s)"}
+                      disabled={loadingHairTypes}
+                      error={errors.hairTypes ? " " : ""}
+                      showSelectAll={false}
+                    />
+                    {errors.hairTypes && <p className={errorMsg}>{errors.hairTypes}</p>}
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1" ref={setFieldRef("ageGroupId") as React.RefCallback<HTMLDivElement>} data-field="ageGroupId">
+              {isEdit ? (
+                <NonEditableField
+                  label="Age Group"
+                  value={selectedAgeGroups.map(id => ageGroupOptions.find(o => o.value === id)?.label || id).filter(Boolean).join(", ")}
+                  required
+                />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Age Group {requiredStar}</label>
+                  <CheckboxDropdown
+                    options={ageGroupOptions}
+                    selectedValues={selectedAgeGroups}
+                    onChange={(vals) => {
+                      setSelectedAgeGroups(vals);
+                      if (errors.ageGroupId) setErrors((p) => { const n = { ...p }; delete n.ageGroupId; return n; });
+                    }}
+                    placeholder={loadingAgeGroups ? "Loading..." : "Select age group(s)"}
+                    disabled={loadingAgeGroups}
+                    error={errors.ageGroupId ? " " : ""}
+                    showSelectAll={false}
+                  />
+                  {errors.ageGroupId && <p className={errorMsg}>{errors.ageGroupId}</p>}
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1" data-field="countryOfOriginId">
+              {isEdit ? (
+                <NonEditableSelect label="Country of Origin" value={displayLabels.countryLabel} required />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Country of Origin {requiredStar}</label>
+                  <Dropdown
+                    options={countryOptions}
+                    isLoading={loadingCountries}
+                    value={form.countryOfOriginId}
+                    onChange={(val, label) => handleSelectChange("countryOfOriginId", { value: val, label })}
+                    placeholder={loadingCountries ? "Loading..." : "Select country"}
+                    error={errors.countryOfOriginId ? " " : ""}
+                  />
+                  {errors.countryOfOriginId && <p className={errorMsg}>{errors.countryOfOriginId}</p>}
+                </>
+              )}
+>>>>>>> dev
             </div>
 
             <div data-field="manufacturerName">
@@ -1634,6 +2134,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 error={errors.manufacturerName} required readOnly={isEdit} />
             </div>
 
+<<<<<<< HEAD
             <div data-field="storageConditionId">
               <Dropdown
                 label="Storage Condition"
@@ -1646,12 +2147,32 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 error={errors.storageConditionId}
                 required
               />
+=======
+            <div className="flex flex-col gap-1" data-field="storageConditionId">
+              {hasStock ? (
+                <NonEditableSelect label="Storage Condition" value={displayLabels.storageConditionLabel} required />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Storage Condition {requiredStar}</label>
+                  <Dropdown
+                    options={storageConditionOptions}
+                    isLoading={loadingStorageConditions}
+                    value={form.storageConditionId}
+                    onChange={(val, label) => handleSelectChange("storageConditionId", { value: val, label })}
+                    placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
+                    error={errors.storageConditionId ? " " : ""}
+                  />
+                  {errors.storageConditionId && <p className={errorMsg}>{errors.storageConditionId}</p>}
+                </>
+              )}
+>>>>>>> dev
             </div>
 
             <div className="flex flex-col gap-0" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
               <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
               <CheckboxDropdown
                 options={certificationMasterOptions}
+<<<<<<< HEAD
                 selectedValues={selectedCertifications.map((c) => c.id)}
                 disabled={loadingCertifications}
                 onChange={(newValues) => {
@@ -1671,6 +2192,38 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                   if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
                 }}
                 placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
+=======
+                selectedValues={selectedCertifications.map(c => c.id)}
+                onChange={(values) => {
+                  // In edit mode, preserve any certs already loaded from the server
+                  const preservedIds = isEdit
+                    ? selectedCertifications.filter((c) => c.existingUrl).map((c) => c.id)
+                    : [];
+                  const finalValues = Array.from(new Set([...values, ...preservedIds]));
+                  const newCerts = finalValues.map(val => {
+                    const existing = selectedCertifications.find(c => c.id === val);
+                    if (existing) return existing;
+                    const opt = certificationMasterOptions.find(o => o.value === val);
+                    return {
+                      id: val,
+                      label: opt?.label || "",
+                      tagCode: opt?.tagCode || "",
+                      file: null,
+                      fileName: "",
+                      uploading: false,
+                      isUploaded: false,
+                      previewUrl: null,
+                      productCertificateDocumentId: opt?.certificationId || 0,
+                      existingUrl: undefined,
+                    };
+                  });
+                  setSelectedCertifications(newCerts);
+                  if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
+                }}
+                placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
+                disabled={loadingCertifications}
+                showSelectAll={false}
+>>>>>>> dev
                 error={errors.certifications ? " " : ""}
               />
               {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
@@ -1701,20 +2254,25 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                     label=""
                     placeholder={`Upload the ${cert.label}`}
                     accept=".pdf,.jpg,.jpeg,.png"
+                    hasError={!!errors[`certFile_${cert.id}`]}
                   />
+                  {errors[`certFile_${cert.id}`] && <p className={errorMsg}>{errors[`certFile_${cert.id}`]}</p>}
                 </div>
               ))
             )}
 
             <div data-field="brochure">
-              <UploadInput onFileSelect={(file) => setBrochureFile(file)} existingFile={existingBrochureUrl || undefined} />
+              <UploadInput
+                onFileSelect={(file) => setBrochureFile(file)}
+                existingFile={existingBrochureUrl || undefined}
+              />
             </div>
 
             <div className="flex flex-col gap-1" data-field="activeIngredients">
               <label className={fieldLabel}>Active Ingredients {requiredStar}</label>
               <textarea
                 ref={setFieldRef("activeIngredients") as React.RefCallback<HTMLTextAreaElement>}
-                name="activeIngredients" value={form.activeIngredients} onChange={handleChange} rows={4}
+                name="activeIngredients" value={form.activeIngredients} onChange={handleChange} rows={2}
                 readOnly={isEdit}
                 placeholder="e.g., Vitamin C, Vitamin E, Salicylic Acid, Hyaluronic Acid"
                 className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border transition-colors ${isEdit ? "bg-gray-50 cursor-default focus:outline-none border-[#C0C1BE]" : `bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] ${errors.activeIngredients ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}`}
@@ -1726,7 +2284,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               <label className={fieldLabel}>Product Claims {requiredStar}</label>
               <textarea
                 ref={setFieldRef("productClaims") as React.RefCallback<HTMLTextAreaElement>}
-                name="productClaims" value={form.productClaims} onChange={handleChange} rows={4}
+                name="productClaims" value={form.productClaims} onChange={handleChange} rows={2}
                 placeholder={`e.g., "Paraben Free", "Dermatologically Tested", "Clinically Proven"`}
                 className={`w-full rounded-[8px] p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#A3A3A3] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-[#C4AAFD] transition-colors ${errors.productClaims ? "border-[#FF3B3B]" : "border-[#C0C1BE] focus:border-[#C4AAFD]"}`}
               />
@@ -1744,7 +2302,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               {errors.warningsPrecautions && <p className={errorMsg}>{errors.warningsPrecautions}</p>}
             </div>
 
-            <div className="col-span-2 flex flex-col gap-1" data-field="productDescription">
+            <div className="flex flex-col gap-1" data-field="productDescription">
               <label className={fieldLabel}>Product Description {requiredStar}</label>
               <textarea
                 ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>}
@@ -1764,6 +2322,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           <div className="border-b border-neutral-200 mt-3"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
+<<<<<<< HEAD
             <div data-field="packTypeId">
               <Dropdown
                 label="Pack Type"
@@ -1776,6 +2335,25 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 error={errors.packTypeId}
                 required
               />
+=======
+            <div className="flex flex-col gap-1" data-field="packTypeId">
+              {hasStock ? (
+                <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
+              ) : (
+                <>
+                  <label className={fieldLabel}>Pack Type {requiredStar}</label>
+                  <Dropdown
+                    options={packTypeOptions}
+                    isLoading={loadingPackTypes}
+                    value={form.packTypeId}
+                    onChange={(val, label) => handleSelectChange("packTypeId", { value: val, label })}
+                    placeholder={loadingPackTypes ? "Loading..." : "Select pack type"}
+                    error={errors.packTypeId ? " " : ""}
+                  />
+                  {errors.packTypeId && <p className={errorMsg}>{errors.packTypeId}</p>}
+                </>
+              )}
+>>>>>>> dev
             </div>
 
             <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 1"
@@ -1786,11 +2364,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks}
               required readOnly={hasStock} />
 
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Pack Size (No. of Units per Pack Type × No. of Packs)</label>
-              <input name="packSize" value={form.packSize} readOnly
-                className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
-            </div>
+            <Input
+              label="Pack Size (No. of Units per Pack Type × No. of Packs)"
+              name="packSize"
+              value={form.packSize}
+              readOnly
+            />
           </div>
 
           <div className="text-h6 font-normal col-span-2 mt-5">Order Details</div>
@@ -1808,56 +2387,86 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
             <div data-field="batchNumber">
+<<<<<<< HEAD
               <Input label="Batch Number" name="batchNumber" placeholder="Alphanumeric only, e.g., BAT2024001"
                 value={form.batchNumber} onChange={handleChange} error={errors.batchNumber}
                 required readOnly={isEdit} />
+=======
+              {isEdit ? (
+                <NonEditableField label="Batch Number" value={form.batchNumber} required />
+              ) : (
+                <Input label="Batch Number" name="batchNumber" placeholder="Alphanumeric only, e.g., BAT2024001"
+                  value={form.batchNumber} onChange={handleChange} error={errors.batchNumber} required maxLength={20} />
+              )}
+>>>>>>> dev
             </div>
 
-            <Input
-              label="Manufacturing Date"
-              type="month"
-              name="manufacturingDate"
-              id="manufacturingDate"
-              readOnly={isEdit}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (!value) return;
-                const [year, month] = value.split("-").map(Number);
-                const date = new Date(year, month - 1, 1);
-                const today = new Date();
-                const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                if (date > currentMonth) {
-                  setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
-                  return;
+            <div className="relative">
+              <Input
+                label="Manufacturing Month"
+                type="text"
+                name="manufacturingDate"
+                id="manufacturingDate"
+                required
+                readOnly={isEdit}
+                value={
+                  form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
+                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
+                    : ""
                 }
-                setErrors((prev) => ({ ...prev, manufacturingDate: "", expiryDate: "" }));
-                setForm({ ...form, manufacturingDate: date, expiryDate: null, shelfLifeMonths: "" });
-              }}
-              value={
-                form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
-                  ? `${form.manufacturingDate.getFullYear()}-${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}`
-                  : ""
-              }
-              error={errors.manufacturingDate}
-              required
-            />
+                placeholder="MM/YYYY"
+                onChange={() => {}}
+                onClick={() => { if (!isEdit) setShowManufacturingMonthPicker(true); }}
+                onKeyDown={(e) => e.preventDefault()}
+                onPaste={(e) => e.preventDefault()}
+                error={errors.manufacturingDate}
+              />
+              {showManufacturingMonthPicker && !isEdit && (
+                <MonthPicker
+                  selectedMonth={form.manufacturingDate ? form.manufacturingDate.getMonth() : new Date().getMonth()}
+                  selectedYear={form.manufacturingDate ? form.manufacturingDate.getFullYear() : new Date().getFullYear()}
+                  maxDate={new Date()}
+                  onSelect={(month, year) => handleMonthSelect("manufacturingDate", month, year)}
+                  onClose={() => setShowManufacturingMonthPicker(false)}
+                />
+              )}
+            </div>
 
-            <Input
-              label="Expiry Date"
-              type="month"
-              name="expiryDate"
-              value={
-                form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
-                  ? `${form.expiryDate.getFullYear()}-${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}`
-                  : ""
-              }
-              readOnly={isEdit}
-              onChange={handleChange}
-              min={getMinExpiryMonth()}
-              max={getMaxExpiryMonth()}
-              error={errors.expiryDate}
-              required
-            />
+            <div className="relative">
+              <Input
+                label="Expiry Month"
+                name="expiryDate"
+                type="text"
+                required
+                readOnly={isEdit}
+                value={
+                  form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
+                    ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
+                    : ""
+                }
+                placeholder="MM/YYYY"
+                onChange={() => {}}
+                onClick={() => { if (!isEdit) setShowExpiryMonthPicker(true); }}
+                onFocus={() => { if (!isEdit) setShowExpiryMonthPicker(true); }}
+                onKeyDown={(e) => e.preventDefault()}
+                onPaste={(e) => e.preventDefault()}
+                error={errors.expiryDate}
+              />
+              {showExpiryMonthPicker && !isEdit && (
+                <MonthPicker
+                  selectedMonth={form.expiryDate ? form.expiryDate.getMonth() : new Date().getMonth()}
+                  selectedYear={form.expiryDate ? form.expiryDate.getFullYear() : new Date().getFullYear()}
+                  minDate={new Date(new Date().getFullYear(), new Date().getMonth() + 4, 1)}
+                  maxDate={
+                    form.manufacturingDate
+                      ? new Date(form.manufacturingDate.getFullYear() + 5, form.manufacturingDate.getMonth(), 1)
+                      : undefined
+                  }
+                  onSelect={(month, year) => handleMonthSelect("expiryDate", month, year)}
+                  onClose={() => setShowExpiryMonthPicker(false)}
+                />
+              )}
+            </div>
 
             <Input
               type="number"
@@ -1916,17 +2525,43 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <AppliedOffersView
+              additionalDiscounts={form.additionalDiscount}
+              specialSchemes={form.specialSchemes}
+              productName={form.productName}
+              onEditDiscount={() => setShowAdditionalDiscount(true)}
+              onDeleteDiscount={(index) =>
+                setForm((prev) => ({
+                  ...prev,
+                  additionalDiscount: prev.additionalDiscount.map((d, i) =>
+                    i === index ? { ...d, displayOffer: false, isSelected: false } : d
+                  ),
+                }))
+              }
+              onEditScheme={() => setShowAdditionalDiscount(true)}
+              onDeleteScheme={(index) =>
+                setForm((prev) => ({
+                  ...prev,
+                  specialSchemes: prev.specialSchemes.map((s: any, i: number) =>
+                    i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s
+                  ),
+                }))
+              }
+              isEditMode={isEdit}
+            />
+
+            {/* <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Final Price (Auto-calculated)</label>
               <input name="finalPrice" value={form.finalPrice} readOnly
                 className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
-            </div>
+            </div> */}
           </div>
 
           <div className="text-h6 font-normal mt-5">Tax &amp; Billing</div>
           <div className="border-b border-neutral-200 mt-2 mb-4"></div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+<<<<<<< HEAD
             <div data-field="gstPercentage">
               <Dropdown
                 label="GST %"
@@ -1938,6 +2573,24 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 error={errors.gstPercentage}
                 required
               />
+=======
+            <div className="flex flex-col gap-1" data-field="gstPercentage">
+              {isEdit ? (
+                <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
+              ) : (
+                <>
+                  <label className={fieldLabel}>GST % {requiredStar}</label>
+                  <Dropdown
+                    options={gstOptions}
+                    value={form.gstPercentage}
+                    onChange={(val, label) => handleSelectChange("gstPercentage", { value: val, label })}
+                    placeholder="Select GST %"
+                    error={errors.gstPercentage ? " " : ""}
+                  />
+                  {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
+                </>
+              )}
+>>>>>>> dev
             </div>
 
             <div data-field="hsnCode">
@@ -1949,6 +2602,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         </div>
 
         {/* ── Section 3: Product Photos ─────────────────────────────────────────── */}
+<<<<<<< HEAD
         <div className="relative border border-neutral-200 rounded-xl p-6 bg-white"
           ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
           <div className="text-pneutral-700 font-normal text-sm mb-3">
@@ -1999,6 +2653,21 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           )}
 
           {errors.images && <p className={`${errorMsg} mt-2`}>{errors.images}</p>}
+=======
+        <div ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
+          <ProductImageUpload
+            title="Product Photos"
+            required={mode === "create"}
+            images={images}
+            setImages={setImages}
+            existingImages={existingImages}
+            setExistingImages={setExistingImages}
+            error={errors.images}
+            setErrors={setErrors}
+            isReadOnly={false}
+            mode={mode}
+          />
+>>>>>>> dev
         </div>
 
         {/* Actions */}

@@ -213,22 +213,22 @@ export const uploadSupplementBrochure = async (productAttributeId: string, file:
 
 export const uploadSupplementCertifications = async (
   productAttributeId: string,
-  documentIds: number[],
-  files: File[]
+  documentId: number,
+  file: File
 ) => {
   try {
     const formData = new FormData();
-    documentIds.forEach((id) => formData.append('documentIds', String(id)));
-    files.forEach((file) => formData.append('certificateFiles', file));
+    formData.append('documentIds', String(documentId));
+    formData.append('certificateFiles', file, file.name);
     const response = await api.post(
       `/product-documents/supplements/${productAttributeId}/certificates`,
       formData
     );
     return response.data;
   } catch (error: any) {
-    console.error('Error uploading Supplement Certifications', error);
+    console.error('Error uploading Supplement Certification', error);
     throw new Error(
-      error.response?.data?.message || error.message || 'Error uploading Supplement Certifications'
+      error.response?.data?.message || error.message || 'Error uploading Supplement Certification'
     );
   }
 };

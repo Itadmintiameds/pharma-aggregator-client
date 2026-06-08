@@ -13,7 +13,7 @@ export default SupplementForm
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { FileText, X, RefreshCw } from "lucide-react";
+import { FileText, X, RefreshCw, Trash2, Gift } from "lucide-react";
 // import Select from "react-select";
 import { useRouter } from "next/navigation";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
@@ -22,6 +22,9 @@ import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
 import UploadInput from "../commonComponent/UploadInput";
+import ProductImageUpload from "../commonComponent/ProductImageUpload";
+import MonthPicker from "@/src/app/commonComponents/MonthPicker";
+import AppliedOffersView from "./AppliedOffersView";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications, getServingSizeUnits, getNetQuantityUnits } from "@/src/services/product/SupplementService";
 import { getProductById, updateProduct } from "@/src/services/product/ProductService";
@@ -206,10 +209,10 @@ const NumericInputWithUnit: React.FC<NumericInputWithUnitProps> = ({
 
   // State mappings for border/shadow color matching original Input component
   const getBorderColor = () => {
-    if (disabled) return "border-pneutral-200 bg-sneutral-100 cursor-not-allowed";
-    if (readOnly) return "border-pneutral-100 bg-pneutral-50 cursor-default";
+    if (disabled) return "border-pneutral-300 bg-sneutral-100 cursor-not-allowed";
+    if (readOnly) return "border-pneutral-300 bg-pneutral-50 cursor-default";
     if (error) return "border-warning-500 focus-within:ring-1 focus-within:ring-warning-500 focus-within:border-warning-500";
-    return "border-neutral-500 focus-within:border-secondary-300 focus-within:ring-1 focus-within:ring-secondary-300";
+    return "border-pneutral-300 focus-within:border-secondary-300 focus-within:ring-1 focus-within:ring-secondary-300";
   };
 
   return (
@@ -385,6 +388,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [showSuccess, setShowSuccess] = useState(false);
   const [modalType, setModalType] = useState<"create" | "update">("create");
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
+  const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] = useState(false);
+  const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
 
   const resetForm = () => {
     setForm({
@@ -451,20 +456,141 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     setSelectedCertifications([]);
   };
 
+  const handleMonthSelect = (
+    field: "manufacturingDate" | "expiryDate",
+    month: number,
+    year: number,
+  ) => {
+    const selectedDate = new Date(year, month, 1);
+
+    if (field === "manufacturingDate") {
+      const today = new Date();
+      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      if (selectedDate > currentMonth) {
+        setErrors((prev) => ({
+          ...prev,
+          manufacturingDate: "Manufacturing date cannot be in the future month",
+        }));
+        return;
+      }
+
+      setErrors((prev) => ({
+        ...prev,
+        manufacturingDate: "",
+        expiryDate: "",
+      }));
+
+      setForm((prev) => ({
+        ...prev,
+        manufacturingDate: selectedDate,
+        expiryDate: null,
+        shelfLifeMonths: "",
+      }));
+
+      setShowManufacturingMonthPicker(false);
+      return;
+    }
+
+    if (field === "expiryDate") {
+      setForm((prev) => {
+        const updatedForm = {
+          ...prev,
+          expiryDate: selectedDate,
+        };
+
+        let expiryError = "";
+
+        if (updatedForm.manufacturingDate) {
+          const mfg = new Date(updatedForm.manufacturingDate);
+          const today = new Date();
+          const minDate = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+          const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
+
+          // OLD LOGIC
+          // const totalMonths =
+          //   (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
+          //   (selectedDate.getMonth() - mfg.getMonth()) +
+          //   1;
+
+          // NEW LOGIC
+          const isSameMonthAndYear =
+            selectedDate.getFullYear() === mfg.getFullYear() &&
+            selectedDate.getMonth() === mfg.getMonth();
+
+          const totalMonths = isSameMonthAndYear
+            ? 1
+            : (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
+            (selectedDate.getMonth() - mfg.getMonth());
+
+          const monthsUntilExpiry =
+            (selectedDate.getFullYear() - today.getFullYear()) * 12 +
+            (selectedDate.getMonth() - today.getMonth()) +
+            1;
+
+          updatedForm.shelfLifeMonths =
+            totalMonths >= 0 ? totalMonths.toString() : "";
+
+          if (monthsUntilExpiry > 0 && monthsUntilExpiry <= 3) {
+            expiryError =
+              monthsUntilExpiry === 1
+                ? "This product expires within 1 month, but it can still be added."
+                : `This product expires within ${monthsUntilExpiry} months, but it can still be added.`;
+          } else if (selectedDate > maxDate) {
+            expiryError =
+              "Expiry cannot be more than 5 years from Manufacturing Date";
+          }
+        }
+
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          expiryDate: expiryError,
+        }));
+
+        return updatedForm;
+      });
+
+      setShowExpiryMonthPicker(false);
+    }
+  };
+
+  // const checkBatchNumber = async (batchLotNumber: string) => {
+  //   try {
+  //     const response = await validateBatchNumber(batchLotNumber);
+  //     if (response.exists) {
+  //       setErrors((prev) => ({
+  //         ...prev,
+  //         batchLotNumber: "Batch number already exists",
+  //       }));
+  //     } else {
+  //       setErrors((prev) => {
+  //         const copy = { ...prev };
+  //         delete copy.batchLotNumber;
+  //         return copy;
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error("Batch validation failed:", error);
+  //   }
+  // };
+
   const checkBatchNumber = async (batchLotNumber: string) => {
     try {
-      const response = await validateBatchNumber(batchLotNumber);
+      const response = await validateBatchNumber(
+        batchLotNumber,
+        Number(categoryId),
+      );
+
       if (response.exists) {
         setErrors((prev) => ({
           ...prev,
           batchLotNumber: "Batch number already exists",
         }));
       } else {
-        setErrors((prev) => {
-          const copy = { ...prev };
-          delete copy.batchLotNumber;
-          return copy;
-        });
+        setErrors((prev) => ({
+          ...prev,
+          batchLotNumber: "",
+        }));
       }
     } catch (error) {
       console.error("Batch validation failed:", error);
@@ -775,7 +901,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     if (form.manufacturingDate instanceof Date && form.expiryDate instanceof Date) {
       const mfg = form.manufacturingDate;
       const exp = form.expiryDate;
-      const totalMonths = (exp.getFullYear() - mfg.getFullYear()) * 12 + (exp.getMonth() - mfg.getMonth());
+      // OLD LOGIC
+      // const totalMonths = (exp.getFullYear() - mfg.getFullYear()) * 12 + (exp.getMonth() - mfg.getMonth()) + 1;
+
+      // NEW LOGIC
+      const isSameMonthAndYear =
+        exp.getFullYear() === mfg.getFullYear() &&
+        exp.getMonth() === mfg.getMonth();
+
+      const totalMonths = isSameMonthAndYear
+        ? 1
+        : (exp.getFullYear() - mfg.getFullYear()) * 12 +
+        (exp.getMonth() - mfg.getMonth());
       setForm((prev) => ({
         ...prev,
         shelfLifeMonths: totalMonths > 0 ? totalMonths.toString() : "",
@@ -956,7 +1093,43 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+
+    // ----- Input Restrictions -----
+    if (name === "unitPerPack") {
+      value = value.replace(/\D/g, ""); // Integer only
+      if (value.length > 5) value = value.slice(0, 5); // 5 digits max
+    }
+    if (name === "numberOfPacks") {
+      value = value.replace(/\D/g, ""); // Integer only
+      if (value.length > 4) value = value.slice(0, 4); // 4 digits max
+    }
+    if (name === "minimumOrderQuantity" || name === "maximumOrderQuantity") {
+      value = value.replace(/\D/g, ""); // Integer only
+      if (value.length > 7) value = value.slice(0, 7); // 7 digits max
+    }
+    if (name === "mrp" || name === "sellingPrice") {
+      value = value.replace(/[^0-9.]/g, ""); // Numbers and decimal only
+      const parts = value.split(".");
+      if (parts[0].length > 13) parts[0] = parts[0].slice(0, 13);
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+    }
+    if (name === "discountPercentage") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+      if (Number(value) > 100) {
+        value = "100";
+      }
+    }
 
     setForm((prev) => {
       const updated = { ...prev, [name]: value };
@@ -964,7 +1137,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       // Auto-calculate packSize
       const unitPerPack = Number(updated.unitPerPack) || 0;
       const numberOfPacks = Number(updated.numberOfPacks) || 0;
-      updated.packSize = String(unitPerPack * numberOfPacks);
+      updated.packSize = (unitPerPack > 0 && numberOfPacks > 0) ? String(unitPerPack * numberOfPacks) : "";
 
       // Auto-calculate finalPrice from sellingPrice & gst
       const currentSP = Number(updated.sellingPrice) || 0;
@@ -1286,7 +1459,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         ageGroup: attr.ageGroupIds && attr.ageGroupIds.length > 0
           ? attr.ageGroupIds.map(String).join(",")
           : String(attr.ageGroupId || ""),
-        gender: attr.gender || "",
+        gender: attr.gender ? attr.gender.toLowerCase() : "",
         vegNonVeg: attr.vegOrNonVegIndicator || "",
         allergenInfo: attr.allergenInformation || "",
         flavour: String(attr.flavourId || ""),
@@ -1325,11 +1498,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   const getMinExpiryMonth = () => {
-
-    if (!form.manufacturingDate) return "";
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    if (!form.manufacturingDate) return currentMonth;
     const minDate = new Date(form.manufacturingDate);
     minDate.setMonth(minDate.getMonth() + 3);
-    return `${minDate.getFullYear()}-${String(minDate.getMonth() + 1).padStart(2, "0")}`;
+    const mfgMin = `${minDate.getFullYear()}-${String(minDate.getMonth() + 1).padStart(2, "0")}`;
+    return mfgMin > currentMonth ? mfgMin : currentMonth;
   };
 
   const validate = (): Record<string, string> => {
@@ -1357,17 +1531,17 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       e.netQuantityUnit = "Please select a unit";
     }
 
-    // ── Custom value and unit validations for Serving Size ───────────────────
-    if (!form.servingSizeValue) {
-      e.servingSizeValue = "Serving Size is required";
-    } else if (isNaN(Number(form.servingSizeValue)) || Number(form.servingSizeValue) <= 0) {
-      e.servingSizeValue = "Serving Size must be a positive number";
-    } else if (form.netQuantityValue && Number(form.servingSizeValue) > Number(form.netQuantityValue)) {
-      e.servingSizeValue = "Serving Size cannot exceed Net Quantity";
-    }
-    if (!form.servingSizeUnit) {
-      e.servingSizeUnit = "Please select a unit";
-    }
+    // ── SERVING SIZE VALIDATION (COMMENTED OUT — FIELD DISABLED AS "As prescribed by Doctor") ──
+    // if (!form.servingSizeValue) {
+    //   e.servingSizeValue = "Serving Size is required";
+    // } else if (isNaN(Number(form.servingSizeValue)) || Number(form.servingSizeValue) <= 0) {
+    //   e.servingSizeValue = "Serving Size must be a positive number";
+    // } else if (form.netQuantityValue && Number(form.servingSizeValue) > Number(form.netQuantityValue)) {
+    //   e.servingSizeValue = "Serving Size cannot exceed Net Quantity";
+    // }
+    // if (!form.servingSizeUnit) {
+    //   e.servingSizeUnit = "Please select a unit";
+    // }
 
     // ── Custom validation for shelf life (cannot exceed 5 years / 60 months) ──
     if (form.shelfLifeMonths) {
@@ -1424,7 +1598,11 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       return;
     }
 
-    const batchValidation = await validateBatchNumber(form.batchLotNumber);
+    // const batchValidation = await validateBatchNumber(form.batchLotNumber);
+    const batchValidation = await validateBatchNumber(
+      form.batchLotNumber,
+      Number(categoryId),
+    );
     if (batchValidation.exists) {
       setErrors((prev) => ({
         ...prev,
@@ -1477,17 +1655,14 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             finalPrice: Number(form.finalPrice),
             hsnCode: Number(form.hsnCode),
             additionalDiscounts: form.additionalDiscount.map((d: any) => ({
+              ...d,
               ...(d.additionalDiscountId ? { additionalDiscountId: d.additionalDiscountId } : {}),
-              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-              additionalDiscountPercentage: d.additionalDiscountPercentage,
-              effectiveStartDate: d.effectiveStartDate,
-              effectiveStartTime: d.effectiveStartTime,
-              effectiveEndDate: d.effectiveEndDate,
-              effectiveEndTime: d.effectiveEndTime,
+              displayOffer: d.displayOffer !== false,
             })),
             specialSchemes: (form.specialSchemes || []).map((s: any) => ({
               ...s,
               ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+              displayOfferScheme: s.displayOfferScheme !== false,
             })),
           },
         ],
@@ -1506,13 +1681,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               form.netQuantityUnitId ||
               0
             ),
-            servingSize: Number(form.servingSizeValue),
-            servingSizeUnitId: Number(
-              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.id ||
-              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.unitId ||
-              form.servingSizeUnitId ||
-              0
-            ),
+            servingSize: form.servingSizeValue ? Number(form.servingSizeValue) : null,
+            servingSizeUnitId: form.servingSizeUnitId ? Number(form.servingSizeUnitId) : null,
             strength: form.strength,
             activeIngredients: form.activeIngredients,
             otherIngredients: form.excipients,
@@ -1581,17 +1751,16 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       if (productAttributeId && selectedCertifications.length > 0) {
         try {
           const certDocs = response?.data?.productAttributeSupplementsOrNutraceuticals?.[0]?.certificateDocuments ?? [];
-          const documentIds: number[] = [];
-          const certFiles: File[] = [];
+          const filesToUpload: { docId: number; file: File }[] = [];
           selectedCertifications.forEach((cert) => {
             const matched = certDocs.find((c: any) => c.certificationId === Number(cert.id));
             if (matched?.productCertificateDocumentId && cert.file) {
-              documentIds.push(matched.productCertificateDocumentId);
-              certFiles.push(cert.file);
+              filesToUpload.push({ docId: matched.productCertificateDocumentId, file: cert.file });
             }
           });
-          if (documentIds.length > 0 && certFiles.length > 0) {
-            await uploadSupplementCertifications(productAttributeId, documentIds, certFiles);
+
+          for (const item of filesToUpload) {
+            await uploadSupplementCertifications(productAttributeId, item.docId, item.file);
           }
         } catch (certErr: any) {
           console.warn("⚠️ Certifications upload returned error (likely a backend 500 bug):", certErr.message);
@@ -1657,17 +1826,14 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             finalPrice: Number(form.finalPrice),
             hsnCode: Number(form.hsnCode),
             additionalDiscounts: form.additionalDiscount.map((d: any) => ({
+              ...d,
               ...(d.additionalDiscountId ? { additionalDiscountId: d.additionalDiscountId } : {}),
-              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-              additionalDiscountPercentage: d.additionalDiscountPercentage,
-              effectiveStartDate: d.effectiveStartDate,
-              effectiveStartTime: d.effectiveStartTime,
-              effectiveEndDate: d.effectiveEndDate,
-              effectiveEndTime: d.effectiveEndTime,
+              displayOffer: d.displayOffer !== false,
             })),
             specialSchemes: (form.specialSchemes || []).map((s: any) => ({
               ...s,
               ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+              displayOfferScheme: s.displayOfferScheme !== false,
             })),
           },
         ],
@@ -1686,13 +1852,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               form.netQuantityUnitId ||
               0
             ),
-            servingSize: Number(form.servingSizeValue),
-            servingSizeUnitId: Number(
-              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.id ||
-              servingSizeUnitsList.find((item) => extractUnitString(item) === form.servingSizeUnit)?.unitId ||
-              form.servingSizeUnitId ||
-              0
-            ),
+            servingSize: form.servingSizeValue ? Number(form.servingSizeValue) : null,
+            servingSizeUnitId: form.servingSizeUnitId ? Number(form.servingSizeUnitId) : null,
             strength: form.strength,
             activeIngredients: form.activeIngredients,
             otherIngredients: form.excipients,
@@ -1715,10 +1876,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           },
         ],
 
-        productImages: [
-          ...existingImages.map((url) => ({ productImage: url })),
-          ...images.map((img) => ({ productImage: img.name })),
-        ],
+        retainedImageUrls: existingImages,
       };
 
       console.log("🚀 Sending update payload:", payload);
@@ -1762,8 +1920,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         const newCerts = selectedCertifications.filter((c) => c.file && !c.existingUrl);
         if (newCerts.length > 0) {
           try {
-            const documentIds: number[] = [];
-            const certFiles: File[] = [];
+            const filesToUpload: { docId: number; file: File }[] = [];
 
             newCerts.forEach((cert) => {
               // Match by certificationId (the master ID) to find the new productCertificateDocumentId
@@ -1771,14 +1928,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 (rc: any) => Number(rc.certificationId) === Number(cert.id)
               );
               if (matched?.productCertificateDocumentId) {
-                documentIds.push(matched.productCertificateDocumentId);
-                certFiles.push(cert.file as File);
+                filesToUpload.push({ docId: matched.productCertificateDocumentId, file: cert.file as File });
               }
             });
 
-            if (documentIds.length > 0) {
-              console.log("📂 Uploading cert files for DB IDs:", documentIds);
-              await uploadSupplementCertifications(attrId, documentIds, certFiles);
+            for (const item of filesToUpload) {
+              await uploadSupplementCertifications(attrId, item.docId, item.file);
             }
           } catch (e: any) {
             console.warn("⚠️ Cert upload failed:", e.message);
@@ -1820,28 +1975,26 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]"
         >
-          <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
-            <AdditionalDiscountType
-              categoryId={effectiveCategoryId ? Number(effectiveCategoryId) : undefined}
-              onClose={() => setShowAdditionalDiscount(false)}
-              initialData={form.additionalDiscount}
-              baseDiscountPercentage={Number(form.discountPercentage) || 0}
-              baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
-              onSaveAdditionalDiscount={(data: any) => {
-                setForm((prev) => ({
-                  ...prev,
-                  additionalDiscount: data || [],
-                }));
-              }}
-              initialSchemesData={form.specialSchemes}
-              onSaveSpecialSchemes={(data: any) => {
-                setForm((prev) => ({
-                  ...prev,
-                  specialSchemes: data || [],
-                }));
-              }}
-            />
-          </div>
+          <AdditionalDiscountType
+            categoryId={effectiveCategoryId ? Number(effectiveCategoryId) : undefined}
+            onClose={() => setShowAdditionalDiscount(false)}
+            initialData={form.additionalDiscount}
+            baseDiscountPercentage={Number(form.discountPercentage) || 0}
+            baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
+            onSaveAdditionalDiscount={(data: any) => {
+              setForm((prev) => ({
+                ...prev,
+                additionalDiscount: data || [],
+              }));
+            }}
+            initialSchemesData={form.specialSchemes}
+            onSaveSpecialSchemes={(data: any) => {
+              setForm((prev) => ({
+                ...prev,
+                specialSchemes: data || [],
+              }));
+            }}
+          />
         </CommonModal>
       )}
 
@@ -1937,6 +2090,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 placeholder={form.therapeuticCategory ? "Select sub-category" : "Select category first"}
                 isDisabled={isEditMode || !form.therapeuticCategory}
                 error={errors.therapeuticSubcategory ? " " : ""}
+                className="[&_.border-2]:!border-t [&_.border-2]:!border-r [&_.border-2]:!border-b [&_.border-2]:!border-l"
               />
               {errors.therapeuticSubcategory && <p className={errorMsg}>{errors.therapeuticSubcategory}</p>}
             </div>
@@ -2012,28 +2166,25 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 unit={form.netQuantityUnit}
                 onValueChange={handleNetQuantityValueChange}
                 onUnitChange={handleNetQuantityUnitChange}
-                error={errors.netQuantityValue || errors.netQuantity}
+                error={errors.netQuantityValue || errors.netQuantity || errors.netQuantityUnit}
                 options={netQuantityUnitOptions}
                 required
                 readOnly={isEditMode}
               />
             </div>
-            {/* Serving Size */}
+
+            {/* Serving Size - Commented out for future use
             <div data-field="servingSize">
-              <NumericInputWithUnit
+              <Input
                 label="Serving Size"
                 name="servingSizeValue"
-                placeholder="e.g., 1, 5, 10"
-                value={form.servingSizeValue}
-                unit={form.servingSizeUnit}
-                onValueChange={handleServingSizeValueChange}
-                onUnitChange={handleServingSizeUnitChange}
-                error={errors.servingSizeValue}
-                options={servingSizeUnitOptions}
-                required
-                readOnly={isEditMode}
+                placeholder="As prescribed by Doctor"
+                value=""
+                onChange={() => { }}
+                disabled={true}
               />
             </div>
+            */}
 
             {/* ROW 5 */}
             {/* Strength / Composition */}
@@ -2439,7 +2590,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 options={certificationOptions}
                 selectedValues={selectedCertifications.map(c => c.id)}
                 onChange={(values) => {
-                  const newCerts = values.map(val => {
+                  const preservedIds = isEditMode
+                    ? selectedCertifications.filter((c) => c.existingUrl).map((c) => c.id)
+                    : [];
+                  const finalValues = Array.from(new Set([...values, ...preservedIds]));
+
+                  const newCerts = finalValues.map(val => {
                     const existing = selectedCertifications.find(c => c.id === val);
                     if (existing) return existing;
                     const opt = certificationOptions.find(o => o.value === val);
@@ -2472,7 +2628,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {selectedCertifications.length === 0 ? (
               <div className="flex flex-col gap-0 col-span-1" data-field="certUploadFallback">
                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
-                <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
+                <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-300 bg-white overflow-hidden">
                   <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
@@ -2528,7 +2684,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   onChange={handleChange}
                   placeholder="e.g., Not for pregnant women"
                   maxLength={255}
-                  className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.warningsPrecautions ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
+                  className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.warningsPrecautions ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-pneutral-300 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
                 />
                 {errors.warningsPrecautions && <p className={errorMsg}>{errors.warningsPrecautions}</p>}
               </div>
@@ -2542,7 +2698,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   onChange={handleChange}
                   placeholder="Provide a detailed description of the product (Min 10 chars)"
                   maxLength={255}
-                  className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.productDescription ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
+                  className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.productDescription ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-pneutral-300 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`}
                 />
                 {errors.productDescription && <p className={errorMsg}>{errors.productDescription}</p>}
               </div>
@@ -2646,7 +2802,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               required
             />
 
-            <div className="text-h6 font-normal col-span-2 mt-3">
+            <div className="font-open-sans text-[21px] leading-[24px] tracking-[-0.02em] font-normal align-middle col-span-2 mt-3">
               Order Details
             </div>
 
@@ -2679,7 +2835,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               required
             />
 
-            <div className="text-h6 font-normal col-span-2 mt-3">
+            <div className="font-open-sans text-[21px] leading-[24px] tracking-[-0.02em] font-normal align-middle col-span-2 mt-3">
               Batch Management
             </div>
 
@@ -2698,6 +2854,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               maxLength={20}
             />
 
+            {/* ── OLD MANUFACTURING DATE INPUT (COMMENTED OUT) ────────────────────── */}
+            {/*
             <Input
               label="Manufacturing Date"
               type="month"
@@ -2707,61 +2865,82 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               onChange={(e) => {
                 const value = e.target.value;
                 if (!value) return;
-
                 const [year, month] = value.split("-").map(Number);
                 const date = new Date(year, month - 1, 1);
-
                 const today = new Date();
-                const currentMonth = new Date(
-                  today.getFullYear(),
-                  today.getMonth(),
-                  1,
-                );
-
+                const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
                 if (date > currentMonth) {
-                  setErrors({
-                    ...errors,
-                    manufacturingDate:
-                      "Manufacturing date cannot be in the future month",
-                  });
+                  setErrors({ ...errors, manufacturingDate: "Manufacturing date cannot be in the future month" });
                   return;
                 }
-
-                setErrors((prev) => ({
-                  ...prev,
-                  manufacturingDate: "",
-                  expiryDate: "",
-                }));
-
-                setForm({
-                  ...form,
-                  manufacturingDate: date,
-                  expiryDate: null,
-                  shelfLifeMonths: "",
-                });
+                setErrors((prev) => ({ ...prev, manufacturingDate: "", expiryDate: "" }));
+                setForm({ ...form, manufacturingDate: date, expiryDate: null, shelfLifeMonths: "" });
               }}
               value={
-                form.manufacturingDate instanceof Date &&
-                  !isNaN(form.manufacturingDate.getTime())
-                  ? `${form.manufacturingDate.getFullYear()}-${String(
-                    form.manufacturingDate.getMonth() + 1,
-                  ).padStart(2, "0")}`
+                form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
+                  ? `${form.manufacturingDate.getFullYear()}-${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}`
                   : ""
               }
               error={errors.manufacturingDate}
               required
             />
+            */}
+            {/* ── NEW MANUFACTURING DATE WITH MONTHPICKER ─────────────────────────── */}
+            <div className="relative">
+              <Input
+                label="Manufacturing Month"
+                type="text"
+                name="manufacturingDate"
+                id="manufacturingDate"
+                placeholder="MM/YYYY"
+                value={
+                  form.manufacturingDate instanceof Date &&
+                    !isNaN(form.manufacturingDate.getTime())
+                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
+                    : ""
+                }
+                readOnly={isEditMode}
+                required
+                onChange={() => { }}
+                onClick={() => {
+                  if (!isEditMode) {
+                    setShowManufacturingMonthPicker(true);
+                  }
+                }}
+                onKeyDown={(e) => e.preventDefault()}
+                error={errors.manufacturingDate}
+              />
 
+              {showManufacturingMonthPicker && !isEditMode && (
+                <MonthPicker
+                  selectedMonth={
+                    form.manufacturingDate
+                      ? form.manufacturingDate.getMonth()
+                      : new Date().getMonth()
+                  }
+                  selectedYear={
+                    form.manufacturingDate
+                      ? form.manufacturingDate.getFullYear()
+                      : new Date().getFullYear()
+                  }
+                  maxDate={new Date()}
+                  onSelect={(month, year) =>
+                    handleMonthSelect("manufacturingDate", month, year)
+                  }
+                  onClose={() => setShowManufacturingMonthPicker(false)}
+                />
+              )}
+            </div>
+
+            {/* ── OLD EXPIRY DATE INPUT (COMMENTED OUT) ──────────────────────────── */}
+            {/*
             <Input
               label="Expiry Date"
               type="month"
               name="expiryDate"
               value={
-                form.expiryDate instanceof Date &&
-                  !isNaN(form.expiryDate.getTime())
-                  ? `${form.expiryDate.getFullYear()}-${String(
-                    form.expiryDate.getMonth() + 1,
-                  ).padStart(2, "0")}`
+                form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
+                  ? `${form.expiryDate.getFullYear()}-${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}`
                   : ""
               }
               readOnly={isEditMode}
@@ -2771,22 +2950,70 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 const [year, month] = value.split("-").map(Number);
                 const date = new Date(year, month - 1, 1);
                 setForm({ ...form, expiryDate: date });
-                if (errors.expiryDate)
-                  setErrors((prev) => ({ ...prev, expiryDate: "" }));
+                if (errors.expiryDate) setErrors((prev) => ({ ...prev, expiryDate: "" }));
               }}
               onFocus={() => {
                 if (form.manufacturingDate) {
-                  setErrors((prev) => ({
-                    ...prev,
-                    expiryDate:
-                      "Expiry must be at least 3 months after Manufacturing Date",
-                  }));
+                  setErrors((prev) => ({ ...prev, expiryDate: "Expiry must be at least 3 months after Manufacturing Date" }));
                 }
               }}
               min={getMinExpiryMonth()}
               error={errors.expiryDate}
               required
             />
+            */}
+            {/* ── NEW EXPIRY DATE WITH MONTHPICKER ────────────────────────────────── */}
+            <div className="relative">
+              <Input
+                label="Expiry Month"
+                name="expiryDate"
+                type="text"
+                required
+                readOnly={isEditMode}
+                value={
+                  form.expiryDate instanceof Date &&
+                    !isNaN(form.expiryDate.getTime())
+                    ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
+                    : ""
+                }
+                placeholder="MM/YYYY"
+                onChange={() => { }}
+                onClick={() => {
+                  if (!isEditMode) {
+                    setShowExpiryMonthPicker(true);
+                  }
+                }}
+                onFocus={() => {
+                  if (!isEditMode) {
+                    setShowExpiryMonthPicker(true);
+                  }
+                }}
+                onKeyDown={(e) => e.preventDefault()}
+                error={errors.expiryDate}
+              />
+
+              {showExpiryMonthPicker && !isEditMode && (
+                <MonthPicker
+                  selectedMonth={
+                    form.expiryDate
+                      ? form.expiryDate.getMonth()
+                      : new Date().getMonth()
+                  }
+                  selectedYear={
+                    form.expiryDate
+                      ? form.expiryDate.getFullYear()
+                      : new Date().getFullYear()
+                  }
+                  minDate={
+                    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+                  }
+                  onSelect={(month, year) =>
+                    handleMonthSelect("expiryDate", month, year)
+                  }
+                  onClose={() => setShowExpiryMonthPicker(false)}
+                />
+              )}
+            </div>
 
             <Input
               type="number"
@@ -2828,30 +3055,32 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   ? form.dateOfStockEntry.toISOString().split("T")[0]
                   : ""
               }
-              disabled
+              readOnly
               error={errors.dateOfStockEntry}
               required
             />
 
-            <div className="text-h6 font-normal col-span-2 mt-3">Pricing</div>
+            <div className="font-open-sans text-[21px] leading-[24px] tracking-[-0.02em] font-normal align-middle col-span-2 mt-3">Pricing</div>
 
             <div className="border-b border-neutral-200 col-span-2"></div>
 
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               label="Discount(%)"
               name="discountPercentage"
               value={form.discountPercentage}
               onChange={handleChange}
               min={0}
               max={100}
-              step={1}
+              step={0.01}
               error={errors.discountPercentage}
-              required
+              required={false}
             />
 
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               label="MRP (per Pack Size)"
               name="mrp"
               id="mrp"
@@ -2864,13 +3093,14 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }
               }}
               min={1}
-              step={1}
+              step={0.01}
               error={errors.mrp}
               required
             />
 
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               label="Selling Price (per Pack Size)"
               name="sellingPrice"
               id="sellingPrice"
@@ -2878,7 +3108,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               value={form.sellingPrice}
               onChange={handleChange}
               min={1}
-              step={1}
+              step={0.01}
               error={errors.sellingPrice}
               required
             />
@@ -2907,6 +3137,137 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 <span>Add Special Discount</span>
               </button>
             </div>
+
+            {/* --- APPLIED OFFERS SECTION --- */}
+            {/*
+            {(form.additionalDiscount.length > 0 || form.specialSchemes.length > 0) && (
+              <div className="col-span-2 flex flex-col gap-[12px] w-full mt-4">
+
+                {form.additionalDiscount.length > 0 && (
+                  <div className="flex flex-col gap-[12px] w-full">
+                    <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-pneutral-900">
+                      Applied Discount Slabs
+                    </h3>
+                    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #C0C1BE" }}>
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr>
+                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Min Qty</th>
+                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Discount (%)</th>
+                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Start date</th>
+                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>End Date</th>
+                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {form.additionalDiscount.map((d, index) => (
+                            <tr key={index} style={{ backgroundColor: index % 2 === 0 ? "#F8F8F9" : "#EAEAE9" }}>
+                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.minimumPurchaseQuantity}</td>
+                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.additionalDiscountPercentage}%</td>
+                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.effectiveStartDate ? new Date(d.effectiveStartDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
+                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.effectiveEndDate ? new Date(d.effectiveEndDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
+                              <td className="px-4 py-3" style={{ border: "1px solid #C0C1BE" }}>
+                                <div className="flex justify-center items-center gap-3 relative">
+                                  <img
+                                    src="/icons/EditIcon.svg"
+                                    alt="edit"
+                                    className="cursor-pointer relative"
+                                    style={{ width: "16.88px", height: "16.88px", top: "1.25px", left: "1.88px" }}
+                                    onClick={() => setShowAdditionalDiscount(true)}
+                                  />
+                                  <img
+                                    src="/icons/DeleteIcon.svg"
+                                    alt="delete"
+                                    className="cursor-pointer relative"
+                                    style={{ width: "14.93px", height: "17.52px", top: "1.24px", left: "2.54px" }}
+                                    onClick={() => {
+                                      setForm(prev => ({
+                                        ...prev,
+                                        additionalDiscount: prev.additionalDiscount.filter((_, i) => i !== index)
+                                      }));
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/*
+                {form.specialSchemes.length > 0 && (
+                  <div className="flex flex-col gap-[12px] w-full mt-2">
+                    <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-pneutral-900">
+                      Applied Special Offers & Promotional Schemes
+                    </h3>
+                    <div className={`grid gap-4 ${form.specialSchemes.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                      {form.specialSchemes.map((scheme, index) => {
+                        const themes = [
+                          { border: "#4EB300", bg: "#DCF7CB", text: "#47A400", Icon: Gift },
+                          { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: Gift },
+                          { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Gift },
+                        ];
+                        let theme = themes[index % themes.length];
+                        const type = scheme.schemeType?.toLowerCase();
+                        if (type === "bogo" || type === "buy_x_get_y") theme = themes[0];
+                        else if (type === "bundle") theme = themes[1];
+                        else if (type === "seasonal") theme = themes[2];
+
+                        const dateStr = scheme.effectiveStartDate && scheme.effectiveEndDate
+                          ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
+                          : "Valid: Ongoing";
+
+                        return (
+                          <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px] relative" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+                            {/* Icon Box * /}
+                            <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
+                              <theme.Icon className="w-6 h-6 text-white" />
+                            </div>
+                            {/* Content * /}
+                            <div className="flex flex-col pr-8">
+                              <h5 className="font-heading font-medium text-[20px] leading-[28px] mb-1.5" style={{ color: theme.text }}>
+                                {scheme.schemeName || "Special Scheme"}
+                              </h5>
+                              <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                                Purchase {scheme.buyQuantity} {form.productName || "this product"} and get {scheme.freeQuantity} absolutely free. Limited stock available!
+                              </p>
+                              <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">
+                                {dateStr}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            */}
+
+            <AppliedOffersView
+              additionalDiscounts={form.additionalDiscount}
+              specialSchemes={form.specialSchemes}
+              productName={form.productName}
+              onEditDiscount={() => setShowAdditionalDiscount(true)}
+              onDeleteDiscount={(index) => {
+                setForm(prev => ({
+                  ...prev,
+                  additionalDiscount: prev.additionalDiscount.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } : d)
+                }));
+              }}
+              onEditScheme={() => setShowAdditionalDiscount(true)}
+              onDeleteScheme={(index) => {
+                setForm(prev => ({
+                  ...prev,
+                  specialSchemes: prev.specialSchemes.map((s: any, i: number) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)
+                }));
+              }}
+              isEditMode={isEditMode}
+            />
 
             <div className="text-h6 font-normal col-span-2 mt-3">
               TAX & BILLING
@@ -2982,6 +3343,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             </div>
           </div>
 
+          {/* FUTURE FEATURE: Save Button
           <div className="flex justify-end mt-6">
             <button
               type="button"
@@ -2990,9 +3352,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               Save
             </button>
           </div>
+          */}
         </div>
 
-        {/* ── Section 2: Product Photos ──────────────────────────────────────────── */}
+        {/* -- Section 2: Product Photos (Old) -------------------------------------------- */}
+        {/*
+{/* ── Section 2: Product Photos ──────────────────────────────────────────── * /}
         <div
           className="relative border border-neutral-200 rounded-xl p-6 bg-white"
           ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>}
@@ -3091,6 +3456,21 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             )}
           </div>
         </div>
+
+        */}
+
+        <ProductImageUpload
+          title="Product Photos"
+          required
+          images={images}
+          setImages={setImages}
+          existingImages={existingImages}
+          setExistingImages={setExistingImages}
+          error={errors.images}
+          setErrors={setErrors}
+          isReadOnly={false}
+          mode={mode}
+        />
 
         <div className="flex justify-between mt-6 col-span-2 mb-6">
           <div className="space-x-6 flex">

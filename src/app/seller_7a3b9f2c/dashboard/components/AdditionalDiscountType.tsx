@@ -118,6 +118,7 @@ const AdditionalDiscountType = ({
   
   return (
     <>
+    <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <span className="text-h6 font-normal">Additional Discount </span>
@@ -226,6 +227,7 @@ const AdditionalDiscountType = ({
             </button>
           )}
         </div>
+      </div>
       </div>
     </>
   );

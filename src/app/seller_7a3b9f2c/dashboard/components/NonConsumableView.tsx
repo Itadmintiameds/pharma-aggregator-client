@@ -2,7 +2,7 @@
 
 
 import React, { useState } from "react";
-import { FileText, ExternalLink } from "lucide-react";
+import { FileText, ExternalLink, Gift, ShoppingBag, Tag, BadgePercent } from "lucide-react";
 import { PiSealCheckLight } from "react-icons/pi";
 import Image from "next/image";
 
@@ -54,6 +54,9 @@ export interface NonConsumableAttributes {
   /** Alias used by some API versions */
   powerSource?: string;
   safetyInstructions?: string;
+  dimensionSize?: number | string | null;
+  deviceSpecificationUnitId?: number | string | null;
+  deviceSubCategoryId?: number | string | null;
 }
 
 
@@ -67,8 +70,14 @@ export interface NonConsumableViewProps {
   deviceCategoryName?: string | null;
   /** Resolved device subcategory name (looked up from deviceSubCatId by parent) */
   deviceSubCategoryName?: string | null;
+  /** Resolved specification unit label (e.g. "mm", "L") for the dimensionSize field */
+  specificationUnitLabel?: string | null;
   brochureUrl?: string | null;
   placeholderImage?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  additionalDiscounts?: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  specialSchemes?: any[];
 }
 
 
@@ -166,23 +175,23 @@ const isValidUrl = (url?: string | null) => {
 
 /**
  * Resolve AMC/service availability from the multiple formats the API may return.
- * Handles boolean true/false, string "true"/"false", and "Yes"/"No".
+ * Handles boolean true/false, numeric 1/0, string "true"/"false"/"yes"/"no", and "Yes"/"No".
+ * Boolean/numeric fields are checked first; falls back to the amcServiceAvailability string.
  */
 const resolveAmcLabel = (attr: NonConsumableAttributes | null): string | null => {
   if (!attr) return null;
 
-
-  // String "Yes" / "No" variant
-  if (typeof attr.amcServiceAvailability === "string" && attr.amcServiceAvailability.trim() !== "") {
-    return attr.amcServiceAvailability.trim();
+  // Check amcAvailability and serviceAvailability (handles boolean, numeric, and string forms)
+  const boolVal = attr.amcAvailability ?? attr.serviceAvailability;
+  if (boolVal != null) {
+    const norm = String(boolVal).toLowerCase().trim();
+    if (norm === "true" || norm === "yes" || norm === "1") return "Yes";
+    if (norm === "false" || norm === "no" || norm === "0") return "No";
   }
 
-
-  // Boolean from amcAvailability or serviceAvailability
-  const raw = attr.amcAvailability ?? attr.serviceAvailability;
-  if (raw === true) return "Yes";
-  if (raw === false) return "No";
-
+  // Fall back to the string variant
+  const strVal = attr.amcServiceAvailability?.trim();
+  if (strVal) return strVal;
 
   return null;
 };
@@ -253,8 +262,11 @@ const NonConsumableView = ({
   storageConditionName,
   deviceCategoryName,
   deviceSubCategoryName,
+  specificationUnitLabel,
   brochureUrl,
   placeholderImage = "/assets/images/SellerMed.jpg",
+  additionalDiscounts = [],
+  specialSchemes = [],
 }: NonConsumableViewProps) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCertModal, setShowCertModal] = useState(false);
@@ -311,7 +323,7 @@ const NonConsumableView = ({
   const materialTypesLabel = resolveMaterialTypes(nonConsAttr);
 
 
-  const imagesToShow = displayImages.length > 0 ? displayImages : [placeholderImage];
+  const imagesToShow = displayImages;
 
 
   return (
@@ -336,98 +348,32 @@ const NonConsumableView = ({
 
 
       {/* ── Product Images ── */}
-      <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
-        <p
-          style={{
-            color: "#1E1E1D",
-            fontSize: 18,
-            fontFamily: FONTS.openSans,
-            fontWeight: 600,
-            lineHeight: "24px",
-            margin: 0,
-          }}
-        >
+      <div className="flex flex-col gap-4 p-3 bg-[#F8F5FF] rounded-xl border border-pneutral-200 w-full min-h-[340px]">
+        <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-[#1E1E1D]">
           Product Images
-        </p>
-
-
-        <div
-          style={{
-            padding: 12,
-            background: "#F8F5FF",
-            borderRadius: 12,
-            outline: "1px #B550FA solid",
-            outlineOffset: -1,
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-          }}
-        >
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-            {imagesToShow.slice(0, 4).map((img, idx) => (
-              <div
-                key={idx}
-                onClick={() => setSelectedImageIndex(idx)}
-                style={{
-                  position: "relative",
-                  height: 276,
-                  boxShadow:
-                    "0px 2px 4px -2px rgba(0,0,0,0.10), 0px 4px 6px -1px rgba(0,0,0,0.10)",
-                  overflow: "hidden",
-                  borderRadius: 12,
-                  outline: idx === selectedImageIndex ? "1px #B550FA solid" : "none",
-                  outlineOffset: -1,
-                  cursor: "pointer",
-                }}
-              >
-                <Image
-                  src={img}
-                  alt={`Product image ${idx + 1}`}
-                  fill
-                  style={{ objectFit: "cover" }}
-                  unoptimized={img.startsWith("http")}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = placeholderImage;
-                  }}
-                />
-                {idx === 0 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: 10,
-                      top: 10,
-                      padding: "4px 8px",
-                      background: "#B550FA",
-                      borderRadius: 4,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "white",
-                        fontSize: 12,
-                        fontFamily: FONTS.openSans,
-                        fontWeight: 600,
-                        lineHeight: "18px",
-                      }}
-                    >
-                      Primary
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
-            {Array.from({ length: Math.max(0, 4 - imagesToShow.length) }).map((_, i) => (
-              <div
-                key={`empty-${i}`}
-                style={{
-                  height: 276,
-                  borderRadius: 12,
-                  background: "#F5F5F5",
-                  boxShadow: "0px 1px 2px -1px rgba(0,0,0,0.10)",
-                }}
+        </h3>
+        <div className="flex justify-center flex-wrap gap-3">
+          {imagesToShow.slice(0, 5).map((img, idx) => (
+            <div
+              key={idx}
+              onClick={() => setSelectedImageIndex(idx)}
+              className={`relative h-[274px] w-full max-w-[calc(20%-10px)] overflow-hidden rounded-xl cursor-pointer shadow-sm${idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""}`}
+            >
+              <Image
+                src={img}
+                alt={`Product image ${idx + 1}`}
+                fill
+                className="object-cover"
+                unoptimized={img.startsWith("http")}
+                onError={(e) => { (e.target as HTMLImageElement).src = placeholderImage; }}
               />
-            ))}
-          </div>
+              {idx === 0 && (
+                <div className="absolute left-[10px] top-[10px] px-2 py-1 bg-secondary-500 rounded-[4px]">
+                  <span className="text-white text-xs font-body font-semibold leading-[18px]">Primary</span>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -469,6 +415,15 @@ const NonConsumableView = ({
             label="Warranty Period"
             required={false}
             value={warrantyDisplay}
+          />
+          <FieldRow
+            label="Technical Dimensions / Capacity / Configuration"
+            required={false}
+            value={
+              nonConsAttr?.dimensionSize != null && String(nonConsAttr.dimensionSize).trim() !== ""
+                ? [String(nonConsAttr.dimensionSize), specificationUnitLabel].filter(Boolean).join(" ")
+                : null
+            }
           />
           <FieldRow
             label="AMC / Service Availability"
@@ -740,6 +695,70 @@ const NonConsumableView = ({
           {productDescription ?? "—"}
         </p>
       </div>
+
+
+      {/* ── SPECIAL OFFERS & PROMOTIONAL SCHEMES ── */}
+      {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
+        <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
+          <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
+            Special Offers &amp; Promotional Schemes
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            {specialSchemes.map((scheme, index) => {
+              const themes = [
+                { border: "#4EB300", bg: "#DCF7CB", text: "#47A400", Icon: Gift },
+                { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: ShoppingBag },
+                { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Tag },
+              ];
+              let theme = themes[index % themes.length];
+              const type = (scheme.schemeType ?? "").toLowerCase();
+              if (type === "bogo" || type === "buy_x_get_y") theme = themes[0];
+              else if (type === "bundle") theme = themes[1];
+              else if (type === "seasonal") theme = themes[2];
+              const dateStr = scheme.effectiveStartDate && scheme.effectiveEndDate
+                ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
+                : "Valid: Ongoing";
+              return (
+                <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+                  <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
+                    <theme.Icon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex flex-col">
+                    <h5 className="font-heading font-medium text-[20px] leading-[28px] mb-1.5" style={{ color: theme.text }}>
+                      {scheme.schemeName || "Special Scheme"}
+                    </h5>
+                    <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                      Purchase {scheme.buyQuantity} {productName || "this product"} and get {scheme.freeQuantity} absolutely free. Limited stock available!
+                    </p>
+                    <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">{dateStr}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {additionalDiscounts.length > 0 && (
+              <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] bg-[#F8EDFF] border-[#6C12A9] h-[142px]">
+                <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md bg-[#6C12A9]">
+                  <BadgePercent className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex flex-col">
+                  <h5 className="font-heading font-medium text-[20px] leading-[28px] text-[#6C12A9] mb-1.5">
+                    Bulk Purchase Discount
+                  </h5>
+                  <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                    {additionalDiscounts.map((discount, i) => (
+                      <span key={i}>
+                        Get {discount.additionalDiscountPercentage}% off on orders of {discount.minimumPurchaseQuantity}+ units
+                        {i < additionalDiscounts.length - 1 ? ", " : "."}
+                      </span>
+                    ))}
+                  </p>
+                  <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">Valid: Ongoing</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
 
       {/* ── Certificate Modal ── */}

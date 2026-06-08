@@ -535,7 +535,7 @@ export default function CoordinatorForm({
                   maxLength={getMaxLength()}
                   disabled={phoneVerified}
                   className={`flex-1 h-13 px-4 rounded-r-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${
-                    phoneError ? 'border-red-500' : 'border-neutral-500'
+                    phoneError ? 'border-neutral-500' : 'border-neutral-500'
                   }`}
                 />
 
@@ -587,7 +587,7 @@ export default function CoordinatorForm({
                   placeholder="Enter email"
                   disabled={emailVerified}
                   className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${
-                    emailError ? 'border-red-500' : 'border-neutral-500'
+                    emailError ? 'border-neutral-500' : 'border-neutral-500'
                   }`}
                 />
               </div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { DashboardView } from "@/src/types/seller/dashboard";
-import { getDrugProductById } from "@/src/services/product/ProductService";
+import { getDrugProductById, getCountries } from "@/src/services/product/ProductService";
 import { getPackTypeById } from "@/src/services/product/PackType";
 import { getStorageConditionById } from "@/src/services/product/StorageCondition";
 import {
@@ -17,6 +17,7 @@ import {
   getConsumableDeviceSubCategories,
   getConsumableSpecificationUnitsBySubCategory,
 } from "@/src/services/product/ConsumbaleService";
+import { getSpecificationUnitsBySubCategory } from "@/src/services/product/NonConsumbaleService";
 import {
   getCosmeticProductTypes,
   getCosmeticProductSubTypes,
@@ -26,6 +27,7 @@ import {
   getCosmeticIntendedUseAreas,
   getCosmeticCountries,
   getCosmeticNetQuantityUnits,
+  getCosmeticProductForms,
 } from "@/src/services/product/CosmeticService";
 import SupplementDetailsView from "./SupplementDetailsView";
 import ConsumableView from "./ConsumableView";
@@ -130,6 +132,10 @@ interface NonConsumableAttributes {
   certificateDocuments?: CertificateDocument[];
   brochurePath?: string;
   userManualUrl?: string;
+  dimensionSize?: number | string | null;
+  deviceSpecificationUnitId?: number | string | null;
+  deviceSubCategoryId?: number | string | null;
+  deviceSubCatId?: number | string | null;
 }
 
 interface ConsumableAttributes {
@@ -154,6 +160,9 @@ interface ConsumableAttributes {
   usageType?: string;
   deviceCatId?: number | string;
   deviceSubCatId?: number | string;
+  countryId?: number;
+  countryName?: string;
+  countryOfOrigin?: string;
 }
 
 export interface CosmeticAttributes {
@@ -184,6 +193,7 @@ export interface CosmeticAttributes {
   manufacturerName?: string;
   countryOfOrigin?: string;
   countryName?: string;
+  productForm?: string;
   brochurePath?: string;
   BrochurePath?: string;
   certificateDocuments?: CertificateDocument[];
@@ -203,6 +213,7 @@ export interface CosmeticAttributes {
   intendedarea?: (number | string)[];
   skintypeId?: (number | string)[];
   skinTypeIds?: (number | string)[];
+  typeId?: (number | string)[];
   hairType?: (number | string)[];
   hairTypeIds?: (number | string)[];
 }
@@ -305,6 +316,7 @@ interface ResolvedLookups {
   deviceCategoryName: string | null;
   deviceSubCategoryName: string | null;
   specificationUnitLabel: string | null;
+  countryName: string | null;
   loading: boolean;
 }
 
@@ -318,6 +330,7 @@ const INITIAL_LOOKUPS: ResolvedLookups = {
   deviceCategoryName: null,
   deviceSubCategoryName: null,
   specificationUnitLabel: null,
+  countryName: null,
   loading: false,
 };
 
@@ -721,6 +734,8 @@ const ProductView1 = ({
         const response = (await getDrugProductById(
           productId,
         )) as ProductApiData;
+        const ncArr = response?.productAttributeNonConsumableMedicals ?? [];
+        console.log("[ProductView] ncAttr array length:", ncArr.length, "entries:", ncArr.map((e: any) => ({ productAttributeId: e.productAttributeId, warrantyPeriod: e.warrantyPeriod, dimensionSize: e.dimensionSize, deviceSpecificationUnitId: e.deviceSpecificationUnitId, serviceAvailability: e.serviceAvailability, amcAvailability: e.amcAvailability, createdDate: e.createdDate, modifiedDate: e.modifiedDate, updatedDate: e.updatedDate })));
         setProductData(response);
       } catch (err) {
         console.error("[ProductView] Error fetching product:", err);
@@ -745,16 +760,26 @@ const ProductView1 = ({
         ? productData.productAttributeDrugs![0]
         : (productData.drugAttributes ?? null);
 
-    // console.log("DrugENtry---------------", drugEntry);
-
+    const consAttrArr = productData.productAttributeConsumableMedicals ?? [];
     const consAttr: ConsumableAttributes | null =
-      (productData.productAttributeConsumableMedicals ?? []).length > 0
-        ? productData.productAttributeConsumableMedicals![0]
+      consAttrArr.length > 0
+        ? (consAttrArr as any[]).reduce((latest: any, curr: any) =>
+          new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest,
+        )
         : null;
 
+    const ncAttrArr = productData.productAttributeNonConsumableMedicals ?? [];
     const ncAttr: NonConsumableAttributes | null =
-      (productData.productAttributeNonConsumableMedicals ?? []).length > 0
-        ? productData.productAttributeNonConsumableMedicals![0]
+      ncAttrArr.length > 0
+        ? (ncAttrArr as any[]).reduce((latest: any, curr: any) => {
+          const toMs = (e: any) => {
+            const d = e.updatedDate ?? e.modifiedDate ?? e.createdDate;
+            if (!d) return Infinity;
+            const t = new Date(d).getTime();
+            return isNaN(t) ? Infinity : t;
+          };
+          return toMs(curr) >= toMs(latest) ? curr : latest;
+        })
         : (productData.nonConsumableAttributes ?? null);
 
     const cosAttrRaw: CosmeticAttributes | null =
@@ -791,46 +816,107 @@ const ProductView1 = ({
       cosAttrRaw?.storageCondition?.trim() ||
       null;
 
-    const rawStorageId =
+    // const rawStorageId =
+    //   (consAttr as any)?.storageConditionId ??
+    //   (consAttr as any)?.storageCondition_id ??
+    //   (consAttr as any)?.storage_condition_id ??
+    //   (consAttr as any)?.storageconditionid ??
+    //   ncAttr?.storageConditionId ??
+    //   cosAttrRaw?.storageConditionId ??
+    //   (Array.isArray(drugEntry?.storageConditionIds) &&
+    //     (drugEntry?.storageConditionIds?.length ?? 0) > 0
+    //     ? drugEntry!.storageConditionIds![0]
+    //     : undefined);
+
+    const _rawStorageIdOrArray =
+      drugEntry?.storageConditionIds ??
       (consAttr as any)?.storageConditionId ??
       (consAttr as any)?.storageCondition_id ??
       (consAttr as any)?.storage_condition_id ??
       (consAttr as any)?.storageconditionid ??
       ncAttr?.storageConditionId ??
       cosAttrRaw?.storageConditionId ??
-      (Array.isArray(drugEntry?.storageConditionIds) &&
-      (drugEntry?.storageConditionIds?.length ?? 0) > 0
-        ? drugEntry!.storageConditionIds![0]
-        : undefined);
+      null;
 
-    const storageId = toPositiveInt(rawStorageId);
+    const rawStorageId: number[] = Array.isArray(_rawStorageIdOrArray)
+      ? (_rawStorageIdOrArray as unknown[]).map(Number).filter((n) => n > 0)
+      : _rawStorageIdOrArray != null && Number(_rawStorageIdOrArray) > 0
+        ? [Number(_rawStorageIdOrArray)]
+        : [];
+
+    // const fetchStorageCondition = async (): Promise<
+    //   Partial<ResolvedLookups>
+    // > => {
+    //   if (inlineStorageName) return { storageConditionName: inlineStorageName };
+    //   if (storageId === null) {
+    //     console.warn(
+    //       "[ProductView] storageConditionId missing for product",
+    //       productData?.productId,
+    //       "| consAttr keys:",
+    //       consAttr ? Object.keys(consAttr) : "n/a",
+    //     );
+    //     return {};
+    //   }
+    //   try {
+    //     const data = await getStorageConditionById(storageId);
+    //     const name =
+    //       data?.conditionName ??
+    //       data?.storageConditionName ??
+    //       data?.name ??
+    //       data?.condition ??
+    //       null;
+    //     return { storageConditionName: name ? String(name).trim() : null };
+    //   } catch (e) {
+    //     console.error(
+    //       "[ProductView] fetchStorageCondition failed for id",
+    //       storageId,
+    //       e,
+    //     );
+    //     return {};
+    //   }
+    // };
 
     const fetchStorageCondition = async (): Promise<
       Partial<ResolvedLookups>
     > => {
-      if (inlineStorageName) return { storageConditionName: inlineStorageName };
-      if (storageId === null) {
+      if (inlineStorageName) {
+        return {
+          storageConditionName: inlineStorageName,
+        };
+      }
+
+      if (!rawStorageId.length) {
         console.warn(
-          "[ProductView] storageConditionId missing for product",
+          "[ProductView] storageConditionIds missing for product",
           productData?.productId,
-          "| consAttr keys:",
-          consAttr ? Object.keys(consAttr) : "n/a",
         );
         return {};
       }
+
       try {
-        const data = await getStorageConditionById(storageId);
-        const name =
-          data?.conditionName ??
-          data?.storageConditionName ??
-          data?.name ??
-          data?.condition ??
-          null;
-        return { storageConditionName: name ? String(name).trim() : null };
+        const responses = await Promise.all(
+          rawStorageId.map((id: number) =>
+            getStorageConditionById(id),
+          ),
+        );
+
+        const names = responses
+          .map(
+            (data) =>
+              data?.conditionName ??
+              data?.storageConditionName ??
+              data?.name ??
+              data?.condition,
+          )
+          .filter(Boolean)
+          .map((name) => String(name).trim());
+
+        return {
+          storageConditionName: names.join(", "),
+        };
       } catch (e) {
         console.error(
-          "[ProductView] fetchStorageCondition failed for id",
-          storageId,
+          "[ProductView] fetchStorageCondition failed",
           e,
         );
         return {};
@@ -839,6 +925,7 @@ const ProductView1 = ({
 
     // ── Therapeutic category ──
     const catId = toPositiveInt(drugEntry?.therapeuticCategoryId);
+
     const inlineCatName =
       drugEntry?.therapeuticCategoryName?.trim() ||
       productData.therapeuticCategory?.trim() ||
@@ -856,7 +943,8 @@ const ProductView1 = ({
       }
 
       try {
-        const data = await getTherapeuticCategory(catId);
+        const data = await getTherapeuticCategoryById(String(catId));
+
         const categoryData = Array.isArray(data)
           ? data[0]
           : data?.content
@@ -878,10 +966,8 @@ const ProductView1 = ({
         return {};
       }
     };
-
     // ── Therapeutic subcategory ──
-    const subId = toPositiveInt(drugEntry?.therapeuticSubcategoryId);
-
+    const subId = drugEntry?.therapeuticSubcategoryId;
     const inlineSubName =
       drugEntry?.therapeuticSubcategoryName?.trim() ||
       productData.therapeuticSubcategory?.trim() ||
@@ -890,23 +976,19 @@ const ProductView1 = ({
     const fetchTherapeuticSubcategory = async (): Promise<
       Partial<ResolvedLookups>
     > => {
-      // Use inline value if already available
       if (inlineSubName) {
         return {
           therapeuticSubcategoryName: inlineSubName,
         };
       }
 
-      // Skip if no subcategory ID
-      if (subId === null) {
+      // Handle null / undefined
+      if (!subId) {
         return {};
       }
 
       try {
-        const data = await getTherapeuticSubcategory(subId);
-
-        console.log("Therapeutic subcategory API response:", data);
-
+        const data = await getTherapeuticSubcategoryById(String(subId));
         const subcategoryData = Array.isArray(data)
           ? data[0]
           : data?.content
@@ -964,6 +1046,35 @@ const ProductView1 = ({
     const deviceSubCatId = toPositiveInt(consAttr?.deviceSubCatId);
 
     const fetchDeviceNames = async (): Promise<Partial<ResolvedLookups>> => {
+      // Non-consumable: only need to resolve the spec unit label (device names come inline from API)
+      if (ncAttr && !consAttr) {
+        const ncSpecUnitId = toPositiveInt(
+          (ncAttr as any).deviceSpecificationUnitId,
+        );
+        const ncSubCatId = toPositiveInt(
+          (ncAttr as any).deviceSubCategoryId ?? (ncAttr as any).deviceSubCatId,
+        );
+        if (ncSpecUnitId !== null && ncSubCatId !== null) {
+          try {
+            const units: any[] = await getSpecificationUnitsBySubCategory(
+              String(ncSubCatId),
+            );
+            const found = units.find(
+              (u) => Number(u.unitId ?? u.id) === ncSpecUnitId,
+            );
+            if (found) {
+              return {
+                specificationUnitLabel:
+                  String(found.unitName ?? found.name ?? "").trim() || null,
+              };
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        return {};
+      }
+
       if (!consAttr) return {};
       let deviceCategoryName: string | null = inlineDeviceCatName;
       let deviceSubCategoryName: string | null = inlineDeviceSubCatName;
@@ -1000,9 +1111,9 @@ const ProductView1 = ({
             deviceSubCategoryName =
               String(
                 found.deviceSubCatName ??
-                  found.subCategoryName ??
-                  found.name ??
-                  "",
+                found.subCategoryName ??
+                found.name ??
+                "",
               ).trim() || null;
         } catch {
           /* ignore */
@@ -1010,18 +1121,54 @@ const ProductView1 = ({
       }
 
       let specificationUnitLabel: string | null = null;
-      const specUnitId = toPositiveInt((consAttr as any).deviceSpecificationUnitId);
+      const specUnitId = toPositiveInt(
+        (consAttr as any).deviceSpecificationUnitId,
+      );
       if (deviceSubCatId !== null && specUnitId !== null) {
         try {
-          const units: any[] = await getConsumableSpecificationUnitsBySubCategory(String(deviceSubCatId));
-          const found = units.find((u) => Number(u.unitId ?? u.id) === specUnitId);
-          if (found) specificationUnitLabel = String(found.unitName ?? found.name ?? "").trim() || null;
+          const units: any[] =
+            await getConsumableSpecificationUnitsBySubCategory(
+              String(deviceSubCatId),
+            );
+          const found = units.find(
+            (u) => Number(u.unitId ?? u.id) === specUnitId,
+          );
+          if (found)
+            specificationUnitLabel =
+              String(found.unitName ?? found.name ?? "").trim() || null;
         } catch {
           /* ignore */
         }
       }
 
-      return { deviceCategoryName, deviceSubCategoryName, specificationUnitLabel };
+      let countryName: string | null =
+        consAttr?.countryName?.trim() ||
+        consAttr?.countryOfOrigin?.trim() ||
+        null;
+
+      if (!countryName) {
+        const countryId = toPositiveInt(consAttr?.countryId);
+        if (countryId !== null) {
+          try {
+            const countries: any[] = await getCountries();
+            const found = countries.find(
+              (c) => Number(c.countryId ?? c.id) === countryId,
+            );
+            if (found)
+              countryName =
+                String(found.countryName ?? found.name ?? "").trim() || null;
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+
+      return {
+        deviceCategoryName,
+        deviceSubCategoryName,
+        specificationUnitLabel,
+        countryName,
+      };
     };
 
     Promise.all([
@@ -1066,13 +1213,13 @@ const ProductView1 = ({
         // ── Extract raw IDs from the attribute object (handle every casing variant) ──
         const productTypeIdStr = String(
           (cosAttrRaw as any).productCategoryId ??
-            (cosAttrRaw as any).productTypeId ??
-            "",
+          (cosAttrRaw as any).productTypeId ??
+          "",
         );
         const productSubTypeIdStr = String(
           (cosAttrRaw as any).productSubcategoryId ??
-            (cosAttrRaw as any).productSubTypeId ??
-            "",
+          (cosAttrRaw as any).productSubTypeId ??
+          "",
         );
         const ageGroupIdStr = String((cosAttrRaw as any).ageGroupId ?? "");
         // ageGroupIds is an array of IDs (may include 0 as sentinel); filter those out
@@ -1080,31 +1227,37 @@ const ProductView1 = ({
           (cosAttrRaw as any).ageGroupIds,
         )
           ? (cosAttrRaw as any).ageGroupIds
-              .filter((v: unknown) => Number(v) > 0)
-              .map(String)
+            .filter((v: unknown) => Number(v) > 0)
+            .map(String)
           : ageGroupIdStr && ageGroupIdStr !== "0"
             ? [ageGroupIdStr]
             : [];
         const countryIdStr = String(
           (cosAttrRaw as any).countryId ??
-            (cosAttrRaw as any).countryOfOriginId ??
-            "",
+          (cosAttrRaw as any).countryOfOriginId ??
+          "",
         );
 
         // Raw array IDs for multi-select fields
-        const rawIntendedIds: string[] = (
+        // API returns "IntendedUseArea" (capital I) as [{useAreaId, areaName, ...}]
+        const rawIntendedArr: any[] =
+          (cosAttrRaw as any).IntendedUseArea ??
           (cosAttrRaw as any).intendedUseAreaIds ??
           (cosAttrRaw as any).useAreaId ??
           (cosAttrRaw as any).intendedarea ??
-          (cosAttrRaw as any).intendedUseAreas ?? // sometimes already strings, handled below
-          []
-        )
-          .filter(
-            (v: any) =>
-              typeof v === "number" ||
-              (typeof v === "string" && /^\d+$/.test(v)),
-          )
-          .map(String);
+          (cosAttrRaw as any).intendedUseAreas ??
+          [];
+        const rawIntendedIds: string[] = rawIntendedArr
+          .map((v: any) => {
+            if (typeof v === "number") return String(v);
+            if (typeof v === "string" && /^\d+$/.test(v)) return v;
+            if (typeof v === "object" && v !== null) {
+              const id = v.useAreaId ?? v.areaId ?? v.id;
+              if (id != null) return String(id);
+            }
+            return null;
+          })
+          .filter((v: string | null): v is string => v !== null && v !== "");
 
         const rawSkinIds: string[] = (
           (cosAttrRaw as any).skinTypeIds ??
@@ -1122,6 +1275,7 @@ const ProductView1 = ({
 
         const rawHairIds: string[] = (
           (cosAttrRaw as any).hairTypeIds ??
+          (cosAttrRaw as any).typeId ??
           (cosAttrRaw as any).hairType ??
           (cosAttrRaw as any).hairTypes ??
           []
@@ -1136,8 +1290,13 @@ const ProductView1 = ({
         // ── Extract net quantity unit ID ──
         const netQtyUnitIdStr = String(
           (cosAttrRaw as any).unitId ??
-            (cosAttrRaw as any).netQuantityUnitId ??
-            "",
+          (cosAttrRaw as any).netQuantityUnitId ??
+          "",
+        );
+
+        // ── Extract product form ID ──
+        const productFormIdStr = String(
+          (cosAttrRaw as any).formId ?? (cosAttrRaw as any).productFormId ?? "",
         );
 
         // ── Fetch all needed masters in parallel ──
@@ -1149,6 +1308,7 @@ const ProductView1 = ({
           intendedUseAreasResult,
           countriesResult,
           netQtyUnitsResult,
+          productFormsResult,
         ] = await Promise.allSettled([
           getCosmeticProductTypes(),
           getCosmeticSkinTypes(),
@@ -1157,6 +1317,7 @@ const ProductView1 = ({
           getCosmeticIntendedUseAreas(),
           getCosmeticCountries(),
           getCosmeticNetQuantityUnits(),
+          getCosmeticProductForms(),
         ]);
 
         // ── Build option lists ──
@@ -1227,28 +1388,38 @@ const ProductView1 = ({
         }
 
         // ── Resolve array fields → comma-separated label strings ──
-        const intendedUseArea =
-          rawIntendedIds.length > 0
-            ? rawIntendedIds
-                .map((id) => intendedOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
-            : null;
+        // Primary: look up ID in master opts. Fallback: use areaName directly from the raw object.
+        const intendedUseArea = (() => {
+          if (rawIntendedArr.length === 0) return null;
+          const labels = rawIntendedArr.map((v: any) => {
+            const id = typeof v === "object" && v !== null
+              ? String(v.useAreaId ?? v.areaId ?? v.id ?? "")
+              : String(v);
+            const fromOpts = intendedOpts.find((o) => o.value === id)?.label;
+            if (fromOpts) return fromOpts;
+            // fallback: label embedded in the object itself
+            if (typeof v === "object" && v !== null) {
+              return v.areaName ?? v.name ?? null;
+            }
+            return null;
+          }).filter(Boolean);
+          return labels.length > 0 ? labels.join(", ") : null;
+        })();
 
         const skinPart =
           rawSkinIds.length > 0
             ? rawSkinIds
-                .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const hairPart =
           rawHairIds.length > 0
             ? rawHairIds
-                .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const skinHairType =
@@ -1279,10 +1450,20 @@ const ProductView1 = ({
           ["netQuantityUnitId", "unitId", "id"],
           ["unitName", "unit", "name"],
         );
-        const netQtyUnitLabel =
-          netQtyUnitIdStr
-            ? (netQtyUnitOpts.find((o) => o.value === netQtyUnitIdStr)?.label ?? null)
-            : null;
+        const netQtyUnitLabel = netQtyUnitIdStr
+          ? (netQtyUnitOpts.find((o) => o.value === netQtyUnitIdStr)?.label ??
+            null)
+          : null;
+
+        const productFormOpts = toSelectOpts(
+          productFormsResult,
+          ["productFormId", "formId", "id"],
+          ["productFormName", "formName", "productForm", "name"],
+        );
+        const productFormLabel = productFormIdStr
+          ? (productFormOpts.find((o) => o.value === productFormIdStr)?.label ??
+            null)
+          : null;
 
         const netQuantityStrength =
           netQtyValue != null
@@ -1309,11 +1490,11 @@ const ProductView1 = ({
           ageGroup:
             (rawAgeGroupIds.length > 0
               ? rawAgeGroupIds
-                  .map((id) => ageGroupOpts.find((o) => o.value === id)?.label)
-                  .filter(Boolean)
-                  .join(", ") || null
+                .map((id) => ageGroupOpts.find((o) => o.value === id)?.label)
+                .filter(Boolean)
+                .join(", ") || null
               : null) ?? cosAttrRaw.ageGroup,
-          intendedUseArea: intendedUseArea ?? cosAttrRaw.intendedUseArea,
+          intendedUseArea: intendedUseArea || cosAttrRaw.intendedUseArea || null,
           skinHairType: skinHairType ?? cosAttrRaw.skinHairType,
           countryOfOrigin:
             countryOpts.find((o) => o.value === countryIdStr)?.label ??
@@ -1328,6 +1509,8 @@ const ProductView1 = ({
           productClaims: productClaims ?? cosAttrRaw.productClaims,
           warningsPrecautions:
             warningsPrecautions ?? cosAttrRaw.warningsPrecautions,
+          productForm:
+            productFormLabel ?? (cosAttrRaw as any).productForm ?? null,
         });
       } catch (err) {
         console.error(
@@ -1347,23 +1530,53 @@ const ProductView1 = ({
      DERIVED VALUES
   ───────────────────────────────────────────────────── */
 
-  const packaging: PackagingDetails | undefined = Array.isArray(
-    productData?.packagingDetails,
-  )
-    ? productData?.packagingDetails[0]
-    : productData?.packagingDetails;
+  const packagingArr = Array.isArray(productData?.packagingDetails)
+    ? productData!.packagingDetails!
+    : productData?.packagingDetails
+      ? [productData.packagingDetails]
+      : [];
+  const packaging: PackagingDetails | undefined =
+    packagingArr.length > 0
+      ? (packagingArr as any[]).reduce((latest: any, curr: any) =>
+        new Date(curr.createdDate) > new Date(latest.createdDate)
+          ? curr
+          : latest,
+      )
+      : undefined;
 
-  const pricing: PricingDetails | undefined = productData?.pricingDetails?.[0];
+  const pricingArr = productData?.pricingDetails ?? [];
+  const pricing: PricingDetails | undefined =
+    pricingArr.length > 0
+      ? (pricingArr as any[]).reduce((latest: any, curr: any) =>
+        new Date(curr.createdDate) > new Date(latest.createdDate)
+          ? curr
+          : latest,
+      )
+      : undefined;
 
-  const ncAttr: NonConsumableAttributes | null =
-    (productData?.productAttributeNonConsumableMedicals ?? []).length > 0
-      ? productData!.productAttributeNonConsumableMedicals![0]
-      : (productData?.nonConsumableAttributes ?? null);
+  const ncAttr: NonConsumableAttributes | null = (() => {
+    const arr = productData?.productAttributeNonConsumableMedicals ?? [];
+    if (arr.length === 0) return productData?.nonConsumableAttributes ?? null;
+    const result = (arr as any[]).reduce((latest: any, curr: any) => {
+      const toMs = (e: any) => {
+        const d = e.updatedDate ?? e.modifiedDate ?? e.createdDate;
+        if (!d) return Infinity;
+        const t = new Date(d).getTime();
+        return isNaN(t) ? Infinity : t;
+      };
+      return toMs(curr) >= toMs(latest) ? curr : latest;
+    });
+    console.log("[ProductView] selected ncAttr:", { productAttributeId: result?.productAttributeId, warrantyPeriod: result?.warrantyPeriod, dimensionSize: result?.dimensionSize, deviceSpecificationUnitId: result?.deviceSpecificationUnitId, serviceAvailability: result?.serviceAvailability, createdDate: result?.createdDate, modifiedDate: result?.modifiedDate });
+    return result;
+  })();
 
-  const consAttr: ConsumableAttributes | null =
-    (productData?.productAttributeConsumableMedicals ?? []).length > 0
-      ? productData!.productAttributeConsumableMedicals![0]
-      : null;
+  const consAttr: ConsumableAttributes | null = (() => {
+    const arr = productData?.productAttributeConsumableMedicals ?? [];
+    if (arr.length === 0) return null;
+    return (arr as any[]).reduce((latest: any, curr: any) =>
+      new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest,
+    );
+  })();
 
   const drugEntry: DrugAttributeEntry | null =
     (productData?.productAttributeDrugs ?? []).length > 0
@@ -1453,22 +1666,22 @@ const ProductView1 = ({
     molecules.length > 0
       ? molecules
       : ([
-          drugEntry?.molecule1Name || drugEntry?.molecule1Strength
-            ? {
-                resolvedName: drugEntry?.molecule1Name ?? "—",
-                resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
-              }
-            : null,
-          drugEntry?.molecule2Name || drugEntry?.molecule2Strength
-            ? {
-                resolvedName: drugEntry?.molecule2Name ?? "—",
-                resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
-              }
-            : null,
-        ].filter(Boolean) as {
-          resolvedName: string;
-          resolvedStrength: string;
-        }[]);
+        drugEntry?.molecule1Name || drugEntry?.molecule1Strength
+          ? {
+            resolvedName: drugEntry?.molecule1Name ?? "—",
+            resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
+          }
+          : null,
+        drugEntry?.molecule2Name || drugEntry?.molecule2Strength
+          ? {
+            resolvedName: drugEntry?.molecule2Name ?? "—",
+            resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
+          }
+          : null,
+      ].filter(Boolean) as {
+        resolvedName: string;
+        resolvedStrength: string;
+      }[]);
 
   const drugSchedule =
     drugEntry?.drugSchedule ??
@@ -1590,9 +1803,7 @@ const ProductView1 = ({
         ),
     );
 
-  const specialSchemes: any[] = (
-    productData?.pricingDetails ?? []
-  )
+  const specialSchemes: any[] = (productData?.pricingDetails ?? [])
     .flatMap((p: any) => p.specialSchemes || [])
     .filter((s: any) => s.schemeName);
 
@@ -1603,14 +1814,13 @@ const ProductView1 = ({
 
   const packSizeDisplay =
     packaging?.numberOfPacks != null && unitsPerPack != null
-      ? `${packaging.numberOfPacks} packs × ${unitsPerPack} units = ${(
-          packaging.numberOfPacks * unitsPerPack
-        ).toLocaleString()} units`
+      ? `${packaging.numberOfPacks} ${resolvedPackType ?? "packs"} × ${unitsPerPack} units = ${(
+        packaging.numberOfPacks * unitsPerPack
+      ).toLocaleString()} units`
       : null;
 
   const productImages = resolveProductImages(productData);
-  const displayImages =
-    productImages.length > 0 ? productImages : [PLACEHOLDER_IMAGE];
+  const displayImages = productImages;
 
   const brochureUrl: string | null =
     validUrl(drugEntry?.brochurePath) ??
@@ -1817,6 +2027,14 @@ const ProductView1 = ({
           specificationUnitLabel={lookups.specificationUnitLabel}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
+          countryName={
+            lookups.countryName ??
+            consAttr?.countryName ??
+            consAttr?.countryOfOrigin ??
+            null
+          }
+          additionalDiscounts={additionalDiscounts}
+          specialSchemes={specialSchemes}
         />
       )}
 
@@ -1829,19 +2047,22 @@ const ProductView1 = ({
           nonConsAttr={
             ncAttr
               ? {
-                  ...ncAttr,
-                  safetyInstructions:
-                    ncAttr.safetyInstructions ??
-                    productData.warningsPrecautions ??
-                    undefined,
-                }
+                ...ncAttr,
+                safetyInstructions:
+                  ncAttr.safetyInstructions ??
+                  productData.warningsPrecautions ??
+                  undefined,
+              }
               : null
           }
           storageConditionName={storageCondition}
           deviceCategoryName={resolvedDeviceCategoryName}
           deviceSubCategoryName={resolvedDeviceSubCategoryName}
+          specificationUnitLabel={lookups.specificationUnitLabel}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
+          additionalDiscounts={additionalDiscounts}
+          specialSchemes={specialSchemes}
         />
       )}
 
@@ -1879,6 +2100,25 @@ const ProductView1 = ({
             storageConditionName={storageCondition}
             brochureUrl={brochureUrl}
             placeholderImage={PLACEHOLDER_IMAGE}
+            pricingDetails={
+              pricing
+                ? {
+                  ...(pricing as any),
+                  shelfLife: shelfLifeDisplay ?? (pricing as any)?.shelfLife,
+                }
+                : null
+            }
+            packagingDetails={
+              packaging
+                ? {
+                  ...(packaging as any),
+                  packTypeName:
+                    resolvedPackType ?? (packaging as any)?.packTypeName,
+                }
+                : null
+            }
+            additionalDiscounts={additionalDiscounts}
+            specialSchemes={specialSchemes}
           />
         ))}
 
@@ -1917,8 +2157,8 @@ const ProductView1 = ({
                 Product Images
               </div>
 
-              <div className="grid grid-cols-4 gap-4">
-                {displayImages.slice(0, 4).map((img, idx) => (
+              <div className="grid grid-cols-5 gap-4">
+                {displayImages.slice(0, 5).map((img, idx) => (
                   <div
                     key={idx}
                     className="relative h-67.5 overflow-hidden rounded-xl bg-[#F5F5F5]"
@@ -1944,7 +2184,7 @@ const ProductView1 = ({
                 ))}
 
                 {Array.from({
-                  length: Math.max(0, 4 - displayImages.length),
+                  length: Math.max(0, 5 - displayImages.length),
                 }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
@@ -2045,9 +2285,7 @@ const ProductView1 = ({
                     Uploaded User Manual
                   </span>
 
-                  <span className="text-warning-500 text-base font-medium leading-6">
-                    *
-                  </span>
+
                 </div>
 
                 {brochureUrl ? (
@@ -2062,7 +2300,7 @@ const ProductView1 = ({
                     <span className="text-pneutral-800 text-base font-normal leading-[22px] break-all">
                       {decodeURIComponent(
                         brochureUrl.split("/").pop()?.split("?")[0] ||
-                          "user-manual.pdf",
+                        "user-manual.pdf",
                       )}
                     </span>
                   </a>
@@ -2136,6 +2374,8 @@ const ProductView1 = ({
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
           manufacturerName={manufacturerName}
+          additionalDiscounts={additionalDiscounts}
+          specialSchemes={specialSchemes}
         />
       )}
       {console.log("FoodAttr from ProductView1:", {
@@ -2176,7 +2416,7 @@ const ProductView1 = ({
               label="Number of Packs"
               value={
                 packaging?.numberOfPacks != null
-                  ? `${packaging.numberOfPacks} Box`
+                  ? `${packaging.numberOfPacks} ${resolvedPackType ?? "packs"}`
                   : null
               }
             />
@@ -2234,15 +2474,20 @@ const ProductView1 = ({
         >
           <SectionTitle>Batch Management</SectionTitle>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <FieldRow label="Batch Number" value={pricing?.batchLotNumber} />
+            {/* Non-consumables don't use batch numbers — only show if value exists */}
+            {(!isNonConsumable || pricing?.batchLotNumber) && (
+              <FieldRow label="Batch Number" value={pricing?.batchLotNumber} />
+            )}
             <FieldRow
               label="Manufacturing Date"
               value={formatDate(pricing?.manufacturingDate)}
             />
-            <FieldRow
-              label="Expiry Date"
-              value={formatDate(pricing?.expiryDate)}
-            />
+            {(!isNonConsumable || pricing?.expiryDate) && (
+              <FieldRow
+                label="Expiry Date"
+                value={formatDate(pricing?.expiryDate)}
+              />
+            )}
             <FieldRow
               label="Stock Quantity (in terms of Pack Size)"
               value={
@@ -2255,7 +2500,10 @@ const ProductView1 = ({
               label="Date of Stock Entry"
               value={formatDate(pricing?.dateOfStockEntry)}
             />
-            <FieldRow label="Shelf Life" value={shelfLifeDisplay} />
+            {/* Non-consumables don't expire — only show shelf life if value exists */}
+            {(!isNonConsumable || shelfLifeDisplay) && (
+              <FieldRow label="Shelf Life" value={shelfLifeDisplay} />
+            )}
           </div>
         </div>
 
@@ -2294,7 +2542,13 @@ const ProductView1 = ({
             />
 
             {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
-              <div style={{ marginTop: 8, borderBottom: "1px solid #D5D5D4", paddingBottom: 12 }}>
+              <div
+                style={{
+                  marginTop: 8,
+                  borderBottom: "1px solid #D5D5D4",
+                  paddingBottom: 12,
+                }}
+              >
                 <div style={{ padding: "12px 8px 8px" }}>
                   <span
                     style={{
@@ -2332,15 +2586,13 @@ const ProductView1 = ({
                             margin: 0,
                           }}
                         >
-                          {`Bulk order discount (${d.minimumPurchaseQuantity}${
-                            d.maximumPurchaseQuantity
+                          {`Bulk order discount (${d.minimumPurchaseQuantity}${d.maximumPurchaseQuantity
                               ? `-${d.maximumPurchaseQuantity}`
                               : "+"
-                          } units)${
-                            startDate && endDate
+                            } units)${startDate && endDate
                               ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
                               : ""
-                          }`}
+                            }`}
                         </p>
                       </div>
                       <span
@@ -2360,6 +2612,9 @@ const ProductView1 = ({
                     </div>
                   );
                 })}
+
+                {/* --- Old Special Schemes rendering (Removed to avoid duplication, now handled in category views) --- */}
+                {/* 
                 {specialSchemes.map((s, i) => {
                   const startDate = s.effectiveStartDate;
                   const endDate = s.effectiveEndDate;
@@ -2373,27 +2628,45 @@ const ProductView1 = ({
                         alignItems: "flex-end",
                       }}
                     >
-                      <div style={{ flex: 1 }}>
-                        <p
+                      <div
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "4px",
+                        }}
+                      >
+                        <span
                           style={{
-                            color: "#5A5B58",
+                            color: "#3C3D3A",
                             fontSize: 14,
                             fontFamily: "'Work Sans', sans-serif",
                             fontWeight: 400,
                             lineHeight: "20px",
-                            margin: 0,
                           }}
                         >
-                          {`${s.schemeName}${
-                            startDate && endDate
-                              ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
-                              : ""
-                          }`}
-                        </p>
+                          Purchase {s.buyQuantity || 1}{" "}
+                          {productData.productName || "this product"} and get{" "}
+                          {s.freeQuantity || 1} absolutely free. Limited stock
+                          available!
+                        </span>
+                        <span
+                          style={{
+                            color: "#5A5B58",
+                            fontSize: 12,
+                            fontFamily: "'Work Sans', sans-serif",
+                            fontWeight: 400,
+                          }}
+                        >
+                          {startDate && endDate
+                            ? `${formatDate(startDate)} - ${formatDate(endDate)}`
+                            : "Ongoing"}
+                        </span>
                       </div>
                     </div>
                   );
                 })}
+                */}
               </div>
             )}
           </div>

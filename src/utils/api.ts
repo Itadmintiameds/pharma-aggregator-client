@@ -6,11 +6,11 @@ export const api = axios.create({
 
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token');
-    console.log("🔥 TOKEN FROM LS:", token);
+    const accessToken = localStorage.getItem('accessToken');
+    console.log("🔥 TOKEN FROM LS:", accessToken);
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
   }
   return config;

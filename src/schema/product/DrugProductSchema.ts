@@ -179,17 +179,41 @@ export const drugProductSchema = z.object({
     .min(1, "MRP is required") // Mandatory
     .regex(/^\d+(\.\d+)?$/, "Only numeric values are allowed"),
 
+  // discountPercentage: z
+  //   .string()
+  //   .trim()
+  //   .min(1, "Discount Percentage is required")
+  //   .regex(/^\d+(\.\d+)?$/, "Only numeric values are allowed") // allows integers & decimals
+  //   .refine((val) => {
+  //     const num = Number(val);
+  //     return num >= 0 && num <= 100;
+  //   }, {
+  //     message: "Discount must be between 0 and 100",
+  //   }),
+
   discountPercentage: z
     .string()
     .trim()
-    .min(1, "Discount Percentage is required")
-    .regex(/^\d+(\.\d+)?$/, "Only numeric values are allowed") // allows integers & decimals
-    .refine((val) => {
-      const num = Number(val);
-      return num >= 0 && num <= 100;
-    }, {
-      message: "Discount must be between 0 and 100",
-    }),
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val === "") return true; // allow empty
+        return /^\d+(\.\d+)?$/.test(val);
+      },
+      {
+        message: "Only numeric values are allowed",
+      }
+    )
+    .refine(
+      (val) => {
+        if (!val || val === "") return true; // allow empty
+        const num = Number(val);
+        return num >= 0 && num <= 100;
+      },
+      {
+        message: "Discount must be between 0 and 100",
+      }
+    ),
 
   gstPercentage: z
     .string()

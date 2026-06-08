@@ -229,6 +229,21 @@ export const foodInfantSchema = z
       });
     }
 
+     // MOQ vs Maximum Order Quantity validation
+  const minQty = Number(data.minimumOrderQuantity);
+  const maxQty = Number(data.maximumOrderQuantity);
+
+  if (
+    !isNaN(minQty) &&
+    !isNaN(maxQty) &&
+    maxQty < minQty
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["maximumOrderQuantity"],
+      message: "Maximum Order Quantity cannot be less than Minimum Order Quantity",
+    });
+  }
     // Shelf life validation (cannot exceed 5 years = 60 months)
     if (data.shelfLifeMonths) {
       const shelfLife = Number(data.shelfLifeMonths);
@@ -262,6 +277,7 @@ export const foodInfantSchema = z
           message: "Manufacturing date cannot be more than 3 years old",
         });
       }
+      
     }
     
     // Expiry date validation

@@ -6,11 +6,15 @@ import Input from "@/src/app/commonComponents/Input";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import UploadInput from "../commonComponent/UploadInput";
-import AdditionalDiscount from "./AdditionalDiscount";
+import AdditionalDiscountType from "./AdditionalDiscountType";
+import AppliedOffersView from "./AppliedOffersView";
 import PopupModal from "../commonComponent/PopupModal";
 import CommonModal from "../commonComponent/CommonModal";
-import { X, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import MonthPicker from "@/src/app/commonComponents/MonthPicker";
+import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
+import { validateBatchNumber } from "@/src/services/product/Pricing";
 import {
   getConsumableDeviceCategories,
   getConsumableDeviceSubCategories,
@@ -301,6 +305,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
   const [materialTypeOptions, setMaterialTypeOptions] = useState<SelectOption[]>([]);
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const unitDropdownRef = useRef<HTMLDivElement>(null);
+
   const [specificationUnitOptions, setSpecificationUnitOptions] = useState<SelectOption[]>([]);
   const [loadingSpecificationUnits, setLoadingSpecificationUnits] = useState(false);
 
@@ -319,8 +326,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string>("");
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
 
+  const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] = useState(false);
+  const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
   const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
+  const [specialSchemes, setSpecialSchemes] = useState<any[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const sterileOptions: SelectOption[] = [
@@ -495,8 +505,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         expiryDate: expDate,
         stockQuantity: String(pricing.stockQuantity || ""),
         dateOfStockEntry: pricing.dateOfStockEntry ? new Date(pricing.dateOfStockEntry) : new Date(),
-        mrp: String(pricing.mrp || ""),
-        sellingPricePerPack: String(pricing.sellingPrice || ""),
+        mrp: pricing.mrp != null ? String(pricing.mrp) : "",
+        sellingPricePerPack: pricing.sellingPrice != null ? String(pricing.sellingPrice) : "",
         discountPercentage: String(pricing.discountPercentage || ""),
         gstPercentage: gstVal,
         hsnCode: String(pricing.hsnCode || ""),
@@ -507,6 +517,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (pricing.additionalDiscounts?.length) {
         setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
       }
+      if (pricing.specialSchemes?.length) {
+        setSpecialSchemes(pricing.specialSchemes);
+      }
 
       if (data.productImages?.length) {
         setExistingImages(
@@ -516,7 +529,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         );
       }
 
-      if (attribute.brochurePath && attribute.brochurePath !== "PENDING") {
+      const isRealUrl = (u: string) => !!u && !["PENDING", "NOT_UPLOADED"].includes(u.toUpperCase());
+      if (isRealUrl(attribute.brochurePath)) {
         setExistingBrochureUrl(attribute.brochurePath);
       }
 
@@ -528,18 +542,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             label: cert.certificationName || `Certificate ${cert.certificationId}`,
             tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
             file: null,
-            fileName:
-              cert.certificateUrl && cert.certificateUrl !== "PENDING"
-                ? cert.certificateUrl.split("/").pop() || ""
-                : "",
+            fileName: isRealUrl(cert.certificateUrl) ? cert.certificateUrl.split("/").pop() || "" : "",
             uploading: false,
-            isUploaded: !!(cert.certificateUrl && cert.certificateUrl !== "PENDING"),
+            isUploaded: isRealUrl(cert.certificateUrl),
             previewUrl: null,
             productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-            existingUrl:
-              cert.certificateUrl && cert.certificateUrl !== "PENDING"
-                ? cert.certificateUrl
-                : undefined,
+            existingUrl: isRealUrl(cert.certificateUrl) ? cert.certificateUrl : undefined,
           })),
         );
       }
@@ -712,19 +720,89 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }));
   }, [form.sellingPricePerPack, form.discountPercentage]);
 
+  // Close unit dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (unitDropdownRef.current && !unitDropdownRef.current.contains(e.target as Node)) setShowUnitDropdown(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    const numericOnlyFields = ["stockQuantity", "sellingPricePerPack", "mrp", "discountPercentage", "hsnCode", "unitsPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity", "sizeDimension"];
-    if (numericOnlyFields.includes(name)) {
+    const { name } = e.target;
+    let value = e.target.value;
+
+    // Field-specific sanitization
+    if (name === "unitsPerPack") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 5) value = value.slice(0, 5);
+    } else if (name === "numberOfPacks") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 4) value = value.slice(0, 4);
+    } else if (name === "minimumOrderQuantity" || name === "maximumOrderQuantity") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 7) value = value.slice(0, 7);
+    } else if (name === "mrp" || name === "sellingPricePerPack") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts[0].length > 13) parts[0] = parts[0].slice(0, 13);
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+    } else if (name === "discountPercentage") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+      if (Number(value) > 100) value = "100";
+    } else if (name === "stockQuantity" || name === "hsnCode") {
+      if (value !== "" && !/^\d*$/.test(value)) return;
+      if (name === "hsnCode" && value.length > 8) value = value.slice(0, 8);
+    } else if (name === "sizeDimension") {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
-    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000, sizeDimension: 10 };
+
+    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000, sizeDimension: 10, batchLotNumber: 20 };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
-    setForm((p) => ({ ...p, [name]: value }));
+    setForm((p) => {
+      const updated = { ...p, [name]: value };
+
+      // Cross-field: maxQty >= minQty
+      const minQ = Number(updated.minimumOrderQuantity) || 0;
+      const maxQ = Number(updated.maximumOrderQuantity) || 0;
+      if ((name === "minimumOrderQuantity" || name === "maximumOrderQuantity") && minQ && maxQ) {
+        setErrors((prev) => {
+          const n = { ...prev };
+          if (maxQ < minQ) n.maximumOrderQuantity = "Max Order Qty must be ≥ Min Order Qty";
+          else delete n.maximumOrderQuantity;
+          return n;
+        });
+      }
+
+      // Cross-field: sellingPrice <= mrp
+      const mrpVal = Number(updated.mrp) || 0;
+      const spVal  = Number(updated.sellingPricePerPack) || 0;
+      if ((name === "mrp" || name === "sellingPricePerPack") && mrpVal && spVal) {
+        setErrors((prev) => {
+          const n = { ...prev };
+          if (spVal > mrpVal) n.sellingPricePerPack = "Selling Price must be ≤ MRP";
+          else delete n.sellingPricePerPack;
+          return n;
+        });
+      }
+
+      return updated;
+    });
     if (errors[name]) setErrors((p) => { const n = { ...p }; delete n[name]; return n; });
 
     if (name === "hsnCode" && value.trim()) {
@@ -736,6 +814,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const v = parseFloat(value);
       if (isNaN(v) || v < 0 || v > 100) setErrors((p) => ({ ...p, discountPercentage: "Discount must be between 0 and 100" }));
       else setErrors((p) => { const n = { ...p }; delete n.discountPercentage; return n; });
+    }
+    if (name === "batchLotNumber" && value.trim()) {
+      checkBatchNumber(value);
     }
   };
 
@@ -760,7 +841,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         file: null, fileName: "", uploading: false, isUploaded: false, previewUrl: null,
       }]);
     }
-    if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
   };
 
   const handleCertFileSelect = (certId: string, file: File) => {
@@ -773,7 +853,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         : c,
       ),
     );
-    if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
+    const key = `certFile_${certId}`;
+    if (errors[key]) setErrors((p) => { const n = { ...p }; delete n[key]; return n; });
   };
 
   const handleCertRemove = (certId: string) => {
@@ -782,20 +863,92 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     );
   };
 
-  const handleImageFiles = (files: FileList | File[]) => {
-    const fileArr = Array.from(files);
-    const allowedFormats = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml"];
-    const maxSizeBytes = 5 * 1024 * 1024;
-    if (fileArr.find((f) => !allowedFormats.includes(f.type))) { setErrors((p) => ({ ...p, images: "Unsupported image format. Only JPG, JPEG, PNG are allowed." })); return; }
-    if (fileArr.find((f) => f.size > maxSizeBytes)) { setErrors((p) => ({ ...p, images: "Image file size exceeds the maximum limit." })); return; }
-    if (images.length + fileArr.length > 5) { setErrors((p) => ({ ...p, images: "Maximum 5 images allowed" })); return; }
-    setImages((p) => [...p, ...fileArr]);
-    setErrors((p) => { const n = { ...p }; delete n.images; return n; });
+  const handleMonthSelect = (
+    field: "manufacturingDate" | "expiryDate",
+    month: number,
+    year: number,
+  ) => {
+    const selectedDate = new Date(year, month, 1);
+
+    if (field === "manufacturingDate") {
+      const today = new Date();
+      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      if (selectedDate > currentMonth) {
+        setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
+        return;
+      }
+      setErrors((prev) => ({ ...prev, manufacturingDate: "", expiryDate: "" }));
+      setForm({ ...form, manufacturingDate: selectedDate, expiryDate: null, shelfLifeMonths: "" });
+      setShowManufacturingMonthPicker(false);
+      return;
+    }
+
+    if (field === "expiryDate") {
+      setForm((prev) => {
+        const updatedForm = { ...prev, expiryDate: selectedDate };
+
+        let expiryError = "";
+
+        if (updatedForm.manufacturingDate) {
+          const mfg = new Date(updatedForm.manufacturingDate);
+          const today = new Date();
+
+          const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
+
+          const totalMonths =
+            (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
+            (selectedDate.getMonth() - mfg.getMonth()) +
+            1;
+
+          const monthsUntilExpiry =
+            (selectedDate.getFullYear() - today.getFullYear()) * 12 +
+            (selectedDate.getMonth() - today.getMonth()) +
+            1;
+
+          updatedForm.shelfLifeMonths =
+            totalMonths >= 0 ? totalMonths.toString() : "";
+
+          if (monthsUntilExpiry > 0 && monthsUntilExpiry <= 3) {
+            expiryError =
+              monthsUntilExpiry === 1
+                ? "This product expires within 1 month, but it can still be added."
+                : `This product expires within ${monthsUntilExpiry} months, but it can still be added.`;
+          } else if (selectedDate > maxDate) {
+            expiryError =
+              "Expiry cannot be more than 5 years from Manufacturing Date";
+          }
+        }
+
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          expiryDate: expiryError,
+        }));
+
+        return updatedForm;
+      });
+
+      setShowExpiryMonthPicker(false);
+    }
   };
 
   const handleViewProduct = () => { router.push(`/seller_7a3b9f2c/products/view/${resolvedProductId}`); };
   const handleContinueAdding = () => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); };
   const handleBackToDashboard = () => { router.push("/seller_7a3b9f2c/dashboard"); };
+
+  // ─── Batch number uniqueness check ────────────────────────────────────────
+
+  const checkBatchNumber = async (batchLotNumber: string) => {
+    try {
+      const response = await validateBatchNumber(batchLotNumber, productCategoryId);
+      if (response.exists) {
+        setErrors((prev) => ({ ...prev, batchLotNumber: "Batch number already exists" }));
+      } else {
+        setErrors((prev) => { const n = { ...prev }; delete n.batchLotNumber; return n; });
+      }
+    } catch (error) {
+      console.error("Batch validation failed:", error);
+    }
+  };
 
   // ─── Validation ───────────────────────────────────────────────────────────
 
@@ -826,16 +979,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const mName = form.manufacturerName.trim();
       if (!mName) e.manufacturerName = "Manufacturer name is required";
       else if (mName.length > 100) e.manufacturerName = "Manufacturer name must not exceed 100 characters";
-      if (selectedCertifications.length === 0) {
-        e.certifications = "At least one certification / compliance is required";
-      } else {
-        const missing = selectedCertifications.find((c) => !c.file && !c.existingUrl);
-        if (missing) e.certifications = `Please upload the certificate file for "${missing.label}"`;
-      }
       if (!form.packType) e.packType = "Pack type is required";
       const bNum = form.batchLotNumber.trim();
       if (!bNum) e.batchLotNumber = "Batch / lot number is required";
       else if (!/^[a-zA-Z0-9]+$/.test(bNum)) e.batchLotNumber = "Batch number must be alphanumeric only";
+      else if (bNum.length < 3) e.batchLotNumber = "Batch number must be at least 3 characters";
+      else if (bNum.length > 20) e.batchLotNumber = "Batch number must not exceed 20 characters";
       if (!form.manufacturingDate) e.manufacturingDate = "Manufacturing date is required";
       else {
         const today = new Date();
@@ -843,26 +992,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         if (form.manufacturingDate > currentMonth) e.manufacturingDate = "Manufacturing date cannot be in the future month";
       }
       if (!form.expiryDate) e.expiryDate = "Expiry date is required";
-      else {
-        const today = new Date();
-        const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
-        if (form.expiryDate < minFromNow)
-          e.expiryDate = "Expiry date must be at least 3 months from current month";
-        else if (form.manufacturingDate) {
-          const minExpiry = new Date(form.manufacturingDate.getFullYear(), form.manufacturingDate.getMonth() + 3, 1);
-          if (form.expiryDate < minExpiry)
-            e.expiryDate = "Expiry must be at least 3 months after Manufacturing Date";
-          else {
-            const totalMonths = (form.expiryDate.getFullYear() - form.manufacturingDate.getFullYear()) * 12 + (form.expiryDate.getMonth() - form.manufacturingDate.getMonth());
-            if (totalMonths > 60) e.expiryDate = "Shelf life cannot exceed 5 years (60 months)";
-          }
-        }
+      else if (form.manufacturingDate) {
+        const maxDate = new Date(form.manufacturingDate.getFullYear() + 5, form.manufacturingDate.getMonth(), 1);
+        if (form.expiryDate > maxDate)
+          e.expiryDate = "Expiry cannot be more than 5 years from Manufacturing Date";
       }
       if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
       if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
       else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
       if (!form.storageCondition) e.storageCondition = "Storage condition is required";
-      if (images.length === 0) e.images = "Product Image upload is mandatory.";
     }
 
     const iUse = form.intendedUse.trim();
@@ -881,7 +1019,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     if (!pDesc) e.productDescription = "Product description is required";
     else if (pDesc.length > 1000) e.productDescription = "Product description must not exceed 1000 characters";
 
-    if (mode === "edit") {
+    if (mode === "edit" && Number(form.stockQuantity) === 0) {
       if (!form.storageCondition) e.storageCondition = "Storage condition is required";
     }
 
@@ -922,7 +1060,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       else if (!isNaN(minQ) && minQ > 0 && stock <= minQ) e.stockQuantity = "Stock quantity must be greater than minimum order quantity";
     }
 
-    if (mode === "create" && images.length > 5) e.images = "Maximum 5 images allowed";
+    if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
+    if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
+
+    for (const cert of selectedCertifications) {
+      if (!cert.file && !cert.existingUrl) {
+        e[`certFile_${cert.id}`] = `Please upload the certificate file for "${cert.label}"`;
+      }
+    }
 
     return e;
   };
@@ -945,25 +1090,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     return combined.toISOString().slice(0, 19);
   };
 
-  const getMinExpiryMonth = () => {
-    const today = new Date();
-    const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
-    if (!form.manufacturingDate) {
-      return `${minFromNow.getFullYear()}-${String(minFromNow.getMonth() + 1).padStart(2, "0")}`;
-    }
-    const mfg = new Date(form.manufacturingDate);
-    const minFromMfg = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
-    const min = minFromMfg > minFromNow ? minFromMfg : minFromNow;
-    return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, "0")}`;
-  };
-
-  const getMaxExpiryMonth = () => {
-    if (!form.manufacturingDate) return "";
-    const mfg = new Date(form.manufacturingDate);
-    const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
-    return `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, "0")}`;
-  };
-
   // ─── Submit ───────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
@@ -978,6 +1104,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     setApiError(null);
 
     try {
+      if (mode === "create" && form.batchLotNumber.trim()) {
+        const batchValidation = await validateBatchNumber(form.batchLotNumber, productCategoryId);
+        if (batchValidation.exists) {
+          setErrors((prev) => ({ ...prev, batchLotNumber: "Batch number already exists" }));
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const payload = {
         productName: form.productName,
         warningsPrecautions: form.safetyInstructions,
@@ -1008,6 +1143,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           finalPrice: Number(form.finalPrice),
           hsnCode: Number(form.hsnCode),
           additionalDiscounts: additionalDiscountSlabs,
+          specialSchemes: specialSchemes.map((s: any) => ({
+            ...s,
+            ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+          })),
         }],
         productAttributeConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
@@ -1034,6 +1173,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           })),
         }],
         productImages: images.map(() => ({ productImage: "PENDING" })),
+        retainedImageUrls: existingImages,
       };
 
       let currentProductId = resolvedProductId || productId || "";
@@ -1041,10 +1181,23 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const certsToUpload: CertificationTag[] = [...selectedCertifications];
 
       if (mode === "edit" && currentProductId) {
-        await updateProduct(currentProductId, payload as any);
+        const updateData = await updateProduct(currentProductId, payload as any) as ApiResponseData;
+
+        // For Excel-uploaded products the attributeId may not be pre-populated
+        if (!currentAttributeId) {
+          currentAttributeId = extractProductAttributeId(updateData) || "";
+        }
+
+        // Extract server-assigned productCertificateDocumentId values from the update response
+        const certDocMap = extractCertDocumentIdMap(updateData);
+        const finalCertsToUpload = certsToUpload.map((c) => {
+          const serverDocId = certDocMap.get(Number(c.id));
+          return serverDocId ? { ...c, productCertificateDocumentId: serverDocId } : c;
+        });
+
         if (images.length > 0) await uploadProductImages(currentProductId, images);
         if (currentAttributeId) {
-          for (const cert of certsToUpload.filter((c) => c.file && !c.existingUrl)) {
+          for (const cert of finalCertsToUpload.filter((c) => c.file && !c.existingUrl)) {
             const result = await uploadConsumableCertificate(currentAttributeId, cert.productCertificateDocumentId, cert.file!);
             if (!result.success) setApiError(`Warning: Could not upload certificate "${cert.label}": ${result.message}`);
           }
@@ -1054,7 +1207,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           }
         }
         if (onSubmitSuccess) onSubmitSuccess();
-        else router.push(`/seller_7a3b9f2c/products/view/${currentProductId}`);
+        else setShowSuccessModal(true);
       } else {
         const createData: ApiResponseData = await createConsumableProduct(payload as Record<string, unknown>);
         const dataInner = createData?.data as ApiResponseData | undefined;
@@ -1103,6 +1256,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   }
 
   const isEdit = mode === "edit";
+  const hasStock = isEdit && Number(form.stockQuantity) > 0;
 
   // Resolved display for material types multi-select in edit mode
   const materialTypesDisplayValue = isEdit
@@ -1117,29 +1271,32 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     <>
       <PopupModal
         isOpen={showSuccessModal}
-        title="Product Saved Successfully!"
-        description="Your product has been saved and is now live on the platform"
+        title={isEdit ? "Product Updated Successfully!" : "Product Saved Successfully!"}
+        description={isEdit ? "Your product has been updated successfully." : "Your product has been saved and is now live on the platform"}
         primaryActionText="View Product"
-        secondaryActionText="Continue Adding"
+        secondaryActionText={isEdit ? "Continue Editing" : "Continue Adding"}
         tertiaryActionText="Back to Dashboard"
         onPrimaryAction={handleViewProduct}
-        onSecondaryAction={handleContinueAdding}
+        onSecondaryAction={isEdit ? () => setShowSuccessModal(false) : handleContinueAdding}
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
       />
 
       {showAdditionalDiscountModal && (
         <CommonModal onClose={() => setShowAdditionalDiscountModal(false)} width="w-[600px]">
-          <div className="h-[80vh] overflow-hidden flex flex-col">
-            <AdditionalDiscount
-              initialData={convertToDiscountData(additionalDiscountSlabs)}
-              onSave={(slabs?: AdditionalDiscountData[]) => {
-                if (slabs) setAdditionalDiscountSlabs(convertToDiscountSlab(slabs));
-                setShowAdditionalDiscountModal(false);
-              }}
-              onClose={() => setShowAdditionalDiscountModal(false)}
-            />
-          </div>
+          <AdditionalDiscountType
+            initialData={convertToDiscountData(additionalDiscountSlabs)}
+            baseDiscountPercentage={Number(form.discountPercentage) || 0}
+            baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
+            onSaveAdditionalDiscount={(data: AdditionalDiscountData[]) => {
+              setAdditionalDiscountSlabs(convertToDiscountSlab(data));
+            }}
+            initialSchemesData={specialSchemes}
+            onSaveSpecialSchemes={(data: any) => {
+              setSpecialSchemes(data || []);
+            }}
+            onClose={() => setShowAdditionalDiscountModal(false)}
+          />
         </CommonModal>
       )}
 
@@ -1164,39 +1321,40 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 value={form.productName} onChange={handleChange} error={errors.productName} required />
             )}
 
-            <div className="flex flex-col gap-0" data-field="deviceCategoryId">
-              <label className={fieldLabel}>Device Category {requiredStar}</label>
-              <Dropdown
-                options={deviceCategoryOptions}
-                value={form.deviceCategoryId}
-                onChange={(val) => {
-                  setForm(p => ({ ...p, deviceCategoryId: val }));
-                  if (errors.deviceCategoryId) setErrors(p => { const n = { ...p }; delete n.deviceCategoryId; return n; });
-                }}
-                placeholder={loadingCategories ? "Loading..." : "Select category"}
-                isLoading={loadingCategories}
-                isDisabled={isEdit}
-                error={errors.deviceCategoryId ? " " : ""}
-              />
-              {errors.deviceCategoryId && <p className={errorMsg}>{errors.deviceCategoryId}</p>}
-            </div>
+            {isEdit ? (
+              <NonEditableSelect label="Device Category" value={displayLabels.deviceCategoryLabel} required />
+            ) : (
+              <div className="flex flex-col gap-1" ref={setFieldRef("deviceCategoryId") as React.RefCallback<HTMLDivElement>}>
+                <label className={fieldLabel}>Device Category {requiredStar}</label>
+                <Dropdown
+                  options={deviceCategoryOptions}
+                  isLoading={loadingCategories}
+                  value={form.deviceCategoryId}
+                  onChange={(val, label) => handleSelectChange("deviceCategoryId", { value: val, label })}
+                  placeholder={loadingCategories ? "Loading..." : "Select category"}
+                  error={errors.deviceCategoryId ? " " : ""}
+                />
+                {errors.deviceCategoryId && <p className={errorMsg}>{errors.deviceCategoryId}</p>}
+              </div>
+            )}
 
-            <div className="flex flex-col gap-0" data-field="deviceSubCategoryId">
-              <label className={fieldLabel}>Device Sub-Category {requiredStar}</label>
-              <Dropdown
-                options={deviceSubCategoryOptions}
-                value={form.deviceSubCategoryId}
-                onChange={(val) => {
-                  setForm(p => ({ ...p, deviceSubCategoryId: val }));
-                  if (errors.deviceSubCategoryId) setErrors(p => { const n = { ...p }; delete n.deviceSubCategoryId; return n; });
-                }}
-                placeholder={form.deviceCategoryId ? (loadingSubCategories ? "Loading..." : "Select sub-category") : "Select category first"}
-                isLoading={loadingSubCategories}
-                isDisabled={isEdit || !form.deviceCategoryId}
-                error={errors.deviceSubCategoryId ? " " : ""}
-              />
-              {errors.deviceSubCategoryId && <p className={errorMsg}>{errors.deviceSubCategoryId}</p>}
-            </div>
+            {isEdit ? (
+              <NonEditableSelect label="Device Sub-Category" value={displayLabels.deviceSubCategoryLabel} required />
+            ) : (
+              <div className="flex flex-col gap-1" ref={setFieldRef("deviceSubCategoryId") as React.RefCallback<HTMLDivElement>}>
+                <label className={fieldLabel}>Device Sub-Category {requiredStar}</label>
+                <Dropdown
+                  options={deviceSubCategoryOptions}
+                  isLoading={loadingSubCategories}
+                  value={form.deviceSubCategoryId}
+                  onChange={(val, label) => handleSelectChange("deviceSubCategoryId", { value: val, label })}
+                  placeholder={form.deviceCategoryId ? (loadingSubCategories ? "Loading..." : "Select sub-category") : "Select category first"}
+                  isDisabled={!form.deviceCategoryId}
+                  error={errors.deviceSubCategoryId ? " " : ""}
+                />
+                {errors.deviceSubCategoryId && <p className={errorMsg}>{errors.deviceSubCategoryId}</p>}
+              </div>
+            )}
 
             {isEdit ? (
               <Input label="Brand Name" name="brandName" value={form.brandName} onChange={() => {}} required readOnly />
@@ -1206,47 +1364,90 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             )}
 
             {/* Material Type */}
-            <div className="flex flex-col gap-0" data-field="materialType">
-              <label className={fieldLabel}>Material Type {requiredStar}</label>
-              <CheckboxDropdown
-                options={materialTypeOptions}
-                selectedValues={selectedMaterialTypes}
-                onChange={(values) => {
-                  setSelectedMaterialTypes(values);
-                  if (errors.materialType) setErrors(p => { const n = { ...p }; delete n.materialType; return n; });
-                }}
-                placeholder={loadingMaterialTypes ? "Loading..." : "Select material types"}
-                disabled={isEdit || loadingMaterialTypes}
-                error={errors.materialType ? " " : ""}
-                showSelectAll={false}
-              />
-              {errors.materialType && <p className={errorMsg}>{errors.materialType}</p>}
-            </div>
+            {isEdit ? (
+              <NonEditableField label="Material Type" value={materialTypesDisplayValue} required />
+            ) : (
+              <div className="flex flex-col gap-1" data-field="materialType">
+                <label className={fieldLabel}>Material Type {requiredStar}</label>
+                <CheckboxDropdown
+                  options={materialTypeOptions}
+                  selectedValues={selectedMaterialTypes}
+                  onChange={(vals) => {
+                    setSelectedMaterialTypes(vals);
+                    if (errors.materialType) setErrors((p) => { const n = { ...p }; delete n.materialType; return n; });
+                  }}
+                  placeholder={loadingMaterialTypes ? "Loading..." : "Select material types"}
+                  disabled={loadingMaterialTypes}
+                  error={errors.materialType ? " " : ""}
+                  showSelectAll={false}
+                />
+                {errors.materialType && <p className={errorMsg}>{errors.materialType}</p>}
+              </div>
+            )}
 
-            <div data-field="sizeDimension"
-              ref={(el) => { fieldRefs.current["sizeDimension"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
-            >
-              <NumericInputWithUnit
+            {/* Size / Dimension */}
+            {isEdit ? (
+              <NonEditableField
                 label="Size / Dimension"
-                name="sizeDimension"
-                value={form.sizeDimension}
-                unitId={form.deviceSpecificationUnitId}
-                onValueChange={(val) => {
-                  setForm(p => ({ ...p, sizeDimension: val }));
-                  if (errors.sizeDimension) setErrors(p => { const n = { ...p }; delete n.sizeDimension; return n; });
-                }}
-                onUnitChange={(unitId) => {
-                  handleSelectChange("deviceSpecificationUnitId", { value: unitId, label: "" } as SelectOption);
-                }}
-                placeholder="e.g., 10.5"
-                error={errors.sizeDimension || errors.deviceSpecificationUnitId}
+                value={form.sizeDimension && displayLabels.specificationUnitLabel
+                  ? `${form.sizeDimension} ${displayLabels.specificationUnitLabel}`
+                  : form.sizeDimension || "—"}
                 required
-                readOnly={isEdit}
-                options={specificationUnitOptions}
-                loading={loadingSpecificationUnits}
-                unitDisabled={!form.deviceSubCategoryId}
               />
-            </div>
+            ) : (
+              <div
+                className="flex flex-col gap-1"
+                ref={(el) => { fieldRefs.current["sizeDimension"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
+              >
+                <label className={fieldLabel}>Size / Dimension {requiredStar}</label>
+                <div className="relative" ref={unitDropdownRef}>
+                  <div className={`flex items-center h-[52px] border rounded-lg overflow-hidden ${errors.sizeDimension || errors.deviceSpecificationUnitId ? "border-warning-500" : "border-pneutral-300"}`}>
+                    <input
+                      name="sizeDimension"
+                      value={form.sizeDimension}
+                      onChange={handleChange}
+                      placeholder="e.g., 10.5"
+                      maxLength={10}
+                      className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
+                    />
+                    <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
+                    <button
+                      type="button"
+                      onClick={() => form.deviceSubCategoryId && setShowUnitDropdown(p => !p)}
+                      disabled={!form.deviceSubCategoryId}
+                      className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 hover:bg-neutral-100 transition-colors flex-shrink-0 disabled:cursor-not-allowed"
+                    >
+                      <span className="truncate text-pneutral-800" style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}>
+                        {loadingSpecificationUnits ? "..." : (specificationUnitOptions.find(o => o.value === form.deviceSpecificationUnitId)?.label || (form.deviceSubCategoryId ? "Select Unit" : "Select sub-cat first"))}
+                      </span>
+                      <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 flex-shrink-0 ${showUnitDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
+                  {showUnitDropdown && form.deviceSubCategoryId && (
+                    <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
+                      {specificationUnitOptions.map(opt => (
+                        <button key={opt.value} type="button"
+                          onClick={() => {
+                            handleSelectChange("deviceSpecificationUnitId", { value: opt.value, label: opt.label });
+                            if (errors.deviceSpecificationUnitId) setErrors(p => { const n = { ...p }; delete n.deviceSpecificationUnitId; return n; });
+                            setShowUnitDropdown(false);
+                          }}
+                          className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer ${form.deviceSpecificationUnitId === opt.value ? "bg-neutral-50 font-semibold" : "font-medium"}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                      {specificationUnitOptions.length === 0 && (
+                        <div className="px-4 py-2 text-sm text-neutral-500">No units available</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {errors.sizeDimension && <p className={errorMsg}>{errors.sizeDimension}</p>}
+                {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
+              </div>
+            )}
 
             {/* Sterile status */}
             {isEdit ? (
@@ -1287,39 +1488,44 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             <Input label="Intended Use / Purpose" name="intendedUse" placeholder="e.g., For surgical procedures"
               value={form.intendedUse} onChange={handleChange} error={errors.intendedUse} required />
 
-            {/* Certifications — dropdown */}
-            <div className="flex flex-col gap-0" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
+            {/* Certifications — dropdown (editable in both modes; existing certs preserved in edit) */}
+            <div className="flex flex-col gap-1" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
               <label className={fieldLabel}>Certifications &amp; Compliance {requiredStar}</label>
               <CheckboxDropdown
                 options={certificationMasterOptions}
                 selectedValues={selectedCertifications.map(c => c.id)}
                 onChange={(values) => {
-                  const newCerts = values.map(val => {
+                  const preservedIds = isEdit
+                    ? selectedCertifications.filter((c) => c.existingUrl).map((c) => c.id)
+                    : [];
+                  const finalValues = Array.from(new Set([...values, ...preservedIds]));
+                  const newCerts = finalValues.map(val => {
                     const existing = selectedCertifications.find(c => c.id === val);
                     if (existing) return existing;
                     const opt = certificationMasterOptions.find(o => o.value === val);
                     return {
-                      id: val, label: opt?.label || "", tagCode: (opt as any)?.tagCode || opt?.label || "",
-                      file: null, fileName: "", uploading: false, isUploaded: false, previewUrl: null,
-                      productCertificateDocumentId: Number(val),
+                      id: val, label: opt?.label || "", tagCode: opt?.tagCode || "",
+                      file: null, fileName: "", uploading: false, isUploaded: false,
+                      previewUrl: null, productCertificateDocumentId: opt?.certificationId || 0,
+                      existingUrl: undefined,
                     };
                   });
-                  setSelectedCertifications(newCerts as any);
-                  if (errors.certifications) setErrors(p => { const n = { ...p }; delete n.certifications; return n; });
+                  setSelectedCertifications(newCerts);
+                  if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
                 }}
                 placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
                 disabled={loadingCertifications}
-                error={errors.certifications ? " " : ""}
                 showSelectAll={false}
+                error={errors.certifications ? " " : ""}
               />
               {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
-            {/* Certifications — upload */}
+            {/* Certifications — upload (editable in both modes) */}
             {selectedCertifications.length === 0 ? (
               <div className="flex flex-col gap-0 col-span-1" data-field="certUploadFallback">
                 <label className={fieldLabel}>Upload Certifications / Compliance {requiredStar}</label>
-                <div className="flex items-center w-full h-[52px] rounded-lg border border-neutral-500 bg-white overflow-hidden">
+                <div className="flex items-center w-full h-[52px] rounded-lg border border-pneutral-300 bg-white overflow-hidden">
                   <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
                     <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
                   </div>
@@ -1341,27 +1547,29 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                     label=""
                     placeholder={`Upload the ${cert.label}`}
                     accept=".pdf,.jpg,.jpeg,.png"
+                    hasError={!!errors[`certFile_${cert.id}`]}
                   />
+                  {errors[`certFile_${cert.id}`] && <p className={errorMsg}>{errors[`certFile_${cert.id}`]}</p>}
                 </div>
               ))
             )}
 
             {/* Country of Origin */}
-            <div className="flex flex-col gap-0" data-field="countryOfOrigin">
-              <label className={fieldLabel}>Country of Origin {requiredStar}</label>
-              <Dropdown
-                options={countryOptions}
-                value={form.countryOfOrigin}
-                onChange={(val) => {
-                  setForm(p => ({ ...p, countryOfOrigin: val }));
-                  if (errors.countryOfOrigin) setErrors(p => { const n = { ...p }; delete n.countryOfOrigin; return n; });
-                }}
-                placeholder="Select country"
-                isDisabled={isEdit}
-                error={errors.countryOfOrigin ? " " : ""}
-              />
-              {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
-            </div>
+            {isEdit ? (
+              <NonEditableSelect label="Country of Origin" value={displayLabels.countryLabel} required />
+            ) : (
+              <div className="flex flex-col gap-1" ref={setFieldRef("countryOfOrigin") as React.RefCallback<HTMLDivElement>}>
+                <label className={fieldLabel}>Country of Origin {requiredStar}</label>
+                <Dropdown
+                  options={countryOptions}
+                  value={form.countryOfOrigin}
+                  onChange={(val, label) => handleSelectChange("countryOfOrigin", { value: val, label })}
+                  placeholder="Select country"
+                  error={errors.countryOfOrigin ? " " : ""}
+                />
+                {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
+              </div>
+            )}
 
             {isEdit ? (
               <Input label="Manufacturer Name" name="manufacturerName" value={form.manufacturerName} onChange={() => {}} required readOnly />
@@ -1370,49 +1578,50 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 value={form.manufacturerName} onChange={handleChange} error={errors.manufacturerName} required />
             )}
 
-            {/* Storage Condition — editable in both modes */}
-            <div className="flex flex-col gap-0" data-field="storageCondition">
-              <label className={fieldLabel}>Storage Condition {requiredStar}</label>
-              <Dropdown
-                options={storageConditionOptions}
-                value={form.storageCondition}
-                onChange={(val) => {
-                  setForm(p => ({ ...p, storageCondition: val }));
-                  if (errors.storageCondition) setErrors(p => { const n = { ...p }; delete n.storageCondition; return n; });
-                }}
-                placeholder="Select storage condition"
-                error={errors.storageCondition ? " " : ""}
-              />
-              {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
-            </div>
+            {/* Storage Condition — locked after stock entry */}
+            {hasStock ? (
+              <NonEditableSelect label="Storage Condition" value={displayLabels.storageConditionLabel} required />
+            ) : (
+              <div className="flex flex-col gap-1" ref={setFieldRef("storageCondition") as React.RefCallback<HTMLDivElement>}>
+                <label className={fieldLabel}>Storage Condition {requiredStar}</label>
+                <Dropdown
+                  options={storageConditionOptions}
+                  value={form.storageCondition}
+                  onChange={(val, label) => handleSelectChange("storageCondition", { value: val, label })}
+                  placeholder="Select storage condition"
+                  error={errors.storageCondition ? " " : ""}
+                />
+                {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
+              </div>
+            )}
 
             {/* Brochure */}
             <div ref={setFieldRef("brochure") as React.RefCallback<HTMLDivElement>}>
-              <UploadInput onFileSelect={(file) => setBrochureFile(file)} existingFile={existingBrochureUrl || undefined} />
+              <UploadInput
+                onFileSelect={(file) => setBrochureFile(file)}
+                existingFile={existingBrochureUrl || undefined}
+              />
             </div>
 
-            <div className="col-span-1 md:col-span-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className={fieldLabel}>Safety Instructions &amp; Precautions {requiredStar}</label>
-                  <textarea ref={setFieldRef("safetyInstructions") as React.RefCallback<HTMLTextAreaElement>}
-                    name="safetyInstructions" value={form.safetyInstructions} onChange={handleChange} rows={4}
-                    placeholder="Enter safety warnings, precautions, and handling instructions"
-                    className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.safetyInstructions ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`} />
-                  {errors.safetyInstructions && <p className={errorMsg}>{errors.safetyInstructions}</p>}
-                </div>
-                <div>
-                  <label className={fieldLabel}>Key Features &amp; Specifications {requiredStar}</label>
-                  <textarea ref={setFieldRef("keyFeatures") as React.RefCallback<HTMLTextAreaElement>}
-                    name="keyFeatures" value={form.keyFeatures} onChange={handleChange} rows={4}
-                    placeholder="List key features, technical specifications"
-                    className={`w-full h-36 px-4 rounded-lg p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] text-[#3C3D3A] placeholder:text-sneutral-400 resize-none overflow-y-auto border bg-white focus:outline-none transition-all duration-200 ${errors.keyFeatures ? "border-warning-500 focus:border-warning-500 focus:ring-1 focus:ring-warning-500" : "border-neutral-500 focus:border-secondary-300 focus:ring-1 focus:ring-secondary-300"}`} />
-                  {errors.keyFeatures && <p className={errorMsg}>{errors.keyFeatures}</p>}
-                </div>
-              </div>
+            <div className="flex flex-col gap-1">
+              <label className={fieldLabel}>Safety Instructions &amp; Precautions {requiredStar}</label>
+              <textarea ref={setFieldRef("safetyInstructions") as React.RefCallback<HTMLTextAreaElement>}
+                name="safetyInstructions" value={form.safetyInstructions} onChange={handleChange} rows={4}
+                placeholder="Enter safety warnings, precautions, and handling instructions"
+                className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.safetyInstructions ? "border-red-400" : "border-gray-300"}`} />
+              {errors.safetyInstructions && <p className={errorMsg}>{errors.safetyInstructions}</p>}
             </div>
 
-            <div className="col-span-1 md:col-span-2">
+            <div className="flex flex-col gap-1">
+              <label className={fieldLabel}>Key Features &amp; Specifications {requiredStar}</label>
+              <textarea ref={setFieldRef("keyFeatures") as React.RefCallback<HTMLTextAreaElement>}
+                name="keyFeatures" value={form.keyFeatures} onChange={handleChange} rows={4}
+                placeholder="List key features, technical specifications"
+                className={`w-full rounded-xl p-3 text-base [font-family:'Open_Sans',sans-serif] font-normal leading-[22px] [color:#3C3D3A] placeholder:[color:#969793] resize-none border bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-600 transition-colors ${errors.keyFeatures ? "border-red-400" : "border-gray-300"}`} />
+              {errors.keyFeatures && <p className={errorMsg}>{errors.keyFeatures}</p>}
+            </div>
+
+            <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
               <label className={fieldLabel}>Product Description {requiredStar}</label>
               <textarea ref={setFieldRef("productDescription") as React.RefCallback<HTMLTextAreaElement>}
                 name="productDescription" value={form.productDescription} onChange={handleChange} rows={4}
@@ -1430,27 +1639,38 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 pt-6">
 
-            <div className="flex flex-col gap-0" data-field="packType">
-              <label className={fieldLabel}>Pack Type {requiredStar}</label>
-              <Dropdown
-                options={packTypeApiOptions}
-                value={form.packType}
-                onChange={(val) => {
-                  setForm(p => ({ ...p, packType: val }));
-                  if (errors.packType) setErrors(p => { const n = { ...p }; delete n.packType; return n; });
-                }}
-                placeholder="Select pack type"
-                isDisabled={isEdit}
-                error={errors.packType ? " " : ""}
-              />
-              {errors.packType && <p className={errorMsg}>{errors.packType}</p>}
-            </div>
+            {/* Pack Type — locked after stock entry */}
+            {hasStock ? (
+              <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
+            ) : (
+              <div className="flex flex-col gap-1" ref={setFieldRef("packType") as React.RefCallback<HTMLDivElement>}>
+                <label className={fieldLabel}>Pack Type {requiredStar}</label>
+                <Dropdown
+                  options={packTypeApiOptions}
+                  value={form.packType}
+                  onChange={(val, label) => handleSelectChange("packType", { value: val, label })}
+                  placeholder="Select pack type"
+                  error={errors.packType ? " " : ""}
+                />
+                {errors.packType && <p className={errorMsg}>{errors.packType}</p>}
+              </div>
+            )}
 
-            <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 100"
-              value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
+            {/* Units per Pack — locked after stock entry */}
+            {hasStock ? (
+              <NonEditableField label="Number of Units per Pack Type" value={form.unitsPerPack} required />
+            ) : (
+              <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 100"
+                value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
+            )}
 
-            <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 10"
-              value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
+            {/* Number of Packs — locked after stock entry */}
+            {hasStock ? (
+              <NonEditableField label="Number of Packs" value={form.numberOfPacks} required />
+            ) : (
+              <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 10"
+                value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
+            )}
 
             <Input label="Pack Size (No. of Units per Pack Type X No. of Packs)" name="packSize"
               value={form.packSize} readOnly />
@@ -1476,87 +1696,72 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 value={form.batchLotNumber} onChange={handleChange} error={errors.batchLotNumber} required />
             )}
 
-            <Input
-              label="Manufacturing Date"
-              type="month"
-              name="manufacturingDate"
-              id="manufacturingDate"
-              readOnly={isEdit}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (!value) return;
-                const [year, month] = value.split("-").map(Number);
-                const date = new Date(year, month - 1, 1);
-                const today = new Date();
-                const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                if (date > currentMonth) {
-                  setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
-                  return;
+            <div className="relative">
+              <Input
+                label="Manufacturing Month"
+                type="text"
+                name="manufacturingDate"
+                id="manufacturingDate"
+                required
+                readOnly={isEdit}
+                value={
+                  form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
+                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
+                    : ""
                 }
-                setErrors((prev) => ({ ...prev, manufacturingDate: "", expiryDate: "" }));
-                setForm({ ...form, manufacturingDate: date, expiryDate: null, shelfLifeMonths: "" });
-              }}
-              value={
-                form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
-                  ? `${form.manufacturingDate.getFullYear()}-${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}`
-                  : ""
-              }
-              error={errors.manufacturingDate}
-              required
-            />
+                placeholder="MM/YYYY"
+                onChange={() => {}}
+                onClick={() => { if (!isEdit) setShowManufacturingMonthPicker(true); }}
+                onKeyDown={(e) => e.preventDefault()}
+                onPaste={(e) => e.preventDefault()}
+                error={errors.manufacturingDate}
+              />
+              {showManufacturingMonthPicker && !isEdit && (
+                <MonthPicker
+                  selectedMonth={form.manufacturingDate ? form.manufacturingDate.getMonth() : new Date().getMonth()}
+                  selectedYear={form.manufacturingDate ? form.manufacturingDate.getFullYear() : new Date().getFullYear()}
+                  maxDate={new Date()}
+                  onSelect={(month, year) => handleMonthSelect("manufacturingDate", month, year)}
+                  onClose={() => setShowManufacturingMonthPicker(false)}
+                />
+              )}
+            </div>
 
-            <Input
-              label="Expiry Date"
-              type="month"
-              name="expiryDate"
-              value={
-                form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
-                  ? `${form.expiryDate.getFullYear()}-${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}`
-                  : ""
-              }
-              readOnly={isEdit}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (!value) {
-                  setForm((prev) => ({ ...prev, expiryDate: null, shelfLifeMonths: "" }));
-                  setErrors((prev) => { const n = { ...prev }; delete n.expiryDate; return n; });
-                  return;
+            <div className="relative">
+              <Input
+                label="Expiry Month"
+                name="expiryDate"
+                type="text"
+                required
+                readOnly={isEdit}
+                value={
+                  form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
+                    ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
+                    : ""
                 }
-                const [year, month] = value.split("-").map(Number);
-                const date = new Date(year, month - 1, 1);
-                const today = new Date();
-                const minFromNow = new Date(today.getFullYear(), today.getMonth() + 3, 1);
-                if (date < minFromNow) {
-                  setErrors((p) => ({ ...p, expiryDate: "Expiry date must be at least 3 months from current month" }));
-                  setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
-                  return;
-                }
-                if (form.manufacturingDate) {
-                  const mfg = form.manufacturingDate;
-                  const minDate = new Date(mfg.getFullYear(), mfg.getMonth() + 3, 1);
-                  const totalMonths = (date.getFullYear() - mfg.getFullYear()) * 12 + (date.getMonth() - mfg.getMonth());
-                  if (date < minDate) {
-                    setErrors((p) => ({ ...p, expiryDate: "Expiry must be at least 3 months after Manufacturing Date" }));
-                    setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
-                  } else if (totalMonths < 0) {
-                    setErrors((p) => ({ ...p, expiryDate: "Expiry cannot be before Manufacturing Date" }));
-                    setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
-                  } else if (totalMonths > 60) {
-                    setErrors((p) => ({ ...p, expiryDate: "Shelf life cannot exceed 5 years (60 months)" }));
-                    setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
-                  } else {
-                    setErrors((p) => { const n = { ...p }; delete n.expiryDate; return n; });
-                    setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: totalMonths.toString() }));
+                placeholder="MM/YYYY"
+                onChange={() => {}}
+                onClick={() => { if (!isEdit) setShowExpiryMonthPicker(true); }}
+                onFocus={() => { if (!isEdit) setShowExpiryMonthPicker(true); }}
+                onKeyDown={(e) => e.preventDefault()}
+                onPaste={(e) => e.preventDefault()}
+                error={errors.expiryDate}
+              />
+              {showExpiryMonthPicker && !isEdit && (
+                <MonthPicker
+                  selectedMonth={form.expiryDate ? form.expiryDate.getMonth() : new Date().getMonth()}
+                  selectedYear={form.expiryDate ? form.expiryDate.getFullYear() : new Date().getFullYear()}
+                  minDate={new Date(new Date().getFullYear(), new Date().getMonth() + 4, 1)}
+                  maxDate={
+                    form.manufacturingDate
+                      ? new Date(form.manufacturingDate.getFullYear() + 5, form.manufacturingDate.getMonth(), 1)
+                      : undefined
                   }
-                } else {
-                  setForm((prev) => ({ ...prev, expiryDate: date, shelfLifeMonths: "" }));
-                }
-              }}
-              min={getMinExpiryMonth()}
-              max={getMaxExpiryMonth()}
-              error={errors.expiryDate}
-              required
-            />
+                  onSelect={(month, year) => handleMonthSelect("expiryDate", month, year)}
+                  onClose={() => setShowExpiryMonthPicker(false)}
+                />
+              )}
+            </div>
 
             <Input
               type="number"
@@ -1605,26 +1810,45 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 </button>
               </div>
             </div>
+
+            <AppliedOffersView
+              additionalDiscounts={convertToDiscountData(additionalDiscountSlabs)}
+              specialSchemes={specialSchemes}
+              productName={form.productName}
+              onEditDiscount={() => setShowAdditionalDiscountModal(true)}
+              onDeleteDiscount={(index) =>
+                setAdditionalDiscountSlabs((prev) =>
+                  prev.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } as any : d)
+                )
+              }
+              onEditScheme={() => setShowAdditionalDiscountModal(true)}
+              onDeleteScheme={(index) =>
+                setSpecialSchemes((prev) =>
+                  prev.map((s: any, i: number) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)
+                )
+              }
+              isEditMode={isEdit}
+            />
           </div>
 
           <p className={subSectionTitle}>TAX &amp; BILLING</p>
           <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-            <div className="flex flex-col gap-0" data-field="gstPercentage">
-              <label className={fieldLabel}>GST % {requiredStar}</label>
-              <Dropdown
-                options={gstOptions}
-                value={form.gstPercentage}
-                onChange={(val) => {
-                  setForm(p => ({ ...p, gstPercentage: val }));
-                  if (errors.gstPercentage) setErrors(p => { const n = { ...p }; delete n.gstPercentage; return n; });
-                }}
-                placeholder="Select GST"
-                isDisabled={isEdit}
-                error={errors.gstPercentage ? " " : ""}
-              />
-              {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+            {isEdit ? (
+              <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
+            ) : (
+              <div className="flex flex-col gap-1" ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
+                <label className={fieldLabel}>GST % {requiredStar}</label>
+                <Dropdown
+                  options={gstOptions}
+                  value={form.gstPercentage}
+                  onChange={(val, label) => handleSelectChange("gstPercentage", { value: val, label })}
+                  placeholder="Select GST"
+                  error={errors.gstPercentage ? " " : ""}
+                />
+                {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
+              </div>
+            )}
 
             {isEdit ? (
               <Input label="HSN Code" name="hsnCode" value={form.hsnCode} onChange={() => {}} required readOnly />
@@ -1636,62 +1860,19 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         </div>
 
         {/* ── Section 3: Product Photos ─────────────────────────────────────────── */}
-        <div className={sectionCard} ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
-          <div className="text-pneutral-700 font-normal text-sm">
-            Product Photos <span className="text-warning-500 font-semibold ml-1">*</span>
-          </div>
-
-          {existingImages.length > 0 && (
-            <div className="flex flex-wrap gap-3 mt-4">
-              {existingImages.map((img, index) => (
-                <div key={index} className="relative w-24 h-24 flex-shrink-0">
-                  <img src={img} alt="product" className="w-full h-full object-cover rounded-md border border-pneutral-200" />
-                  <button
-                    onClick={() => setExistingImages(existingImages.filter((_, i) => i !== index))}
-                    className="absolute top-1 right-1 text-pneutral-900 cursor-pointer text-xs px-1 rounded"
-                  >✕</button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer"
-            onClick={() => document.getElementById("ncFileInput")?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleImageFiles(e.dataTransfer.files); }}>
-            <div className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg">
-              <div className="w-285 h-34.5 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center">
-                <div className="flex flex-col items-center justify-center">
-                  <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 rounded-md object-cover" />
-                  <div className="text-label-l2 font-normal mt-4">Choose a file or drag &amp; drop it here</div>
-                  <div className="text-label-l1 font-normal text-neutral-400">or click to browse JPEG, PNG, and SVG</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <input id="ncFileInput" type="file" multiple accept="image/jpeg,image/png,image/jpg,image/svg+xml" className="hidden"
-            onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); }} />
-
-          {images.length > 0 && (
-            <div className="flex flex-wrap gap-3 mt-4">
-              {images.map((file, index) => (
-                <div key={index} className="relative w-24 h-24 flex-shrink-0">
-                  <img
-                    src={URL.createObjectURL(file)}
-                    alt="preview"
-                    className="w-full h-full object-cover rounded-md border border-pneutral-200"
-                  />
-                  <button
-                    onClick={() => setImages(images.filter((_, i) => i !== index))}
-                    className="absolute top-1 right-1 text-pneutral-900 cursor-pointer text-xs px-1 rounded"
-                  >✕</button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {errors.images && <p className={`${errorMsg} mt-2`}>{errors.images}</p>}
+        <div ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
+          <ProductImageUpload
+            title="Product Photos"
+            required={mode === "create"}
+            images={images}
+            setImages={setImages}
+            existingImages={existingImages}
+            setExistingImages={setExistingImages}
+            error={errors.images}
+            setErrors={setErrors}
+            isReadOnly={false}
+            mode={mode}
+          />
         </div>
 
         {/* ── Actions ──────────────────────────────────────────────────────────── */}

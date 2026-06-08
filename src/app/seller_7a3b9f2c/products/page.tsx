@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import ProductList from "../dashboard/components/ProductList";
+import { OnboardingModal } from "../dashboard/components/DashboardFilters";
 
 interface ProductsProps {
   setCurrentView: (view: DashboardView) => void;
@@ -16,6 +17,7 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(
     null,
   );
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const handleSetCurrentView = (view: DashboardView) => {
     if (view === "addProduct") {
@@ -38,7 +40,7 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
 
   return (
     <>
-      <div className="mt-7 flex gap-6 font-open-sans">
+      <div className="flex gap-6 font-open-sans">
         <button className="w-44.5 h-12 bg-neutral-50 rounded-lg text-lable-l2 font-semibold text-pneutral-900 flex items-center justify-between px-4 gap-2 shadow-md">
           All Stocks
           <img
@@ -58,7 +60,7 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
         </button>
 
         <button
-          onClick={() => router.push("/seller_7a3b9f2c/products/add")}
+          onClick={() => setShowAddModal(true)}
           className="w-50 h-12 bg-primary-900 rounded-lg text-white text-lable-l2 font-medium cursor-pointer flex items-center justify-center gap-3"
         >
           <img
@@ -76,6 +78,16 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
           setSelectedProductId={setSelectedProductId}
         />
       </div>
+
+      {showAddModal && (
+        <OnboardingModal
+          onClose={() => setShowAddModal(false)}
+          onManualEntry={() => {
+            setShowAddModal(false);
+            router.push("/seller_7a3b9f2c/products/add");
+          }}
+        />
+      )}
     </>
   );
 }
