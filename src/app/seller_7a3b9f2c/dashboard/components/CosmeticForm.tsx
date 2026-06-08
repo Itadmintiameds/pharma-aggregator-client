@@ -37,6 +37,7 @@ import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
 import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
+import AppliedOffersView from "./AppliedOffersView";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -568,11 +569,13 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       let rawSkin: unknown[]     = [];
       let rawHair: unknown[]     = [];
 
-      const rawUseArea = attribute.intendedUseAreaIds ?? attribute.useAreaId;
-      if (Array.isArray(rawUseArea))                    rawIntended = rawUseArea;
-      else if (rawUseArea != null)                      rawIntended = [rawUseArea];
-      else if (Array.isArray(attribute.intendedarea))   rawIntended = attribute.intendedarea;
-      else if (Array.isArray(attribute.intendedUseAreas)) rawIntended = attribute.intendedUseAreas;
+      // API returns field as "IntendedUseArea" (capital I, array of objects {useAreaId, areaName})
+      const rawUseArea = attribute.IntendedUseArea ?? attribute.intendedUseAreaIds ?? attribute.useAreaId ?? attribute.useAreaIds;
+      if (Array.isArray(rawUseArea))                       rawIntended = rawUseArea;
+      else if (rawUseArea != null)                         rawIntended = [rawUseArea];
+      else if (Array.isArray(attribute.intendedarea))      rawIntended = attribute.intendedarea;
+      else if (Array.isArray(attribute.intendedUseAreas))  rawIntended = attribute.intendedUseAreas;
+      else if (Array.isArray(attribute.intendedAreas))     rawIntended = attribute.intendedAreas;
 
       if (Array.isArray(attribute.skinTypeIds))   rawSkin = attribute.skinTypeIds;
       else if (Array.isArray(attribute.skintypeId)) rawSkin = attribute.skintypeId;
@@ -860,7 +863,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   // ─── Handlers ─────────────────────────────────────────────────────────────────
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    let value = e.target.value;
 
     if (name === "activeIngredients" && /[^a-zA-Z0-9\s,.()\-%&'/]/.test(value)) return;
 
@@ -902,22 +906,77 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       return;
     }
 
-    const numericOnlyFields = [
-      "stockQuantity", "sellingPrice", "mrp", "discountPercentage",
-      "hsnCode", "unitsPerPack", "numberOfPacks",
-      "minimumOrderQuantity", "maximumOrderQuantity", "netQuantity",
-    ];
-    if (numericOnlyFields.includes(name)) {
+    // Field-specific sanitization (matches SupplementForm pattern)
+    if (name === "unitsPerPack") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 5) value = value.slice(0, 5);
+    } else if (name === "numberOfPacks") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 4) value = value.slice(0, 4);
+    } else if (name === "minimumOrderQuantity" || name === "maximumOrderQuantity") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 7) value = value.slice(0, 7);
+    } else if (name === "mrp" || name === "sellingPrice") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts[0].length > 13) parts[0] = parts[0].slice(0, 13);
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+    } else if (name === "discountPercentage") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+      if (Number(value) > 100) value = "100";
+    } else if (name === "stockQuantity" || name === "hsnCode") {
+      if (value !== "" && !/^\d*$/.test(value)) return;
+      if (name === "hsnCode" && value.length > 8) value = value.slice(0, 8);
+    } else if (name === "netQuantity") {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
+
     const maxLengths: Record<string, number> = {
       productName: 150, brandName: 60, variantName: 60,
       manufacturerName: 100, productDescription: 1000, batchNumber: 20,
     };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
-    setForm((p) => ({ ...p, [name]: value }));
+    setForm((p) => {
+      const updated = { ...p, [name]: value };
+
+      // Cross-field: maxQty >= minQty
+      const minQ = Number(updated.minimumOrderQuantity) || 0;
+      const maxQ = Number(updated.maximumOrderQuantity) || 0;
+      if ((name === "minimumOrderQuantity" || name === "maximumOrderQuantity") && minQ && maxQ) {
+        setErrors((prev) => {
+          const n = { ...prev };
+          if (maxQ < minQ) n.maximumOrderQuantity = "Max Order Qty must be ≥ Min Order Qty";
+          else delete n.maximumOrderQuantity;
+          return n;
+        });
+      }
+
+      // Cross-field: sellingPrice <= mrp
+      const mrpVal = Number(updated.mrp) || 0;
+      const spVal  = Number(updated.sellingPrice) || 0;
+      if ((name === "mrp" || name === "sellingPrice") && mrpVal && spVal) {
+        setErrors((prev) => {
+          const n = { ...prev };
+          if (spVal > mrpVal) n.sellingPrice = "Selling Price must be ≤ MRP";
+          else delete n.sellingPrice;
+          return n;
+        });
+      }
+
+      return updated;
+    });
     if (errors[name]) setErrors((p) => { const n = { ...p }; delete n[name]; return n; });
 
     if (name === "hsnCode" && value.trim()) {
@@ -1295,6 +1354,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         VariantName:          form.variantName || null,
         Gender:               form.gender,
         useAreaId:            selectedIntendedUseAreas.map(Number),
+        intendedUseAreaIds:   selectedIntendedUseAreas.map(Number),
+        IntendedUseArea:      selectedIntendedUseAreas.map((id) => ({ useAreaId: Number(id) })),
         skintypeId:           skinHairRule.skinType !== "hidden" ? selectedSkinTypes.map(Number) : [],
         typeId:           skinHairRule.hairType !== "hidden" ? selectedHairTypes.map(Number) : [],
         ActiveIngredients:    form.activeIngredients,
@@ -1871,7 +1932,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 options={certificationMasterOptions}
                 selectedValues={selectedCertifications.map(c => c.id)}
                 onChange={(values) => {
-                  const newCerts = values.map(val => {
+                  // In edit mode, preserve any certs already loaded from the server
+                  const preservedIds = isEdit
+                    ? selectedCertifications.filter((c) => c.existingUrl).map((c) => c.id)
+                    : [];
+                  const finalValues = Array.from(new Set([...values, ...preservedIds]));
+                  const newCerts = finalValues.map(val => {
                     const existing = selectedCertifications.find(c => c.id === val);
                     if (existing) return existing;
                     const opt = certificationMasterOptions.find(o => o.value === val);
@@ -1889,11 +1955,14 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                     };
                   });
                   setSelectedCertifications(newCerts);
+                  if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
                 }}
                 placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
                 disabled={loadingCertifications}
                 showSelectAll={false}
+                error={errors.certifications ? " " : ""}
               />
+              {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
             {selectedCertifications.length === 0 ? (
@@ -2178,6 +2247,31 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               </div>
             </div>
 
+            <AppliedOffersView
+              additionalDiscounts={form.additionalDiscount}
+              specialSchemes={form.specialSchemes}
+              productName={form.productName}
+              onEditDiscount={() => setShowAdditionalDiscount(true)}
+              onDeleteDiscount={(index) =>
+                setForm((prev) => ({
+                  ...prev,
+                  additionalDiscount: prev.additionalDiscount.map((d, i) =>
+                    i === index ? { ...d, displayOffer: false, isSelected: false } : d
+                  ),
+                }))
+              }
+              onEditScheme={() => setShowAdditionalDiscount(true)}
+              onDeleteScheme={(index) =>
+                setForm((prev) => ({
+                  ...prev,
+                  specialSchemes: prev.specialSchemes.map((s: any, i: number) =>
+                    i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s
+                  ),
+                }))
+              }
+              isEditMode={isEdit}
+            />
+
             {/* <div className="flex flex-col gap-1">
               <label className={fieldLabel}>Final Price (Auto-calculated)</label>
               <input name="finalPrice" value={form.finalPrice} readOnly
@@ -2229,7 +2323,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             setExistingImages={setExistingImages}
             error={errors.images}
             setErrors={setErrors}
-            isReadOnly={isEdit}
+            isReadOnly={false}
             mode={mode}
           />
         </div>

@@ -267,101 +267,32 @@ const ConsumableView = ({
 
 
       {/* ── Product Images ── */}
-      <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
-        <p
-          style={{
-            color: "#1E1E1D",
-            fontSize: 18,
-            fontFamily: FONTS.openSans,
-            fontWeight: 600,
-            lineHeight: "24px",
-            margin: 0,
-          }}
-        >
+      <div className="flex flex-col gap-4 p-3 bg-[#F8F5FF] rounded-xl border border-pneutral-200 w-full min-h-[340px]">
+        <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-[#1E1E1D]">
           Product Images
-        </p>
-
-
-        <div
-          style={{
-            padding: 12,
-            background: "#F8F5FF",
-            borderRadius: 12,
-            outline: "1px #B550FA solid",
-            outlineOffset: -1,
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-          }}
-        >
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
-            {imagesToShow.slice(0, 5).map((img, idx) => (
-              <div
-                key={idx}
-                onClick={() => setSelectedImageIndex(idx)}
-                style={{
-                  position: "relative",
-                  height: 276,
-                  boxShadow:
-                    "0px 2px 4px -2px rgba(0,0,0,0.10), 0px 4px 6px -1px rgba(0,0,0,0.10)",
-                  overflow: "hidden",
-                  borderRadius: 12,
-                  outline:
-                    idx === selectedImageIndex
-                      ? "1px #B550FA solid"
-                      : "none",
-                  outlineOffset: -1,
-                  cursor: "pointer",
-                }}
-              >
-                <Image
-                  src={img}
-                  alt={`Product image ${idx + 1}`}
-                  fill
-                  style={{ objectFit: "cover" }}
-                  unoptimized={img.startsWith("http")}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = placeholderImage;
-                  }}
-                />
-                {idx === 0 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: 10,
-                      top: 10,
-                      padding: "4px 8px",
-                      background: "#B550FA",
-                      borderRadius: 4,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "white",
-                        fontSize: 12,
-                        fontFamily: FONTS.openSans,
-                        fontWeight: 600,
-                        lineHeight: "18px",
-                      }}
-                    >
-                      Primary
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
-            {Array.from({ length: Math.max(0, 5 - imagesToShow.length) }).map((_, i) => (
-              <div
-                key={`empty-${i}`}
-                style={{
-                  height: 276,
-                  borderRadius: 12,
-                  background: "#F5F5F5",
-                  boxShadow: "0px 1px 2px -1px rgba(0,0,0,0.10)",
-                }}
+        </h3>
+        <div className="flex justify-center flex-wrap gap-3">
+          {imagesToShow.slice(0, 5).map((img, idx) => (
+            <div
+              key={idx}
+              onClick={() => setSelectedImageIndex(idx)}
+              className={`relative h-[274px] w-full max-w-[calc(20%-10px)] overflow-hidden rounded-xl cursor-pointer shadow-sm${idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""}`}
+            >
+              <Image
+                src={img}
+                alt={`Product image ${idx + 1}`}
+                fill
+                className="object-cover"
+                unoptimized={img.startsWith("http")}
+                onError={(e) => { (e.target as HTMLImageElement).src = placeholderImage; }}
               />
-            ))}
-          </div>
+              {idx === 0 && (
+                <div className="absolute left-[10px] top-[10px] px-2 py-1 bg-secondary-500 rounded-[4px]">
+                  <span className="text-white text-xs font-body font-semibold leading-[18px]">Primary</span>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
+import AppliedOffersView from "./AppliedOffersView";
 import PopupModal from "../commonComponent/PopupModal";
 import CommonModal from "../commonComponent/CommonModal";
 import { AlertCircle } from "lucide-react";
@@ -265,6 +266,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
+  const [specialSchemes, setSpecialSchemes] = useState<any[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const deviceClassOptions: SelectOption[] = [
@@ -445,6 +447,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       });
 
       if (pricing.additionalDiscounts?.length) setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
+      if (pricing.specialSchemes?.length) setSpecialSchemes(pricing.specialSchemes);
       if (attribute.materialTypeIds?.length) setSelectedMaterialTypes(attribute.materialTypeIds.map(String));
       if (data.productImages?.length) setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
       const isRealUrl = (u: string) => !!u && !["PENDING", "NOT_UPLOADED"].includes(u.toUpperCase());
@@ -652,15 +655,77 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    const numericOnlyFields = ["stockQuantity", "sellingPrice", "mrp", "discountPercentage", "hsnCode", "unitPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity", "dimensionSize"];
-    if (numericOnlyFields.includes(name)) {
+    const { name } = e.target;
+    let value = e.target.value;
+
+    // Field-specific sanitization
+    if (name === "unitPerPack") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 5) value = value.slice(0, 5);
+    } else if (name === "numberOfPacks") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 4) value = value.slice(0, 4);
+    } else if (name === "minimumOrderQuantity" || name === "maximumOrderQuantity") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 7) value = value.slice(0, 7);
+    } else if (name === "mrp" || name === "sellingPrice") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts[0].length > 13) parts[0] = parts[0].slice(0, 13);
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+    } else if (name === "discountPercentage") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+      if (Number(value) > 100) value = "100";
+    } else if (name === "stockQuantity" || name === "hsnCode") {
+      if (value !== "" && !/^\d*$/.test(value)) return;
+      if (name === "hsnCode" && value.length > 8) value = value.slice(0, 8);
+    } else if (name === "dimensionSize") {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
+
     const maxLengths: Record<string, number> = { productName: 150, brandName: 60, modelName: 60, modelNumber: 60, udiNumber: 60, manufacturerName: 100, productDescription: 1000, warrantyPeriod: 3, dimensionSize: 10, batchLotNumber: 20 };
     if (name in maxLengths && value.length > maxLengths[name]) return;
-    setForm((p) => ({ ...p, [name]: value }));
+
+    setForm((p) => {
+      const updated = { ...p, [name]: value };
+
+      // Cross-field: maxQty >= minQty
+      const minQ = Number(updated.minimumOrderQuantity) || 0;
+      const maxQ = Number(updated.maximumOrderQuantity) || 0;
+      if ((name === "minimumOrderQuantity" || name === "maximumOrderQuantity") && minQ && maxQ) {
+        setErrors((prev) => {
+          const n = { ...prev };
+          if (maxQ < minQ) n.maximumOrderQuantity = "Max Order Qty must be ≥ Min Order Qty";
+          else delete n.maximumOrderQuantity;
+          return n;
+        });
+      }
+
+      // Cross-field: sellingPrice <= mrp
+      const mrpVal = Number(updated.mrp) || 0;
+      const spVal  = Number(updated.sellingPrice) || 0;
+      if ((name === "mrp" || name === "sellingPrice") && mrpVal && spVal) {
+        setErrors((prev) => {
+          const n = { ...prev };
+          if (spVal > mrpVal) n.sellingPrice = "Selling Price must be ≤ MRP";
+          else delete n.sellingPrice;
+          return n;
+        });
+      }
+
+      return updated;
+    });
     if (errors[name]) setErrors((p) => { const n = { ...p }; delete n[name]; return n; });
     if (name === "batchLotNumber" && value.trim()) checkBatchNumber(value);
     if (name === "hsnCode" && value.trim()) {
@@ -964,6 +1029,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             effectiveEndDate: slab.effectiveEndDate || null,
             effectiveEndTime: slab.effectiveEndTime || null,
           })),
+          specialSchemes: specialSchemes.map((s: any) => ({
+            ...s,
+            ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+          })),
         }],
         productAttributeNonConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
@@ -1117,8 +1186,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
             onSaveAdditionalDiscount={(data: AdditionalDiscountData[]) => {
               setAdditionalDiscountSlabs(convertToDiscountSlab(data));
-              setShowAdditionalDiscountModal(false);
             }}
+            initialSchemesData={specialSchemes}
+            onSaveSpecialSchemes={(data: any) => { setSpecialSchemes(data || []); }}
             onClose={() => setShowAdditionalDiscountModal(false)}
           />
         </CommonModal>
@@ -1377,7 +1447,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                 options={certificationMasterOptions}
                 selectedValues={selectedCertifications.map(c => c.id)}
                 onChange={(values) => {
-                  const newCerts = values.map(val => {
+                  const preservedIds = isEdit
+                    ? selectedCertifications.filter((c) => c.existingUrl).map((c) => c.id)
+                    : [];
+                  const finalValues = Array.from(new Set([...values, ...preservedIds]));
+                  const newCerts = finalValues.map(val => {
                     const existing = selectedCertifications.find(c => c.id === val);
                     if (existing) return existing;
                     const opt = certificationMasterOptions.find(o => o.value === val);
@@ -1814,6 +1888,25 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                 </button>
               </div>
             </div>
+
+            <AppliedOffersView
+              additionalDiscounts={convertToDiscountData(additionalDiscountSlabs)}
+              specialSchemes={specialSchemes}
+              productName={form.productName}
+              onEditDiscount={() => setShowAdditionalDiscountModal(true)}
+              onDeleteDiscount={(index) =>
+                setAdditionalDiscountSlabs((prev) =>
+                  prev.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } as any : d)
+                )
+              }
+              onEditScheme={() => setShowAdditionalDiscountModal(true)}
+              onDeleteScheme={(index) =>
+                setSpecialSchemes((prev) =>
+                  prev.map((s: any, i: number) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)
+                )
+              }
+              isEditMode={isEdit}
+            />
           </div>
 
           <p className={subSectionTitle}>TAX &amp; BILLING</p>
@@ -1870,7 +1963,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             setExistingImages={setExistingImages}
             error={errors.images}
             setErrors={setErrors}
-            isReadOnly={isEdit}
+            isReadOnly={false}
             mode={mode}
           />
         </div>

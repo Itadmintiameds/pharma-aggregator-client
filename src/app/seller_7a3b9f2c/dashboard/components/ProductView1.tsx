@@ -1239,19 +1239,25 @@ const ProductView1 = ({
         );
 
         // Raw array IDs for multi-select fields
-        const rawIntendedIds: string[] = (
+        // API returns "IntendedUseArea" (capital I) as [{useAreaId, areaName, ...}]
+        const rawIntendedArr: any[] =
+          (cosAttrRaw as any).IntendedUseArea ??
           (cosAttrRaw as any).intendedUseAreaIds ??
           (cosAttrRaw as any).useAreaId ??
           (cosAttrRaw as any).intendedarea ??
-          (cosAttrRaw as any).intendedUseAreas ?? // sometimes already strings, handled below
-          []
-        )
-          .filter(
-            (v: any) =>
-              typeof v === "number" ||
-              (typeof v === "string" && /^\d+$/.test(v)),
-          )
-          .map(String);
+          (cosAttrRaw as any).intendedUseAreas ??
+          [];
+        const rawIntendedIds: string[] = rawIntendedArr
+          .map((v: any) => {
+            if (typeof v === "number") return String(v);
+            if (typeof v === "string" && /^\d+$/.test(v)) return v;
+            if (typeof v === "object" && v !== null) {
+              const id = v.useAreaId ?? v.areaId ?? v.id;
+              if (id != null) return String(id);
+            }
+            return null;
+          })
+          .filter((v: string | null): v is string => v !== null && v !== "");
 
         const rawSkinIds: string[] = (
           (cosAttrRaw as any).skinTypeIds ??
@@ -1382,13 +1388,23 @@ const ProductView1 = ({
         }
 
         // ── Resolve array fields → comma-separated label strings ──
-        const intendedUseArea =
-          rawIntendedIds.length > 0
-            ? rawIntendedIds
-              .map((id) => intendedOpts.find((o) => o.value === id)?.label)
-              .filter(Boolean)
-              .join(", ")
-            : null;
+        // Primary: look up ID in master opts. Fallback: use areaName directly from the raw object.
+        const intendedUseArea = (() => {
+          if (rawIntendedArr.length === 0) return null;
+          const labels = rawIntendedArr.map((v: any) => {
+            const id = typeof v === "object" && v !== null
+              ? String(v.useAreaId ?? v.areaId ?? v.id ?? "")
+              : String(v);
+            const fromOpts = intendedOpts.find((o) => o.value === id)?.label;
+            if (fromOpts) return fromOpts;
+            // fallback: label embedded in the object itself
+            if (typeof v === "object" && v !== null) {
+              return v.areaName ?? v.name ?? null;
+            }
+            return null;
+          }).filter(Boolean);
+          return labels.length > 0 ? labels.join(", ") : null;
+        })();
 
         const skinPart =
           rawSkinIds.length > 0
@@ -1478,7 +1494,7 @@ const ProductView1 = ({
                 .filter(Boolean)
                 .join(", ") || null
               : null) ?? cosAttrRaw.ageGroup,
-          intendedUseArea: intendedUseArea ?? cosAttrRaw.intendedUseArea,
+          intendedUseArea: intendedUseArea || cosAttrRaw.intendedUseArea || null,
           skinHairType: skinHairType ?? cosAttrRaw.skinHairType,
           countryOfOrigin:
             countryOpts.find((o) => o.value === countryIdStr)?.label ??

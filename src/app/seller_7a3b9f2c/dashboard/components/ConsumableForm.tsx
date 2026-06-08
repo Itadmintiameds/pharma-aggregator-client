@@ -7,6 +7,7 @@ import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
+import AppliedOffersView from "./AppliedOffersView";
 import PopupModal from "../commonComponent/PopupModal";
 import CommonModal from "../commonComponent/CommonModal";
 import { AlertCircle } from "lucide-react";
@@ -262,6 +263,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
   const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
+  const [specialSchemes, setSpecialSchemes] = useState<any[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const sterileOptions: SelectOption[] = [
@@ -447,6 +449,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
       if (pricing.additionalDiscounts?.length) {
         setAdditionalDiscountSlabs(convertToDiscountSlab(pricing.additionalDiscounts));
+      }
+      if (pricing.specialSchemes?.length) {
+        setSpecialSchemes(pricing.specialSchemes);
       }
 
       if (data.productImages?.length) {
@@ -660,16 +665,77 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    const numericOnlyFields = ["stockQuantity", "sellingPricePerPack", "mrp", "discountPercentage", "hsnCode", "unitsPerPack", "numberOfPacks", "minimumOrderQuantity", "maximumOrderQuantity", "sizeDimension"];
-    if (numericOnlyFields.includes(name)) {
+    const { name } = e.target;
+    let value = e.target.value;
+
+    // Field-specific sanitization
+    if (name === "unitsPerPack") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 5) value = value.slice(0, 5);
+    } else if (name === "numberOfPacks") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 4) value = value.slice(0, 4);
+    } else if (name === "minimumOrderQuantity" || name === "maximumOrderQuantity") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 7) value = value.slice(0, 7);
+    } else if (name === "mrp" || name === "sellingPricePerPack") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts[0].length > 13) parts[0] = parts[0].slice(0, 13);
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+    } else if (name === "discountPercentage") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+      if (Number(value) > 100) value = "100";
+    } else if (name === "stockQuantity" || name === "hsnCode") {
+      if (value !== "" && !/^\d*$/.test(value)) return;
+      if (name === "hsnCode" && value.length > 8) value = value.slice(0, 8);
+    } else if (name === "sizeDimension") {
       if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
       if (value.startsWith("-")) return;
     }
+
     const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000, sizeDimension: 10, batchLotNumber: 20 };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
-    setForm((p) => ({ ...p, [name]: value }));
+    setForm((p) => {
+      const updated = { ...p, [name]: value };
+
+      // Cross-field: maxQty >= minQty
+      const minQ = Number(updated.minimumOrderQuantity) || 0;
+      const maxQ = Number(updated.maximumOrderQuantity) || 0;
+      if ((name === "minimumOrderQuantity" || name === "maximumOrderQuantity") && minQ && maxQ) {
+        setErrors((prev) => {
+          const n = { ...prev };
+          if (maxQ < minQ) n.maximumOrderQuantity = "Max Order Qty must be ≥ Min Order Qty";
+          else delete n.maximumOrderQuantity;
+          return n;
+        });
+      }
+
+      // Cross-field: sellingPrice <= mrp
+      const mrpVal = Number(updated.mrp) || 0;
+      const spVal  = Number(updated.sellingPricePerPack) || 0;
+      if ((name === "mrp" || name === "sellingPricePerPack") && mrpVal && spVal) {
+        setErrors((prev) => {
+          const n = { ...prev };
+          if (spVal > mrpVal) n.sellingPricePerPack = "Selling Price must be ≤ MRP";
+          else delete n.sellingPricePerPack;
+          return n;
+        });
+      }
+
+      return updated;
+    });
     if (errors[name]) setErrors((p) => { const n = { ...p }; delete n[name]; return n; });
 
     if (name === "hsnCode" && value.trim()) {
@@ -1010,6 +1076,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           finalPrice: Number(form.finalPrice),
           hsnCode: Number(form.hsnCode),
           additionalDiscounts: additionalDiscountSlabs,
+          specialSchemes: specialSchemes.map((s: any) => ({
+            ...s,
+            ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+          })),
         }],
         productAttributeConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
@@ -1153,7 +1223,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
             onSaveAdditionalDiscount={(data: AdditionalDiscountData[]) => {
               setAdditionalDiscountSlabs(convertToDiscountSlab(data));
-              setShowAdditionalDiscountModal(false);
+            }}
+            initialSchemesData={specialSchemes}
+            onSaveSpecialSchemes={(data: any) => {
+              setSpecialSchemes(data || []);
             }}
             onClose={() => setShowAdditionalDiscountModal(false)}
           />
@@ -1348,14 +1421,18 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             <Input label="Intended Use / Purpose" name="intendedUse" placeholder="e.g., For surgical procedures"
               value={form.intendedUse} onChange={handleChange} error={errors.intendedUse} required />
 
-            {/* Certifications — dropdown (editable in both modes so validation + upload works) */}
+            {/* Certifications — dropdown (editable in both modes; existing certs preserved in edit) */}
             <div className="flex flex-col gap-1" ref={setFieldRef("certifications") as React.RefCallback<HTMLDivElement>} data-field="certifications">
               <label className={fieldLabel}>Certifications &amp; Compliance {requiredStar}</label>
               <CheckboxDropdown
                 options={certificationMasterOptions}
                 selectedValues={selectedCertifications.map(c => c.id)}
                 onChange={(values) => {
-                  const newCerts = values.map(val => {
+                  const preservedIds = isEdit
+                    ? selectedCertifications.filter((c) => c.existingUrl).map((c) => c.id)
+                    : [];
+                  const finalValues = Array.from(new Set([...values, ...preservedIds]));
+                  const newCerts = finalValues.map(val => {
                     const existing = selectedCertifications.find(c => c.id === val);
                     if (existing) return existing;
                     const opt = certificationMasterOptions.find(o => o.value === val);
@@ -1367,11 +1444,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                     };
                   });
                   setSelectedCertifications(newCerts);
+                  if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
                 }}
                 placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
                 disabled={loadingCertifications}
                 showSelectAll={false}
+                error={errors.certifications ? " " : ""}
               />
+              {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
             {/* Certifications — upload (editable in both modes) */}
@@ -1661,6 +1741,25 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 </button>
               </div>
             </div>
+
+            <AppliedOffersView
+              additionalDiscounts={convertToDiscountData(additionalDiscountSlabs)}
+              specialSchemes={specialSchemes}
+              productName={form.productName}
+              onEditDiscount={() => setShowAdditionalDiscountModal(true)}
+              onDeleteDiscount={(index) =>
+                setAdditionalDiscountSlabs((prev) =>
+                  prev.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } as any : d)
+                )
+              }
+              onEditScheme={() => setShowAdditionalDiscountModal(true)}
+              onDeleteScheme={(index) =>
+                setSpecialSchemes((prev) =>
+                  prev.map((s: any, i: number) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)
+                )
+              }
+              isEditMode={isEdit}
+            />
           </div>
 
           <p className={subSectionTitle}>TAX &amp; BILLING</p>
@@ -1702,7 +1801,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             setExistingImages={setExistingImages}
             error={errors.images}
             setErrors={setErrors}
-            isReadOnly={isEdit}
+            isReadOnly={false}
             mode={mode}
           />
         </div>
