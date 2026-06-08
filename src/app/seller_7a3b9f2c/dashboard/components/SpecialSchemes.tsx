@@ -91,6 +91,24 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
       {
         accessorKey: "schemeName",
         header: "Name",
+        cell: ({ row, getValue }) => {
+          const isSelected = row.original.displayOfferScheme ?? row.original.isSelected !== false;
+          return (
+            <div className="flex items-center justify-center gap-2">
+              <input 
+                type="checkbox" 
+                checked={isSelected}
+                onChange={(e) => {
+                  setTableData(prev => prev.map((scheme, i) => 
+                    i === row.index ? { ...scheme, displayOfferScheme: e.target.checked, isSelected: e.target.checked } : scheme
+                  ));
+                }}
+                className="w-4 h-4 rounded border-gray-300 cursor-pointer" 
+              />
+              <span>{String(getValue())}</span>
+            </div>
+          );
+        }
       },
       // {
       //   accessorKey: "schemeType",
@@ -298,6 +316,13 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
     };
 
     const handleSubmit = () => {
+      const isFormEmpty = !form.schemeName && !form.buyQuantity && !form.freeQuantity && (!form.effectiveStartDate || alwaysActive);
+
+      if (isFormEmpty) {
+        if (onSave) onSave(tableData);
+        return;
+      }
+
       const validationErrors = validateForm();
 
       setErrors(validationErrors);
@@ -388,7 +413,13 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
               </div>
 
               <div className="flex justify-end mt-3">
-                <button className="w-33.25 h-10 border-[1.5px] rounded-lg border-secondary-700 text-secondary-700 text-lable-l3 font-medium">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (onSave) onSave(tableData);
+                  }}
+                  className="w-33.25 h-10 border-[1.5px] rounded-lg border-secondary-700 text-secondary-700 text-lable-l3 font-medium"
+                >
                   Apply
                 </button>
               </div>

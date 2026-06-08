@@ -147,6 +147,8 @@ export interface AdditionalDiscountData {
   effectiveStartTime: string | null;
   effectiveEndDate: string | null;
   effectiveEndTime: string | null;
+  isSelected?: boolean;
+  displayOffer?: boolean;
 }
 
 export interface SpecialSchemesData {
@@ -159,6 +161,8 @@ export interface SpecialSchemesData {
   effectiveStartTime: string | null;
   effectiveEndDate: string | null;
   effectiveEndTime: string | null;
+  isSelected?: boolean;
+  displayOfferScheme?: boolean;
 }
 
 export interface MoleculeData {

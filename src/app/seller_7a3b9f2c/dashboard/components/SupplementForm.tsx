@@ -13,7 +13,7 @@ export default SupplementForm
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { FileText, X, RefreshCw } from "lucide-react";
+import { FileText, X, RefreshCw, Trash2, Gift } from "lucide-react";
 // import Select from "react-select";
 import { useRouter } from "next/navigation";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
@@ -24,6 +24,7 @@ import PopupModal from "../commonComponent/PopupModal";
 import UploadInput from "../commonComponent/UploadInput";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
+import AppliedOffersView from "./AppliedOffersView";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications, getServingSizeUnits, getNetQuantityUnits } from "@/src/services/product/SupplementService";
 import { getProductById, updateProduct } from "@/src/services/product/ProductService";
@@ -520,7 +521,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           const totalMonths = isSameMonthAndYear
             ? 1
             : (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
-              (selectedDate.getMonth() - mfg.getMonth());
+            (selectedDate.getMonth() - mfg.getMonth());
 
           const monthsUntilExpiry =
             (selectedDate.getFullYear() - today.getFullYear()) * 12 +
@@ -902,7 +903,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       const exp = form.expiryDate;
       // OLD LOGIC
       // const totalMonths = (exp.getFullYear() - mfg.getFullYear()) * 12 + (exp.getMonth() - mfg.getMonth()) + 1;
-      
+
       // NEW LOGIC
       const isSameMonthAndYear =
         exp.getFullYear() === mfg.getFullYear() &&
@@ -911,7 +912,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       const totalMonths = isSameMonthAndYear
         ? 1
         : (exp.getFullYear() - mfg.getFullYear()) * 12 +
-          (exp.getMonth() - mfg.getMonth());
+        (exp.getMonth() - mfg.getMonth());
       setForm((prev) => ({
         ...prev,
         shelfLifeMonths: totalMonths > 0 ? totalMonths.toString() : "",
@@ -1092,7 +1093,43 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+
+    // ----- Input Restrictions -----
+    if (name === "unitPerPack") {
+      value = value.replace(/\D/g, ""); // Integer only
+      if (value.length > 5) value = value.slice(0, 5); // 5 digits max
+    }
+    if (name === "numberOfPacks") {
+      value = value.replace(/\D/g, ""); // Integer only
+      if (value.length > 4) value = value.slice(0, 4); // 4 digits max
+    }
+    if (name === "minimumOrderQuantity" || name === "maximumOrderQuantity") {
+      value = value.replace(/\D/g, ""); // Integer only
+      if (value.length > 7) value = value.slice(0, 7); // 7 digits max
+    }
+    if (name === "mrp" || name === "sellingPrice") {
+      value = value.replace(/[^0-9.]/g, ""); // Numbers and decimal only
+      const parts = value.split(".");
+      if (parts[0].length > 13) parts[0] = parts[0].slice(0, 13);
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+    }
+    if (name === "discountPercentage") {
+      value = value.replace(/[^0-9.]/g, "");
+      const parts = value.split(".");
+      if (parts.length > 1) {
+        value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      } else {
+        value = parts[0];
+      }
+      if (Number(value) > 100) {
+        value = "100";
+      }
+    }
 
     setForm((prev) => {
       const updated = { ...prev, [name]: value };
@@ -1100,7 +1137,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       // Auto-calculate packSize
       const unitPerPack = Number(updated.unitPerPack) || 0;
       const numberOfPacks = Number(updated.numberOfPacks) || 0;
-      updated.packSize = String(unitPerPack * numberOfPacks);
+      updated.packSize = (unitPerPack > 0 && numberOfPacks > 0) ? String(unitPerPack * numberOfPacks) : "";
 
       // Auto-calculate finalPrice from sellingPrice & gst
       const currentSP = Number(updated.sellingPrice) || 0;
@@ -1618,17 +1655,14 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             finalPrice: Number(form.finalPrice),
             hsnCode: Number(form.hsnCode),
             additionalDiscounts: form.additionalDiscount.map((d: any) => ({
+              ...d,
               ...(d.additionalDiscountId ? { additionalDiscountId: d.additionalDiscountId } : {}),
-              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-              additionalDiscountPercentage: d.additionalDiscountPercentage,
-              effectiveStartDate: d.effectiveStartDate,
-              effectiveStartTime: d.effectiveStartTime,
-              effectiveEndDate: d.effectiveEndDate,
-              effectiveEndTime: d.effectiveEndTime,
+              displayOffer: d.displayOffer !== false,
             })),
             specialSchemes: (form.specialSchemes || []).map((s: any) => ({
               ...s,
               ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+              displayOfferScheme: s.displayOfferScheme !== false,
             })),
           },
         ],
@@ -1792,17 +1826,14 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             finalPrice: Number(form.finalPrice),
             hsnCode: Number(form.hsnCode),
             additionalDiscounts: form.additionalDiscount.map((d: any) => ({
+              ...d,
               ...(d.additionalDiscountId ? { additionalDiscountId: d.additionalDiscountId } : {}),
-              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-              additionalDiscountPercentage: d.additionalDiscountPercentage,
-              effectiveStartDate: d.effectiveStartDate,
-              effectiveStartTime: d.effectiveStartTime,
-              effectiveEndDate: d.effectiveEndDate,
-              effectiveEndTime: d.effectiveEndTime,
+              displayOffer: d.displayOffer !== false,
             })),
             specialSchemes: (form.specialSchemes || []).map((s: any) => ({
               ...s,
               ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+              displayOfferScheme: s.displayOfferScheme !== false,
             })),
           },
         ],
@@ -1944,26 +1975,26 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           onClose={() => setShowAdditionalDiscount(false)}
           width="w-[600px]"
         >
-            <AdditionalDiscountType
-              categoryId={effectiveCategoryId ? Number(effectiveCategoryId) : undefined}
-              onClose={() => setShowAdditionalDiscount(false)}
-              initialData={form.additionalDiscount}
-              baseDiscountPercentage={Number(form.discountPercentage) || 0}
-              baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
-              onSaveAdditionalDiscount={(data: any) => {
-                setForm((prev) => ({
-                  ...prev,
-                  additionalDiscount: data || [],
-                }));
-              }}
-              initialSchemesData={form.specialSchemes}
-              onSaveSpecialSchemes={(data: any) => {
-                setForm((prev) => ({
-                  ...prev,
-                  specialSchemes: data || [],
-                }));
-              }}
-            />
+          <AdditionalDiscountType
+            categoryId={effectiveCategoryId ? Number(effectiveCategoryId) : undefined}
+            onClose={() => setShowAdditionalDiscount(false)}
+            initialData={form.additionalDiscount}
+            baseDiscountPercentage={Number(form.discountPercentage) || 0}
+            baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
+            onSaveAdditionalDiscount={(data: any) => {
+              setForm((prev) => ({
+                ...prev,
+                additionalDiscount: data || [],
+              }));
+            }}
+            initialSchemesData={form.specialSchemes}
+            onSaveSpecialSchemes={(data: any) => {
+              setForm((prev) => ({
+                ...prev,
+                specialSchemes: data || [],
+              }));
+            }}
+          />
         </CommonModal>
       )}
 
@@ -3034,20 +3065,22 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             <div className="border-b border-neutral-200 col-span-2"></div>
 
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               label="Discount(%)"
               name="discountPercentage"
               value={form.discountPercentage}
               onChange={handleChange}
               min={0}
               max={100}
-              step={1}
+              step={0.01}
               error={errors.discountPercentage}
               required={false}
             />
 
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               label="MRP (per Pack Size)"
               name="mrp"
               id="mrp"
@@ -3060,13 +3093,14 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 }
               }}
               min={1}
-              step={1}
+              step={0.01}
               error={errors.mrp}
               required
             />
 
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               label="Selling Price (per Pack Size)"
               name="sellingPrice"
               id="sellingPrice"
@@ -3074,7 +3108,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               value={form.sellingPrice}
               onChange={handleChange}
               min={1}
-              step={1}
+              step={0.01}
               error={errors.sellingPrice}
               required
             />
@@ -3103,6 +3137,137 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 <span>Add Special Discount</span>
               </button>
             </div>
+
+            {/* --- APPLIED OFFERS SECTION --- */}
+            {/*
+            {(form.additionalDiscount.length > 0 || form.specialSchemes.length > 0) && (
+              <div className="col-span-2 flex flex-col gap-[12px] w-full mt-4">
+
+                {form.additionalDiscount.length > 0 && (
+                  <div className="flex flex-col gap-[12px] w-full">
+                    <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-pneutral-900">
+                      Applied Discount Slabs
+                    </h3>
+                    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #C0C1BE" }}>
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr>
+                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Min Qty</th>
+                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Discount (%)</th>
+                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Start date</th>
+                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>End Date</th>
+                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {form.additionalDiscount.map((d, index) => (
+                            <tr key={index} style={{ backgroundColor: index % 2 === 0 ? "#F8F8F9" : "#EAEAE9" }}>
+                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.minimumPurchaseQuantity}</td>
+                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.additionalDiscountPercentage}%</td>
+                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.effectiveStartDate ? new Date(d.effectiveStartDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
+                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.effectiveEndDate ? new Date(d.effectiveEndDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
+                              <td className="px-4 py-3" style={{ border: "1px solid #C0C1BE" }}>
+                                <div className="flex justify-center items-center gap-3 relative">
+                                  <img
+                                    src="/icons/EditIcon.svg"
+                                    alt="edit"
+                                    className="cursor-pointer relative"
+                                    style={{ width: "16.88px", height: "16.88px", top: "1.25px", left: "1.88px" }}
+                                    onClick={() => setShowAdditionalDiscount(true)}
+                                  />
+                                  <img
+                                    src="/icons/DeleteIcon.svg"
+                                    alt="delete"
+                                    className="cursor-pointer relative"
+                                    style={{ width: "14.93px", height: "17.52px", top: "1.24px", left: "2.54px" }}
+                                    onClick={() => {
+                                      setForm(prev => ({
+                                        ...prev,
+                                        additionalDiscount: prev.additionalDiscount.filter((_, i) => i !== index)
+                                      }));
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/*
+                {form.specialSchemes.length > 0 && (
+                  <div className="flex flex-col gap-[12px] w-full mt-2">
+                    <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-pneutral-900">
+                      Applied Special Offers & Promotional Schemes
+                    </h3>
+                    <div className={`grid gap-4 ${form.specialSchemes.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                      {form.specialSchemes.map((scheme, index) => {
+                        const themes = [
+                          { border: "#4EB300", bg: "#DCF7CB", text: "#47A400", Icon: Gift },
+                          { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: Gift },
+                          { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Gift },
+                        ];
+                        let theme = themes[index % themes.length];
+                        const type = scheme.schemeType?.toLowerCase();
+                        if (type === "bogo" || type === "buy_x_get_y") theme = themes[0];
+                        else if (type === "bundle") theme = themes[1];
+                        else if (type === "seasonal") theme = themes[2];
+
+                        const dateStr = scheme.effectiveStartDate && scheme.effectiveEndDate
+                          ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
+                          : "Valid: Ongoing";
+
+                        return (
+                          <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px] relative" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+                            {/* Icon Box * /}
+                            <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
+                              <theme.Icon className="w-6 h-6 text-white" />
+                            </div>
+                            {/* Content * /}
+                            <div className="flex flex-col pr-8">
+                              <h5 className="font-heading font-medium text-[20px] leading-[28px] mb-1.5" style={{ color: theme.text }}>
+                                {scheme.schemeName || "Special Scheme"}
+                              </h5>
+                              <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
+                                Purchase {scheme.buyQuantity} {form.productName || "this product"} and get {scheme.freeQuantity} absolutely free. Limited stock available!
+                              </p>
+                              <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">
+                                {dateStr}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            */}
+
+            <AppliedOffersView
+              additionalDiscounts={form.additionalDiscount}
+              specialSchemes={form.specialSchemes}
+              productName={form.productName}
+              onEditDiscount={() => setShowAdditionalDiscount(true)}
+              onDeleteDiscount={(index) => {
+                setForm(prev => ({
+                  ...prev,
+                  additionalDiscount: prev.additionalDiscount.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } : d)
+                }));
+              }}
+              onEditScheme={() => setShowAdditionalDiscount(true)}
+              onDeleteScheme={(index) => {
+                setForm(prev => ({
+                  ...prev,
+                  specialSchemes: prev.specialSchemes.map((s: any, i: number) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)
+                }));
+              }}
+              isEditMode={isEditMode}
+            />
 
             <div className="text-h6 font-normal col-span-2 mt-3">
               TAX & BILLING

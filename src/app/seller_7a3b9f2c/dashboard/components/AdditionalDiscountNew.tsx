@@ -75,16 +75,27 @@ const AdditionalDiscountNew = forwardRef<
     const formContainerRef = React.useRef<HTMLDivElement>(null);
 
     const columns: ColumnDef<AdditionalDiscountData>[] = [
-      // {
-      //   id: "select",
-      //   header: "",
-      //   cell: () => (
-      //     <input type="checkbox" className="w-4 h-4 rounded border-gray-300" />
-      //   ),
-      // },
       {
         accessorKey: "minimumPurchaseQuantity",
         header: "Min Qt",
+        cell: ({ row, getValue }) => {
+          const isSelected = row.original.displayOffer ?? row.original.isSelected !== false;
+          return (
+            <div className="flex items-center justify-center gap-2">
+              <input 
+                type="checkbox" 
+                checked={isSelected}
+                onChange={(e) => {
+                  setSlabs(prev => prev.map((slab, i) => 
+                    i === row.index ? { ...slab, displayOffer: e.target.checked, isSelected: e.target.checked } : slab
+                  ));
+                }}
+                className="w-4 h-4 rounded border-gray-300 cursor-pointer" 
+              />
+              <span>{String(getValue())}</span>
+            </div>
+          );
+        }
       },
       {
         accessorKey: "additionalDiscountPercentage",
@@ -434,6 +445,16 @@ const AdditionalDiscountNew = forwardRef<
     };
 
     const handleSubmit = () => {
+      const isFormEmpty = 
+        !form.minimumPurchaseQuantity && 
+        !form.discountPercentage && 
+        (!form.effectiveStartDate || alwaysActive);
+
+      if (isFormEmpty) {
+        onSave(slabs);
+        return;
+      }
+
       const isValid = validateForm();
 
       if (!isValid) return;
@@ -526,7 +547,13 @@ const AdditionalDiscountNew = forwardRef<
               </div>
 
               <div className="flex justify-end">
-                <button className="w-33.25 h-10 border-[1.5px] rounded-lg border-secondary-700 text-secondary-700 text-lable-l3 font-medium">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onSave(slabs);
+                  }}
+                  className="w-33.25 h-10 border-[1.5px] rounded-lg border-secondary-700 text-secondary-700 text-lable-l3 font-medium"
+                >
                   Apply
                 </button>
               </div>

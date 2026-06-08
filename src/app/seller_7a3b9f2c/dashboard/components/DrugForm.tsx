@@ -23,6 +23,7 @@ import CommonModal from "../commonComponent/CommonModal";
 import AdditionalDiscount from "./AdditionalDiscount";
 import UploadInput from "../commonComponent/UploadInput";
 import PopupModal from "../commonComponent/PopupModal";
+import AppliedOffersView from "./AppliedOffersView";
 import AddDiscNew from "./AdditionalDiscountNew";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import {
@@ -892,18 +893,18 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       const pricing =
         data.pricingDetails?.length > 0
           ? data.pricingDetails.reduce((latest: any, curr: any) =>
-              new Date(curr.createdDate) > new Date(latest.createdDate)
-                ? curr
-                : latest,
-            )
+            new Date(curr.createdDate) > new Date(latest.createdDate)
+              ? curr
+              : latest,
+          )
           : {};
       const packaging =
         data.packagingDetails?.length > 0
           ? data.packagingDetails.reduce((latest: any, curr: any) =>
-              new Date(curr.createdDate) > new Date(latest.createdDate)
-                ? curr
-                : latest,
-            )
+            new Date(curr.createdDate) > new Date(latest.createdDate)
+              ? curr
+              : latest,
+          )
           : {};
       const attributeDrug = data.productAttributeDrugs?.[0] || {};
       setProductAttributeId(attributeDrug.productAttributeId || null);
@@ -957,36 +958,36 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       const molecules =
         attributeDrug.molecules?.length > 0
           ? attributeDrug.molecules.map((m: any) => {
-              const full =
-                fullMoleculeMap[String(m.moleculeId)] ||
-                fetchedMolecules.find(
-                  (opt: any) => String(opt.moleculeId) === String(m.moleculeId),
-                ) ||
-                moleculeOptions.find(
-                  (opt) => String(opt.value.moleculeId) === String(m.moleculeId),
-                )?.value;
+            const full =
+              fullMoleculeMap[String(m.moleculeId)] ||
+              fetchedMolecules.find(
+                (opt: any) => String(opt.moleculeId) === String(m.moleculeId),
+              ) ||
+              moleculeOptions.find(
+                (opt) => String(opt.value.moleculeId) === String(m.moleculeId),
+              )?.value;
 
-              return {
-                moleculeId: m.moleculeId ?? "",
-                moleculeName: full?.moleculeName || "",
-                moleculeStrengthFormat: full?.moleculeStrengthFormat || "",
-                drugSchedule: full?.drugSchedule || "",
-                mechanismOfAction: full?.mechanismOfAction || "",
-                primaryUse: full?.primaryUse || "",
-                strength: m.strength ?? "",
-              };
-            })
+            return {
+              moleculeId: m.moleculeId ?? "",
+              moleculeName: full?.moleculeName || "",
+              moleculeStrengthFormat: full?.moleculeStrengthFormat || "",
+              drugSchedule: full?.drugSchedule || "",
+              mechanismOfAction: full?.mechanismOfAction || "",
+              primaryUse: full?.primaryUse || "",
+              strength: m.strength ?? "",
+            };
+          })
           : [
-              {
-                moleculeId: "",
-                moleculeName: "",
-                moleculeStrengthFormat: "",
-                drugSchedule: "",
-                mechanismOfAction: "",
-                primaryUse: "",
-                strength: "",
-              },
-            ];
+            {
+              moleculeId: "",
+              moleculeName: "",
+              moleculeStrengthFormat: "",
+              drugSchedule: "",
+              mechanismOfAction: "",
+              primaryUse: "",
+              strength: "",
+            },
+          ];
 
       setExistingImages(
         data.productImages?.map((img: any) => img.productImage) || [],
@@ -1819,11 +1820,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 onChange={handleChange}
                 maxLength={1000}
                 rows={4}
-                className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${
-                  errors.warningsPrecautions
+                className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${errors.warningsPrecautions
                     ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
                     : "border-pneutral-300 focus:border-2 focus:border-[#C4AAFD]"
-                } focus:outline-none focus:ring-0`}
+                  } focus:outline-none focus:ring-0`}
               />
               {errors.warningsPrecautions && (
                 <p className="text-red-500 text-sm mt-1">
@@ -1845,11 +1845,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 onChange={handleChange}
                 maxLength={1000}
                 rows={4}
-                className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${
-                  errors.productDescription
+                className={`w-full h-36 rounded-lg p-3 resize-none overflow-y-auto border ${errors.productDescription
                     ? "border-[#FF3B3B] focus:border-[#FF3B3B]"
                     : "border-pneutral-300 focus:border-2 focus:border-[#C4AAFD]"
-                } focus:outline-none focus:ring-0`}
+                  } focus:outline-none focus:ring-0`}
               />
               {errors.productDescription && (
                 <p className="text-red-500 text-sm mt-1">
@@ -2000,15 +1999,15 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 readOnly={isEditMode}
                 value={
                   form.manufacturingDate instanceof Date &&
-                  !isNaN(form.manufacturingDate.getTime())
+                    !isNaN(form.manufacturingDate.getTime())
                     ? `${String(form.manufacturingDate.getMonth() + 1).padStart(
-                        2,
-                        "0",
-                      )}/${form.manufacturingDate.getFullYear()}`
+                      2,
+                      "0",
+                    )}/${form.manufacturingDate.getFullYear()}`
                     : ""
                 }
                 placeholder="MM/YYYY"
-                onChange={() => {}} // prevents React warning
+                onChange={() => { }} // prevents React warning
                 onClick={() => {
                   if (!isEditMode) {
                     setShowManufacturingMonthPicker(true);
@@ -2049,15 +2048,15 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 readOnly={isEditMode}
                 value={
                   form.expiryDate instanceof Date &&
-                  !isNaN(form.expiryDate.getTime())
+                    !isNaN(form.expiryDate.getTime())
                     ? `${String(form.expiryDate.getMonth() + 1).padStart(
-                        2,
-                        "0",
-                      )}/${form.expiryDate.getFullYear()}`
+                      2,
+                      "0",
+                    )}/${form.expiryDate.getFullYear()}`
                     : ""
                 }
                 placeholder="MM/YYYY"
-                onChange={() => {}} // prevents React warning
+                onChange={() => { }} // prevents React warning
                 onClick={() => {
                   if (!isEditMode) {
                     setShowExpiryMonthPicker(true);
@@ -2091,10 +2090,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   maxDate={
                     form.manufacturingDate
                       ? new Date(
-                          form.manufacturingDate.getFullYear() + 5,
-                          form.manufacturingDate.getMonth(),
-                          1,
-                        )
+                        form.manufacturingDate.getFullYear() + 5,
+                        form.manufacturingDate.getMonth(),
+                        1,
+                      )
                       : undefined
                   }
                   onSelect={(month, year) =>
@@ -2222,6 +2221,21 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 </button>
               </div>
             </div>
+            <AppliedOffersView
+              additionalDiscounts={form.additionalDiscount}
+              specialSchemes={[]}
+              productName={form.productName}
+              onEditDiscount={() => setShowAdditionalDiscount(true)}
+              onDeleteDiscount={(index) => {
+                setForm(prev => ({
+                  ...prev,
+                  additionalDiscount: prev.additionalDiscount.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } : d)
+                }));
+              }}
+              hideDeleteScheme={true}
+              isEditMode={isEditMode}
+            />
+
             <div className="text-h6 font-normal col-span-2 mt-3 font-heading">
               TAX & BILLING
             </div>
