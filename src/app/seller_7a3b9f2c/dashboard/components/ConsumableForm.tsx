@@ -1075,10 +1075,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           gstPercentage: Number(form.gstPercentage),
           finalPrice: Number(form.finalPrice),
           hsnCode: Number(form.hsnCode),
-          additionalDiscounts: additionalDiscountSlabs,
+          additionalDiscounts: additionalDiscountSlabs.map((d: any) => ({
+            ...d,
+            displayOffer: d.displayOffer !== false,
+          })),
           specialSchemes: specialSchemes.map((s: any) => ({
             ...s,
             ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+            displayOfferScheme: s.displayOfferScheme !== false,
           })),
         }],
         productAttributeConsumableMedicals: [{

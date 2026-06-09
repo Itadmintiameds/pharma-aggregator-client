@@ -1021,17 +1021,19 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           hsnCode: Number(form.hsnCode) || 0,
           batchLotNumber: form.batchLotNumber,
           expiryDate: "",
-          additionalDiscounts: additionalDiscountSlabs.map((slab) => ({
+          additionalDiscounts: additionalDiscountSlabs.map((slab: any) => ({
             minimumPurchaseQuantity: slab.minimumPurchaseQuantity,
             additionalDiscountPercentage: slab.additionalDiscountPercentage,
             effectiveStartDate: slab.effectiveStartDate || null,
             effectiveStartTime: slab.effectiveStartTime || null,
             effectiveEndDate: slab.effectiveEndDate || null,
             effectiveEndTime: slab.effectiveEndTime || null,
+            displayOffer: slab.displayOffer !== false,
           })),
           specialSchemes: specialSchemes.map((s: any) => ({
             ...s,
             ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+            displayOfferScheme: s.displayOfferScheme !== false,
           })),
         }],
         productAttributeNonConsumableMedicals: [{

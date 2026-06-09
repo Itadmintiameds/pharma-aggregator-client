@@ -1339,10 +1339,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           effectiveStartTime:           d.effectiveStartTime,
           effectiveEndDate:             d.effectiveEndDate,
           effectiveEndTime:             d.effectiveEndTime,
+          displayOffer:                 d.displayOffer !== false,
         })),
         specialSchemes: (form.specialSchemes || []).map((s: any) => ({
           ...s,
           ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+          displayOfferScheme: s.displayOfferScheme !== false,
         })),
       }],
 

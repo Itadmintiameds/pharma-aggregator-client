@@ -698,7 +698,7 @@ const NonConsumableView = ({
 
 
       {/* ── SPECIAL OFFERS & PROMOTIONAL SCHEMES ── */}
-      {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
+      {/* {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
         <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
           <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
             Special Offers &amp; Promotional Schemes
@@ -758,7 +758,7 @@ const NonConsumableView = ({
             )}
           </div>
         </div>
-      )}
+      )} */}
 
 
       {/* ── Certificate Modal ── */}
