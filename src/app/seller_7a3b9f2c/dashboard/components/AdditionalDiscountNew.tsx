@@ -79,23 +79,32 @@ const AdditionalDiscountNew = forwardRef<
         accessorKey: "minimumPurchaseQuantity",
         header: "Min Qt",
         cell: ({ row, getValue }) => {
-          const isSelected = row.original.displayOffer ?? row.original.isSelected !== false;
+          const isSelected =
+            row.original.displayOffer ?? row.original.isSelected !== false;
           return (
             <div className="flex items-center justify-center gap-2">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={isSelected}
                 onChange={(e) => {
-                  setSlabs(prev => prev.map((slab, i) => 
-                    i === row.index ? { ...slab, displayOffer: e.target.checked, isSelected: e.target.checked } : slab
-                  ));
+                  setSlabs((prev) =>
+                    prev.map((slab, i) =>
+                      i === row.index
+                        ? {
+                            ...slab,
+                            displayOffer: e.target.checked,
+                            isSelected: e.target.checked,
+                          }
+                        : slab,
+                    ),
+                  );
                 }}
-                className="w-4 h-4 rounded border-gray-300 cursor-pointer" 
+                className="w-4 h-4 rounded border-gray-300 cursor-pointer"
               />
               <span>{String(getValue())}</span>
             </div>
           );
-        }
+        },
       },
       {
         accessorKey: "additionalDiscountPercentage",
@@ -445,9 +454,9 @@ const AdditionalDiscountNew = forwardRef<
     };
 
     const handleSubmit = () => {
-      const isFormEmpty = 
-        !form.minimumPurchaseQuantity && 
-        !form.discountPercentage && 
+      const isFormEmpty =
+        !form.minimumPurchaseQuantity &&
+        !form.discountPercentage &&
         (!form.effectiveStartDate || alwaysActive);
 
       if (isFormEmpty) {
@@ -490,10 +499,7 @@ const AdditionalDiscountNew = forwardRef<
 
     return (
       <>
-        <div
-          ref={formContainerRef}
-          className="flex flex-col gap-7 overflow-y-auto"
-        >
+        <div ref={formContainerRef} className="flex flex-col gap-7">
           {slabs.length > 0 && (
             <div className="space-y-3">
               <div className="text-label-l5 font-medium">
@@ -547,7 +553,7 @@ const AdditionalDiscountNew = forwardRef<
               </div>
 
               <div className="flex justify-end">
-                <button 
+                <button
                   onClick={(e) => {
                     e.preventDefault();
                     onSave(slabs);
@@ -564,8 +570,8 @@ const AdditionalDiscountNew = forwardRef<
             </div>
           )}
 
-          <form autoComplete="off"  className="flex flex-col gap-7">
-            <div className="flex flex-col gap-4">
+          <form autoComplete="off" className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <div className="text-label-l5 font-medium">
                 Purchase Conditions
               </div>
@@ -606,7 +612,7 @@ const AdditionalDiscountNew = forwardRef<
               </div>
             </div>
 
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <div className="text-label-l5 font-medium">DISCOUNT DETAILS</div>
               <div className="flex flex-col gap-1">
                 <label htmlFor="" className="text-label-l4 font-medium">
@@ -646,7 +652,7 @@ const AdditionalDiscountNew = forwardRef<
               </div>
             </div>
 
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
               <div className="text-label-l5 font-medium">VALIDITY PERIOD</div>
               <div className="flex flex-col gap-1">
                 <label
@@ -668,13 +674,6 @@ const AdditionalDiscountNew = forwardRef<
                       onClick={() => {
                         if (!alwaysActive) {
                           setShowStartDatePicker(true);
-
-                          setTimeout(() => {
-                            formContainerRef.current?.scrollBy({
-                              top: 220,
-                              behavior: "smooth",
-                            });
-                          }, 100);
                         }
                       }}
                       className={`w-full min-w-0 h-12 border rounded-lg p-4 focus:outline-none ${
@@ -685,58 +684,60 @@ const AdditionalDiscountNew = forwardRef<
                     />
 
                     {showStartDatePicker && (
-                      <DatePicker
-                        selectedDate={
-                          form.effectiveStartDate
-                            ? new Date(
-                                form.effectiveStartDate
-                                  .split("/")
-                                  .reverse()
-                                  .join("-"),
-                              )
-                            : new Date()
-                        }
-                        onSelect={(date) => {
-                          const formattedDate = `${String(
-                            date.getDate(),
-                          ).padStart(2, "0")}/${String(
-                            date.getMonth() + 1,
-                          ).padStart(2, "0")}/${date.getFullYear()}`;
+                      <div className="absolute bottom-full left-0 mb-2 z-50">
+                        <DatePicker
+                          selectedDate={
+                            form.effectiveStartDate
+                              ? new Date(
+                                  form.effectiveStartDate
+                                    .split("/")
+                                    .reverse()
+                                    .join("-"),
+                                )
+                              : new Date()
+                          }
+                          onSelect={(date) => {
+                            const formattedDate = `${String(
+                              date.getDate(),
+                            ).padStart(2, "0")}/${String(
+                              date.getMonth() + 1,
+                            ).padStart(2, "0")}/${date.getFullYear()}`;
 
-                          const updatedForm = {
-                            ...form,
-                            effectiveStartDate: formattedDate,
-                          };
-
-                          const updatedTouched = {
-                            ...touched,
-                            effectiveStartDate: true,
-                          };
-
-                          setForm(updatedForm);
-                          setTouched(updatedTouched);
-
-                          const dateErrors = validateDateTime(
-                            updatedForm,
-                            updatedTouched,
-                          );
-
-                          setErrors((prev) => {
-                            const updatedErrors = { ...prev };
-
-                            delete updatedErrors.effectiveStartDate;
-                            delete updatedErrors.effectiveEndDate;
-
-                            return {
-                              ...updatedErrors,
-                              ...dateErrors,
+                            const updatedForm = {
+                              ...form,
+                              effectiveStartDate: formattedDate,
                             };
-                          });
 
-                          setShowStartDatePicker(false);
-                        }}
-                        onClose={() => setShowStartDatePicker(false)}
-                      />
+                            const updatedTouched = {
+                              ...touched,
+                              effectiveStartDate: true,
+                            };
+
+                            setForm(updatedForm);
+                            setTouched(updatedTouched);
+
+                            const dateErrors = validateDateTime(
+                              updatedForm,
+                              updatedTouched,
+                            );
+
+                            setErrors((prev) => {
+                              const updatedErrors = { ...prev };
+
+                              delete updatedErrors.effectiveStartDate;
+                              delete updatedErrors.effectiveEndDate;
+
+                              return {
+                                ...updatedErrors,
+                                ...dateErrors,
+                              };
+                            });
+
+                            setShowStartDatePicker(false);
+                          }}
+                          onClose={() => setShowStartDatePicker(false)}
+                        />
+                      </div>
                     )}
 
                     {errors.effectiveStartDate && (
@@ -789,13 +790,6 @@ const AdditionalDiscountNew = forwardRef<
                       onClick={() => {
                         if (!alwaysActive) {
                           setShowEndDatePicker(true);
-
-                          setTimeout(() => {
-                            formContainerRef.current?.scrollBy({
-                              top: 220,
-                              behavior: "smooth",
-                            });
-                          }, 100);
                         }
                       }}
                       className={`w-full min-w-0 h-12 border rounded-lg p-4 focus:outline-none ${
@@ -806,58 +800,60 @@ const AdditionalDiscountNew = forwardRef<
                     />
 
                     {showEndDatePicker && (
-                      <DatePicker
-                        selectedDate={
-                          form.effectiveEndDate
-                            ? new Date(
-                                form.effectiveEndDate
-                                  .split("/")
-                                  .reverse()
-                                  .join("-"),
-                              )
-                            : new Date()
-                        }
-                        onSelect={(date) => {
-                          const formattedDate = `${String(
-                            date.getDate(),
-                          ).padStart(2, "0")}/${String(
-                            date.getMonth() + 1,
-                          ).padStart(2, "0")}/${date.getFullYear()}`;
+                      <div className="absolute bottom-full left-0 mb-2 z-50">
+                        <DatePicker
+                          selectedDate={
+                            form.effectiveEndDate
+                              ? new Date(
+                                  form.effectiveEndDate
+                                    .split("/")
+                                    .reverse()
+                                    .join("-"),
+                                )
+                              : new Date()
+                          }
+                          onSelect={(date) => {
+                            const formattedDate = `${String(
+                              date.getDate(),
+                            ).padStart(2, "0")}/${String(
+                              date.getMonth() + 1,
+                            ).padStart(2, "0")}/${date.getFullYear()}`;
 
-                          const updatedForm = {
-                            ...form,
-                            effectiveEndDate: formattedDate,
-                          };
-
-                          const updatedTouched = {
-                            ...touched,
-                            effectiveEndDate: true,
-                          };
-
-                          setForm(updatedForm);
-                          setTouched(updatedTouched);
-
-                          const dateErrors = validateDateTime(
-                            updatedForm,
-                            updatedTouched,
-                          );
-
-                          setErrors((prev) => {
-                            const updatedErrors = { ...prev };
-
-                            delete updatedErrors.effectiveStartDate;
-                            delete updatedErrors.effectiveEndDate;
-
-                            return {
-                              ...updatedErrors,
-                              ...dateErrors,
+                            const updatedForm = {
+                              ...form,
+                              effectiveEndDate: formattedDate,
                             };
-                          });
 
-                          setShowEndDatePicker(false);
-                        }}
-                        onClose={() => setShowEndDatePicker(false)}
-                      />
+                            const updatedTouched = {
+                              ...touched,
+                              effectiveEndDate: true,
+                            };
+
+                            setForm(updatedForm);
+                            setTouched(updatedTouched);
+
+                            const dateErrors = validateDateTime(
+                              updatedForm,
+                              updatedTouched,
+                            );
+
+                            setErrors((prev) => {
+                              const updatedErrors = { ...prev };
+
+                              delete updatedErrors.effectiveStartDate;
+                              delete updatedErrors.effectiveEndDate;
+
+                              return {
+                                ...updatedErrors,
+                                ...dateErrors,
+                              };
+                            });
+
+                            setShowEndDatePicker(false);
+                          }}
+                          onClose={() => setShowEndDatePicker(false)}
+                        />
+                      </div>
                     )}
 
                     {errors.effectiveEndDate && (

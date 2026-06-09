@@ -36,8 +36,7 @@ export default function ProductImageUpload({
 
     const newFiles = Array.from(e.target.files);
 
-    const totalFiles =
-      images.length + existingImages.length + newFiles.length;
+    const totalFiles = images.length + existingImages.length + newFiles.length;
 
     if (totalFiles > maxFiles) {
       setErrors?.((prev: any) => ({
@@ -45,8 +44,7 @@ export default function ProductImageUpload({
         images: `Maximum ${maxFiles} images are allowed`,
       }));
 
-      const remainingSlots =
-        maxFiles - (images.length + existingImages.length);
+      const remainingSlots = maxFiles - (images.length + existingImages.length);
 
       const allowedFiles = newFiles.slice(0, remainingSlots);
 
@@ -113,11 +111,7 @@ export default function ProductImageUpload({
         </div>
       </div>
 
-      {error && (
-        <div className="text-red-500 text-sm mt-2">
-          {error}
-        </div>
-      )}
+      {error && <div className="text-red-500 text-sm mt-2">{error}</div>}
 
       <div className="flex gap-4">
         {existingImages.length > 0 && (
@@ -164,7 +158,7 @@ export default function ProductImageUpload({
                     onClick={() =>
                       setImages(images.filter((_, i) => i !== index))
                     }
-                    className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
+                    className="absolute top-1 right-1 w-5 h-5 bg-[#1E1E1D] text-white rounded-full flex items-center justify-center cursor-pointer text-xs"
                   >
                     ✕
                   </button>
