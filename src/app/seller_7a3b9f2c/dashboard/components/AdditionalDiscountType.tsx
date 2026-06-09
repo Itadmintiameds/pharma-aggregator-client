@@ -118,8 +118,8 @@ const AdditionalDiscountType = ({
   
   return (
     <>
-    <div className="h-[80vh] overflow-y-auto flex flex-col p-6">
-      <div className="flex flex-col gap-2">
+    <div className="h-[90vh] overflow-y-auto flex flex-col p-4">
+      <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <span className="text-h6 font-normal">Additional Discount </span>
           <span className="text-label-l3 font-normal">(Quantity-based)</span>
@@ -133,7 +133,7 @@ const AdditionalDiscountType = ({
       <div className="flex justify-between items-center w-full">
         <div className="w-full">
           <div className="flex items-center justify-between w-full">
-            <div className="mt-4">
+            <div className="mt-2">
               <Select
                 options={options}
                 placeholder="Select Offer Type"
@@ -160,17 +160,9 @@ const AdditionalDiscountType = ({
                 />
               </div>
             </div>
-
-            {/* <div className="flex items-center gap-3">
-              <div className="text-label-l font-normal">Always Active</div>
-
-              <div className="w-13 h-7 bg-pneutral-200 rounded-full flex items-center px-0 cursor-pointer">
-                <div className="w-7 h-7 bg- bg-pneutral-400 rounded-full mr-1"></div>
-              </div>
-            </div> */}
           </div>
 
-          <div className="mt-6">
+          <div className="mt-3">
             {selectedOption?.value === "additional_discount" && (
               <AdditionalDiscountNew
                 ref={additionalDiscountRef}
@@ -193,7 +185,7 @@ const AdditionalDiscountType = ({
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-3 px-5 py-6">
+      <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 px-5 py-3">
         <div className="border-t border-neutral-200"></div>
 
         <div className="flex justify-between">

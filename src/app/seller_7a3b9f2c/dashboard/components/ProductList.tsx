@@ -141,7 +141,7 @@ const ProductList = ({
             className="border border-pneutral-200 text-p4 text-pneutral-500 font-medium w-full h-12 rounded-lg px-5 pr-14 focus:outline-none focus:ring-0 "
           />
 
-          <div className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center rounded-r-lg">
+          <div className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center rounded-r-lg bg-[#E4D6FB]">
             <img src="/icons/SearchIcon.svg" alt="search" className="w-6 h-6" />
           </div>
         </div>

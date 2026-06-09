@@ -101,7 +101,7 @@ export default function DatePicker({
   return (
     <div
       ref={pickerRef}
-      className="absolute z-50 mt-2 w-71 h-91 rounded-lg border border-pneutral-100 bg-white p-3 shadow-xl">
+      className="z-50 mt-2 w-71 h-91 rounded-lg border border-pneutral-100 bg-white p-3 shadow-xl">
       <div className="mb-3 flex items-center justify-between">
         <button
           type="button"

@@ -92,23 +92,33 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
         accessorKey: "schemeName",
         header: "Name",
         cell: ({ row, getValue }) => {
-          const isSelected = row.original.displayOfferScheme ?? row.original.isSelected !== false;
+          const isSelected =
+            row.original.displayOfferScheme ??
+            row.original.isSelected !== false;
           return (
             <div className="flex items-center justify-center gap-2">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={isSelected}
                 onChange={(e) => {
-                  setTableData(prev => prev.map((scheme, i) => 
-                    i === row.index ? { ...scheme, displayOfferScheme: e.target.checked, isSelected: e.target.checked } : scheme
-                  ));
+                  setTableData((prev) =>
+                    prev.map((scheme, i) =>
+                      i === row.index
+                        ? {
+                            ...scheme,
+                            displayOfferScheme: e.target.checked,
+                            isSelected: e.target.checked,
+                          }
+                        : scheme,
+                    ),
+                  );
                 }}
-                className="w-4 h-4 rounded border-gray-300 cursor-pointer" 
+                className="w-4 h-4 rounded border-gray-300 cursor-pointer"
               />
               <span>{String(getValue())}</span>
             </div>
           );
-        }
+        },
       },
       // {
       //   accessorKey: "schemeType",
@@ -129,16 +139,8 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
         header: "Action",
         cell: () => (
           <div className="flex gap-3 justify-center">
-            <img
-              src="/icons/EditIcon.svg"
-              alt="edit"
-              className="w-4 h-4"
-            />
-            <img
-              src="/icons/DeleteIcon.svg"
-              alt="delete"
-              className="w-4 h-4"
-            />
+            <img src="/icons/EditIcon.svg" alt="edit" className="w-4 h-4" />
+            <img src="/icons/DeleteIcon.svg" alt="delete" className="w-4 h-4" />
           </div>
         ),
       },
@@ -316,7 +318,11 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
     };
 
     const handleSubmit = () => {
-      const isFormEmpty = !form.schemeName && !form.buyQuantity && !form.freeQuantity && (!form.effectiveStartDate || alwaysActive);
+      const isFormEmpty =
+        !form.schemeName &&
+        !form.buyQuantity &&
+        !form.freeQuantity &&
+        (!form.effectiveStartDate || alwaysActive);
 
       if (isFormEmpty) {
         if (onSave) onSave(tableData);
@@ -413,7 +419,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
               </div>
 
               <div className="flex justify-end mt-3">
-                <button 
+                <button
                   onClick={(e) => {
                     e.preventDefault();
                     if (onSave) onSave(tableData);
@@ -430,8 +436,8 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
             </div>
           )}
 
-          <form autoComplete="off" className="flex flex-col gap-7">
-            <div className="flex flex-col gap-3">
+          <form autoComplete="off" className="flex flex-col gap-5">
+            <div className="flex flex-col">
               <div className="flex flex-col gap-1">
                 <label htmlFor="" className="text-label-l4 font-medium">
                   Scheme Name
@@ -453,7 +459,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
               </div>
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
               <div className="text-label-l5 font-medium">DISCOUNT DETAILS</div>
               <div className="flex gap-3">
                 <div className="flex flex-col gap-1">
@@ -497,7 +503,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
               </div>
             </div>
 
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <div className="text-label-l5 font-medium">VALIDITY PERIOD</div>
               <div className="flex flex-col gap-1">
                 <label
@@ -527,51 +533,53 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                     />
 
                     {showStartDatePicker && (
-                      <DatePicker
-                        selectedDate={
-                          form.effectiveStartDate
-                            ? new Date(
-                                form.effectiveStartDate
-                                  .split("/")
-                                  .reverse()
-                                  .join("-"),
-                              )
-                            : new Date()
-                        }
-                        onSelect={(date) => {
-                          const formattedDate = `${String(
-                            date.getDate(),
-                          ).padStart(2, "0")}/${String(
-                            date.getMonth() + 1,
-                          ).padStart(2, "0")}/${date.getFullYear()}`;
+                      <div className="absolute bottom-full left-0 mb-2 z-50">
+                        <DatePicker
+                          selectedDate={
+                            form.effectiveStartDate
+                              ? new Date(
+                                  form.effectiveStartDate
+                                    .split("/")
+                                    .reverse()
+                                    .join("-"),
+                                )
+                              : new Date()
+                          }
+                          onSelect={(date) => {
+                            const formattedDate = `${String(
+                              date.getDate(),
+                            ).padStart(2, "0")}/${String(
+                              date.getMonth() + 1,
+                            ).padStart(2, "0")}/${date.getFullYear()}`;
 
-                          const updatedForm = {
-                            ...form,
-                            effectiveStartDate: formattedDate,
-                          };
+                            const updatedForm = {
+                              ...form,
+                              effectiveStartDate: formattedDate,
+                            };
 
-                          setForm(updatedForm);
+                            setForm(updatedForm);
 
-                          setTouched((prev) => ({
-                            ...prev,
-                            effectiveStartDate: true,
-                          }));
+                            setTouched((prev) => ({
+                              ...prev,
+                              effectiveStartDate: true,
+                            }));
 
-                          const validationErrors = validateForm(
-                            updatedForm,
-                            "effectiveStartDate",
-                          );
+                            const validationErrors = validateForm(
+                              updatedForm,
+                              "effectiveStartDate",
+                            );
 
-                          setErrors((prev) => ({
-                            ...prev,
-                            effectiveStartDate:
-                              validationErrors.effectiveStartDate || "",
-                          }));
+                            setErrors((prev) => ({
+                              ...prev,
+                              effectiveStartDate:
+                                validationErrors.effectiveStartDate || "",
+                            }));
 
-                          setShowStartDatePicker(false);
-                        }}
-                        onClose={() => setShowStartDatePicker(false)}
-                      />
+                            setShowStartDatePicker(false);
+                          }}
+                          onClose={() => setShowStartDatePicker(false)}
+                        />
+                      </div>
                     )}
 
                     {errors.effectiveStartDate && (
@@ -612,26 +620,6 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                   End Date
                 </label>
                 <div className="flex gap-3">
-                  {/* <div className="flex flex-col">
-                  <input
-                    type="date"
-                    name="effectiveEndDate"
-                    id="effectiveEndDate"
-                    value={form.effectiveEndDate || ""}
-                    onChange={handleInputChange}
-                    disabled={alwaysActive}
-                    className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
-                      alwaysActive
-                        ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                        : "border-pneutral-300"
-                    }`}
-                  />
-                  {errors.effectiveEndDate && (
-                    <p className="text-warning-500 text-xs mt-1">
-                      {errors.effectiveEndDate}
-                    </p>
-                  )}
-                </div> */}
                   <div className="relative flex flex-col">
                     <input
                       type="text"
@@ -652,51 +640,53 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                     />
 
                     {showEndDatePicker && (
-                      <DatePicker
-                        selectedDate={
-                          form.effectiveEndDate
-                            ? new Date(
-                                form.effectiveEndDate
-                                  .split("/")
-                                  .reverse()
-                                  .join("-"),
-                              )
-                            : new Date()
-                        }
-                        onSelect={(date) => {
-                          const formattedDate = `${String(
-                            date.getDate(),
-                          ).padStart(2, "0")}/${String(
-                            date.getMonth() + 1,
-                          ).padStart(2, "0")}/${date.getFullYear()}`;
+                      <div className="absolute bottom-full left-0 mb-2 z-50">
+                        <DatePicker
+                          selectedDate={
+                            form.effectiveEndDate
+                              ? new Date(
+                                  form.effectiveEndDate
+                                    .split("/")
+                                    .reverse()
+                                    .join("-"),
+                                )
+                              : new Date()
+                          }
+                          onSelect={(date) => {
+                            const formattedDate = `${String(
+                              date.getDate(),
+                            ).padStart(2, "0")}/${String(
+                              date.getMonth() + 1,
+                            ).padStart(2, "0")}/${date.getFullYear()}`;
 
-                          const updatedForm = {
-                            ...form,
-                            effectiveEndDate: formattedDate,
-                          };
+                            const updatedForm = {
+                              ...form,
+                              effectiveEndDate: formattedDate,
+                            };
 
-                          setForm(updatedForm);
+                            setForm(updatedForm);
 
-                          setTouched((prev) => ({
-                            ...prev,
-                            effectiveEndDate: true,
-                          }));
+                            setTouched((prev) => ({
+                              ...prev,
+                              effectiveEndDate: true,
+                            }));
 
-                          const validationErrors = validateForm(
-                            updatedForm,
-                            "effectiveEndDate",
-                          );
+                            const validationErrors = validateForm(
+                              updatedForm,
+                              "effectiveEndDate",
+                            );
 
-                          setErrors((prev) => ({
-                            ...prev,
-                            effectiveEndDate:
-                              validationErrors.effectiveEndDate || "",
-                          }));
+                            setErrors((prev) => ({
+                              ...prev,
+                              effectiveEndDate:
+                                validationErrors.effectiveEndDate || "",
+                            }));
 
-                          setShowEndDatePicker(false);
-                        }}
-                        onClose={() => setShowEndDatePicker(false)}
-                      />
+                            setShowEndDatePicker(false);
+                          }}
+                          onClose={() => setShowEndDatePicker(false)}
+                        />
+                      </div>
                     )}
 
                     {errors.effectiveEndDate && (
