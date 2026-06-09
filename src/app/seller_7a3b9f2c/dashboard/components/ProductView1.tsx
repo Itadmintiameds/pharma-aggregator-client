@@ -1494,7 +1494,7 @@ const ProductView1 = ({
                 .filter(Boolean)
                 .join(", ") || null
               : null) ?? cosAttrRaw.ageGroup,
-          intendedUseArea: intendedUseArea || cosAttrRaw.intendedUseArea || null,
+          intendedUseArea: intendedUseArea || cosAttrRaw.intendedUseArea || undefined,
           skinHairType: skinHairType ?? cosAttrRaw.skinHairType,
           countryOfOrigin:
             countryOpts.find((o) => o.value === countryIdStr)?.label ??
