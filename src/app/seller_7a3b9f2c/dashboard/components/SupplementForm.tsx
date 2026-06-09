@@ -937,78 +937,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const certDropdownRef = useRef<HTMLDivElement>(null);
   const ageGroupDropdownRef = useRef<HTMLDivElement>(null);
 
-  /*
-  const selectStyles = (errorKey: string) => ({
-    control: (base: any, state: any) => ({
-      ...base,
-      minHeight: "56px",
-      height: "auto",
-      borderRadius: "16px",
-      borderColor: errors[errorKey]
-        ? "#FF3B3B"
-        : state.isFocused
-          ? "#4B0082"
-          : "#737373",
-      boxShadow: "none",
-      cursor: "pointer",
 
-      // ✅ FIX: dynamic alignment
-      alignItems:
-        state.hasValue && state.selectProps.isMulti ? "flex-start" : "center",
-
-      "&:hover": { borderColor: errors[errorKey] ? "#FF3B3B" : "#4B0082" },
-    }),
-
-    valueContainer: (base: any) => ({
-      ...base,
-      padding: "8px 16px", // slight vertical padding for multi-line
-      flexWrap: "wrap", // ✅ enables wrapping
-      overflow: "visible",
-    }),
-
-    indicatorsContainer: (base: any) => ({
-      ...base,
-      height: "56px", // ✅ keep icon aligned like other fields
-    }),
-
-    dropdownIndicator: (base: any, state: any) => ({
-      ...base,
-      color: state.isFocused ? "#4B0082" : "#737373",
-      cursor: "pointer",
-      "&:hover": { color: "#4B0082" },
-    }),
-
-    option: (base: any, state: any) => ({
-      ...base,
-      backgroundColor: state.isSelected
-        ? "#4B0082"
-        : state.isFocused
-          ? "#F3E8FF"
-          : "white",
-      color: state.isSelected ? "white" : "#1E1E1E",
-      cursor: "pointer",
-      "&:active": { backgroundColor: "#4B0082", color: "white" },
-    }),
-
-    placeholder: (base: any) => ({ ...base, color: "#A3A3A3" }),
-    singleValue: (base: any) => ({ ...base, color: "#1E1E1E" }),
-
-    multiValue: (base: any) => ({
-      ...base,
-      margin: "2px", // neat spacing when wrapping
-    }),
-  });
-
-  const selectTheme = (theme: any) => ({
-    ...theme,
-    colors: {
-      ...theme.colors,
-      primary: "#4B0082",
-      primary25: "#F3E8FF",
-      primary50: "#E9D5FF",
-    },
-  });
-  */
 
   // Close cert and ageGroup dropdowns on outside click
   useEffect(() => {
@@ -1127,7 +1056,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         value = parts[0];
       }
       if (Number(value) > 100) {
-        value = "100";
+        value = "";
       }
     }
 
@@ -1200,8 +1129,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
         // ── Discount 0–100 ───────────────────────────────────────────────────
         if (name === "discountPercentage") {
+          const originalD = Number(e.target.value.replace(/[^0-9.]/g, ""));
           const d = Number(value);
-          if (value !== "" && (isNaN(d) || d < 0 || d > 100)) {
+          if ((e.target.value !== "" && originalD > 100) || (value !== "" && (isNaN(d) || d < 0 || d > 100))) {
             newErrors.discountPercentage = "Discount must be between 0 and 100";
           } else {
             delete newErrors.discountPercentage;
@@ -1531,17 +1461,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       e.netQuantityUnit = "Please select a unit";
     }
 
-    // ── SERVING SIZE VALIDATION (COMMENTED OUT — FIELD DISABLED AS "As prescribed by Doctor") ──
-    // if (!form.servingSizeValue) {
-    //   e.servingSizeValue = "Serving Size is required";
-    // } else if (isNaN(Number(form.servingSizeValue)) || Number(form.servingSizeValue) <= 0) {
-    //   e.servingSizeValue = "Serving Size must be a positive number";
-    // } else if (form.netQuantityValue && Number(form.servingSizeValue) > Number(form.netQuantityValue)) {
-    //   e.servingSizeValue = "Serving Size cannot exceed Net Quantity";
-    // }
-    // if (!form.servingSizeUnit) {
-    //   e.servingSizeUnit = "Please select a unit";
-    // }
 
     // ── Custom validation for shelf life (cannot exceed 5 years / 60 months) ──
     if (form.shelfLifeMonths) {
@@ -2028,22 +1947,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Therapeutic Category */}
             <div className="flex flex-col gap-0" data-field="therapeuticCategory">
               <label className={fieldLabel}>Therapeutic Category {requiredStar}</label>
-              {/*
-              <Select
-                options={therapeuticCategoryOptions}
-                isLoading={loadingTherapeuticCategories}
-                value={therapeuticCategoryOptions.find(o => String(o.value) === String(form.therapeuticCategory)) || null}
-                onChange={(selected) => {
-                  setForm((p) => ({ ...p, therapeuticCategory: selected ? selected.value : "", therapeuticSubcategory: "" }));
-                  if (errors.therapeuticCategory) setErrors((p) => { const n = { ...p }; delete n.therapeuticCategory; return n; });
-                }}
-                placeholder="Select category"
-                theme={selectTheme}
-                styles={selectStyles("therapeuticCategory")}
-                isDisabled={isEditMode}
-              />
-              {errors.therapeuticCategory && <p className={errorMsg}>{errors.therapeuticCategory}</p>}
-              */}
+
               <Dropdown
                 options={therapeuticCategoryOptions}
                 isLoading={loadingTherapeuticCategories}
@@ -2053,7 +1957,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   if (errors.therapeuticCategory) setErrors((p) => { const n = { ...p }; delete n.therapeuticCategory; return n; });
                 }}
                 placeholder="Select category"
-                isDisabled={isEditMode}
+                readOnly={isEditMode}
                 error={errors.therapeuticCategory ? " " : ""}
               />
               {errors.therapeuticCategory && <p className={errorMsg}>{errors.therapeuticCategory}</p>}
@@ -2063,22 +1967,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Therapeutic Subcategory */}
             <div className="flex flex-col gap-0" data-field="therapeuticSubcategory">
               <label className={fieldLabel}>Therapeutic Subcategory {requiredStar}</label>
-              {/*
-              <Select
-                options={subCategoryOptions}
-                isLoading={loadingSubcategories}
-                value={subCategoryOptions.find(o => String(o.value) === String(form.therapeuticSubcategory)) || null}
-                onChange={(selected) => {
-                  setForm((p) => ({ ...p, therapeuticSubcategory: selected ? selected.value : "" }));
-                  if (errors.therapeuticSubcategory) setErrors((p) => { const n = { ...p }; delete n.therapeuticSubcategory; return n; });
-                }}
-                placeholder={form.therapeuticCategory ? "Select sub-category" : "Select category first"}
-                isDisabled={isEditMode || !form.therapeuticCategory}
-                theme={selectTheme}
-                styles={selectStyles("therapeuticSubcategory")}
-              />
-              {errors.therapeuticSubcategory && <p className={errorMsg}>{errors.therapeuticSubcategory}</p>}
-              */}
+
               <Dropdown
                 options={subCategoryOptions}
                 isLoading={loadingSubcategories}
@@ -2088,7 +1977,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   if (errors.therapeuticSubcategory) setErrors((p) => { const n = { ...p }; delete n.therapeuticSubcategory; return n; });
                 }}
                 placeholder={form.therapeuticCategory ? "Select sub-category" : "Select category first"}
-                isDisabled={isEditMode || !form.therapeuticCategory}
+                readOnly={isEditMode || !form.therapeuticCategory}
                 error={errors.therapeuticSubcategory ? " " : ""}
                 className="[&_.border-2]:!border-t [&_.border-2]:!border-r [&_.border-2]:!border-b [&_.border-2]:!border-l"
               />
@@ -2126,21 +2015,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Dosage Form */}
             <div className="flex flex-col gap-0" data-field="dosageForm">
               <label className={fieldLabel}>Dosage Form {requiredStar}</label>
-              {/*
-              <Select
-                options={dosageFormOptions}
-                value={dosageFormOptions.find(o => o.value === form.dosageForm) || null}
-                onChange={(selected) => {
-                  setForm((p) => ({ ...p, dosageForm: selected ? selected.value : "" }));
-                  if (errors.dosageForm) setErrors((p) => { const n = { ...p }; delete n.dosageForm; return n; });
-                }}
-                placeholder={loadingDosageForms ? "Loading..." : "Select dosage form"}
-                theme={selectTheme}
-                styles={selectStyles("dosageForm")}
-                isDisabled={isEditMode || loadingDosageForms}
-              />
-              {errors.dosageForm && <p className={errorMsg}>{errors.dosageForm}</p>}
-              */}
+
               <Dropdown
                 options={dosageFormOptions}
                 value={form.dosageForm}
@@ -2149,7 +2024,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   if (errors.dosageForm) setErrors((p) => { const n = { ...p }; delete n.dosageForm; return n; });
                 }}
                 placeholder={loadingDosageForms ? "Loading..." : "Select dosage form"}
-                isDisabled={isEditMode || loadingDosageForms}
+                readOnly={isEditMode || loadingDosageForms}
                 error={errors.dosageForm ? " " : ""}
               />
               {errors.dosageForm && <p className={errorMsg}>{errors.dosageForm}</p>}
@@ -2234,25 +2109,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Nutritional Information Table */}
             <div className="flex flex-col gap-0" data-field="nutritionalInfoType">
               <label className={fieldLabel}>Nutritional Information Table {requiredStar}</label>
-              {/*
-              <Select
-                options={nutritionalInfoOptions}
-                value={nutritionalInfoOptions.find(o => o.value === form.nutritionalInfoType) || null}
-                onChange={(selected) => {
-                  const val = selected ? selected.value : "";
-                  setForm((p) => ({ ...p, nutritionalInfoType: val }));
-                  if (val === "label") {
-                    setNutritionalImage(null);
-                    setErrors((p) => { const n = { ...p }; delete n.nutritionalImage; return n; });
-                  }
-                  if (errors.nutritionalInfoType) setErrors((p) => { const n = { ...p }; delete n.nutritionalInfoType; return n; });
-                }}
-                placeholder="Select option"
-                theme={selectTheme}
-                styles={selectStyles("nutritionalInfoType")}
-              />
-              {errors.nutritionalInfoType && <p className={errorMsg}>{errors.nutritionalInfoType}</p>}
-              */}
+
               <Dropdown
                 options={nutritionalInfoOptions}
                 value={form.nutritionalInfoType}
@@ -2272,64 +2129,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             {form.nutritionalInfoType === "image" && (
               <div data-field="nutritionalImage">
-                {/* Legacy Hardcoded Upload commented out
-                <div className="flex flex-col gap-0">
-                  <label className={fieldLabel}>Upload Nutritional Information {requiredStar}</label>
 
-                  <div className="flex items-center w-full h-14 rounded-2xl border border-neutral-500 bg-white overflow-hidden">
-                    <div className="flex items-center justify-center h-full px-4 bg-[#DED0FE]">
-                      <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
-                    </div>
-
-                    <div className="flex-1 flex items-center gap-2 px-4 overflow-hidden">
-                      {nutritionalImage || (existingNutritionalImageUrl && !nutritionalImage) ? (
-                        <div className="flex items-center bg-[#FDEBEB] text-sm px-3 py-2 rounded-lg max-w-full">
-                          <span className="truncate">
-                            {nutritionalImage ? nutritionalImage.name : "Current Nutritional Image"}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (nutritionalImage) {
-                                setNutritionalImage(null);
-                                if (nutritionalInputRef.current) nutritionalInputRef.current.value = "";
-                              } else {
-                                setExistingNutritionalImageUrl(null);
-                              }
-                            }}
-                            className="ml-2"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[#969793]">Upload the Nutritional Information Image</span>
-                      )}
-                    </div>
-
-                    {existingNutritionalImageUrl && !nutritionalImage && (
-                      <a href={existingNutritionalImageUrl} target="_blank" rel="noreferrer" className="text-purple-600 text-xs underline px-2">View</a>
-                    )}
-
-                    {!nutritionalImage && (!existingNutritionalImageUrl || nutritionalImage === null) && (
-                      <label className="cursor-pointer px-4">
-                        <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
-                        <input
-                          ref={nutritionalInputRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/jpg"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleNutritionalUpload(file);
-                          }}
-                        />
-                      </label>
-                    )}
-                  </div>
-                  {errors.nutritionalImage && <p className={errorMsg}>{errors.nutritionalImage}</p>}
-                </div>
-                */}
                 <UploadInput
                   onFileSelect={(file) => {
                     setNutritionalImage(file);
@@ -2366,21 +2166,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Age Group */}
             <div className="flex flex-col gap-0" data-field="ageGroup">
               <label className={fieldLabel}>Age Group {requiredStar}</label>
-              {/*
-              <Select
-                options={ageGroupOptions}
-                value={ageGroupOptions.find(o => o.value === form.ageGroup) || null}
-                onChange={(selected) => {
-                  setForm((p) => ({ ...p, ageGroup: selected ? selected.value : "" }));
-                  if (errors.ageGroup) setErrors((p) => { const n = { ...p }; delete n.ageGroup; return n; });
-                }}
-                placeholder={loadingAgeGroups ? "Loading..." : "Select age group"}
-                theme={selectTheme}
-                styles={selectStyles("ageGroup")}
-                isDisabled={isEditMode || loadingAgeGroups}
-              />
-              {errors.ageGroup && <p className={errorMsg}>{errors.ageGroup}</p>}
-              */}
+
               <CheckboxDropdown
                 options={ageGroupOptions}
                 selectedValues={form.ageGroup ? form.ageGroup.split(",") : []}
@@ -2395,7 +2181,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   }
                 }}
                 placeholder={loadingAgeGroups ? "Loading..." : "Select age group"}
-                disabled={isEditMode || loadingAgeGroups}
+                readOnly={isEditMode || loadingAgeGroups}
                 error={errors.ageGroup ? " " : ""}
                 showSelectAll={false}
               />
@@ -2404,20 +2190,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Gender */}
             <div className="flex flex-col gap-0" data-field="gender">
               <label className={fieldLabel}>Gender {requiredStar}</label>
-              {/*
-              <Select
-                options={genderOptions}
-                value={genderOptions.find(o => o.value === form.gender) || null}
-                onChange={(selected) => {
-                  setForm((p) => ({ ...p, gender: selected ? selected.value : "" }));
-                  if (errors.gender) setErrors((p) => { const n = { ...p }; delete n.gender; return n; });
-                }}
-                placeholder="Select gender"
-                theme={selectTheme}
-                styles={selectStyles("gender")}
-              />
-              {errors.gender && <p className={errorMsg}>{errors.gender}</p>}
-              */}
+
               <Dropdown
                 options={genderOptions}
                 value={form.gender}
@@ -2476,21 +2249,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Flavour */}
             <div className="flex flex-col gap-0" data-field="flavour">
               <label className={fieldLabel}>Flavour {requiredStar}</label>
-              {/*
-              <Select
-                options={flavourOptions}
-                value={flavourOptions.find(o => o.value === form.flavour) || null}
-                onChange={(selected) => {
-                  setForm((p) => ({ ...p, flavour: selected ? selected.value : "" }));
-                  if (errors.flavour) setErrors((p) => { const n = { ...p }; delete n.flavour; return n; });
-                }}
-                placeholder={loadingFlavours ? "Loading..." : "Select flavour"}
-                theme={selectTheme}
-                styles={selectStyles("flavour")}
-                isDisabled={loadingFlavours}
-              />
-              {errors.flavour && <p className={errorMsg}>{errors.flavour}</p>}
-              */}
+
               <Dropdown
                 options={flavourOptions}
                 value={form.flavour}
@@ -2499,7 +2258,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   if (errors.flavour) setErrors((p) => { const n = { ...p }; delete n.flavour; return n; });
                 }}
                 placeholder={loadingFlavours ? "Loading..." : "Select flavour"}
-                isDisabled={loadingFlavours}
+                readOnly={loadingFlavours}
                 error={errors.flavour ? " " : ""}
               />
               {errors.flavour && <p className={errorMsg}>{errors.flavour}</p>}
@@ -2522,21 +2281,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
             {/* Storage Condition */}
             <div className="flex flex-col gap-0" data-field="storageCondition">
               <label className={fieldLabel}>Storage Condition {requiredStar}</label>
-              {/*
-              <Select
-                options={storageOptions}
-                value={storageOptions.find(o => o.value === form.storageCondition) || null}
-                onChange={(selected) => {
-                  setForm((p) => ({ ...p, storageCondition: selected ? selected.value : "" }));
-                  if (errors.storageCondition) setErrors((p) => { const n = { ...p }; delete n.storageCondition; return n; });
-                }}
-                placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
-                theme={selectTheme}
-                styles={selectStyles("storageCondition")}
-                isDisabled={hasStock || loadingStorageConditions}
-              />
-              {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
-              */}
+
               <Dropdown
                 options={storageOptions}
                 value={form.storageCondition}
@@ -2545,7 +2290,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   if (errors.storageCondition) setErrors((p) => { const n = { ...p }; delete n.storageCondition; return n; });
                 }}
                 placeholder={loadingStorageConditions ? "Loading..." : "Select storage condition"}
-                isDisabled={hasStock || loadingStorageConditions}
+                readOnly={hasStock || loadingStorageConditions}
                 error={errors.storageCondition ? " " : ""}
               />
               {errors.storageCondition && <p className={errorMsg}>{errors.storageCondition}</p>}
@@ -2578,7 +2323,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   if (errors.countryOfOrigin) setErrors((p) => { const n = { ...p }; delete n.countryOfOrigin; return n; });
                 }}
                 placeholder={loadingCountries ? "Loading..." : "Select country"}
-                isDisabled={isEditMode || loadingCountries}
+                readOnly={isEditMode || loadingCountries}
                 error={errors.countryOfOrigin ? " " : ""}
               />
               {errors.countryOfOrigin && <p className={errorMsg}>{errors.countryOfOrigin}</p>}
@@ -2618,7 +2363,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   }
                 }}
                 placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
-                disabled={loadingCertifications}
+                readOnly={loadingCertifications}
                 error={errors.certifications ? " " : ""}
               />
               {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
@@ -2719,30 +2464,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 Pack Type
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
-              {/*
-              <Select
-                options={packTypeApiOptions}
-                value={
-                  packTypeApiOptions.find(
-                    (o: any) => String(o.value) === String(form.packId),
-                  ) || null
-                }
-                onChange={(selected: any) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    packId: selected?.value || "",
-                    packType: selected?.label || "",
-                  }))
-                }
-                placeholder={loadingPackTypes ? "Loading..." : "Select Pack Type"}
-                isDisabled={isEditMode || loadingPackTypes}
-                theme={selectTheme}
-                styles={selectStyles("packId")}
-              />
-              {errors.packId && (
-                <p className="text-red-500 text-sm mt-1">{errors.packId}</p>
-              )}
-              */}
+
               <Dropdown
                 options={packTypeApiOptions}
                 value={form.packId}
@@ -2754,7 +2476,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   }))
                 }
                 placeholder={loadingPackTypes ? "Loading..." : "Select Pack Type"}
-                isDisabled={isEditMode || loadingPackTypes}
+                readOnly={isEditMode || loadingPackTypes}
                 error={errors.packId ? " " : ""}
               />
               {errors.packId && <p className={errorMsg}>{errors.packId}</p>}
@@ -2854,37 +2576,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               maxLength={20}
             />
 
-            {/* ── OLD MANUFACTURING DATE INPUT (COMMENTED OUT) ────────────────────── */}
-            {/*
-            <Input
-              label="Manufacturing Date"
-              type="month"
-              name="manufacturingDate"
-              id="manufacturingDate"
-              readOnly={isEditMode}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (!value) return;
-                const [year, month] = value.split("-").map(Number);
-                const date = new Date(year, month - 1, 1);
-                const today = new Date();
-                const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                if (date > currentMonth) {
-                  setErrors({ ...errors, manufacturingDate: "Manufacturing date cannot be in the future month" });
-                  return;
-                }
-                setErrors((prev) => ({ ...prev, manufacturingDate: "", expiryDate: "" }));
-                setForm({ ...form, manufacturingDate: date, expiryDate: null, shelfLifeMonths: "" });
-              }}
-              value={
-                form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
-                  ? `${form.manufacturingDate.getFullYear()}-${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}`
-                  : ""
-              }
-              error={errors.manufacturingDate}
-              required
-            />
-            */}
+
             {/* ── NEW MANUFACTURING DATE WITH MONTHPICKER ─────────────────────────── */}
             <div className="relative">
               <Input
@@ -2932,36 +2624,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               )}
             </div>
 
-            {/* ── OLD EXPIRY DATE INPUT (COMMENTED OUT) ──────────────────────────── */}
-            {/*
-            <Input
-              label="Expiry Date"
-              type="month"
-              name="expiryDate"
-              value={
-                form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
-                  ? `${form.expiryDate.getFullYear()}-${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}`
-                  : ""
-              }
-              readOnly={isEditMode}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (!value) return;
-                const [year, month] = value.split("-").map(Number);
-                const date = new Date(year, month - 1, 1);
-                setForm({ ...form, expiryDate: date });
-                if (errors.expiryDate) setErrors((prev) => ({ ...prev, expiryDate: "" }));
-              }}
-              onFocus={() => {
-                if (form.manufacturingDate) {
-                  setErrors((prev) => ({ ...prev, expiryDate: "Expiry must be at least 3 months after Manufacturing Date" }));
-                }
-              }}
-              min={getMinExpiryMonth()}
-              error={errors.expiryDate}
-              required
-            />
-            */}
+
             {/* ── NEW EXPIRY DATE WITH MONTHPICKER ────────────────────────────────── */}
             <div className="relative">
               <Input
@@ -3138,115 +2801,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               </button>
             </div>
 
-            {/* --- APPLIED OFFERS SECTION --- */}
-            {/*
-            {(form.additionalDiscount.length > 0 || form.specialSchemes.length > 0) && (
-              <div className="col-span-2 flex flex-col gap-[12px] w-full mt-4">
-
-                {form.additionalDiscount.length > 0 && (
-                  <div className="flex flex-col gap-[12px] w-full">
-                    <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-pneutral-900">
-                      Applied Discount Slabs
-                    </h3>
-                    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #C0C1BE" }}>
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr>
-                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Min Qty</th>
-                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Discount (%)</th>
-                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Start date</th>
-                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>End Date</th>
-                            <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {form.additionalDiscount.map((d, index) => (
-                            <tr key={index} style={{ backgroundColor: index % 2 === 0 ? "#F8F8F9" : "#EAEAE9" }}>
-                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.minimumPurchaseQuantity}</td>
-                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.additionalDiscountPercentage}%</td>
-                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.effectiveStartDate ? new Date(d.effectiveStartDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
-                              <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.effectiveEndDate ? new Date(d.effectiveEndDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
-                              <td className="px-4 py-3" style={{ border: "1px solid #C0C1BE" }}>
-                                <div className="flex justify-center items-center gap-3 relative">
-                                  <img
-                                    src="/icons/EditIcon.svg"
-                                    alt="edit"
-                                    className="cursor-pointer relative"
-                                    style={{ width: "16.88px", height: "16.88px", top: "1.25px", left: "1.88px" }}
-                                    onClick={() => setShowAdditionalDiscount(true)}
-                                  />
-                                  <img
-                                    src="/icons/DeleteIcon.svg"
-                                    alt="delete"
-                                    className="cursor-pointer relative"
-                                    style={{ width: "14.93px", height: "17.52px", top: "1.24px", left: "2.54px" }}
-                                    onClick={() => {
-                                      setForm(prev => ({
-                                        ...prev,
-                                        additionalDiscount: prev.additionalDiscount.filter((_, i) => i !== index)
-                                      }));
-                                    }}
-                                  />
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/*
-                {form.specialSchemes.length > 0 && (
-                  <div className="flex flex-col gap-[12px] w-full mt-2">
-                    <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-pneutral-900">
-                      Applied Special Offers & Promotional Schemes
-                    </h3>
-                    <div className={`grid gap-4 ${form.specialSchemes.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-                      {form.specialSchemes.map((scheme, index) => {
-                        const themes = [
-                          { border: "#4EB300", bg: "#DCF7CB", text: "#47A400", Icon: Gift },
-                          { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: Gift },
-                          { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Gift },
-                        ];
-                        let theme = themes[index % themes.length];
-                        const type = scheme.schemeType?.toLowerCase();
-                        if (type === "bogo" || type === "buy_x_get_y") theme = themes[0];
-                        else if (type === "bundle") theme = themes[1];
-                        else if (type === "seasonal") theme = themes[2];
-
-                        const dateStr = scheme.effectiveStartDate && scheme.effectiveEndDate
-                          ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
-                          : "Valid: Ongoing";
-
-                        return (
-                          <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px] relative" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
-                            {/* Icon Box * /}
-                            <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
-                              <theme.Icon className="w-6 h-6 text-white" />
-                            </div>
-                            {/* Content * /}
-                            <div className="flex flex-col pr-8">
-                              <h5 className="font-heading font-medium text-[20px] leading-[28px] mb-1.5" style={{ color: theme.text }}>
-                                {scheme.schemeName || "Special Scheme"}
-                              </h5>
-                              <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
-                                Purchase {scheme.buyQuantity} {form.productName || "this product"} and get {scheme.freeQuantity} absolutely free. Limited stock available!
-                              </p>
-                              <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">
-                                {dateStr}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            */}
 
             <AppliedOffersView
               additionalDiscounts={form.additionalDiscount}
@@ -3296,36 +2850,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 GST %
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
-              {/*
-              <Select
-                options={gstOptions}
-                value={
-                  gstOptions.find((o) => o.value === form.gstPercentage) ||
-                  (form.gstPercentage
-                    ? {
-                      value: form.gstPercentage,
-                      label: `${form.gstPercentage}%`,
-                    }
-                    : null)
-                }
-                onChange={(selected: any) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    gstPercentage: selected?.value || "",
-                  }))
-                }
-                placeholder="Select GST %"
-                isDisabled={isEditMode}
-                theme={selectTheme}
-                styles={selectStyles("gstPercentage")}
-              />
 
-              {errors.gstPercentage && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.gstPercentage}
-                </p>
-              )}
-              */}
               <Dropdown
                 options={gstOptions}
                 value={form.gstPercentage}
@@ -3336,7 +2861,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                   }))
                 }
                 placeholder="Select GST %"
-                isDisabled={isEditMode}
+                readOnly={isEditMode}
                 error={errors.gstPercentage ? " " : ""}
               />
               {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
@@ -3355,109 +2880,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           */}
         </div>
 
-        {/* -- Section 2: Product Photos (Old) -------------------------------------------- */}
-        {/*
-{/* ── Section 2: Product Photos ──────────────────────────────────────────── * /}
-        <div
-          className="relative border border-neutral-200 rounded-xl p-6 bg-white"
-          ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>}
-          data-field="images"
-        >
-          <div className="text-pneutral-700 font-normal text-sm">
-            Product Photos{" "}
-            <span className="text-warning-500 font-semibold ml-1">*</span>
-          </div>
-
-          <div
-            className="w-full h-40 bg-neutral-50 flex items-center justify-center rounded-lg cursor-pointer"
-            onClick={() => {
-              if (!isEditMode || mode === "edit") {
-                document.getElementById("supFileInput")?.click();
-              }
-            }}
-          >
-            <input
-              id="supFileInput"
-              type="file"
-              multiple
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) {
-                  const newFiles = Array.from(e.target.files);
-                  const totalFiles = images.length + existingImages.length + newFiles.length;
-                  if (totalFiles > 5) {
-                    setErrors((prev) => ({ ...prev, images: "Maximum 5 images are allowed" }));
-                    const remainingSlots = 5 - (images.length + existingImages.length);
-                    const allowedFiles = newFiles.slice(0, remainingSlots);
-                    if (allowedFiles.length > 0) setImages((prev) => [...prev, ...allowedFiles]);
-                    return;
-                  }
-                  setErrors((prev) => ({ ...prev, images: "" }));
-                  setImages((prev) => [...prev, ...newFiles]);
-                }
-              }}
-            />
-
-            <div className="w-full h-40 bg-neutral-50 mt-6 flex items-center justify-center rounded-lg">
-              <div className="w-285 h-34.5 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center">
-                <div className="flex flex-col items-center justify-center">
-                  <img src="/icons/FolderIcon.svg" alt="upload" className="w-10 h-10 rounded-md object-cover" />
-                  <div className="text-label-l2 font-normal mt-4">Choose a file or drag &amp; drop it here</div>
-                  <div className="text-label-l1 font-normal text-neutral-400">or click to browse JPEG, PNG, and SVG</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {errors.images && (
-            <div className="text-red-500 text-sm mt-2">{errors.images}</div>
-          )}
-
-          <div className="flex gap-4">
-            {existingImages.length > 0 && (
-              <div className="flex flex-wrap gap-3 mt-4">
-                {existingImages.map((img, index) => (
-                  <div key={index} className="relative w-24 h-24 flex-shrink-0">
-                    <img
-                      src={img}
-                      alt="product"
-                      className="w-full h-full object-cover rounded-md border border-pneutral-200"
-                    />
-                    <button
-                      onClick={() => setExistingImages(existingImages.filter((_, i) => i !== index))}
-                      className="absolute top-1 right-1 text-pneutral-900 cursor-pointer text-xs px-1 rounded"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {images.length > 0 && (
-              <div className="flex flex-wrap gap-3 mt-4">
-                {images.map((file, index) => (
-                  <div key={index} className="relative w-24 h-24 flex-shrink-0">
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt="preview"
-                      className="w-full h-full object-cover rounded-md border border-pneutral-200"
-                    />
-                    <button
-                      onClick={() => setImages(images.filter((_, i) => i !== index))}
-                      className="absolute top-1 right-1 text-pneutral-900 cursor-pointer text-xs px-1 rounded"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        */}
 
         <ProductImageUpload
           title="Product Photos"
@@ -3509,5 +2931,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 };
 
 export default SupplementForm;
+
 
 

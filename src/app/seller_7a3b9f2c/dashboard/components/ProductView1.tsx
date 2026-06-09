@@ -1494,7 +1494,7 @@ const ProductView1 = ({
                 .filter(Boolean)
                 .join(", ") || null
               : null) ?? cosAttrRaw.ageGroup,
-          intendedUseArea: intendedUseArea || cosAttrRaw.intendedUseArea || null,
+          intendedUseArea: intendedUseArea || cosAttrRaw.intendedUseArea || undefined,
           skinHairType: skinHairType ?? cosAttrRaw.skinHairType,
           countryOfOrigin:
             countryOpts.find((o) => o.value === countryIdStr)?.label ??
@@ -1791,7 +1791,7 @@ const ProductView1 = ({
   )
     .flatMap((p: any) => p.additionalDiscounts || [])
     .filter(
-      (d: any) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage,
+      (d: any) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage && d.displayOffer !== false,
     )
     .filter(
       (d: any, index: number, self: any[]) =>
@@ -1805,7 +1805,7 @@ const ProductView1 = ({
 
   const specialSchemes: any[] = (productData?.pricingDetails ?? [])
     .flatMap((p: any) => p.specialSchemes || [])
-    .filter((s: any) => s.schemeName);
+    .filter((s: any) => s.schemeName && s.displayOfferScheme !== false && s.displayOffer !== false);
 
   const unitsPerPack =
     packaging?.unitPerPack ??
