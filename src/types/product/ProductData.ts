@@ -113,6 +113,7 @@ export interface PackagingData {
   packagingId?: string;
   packId?: number;
   packType?: string;
+  packTypeUnit?: string;
   unitPerPack: number;
   numberOfPacks: number;
   packSize: number;
