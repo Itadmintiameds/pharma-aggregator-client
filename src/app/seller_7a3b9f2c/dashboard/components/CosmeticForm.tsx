@@ -24,7 +24,7 @@ import {
   updateProduct,
   uploadProductImages,
 } from "@/src/services/product/ProductService";
-import { validateBatchNumber } from "@/src/services/product/Pricing";
+import { validateBatchNumber } from "@/src/services/product/PricingService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";

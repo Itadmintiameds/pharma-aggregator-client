@@ -8,7 +8,7 @@ import PopupModal from "../commonComponent/PopupModal";
 import { foodInfantSchema } from "@/src/schema/product/FoodandInfantSchema";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
-import { validateBatchNumber } from "@/src/services/product/Pricing";
+import { validateBatchNumber } from "@/src/services/product/PricingService";
 import {
   getProductById,
   updateProduct,

@@ -36,3 +36,24 @@ export const getPackTypesByCategory = async (categoryId: number) => {
     return [];
   }
 };
+
+
+export const getPackTypeUnits = async () => {
+  try {
+    const response = await api.get('/pack-type-units');
+
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching Pack Type Units:', error);
+
+    if (error instanceof Error) {
+      throw new Error(
+        `Error fetching Pack Type Units: ${error.message}`
+      );
+    } else {
+      throw new Error(
+        'An unknown error occurred while fetching Pack Type Units.'
+      );
+    }
+  }
+};

@@ -28,7 +28,7 @@ import AppliedOffersView from "./AppliedOffersView";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications, getServingSizeUnits, getNetQuantityUnits } from "@/src/services/product/SupplementService";
 import { getProductById, updateProduct } from "@/src/services/product/ProductService";
-import { validateBatchNumber } from "@/src/services/product/Pricing";
+import { validateBatchNumber } from "@/src/services/product/PricingService";
 
 import { getTherapeuticCategory, getTherapeuticSubcategory } from "@/src/services/product/TherapeuticCategoryService";
 import { supplementProductSchema } from "@/src/schema/product/SupplementProductSchema";

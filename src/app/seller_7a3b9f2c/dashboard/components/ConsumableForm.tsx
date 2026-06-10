@@ -14,7 +14,7 @@ import { AlertCircle } from "lucide-react";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
-import { validateBatchNumber } from "@/src/services/product/Pricing";
+import { validateBatchNumber } from "@/src/services/product/PricingService";
 import {
   getConsumableDeviceCategories,
   getConsumableDeviceSubCategories,

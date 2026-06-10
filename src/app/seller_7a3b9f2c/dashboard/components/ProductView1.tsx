@@ -6,7 +6,7 @@ import {
   getDrugProductById,
   getCountries,
 } from "@/src/services/product/ProductService";
-import { getPackTypeById } from "@/src/services/product/PackType";
+import { getPackTypeById } from "@/src/services/product/PackTypeService";
 import { getStorageConditionById } from "@/src/services/product/StorageCondition";
 import {
   getTherapeuticCategory,

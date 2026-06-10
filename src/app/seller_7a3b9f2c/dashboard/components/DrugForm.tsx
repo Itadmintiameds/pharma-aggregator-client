@@ -32,7 +32,7 @@ import {
 } from "@/src/services/product/TherapeuticCategoryService";
 import { getSupplementDosageForms } from "@/src/services/product/SupplementService";
 import { useRouter } from "next/navigation";
-import { validateBatchNumber } from "@/src/services/product/Pricing";
+import { validateBatchNumber } from "@/src/services/product/PricingService";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
