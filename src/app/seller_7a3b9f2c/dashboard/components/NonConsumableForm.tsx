@@ -263,6 +263,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const unitDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedCertifications, setSelectedCertifications] = useState<CertificationTag[]>([]);
+  const [mandatoryCertCount, setMandatoryCertCount] = useState(0);
 
   const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
@@ -455,7 +456,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
       if (attribute.certificateDocuments?.length) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setSelectedCertifications(attribute.certificateDocuments.map((cert: any) => ({
+        const mappedCerts = attribute.certificateDocuments.map((cert: any) => ({
           id: String(cert.certificationId),
           label: cert.certificationName || `Certificate ${cert.certificationId}`,
           tagCode: `Tag ${String(cert.certificationId).padStart(2, "0")}`,
@@ -465,8 +466,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           isUploaded: isRealUrl(cert.certificateUrl),
           previewUrl: null,
           productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-          existingUrl: isRealUrl(cert.certificateUrl) ? cert.certificateUrl : undefined,
-        })));
+          existingUrl: cert.certificateUrl || undefined,
+        }));
+        setSelectedCertifications(mappedCerts);
+        setMandatoryCertCount(mappedCerts.length);
       }
 
       const catId = String(attribute.deviceCategoryId || attribute.deviceCatId || "");
@@ -753,6 +756,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const handleCertCheckbox = (option: CertificationMasterOption) => {
     const exists = selectedCertifications.some((c) => c.id === option.value);
     if (exists) {
+      const isMandatory = mode === "edit" &&
+        selectedCertifications.findIndex((c) => c.id === option.value) < mandatoryCertCount;
+      if (isMandatory) {
+        alert(`"${option.label}" is a mandatory certificate and cannot be removed. You may re-upload a new file for it instead.`);
+        return;
+      }
       setSelectedCertifications((p) => p.filter((c) => c.id !== option.value));
     } else {
       setSelectedCertifications((p) => [...p, {
@@ -942,6 +951,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (!cert.file && !cert.existingUrl) {
         e[`certFile_${cert.id}`] = `Please upload the certificate file for "${cert.label}"`;
       }
+    }
+    if (mode === "edit" && selectedCertifications.length < mandatoryCertCount) {
+      e.certifications = `You must keep all ${mandatoryCertCount} original certifications. Please re-add any removed ones.`;
     }
 
     return e;
@@ -1196,7 +1208,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         </CommonModal>
       )}
 
-      <div className="flex flex-col gap-5 w-full">
+      <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-5 w-full">
         {apiError && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
             <AlertCircle size={18} className="text-red-500 mt-0.5 flex-shrink-0" />
@@ -1973,7 +1985,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         {/* ── Actions ─────────────────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
           <div className="flex gap-3">
-            <button type="button" onClick={() => onSubmitSuccess ? onSubmitSuccess() : window.location.reload()} className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">Cancel</button>
+            <button type="button" onClick={() => router.back()} className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">Cancel</button>
             <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }} className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
               <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
               Save Draft
@@ -1984,7 +1996,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
           </button>
         </div>
-      </div>
+      </form>
     </>
   );
 };
