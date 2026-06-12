@@ -37,6 +37,8 @@ import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
+import NumericInputWithUnit from "@/src/app/commonComponents/NumericInputWithUnit";
+import { getPackTypeUnits } from "@/src/services/product/PackTypeService";
 
 interface SelectOption {
   value: string;
@@ -83,6 +85,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
     packId: string;
     packType: string;
+    packTypeUnit: string;
+    packTypeUnitId: string;
     unitPerPack: string;
     numberOfPacks: string;
     packSize: string;
@@ -102,8 +106,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     finalPrice: string;
     hsnCode: string;
     shelfLifeMonths: string;
-
-    // ✅ IMPORTANT FIX
     additionalDiscount: AdditionalDiscountData[];
   };
 
@@ -138,6 +140,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
     packId: "",
     packType: "",
+    packTypeUnit: "",
+    packTypeUnitId: "",
     unitPerPack: "",
     numberOfPacks: "",
     packSize: "",
@@ -191,6 +195,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
     packId: "",
     packType: "",
+    packTypeUnit: "",
+    packTypeUnitId: "",
     unitPerPack: "",
     numberOfPacks: "",
     packSize: "",
@@ -265,6 +271,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
   const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] =
     useState(false);
+  const [packTypeUnitOptions, setPackTypeUnitOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
 
   useEffect(() => {
     if (categoryId) {
@@ -350,6 +359,23 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   ) => {
     const name = "target" in e ? e.target.name : e.name;
     const value = "target" in e ? e.target.value : e.value;
+
+    if (name === "mrp" || name === "sellingPrice") {
+      // Prevent starting with decimal point
+      if (value.startsWith(".")) {
+        return;
+      }
+
+      // Max length 16
+      if (value.length > 16) {
+        return;
+      }
+
+      // Allow digits + one decimal point + up to 2 decimal places
+      if (!/^\d*\.?\d{0,2}$/.test(value)) {
+        return;
+      }
+    }
 
     const finalValue = name === "expiryDate" && value ? new Date(value) : value;
 
@@ -765,7 +791,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           {
             packId: Number(form.packId),
             packType: form.packType,
-            unitPerPack: Number(form.unitPerPack), // ✅ STRING
+            packTypeUnitId: Number(form.packTypeUnitId),
+            unitPerPack: Number(form.unitPerPack),
             numberOfPacks: Number(form.numberOfPacks),
             packSize: Number(form.packSize),
             minimumOrderQuantity: Number(form.minimumOrderQuantity),
@@ -823,8 +850,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           productImage: img.name,
         })),
       };
-      console.log("PAYLOAD---------------", payload);
-
       const productResponse = await createDrugProduct(payload);
       const productId = productResponse?.data?.productId;
 
@@ -893,7 +918,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     try {
       const data = await getProductById(id);
       if (!data) throw new Error("Product not found");
-
       await fetchTherapeuticCategories(data.categoryId);
       const fetchedDosageOptions = await fetchDosage(data.categoryId);
       const pricing =
@@ -1030,6 +1054,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         packId: String(packaging.packId || ""),
         packType: packaging.packType || "",
         unitPerPack: String(packaging.unitPerPack ?? ""),
+        packTypeUnitId: String(packaging.packTypeUnitId ?? ""),
         numberOfPacks: String(packaging.numberOfPacks ?? ""),
         packSize: String(packaging.packSize ?? ""),
         minimumOrderQuantity: String(packaging.minimumOrderQuantity ?? ""),
@@ -1084,11 +1109,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     try {
       const payload = {
         productId: form.productId, // ✅ IMPORTANT
-
         productName: form.productName,
         productDescription: form.productDescription,
         warningsPrecautions: form.warningsPrecautions,
-
         manufacturerName: form.manufacturerName,
         categoryId: Number(form.categoryId),
 
@@ -1096,6 +1119,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           {
             packId: Number(form.packId),
             packType: form.packType,
+            packTypeUnitId: Number(form.packTypeUnitId),
             unitPerPack: Number(form.unitPerPack),
             numberOfPacks: Number(form.numberOfPacks),
             packSize: Number(form.packSize),
@@ -1106,21 +1130,16 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
         pricingDetails: [
           {
-            pricingId: form.pricingId || undefined, // ✅ VERY IMPORTANT FIX
-
+            pricingId: form.pricingId || undefined,
             batchLotNumber: form.batchLotNumber,
             manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
             expiryDate: toLocalDateTimeString(form.expiryDate),
             stockQuantity: Number(form.stockQuantity),
             dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-
             sellingPrice: Number(form.sellingPrice),
             mrp: Number(form.mrp),
             discountPercentage: Number(form.discountPercentage),
-
-            // ✅ GST FIX (safe conversion)
             gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : 0,
-
             finalPrice: Number(form.finalPrice),
             hsnCode: Number(form.hsnCode),
             shelfLifeMonths: Number(form.shelfLifeMonths),
@@ -1158,10 +1177,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           },
         ],
         retainedImageUrls: existingImages,
-
-        // productImages: images.map((img) => ({
-        //   productImage: img.name,
-        // })),
       };
 
       await updateProduct(form.productId, payload);
@@ -1509,6 +1524,25 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       });
 
       setShowExpiryMonthPicker(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPackTypeUnits();
+  }, []);
+
+  const fetchPackTypeUnits = async () => {
+    try {
+      const response = await getPackTypeUnits();
+
+      const options = response.map((item: any) => ({
+        label: item.packTypeUnitName,
+        value: String(item.packTypeUnitId),
+      }));
+
+      setPackTypeUnitOptions(options);
+    } catch (error) {
+      console.error("Error fetching pack type units:", error);
     }
   };
 
@@ -1909,7 +1943,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               />
             </div>
 
-            <Input
+            {/* <Input
               type="number"
               label="Number of Units per Pack Type"
               name="unitPerPack"
@@ -1926,6 +1960,31 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 const target = e.target as HTMLInputElement;
                 target.value = target.value.slice(0, 5);
               }}
+            /> */}
+
+            <NumericInputWithUnit
+              label="Number of Units per Pack Type"
+              name="unitPerPack"
+              value={form.unitPerPack}
+              unit={form.packTypeUnitId}
+              onValueChange={(value) =>
+                setForm((prev) => ({
+                  ...prev,
+                  unitPerPack: value,
+                }))
+              }
+              onUnitChange={(value) =>
+                setForm((prev) => ({
+                  ...prev,
+                  packTypeUnitId: value,
+                }))
+              }
+              options={packTypeUnitOptions}
+              maxLength={5}
+              min={1}
+              required
+              readOnly={isEditMode}
+              error={errors.unitPerPack || errors.packTypeUnitId}
             />
 
             <Input
@@ -2200,16 +2259,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               value={form.mrp}
               onChange={handleChange}
               onKeyDown={(e) => {
-                if (e.key === "0" && form.mrp === "") {
+                if (["e", "E", "+", "-"].includes(e.key)) {
                   e.preventDefault();
                 }
               }}
               min={1}
-              step={1}
-              onInput={(e) => {
-                const target = e.target as HTMLInputElement;
-                target.value = target.value.slice(0, 16);
-              }}
+              step="0.01"
               error={errors.mrp}
               required
             />
@@ -2222,12 +2277,13 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               placeholder=""
               value={form.sellingPrice}
               onChange={handleChange}
-              min={1}
-              step={1}
-              onInput={(e) => {
-                const target = e.target as HTMLInputElement;
-                target.value = target.value.slice(0, 16);
+               onKeyDown={(e) => {
+                if (["e", "E", "+", "-"].includes(e.key)) {
+                  e.preventDefault();
+                }
               }}
+              min={1}
+              step="0.01"
               error={errors.sellingPrice}
               required
             />
@@ -2243,10 +2299,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   min={0}
                   max={100}
                   step={1}
-                  // onInput={(e) => {
-                  //   const target = e.target as HTMLInputElement;
-                  //   target.value = target.value.slice(0, 6);
-                  // }}
                   error={errors.discountPercentage}
                 />
               </div>

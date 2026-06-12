@@ -91,6 +91,7 @@ type AdditionalDiscountTypeProps = {
   onSaveAdditionalDiscount: (data: AdditionalDiscountData[]) => void;
   initialSchemesData?: SpecialSchemesData[];
   onSaveSpecialSchemes?: (data: SpecialSchemesData[]) => void;
+  
 };
 
 const AdditionalDiscountType = ({
@@ -171,6 +172,7 @@ const AdditionalDiscountType = ({
                 baseMinimumOrderQuantity={baseMinimumOrderQuantity}
                 onSave={onSaveAdditionalDiscount}
                 alwaysActive={alwaysActive}
+                setAlwaysActive={setAlwaysActive}
               />
             )}
             {selectedOption?.value === "special_schemes" && (
@@ -179,6 +181,7 @@ const AdditionalDiscountType = ({
                 initialData={initialSchemesData}
                 onSave={onSaveSpecialSchemes}
                 alwaysActive={alwaysActive}
+                setAlwaysActive={setAlwaysActive}
               />
             )}
           </div>

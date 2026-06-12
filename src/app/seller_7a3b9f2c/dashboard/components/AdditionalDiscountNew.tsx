@@ -21,6 +21,7 @@ type AdditionalDiscountNewProps = {
   baseMinimumOrderQuantity: number;
   onSave: (data: AdditionalDiscountData[]) => void;
   alwaysActive: boolean;
+  setAlwaysActive: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 type AdditionalDiscountForm = {
@@ -48,6 +49,7 @@ const AdditionalDiscountNew = forwardRef<
       baseMinimumOrderQuantity,
       onSave,
       alwaysActive,
+      setAlwaysActive,
     }: AdditionalDiscountNewProps,
     ref,
   ) => {
@@ -71,6 +73,7 @@ const AdditionalDiscountNew = forwardRef<
 
     const [showStartDatePicker, setShowStartDatePicker] = useState(false);
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
     const formContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -124,17 +127,20 @@ const AdditionalDiscountNew = forwardRef<
       {
         id: "actions",
         header: "Action",
-        cell: () => (
+        cell: ({ row }) => (
           <div className="flex gap-3">
             <img
               src="/icons/EditIcon.svg"
               alt="edit"
-              className="w-4 h-4 rounded-md object-cover"
+              className="w-4 h-4 rounded-md object-cover cursor-pointer"
+              onClick={() => handleEditRow(row.index)}
             />
+
             <img
               src="/icons/DeleteIcon.svg"
               alt="delete"
-              className="w-4 h-4 rounded-md object-cover"
+              className="w-4 h-4 rounded-md object-cover cursor-pointer"
+              onClick={() => handleDeleteRow(row.index)}
             />
           </div>
         ),
@@ -233,6 +239,12 @@ const AdditionalDiscountNew = forwardRef<
       return errors;
     };
 
+    const getValidationSlabs = () => {
+      return editingIndex !== null
+        ? slabs.filter((_, index) => index !== editingIndex)
+        : slabs;
+    };
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { name, value } = e.target;
 
@@ -253,12 +265,8 @@ const AdditionalDiscountNew = forwardRef<
 
       if (name === "minimumPurchaseQuantity") {
         const baseMPQ = Number(baseMinimumOrderQuantity || 0);
+        const validationSlabs = getValidationSlabs();
 
-        if (Number(value) <= baseMPQ) {
-          newErrors.minimumPurchaseQuantity = `Must be greater than base quantity (${baseMPQ})`;
-          setErrors(newErrors);
-          return;
-        }
         if (value === "") {
           newErrors.minimumPurchaseQuantity =
             "Minimum Purchase Quantity is required";
@@ -266,36 +274,22 @@ const AdditionalDiscountNew = forwardRef<
           newErrors.minimumPurchaseQuantity = "Enter a valid number";
         } else if (Number(value) <= 0) {
           newErrors.minimumPurchaseQuantity = "Must be greater than 0";
+        } else if (Number(value) <= baseMPQ) {
+          newErrors.minimumPurchaseQuantity = `Must be greater than base quantity (${baseMPQ})`;
+        } else if (
+          validationSlabs.some(
+            (s) => s.minimumPurchaseQuantity === Number(value),
+          )
+        ) {
+          newErrors.minimumPurchaseQuantity = "This value is already entered";
         } else {
-          // ✅ Only run slab validation if basic validation passes
-          if (slabs.length > 0) {
-            const lastSlab = slabs[slabs.length - 1];
-
-            if (Number(value) <= lastSlab.minimumPurchaseQuantity) {
-              newErrors.minimumPurchaseQuantity =
-                "Must be greater than previous slab";
-            } else if (
-              slabs.some((s) => s.minimumPurchaseQuantity === Number(value))
-            ) {
-              newErrors.minimumPurchaseQuantity =
-                "This value is already entered";
-            } else {
-              delete newErrors.minimumPurchaseQuantity;
-            }
-          } else {
-            delete newErrors.minimumPurchaseQuantity;
-          }
+          delete newErrors.minimumPurchaseQuantity;
         }
       }
 
       if (name === "discountPercentage") {
         const baseDiscount = Number(baseDiscountPercentage || 0);
-
-        if (Number(value) <= baseDiscount) {
-          newErrors.discountPercentage = `Must be greater than base discount (${baseDiscount}%)`;
-          setErrors(newErrors);
-          return;
-        }
+        const validationSlabs = getValidationSlabs();
 
         if (value === "") {
           newErrors.discountPercentage = "Discount is required";
@@ -303,61 +297,20 @@ const AdditionalDiscountNew = forwardRef<
           newErrors.discountPercentage = "Enter a valid number";
         } else if (Number(value) <= 0) {
           newErrors.discountPercentage = "Must be greater than 0";
+        } else if (Number(value) > 100) {
+          newErrors.discountPercentage = "Discount cannot exceed 100%";
+        } else if (Number(value) <= baseDiscount) {
+          newErrors.discountPercentage = `Must be greater than base discount (${baseDiscount}%)`;
+        } else if (
+          validationSlabs.some(
+            (s) => s.additionalDiscountPercentage === Number(value),
+          )
+        ) {
+          newErrors.discountPercentage = "This discount already exists";
         } else {
-          if (slabs.length > 0) {
-            const lastSlab = slabs[slabs.length - 1];
-
-            if (Number(value) <= lastSlab.additionalDiscountPercentage) {
-              newErrors.discountPercentage =
-                "Must be greater than previous slab";
-            } else if (
-              slabs.some(
-                (s) => s.additionalDiscountPercentage === Number(value),
-              )
-            ) {
-              newErrors.discountPercentage = "This value is already entered";
-            } else {
-              delete newErrors.discountPercentage;
-            }
-          } else {
-            delete newErrors.discountPercentage;
-          }
-        }
-
-        // ❗ STOP invalid values from entering state
-        if (Number(value) <= 0) {
-          setErrors(newErrors);
-          return;
+          delete newErrors.discountPercentage;
         }
       }
-
-      if (slabs.length > 0) {
-        const lastSlab = slabs[slabs.length - 1];
-
-        if (name === "minimumPurchaseQuantity") {
-          if (mpq <= lastSlab.minimumPurchaseQuantity) {
-            newErrors.minimumPurchaseQuantity =
-              "Must be greater than previous slab";
-          }
-
-          if (slabs.some((s) => s.minimumPurchaseQuantity === mpq)) {
-            newErrors.minimumPurchaseQuantity = "This value is already entered";
-          }
-        }
-
-        if (name === "discountPercentage") {
-          if (discount <= lastSlab.additionalDiscountPercentage) {
-            newErrors.discountPercentage =
-              "Must be greater than previous slab discount";
-          }
-
-          if (slabs.some((s) => s.additionalDiscountPercentage === discount)) {
-            newErrors.discountPercentage = "This discount already exists";
-          }
-        }
-      }
-
-      // 🔥 CRITICAL FIX STARTS HERE
 
       // ✅ Step 2: CLEAR old date-time errors (this fixes your issue)
       delete newErrors.effectiveStartDate;
@@ -377,6 +330,7 @@ const AdditionalDiscountNew = forwardRef<
     };
 
     const validateForm = (): boolean => {
+      const validationSlabs = getValidationSlabs();
       const newErrors: Record<string, string> = {};
 
       const mpq = Number(form.minimumPurchaseQuantity);
@@ -394,16 +348,23 @@ const AdditionalDiscountNew = forwardRef<
         newErrors.minimumPurchaseQuantity = "Must be greater than 0";
       } else if (mpq <= baseMPQ) {
         newErrors.minimumPurchaseQuantity = `Must be greater than base quantity (${baseMPQ})`;
-      } else if (slabs.length > 0) {
-        const lastSlab = slabs[slabs.length - 1];
-
-        if (mpq <= lastSlab.minimumPurchaseQuantity) {
-          newErrors.minimumPurchaseQuantity =
-            "Must be greater than previous slab";
-        } else if (slabs.some((s) => s.minimumPurchaseQuantity === mpq)) {
-          newErrors.minimumPurchaseQuantity = "This value is already entered";
-        }
+      } else if (
+        validationSlabs.some((s) => s.minimumPurchaseQuantity === mpq)
+      ) {
+        newErrors.minimumPurchaseQuantity = "This value is already entered";
       }
+      // else if (validationSlabs.length > 0) {
+      //   const lastSlab = validationSlabs[validationSlabs.length - 1];
+
+      //   if (mpq <= lastSlab.minimumPurchaseQuantity) {
+      //     newErrors.minimumPurchaseQuantity =
+      //       "Must be greater than previous slab";
+      //   } else if (
+      //     validationSlabs.some((s) => s.minimumPurchaseQuantity === mpq)
+      //   ) {
+      //     newErrors.minimumPurchaseQuantity = "This value is already entered";
+      //   }
+      // }
 
       // ✅ Discount validation
       if (!form.discountPercentage) {
@@ -416,17 +377,20 @@ const AdditionalDiscountNew = forwardRef<
         newErrors.discountPercentage = "Discount cannot exceed 100%";
       } else if (discount <= baseDiscount) {
         newErrors.discountPercentage = `Must be greater than base discount (${baseDiscount}%)`;
-      } else if (slabs.length > 0) {
-        const lastSlab = slabs[slabs.length - 1];
-
-        if (discount <= lastSlab.additionalDiscountPercentage) {
-          newErrors.discountPercentage = "Must be greater than previous slab";
-        } else if (
-          slabs.some((s) => s.additionalDiscountPercentage === discount)
-        ) {
-          newErrors.discountPercentage = "This discount already exists";
-        }
       }
+      // else if (validationSlabs.length > 0) {
+      //   const lastSlab = validationSlabs[validationSlabs.length - 1];
+
+      //   if (discount <= lastSlab.additionalDiscountPercentage) {
+      //     newErrors.discountPercentage = "Must be greater than previous slab";
+      //   } else if (
+      //     validationSlabs.some(
+      //       (s) => s.additionalDiscountPercentage === discount,
+      //     )
+      //   ) {
+      //     newErrors.discountPercentage = "This discount already exists";
+      //   }
+      // }
 
       // ✅ Date validation
       if (!alwaysActive) {
@@ -481,7 +445,20 @@ const AdditionalDiscountNew = forwardRef<
         effectiveEndTime: alwaysActive ? "" : form.effectiveEndTime,
       };
 
-      const updatedSlabs = [...slabs, slab];
+      let updatedSlabs: AdditionalDiscountData[];
+
+      if (editingIndex !== null) {
+        updatedSlabs = [...slabs];
+
+        updatedSlabs[editingIndex] = {
+          ...updatedSlabs[editingIndex],
+          ...slab,
+        };
+
+        setEditingIndex(null);
+      } else {
+        updatedSlabs = [...slabs, slab];
+      }
 
       setSlabs(updatedSlabs);
       onSave(updatedSlabs);
@@ -496,6 +473,43 @@ const AdditionalDiscountNew = forwardRef<
     useEffect(() => {
       setSlabs(initialData || []);
     }, [initialData]);
+
+    const handleDeleteRow = (rowIndex: number) => {
+      const updatedSlabs = slabs.filter((_, index) => index !== rowIndex);
+
+      setSlabs(updatedSlabs);
+      onSave(updatedSlabs);
+    };
+
+    const handleEditRow = (rowIndex: number) => {
+      const slab = slabs[rowIndex];
+
+      const isAlwaysActiveRecord =
+        !slab.effectiveStartDate &&
+        !slab.effectiveStartTime &&
+        !slab.effectiveEndDate &&
+        !slab.effectiveEndTime;
+
+      setAlwaysActive(isAlwaysActiveRecord);
+
+      setForm({
+        minimumPurchaseQuantity: slab.minimumPurchaseQuantity,
+        discountPercentage: slab.additionalDiscountPercentage,
+        effectiveStartDate: slab.effectiveStartDate
+          ? formatDate(slab.effectiveStartDate)
+          : "",
+        effectiveStartTime: slab.effectiveStartTime || "",
+        effectiveEndDate: slab.effectiveEndDate
+          ? formatDate(slab.effectiveEndDate)
+          : "",
+        effectiveEndTime: slab.effectiveEndTime || "",
+        alwaysActive: isAlwaysActiveRecord,
+      });
+
+      setEditingIndex(rowIndex);
+      setErrors({});
+      setTouched({});
+    };
 
     return (
       <>
