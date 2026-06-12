@@ -45,15 +45,15 @@ export const useSessionManager = () => {
   // Handle user activity
   const handleUserActivity = useCallback(() => {
     resetInactivityTimer();
-    console.log('🖱️ Activity detected - timer reset');
+    // console.log('🖱️ Activity detected - timer reset');
   }, [resetInactivityTimer]);
 
   // Set up event listeners
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    console.log('🎯 Session Manager Initialized');
-    console.log(`📊 Auto-logout after ${INACTIVITY_LIMIT / 1000} seconds of inactivity`);
+    // console.log('🎯 Session Manager Initialized');
+    // console.log(`📊 Auto-logout after ${INACTIVITY_LIMIT / 1000} seconds of inactivity`);
     
     const activityEvents = [
       'mousedown', 'mousemove', 'keydown', 'keypress',
