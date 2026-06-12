@@ -56,10 +56,11 @@ type SpecialSchemesProps = {
   initialData?: SpecialSchemesData[];
   onSave?: (data: SpecialSchemesData[]) => void;
   alwaysActive: boolean;
+  setAlwaysActive: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
-  ({ initialData, onSave, alwaysActive }, ref) => {
+  ({ initialData, onSave, alwaysActive, setAlwaysActive }, ref) => {
     const [form, setForm] = useState<SpecialSchemesData>({
       schemeName: "",
       schemeType: "",
@@ -80,6 +81,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
     const [touched, setTouched] = useState<Record<string, boolean>>({});
     const [showStartDatePicker, setShowStartDatePicker] = useState(false);
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
     React.useEffect(() => {
       if (initialData) {
@@ -137,10 +139,21 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
       {
         id: "actions",
         header: "Action",
-        cell: () => (
+        cell: ({ row }) => (
           <div className="flex gap-3 justify-center">
-            <img src="/icons/EditIcon.svg" alt="edit" className="w-4 h-4" />
-            <img src="/icons/DeleteIcon.svg" alt="delete" className="w-4 h-4" />
+            <img
+              src="/icons/EditIcon.svg"
+              alt="edit"
+              className="w-4 h-4 cursor-pointer"
+              onClick={() => handleEditRow(row.index)}
+            />
+
+            <img
+              src="/icons/DeleteIcon.svg"
+              alt="delete"
+              className="w-4 h-4 cursor-pointer"
+              onClick={() => handleDeleteRow(row.index)}
+            />
           </div>
         ),
       },
@@ -340,14 +353,35 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
         effectiveStartDate: formatDateForApi(form.effectiveStartDate),
         effectiveEndDate: formatDateForApi(form.effectiveEndDate),
       };
+      let updatedTableData: SpecialSchemesData[];
 
-      // table UI keeps dd/mm/yyyy
-      const updatedTableData = [...tableData, form];
+      if (editingIndex !== null) {
+        updatedTableData = [...tableData];
+
+        updatedTableData[editingIndex] = {
+          ...updatedTableData[editingIndex],
+          ...form,
+        };
+
+        setEditingIndex(null);
+      } else {
+        updatedTableData = [...tableData, form];
+      }
+
       setTableData(updatedTableData);
 
-      // backend gets yyyy-mm-dd
       if (onSave) {
-        onSave([...tableData, payload]);
+        const apiData = updatedTableData.map((item) => ({
+          ...item,
+          effectiveStartDate: item.effectiveStartDate
+            ? formatDateForApi(item.effectiveStartDate)
+            : "",
+          effectiveEndDate: item.effectiveEndDate
+            ? formatDateForApi(item.effectiveEndDate)
+            : "",
+        }));
+
+        onSave(apiData);
       }
 
       setForm({
@@ -362,11 +396,60 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
       });
 
       setErrors({});
+      setTouched({});
+      setEditingIndex(null);
     };
 
     useImperativeHandle(ref, () => ({
       submitForm: handleSubmit,
     }));
+
+    const handleDeleteRow = (rowIndex: number) => {
+      const updatedTableData = tableData.filter(
+        (_, index) => index !== rowIndex,
+      );
+
+      setTableData(updatedTableData);
+
+      if (onSave) {
+        onSave(updatedTableData);
+      }
+    };
+
+    const handleEditRow = (rowIndex: number) => {
+      const scheme = tableData[rowIndex];
+
+      const isAlwaysActiveRecord =
+        !scheme.effectiveStartDate &&
+        !scheme.effectiveStartTime &&
+        !scheme.effectiveEndDate &&
+        !scheme.effectiveEndTime;
+
+      setAlwaysActive(isAlwaysActiveRecord);
+
+      setForm({
+        schemeName: scheme.schemeName || "",
+        schemeType: scheme.schemeType || "",
+        buyQuantity: scheme.buyQuantity || 0,
+        freeQuantity: scheme.freeQuantity || 0,
+
+        effectiveStartDate: scheme.effectiveStartDate
+          ? formatDate(scheme.effectiveStartDate)
+          : "",
+
+        effectiveStartTime: scheme.effectiveStartTime || "",
+
+        effectiveEndDate: scheme.effectiveEndDate
+          ? formatDate(scheme.effectiveEndDate)
+          : "",
+
+        effectiveEndTime: scheme.effectiveEndTime || "",
+      });
+
+      setEditingIndex(rowIndex);
+      setErrors({});
+      setTouched({});
+    };
 
     return (
       <>
