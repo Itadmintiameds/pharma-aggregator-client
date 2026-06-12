@@ -23,6 +23,14 @@ const categoryMap: Record<number, string> = {
   6: "Non-Consumable Medical Devices & Equipment",
 };
 
+const getLatestPricing = (pricingDetails: any[] = []) => {
+  if (!pricingDetails.length) return null;
+
+  return pricingDetails.reduce((latest, curr) =>
+    new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest,
+  );
+};
+
 const columns: Column<ProductListData>[] = [
   {
     header: "Thumbnail",
@@ -53,20 +61,13 @@ const columns: Column<ProductListData>[] = [
   },
   {
     header: "Price",
-    accessor: (row) => row.pricingDetails?.[0]?.mrp ?? "-",
+    accessor: (row) => getLatestPricing(row.pricingDetails)?.mrp ?? "-",
   },
   {
     header: "Stock",
-    accessor: (row) => row.pricingDetails?.[0]?.stockQuantity ?? "-",
+    accessor: (row) =>
+      getLatestPricing(row.pricingDetails)?.stockQuantity ?? "-",
   },
-  // {
-  //   header: "Status",
-  //   accessor: () => (
-  //     <span className="p-2 w-14 h-8 bg-success-50 text-p3 text-success-900 font-semibold rounded-lg">
-  //       Active
-  //     </span>
-  //   ),
-  // },
 ];
 
 const ProductList = ({
@@ -110,12 +111,13 @@ const ProductList = ({
 
   const filteredData = data.filter((item) => {
     const term = searchTerm.toLowerCase();
+    const latestPricing = getLatestPricing(item.pricingDetails);
 
     return (
       item.productName?.toLowerCase().includes(term) ||
       categoryMap[item.categoryId as number]?.toLowerCase().includes(term) ||
-      String(item.pricingDetails?.[0]?.mrp ?? "").includes(term) ||
-      String(item.pricingDetails?.[0]?.stockQuantity ?? "").includes(term)
+      String(latestPricing?.mrp ?? "").includes(term) ||
+      String(latestPricing?.stockQuantity ?? "").includes(term)
     );
   });
 
