@@ -27,6 +27,7 @@ import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import AppliedOffersView from "./AppliedOffersView";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications, getServingSizeUnits, getNetQuantityUnits } from "@/src/services/product/SupplementService";
+import { getPackTypeUnits } from "@/src/services/product/PackTypeService";
 import { getProductById, updateProduct } from "@/src/services/product/ProductService";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
 
@@ -352,6 +353,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     packId: "",
     packType: "",
     unitPerPack: "",
+    unitPerPackUnit: "",
+    unitPerPackUnitId: 0,
     numberOfPacks: "",
     packSize: "",
     minimumOrderQuantity: "",
@@ -388,6 +391,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [showSuccess, setShowSuccess] = useState(false);
   const [modalType, setModalType] = useState<"create" | "update">("create");
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
+  const [editTab, setEditTab] = useState<"additional_discount" | "special_schemes" | null>(null);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
   const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] = useState(false);
   const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
 
@@ -430,6 +435,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       packId: "",
       packType: "",
       unitPerPack: "",
+      unitPerPackUnit: "",
+      unitPerPackUnitId: 0,
       numberOfPacks: "",
       packSize: "",
       minimumOrderQuantity: "",
@@ -648,6 +655,39 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [loadingCertifications, setLoadingCertifications] = useState(false);
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [loadingPackTypes, setLoadingPackTypes] = useState(false);
+  const [packTypeUnitsList, setPackTypeUnitsList] = useState<any[]>([]);
+  const [loadingPackTypeUnits, setLoadingPackTypeUnits] = useState(false);
+
+  useEffect(() => {
+    const fetchPackTypeUnits = async () => {
+      setLoadingPackTypeUnits(true);
+      try {
+        const data = await getPackTypeUnits();
+        if (Array.isArray(data)) {
+          setPackTypeUnitsList(data);
+        }
+      } catch (err) {
+        console.error("Error fetching pack type units:", err);
+      } finally {
+        setLoadingPackTypeUnits(false);
+      }
+    };
+    fetchPackTypeUnits();
+  }, []);
+
+  useEffect(() => {
+    if (form.unitPerPackUnitId && packTypeUnitsList.length > 0 && !form.unitPerPackUnit) {
+      const matchedItem = packTypeUnitsList.find(
+        (item) => item.packTypeUnitId === form.unitPerPackUnitId
+      );
+      if (matchedItem) {
+        setForm((prev) => ({
+          ...prev,
+          unitPerPackUnit: matchedItem.packTypeUnitName,
+        }));
+      }
+    }
+  }, [form.unitPerPackUnitId, packTypeUnitsList, form.unitPerPackUnit]);
 
   useEffect(() => {
     if (!effectiveCategoryId) return;
@@ -970,6 +1010,37 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       }
       return copy;
     });
+  };
+
+  const handleUnitPerPackValueChange = (val: string) => {
+    let value = val.replace(/\D/g, ""); // Integer only
+    if (value.length > 5) value = value.slice(0, 5); // 5 digits max
+
+    setForm((prev) => {
+      const unitPerPack = Number(value) || 0;
+      const numberOfPacks = Number(prev.numberOfPacks) || 0;
+      const packSize = (unitPerPack > 0 && numberOfPacks > 0) ? String(unitPerPack * numberOfPacks) : "";
+      return {
+        ...prev,
+        unitPerPack: value,
+        packSize,
+      };
+    });
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.unitPerPack;
+      return copy;
+    });
+  };
+
+  const handleUnitPerPackUnitChange = (unit: string) => {
+    const matchedItem = packTypeUnitsList.find((item) => item.packTypeUnitName === unit);
+    const unitId = matchedItem ? matchedItem.packTypeUnitId : 0;
+    setForm((prev) => ({
+      ...prev,
+      unitPerPackUnit: unit,
+      unitPerPackUnitId: unitId,
+    }));
   };
 
   const handleNetQuantityUnitChange = (unit: string) => {
@@ -1401,6 +1472,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         packId: String(packaging.packId || ""),
         packType: packaging.packType || "",
         unitPerPack: String(packaging.unitPerPack ?? ""),
+        unitPerPackUnit: packaging.packTypeUnitMasterDto?.packTypeUnitName || "",
+        unitPerPackUnitId: packaging.packTypeUnitId || 0,
         numberOfPacks: String(packaging.numberOfPacks ?? ""),
         packSize: String(packaging.packSize ?? ""),
         minimumOrderQuantity: String(packaging.minimumOrderQuantity ?? ""),
@@ -1546,6 +1619,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           {
             packId: Number(form.packId),
             unitPerPack: Number(form.unitPerPack),
+            packTypeUnitId: Number(form.unitPerPackUnitId) || 0,
             numberOfPacks: Number(form.numberOfPacks),
             packSize: Number(form.packSize),
             minimumOrderQuantity: Number(form.minimumOrderQuantity),
@@ -1720,6 +1794,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           {
             packId: Number(form.packId),
             unitPerPack: Number(form.unitPerPack),
+            packTypeUnitId: Number(form.unitPerPackUnitId) || 0,
             numberOfPacks: Number(form.numberOfPacks),
             packSize: Number(form.packSize),
             minimumOrderQuantity: Number(form.minimumOrderQuantity),
@@ -1891,12 +1966,20 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
       {showAdditionalDiscount && (
         <CommonModal
-          onClose={() => setShowAdditionalDiscount(false)}
+          onClose={() => {
+            setShowAdditionalDiscount(false);
+            setEditTab(null);
+            setEditIndex(null);
+          }}
           width="w-[600px]"
         >
           <AdditionalDiscountType
             categoryId={effectiveCategoryId ? Number(effectiveCategoryId) : undefined}
-            onClose={() => setShowAdditionalDiscount(false)}
+            onClose={() => {
+              setShowAdditionalDiscount(false);
+              setEditTab(null);
+              setEditIndex(null);
+            }}
             initialData={form.additionalDiscount}
             baseDiscountPercentage={Number(form.discountPercentage) || 0}
             baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
@@ -1905,6 +1988,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 ...prev,
                 additionalDiscount: data || [],
               }));
+              setShowAdditionalDiscount(false);
+              setEditTab(null);
+              setEditIndex(null);
             }}
             initialSchemesData={form.specialSchemes}
             onSaveSpecialSchemes={(data: any) => {
@@ -1912,7 +1998,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 ...prev,
                 specialSchemes: data || [],
               }));
+              setShowAdditionalDiscount(false);
+              setEditTab(null);
+              setEditIndex(null);
             }}
+            editTab={editTab}
+            editIndex={editIndex}
           />
         </CommonModal>
       )}
@@ -2454,7 +2545,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
         {/* Packaging & Order Details */}
         <div className="relative border border-neutral-200 rounded-xl p-6 bg-white">
-          <div className="text-h4 font-semibold">Packaging & Order Details</div>
+          <div className="text-h4 font-semibold">Packaging & Order Details (per Unit Box)</div>
 
           <div className="border-b border-neutral-200 mt-3"></div>
 
@@ -2482,19 +2573,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               {errors.packId && <p className={errorMsg}>{errors.packId}</p>}
             </div>
 
-            <Input
-              type="number"
-              label="Number of Units per Pack Type"
+            <NumericInputWithUnit
+              label={form.packType ? `Number of Units per ${form.packType}` : "Number of Units per Pack Type"}
               name="unitPerPack"
-              id="unitPerPack"
               placeholder=""
               value={form.unitPerPack}
-              onChange={handleChange}
+              unit={form.unitPerPackUnit}
+              onValueChange={handleUnitPerPackValueChange}
+              onUnitChange={handleUnitPerPackUnitChange}
               error={errors.unitPerPack}
+              options={packTypeUnitsList.map(item => item.packTypeUnitName)}
               required
-              min={1}
-              step={1}
-              readOnly={hasStock}
+              readOnly={hasStock || isEditMode}
             />
 
             <Input
@@ -2514,7 +2604,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             <Input
               type="number"
-              label="Pack Size (No. of packs X No. of Units per pack type)"
+              label={form.packType ? `Pack Size (No. of packs X No. of Units per ${form.packType})` : "Pack Size (No. of packs X No. of Units per Pack Type)"}
               name="packSize"
               id="packSize"
               placeholder=""
@@ -2806,14 +2896,22 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               additionalDiscounts={form.additionalDiscount}
               specialSchemes={form.specialSchemes}
               productName={form.productName}
-              onEditDiscount={() => setShowAdditionalDiscount(true)}
+              onEditDiscount={(index) => {
+                setEditTab("additional_discount");
+                setEditIndex(index);
+                setShowAdditionalDiscount(true);
+              }}
               onDeleteDiscount={(index) => {
                 setForm(prev => ({
                   ...prev,
                   additionalDiscount: prev.additionalDiscount.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } : d)
                 }));
               }}
-              onEditScheme={() => setShowAdditionalDiscount(true)}
+              onEditScheme={(index) => {
+                setEditTab("special_schemes");
+                setEditIndex(index);
+                setShowAdditionalDiscount(true);
+              }}
               onDeleteScheme={(index) => {
                 setForm(prev => ({
                   ...prev,

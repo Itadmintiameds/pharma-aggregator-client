@@ -5,7 +5,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import React, { forwardRef, useImperativeHandle, useState } from "react";
+import React, { forwardRef, useImperativeHandle, useState, useEffect } from "react";
 import Select, { StylesConfig } from "react-select";
 import { formatDate } from "../commonComponent/DateFormat";
 import DatePicker from "@/src/app/commonComponents/DatePicker";
@@ -57,10 +57,11 @@ type SpecialSchemesProps = {
   onSave?: (data: SpecialSchemesData[]) => void;
   alwaysActive: boolean;
   setAlwaysActive: React.Dispatch<React.SetStateAction<boolean>>;
+  editIndex?: number | null;
 };
 
 const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
-  ({ initialData, onSave, alwaysActive, setAlwaysActive }, ref) => {
+  ({ initialData, onSave, alwaysActive, setAlwaysActive, editIndex }, ref) => {
     const [form, setForm] = useState<SpecialSchemesData>({
       schemeName: "",
       schemeType: "",
@@ -83,11 +84,15 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-    React.useEffect(() => {
-      if (initialData) {
-        setTableData(initialData);
-      }
+    useEffect(() => {
+      setTableData(initialData || []);
     }, [initialData]);
+
+    useEffect(() => {
+      if (editIndex !== undefined && editIndex !== null) {
+        handleEditRow(editIndex);
+      }
+    }, [editIndex]);
 
     const columns: ColumnDef<SpecialSchemesData>[] = [
       {

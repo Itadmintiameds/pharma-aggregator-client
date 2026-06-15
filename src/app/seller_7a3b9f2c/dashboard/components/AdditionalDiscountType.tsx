@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Select, { StylesConfig } from "react-select";
 import AdditionalDiscountNew, {
   AdditionalDiscountNewRef,
@@ -91,23 +91,27 @@ type AdditionalDiscountTypeProps = {
   onSaveAdditionalDiscount: (data: AdditionalDiscountData[]) => void;
   initialSchemesData?: SpecialSchemesData[];
   onSaveSpecialSchemes?: (data: SpecialSchemesData[]) => void;
-  
+  editTab?: "additional_discount" | "special_schemes" | null;
+  editIndex?: number | null;
 };
 
 const AdditionalDiscountType = ({
-  onClose,
   categoryId,
+  onClose,
   initialData,
   baseDiscountPercentage,
   baseMinimumOrderQuantity,
   onSaveAdditionalDiscount,
   initialSchemesData,
   onSaveSpecialSchemes,
+  editTab,
+  editIndex,
 }: AdditionalDiscountTypeProps) => {
   const [selectedOption, setSelectedOption] = useState<OptionType | null>(null);
   const additionalDiscountRef = useRef<AdditionalDiscountNewRef>(null);
   const specialSchemesRef = useRef<SpecialSchemesRef>(null);
-  const [alwaysActive, setAlwaysActive] = useState(false);
+
+  const [alwaysActive, setAlwaysActive] = useState<boolean>(false);
 
   const options: OptionType[] = [
     { value: "additional_discount", label: "Additional Discount" },
@@ -116,113 +120,122 @@ const AdditionalDiscountType = ({
       ? [{ value: "special_schemes", label: "Special Schemes" }]
       : []),
   ];
-  
+
+  useEffect(() => {
+    if (editTab) {
+      const optionToSelect = options.find((opt) => opt.value === editTab);
+      if (optionToSelect) {
+        setSelectedOption(optionToSelect);
+      }
+    }
+  }, [editTab]);
+
   return (
     <>
-    <div className="h-[90vh] overflow-y-auto flex flex-col p-4">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="text-h6 font-normal">Additional Discount </span>
-          <span className="text-label-l3 font-normal">(Quantity-based)</span>
+      <div className="h-[90vh] overflow-y-auto flex flex-col p-4">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className="text-h6 font-normal">Additional Discount </span>
+            <span className="text-label-l3 font-normal">(Quantity-based)</span>
+          </div>
+          <div className="text-p3 font-normal">
+            Create a time-based discount for bulk purchases
+          </div>
+          <div className="border-b border-pneutral-200"></div>
         </div>
-        <div className="text-p3 font-normal">
-          Create a time-based discount for bulk purchases
-        </div>
-        <div className="border-b border-pneutral-200"></div>
-      </div>
 
-      <div className="flex justify-between items-center w-full">
-        <div className="w-full">
-          <div className="flex items-center justify-between w-full">
-            <div className="mt-2">
-              <Select
-                options={options}
-                placeholder="Select Offer Type"
-                styles={customStyles}
-                isSearchable={false}
-                value={selectedOption}
-                onChange={(selected) => setSelectedOption(selected)}
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="text-label-l font-normal">Always Active</div>
-
-              <div
-                onClick={() => setAlwaysActive((prev) => !prev)}
-                className={`w-13 h-7 rounded-full flex items-center px-0.5 cursor-pointer transition-all duration-300 ${
-                  alwaysActive ? "bg-secondary-700" : "bg-pneutral-200"
-                }`}
-              >
-                <div
-                  className={`w-6 h-6 bg-white rounded-full transition-all duration-300 ${
-                    alwaysActive ? "translate-x-6" : "translate-x-0"
-                  }`}
+        <div className="flex justify-between items-center w-full">
+          <div className="w-full">
+            <div className="flex items-center justify-between w-full">
+              <div className="mt-2">
+                <Select
+                  options={options}
+                  placeholder="Select Offer Type"
+                  styles={customStyles}
+                  isSearchable={false}
+                  value={selectedOption}
+                  onChange={(selected) => setSelectedOption(selected)}
                 />
               </div>
+
+              <div className="flex items-center gap-3">
+                <div className="text-label-l font-normal">Always Active</div>
+
+                <div
+                  onClick={() => setAlwaysActive((prev) => !prev)}
+                  className={`w-13 h-7 rounded-full flex items-center px-0.5 cursor-pointer transition-all duration-300 ${alwaysActive ? "bg-secondary-700" : "bg-pneutral-200"
+                    }`}
+                >
+                  <div
+                    className={`w-6 h-6 bg-white rounded-full transition-all duration-300 ${alwaysActive ? "translate-x-6" : "translate-x-0"
+                      }`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              {selectedOption?.value === "additional_discount" && (
+                <AdditionalDiscountNew
+                  ref={additionalDiscountRef}
+                  initialData={initialData}
+                  onSave={onSaveAdditionalDiscount}
+                  baseDiscountPercentage={baseDiscountPercentage}
+                  baseMinimumOrderQuantity={baseMinimumOrderQuantity}
+                  alwaysActive={alwaysActive}
+                  setAlwaysActive={setAlwaysActive}
+                  editIndex={editIndex}
+                />
+              )}
+              {selectedOption?.value === "special_schemes" && (
+                <SpecialSchemes
+                  ref={specialSchemesRef}
+                  initialData={initialSchemesData}
+                  onSave={onSaveSpecialSchemes}
+                  alwaysActive={alwaysActive}
+                  setAlwaysActive={setAlwaysActive}
+                  editIndex={editIndex}
+                />
+              )}
             </div>
           </div>
+        </div>
 
-          <div className="mt-3">
-            {selectedOption?.value === "additional_discount" && (
-              <AdditionalDiscountNew
-                ref={additionalDiscountRef}
-                initialData={initialData}
-                baseDiscountPercentage={baseDiscountPercentage}
-                baseMinimumOrderQuantity={baseMinimumOrderQuantity}
-                onSave={onSaveAdditionalDiscount}
-                alwaysActive={alwaysActive}
-                setAlwaysActive={setAlwaysActive}
-              />
-            )}
-            {selectedOption?.value === "special_schemes" && (
-              <SpecialSchemes
-                ref={specialSchemesRef}
-                initialData={initialSchemesData}
-                onSave={onSaveSpecialSchemes}
-                alwaysActive={alwaysActive}
-                setAlwaysActive={setAlwaysActive}
-              />
+        <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 px-5 py-3">
+          <div className="border-t border-neutral-200"></div>
+
+          <div className="flex justify-between">
+            <button
+              onClick={onClose}
+              className="w-27 h-10 rounded-lg border-2 border-warning-500 text-warning-500 font-medium text-label-l3 cursor-pointer"
+            >
+              Cancel
+            </button>
+            {selectedOption ? (
+              <button
+                onClick={() => {
+                  if (selectedOption?.value === "additional_discount") {
+                    additionalDiscountRef.current?.submitForm();
+                  }
+
+                  if (selectedOption?.value === "special_schemes") {
+                    specialSchemesRef.current?.submitForm();
+                  }
+                }}
+                className="w-33.25 h-10 bg-[#4B0082] rounded-lg text-white font-medium text-label-l3 cursor-pointer"
+              >
+                Submit
+              </button>
+            ) : (
+              <button
+                disabled
+                className="w-33.25 h-10 bg-primary-200 rounded-lg text-sneutral-300 font-medium text-label-l3 cursor-not-allowed"
+              >
+                Submit
+              </button>
             )}
           </div>
         </div>
-      </div>
-
-      <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 px-5 py-3">
-        <div className="border-t border-neutral-200"></div>
-
-        <div className="flex justify-between">
-          <button
-            onClick={onClose}
-            className="w-27 h-10 rounded-lg border-2 border-warning-500 text-warning-500 font-medium text-label-l3 cursor-pointer"
-          >
-            Cancel
-          </button>
-          {selectedOption ? (
-            <button
-              onClick={() => {
-                if (selectedOption?.value === "additional_discount") {
-                  additionalDiscountRef.current?.submitForm();
-                }
-
-                if (selectedOption?.value === "special_schemes") {
-                  specialSchemesRef.current?.submitForm();
-                }
-              }}
-              className="w-33.25 h-10 bg-[#4B0082] rounded-lg text-white font-medium text-label-l3 cursor-pointer"
-            >
-              Submit
-            </button>
-          ) : (
-            <button
-              disabled
-              className="w-33.25 h-10 bg-primary-200 rounded-lg text-sneutral-300 font-medium text-label-l3 cursor-not-allowed"
-            >
-              Submit
-            </button>
-          )}
-        </div>
-      </div>
       </div>
     </>
   );
