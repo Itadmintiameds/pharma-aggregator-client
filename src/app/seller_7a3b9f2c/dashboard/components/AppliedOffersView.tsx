@@ -5,7 +5,7 @@ export interface AppliedOffersViewProps {
   additionalDiscounts: any[];
   specialSchemes: any[];
   productName?: string;
-  onEditDiscount?: () => void;
+  onEditDiscount?: (index: number) => void;
   onEditScheme?: (index: number) => void;
   onDeleteDiscount?: (index: number) => void;
   onDeleteScheme?: (index: number) => void;
@@ -67,7 +67,7 @@ const AppliedOffersView: React.FC<AppliedOffersViewProps> = ({
                               alt="edit"
                               className="cursor-pointer relative"
                               style={{ width: "16.88px", height: "16.88px", top: "1.25px", left: "1.88px" }}
-                              onClick={onEditDiscount}
+                              onClick={() => onEditDiscount(index)}
                             />
                           )}
                           {onDeleteDiscount && (

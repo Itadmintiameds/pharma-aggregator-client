@@ -22,6 +22,7 @@ type AdditionalDiscountNewProps = {
   onSave: (data: AdditionalDiscountData[]) => void;
   alwaysActive: boolean;
   setAlwaysActive: React.Dispatch<React.SetStateAction<boolean>>;
+  editIndex?: number | null;
 };
 
 type AdditionalDiscountForm = {
@@ -50,6 +51,7 @@ const AdditionalDiscountNew = forwardRef<
       onSave,
       alwaysActive,
       setAlwaysActive,
+      editIndex,
     }: AdditionalDiscountNewProps,
     ref,
   ) => {
@@ -74,6 +76,16 @@ const AdditionalDiscountNew = forwardRef<
     const [showStartDatePicker, setShowStartDatePicker] = useState(false);
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+    useEffect(() => {
+      setSlabs(initialData || []);
+    }, [initialData]);
+
+    useEffect(() => {
+      if (editIndex !== undefined && editIndex !== null) {
+        handleEditRow(editIndex);
+      }
+    }, [editIndex]);
 
     const formContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -412,8 +424,11 @@ const AdditionalDiscountNew = forwardRef<
     const formatDateForApi = (dateStr: string) => {
       if (!dateStr) return "";
 
-      const [day, month, year] = dateStr.split("/");
+      if (dateStr.includes("-")) {
+        return dateStr.split("T")[0];
+      }
 
+      const [day, month, year] = dateStr.split("/");
       return `${year}-${month}-${day}`;
     };
 

@@ -249,6 +249,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [packTypeOptions, setPackTypeOptions] = useState([]);
   const [strengthFormats, setStrengthFormats] = useState<string[]>([]);
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
+  const [editTab, setEditTab] = useState<"additional_discount" | "special_schemes" | null>(null);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
   const [additionalDiscounts, setAdditionalDiscounts] = useState([]);
   const [openDrawer, setOpenDrawer] = useState(false);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -1575,11 +1577,19 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
       {showAdditionalDiscount && (
         <CommonModal
-          onClose={() => setShowAdditionalDiscount(false)}
+          onClose={() => {
+            setShowAdditionalDiscount(false);
+            setEditTab(null);
+            setEditIndex(null);
+          }}
           width="w-[600px]"
         >
           <AdditionalDiscountType
-            onClose={() => setShowAdditionalDiscount(false)}
+            onClose={() => {
+              setShowAdditionalDiscount(false);
+              setEditTab(null);
+              setEditIndex(null);
+            }}
             categoryId={categoryId}
             initialData={form.additionalDiscount}
             baseDiscountPercentage={Number(form.discountPercentage) || 0}
@@ -1591,7 +1601,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 ...prev,
                 additionalDiscount: data,
               }));
+              setShowAdditionalDiscount(false);
+              setEditTab(null);
+              setEditIndex(null);
             }}
+            editTab={editTab}
+            editIndex={editIndex}
           />
         </CommonModal>
       )}
@@ -2325,7 +2340,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               additionalDiscounts={form.additionalDiscount}
               specialSchemes={[]}
               productName={form.productName}
-              onEditDiscount={() => setShowAdditionalDiscount(true)}
+              onEditDiscount={(index) => {
+                setEditTab("additional_discount");
+                setEditIndex(index);
+                setShowAdditionalDiscount(true);
+              }}
               onDeleteDiscount={(index) => {
                 setForm((prev) => ({
                   ...prev,

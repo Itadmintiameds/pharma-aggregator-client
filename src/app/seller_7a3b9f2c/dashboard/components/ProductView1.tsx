@@ -80,6 +80,7 @@ interface PricingDetails {
   expiryDate?: string | null;
   stockQuantity?: number;
   additionalDiscounts?: AdditionalDiscount[];
+  specialSchemes?: any[];
   gstPercentage?: string | number;
   hsnCode?: string | number;
   shelfLifeMonths?: number | null;
@@ -1798,11 +1799,10 @@ const ProductView1 = ({
       ? `${pricing.shelfLifeMonths} months`
       : (consAttr?.shelfLife ?? drugEntry?.shelfLife ?? null);
 
-  // Batch Aggregation logic: scan all batches for offers
+  // Extract offers only from the latest batch
   const additionalDiscounts: AdditionalDiscount[] = (
-    productData?.pricingDetails ?? []
+    pricing?.additionalDiscounts || []
   )
-    .flatMap((p: any) => p.additionalDiscounts || [])
     .filter(
       (d: any) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage && d.displayOffer !== false,
     )
@@ -1816,8 +1816,7 @@ const ProductView1 = ({
         ),
     );
 
-  const specialSchemes: any[] = (productData?.pricingDetails ?? [])
-    .flatMap((p: any) => p.specialSchemes || [])
+  const specialSchemes: any[] = (pricing?.specialSchemes || [])
     .filter((s: any) => s.schemeName && s.displayOfferScheme !== false && s.displayOffer !== false);
 
   const unitsPerPack =
