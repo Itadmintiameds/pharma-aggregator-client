@@ -1601,9 +1601,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 ...prev,
                 additionalDiscount: data,
               }));
-              setShowAdditionalDiscount(false);
-              setEditTab(null);
-              setEditIndex(null);
             }}
             editTab={editTab}
             editIndex={editIndex}

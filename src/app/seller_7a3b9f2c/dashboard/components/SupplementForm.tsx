@@ -2008,9 +2008,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 ...prev,
                 additionalDiscount: data || [],
               }));
-              setShowAdditionalDiscount(false);
-              setEditTab(null);
-              setEditIndex(null);
             }}
             initialSchemesData={form.specialSchemes}
             onSaveSpecialSchemes={(data: any) => {
@@ -2018,9 +2015,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 ...prev,
                 specialSchemes: data || [],
               }));
-              setShowAdditionalDiscount(false);
-              setEditTab(null);
-              setEditIndex(null);
             }}
             editTab={editTab}
             editIndex={editIndex}
