@@ -424,8 +424,11 @@ const AdditionalDiscountNew = forwardRef<
     const formatDateForApi = (dateStr: string) => {
       if (!dateStr) return "";
 
-      const [day, month, year] = dateStr.split("/");
+      if (dateStr.includes("-")) {
+        return dateStr.split("T")[0];
+      }
 
+      const [day, month, year] = dateStr.split("/");
       return `${year}-${month}-${day}`;
     };
 

@@ -330,8 +330,11 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
     const formatDateForApi = (dateStr: string | null) => {
       if (!dateStr) return "";
 
-      const [day, month, year] = dateStr.split("/");
+      if (dateStr.includes("-")) {
+        return dateStr.split("T")[0];
+      }
 
+      const [day, month, year] = dateStr.split("/");
       return `${year}-${month}-${day}`;
     };
 
