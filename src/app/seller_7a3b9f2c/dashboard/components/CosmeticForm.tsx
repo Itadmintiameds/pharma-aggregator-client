@@ -1600,9 +1600,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                   ...prev,
                   additionalDiscount: data,
                 }));
-                setShowAdditionalDiscount(false);
-                setEditTab(null);
-                setEditIndex(null);
+
               }}
               initialSchemesData={form.specialSchemes}
               onSaveSpecialSchemes={(data) => {
@@ -1610,9 +1608,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                   ...prev,
                   specialSchemes: data || [],
                 }));
-                setShowAdditionalDiscount(false);
-                setEditTab(null);
-                setEditIndex(null);
+
               }}
               editTab={editTab}
               editIndex={editIndex}
