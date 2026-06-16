@@ -406,6 +406,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
+  const [editTab, setEditTab] = useState<"additional_discount" | "special_schemes" | null>(null);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const unitDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -1577,28 +1579,44 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
       {showAdditionalDiscount && (
         <CommonModal
-          onClose={() => setShowAdditionalDiscount(false)}
+          onClose={() => {
+            setShowAdditionalDiscount(false);
+            setEditTab(null);
+            setEditIndex(null);
+          }}
           width="w-[600px]"
         >
             <AdditionalDiscountType
-              onClose={() => setShowAdditionalDiscount(false)}
+              onClose={() => {
+                setShowAdditionalDiscount(false);
+                setEditTab(null);
+                setEditIndex(null);
+              }}
               categoryId={productCategoryId}
               initialData={form.additionalDiscount}
               baseDiscountPercentage={Number(form.discountPercentage) || 0}
               baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
-              onSaveAdditionalDiscount={(data) =>
+              onSaveAdditionalDiscount={(data) => {
                 setForm((prev) => ({
                   ...prev,
                   additionalDiscount: data,
-                }))
-              }
+                }));
+                setShowAdditionalDiscount(false);
+                setEditTab(null);
+                setEditIndex(null);
+              }}
               initialSchemesData={form.specialSchemes}
-              onSaveSpecialSchemes={(data: any) => {
+              onSaveSpecialSchemes={(data) => {
                 setForm((prev) => ({
                   ...prev,
                   specialSchemes: data || [],
                 }));
+                setShowAdditionalDiscount(false);
+                setEditTab(null);
+                setEditIndex(null);
               }}
+              editTab={editTab}
+              editIndex={editIndex}
             />
         </CommonModal>
       )}
@@ -2252,7 +2270,11 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               <div className="mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowAdditionalDiscount(true)}
+                  onClick={() => {
+                      setEditTab(null);
+                      setEditIndex(null);
+                      setShowAdditionalDiscount(true);
+                    }}
                   className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
                 >
                   <img src="/icons/PlusIcon.svg" alt="drug" className="w-6 h-6" />
@@ -2265,7 +2287,11 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               additionalDiscounts={form.additionalDiscount}
               specialSchemes={form.specialSchemes}
               productName={form.productName}
-              onEditDiscount={() => setShowAdditionalDiscount(true)}
+              onEditDiscount={(index) => {
+                setEditTab("additional_discount");
+                setEditIndex(index);
+                setShowAdditionalDiscount(true);
+              }}
               onDeleteDiscount={(index) =>
                 setForm((prev) => ({
                   ...prev,
@@ -2274,7 +2300,11 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                   ),
                 }))
               }
-              onEditScheme={() => setShowAdditionalDiscount(true)}
+              onEditScheme={(index) => {
+                setEditTab("special_schemes");
+                setEditIndex(index);
+                setShowAdditionalDiscount(true);
+              }}
               onDeleteScheme={(index) =>
                 setForm((prev) => ({
                   ...prev,
