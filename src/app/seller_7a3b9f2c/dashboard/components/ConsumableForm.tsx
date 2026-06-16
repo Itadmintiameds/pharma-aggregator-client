@@ -263,6 +263,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] = useState(false);
   const [showExpiryMonthPicker, setShowExpiryMonthPicker] = useState(false);
   const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
+  const [editTab, setEditTab] = useState<"additional_discount" | "special_schemes" | null>(null);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
   const [specialSchemes, setSpecialSchemes] = useState<any[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -564,24 +566,29 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         { value: "4", label: "BIS Certification", certificationId: 4, tagCode: "Tag 04" },
       ];
 
-      const resolvedCerts: CertificationMasterOption[] =
-        certificationsResult.status === "fulfilled"
-          ? (certificationsResult.value as MasterItem[])
+      let resolvedCerts: CertificationMasterOption[] = fallbackCerts;
+      try {
+        if (certificationsResult.status === "fulfilled" && Array.isArray(certificationsResult.value)) {
+          const mapped = (certificationsResult.value as MasterItem[])
             .map((item, idx) => ({
               value: getMasterStr(item, "certificationId", "id"),
               label: getMasterStr(item, "certificationName", "name") || "Unknown",
               certificationId: Number(getMasterStr(item, "certificationId", "id") || String(idx + 1)),
               tagCode: `Tag ${String(idx + 1).padStart(2, "0")}`,
             }))
-            .filter((o) => o.value)
-          : fallbackCerts;
+            .filter((o) => o.value);
+          if (mapped.length > 0) resolvedCerts = mapped;
+        }
+      } catch {
+        resolvedCerts = fallbackCerts;
+      }
 
       setDeviceCategoryOptions(resolvedCategories);
       setCountryOptions(resolvedCountries);
       setStorageConditionOptions(resolvedStorage);
       setPackTypeApiOptions(resolvedPackTypes);
       setMaterialTypeOptions(resolvedMaterialTypes);
-      setCertificationMasterOptions(resolvedCerts.length ? resolvedCerts : fallbackCerts);
+      setCertificationMasterOptions(resolvedCerts);
 
       setLoadingCategories(false);
       setLoadingMaterialTypes(false);
@@ -600,7 +607,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       }
     };
 
-    loadAll();
+    loadAll().catch(() => {
+      setLoadingCertifications(false);
+    });
 
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -701,11 +710,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (value !== "" && !/^\d*$/.test(value)) return;
       if (name === "hsnCode" && value.length > 8) value = value.slice(0, 8);
     } else if (name === "sizeDimension") {
-      if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
-      if (value.startsWith("-")) return;
+      if (value !== "" && !/^[a-zA-Z0-9\s.×x]*$/.test(value)) return;
+      if (value.startsWith(" ")) return;
+      if (/\d+\.\d{3,}/.test(value)) return;
     }
 
-    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000, sizeDimension: 10, batchLotNumber: 20 };
+    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, manufacturerName: 100, productDescription: 1000, sizeDimension: 20, batchLotNumber: 20 };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
     setForm((p) => {
@@ -799,7 +809,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
   const handleCertRemove = (certId: string) => {
     setSelectedCertifications((prev) =>
-      prev.map((c) => c.id === certId ? { ...c, file: null, fileName: "", isUploaded: false } : c)
+      prev.map((c) => c.id === certId ? { ...c, file: null, fileName: "", isUploaded: false, existingUrl: undefined } : c)
     );
   };
 
@@ -908,9 +918,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (selectedMaterialTypes.length === 0) e.materialType = "At least one material type is required";
       const sDim = form.sizeDimension.trim();
       if (!sDim) {
-        e.sizeDimension = "Size / Dimension is required";
-      } else if (isNaN(Number(sDim)) || Number(sDim) <= 0) {
-        e.sizeDimension = "Size / Dimension must be a positive number";
+        e.sizeDimension = "Size / Dimension / Gauge is required";
+      } else if (sDim.length > 20) {
+        e.sizeDimension = "Maximum 20 characters allowed";
+      } else if (/\d+\.\d{3,}/.test(sDim)) {
+        e.sizeDimension = "Decimal values are allowed up to 2 digits after the decimal point";
+      } else if (!/^[a-zA-Z0-9\s.×x]+$/.test(sDim)) {
+        e.sizeDimension = "Only letters, numbers, spaces, and dimension separators (x, ×) are allowed";
       }
       if (!form.deviceSpecificationUnitId) e.deviceSpecificationUnitId = "Unit is required";
       if (!form.sterileStatus) e.sterileStatus = "Sterile status is required";
@@ -1101,7 +1115,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           deviceSubCatId: Number(form.deviceSubCategoryId),
           brandName: form.brandName,
           materialTypeId: selectedMaterialTypes.map(Number),
-          dimensionSize: parseFloat(form.sizeDimension) || 0,
+          dimensionSize: form.sizeDimension.trim() || null,
           deviceSpecificationUnitId: Number(form.deviceSpecificationUnitId),
           sterileOrNonSterile: form.sterileStatus === "sterile" ? "Sterile" : "Non-Sterile",
           disposalOrReusable: form.disposableType === "disposable" ? "Disposable" : "Reusable",
@@ -1230,19 +1244,27 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       />
 
       {showAdditionalDiscountModal && (
-        <CommonModal onClose={() => setShowAdditionalDiscountModal(false)} width="w-[600px]">
+        <CommonModal onClose={() => { setShowAdditionalDiscountModal(false); setEditTab(null); setEditIndex(null); }} width="w-[600px]">
           <AdditionalDiscountType
             initialData={convertToDiscountData(additionalDiscountSlabs)}
             baseDiscountPercentage={Number(form.discountPercentage) || 0}
             baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
             onSaveAdditionalDiscount={(data: AdditionalDiscountData[]) => {
               setAdditionalDiscountSlabs(convertToDiscountSlab(data));
+              setShowAdditionalDiscountModal(false);
+              setEditTab(null);
+              setEditIndex(null);
             }}
             initialSchemesData={specialSchemes}
             onSaveSpecialSchemes={(data: any) => {
               setSpecialSchemes(data || []);
+              setShowAdditionalDiscountModal(false);
+              setEditTab(null);
+              setEditIndex(null);
             }}
-            onClose={() => setShowAdditionalDiscountModal(false)}
+            onClose={() => { setShowAdditionalDiscountModal(false); setEditTab(null); setEditIndex(null); }}
+            editTab={editTab}
+            editIndex={editIndex}
           />
         </CommonModal>
       )}
@@ -1332,10 +1354,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               </div>
             )}
 
-            {/* Size / Dimension */}
+            {/* Size / Dimension / Gauge */}
             {isEdit ? (
               <NonEditableField
-                label="Size / Dimension"
+                label="Size / Dimension / Gauge"
                 value={form.sizeDimension && displayLabels.specificationUnitLabel
                   ? `${form.sizeDimension} ${displayLabels.specificationUnitLabel}`
                   : form.sizeDimension || "—"}
@@ -1346,15 +1368,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 className="flex flex-col gap-1"
                 ref={(el) => { fieldRefs.current["sizeDimension"] = el; fieldRefs.current["deviceSpecificationUnitId"] = el; }}
               >
-                <label className={fieldLabel}>Size / Dimension {requiredStar}</label>
+                <label className={fieldLabel}>Size / Dimension / Gauge {requiredStar}</label>
                 <div className="relative" ref={unitDropdownRef}>
                   <div className={`flex items-center h-[52px] border rounded-lg overflow-hidden ${errors.sizeDimension || errors.deviceSpecificationUnitId ? "border-warning-500" : "border-pneutral-300"}`}>
                     <input
                       name="sizeDimension"
                       value={form.sizeDimension}
                       onChange={handleChange}
-                      placeholder="e.g., 10.5"
-                      maxLength={10}
+                      placeholder="e.g., 22 × 25, M, Adult, 14"
+                      maxLength={20}
                       className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
                     />
                     <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
@@ -1760,13 +1782,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               additionalDiscounts={convertToDiscountData(additionalDiscountSlabs)}
               specialSchemes={specialSchemes}
               productName={form.productName}
-              onEditDiscount={() => setShowAdditionalDiscountModal(true)}
+              onEditDiscount={(index) => { setEditTab("additional_discount"); setEditIndex(index); setShowAdditionalDiscountModal(true); }}
               onDeleteDiscount={(index) =>
                 setAdditionalDiscountSlabs((prev) =>
                   prev.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } as any : d)
                 )
               }
-              onEditScheme={() => setShowAdditionalDiscountModal(true)}
+              onEditScheme={(index) => { setEditTab("special_schemes"); setEditIndex(index); setShowAdditionalDiscountModal(true); }}
               onDeleteScheme={(index) =>
                 setSpecialSchemes((prev) =>
                   prev.map((s: any, i: number) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)

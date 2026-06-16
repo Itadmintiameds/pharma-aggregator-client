@@ -266,6 +266,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [mandatoryCertCount, setMandatoryCertCount] = useState(0);
 
   const [showAdditionalDiscountModal, setShowAdditionalDiscountModal] = useState(false);
+  const [editTab, setEditTab] = useState<"additional_discount" | "special_schemes" | null>(null);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
   const [specialSchemes, setSpecialSchemes] = useState<any[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -553,26 +555,26 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       .catch(() => {})
       .finally(() => setLoadingMaterialTypes(false));
 
+    const nonConsumableFallbackCerts: CertificationMasterOption[] = [
+      { value: "1", label: "CDSCO License Number", certificationId: 1, tagCode: "CDSCO" },
+      { value: "2", label: "ISO Certificate", certificationId: 2, tagCode: "Tag 02" },
+      { value: "3", label: "CE Certification", certificationId: 3, tagCode: "Tag 03" },
+      { value: "4", label: "BIS Certification", certificationId: 4, tagCode: "Tag 04" },
+    ];
     setLoadingCertifications(true);
     getNonConsumableCertificationsByCategoryId(productCategoryId)
-      .then((items: MasterItem[]) =>
-        setCertificationMasterOptions(
-          items.map((item, idx) => ({
-            value: getMasterStr(item, "certificationId", "id"),
-            label: getMasterStr(item, "certificationName", "name") || "Unknown",
-            certificationId: Number(getMasterStr(item, "certificationId", "id") || String(idx + 1)),
-            tagCode: `Tag ${String(idx + 1).padStart(2, "0")}`,
-          })).filter((o) => o.value),
-        ),
-      )
-      .catch(() =>
-        setCertificationMasterOptions([
-          { value: "1", label: "CDSCO License Number", certificationId: 1, tagCode: "CDSCO" },
-          { value: "2", label: "ISO Certificate", certificationId: 2, tagCode: "Tag 02" },
-          { value: "3", label: "CE Certification", certificationId: 3, tagCode: "Tag 03" },
-          { value: "4", label: "BIS Certification", certificationId: 4, tagCode: "Tag 04" },
-        ]),
-      )
+      .then((items: MasterItem[]) => {
+        const mapped = Array.isArray(items)
+          ? items.map((item, idx) => ({
+              value: getMasterStr(item, "certificationId", "id"),
+              label: getMasterStr(item, "certificationName", "name") || "Unknown",
+              certificationId: Number(getMasterStr(item, "certificationId", "id") || String(idx + 1)),
+              tagCode: `Tag ${String(idx + 1).padStart(2, "0")}`,
+            })).filter((o) => o.value)
+          : [];
+        setCertificationMasterOptions(mapped.length ? mapped : nonConsumableFallbackCerts);
+      })
+      .catch(() => setCertificationMasterOptions(nonConsumableFallbackCerts))
       .finally(() => setLoadingCertifications(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -693,11 +695,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (value !== "" && !/^\d*$/.test(value)) return;
       if (name === "hsnCode" && value.length > 8) value = value.slice(0, 8);
     } else if (name === "dimensionSize") {
-      if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
-      if (value.startsWith("-")) return;
+      if (value !== "" && !/^[a-zA-Z0-9\s.×x]*$/.test(value)) return;
+      if (value.startsWith(" ")) return;
+      if (/\d+\.\d{3,}/.test(value)) return;
     }
 
-    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, modelName: 60, modelNumber: 60, udiNumber: 60, manufacturerName: 100, productDescription: 1000, warrantyPeriod: 3, dimensionSize: 10, batchLotNumber: 20 };
+    const maxLengths: Record<string, number> = { productName: 150, brandName: 60, modelName: 60, modelNumber: 60, udiNumber: 60, manufacturerName: 100, productDescription: 1000, warrantyPeriod: 3, dimensionSize: 30, batchLotNumber: 20 };
     if (name in maxLengths && value.length > maxLengths[name]) return;
 
     setForm((p) => {
@@ -788,7 +791,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   const handleCertRemove = (certId: string) => {
     setSelectedCertifications((prev) =>
-      prev.map((c) => c.id === certId ? { ...c, file: null, fileName: "", isUploaded: false } : c)
+      prev.map((c) => c.id === certId ? { ...c, file: null, fileName: "", isUploaded: false, existingUrl: undefined } : c)
     );
   };
 
@@ -876,8 +879,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const dimSize = form.dimensionSize.trim();
       if (!dimSize) {
         e.dimensionSize = "Technical dimensions / capacity / configuration is required";
-      } else if (isNaN(Number(dimSize)) || Number(dimSize) <= 0) {
-        e.dimensionSize = "Technical dimensions must be a positive number";
+      } else if (dimSize.length > 30) {
+        e.dimensionSize = "Maximum 30 characters allowed";
+      } else if (/\d+\.\d{3,}/.test(dimSize)) {
+        e.dimensionSize = "Decimal values are allowed up to 2 digits after the decimal point";
+      } else if (!/^[a-zA-Z0-9\s.×x]+$/.test(dimSize)) {
+        e.dimensionSize = "Only letters, numbers, spaces, and dimension separators (x, ×) are allowed";
       }
       if (!form.deviceSpecificationUnitId) e.deviceSpecificationUnitId = "Unit is required";
     }
@@ -1063,7 +1070,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           countryId: Number(form.countryOfOrigin),
           manufacturerName: form.manufacturerName,
           warrantyPeriod: form.warrantyPeriod || "",
-          dimensionSize: form.dimensionSize ? Number(form.dimensionSize) : null,
+          dimensionSize: form.dimensionSize.trim() || null,
           deviceSpecificationUnitId: form.deviceSpecificationUnitId ? Number(form.deviceSpecificationUnitId) : null,
           udiNumber: form.udiNumber || "",
           deviceClassification: form.deviceClassification,
@@ -1193,17 +1200,27 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       />
 
       {showAdditionalDiscountModal && (
-        <CommonModal onClose={() => setShowAdditionalDiscountModal(false)} width="w-[600px]">
+        <CommonModal onClose={() => { setShowAdditionalDiscountModal(false); setEditTab(null); setEditIndex(null); }} width="w-[600px]">
           <AdditionalDiscountType
             initialData={convertToDiscountData(additionalDiscountSlabs)}
             baseDiscountPercentage={Number(form.discountPercentage) || 0}
             baseMinimumOrderQuantity={Number(form.minimumOrderQuantity) || 0}
             onSaveAdditionalDiscount={(data: AdditionalDiscountData[]) => {
               setAdditionalDiscountSlabs(convertToDiscountSlab(data));
+              setShowAdditionalDiscountModal(false);
+              setEditTab(null);
+              setEditIndex(null);
             }}
             initialSchemesData={specialSchemes}
-            onSaveSpecialSchemes={(data: any) => { setSpecialSchemes(data || []); }}
-            onClose={() => setShowAdditionalDiscountModal(false)}
+            onSaveSpecialSchemes={(data: any) => {
+              setSpecialSchemes(data || []);
+              setShowAdditionalDiscountModal(false);
+              setEditTab(null);
+              setEditIndex(null);
+            }}
+            onClose={() => { setShowAdditionalDiscountModal(false); setEditTab(null); setEditIndex(null); }}
+            editTab={editTab}
+            editIndex={editIndex}
           />
         </CommonModal>
       )}
@@ -1402,7 +1419,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                 />
               ) : (
                 <>
-                  <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration</label>
+                  <label className={fieldLabel}>Technical Dimensions / Capacity / Configuration {requiredStar}</label>
                   <div className="relative" ref={unitDropdownRef}>
                     <div className={`flex items-center h-[52px] border rounded-lg overflow-hidden ${errors.dimensionSize || errors.deviceSpecificationUnitId ? "border-warning-500" : "border-pneutral-300"}`}>
                       <input
@@ -1410,8 +1427,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                         name="dimensionSize"
                         value={form.dimensionSize}
                         onChange={handleChange}
-                        placeholder="e.g., 20.5"
-                        maxLength={10}
+                        placeholder="e.g., 210 × 80, Adult, XL, 350000"
+                        maxLength={30}
                         className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
                       />
                       <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
@@ -1477,11 +1494,14 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                     };
                   });
                   setSelectedCertifications(newCerts);
+                  if (errors.certifications) setErrors((p) => { const n = { ...p }; delete n.certifications; return n; });
                 }}
                 placeholder={loadingCertifications ? "Loading..." : "Select certifications"}
                 disabled={loadingCertifications}
                 showSelectAll={false}
+                error={errors.certifications ? " " : ""}
               />
+              {errors.certifications && <p className={errorMsg}>{errors.certifications}</p>}
             </div>
 
             {/* Certifications — upload (editable in both create and edit modes) */}
@@ -1907,13 +1927,13 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               additionalDiscounts={convertToDiscountData(additionalDiscountSlabs)}
               specialSchemes={specialSchemes}
               productName={form.productName}
-              onEditDiscount={() => setShowAdditionalDiscountModal(true)}
+              onEditDiscount={(index) => { setEditTab("additional_discount"); setEditIndex(index); setShowAdditionalDiscountModal(true); }}
               onDeleteDiscount={(index) =>
                 setAdditionalDiscountSlabs((prev) =>
                   prev.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } as any : d)
                 )
               }
-              onEditScheme={() => setShowAdditionalDiscountModal(true)}
+              onEditScheme={(index) => { setEditTab("special_schemes"); setEditIndex(index); setShowAdditionalDiscountModal(true); }}
               onDeleteScheme={(index) =>
                 setSpecialSchemes((prev) =>
                   prev.map((s: any, i: number) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)

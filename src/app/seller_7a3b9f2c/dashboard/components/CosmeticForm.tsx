@@ -482,9 +482,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest)
         : {};
 
-      setProductAttributeId(String(attribute.productAttributeId || ""));
-      setPackagingId(String(packaging.packagingId || ""));
-      setPricingId(String(pricing.pricingId || ""));
+      setProductAttributeId(extractAttributeIdFromProduct(data) || "");
+      setPackagingId(String(packaging.packagingId || packaging.packagingDetailsId || packaging.id || ""));
+      setPricingId(String(pricing.pricingId || pricing.pricingDetailsId || pricing.id || ""));
 
       const mfgDate = pricing.manufacturingDate ? new Date(pricing.manufacturingDate) : null;
       const expDate = pricing.expiryDate ? new Date(pricing.expiryDate) : null;
@@ -1154,24 +1154,29 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     if (!bName) e.brandName = "Brand name is required";
     else if (bName.length > 60) e.brandName = "Brand name must not exceed 60 characters";
 
-    if (!form.gender) e.gender = "Gender is required";
+    // Fields below are non-editable in edit mode — validate only on create so
+    // Excel-uploaded products (which may lack this data) are not blocked on edit.
+    if (mode === "create") {
+      if (!form.gender) e.gender = "Gender is required";
+      if (skinHairRule.skinType === "mandatory" && selectedSkinTypes.length === 0)
+        e.skinTypes = "Skin type is required for this product type";
+      if (skinHairRule.hairType === "mandatory" && selectedHairTypes.length === 0)
+        e.hairTypes = "Hair type is required for Hair Care products";
+      if (!form.activeIngredients.trim()) e.activeIngredients = "Active ingredients are required";
+      if (!form.netQuantity.trim()) e.netQuantity = "Net quantity is required";
+      else if (form.netQuantity.length > 10) e.netQuantity = "Net quantity must not exceed 10 characters";
+      else if (isNaN(Number(form.netQuantity)) || Number(form.netQuantity) <= 0)
+        e.netQuantity = "Net quantity must be a positive number";
+      if (!form.netQuantityUnitId) e.netQuantityUnitId = "Unit is required";
+      if (!form.productFormId) e.productFormId = "Product form is required";
+      if (selectedAgeGroups.length === 0) e.ageGroupId = "At least one age group is required";
+      const mName = form.manufacturerName.trim();
+      if (!mName) e.manufacturerName = "Manufacturer name is required";
+      else if (mName.length > 100) e.manufacturerName = "Manufacturer name must not exceed 100 characters";
+      if (!form.countryOfOriginId) e.countryOfOriginId = "Country of origin is required";
+    }
+
     if (selectedIntendedUseAreas.length === 0) e.intendedUseAreas = "At least one intended use area is required";
-
-    if (skinHairRule.skinType === "mandatory" && selectedSkinTypes.length === 0)
-      e.skinTypes = "Skin type is required for this product type";
-    if (skinHairRule.hairType === "mandatory" && selectedHairTypes.length === 0)
-      e.hairTypes = "Hair type is required for Hair Care products";
-
-    if (!form.activeIngredients.trim()) e.activeIngredients = "Active ingredients are required";
-
-    if (!form.netQuantity.trim()) e.netQuantity = "Net quantity is required";
-    else if (form.netQuantity.length > 10) e.netQuantity = "Net quantity must not exceed 10 characters";
-    else if (isNaN(Number(form.netQuantity)) || Number(form.netQuantity) <= 0)
-      e.netQuantity = "Net quantity must be a positive number";
-    if (!form.netQuantityUnitId) e.netQuantityUnitId = "Unit is required";
-    if (!form.productFormId) e.productFormId = "Product form is required";
-
-    if (selectedAgeGroups.length === 0) e.ageGroupId = "At least one age group is required";
     if (!form.productClaims.trim()) e.productClaims = "Product claims are required";
     if (!form.warningsPrecautions.trim()) e.warningsPrecautions = "Warnings / precautions are required";
 
@@ -1180,12 +1185,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     else if (pDesc.length > 1000) e.productDescription = "Product description must not exceed 1000 characters";
 
     if (!form.storageConditionId) e.storageConditionId = "Storage condition is required";
-
-    const mName = form.manufacturerName.trim();
-    if (!mName) e.manufacturerName = "Manufacturer name is required";
-    else if (mName.length > 100) e.manufacturerName = "Manufacturer name must not exceed 100 characters";
-
-    if (!form.countryOfOriginId) e.countryOfOriginId = "Country of origin is required";
 
     for (const cert of selectedCertifications) {
       if (!cert.file && !cert.existingUrl) {
