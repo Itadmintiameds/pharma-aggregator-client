@@ -16,6 +16,15 @@ import {
   type StockLedgerResponse,
 } from "@/src/services/product/StockService";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
+import {
+  getPackTypesByCategory,
+  getPackTypeUnits,
+} from "@/src/services/product/PackTypeService";
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
 
 interface StockUpdateModalProps {
   open: boolean;
@@ -119,11 +128,25 @@ export default function StockUpdateModal({
     quantity: "",
     mrp: "",
     sellingPrice: "",
+    // A brand-new batch always creates its own packaging/pack-size variant
+    // alongside it (the /stock/add API accepts packagingDetails for this).
+    packId: "",
+    packTypeUnitId: "",
+    unitPerPack: "",
+    numberOfPacks: "",
+    packSize: "",
+    minimumOrderQuantity: "",
+    maximumOrderQuantity: "",
   });
   const [batchNumberError, setBatchNumberError] = useState<string | null>(
     null
   );
   const [checkingBatchNumber, setCheckingBatchNumber] = useState(false);
+
+  const [packTypeOptions, setPackTypeOptions] = useState<SelectOption[]>([]);
+  const [packTypeUnitOptions, setPackTypeUnitOptions] = useState<
+    SelectOption[]
+  >([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -146,6 +169,13 @@ export default function StockUpdateModal({
       quantity: "",
       mrp: "",
       sellingPrice: "",
+      packId: "",
+      packTypeUnitId: "",
+      unitPerPack: "",
+      numberOfPacks: "",
+      packSize: "",
+      minimumOrderQuantity: "",
+      maximumOrderQuantity: "",
     });
     setBatchNumberError(null);
     setCheckingBatchNumber(false);
@@ -165,6 +195,30 @@ export default function StockUpdateModal({
       .finally(() => setBatchesLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, productId, packagingId]);
+
+  useEffect(() => {
+    if (!open || categoryId == null) return;
+    getPackTypesByCategory(categoryId)
+      .then((list: any[]) =>
+        setPackTypeOptions(
+          (list ?? []).map((p) => ({
+            value: String(p.packId ?? p.id),
+            label: p.packType ?? p.packTypeName ?? p.name ?? `Pack ${p.packId}`,
+          }))
+        )
+      )
+      .catch((err) => console.error("Error fetching pack types:", err));
+    getPackTypeUnits()
+      .then((list: any[]) =>
+        setPackTypeUnitOptions(
+          (list ?? []).map((u) => ({
+            value: String(u.packTypeUnitId),
+            label: u.packTypeUnitName,
+          }))
+        )
+      )
+      .catch((err) => console.error("Error fetching pack type units:", err));
+  }, [open, categoryId]);
 
   if (!open) return null;
 
@@ -199,6 +253,22 @@ export default function StockUpdateModal({
     checkBatchNumber(value);
   };
 
+  // packSize is derived (unitPerPack × numberOfPacks), same as the product forms.
+  const handleUnitPerPackOrCountChange = (
+    field: "unitPerPack" | "numberOfPacks",
+    value: string
+  ) => {
+    setNewBatch((v) => {
+      const next = { ...v, [field]: value };
+      const unitPerPack = Number(next.unitPerPack) || 0;
+      const numberOfPacks = Number(next.numberOfPacks) || 0;
+      next.packSize = unitPerPack && numberOfPacks
+        ? String(unitPerPack * numberOfPacks)
+        : "";
+      return next;
+    });
+  };
+
   const isStep2Valid =
     updateType === "existing"
       ? selectedBatchIndex != null
@@ -212,7 +282,14 @@ export default function StockUpdateModal({
         Number(newBatch.mrp) > 0 &&
         !isNaN(Number(newBatch.mrp)) &&
         Number(newBatch.sellingPrice) > 0 &&
-        !isNaN(Number(newBatch.sellingPrice));
+        !isNaN(Number(newBatch.sellingPrice)) &&
+        newBatch.packId !== "" &&
+        newBatch.packTypeUnitId !== "" &&
+        Number(newBatch.unitPerPack) > 0 &&
+        Number(newBatch.numberOfPacks) > 0 &&
+        Number(newBatch.minimumOrderQuantity) > 0 &&
+        Number(newBatch.maximumOrderQuantity) >=
+          Number(newBatch.minimumOrderQuantity);
 
   const isStep3Valid =
     updateType === "existing"
@@ -256,7 +333,17 @@ export default function StockUpdateModal({
           }
         : {
             productId,
-            packagingId,
+            // A new batch always creates its own packaging variant, so packagingId is
+            // intentionally omitted here — packagingDetails takes precedence server-side.
+            packagingDetails: {
+              packId: Number(newBatch.packId),
+              packTypeUnitId: Number(newBatch.packTypeUnitId),
+              unitPerPack: Number(newBatch.unitPerPack),
+              numberOfPacks: Number(newBatch.numberOfPacks),
+              packSize: Number(newBatch.packSize),
+              minimumOrderQuantity: Number(newBatch.minimumOrderQuantity),
+              maximumOrderQuantity: Number(newBatch.maximumOrderQuantity),
+            },
             batchLotNumber: newBatch.batchLotNumber.trim(),
             manufacturingDate: `${newBatch.manufacturingDate}T00:00:00`,
             expiryDate: `${newBatch.expiryDate}T00:00:00`,
@@ -720,6 +807,7 @@ export default function StockUpdateModal({
               )}
 
               {step === 2 && updateType === "new" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                 <div
                   style={{
                     display: "grid",
@@ -825,6 +913,136 @@ export default function StockUpdateModal({
                       style={inputStyle}
                     />
                   </Field>
+                </div>
+
+                <div>
+                  <p
+                    style={{
+                      margin: "0 0 4px",
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: TEXT_DARK,
+                      fontFamily: "'Work Sans', sans-serif",
+                    }}
+                  >
+                    Packaging / Variant Details
+                  </p>
+                  <p style={{ margin: "0 0 16px", fontSize: 13, color: TEXT_GRAY }}>
+                    A new batch creates its own pack-size variant.
+                  </p>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 16,
+                    }}
+                  >
+                    <Field label="Pack Type">
+                      <select
+                        value={newBatch.packId}
+                        onChange={(e) =>
+                          setNewBatch((v) => ({ ...v, packId: e.target.value }))
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="">Select pack type</option>
+                        {packTypeOptions.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Pack Type Unit">
+                      <select
+                        value={newBatch.packTypeUnitId}
+                        onChange={(e) =>
+                          setNewBatch((v) => ({
+                            ...v,
+                            packTypeUnitId: e.target.value,
+                          }))
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="">Select unit</option>
+                        {packTypeUnitOptions.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Unit Per Pack">
+                      <input
+                        type="number"
+                        min={1}
+                        value={newBatch.unitPerPack}
+                        onChange={(e) =>
+                          handleUnitPerPackOrCountChange(
+                            "unitPerPack",
+                            e.target.value
+                          )
+                        }
+                        placeholder="e.g. 15"
+                        style={inputStyle}
+                      />
+                    </Field>
+                    <Field label="Number of Packs">
+                      <input
+                        type="number"
+                        min={1}
+                        value={newBatch.numberOfPacks}
+                        onChange={(e) =>
+                          handleUnitPerPackOrCountChange(
+                            "numberOfPacks",
+                            e.target.value
+                          )
+                        }
+                        placeholder="e.g. 100"
+                        style={inputStyle}
+                      />
+                    </Field>
+                    <Field label="Pack Size (auto-calculated)">
+                      <input
+                        type="number"
+                        value={newBatch.packSize}
+                        readOnly
+                        placeholder="Unit Per Pack × Number of Packs"
+                        style={{ ...inputStyle, background: "#F5F5F5", color: TEXT_GRAY }}
+                      />
+                    </Field>
+                    <Field label="Minimum Order Quantity">
+                      <input
+                        type="number"
+                        min={1}
+                        value={newBatch.minimumOrderQuantity}
+                        onChange={(e) =>
+                          setNewBatch((v) => ({
+                            ...v,
+                            minimumOrderQuantity: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g. 5"
+                        style={inputStyle}
+                      />
+                    </Field>
+                    <Field label="Maximum Order Quantity">
+                      <input
+                        type="number"
+                        min={1}
+                        value={newBatch.maximumOrderQuantity}
+                        onChange={(e) =>
+                          setNewBatch((v) => ({
+                            ...v,
+                            maximumOrderQuantity: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g. 500"
+                        style={inputStyle}
+                      />
+                    </Field>
+                  </div>
+                </div>
                 </div>
               )}
 
@@ -1022,6 +1240,62 @@ export default function StockUpdateModal({
                     <ReviewRow
                       label="Expiry date"
                       value={formatDate(newBatch.expiryDate)}
+                    />
+                  </div>
+
+                  <p
+                    style={{
+                      margin: "16px 0 8px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: TEXT_DARK,
+                      fontFamily: "'Work Sans', sans-serif",
+                    }}
+                  >
+                    New packaging / variant
+                  </p>
+                  <div
+                    style={{
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: 12,
+                      padding: 16,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                    }}
+                  >
+                    <ReviewRow
+                      label="Pack type"
+                      value={
+                        packTypeOptions.find((o) => o.value === newBatch.packId)
+                          ?.label || "—"
+                      }
+                    />
+                    <ReviewRow
+                      label="Pack type unit"
+                      value={
+                        packTypeUnitOptions.find(
+                          (o) => o.value === newBatch.packTypeUnitId
+                        )?.label || "—"
+                      }
+                    />
+                    <ReviewRow
+                      label="Unit per pack"
+                      value={newBatch.unitPerPack || "—"}
+                    />
+                    <ReviewRow
+                      label="Number of packs"
+                      value={newBatch.numberOfPacks || "—"}
+                    />
+                    <ReviewRow
+                      label="Pack size"
+                      value={newBatch.packSize || "—"}
+                    />
+                    <ReviewRow
+                      label="Min / Max order quantity"
+                      value={`${newBatch.minimumOrderQuantity || "—"} / ${
+                        newBatch.maximumOrderQuantity || "—"
+                      }`}
                     />
                   </div>
                 </div>

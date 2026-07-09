@@ -1,8 +1,22 @@
 import { api } from "@/src/utils/api";
 
+export interface PackagingDetailsPayload {
+  packId: number;
+  unitPerPack: number;
+  packTypeUnitId: number;
+  numberOfPacks: number;
+  packSize: number;
+  minimumOrderQuantity: number;
+  maximumOrderQuantity: number;
+}
+
 export interface StockAddRequest {
   productId: string;
+  // Referencing an existing variant — must already exist on this product.
   packagingId?: string;
+  // Submitting new packaging details to create/reuse a variant in the same call,
+  // instead of referencing an existing packagingId. Ignored if packagingId is set.
+  packagingDetails?: PackagingDetailsPayload;
   batchLotNumber: string;
   manufacturingDate: string;
   expiryDate: string;
