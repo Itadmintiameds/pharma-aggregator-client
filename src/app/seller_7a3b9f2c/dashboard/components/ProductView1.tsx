@@ -32,6 +32,7 @@ import {
   getCosmeticNetQuantityUnits,
   getCosmeticProductForms,
 } from "@/src/services/product/CosmeticService";
+import Table, { Column } from "@/src/app/commonComponents/Table";
 import StockUpdateModal from "./StockUpdateModal";
 import SupplementDetailsView from "./SupplementDetailsView";
 import ConsumableView from "./ConsumableView";
@@ -436,6 +437,19 @@ const formatDate = (dateStr?: string | null): string => {
   } catch {
     return dateStr;
   }
+};
+
+const getBatchStatus = (expiryDate?: string | null) => {
+  if (!expiryDate) return { label: "Active", bg: "#DCFCE7", color: "#15803D" };
+  const expiry = new Date(expiryDate);
+  if (isNaN(expiry.getTime()))
+    return { label: "Active", bg: "#DCFCE7", color: "#15803D" };
+  const monthsLeft =
+    (expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30);
+  if (monthsLeft < 0) return { label: "Expired", bg: "#FEE2E2", color: "#B91C1C" };
+  if (monthsLeft <= 6)
+    return { label: "Near Expiry", bg: "#FEF3C7", color: "#92400E" };
+  return { label: "Active", bg: "#DCFCE7", color: "#15803D" };
 };
 
 const toPositiveInt = (val: unknown): number | null => {
@@ -1820,17 +1834,98 @@ const ProductView1 = ({
   const specialSchemes: any[] = (pricing?.specialSchemes || [])
     .filter((s: any) => s.schemeName && s.displayOfferScheme !== false && s.displayOffer !== false);
 
-  const unitsPerPack =
-    packaging?.unitPerPack ??
-    packaging?.unitsPerPack ??
-    packaging?.numberOfUnits;
+  const [batchSearch, setBatchSearch] = useState("");
+  const [batchStatusFilter, setBatchStatusFilter] = useState<
+    "all" | "Active" | "Near Expiry" | "Expired"
+  >("all");
 
-  const packSizeDisplay =
-    packaging?.numberOfPacks != null && unitsPerPack != null
-      ? `${packaging.numberOfPacks} ${resolvedPackType ?? "packs"} × ${unitsPerPack} units = ${(
-          packaging.numberOfPacks * unitsPerPack
-        ).toLocaleString()} units`
-      : null;
+  // Non-consumables don't use batch numbers/expiry — only show those columns
+  // if at least one batch actually has a value for them.
+  const showBatchNumberColumn =
+    !isNonConsumable || pricingArr.some((b) => b.batchLotNumber);
+  const showExpiryColumn =
+    !isNonConsumable || pricingArr.some((b) => b.expiryDate);
+
+  const batchColumns: Column<PricingDetails>[] = [
+    ...(showBatchNumberColumn
+      ? [
+          {
+            header: "Batch Number",
+            accessor: (row: PricingDetails) => row.batchLotNumber || "-",
+          },
+        ]
+      : []),
+    {
+      header: "Mfg. Date",
+      accessor: (row) => formatDate(row.manufacturingDate),
+    },
+    ...(showExpiryColumn
+      ? [
+          {
+            header: "Expiry Date",
+            accessor: (row: PricingDetails) => formatDate(row.expiryDate),
+          },
+        ]
+      : []),
+    {
+      header: "Available Stock",
+      accessor: (row) =>
+        row.stockQuantity != null ? row.stockQuantity.toLocaleString() : "-",
+    },
+    {
+      header: "Status",
+      accessor: (row) => {
+        const status = getBatchStatus(row.expiryDate);
+        return (
+          <span
+            style={{
+              display: "inline-block",
+              padding: "2px 10px",
+              borderRadius: 999,
+              fontSize: 11.5,
+              fontWeight: 600,
+              background: status.bg,
+              color: status.color,
+            }}
+          >
+            {status.label}
+          </span>
+        );
+      },
+    },
+  ];
+
+  const filteredBatches = pricingArr.filter((b) => {
+    const status = getBatchStatus(b.expiryDate).label;
+
+    const term = batchSearch.trim().toLowerCase();
+    if (term) {
+      const haystack = [
+        b.batchLotNumber,
+        formatDate(b.manufacturingDate),
+        formatDate(b.expiryDate),
+        b.stockQuantity != null ? String(b.stockQuantity) : "",
+        status,
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(term)) return false;
+    }
+
+    if (batchStatusFilter !== "all" && status !== batchStatusFilter) {
+      return false;
+    }
+
+    return true;
+  });
+
+  const hasActiveBatchFilters =
+    batchSearch !== "" || batchStatusFilter !== "all";
+
+  const clearBatchFilters = () => {
+    setBatchSearch("");
+    setBatchStatusFilter("all");
+  };
 
   const productImages = resolveProductImages(productData);
   const displayImages = productImages;
@@ -2443,7 +2538,7 @@ const ProductView1 = ({
         <SpecialOffersSection offers={specialOffers} />
       )}
 
-      {/* ── PACKAGING & ORDER DETAILS ── */}
+      {/* ── BATCH MANAGEMENT ── */}
       <div
         style={{
           alignSelf: "stretch",
@@ -2452,281 +2547,159 @@ const ProductView1 = ({
           gap: 16,
         }}
       >
-        <SectionTitle>Packaging &amp; Order Details</SectionTitle>
-        <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
-          <div
-            style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}
+        <SectionTitle>Batch Management</SectionTitle>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+              <select
+            value={batchStatusFilter}
+            onChange={(e) =>
+              setBatchStatusFilter(e.target.value as typeof batchStatusFilter)
+            }
+            style={{
+              height: 40,
+              borderRadius: 8,
+              border: "1px solid #D5D5D4",
+              padding: "0 10px",
+              fontSize: 13,
+              color: "#1E1E1D",
+              fontFamily: "'Noto Sans', sans-serif",
+            }}
           >
-            <FieldRow label="Pack Type" value={resolvedPackType} />
-            <FieldRow
-              label="Number of Units per Pack Type"
-              value={
-                packaging?.numberOfUnits ??
-                packaging?.unitPerPack ??
-                packaging?.unitsPerPack
-              }
-            />
-            <FieldRow
-              label="Number of Packs"
-              value={
-                packaging?.numberOfPacks != null
-                  ? `${packaging.numberOfPacks} ${resolvedPackType ?? "packs"}`
-                  : null
-              }
-            />
-            <FieldRow
-              label="Pack Size (No. of packs × No. of Units per pack type)"
-              value={packSizeDisplay}
-              multiline
+            <option value="all">All statuses</option>
+            <option value="Active">Active</option>
+            <option value="Near Expiry">Near Expiry</option>
+            <option value="Expired">Expired</option>
+          </select>
+
+
+          <div style={{ position: "relative", minWidth: 100, flex: "1 1 220px" }}>
+            <input
+              type="text"
+              value={batchSearch}
+              onChange={(e) => setBatchSearch(e.target.value)}
+              placeholder="Search batches…"
+              style={{
+                width: "100%",
+                height: 40,
+                borderRadius: 8,
+                border: "1px solid #D5D5D4",
+                padding: "0 12px",
+                fontSize: 13,
+                color: "#1E1E1D",
+                boxSizing: "border-box",
+                fontFamily: "'Noto Sans', sans-serif",
+              }}
             />
           </div>
+
+      
+
+          {hasActiveBatchFilters && (
+            <button
+              onClick={clearBatchFilters}
+              style={{
+                height: 40,
+                padding: "0 14px",
+                borderRadius: 8,
+                border: "none",
+                background: "transparent",
+                color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "'Work Sans', sans-serif",
+              }}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+
+        <div style={{ maxHeight: 420, overflowY: "auto" }}>
+          <Table<PricingDetails> columns={batchColumns} data={filteredBatches} />
+        </div>
+
+        {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
           <div
-            style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}
+            style={{
+              borderBottom: "1px solid #D5D5D4",
+              paddingBottom: 12,
+            }}
           >
-            <div style={{ padding: "8px", borderBottom: "1px #D5D5D4 solid" }}>
+            <div style={{ padding: "12px 8px 8px" }}>
               <span
                 style={{
-                  color: "#1E1E1D",
-                  fontSize: 20,
+                  color: "#5A5B58",
+                  fontSize: 18,
                   fontFamily: "'Work Sans', sans-serif",
                   fontWeight: 500,
-                  lineHeight: "28px",
+                  lineHeight: "24px",
                 }}
               >
-                Order Details
+                Additional Scheme Applied
               </span>
             </div>
-            <FieldRow
-              label="Min Order Qty"
-              value={packaging?.minimumOrderQuantity}
-            />
-            <FieldRow
-              label="Max Order Qty"
-              value={packaging?.maximumOrderQuantity}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── BATCH MANAGEMENT + PRICING ── */}
-      <div
-        style={{
-          display: "flex",
-          gap: 36,
-          alignItems: "flex-start",
-          alignSelf: "stretch",
-        }}
-      >
-        {/* Batch Management */}
-        <div
-          style={{
-            flex: "1 1 0",
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-          }}
-        >
-          <SectionTitle>Batch Management</SectionTitle>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {/* Non-consumables don't use batch numbers — only show if value exists */}
-            {(!isNonConsumable || pricing?.batchLotNumber) && (
-              <FieldRow label="Batch Number" value={pricing?.batchLotNumber} />
-            )}
-            <FieldRow
-              label="Manufacturing Date"
-              value={formatDate(pricing?.manufacturingDate)}
-            />
-            {(!isNonConsumable || pricing?.expiryDate) && (
-              <FieldRow
-                label="Expiry Date"
-                value={formatDate(pricing?.expiryDate)}
-              />
-            )}
-            <FieldRow
-              label="Stock Quantity (in terms of Pack Size)"
-              value={
-                pricing?.stockQuantity != null
-                  ? `${pricing.stockQuantity.toLocaleString()} units`
-                  : null
-              }
-            />
-            <FieldRow
-              label="Date of Stock Entry"
-              value={formatDate(pricing?.dateOfStockEntry)}
-            />
-            {/* Non-consumables don't expire — only show shelf life if value exists */}
-            {(!isNonConsumable || shelfLifeDisplay) && (
-              <FieldRow label="Shelf Life" value={shelfLifeDisplay} />
-            )}
-          </div>
-        </div>
-
-        {/* Pricing */}
-        <div
-          style={{
-            flex: "1 1 0",
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-          }}
-        >
-          <SectionTitle>Pricing</SectionTitle>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <FieldRow
-              label="MRP (per Pack Size)"
-              value={
-                pricing?.mrp != null ? `₹${pricing.mrp.toLocaleString()}` : null
-              }
-            />
-            <FieldRow
-              label="Selling Price (per Pack Size)"
-              value={
-                pricing?.sellingPrice != null
-                  ? `₹${pricing.sellingPrice.toLocaleString()}`
-                  : null
-              }
-            />
-            <FieldRow
-              label="Discount Percentage"
-              value={
-                pricing?.discountPercentage != null
-                  ? `${pricing.discountPercentage}%`
-                  : null
-              }
-            />
-
-            {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
-              <div
-                style={{
-                  marginTop: 8,
-                  borderBottom: "1px solid #D5D5D4",
-                  paddingBottom: 12,
-                }}
-              >
-                <div style={{ padding: "12px 8px 8px" }}>
+            {additionalDiscounts.map((d, i) => {
+              const startDate = d.effectiveStartDate ?? d.startDate;
+              const endDate = d.effectiveEndDate ?? d.endDate;
+              return (
+                <div
+                  key={`discount-${d.additionalDiscountId ?? i}`}
+                  style={{
+                    padding: 12,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-end",
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <p
+                      style={{
+                        color: "#5A5B58",
+                        fontSize: 14,
+                        fontFamily: "'Work Sans', sans-serif",
+                        fontWeight: 400,
+                        lineHeight: "20px",
+                        margin: 0,
+                      }}
+                    >
+                      {`Bulk order discount (${d.minimumPurchaseQuantity}${
+                        d.maximumPurchaseQuantity
+                          ? `-${d.maximumPurchaseQuantity}`
+                          : "+"
+                      } units)${
+                        startDate && endDate
+                          ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
+                          : ""
+                      }`}
+                    </p>
+                  </div>
                   <span
                     style={{
-                      color: "#5A5B58",
-                      fontSize: 18,
-                      fontFamily: "'Work Sans', sans-serif",
-                      fontWeight: 500,
+                      color: "#3C3D3A",
+                      fontSize: 16,
+                      fontFamily: "'Noto Sans', sans-serif",
+                      fontWeight: 600,
                       lineHeight: "24px",
+                      textAlign: "right",
+                      flexShrink: 0,
+                      paddingLeft: 16,
                     }}
                   >
-                    Additional Scheme Applied
+                    {d.additionalDiscountPercentage}%
                   </span>
                 </div>
-                {additionalDiscounts.map((d, i) => {
-                  const startDate = d.effectiveStartDate ?? d.startDate;
-                  const endDate = d.effectiveEndDate ?? d.endDate;
-                  return (
-                    <div
-                      key={`discount-${d.additionalDiscountId ?? i}`}
-                      style={{
-                        padding: 12,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-end",
-                      }}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <p
-                          style={{
-                            color: "#5A5B58",
-                            fontSize: 14,
-                            fontFamily: "'Work Sans', sans-serif",
-                            fontWeight: 400,
-                            lineHeight: "20px",
-                            margin: 0,
-                          }}
-                        >
-                          {`Bulk order discount (${d.minimumPurchaseQuantity}${
-                            d.maximumPurchaseQuantity
-                              ? `-${d.maximumPurchaseQuantity}`
-                              : "+"
-                          } units)${
-                            startDate && endDate
-                              ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
-                              : ""
-                          }`}
-                        </p>
-                      </div>
-                      <span
-                        style={{
-                          color: "#3C3D3A",
-                          fontSize: 16,
-                          fontFamily: "'Noto Sans', sans-serif",
-                          fontWeight: 600,
-                          lineHeight: "24px",
-                          textAlign: "right",
-                          flexShrink: 0,
-                          paddingLeft: 16,
-                        }}
-                      >
-                        {d.additionalDiscountPercentage}%
-                      </span>
-                    </div>
-                  );
-                })}
-
-                {/* --- Old Special Schemes rendering (Removed to avoid duplication, now handled in category views) --- */}
-                {/* 
-                {specialSchemes.map((s, i) => {
-                  const startDate = s.effectiveStartDate;
-                  const endDate = s.effectiveEndDate;
-                  return (
-                    <div
-                      key={`scheme-${s.id ?? i}`}
-                      style={{
-                        padding: 12,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-end",
-                      }}
-                    >
-                      <div
-                        style={{
-                          flex: 1,
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "4px",
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: "#3C3D3A",
-                            fontSize: 14,
-                            fontFamily: "'Work Sans', sans-serif",
-                            fontWeight: 400,
-                            lineHeight: "20px",
-                          }}
-                        >
-                          Purchase {s.buyQuantity || 1}{" "}
-                          {productData.productName || "this product"} and get{" "}
-                          {s.freeQuantity || 1} absolutely free. Limited stock
-                          available!
-                        </span>
-                        <span
-                          style={{
-                            color: "#5A5B58",
-                            fontSize: 12,
-                            fontFamily: "'Work Sans', sans-serif",
-                            fontWeight: 400,
-                          }}
-                        >
-                          {startDate && endDate
-                            ? `${formatDate(startDate)} - ${formatDate(endDate)}`
-                            : "Ongoing"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-                */}
-              </div>
-            )}
+              );
+            })}
           </div>
-        </div>
+        )}
       </div>
 
       {/* ── TAX & BILLING ── */}

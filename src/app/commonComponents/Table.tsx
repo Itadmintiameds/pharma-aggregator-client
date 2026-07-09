@@ -23,7 +23,7 @@ function Table<T extends object>({
       <table className="min-w-full text-sm bg-white">
         
         {/* Table Head */}
-        <thead className="text-label-l4 text-black bg-pneutral-50 h-13.5">
+        <thead className="text-label-l4 text-black bg-pneutral-50 h-13.5 sticky top-0 z-10">
           <tr>
             {columns.map((col, index) => (
               <th
