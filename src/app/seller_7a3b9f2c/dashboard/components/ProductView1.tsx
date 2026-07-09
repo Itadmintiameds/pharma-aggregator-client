@@ -32,6 +32,7 @@ import {
   getCosmeticNetQuantityUnits,
   getCosmeticProductForms,
 } from "@/src/services/product/CosmeticService";
+import StockUpdateModal from "./StockUpdateModal";
 import SupplementDetailsView from "./SupplementDetailsView";
 import ConsumableView from "./ConsumableView";
 import NonConsumableView from "./NonConsumableView";
@@ -1863,6 +1864,8 @@ const ProductView1 = ({
         : null;
     setCurrentView(editView ?? ("editDrug" as DashboardView));
   };
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  const handleUpdateStock = () => setStockModalOpen(true);
 
   /* ─────────────────────────────────────────────────────
      LOADING / EMPTY STATES
@@ -1980,7 +1983,7 @@ const ProductView1 = ({
             Complete product information
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 48 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button
             onClick={handleEdit}
             style={{
@@ -1999,6 +2002,31 @@ const ProductView1 = ({
             }}
           >
             Edit
+          </button>
+            {/* add Stock existing batch or create new batch  */}
+
+                      <button
+            onClick={handleUpdateStock}
+            style={{
+              height: 48,
+              minWidth: 152,
+              padding: "12px 16px",
+              background: "var(--Colors-Brand-Primary-800, #6C12A9)",
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontSize: 16,
+              fontFamily: "'Work Sans', sans-serif",
+              fontWeight: 500,
+              lineHeight: "24px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Update Stock
           </button>
           <button
             onClick={handleClose}
@@ -2344,7 +2372,7 @@ const ProductView1 = ({
               <div className="w-full px-5 py-4 border-b border-[#D5D5D4] flex flex-col items-start gap-3">
                 <div className="flex items-center gap-1">
                   <span className="text-pneutral-700 text-base font-normal leading-6">
-                    Warnings & Precautions
+                    Warnings & Precautionsī
                   </span>
 
                   <span className="text-[#FF3B30] text-base">*</span>
@@ -2726,6 +2754,14 @@ const ProductView1 = ({
           </div>
         </div>
       </div>
+
+      <StockUpdateModal
+        open={stockModalOpen}
+        onClose={() => setStockModalOpen(false)}
+        productName={productData.productName}
+        productId={productData.productId}
+        categoryId={resolvedCategoryId}
+      />
     </div>
   );
 };
