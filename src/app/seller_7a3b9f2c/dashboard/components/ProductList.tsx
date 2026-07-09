@@ -23,13 +23,13 @@ const categoryMap: Record<number, string> = {
   6: "Non-Consumable Medical Devices & Equipment",
 };
 
-const getLatestPricing = (pricingDetails: any[] = []) => {
-  if (!pricingDetails.length) return null;
+const getBatchCount = (pricingDetails: any[] = []) => pricingDetails.length;
 
-  return pricingDetails.reduce((latest, curr) =>
-    new Date(curr.createdDate) > new Date(latest.createdDate) ? curr : latest,
+const getTotalStock = (pricingDetails: any[] = []) =>
+  pricingDetails.reduce(
+    (sum, batch) => sum + (Number(batch.stockQuantity) || 0),
+    0,
   );
-};
 
 const columns: Column<ProductListData>[] = [
   {
@@ -48,7 +48,7 @@ const columns: Column<ProductListData>[] = [
   },
 
   {
-    header: "Product Name",
+    header: "Product Names",
     accessor: (row) => (
       <div className="max-w-55 truncate whitespace-nowrap overflow-hidden">
         {row.productName ?? "-"}
@@ -60,13 +60,12 @@ const columns: Column<ProductListData>[] = [
     accessor: (row) => categoryMap[row.categoryId as number] || "-",
   },
   {
-    header: "Price",
-    accessor: (row) => getLatestPricing(row.pricingDetails)?.mrp ?? "-",
+    header: "Batches",
+    accessor: (row) => getBatchCount(row.pricingDetails),
   },
   {
-    header: "Stock",
-    accessor: (row) =>
-      getLatestPricing(row.pricingDetails)?.stockQuantity ?? "-",
+    header: "Total Stock",
+    accessor: (row) => getTotalStock(row.pricingDetails),
   },
 ];
 
@@ -111,13 +110,12 @@ const ProductList = ({
 
   const filteredData = data.filter((item) => {
     const term = searchTerm.toLowerCase();
-    const latestPricing = getLatestPricing(item.pricingDetails);
 
     return (
       item.productName?.toLowerCase().includes(term) ||
       categoryMap[item.categoryId as number]?.toLowerCase().includes(term) ||
-      String(latestPricing?.mrp ?? "").includes(term) ||
-      String(latestPricing?.stockQuantity ?? "").includes(term)
+      String(getBatchCount(item.pricingDetails)).includes(term) ||
+      String(getTotalStock(item.pricingDetails)).includes(term)
     );
   });
 
