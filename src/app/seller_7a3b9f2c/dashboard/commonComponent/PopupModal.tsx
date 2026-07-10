@@ -1,4 +1,5 @@
 import React from "react";
+import { Check } from "lucide-react";
 
 type PopupModalProps = {
   isOpen: boolean;
@@ -12,6 +13,17 @@ type PopupModalProps = {
   onTertiaryAction?: () => void;
   onClose?: () => void;
 };
+
+// Same celebratory look as StockUpdateModal's post-update SuccessView, so
+// finishing "Add Product" feels consistent with finishing a stock update.
+const CONFETTI = [
+  { top: "6%", left: "10%", color: "#A855F7", rotate: "18deg" },
+  { top: "10%", left: "86%", color: "#22C55E", rotate: "-15deg" },
+  { top: "78%", left: "8%", color: "#3B82F6", rotate: "30deg" },
+  { top: "82%", left: "88%", color: "#FBBF24", rotate: "-25deg" },
+  { top: "44%", left: "4%", color: "#FBBF24", rotate: "10deg" },
+  { top: "40%", left: "94%", color: "#A855F7", rotate: "-10deg" },
+];
 
 export default function PopupModal({
   isOpen,
@@ -29,25 +41,37 @@ export default function PopupModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 font-open-sans">
-      <div className="bg-white rounded-2xl w-125.25 h-90.5 p-6 shadow-xl relative">
+      <div className="bg-white rounded-2xl w-125.25 p-8 pt-10 shadow-xl relative overflow-hidden">
+        {CONFETTI.map((c, i) => (
+          <span
+            key={i}
+            className="absolute w-2 h-2 rounded-sm"
+            style={{
+              top: c.top,
+              left: c.left,
+              background: c.color,
+              transform: `rotate(${c.rotate})`,
+            }}
+          />
+        ))}
 
         {/* Icon */}
-        <div className="flex justify-center mb-5">
-          <img
-            src="/icons/PopupIcon.svg"
-            alt="upload"
-            className="w-20 h-20 object-contain"
-          />
+        <div className="flex justify-center mb-4">
+          <div className="w-18 h-18 rounded-full bg-[#DCFCE7] flex items-center justify-center">
+            <div className="w-13 h-13 rounded-full bg-[#16A34A] flex items-center justify-center">
+              <Check size={28} color="white" strokeWidth={3} />
+            </div>
+          </div>
         </div>
 
         {/* Title */}
-        <h2 className="text-h5 font-bold text-center text-pneutral-900">
+        <h2 className="text-h5 font-bold text-center text-[#15803D]">
           {title}
         </h2>
 
         {/* Description */}
         {description && (
-          <p className="text-center text-p4 font-normal text-pneutral-700 whitespace-nowrap py-5">
+          <p className="text-center text-p4 font-normal text-pneutral-700 py-5">
             {description}
           </p>
         )}

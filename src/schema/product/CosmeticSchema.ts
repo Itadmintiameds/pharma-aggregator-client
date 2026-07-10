@@ -73,7 +73,7 @@ export const additionalDiscountSlabSchema = z.object({
 
 // ─── Main cosmetic form schema ────────────────────────────────────────────────
 
-export const cosmeticFormSchema = z
+const cosmeticFormBaseSchema = z
   .object({
     // ── Product identity ───────────────────────────────────────────────────
     productName: z
@@ -199,7 +199,9 @@ export const cosmeticFormSchema = z
     gstPercentage: z.string().min(1, "GST percentage is required"),
 
     hsnCode: hsnRule,
-  })
+  });
+
+export const cosmeticFormSchema = cosmeticFormBaseSchema
   // ── Cross-field validations ───────────────────────────────────────────────
   .superRefine((data, ctx) => {
     // Manufacturing date must not be in the future
@@ -263,7 +265,7 @@ export const cosmeticFormSchema = z
 
 // ─── Edit-mode schema (relaxes create-only required fields) ──────────────────
 
-export const cosmeticFormEditSchema = cosmeticFormSchema
+export const cosmeticFormEditSchema = cosmeticFormBaseSchema
   .omit({
     productTypeId: true,
     productSubTypeId: true,
@@ -289,10 +291,32 @@ export const cosmeticFormEditSchema = cosmeticFormSchema
     selectedAgeGroups: z.array(z.string()).optional(),
   });
 
+// ─── Create-only schema (packaging + batch/stock + pricing added later via the
+// product view page's Add Stock flow) ──────────────────────────────────────────
+
+export const cosmeticFormCreateOnlySchema = cosmeticFormBaseSchema.omit({
+  packTypeId: true,
+  unitsPerPack: true,
+  numberOfPacks: true,
+  minimumOrderQuantity: true,
+  maximumOrderQuantity: true,
+  batchNumber: true,
+  manufacturingDate: true,
+  expiryDate: true,
+  stockQuantity: true,
+  sellingPrice: true,
+  mrp: true,
+  gstPercentage: true,
+  hsnCode: true,
+});
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type CosmeticFormValues = z.infer<typeof cosmeticFormSchema>;
 export type CosmeticFormEditValues = z.infer<typeof cosmeticFormEditSchema>;
+export type CosmeticFormCreateOnlyValues = z.infer<
+  typeof cosmeticFormCreateOnlySchema
+>;
 
 // ─── Validate helper ─────────────────────────────────────────────────────────
 
@@ -337,6 +361,8 @@ export function validateCosmeticForm(
       result as ReturnType<typeof cosmeticFormSchema.safeParse>,
     );
   }
-  const result = cosmeticFormSchema.safeParse(data);
-  return flattenZodErrors(result);
+  const result = cosmeticFormCreateOnlySchema.safeParse(data);
+  return flattenZodErrors(
+    result as ReturnType<typeof cosmeticFormSchema.safeParse>,
+  );
 }

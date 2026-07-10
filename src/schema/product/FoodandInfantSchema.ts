@@ -42,7 +42,7 @@ const quantityWithMaxLength = z
   .max(20, "Maximum 20 characters allowed") 
   .regex(/^[a-zA-Z0-9\s]+$/, "Only alphanumeric characters and spaces are allowed");
 
-export const foodInfantSchema = z
+const foodInfantBaseSchema = z
   .object({
     productName: z
       .string()
@@ -216,7 +216,9 @@ export const foodInfantSchema = z
         })
       )
       .optional(),
-  })
+  });
+
+export const foodInfantSchema = foodInfantBaseSchema
   .superRefine((data, ctx) => {
     // Cross-field validation: Serving Size cannot exceed Net Quantity
     const netQty = Number(data.netQuantityValue);
@@ -303,12 +305,29 @@ export const foodInfantSchema = z
       }
     }
   });
-  
-  
-  
-  
-  
-  
+
+// Used when adding a product without its packaging (variant) and pricing (batch/stock)
+// details — those are attached afterwards from the product view page.
+export const foodInfantCreateSchema = foodInfantBaseSchema.omit({
+  packType: true,
+  unitsPerPack: true,
+  numberOfPacks: true,
+  minimumOrderQuantity: true,
+  maximumOrderQuantity: true,
+  batchLotNumber: true,
+  manufacturingDate: true,
+  expiryDate: true,
+  stockQuantity: true,
+  mrp: true,
+  sellingPricePerPack: true,
+  gstPercentage: true,
+  hsnCode: true,
+});
+
+
+
+
+
   
   // old schema dated 20.05.2026............
   

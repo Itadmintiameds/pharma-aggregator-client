@@ -1195,70 +1195,44 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       e.certifications = `You must keep all ${mandatoryCertCount} original certifications. Please re-add any removed ones.`;
     }
 
-    if (mode === "create" && !form.packTypeId) e.packTypeId = "Pack type is required";
+    // Packaging, batch/stock and pricing fields are entered later via the
+    // product view page's Add Stock flow — only required when editing.
+    if (mode === "edit") {
+      const uPack = Number(form.unitsPerPack);
+      if (!form.unitsPerPack.trim()) e.unitsPerPack = "Number of units per pack is required";
+      else if (!Number.isInteger(uPack) || uPack <= 0) e.unitsPerPack = "Units per pack must be a positive integer";
 
-    const uPack = Number(form.unitsPerPack);
-    if (!form.unitsPerPack.trim()) e.unitsPerPack = "Number of units per pack is required";
-    else if (!Number.isInteger(uPack) || uPack <= 0) e.unitsPerPack = "Units per pack must be a positive integer";
+      const nPacks = Number(form.numberOfPacks);
+      if (!form.numberOfPacks.trim()) e.numberOfPacks = "Number of packs is required";
+      else if (!Number.isInteger(nPacks) || nPacks <= 0) e.numberOfPacks = "Number of packs must be a positive integer";
 
-    const nPacks = Number(form.numberOfPacks);
-    if (!form.numberOfPacks.trim()) e.numberOfPacks = "Number of packs is required";
-    else if (!Number.isInteger(nPacks) || nPacks <= 0) e.numberOfPacks = "Number of packs must be a positive integer";
+      const minQ = Number(form.minimumOrderQuantity);
+      const maxQ = Number(form.maximumOrderQuantity);
+      if (!form.minimumOrderQuantity.trim()) e.minimumOrderQuantity = "Minimum order quantity is required";
+      else if (!Number.isInteger(minQ) || minQ <= 0) e.minimumOrderQuantity = "Minimum order quantity must be a positive integer";
+      if (!form.maximumOrderQuantity.trim()) e.maximumOrderQuantity = "Maximum order quantity is required";
+      else if (!Number.isInteger(maxQ) || maxQ <= 0) e.maximumOrderQuantity = "Maximum order quantity must be a positive integer";
+      else if (!isNaN(minQ) && maxQ < minQ) e.maximumOrderQuantity = "Maximum order quantity must be ≥ minimum order quantity";
 
-    const minQ = Number(form.minimumOrderQuantity);
-    const maxQ = Number(form.maximumOrderQuantity);
-    if (!form.minimumOrderQuantity.trim()) e.minimumOrderQuantity = "Minimum order quantity is required";
-    else if (!Number.isInteger(minQ) || minQ <= 0) e.minimumOrderQuantity = "Minimum order quantity must be a positive integer";
-    if (!form.maximumOrderQuantity.trim()) e.maximumOrderQuantity = "Maximum order quantity is required";
-    else if (!Number.isInteger(maxQ) || maxQ <= 0) e.maximumOrderQuantity = "Maximum order quantity must be a positive integer";
-    else if (!isNaN(minQ) && maxQ < minQ) e.maximumOrderQuantity = "Maximum order quantity must be ≥ minimum order quantity";
+      const selling = parseFloat(form.sellingPrice);
+      if (!form.sellingPrice.trim()) e.sellingPrice = "Selling price is required";
+      else if (isNaN(selling) || selling <= 0) e.sellingPrice = "Selling price must be greater than 0";
 
-    if (mode === "create") {
-      const bNum = form.batchNumber.trim();
-      if (!bNum) e.batchNumber = "Batch number is required";
-      else if (!/^[a-zA-Z0-9]+$/.test(bNum)) e.batchNumber = "Batch number must be alphanumeric only";
-      else if (bNum.length < 3) e.batchNumber = "Batch number must be at least 3 characters";
-      else if (bNum.length > 20) e.batchNumber = "Batch number must not exceed 20 characters";
+      const mrp = parseFloat(form.mrp);
+      if (!form.mrp.trim()) e.mrp = "MRP is required";
+      else if (isNaN(mrp) || mrp <= 0) e.mrp = "MRP must be greater than 0";
+      else if (!isNaN(selling) && mrp < selling) e.mrp = "MRP must be ≥ selling price";
 
-      if (!form.manufacturingDate) e.manufacturingDate = "Manufacturing date is required";
-      else {
-        const today = new Date();
-        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        if (form.manufacturingDate > currentMonth)
-          e.manufacturingDate = "Manufacturing date cannot be in the future month";
-      }
-
-      if (!form.expiryDate) e.expiryDate = "Expiry date is required";
-      else if (form.manufacturingDate) {
-        const maxDate = new Date(form.manufacturingDate.getFullYear() + 5, form.manufacturingDate.getMonth(), 1);
-        if (form.expiryDate > maxDate)
-          e.expiryDate = "Expiry cannot be more than 5 years from Manufacturing Date";
-      }
-
-      const stock = parseFloat(form.stockQuantity);
-      if (!form.stockQuantity.trim()) e.stockQuantity = "Stock quantity is required";
-      else if (isNaN(stock) || stock <= 0) e.stockQuantity = "Stock quantity must be greater than 0";
-      else if (!isNaN(minQ) && minQ > 0 && stock <= minQ) e.stockQuantity = "Stock quantity must be greater than minimum order quantity";
+      if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
+      if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
+      else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
     }
-
-    const selling = parseFloat(form.sellingPrice);
-    if (!form.sellingPrice.trim()) e.sellingPrice = "Selling price is required";
-    else if (isNaN(selling) || selling <= 0) e.sellingPrice = "Selling price must be greater than 0";
-
-    const mrp = parseFloat(form.mrp);
-    if (!form.mrp.trim()) e.mrp = "MRP is required";
-    else if (isNaN(mrp) || mrp <= 0) e.mrp = "MRP must be greater than 0";
-    else if (!isNaN(selling) && mrp < selling) e.mrp = "MRP must be ≥ selling price";
 
     if (form.discountPercentage.trim() !== "") {
       const disc = parseFloat(form.discountPercentage);
       if (isNaN(disc) || disc < 0 || disc > 100)
         e.discountPercentage = "Discount percentage must be between 0 and 100";
     }
-
-    if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
-    if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
-    else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
 
     if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
     if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
@@ -1299,19 +1273,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     const hasImageUpload = images.length > 0;
 
     setSubmitting(true);
-
-    if (mode === "create" && form.batchNumber.trim()) {
-      try {
-        const batchValidation = await validateBatchNumber(form.batchNumber, productCategoryId);
-        if (batchValidation.exists) {
-          setErrors((prev) => ({ ...prev, batchNumber: "Batch number already exists" }));
-          setSubmitting(false);
-          return;
-        }
-      } catch (error) {
-        console.error("Batch validation failed:", error);
-      }
-    }
 
     const payload = {
       productName:          form.productName,
@@ -1472,7 +1433,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     };
 
     try {
-      const createData: ApiResponseData = await createCosmeticProduct(payload as Record<string, unknown>);
+      const { packagingDetails, pricingDetails, ...createPayload } = payload;
+      const createData: ApiResponseData = await createCosmeticProduct(createPayload as Record<string, unknown>);
 
       const dataInner = (createData?.data ?? createData) as ApiResponseData;
       createdProductId = String(dataInner?.productId ?? "").trim();
@@ -2085,7 +2047,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           </div>
         </div>
 
-        {/* Section 2: Packaging & Order Details */}
+        {/* Section 2: Packaging & Order Details — added later via the product view page's Add Stock flow */}
+        {isEdit && (
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
           <div className="text-h4 font-semibold">Packaging &amp; Order Details</div>
           <div className="border-b border-neutral-200 mt-3"></div>
@@ -2356,6 +2319,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             </div>
           </div>
         </div>
+        )}
 
         {/* ── Section 3: Product Photos ─────────────────────────────────────────── */}
         <div ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">

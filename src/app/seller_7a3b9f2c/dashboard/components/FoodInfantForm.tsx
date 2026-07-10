@@ -1450,8 +1450,9 @@ if ((attr as any).certificateDocuments?.length) {
       warningsPrecautions: form.warningsPrecautions,
       manufacturerName: form.manufacturerName,
       categoryId: 3,
-      packagingDetails: [packaging],
-      pricingDetails: [pricing],
+      // Packaging (variant) and pricing (batch/stock) are intentionally omitted on create —
+      // they're attached afterwards from the product view page via addPackagingVariant/addStock.
+      ...(isEditMode ? { packagingDetails: [packaging], pricingDetails: [pricing] } : {}),
       productAttributeFoodInfants: [foodInfantAttr],
       retainedImageUrls: isEditMode ? existingImages : undefined,
     };
@@ -1504,19 +1505,23 @@ if ((attr as any).certificateDocuments?.length) {
       newErrors.warningsPrecautions = "Warnings/Precautions must not exceed 1000 characters";
     }
     
-    if (!form.packType) newErrors.packType = "Pack type is required";
-    if (!form.unitsPerPack) newErrors.unitsPerPack = "Number of Units per Pack Type is required";
-    if (!form.numberOfPacks) newErrors.numberOfPacks = "Number of Packs is required";
-    if (!form.minimumOrderQuantity) newErrors.minimumOrderQuantity = "Min Order Qty is required";
-    if (!form.maximumOrderQuantity) newErrors.maximumOrderQuantity = "Max Order Qty is required";
-    if (!form.batchLotNumber) newErrors.batchLotNumber = "Batch/Lot Number is required";
-    if (!form.manufacturingDate) newErrors.manufacturingDate = "Manufacturing Date is required";
-    if (!form.expiryDate) newErrors.expiryDate = "Expiry Date is required";
-    if (!form.stockQuantity) newErrors.stockQuantity = "Stock Quantity is required";
-    if (!form.mrp) newErrors.mrp = "MRP is required";
-    if (!form.sellingPricePerPack) newErrors.sellingPricePerPack = "Selling Price is required";
-    if (!form.gstPercentage) newErrors.gstPercentage = "GST % is required";
-    if (!form.hsnCode) newErrors.hsnCode = "HSN Code is required";
+    // Packaging (variant) and batch/pricing details are only required in edit mode —
+    // on create they're added later from the product view page.
+    if (isEditMode) {
+      if (!form.packType) newErrors.packType = "Pack type is required";
+      if (!form.unitsPerPack) newErrors.unitsPerPack = "Number of Units per Pack Type is required";
+      if (!form.numberOfPacks) newErrors.numberOfPacks = "Number of Packs is required";
+      if (!form.minimumOrderQuantity) newErrors.minimumOrderQuantity = "Min Order Qty is required";
+      if (!form.maximumOrderQuantity) newErrors.maximumOrderQuantity = "Max Order Qty is required";
+      if (!form.batchLotNumber) newErrors.batchLotNumber = "Batch/Lot Number is required";
+      if (!form.manufacturingDate) newErrors.manufacturingDate = "Manufacturing Date is required";
+      if (!form.expiryDate) newErrors.expiryDate = "Expiry Date is required";
+      if (!form.stockQuantity) newErrors.stockQuantity = "Stock Quantity is required";
+      if (!form.mrp) newErrors.mrp = "MRP is required";
+      if (!form.sellingPricePerPack) newErrors.sellingPricePerPack = "Selling Price is required";
+      if (!form.gstPercentage) newErrors.gstPercentage = "GST % is required";
+      if (!form.hsnCode) newErrors.hsnCode = "HSN Code is required";
+    }
 
     if (form.nutritionalInfoType === "image-upload" && !form.nutritionalInfoImage && !existingNutritionalImageUrl) {
       newErrors.nutritionalInfoImage = "Nutritional Information Image is required";
@@ -1570,32 +1575,8 @@ if ((attr as any).certificateDocuments?.length) {
     clearTimeout(debounceTimerRef.current);
   }
 
- if (!isEditMode) {
-    console.log("🔍 Submit - Checking batch number:", form.batchLotNumber);
-    console.log("🔍 Submit - Category ID:", categoryId);
-
-    try {
-      const batchValidation = await validateBatchNumber(form.batchLotNumber, categoryId);
-      console.log("📡 Submit - Batch validation response:", batchValidation);
-      console.log("📡 Submit - batchValidation.exists:", batchValidation?.exists);
-      
-      if (batchValidation.exists) {
-        console.log("❌ Submit - Batch number exists, blocking submission");
-        setErrors((prev) => ({
-          ...prev,
-          batchLotNumber: "Batch number already exists",
-        }));
-        const el = fieldRefs.current["batchLotNumber"] || document.querySelector<HTMLElement>(`[data-field="batchLotNumber"]`);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-        return;
-      }
-      console.log("✅ Submit - Batch number is unique, continuing");
-    } catch (error) {
-      console.warn("Batch validation API error during submit:", error);
-    }
-  } else {
-    console.log("✏️ Edit mode - skipping batch validation");
-  }
+    // Batch/lot number uniqueness is no longer checked here — batch details aren't
+    // collected on create; they're added later from the product view page.
 
     const payload = buildPayload();
 
@@ -2300,7 +2281,9 @@ if ((attr as any).certificateDocuments?.length) {
           </div>
         </div>
 
-        {/* Packaging & Order Details Section */}
+        {/* Packaging (variant) and batch/pricing/stock are added later from the product
+            view page, not during initial product creation — see StockUpdateModal. */}
+        {isEditMode && (
         <div className="border border-pneutral-200 rounded-xl p-6 bg-white -mb-6">
           <div className="text-h4 font-semibold">Packaging & Order Details</div>
           <div className="border-b border-pneutral-200 mt-3"></div>
@@ -2678,6 +2661,7 @@ if ((attr as any).certificateDocuments?.length) {
             </div>
           </div>
         </div>
+        )}
 
         {/* Product Photos Section */}
         <ProductImageUpload

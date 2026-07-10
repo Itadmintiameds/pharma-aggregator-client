@@ -236,3 +236,23 @@ export const drugProductSchema = z.object({
 
 });
 
+// Used when adding a product without its packaging (variant) and pricing (batch/stock)
+// details — those are attached afterwards from the product view page.
+export const drugProductCreateSchema = drugProductSchema.omit({
+  packId: true,
+  unitPerPack: true,
+  packTypeUnitId: true,
+  numberOfPacks: true,
+  minimumOrderQuantity: true,
+  maximumOrderQuantity: true,
+  batchLotNumber: true,
+  manufacturingDate: true,
+  expiryDate: true,
+  stockQuantity: true,
+  sellingPrice: true,
+  mrp: true,
+  discountPercentage: true,
+  gstPercentage: true,
+  hsnCode: true,
+});
+

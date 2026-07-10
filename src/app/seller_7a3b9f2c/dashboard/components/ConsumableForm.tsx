@@ -933,27 +933,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const mName = form.manufacturerName.trim();
       if (!mName) e.manufacturerName = "Manufacturer name is required";
       else if (mName.length > 100) e.manufacturerName = "Manufacturer name must not exceed 100 characters";
-      if (!form.packType) e.packType = "Pack type is required";
-      const bNum = form.batchLotNumber.trim();
-      if (!bNum) e.batchLotNumber = "Batch / lot number is required";
-      else if (!/^[a-zA-Z0-9]+$/.test(bNum)) e.batchLotNumber = "Batch number must be alphanumeric only";
-      else if (bNum.length < 3) e.batchLotNumber = "Batch number must be at least 3 characters";
-      else if (bNum.length > 20) e.batchLotNumber = "Batch number must not exceed 20 characters";
-      if (!form.manufacturingDate) e.manufacturingDate = "Manufacturing date is required";
-      else {
-        const today = new Date();
-        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        if (form.manufacturingDate > currentMonth) e.manufacturingDate = "Manufacturing date cannot be in the future month";
-      }
-      if (!form.expiryDate) e.expiryDate = "Expiry date is required";
-      else if (form.manufacturingDate) {
-        const maxDate = new Date(form.manufacturingDate.getFullYear() + 5, form.manufacturingDate.getMonth(), 1);
-        if (form.expiryDate > maxDate)
-          e.expiryDate = "Expiry cannot be more than 5 years from Manufacturing Date";
-      }
-      if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
-      if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
-      else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
       if (!form.storageCondition) e.storageCondition = "Storage condition is required";
     }
 
@@ -977,41 +956,36 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (!form.storageCondition) e.storageCondition = "Storage condition is required";
     }
 
-    const uPack = Number(form.unitsPerPack);
-    if (!form.unitsPerPack.trim()) e.unitsPerPack = "Number of units per pack is required";
-    else if (!Number.isInteger(uPack) || uPack <= 0) e.unitsPerPack = "Units per pack must be a positive integer";
+    if (mode === "edit") {
+      const uPack = Number(form.unitsPerPack);
+      if (!form.unitsPerPack.trim()) e.unitsPerPack = "Number of units per pack is required";
+      else if (!Number.isInteger(uPack) || uPack <= 0) e.unitsPerPack = "Units per pack must be a positive integer";
 
-    const nPacks = Number(form.numberOfPacks);
-    if (!form.numberOfPacks.trim()) e.numberOfPacks = "Number of packs is required";
-    else if (!Number.isInteger(nPacks) || nPacks <= 0) e.numberOfPacks = "Number of packs must be a positive integer";
+      const nPacks = Number(form.numberOfPacks);
+      if (!form.numberOfPacks.trim()) e.numberOfPacks = "Number of packs is required";
+      else if (!Number.isInteger(nPacks) || nPacks <= 0) e.numberOfPacks = "Number of packs must be a positive integer";
 
-    const minQ = Number(form.minimumOrderQuantity);
-    const maxQ = Number(form.maximumOrderQuantity);
-    if (!form.minimumOrderQuantity.trim()) e.minimumOrderQuantity = "Minimum order quantity is required";
-    else if (!Number.isInteger(minQ) || minQ <= 0) e.minimumOrderQuantity = "Minimum order quantity must be a positive integer";
-    if (!form.maximumOrderQuantity.trim()) e.maximumOrderQuantity = "Maximum order quantity is required";
-    else if (!Number.isInteger(maxQ) || maxQ <= 0) e.maximumOrderQuantity = "Maximum order quantity must be a positive integer";
-    else if (!isNaN(minQ) && maxQ < minQ) e.maximumOrderQuantity = "Maximum order quantity must be ≥ minimum order quantity";
+      const minQ = Number(form.minimumOrderQuantity);
+      const maxQ = Number(form.maximumOrderQuantity);
+      if (!form.minimumOrderQuantity.trim()) e.minimumOrderQuantity = "Minimum order quantity is required";
+      else if (!Number.isInteger(minQ) || minQ <= 0) e.minimumOrderQuantity = "Minimum order quantity must be a positive integer";
+      if (!form.maximumOrderQuantity.trim()) e.maximumOrderQuantity = "Maximum order quantity is required";
+      else if (!Number.isInteger(maxQ) || maxQ <= 0) e.maximumOrderQuantity = "Maximum order quantity must be a positive integer";
+      else if (!isNaN(minQ) && maxQ < minQ) e.maximumOrderQuantity = "Maximum order quantity must be ≥ minimum order quantity";
 
-    const selling = parseFloat(form.sellingPricePerPack);
-    if (!form.sellingPricePerPack.trim()) e.sellingPricePerPack = "Selling price is required";
-    else if (isNaN(selling) || selling <= 0) e.sellingPricePerPack = "Selling price must be greater than 0";
+      const selling = parseFloat(form.sellingPricePerPack);
+      if (!form.sellingPricePerPack.trim()) e.sellingPricePerPack = "Selling price is required";
+      else if (isNaN(selling) || selling <= 0) e.sellingPricePerPack = "Selling price must be greater than 0";
 
-    const mrp = parseFloat(form.mrp);
-    if (!form.mrp.trim()) e.mrp = "MRP is required";
-    else if (isNaN(mrp) || mrp <= 0) e.mrp = "MRP must be greater than 0";
-    else if (!isNaN(selling) && mrp < selling) e.mrp = "MRP must be ≥ selling price";
+      const mrp = parseFloat(form.mrp);
+      if (!form.mrp.trim()) e.mrp = "MRP is required";
+      else if (isNaN(mrp) || mrp <= 0) e.mrp = "MRP must be greater than 0";
+      else if (!isNaN(selling) && mrp < selling) e.mrp = "MRP must be ≥ selling price";
 
-    if (form.discountPercentage.trim() !== "") {
-      const disc = parseFloat(form.discountPercentage);
-      if (isNaN(disc) || disc < 0 || disc > 100) e.discountPercentage = "Discount percentage must be between 0 and 100";
-    }
-
-    if (mode === "create") {
-      const stock = parseFloat(form.stockQuantity);
-      if (!form.stockQuantity.trim()) e.stockQuantity = "Stock quantity is required";
-      else if (isNaN(stock) || stock <= 0) e.stockQuantity = "Stock quantity must be a positive value greater than 0";
-      else if (!isNaN(minQ) && minQ > 0 && stock <= minQ) e.stockQuantity = "Stock quantity must be greater than minimum order quantity";
+      if (form.discountPercentage.trim() !== "") {
+        const disc = parseFloat(form.discountPercentage);
+        if (isNaN(disc) || disc < 0 || disc > 100) e.discountPercentage = "Discount percentage must be between 0 and 100";
+      }
     }
 
     if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
@@ -1061,15 +1035,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     setApiError(null);
 
     try {
-      if (mode === "create" && form.batchLotNumber.trim()) {
-        const batchValidation = await validateBatchNumber(form.batchLotNumber, productCategoryId);
-        if (batchValidation.exists) {
-          setErrors((prev) => ({ ...prev, batchLotNumber: "Batch number already exists" }));
-          setSubmitting(false);
-          return;
-        }
-      }
-
       const payload = {
         productName: form.productName,
         warningsPrecautions: form.safetyInstructions,
@@ -1077,38 +1042,40 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         productMarketingUrl: form.brochureUrl || "",
         manufacturerName: form.manufacturerName,
         categoryId: productCategoryId,
-        packagingDetails: [{
-          ...(packagingId ? { packagingId } : {}),
-          packId: Number(form.packType),
-          unitPerPack: Number(form.unitsPerPack),
-          numberOfPacks: Number(form.numberOfPacks),
-          packSize: Number(form.unitsPerPack) * Number(form.numberOfPacks),
-          minimumOrderQuantity: Number(form.minimumOrderQuantity),
-          maximumOrderQuantity: Number(form.maximumOrderQuantity),
-        }],
-        pricingDetails: [{
-          ...(pricingId ? { pricingId } : {}),
-          batchLotNumber: form.batchLotNumber,
-          manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-          expiryDate: toLocalDateTimeString(form.expiryDate),
-          stockQuantity: Number(form.stockQuantity),
-          dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-          sellingPrice: Number(form.sellingPricePerPack),
-          mrp: Number(form.mrp),
-          discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
-          gstPercentage: Number(form.gstPercentage),
-          finalPrice: Number(form.finalPrice),
-          hsnCode: Number(form.hsnCode),
-          additionalDiscounts: additionalDiscountSlabs.map((d: any) => ({
-            ...d,
-            displayOffer: d.displayOffer !== false,
-          })),
-          specialSchemes: specialSchemes.map((s: any) => ({
-            ...s,
-            ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
-            displayOfferScheme: s.displayOfferScheme !== false,
-          })),
-        }],
+        ...(mode === "edit" ? {
+          packagingDetails: [{
+            ...(packagingId ? { packagingId } : {}),
+            packId: Number(form.packType),
+            unitPerPack: Number(form.unitsPerPack),
+            numberOfPacks: Number(form.numberOfPacks),
+            packSize: Number(form.unitsPerPack) * Number(form.numberOfPacks),
+            minimumOrderQuantity: Number(form.minimumOrderQuantity),
+            maximumOrderQuantity: Number(form.maximumOrderQuantity),
+          }],
+          pricingDetails: [{
+            ...(pricingId ? { pricingId } : {}),
+            batchLotNumber: form.batchLotNumber,
+            manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
+            expiryDate: toLocalDateTimeString(form.expiryDate),
+            stockQuantity: Number(form.stockQuantity),
+            dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
+            sellingPrice: Number(form.sellingPricePerPack),
+            mrp: Number(form.mrp),
+            discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
+            gstPercentage: Number(form.gstPercentage),
+            finalPrice: Number(form.finalPrice),
+            hsnCode: Number(form.hsnCode),
+            additionalDiscounts: additionalDiscountSlabs.map((d: any) => ({
+              ...d,
+              displayOffer: d.displayOffer !== false,
+            })),
+            specialSchemes: specialSchemes.map((s: any) => ({
+              ...s,
+              ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
+              displayOfferScheme: s.displayOfferScheme !== false,
+            })),
+          }],
+        } : {}),
         productAttributeConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
           deviceCatId: Number(form.deviceCategoryId),
@@ -1602,6 +1569,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         </div>
 
         {/* ── Section 2: Packaging & Order Details ─────────────────────────────── */}
+        {isEdit && (
         <div className={sectionCard}>
           <h2 className={sectionTitle}>Packaging &amp; Order Details</h2>
           <div className="border-b border-neutral-200 mt-3"></div>
@@ -1825,6 +1793,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             )}
           </div>
         </div>
+        )}
 
         {/* ── Section 3: Product Photos ─────────────────────────────────────────── */}
         <div ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">

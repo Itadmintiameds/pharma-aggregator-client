@@ -23,7 +23,7 @@ const numericPositive = z
 
 // ─── Supplement Product Schema ────────────────────────────────────────────────
 
-export const supplementProductSchema = z
+const supplementProductBaseSchema = z
   .object({
     // ── Product Details ──────────────────────────────────────────────────────
 
@@ -217,7 +217,9 @@ export const supplementProductSchema = z
 
     // ── Images ───────────────────────────────────────────────────────────────
     // (validated separately as File[] state, but typed here for safeParse)
-  })
+  });
+
+export const supplementProductSchema = supplementProductBaseSchema
   .superRefine((data, ctx) => {
     // Cross-field: maximumOrderQuantity >= minimumOrderQuantity
     const minQty = Number(data.minimumOrderQuantity) || 0;
@@ -264,5 +266,24 @@ export const supplementProductSchema = z
     //   }
     // }
   });
+
+// Used when adding a product without its packaging (variant) and pricing (batch/stock)
+// details — those are attached afterwards from the product view page.
+export const supplementProductCreateSchema = supplementProductBaseSchema.omit({
+  packId: true,
+  unitPerPack: true,
+  numberOfPacks: true,
+  minimumOrderQuantity: true,
+  maximumOrderQuantity: true,
+  batchLotNumber: true,
+  manufacturingDate: true,
+  expiryDate: true,
+  stockQuantity: true,
+  mrp: true,
+  sellingPrice: true,
+  discountPercentage: true,
+  gstPercentage: true,
+  hsnCode: true,
+});
 
 export type SupplementProductFormData = z.infer<typeof supplementProductSchema>;

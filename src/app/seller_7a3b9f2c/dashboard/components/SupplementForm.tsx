@@ -32,7 +32,7 @@ import { getProductById, updateProduct } from "@/src/services/product/ProductSer
 import { validateBatchNumber } from "@/src/services/product/PricingService";
 
 import { getTherapeuticCategory, getTherapeuticSubcategory } from "@/src/services/product/TherapeuticCategoryService";
-import { supplementProductSchema } from "@/src/schema/product/SupplementProductSchema";
+import { supplementProductSchema, supplementProductCreateSchema } from "@/src/schema/product/SupplementProductSchema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -389,6 +389,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [showAgeGroupDropdown, setShowAgeGroupDropdown] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [createdProductId, setCreatedProductId] = useState<string | null>(null);
   const [modalType, setModalType] = useState<"create" | "update">("create");
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
   const [editTab, setEditTab] = useState<"additional_discount" | "special_schemes" | null>(null);
@@ -605,7 +606,12 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   const handleViewProduct = () => {
-    router.push("/seller_7a3b9f2c/products");
+    const id = form.productId || createdProductId;
+    router.push(
+      id
+        ? `/seller_7a3b9f2c/products/view/${id}`
+        : "/seller_7a3b9f2c/products",
+    );
   };
 
   const handleContinueEditing = () => {
@@ -1514,7 +1520,10 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     const compiledNetQty = `${form.netQuantityValue} ${form.netQuantityUnit}`.trim();
 
     // ── Zod schema validation ─────────────────────────────────────────────────
-    const result = supplementProductSchema.safeParse({
+    // Packaging/batch/pricing are added later from the product view page, so
+    // the create-only schema omits those fields; edit mode keeps full validation.
+    const schema = isEditMode ? supplementProductSchema : supplementProductCreateSchema;
+    const result = schema.safeParse({
       ...form,
       netQuantity: compiledNetQty || form.netQuantity,
       // manufacturingDate/expiryDate must be Date objects; guard against null
@@ -1590,21 +1599,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       return;
     }
 
-    // const batchValidation = await validateBatchNumber(form.batchLotNumber);
-    const batchValidation = await validateBatchNumber(
-      form.batchLotNumber,
-      Number(categoryId),
-    );
-    if (batchValidation.exists) {
-      setErrors((prev) => ({
-        ...prev,
-        batchLotNumber: "Batch number already exists",
-      }));
-      const el = fieldRefs.current["batchLotNumber"] || document.querySelector<HTMLElement>(`[data-field="batchLotNumber"]`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-
     setSubmitting(true);
     try {
       // ─── Build JSON Payload ───────────────────────────────────────────────────
@@ -1614,61 +1608,6 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         productDescription: form.productDescription,
         manufacturerName: form.manufacturerName,
         categoryId: Number(categoryId),
-
-        packagingDetails: [
-          {
-            packId: Number(form.packId),
-            unitPerPack: Number(form.unitPerPack),
-            packTypeUnitId: Number(form.unitPerPackUnitId) || 0,
-            numberOfPacks: Number(form.numberOfPacks),
-            packSize: Number(form.packSize),
-            minimumOrderQuantity: Number(form.minimumOrderQuantity),
-            maximumOrderQuantity: Number(form.maximumOrderQuantity),
-          },
-        ],
-
-        pricingDetails: [
-          {
-            batchLotNumber: form.batchLotNumber,
-            manufacturingDate: form.manufacturingDate instanceof Date
-              ? form.manufacturingDate.toISOString().split("T")[0] + "T00:00:00"
-              : null,
-            expiryDate: form.expiryDate instanceof Date
-              ? form.expiryDate.toISOString().split("T")[0] + "T00:00:00"
-              : null,
-            shelfLifeMonths: Number(form.shelfLifeMonths),
-            stockQuantity: Number(form.stockQuantity),
-            dateOfStockEntry: form.dateOfStockEntry instanceof Date
-              ? form.dateOfStockEntry.toISOString().split("T")[0] + "T00:00:00"
-              : null,
-            discountPercentage: Number(form.discountPercentage),
-            sellingPrice: Number(form.sellingPrice),
-            mrp: Number(form.mrp),
-            gstPercentage: Number(form.gstPercentage),
-            finalPrice: Number(form.finalPrice),
-            hsnCode: Number(form.hsnCode),
-            additionalDiscounts: form.additionalDiscount.map((d: any) => ({
-              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-              additionalDiscountPercentage: d.additionalDiscountPercentage,
-              effectiveStartDate: d.effectiveStartDate,
-              effectiveStartTime: d.effectiveStartTime,
-              effectiveEndDate: d.effectiveEndDate,
-              effectiveEndTime: d.effectiveEndTime,
-              displayOffer: d.displayOffer !== false,
-            })),
-            specialSchemes: (form.specialSchemes || []).map((s: any) => ({
-              schemeName: s.schemeName || "",
-              schemeType: s.schemeType || "",
-              buyQuantity: s.buyQuantity !== undefined ? s.buyQuantity : (s.purchaseQuantity || 0),
-              freeQuantity: s.freeQuantity,
-              effectiveStartDate: s.effectiveStartDate,
-              effectiveStartTime: s.effectiveStartTime,
-              effectiveEndDate: s.effectiveEndDate,
-              effectiveEndTime: s.effectiveEndTime,
-              displayOfferScheme: s.displayOfferScheme !== false,
-            })),
-          },
-        ],
 
         productAttributeSupplementsOrNutraceuticals: [
           {
@@ -1722,6 +1661,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       const productAttributeId = response?.data?.productAttributeSupplementsOrNutraceuticals?.[0]?.productAttributeId;
 
       if (!productId) throw new Error("Product ID not returned from backend");
+      setCreatedProductId(productId);
 
       // ─── STEP 2: Upload Product Images ────────────────────────────────────────
       if (images.length > 0) {
@@ -2557,7 +2497,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           </div>
         </div>
 
-        {/* Packaging & Order Details */}
+        {/* Packaging + Batch + Pricing details are added later from the product view page */}
+        {isEditMode && (
         <div className="relative border border-neutral-200 rounded-xl p-6 bg-white">
           <div className="text-h4 font-semibold">Packaging & Order Details (per Unit Box)</div>
 
@@ -2991,6 +2932,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           </div>
           */}
         </div>
+        )}
 
 
         <ProductImageUpload

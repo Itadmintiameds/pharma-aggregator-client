@@ -1,5 +1,8 @@
 import Input from "@/src/app/commonComponents/Input";
-import { drugProductSchema } from "@/src/schema/product/DrugProductSchema";
+import {
+  drugProductSchema,
+  drugProductCreateSchema,
+} from "@/src/schema/product/DrugProductSchema";
 import {
   getAllMolecules,
   getMoleculeByTherapeuticSubcategoryId,
@@ -258,6 +261,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [dosageFormLabel, setDosageFormLabel] = useState<string>("");
   const [manualFile, setManualFile] = useState<File | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdProductId, setCreatedProductId] = useState<string | null>(
+    null,
+  );
   const [existingManualFile, setExistingManualFile] = useState<string | null>(
     null,
   );
@@ -714,7 +720,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleSubmit = async () => {
-    const validation = drugProductSchema.safeParse({
+    const validation = drugProductCreateSchema.safeParse({
       ...form,
       images: [...existingImages, ...images],
     });
@@ -730,32 +736,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       });
 
       setErrors(fieldErrors);
-      return;
-    }
-
-    const batchValidation = await validateBatchNumber(
-      form.batchLotNumber,
-      Number(form.categoryId),
-    );
-
-    if (batchValidation.exists) {
-      setErrors((prev) => ({
-        ...prev,
-        batchLotNumber: "Batch number already exists",
-      }));
-
-      return;
-    }
-
-    const mrp = Number(form.mrp) || 0;
-    const sellingPrice = Number(form.sellingPrice) || 0;
-
-    if (sellingPrice >= mrp) {
-      setErrors((prev) => ({
-        ...prev,
-        sellingPrice: "Selling Price must be less than MRP",
-      }));
-
       return;
     }
 
@@ -789,45 +769,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
         categoryId: Number(form.categoryId), // ✅ FIX
 
-        packagingDetails: [
-          {
-            packId: Number(form.packId),
-            packType: form.packType,
-            packTypeUnitId: Number(form.packTypeUnitId),
-            unitPerPack: Number(form.unitPerPack),
-            numberOfPacks: Number(form.numberOfPacks),
-            packSize: Number(form.packSize),
-            minimumOrderQuantity: Number(form.minimumOrderQuantity),
-            maximumOrderQuantity: Number(form.maximumOrderQuantity),
-          },
-        ],
-
-        pricingDetails: [
-          {
-            batchLotNumber: form.batchLotNumber,
-            manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-            expiryDate: toLocalDateTimeString(form.expiryDate),
-            stockQuantity: Number(form.stockQuantity),
-            dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-            sellingPrice: Number(form.sellingPrice),
-            mrp: Number(form.mrp),
-            discountPercentage: Number(form.discountPercentage),
-            gstPercentage: Number(form.gstPercentage),
-            finalPrice: Number(form.finalPrice),
-            hsnCode: Number(form.hsnCode),
-            shelfLifeMonths: Number(form.shelfLifeMonths),
-
-            additionalDiscounts: form.additionalDiscount.map((d) => ({
-              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-              additionalDiscountPercentage: d.additionalDiscountPercentage,
-              effectiveStartDate: d.effectiveStartDate,
-              effectiveStartTime: d.effectiveStartTime,
-              effectiveEndDate: d.effectiveEndDate,
-              effectiveEndTime: d.effectiveEndTime,
-              displayOffer: d.displayOffer !== false,
-            })),
-          },
-        ],
+        // Packaging (variant) and pricing (batch/stock) are intentionally omitted here —
+        // they're attached afterwards from the product view page via addPackagingVariant/addStock.
 
         productAttributeDrugs: [
           {
@@ -871,6 +814,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       if (images.length > 0) {
         await uploadProductImages(productId, images);
       }
+      setCreatedProductId(productId);
       setModalType("create");
       setShowSuccessModal(true);
 
@@ -894,7 +838,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleViewProduct = () => {
-    router.push("/seller_7a3b9f2c/products");
+    const id = form.productId || createdProductId;
+    router.push(
+      id
+        ? `/seller_7a3b9f2c/products/view/${id}`
+        : "/seller_7a3b9f2c/products",
+    );
   };
 
   const handleContinueEditing = () => {
@@ -1920,7 +1869,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
         </div>
 
-        {/* Packaging & Order Details */}
+        {/* Packaging (variant) and batch/pricing/stock are added later from the product
+            view page, not during initial product creation — see StockUpdateModal. */}
+        {isEditMode && (
         <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
           <div className="text-h4 font-semibold font-heading">
             Packaging & Order Details
@@ -2401,6 +2352,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
             />
           </div>
         </div>
+        )}
 
         <ProductImageUpload
           title="Product Photos"

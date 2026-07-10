@@ -120,4 +120,33 @@ export const consumableDeviceSchema = z.object({
     }),
 });
 
+// Used when adding a product without its packaging (variant) and pricing (batch/stock)
+// details — those are attached afterwards from the product view page.
+export const consumableDeviceCreateSchema = consumableDeviceSchema.omit({
+  packType: true,
+  unitsPerPack: true,
+  numberOfPacks: true,
+  packSize: true,
+  minimumOrderQuantity: true,
+  maximumOrderQuantity: true,
+  batchLotNumber: true,
+  manufacturingDate: true,
+  expiryDate: true,
+  stockQuantity: true,
+  dateOfStockEntry: true,
+  sellingPricePerPack: true,
+  mrp: true,
+  discountPercentage: true,
+  additionalDiscount: true,
+  minimumPurchaseQuantity: true,
+  additionalDiscountPercentage: true,
+  effectiveStartDate: true,
+  effectiveStartTime: true,
+  effectiveEndDate: true,
+  effectiveEndTime: true,
+  gstPercentage: true,
+  finalPrice: true,
+  hsnCode: true,
+});
+
 export { consumableDeviceSchema as ConsumableDeviceSchema };

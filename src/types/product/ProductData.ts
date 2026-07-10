@@ -3,8 +3,8 @@ export interface CreateDrugProductRequest {
   productDescription: string;
   warningsPrecautions: string;
   categoryId: number;
-  packagingDetails: PackagingData[];
-  pricingDetails: PricingData[];
+  packagingDetails?: PackagingData[];
+  pricingDetails?: PricingData[];
   productAttributeDrugs?: ProductAttributeDrugData[];
   productAttributeConsumableMedicals?: ProductAttributeConsumableData[];
   productAttributeNonConsumableMedicals?: ProductAttributeNonConsumableData[];
@@ -16,8 +16,8 @@ export interface CreateProductRequest {
   warningsPrecautions: string;
   manufacturerName?: string;
   categoryId: number;
-  packagingDetails: PackagingData[];
-  pricingDetails: PricingData[];
+  packagingDetails?: PackagingData[];
+  pricingDetails?: PricingData[];
   productAttributeFoodInfants?: ProductAttributeFoodInfantData[];
   retainedImageUrls?: string[];
 }
