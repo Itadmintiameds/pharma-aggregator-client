@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Check } from "lucide-react";
+import confetti from "canvas-confetti";
 
 type PopupModalProps = {
   isOpen: boolean;
@@ -14,16 +15,41 @@ type PopupModalProps = {
   onClose?: () => void;
 };
 
-// Same celebratory look as StockUpdateModal's post-update SuccessView, so
-// finishing "Add Product" feels consistent with finishing a stock update.
-const CONFETTI = [
-  { top: "6%", left: "10%", color: "#A855F7", rotate: "18deg" },
-  { top: "10%", left: "86%", color: "#22C55E", rotate: "-15deg" },
-  { top: "78%", left: "8%", color: "#3B82F6", rotate: "30deg" },
-  { top: "82%", left: "88%", color: "#FBBF24", rotate: "-25deg" },
-  { top: "44%", left: "4%", color: "#FBBF24", rotate: "10deg" },
-  { top: "40%", left: "94%", color: "#A855F7", rotate: "-10deg" },
-];
+// Google brand colors
+const CONFETTI_COLORS = ["#4285F4", "#EA4335", "#FBBC05", "#34A853"];
+
+function celebrate() {
+  confetti({
+    particleCount: 120,
+    spread: 90,
+    startVelocity: 45,
+    origin: { y: 0.6 },
+    colors: CONFETTI_COLORS,
+    zIndex: 60,
+  });
+
+  const end = Date.now() + 2000;
+  const shower = () => {
+    confetti({
+      particleCount: 3,
+      angle: 60,
+      spread: 55,
+      origin: { x: 0 },
+      colors: CONFETTI_COLORS,
+      zIndex: 60,
+    });
+    confetti({
+      particleCount: 3,
+      angle: 120,
+      spread: 55,
+      origin: { x: 1 },
+      colors: CONFETTI_COLORS,
+      zIndex: 60,
+    });
+    if (Date.now() < end) requestAnimationFrame(shower);
+  };
+  shower();
+}
 
 export default function PopupModal({
   isOpen,
@@ -37,24 +63,15 @@ export default function PopupModal({
   onTertiaryAction,
   onClose,
 }: PopupModalProps) {
+  useEffect(() => {
+    if (isOpen) celebrate();
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 font-open-sans">
       <div className="bg-white rounded-2xl w-125.25 p-8 pt-10 shadow-xl relative overflow-hidden">
-        {CONFETTI.map((c, i) => (
-          <span
-            key={i}
-            className="absolute w-2 h-2 rounded-sm"
-            style={{
-              top: c.top,
-              left: c.left,
-              background: c.color,
-              transform: `rotate(${c.rotate})`,
-            }}
-          />
-        ))}
-
         {/* Icon */}
         <div className="flex justify-center mb-4">
           <div className="w-18 h-18 rounded-full bg-[#DCFCE7] flex items-center justify-center">
