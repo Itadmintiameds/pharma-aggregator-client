@@ -36,6 +36,7 @@ import Table, { Column } from "@/src/app/commonComponents/Table";
 import { toast } from "react-toastify";
 import StockUpdateModal from "./StockUpdateModal";
 import BatchStockUpdateModal from "./BatchStockUpdateModal";
+import AddBatchModal from "./AddBatchModal";
 import {
   getAvailableBatches,
   type BatchAvailability,
@@ -2002,6 +2003,9 @@ const ProductView1 = ({
     }
   };
 
+  const [addBatchModalOpen, setAddBatchModalOpen] = useState(false);
+  const handleAddNewBatch = () => setAddBatchModalOpen(true);
+
   /* ─────────────────────────────────────────────────────
      LOADING / EMPTY STATES
   ───────────────────────────────────────────────────── */
@@ -2594,9 +2598,40 @@ const ProductView1 = ({
             display: "flex",
             flexWrap: "wrap",
             alignItems: "center",
+            justifyContent: "space-between",
             gap: 12,
           }}
         >
+          <button
+            onClick={handleAddNewBatch}
+            style={{
+              height: 40,
+              padding: "0 16px",
+              background: "white",
+              borderRadius: 8,
+              border: "1.5px solid var(--Colors-Brand-Primary-800, #6C12A9)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+              fontSize: 13.5,
+              fontFamily: "'Work Sans', sans-serif",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Add New Batch
+          </button>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
               <select
             value={batchStatusFilter}
             onChange={(e) =>
@@ -2619,7 +2654,7 @@ const ProductView1 = ({
           </select>
 
 
-          <div style={{ position: "relative", minWidth: 100, flex: "1 1 220px" }}>
+          <div style={{ position: "relative", width: 220, flex: "0 0 auto" }}>
             <input
               type="text"
               value={batchSearch}
@@ -2639,7 +2674,7 @@ const ProductView1 = ({
             />
           </div>
 
-      
+
 
           {hasActiveBatchFilters && (
             <button
@@ -2660,6 +2695,7 @@ const ProductView1 = ({
               Clear filters
             </button>
           )}
+          </div>
         </div>
 
         <div style={{ maxHeight: 420, overflowY: "auto" }}>
@@ -2812,6 +2848,18 @@ const ProductView1 = ({
           productId={productData.productId}
           batch={batchStockUpdate}
           onClose={() => setBatchStockUpdate(null)}
+          onSuccess={() => {
+            refetchProduct();
+          }}
+        />
+      )}
+
+      {addBatchModalOpen && (
+        <AddBatchModal
+          productName={productData.productName}
+          productId={productData.productId}
+          categoryId={resolvedCategoryId}
+          onClose={() => setAddBatchModalOpen(false)}
           onSuccess={() => {
             refetchProduct();
           }}
