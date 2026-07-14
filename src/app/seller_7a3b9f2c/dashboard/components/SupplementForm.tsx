@@ -1611,8 +1611,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
         productAttributeSupplementsOrNutraceuticals: [
           {
-            therapeuticCategoryId: Number(form.therapeuticCategory),
-            therapeuticSubCategoryId: Number(form.therapeuticSubcategory),
+            therapeuticCategoryId: form.therapeuticCategory,
+            therapeuticSubCategoryId: form.therapeuticSubcategory,
             brandName: form.brandName,
             variantName: form.variantName,
             dosageFormId: Number(form.dosageForm),

@@ -938,6 +938,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     }
     if (mode === "edit" && selectedCertifications.length < mandatoryCertCount) {
       e.certifications = `You must keep all ${mandatoryCertCount} original certifications. Please re-add any removed ones.`;
+    } else if (mode !== "edit" && selectedCertifications.length === 0) {
+      e.certifications = "At least one certification is required";
     }
 
     return e;
