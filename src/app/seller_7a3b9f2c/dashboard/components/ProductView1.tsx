@@ -33,7 +33,13 @@ import {
   getCosmeticProductForms,
 } from "@/src/services/product/CosmeticService";
 import Table, { Column } from "@/src/app/commonComponents/Table";
+import { toast } from "react-toastify";
 import StockUpdateModal from "./StockUpdateModal";
+import BatchStockUpdateModal from "./BatchStockUpdateModal";
+import {
+  getAvailableBatches,
+  type BatchAvailability,
+} from "@/src/services/product/StockService";
 import SupplementDetailsView from "./SupplementDetailsView";
 import ConsumableView from "./ConsumableView";
 import NonConsumableView from "./NonConsumableView";
@@ -1962,6 +1968,40 @@ const ProductView1 = ({
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const handleUpdateStock = () => setStockModalOpen(true);
 
+  const [batchStockUpdate, setBatchStockUpdate] =
+    useState<BatchAvailability | null>(null);
+  const [batchStockLoadingLot, setBatchStockLoadingLot] = useState<
+    string | null
+  >(null);
+  const handleUpdateStockForBatch = async (row: PricingDetails) => {
+    if (!productData?.productId || !row.batchLotNumber) return;
+    setBatchStockLoadingLot(row.batchLotNumber);
+    try {
+      const list = await getAvailableBatches(productData.productId);
+      const match = list.find((b) => b.batchLotNumber === row.batchLotNumber);
+      if (match) {
+        setBatchStockUpdate(match);
+      } else {
+        toast.error("Could not load batch details. Please try again.");
+      }
+    } catch (err) {
+      console.error("[ProductView] Error loading batch for stock update:", err);
+      toast.error("Could not load batch details. Please try again.");
+    } finally {
+      setBatchStockLoadingLot(null);
+    }
+  };
+
+  const refetchProduct = async () => {
+    if (!productId) return;
+    try {
+      const response = (await getDrugProductById(productId)) as ProductApiData;
+      setProductData(response);
+    } catch (err) {
+      console.error("[ProductView] Error refetching product after stock update:", err);
+    }
+  };
+
   /* ─────────────────────────────────────────────────────
      LOADING / EMPTY STATES
   ───────────────────────────────────────────────────── */
@@ -2623,7 +2663,36 @@ const ProductView1 = ({
         </div>
 
         <div style={{ maxHeight: 420, overflowY: "auto" }}>
-          <Table<PricingDetails> columns={batchColumns} data={filteredBatches} />
+          <Table<PricingDetails>
+            columns={batchColumns}
+            data={filteredBatches}
+            actions={(row) => {
+              const isLoading =
+                !!row.batchLotNumber &&
+                batchStockLoadingLot === row.batchLotNumber;
+              return (
+                <button
+                  onClick={() => handleUpdateStockForBatch(row)}
+                  disabled={isLoading || !row.batchLotNumber}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border: "1px solid var(--Colors-Brand-Primary-800, #6C12A9)",
+                    background: "white",
+                    color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: isLoading || !row.batchLotNumber ? "not-allowed" : "pointer",
+                    opacity: isLoading || !row.batchLotNumber ? 0.55 : 1,
+                    whiteSpace: "nowrap",
+                    fontFamily: "'Work Sans', sans-serif",
+                  }}
+                >
+                  {isLoading ? "Loading…" : "Update Stock"}
+                </button>
+              );
+            }}
+          />
         </div>
 
         {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
@@ -2734,7 +2803,20 @@ const ProductView1 = ({
         productName={productData.productName}
         productId={productData.productId}
         categoryId={resolvedCategoryId}
+        onSuccess={refetchProduct}
       />
+
+      {batchStockUpdate && (
+        <BatchStockUpdateModal
+          productName={productData.productName}
+          productId={productData.productId}
+          batch={batchStockUpdate}
+          onClose={() => setBatchStockUpdate(null)}
+          onSuccess={() => {
+            refetchProduct();
+          }}
+        />
+      )}
     </div>
   );
 };

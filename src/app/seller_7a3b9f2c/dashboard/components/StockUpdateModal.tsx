@@ -293,7 +293,10 @@ export default function StockUpdateModal({
 
   const isStep3Valid =
     updateType === "existing"
-      ? Number(addQuantity) > 0 && !isNaN(Number(addQuantity))
+      ? addQuantity.trim() !== "" &&
+        !isNaN(Number(addQuantity)) &&
+        Number(addQuantity) !== 0 &&
+        (selectedBatch?.stockQuantity ?? 0) + Number(addQuantity) >= 0
       : true;
 
   const canGoNext =
@@ -373,6 +376,7 @@ export default function StockUpdateModal({
   const previewCurrent = selectedBatch?.stockQuantity ?? 0;
   const previewAdded = Number(addQuantity) || 0;
   const previewUpdated = previewCurrent + previewAdded;
+  const previewIsDecrease = previewAdded < 0;
 
   return (
     <div
@@ -1104,14 +1108,13 @@ export default function StockUpdateModal({
                     >
                       Add Stock Details
                     </p>
-                    <Field label="Additional Stock Quantity *">
+                    <Field label="Stock Adjustment Quantity *">
                       <div style={{ display: "flex" }}>
                         <input
                           type="number"
-                          min={1}
                           value={addQuantity}
                           onChange={(e) => setAddQuantity(e.target.value)}
-                          placeholder="Enter quantity"
+                          placeholder="e.g. 50 to add, -20 to remove"
                           style={{
                             ...inputStyle,
                             borderTopRightRadius: 0,
@@ -1136,6 +1139,10 @@ export default function StockUpdateModal({
                           Pack(s)
                         </span>
                       </div>
+                      <p style={{ margin: "6px 0 0", fontSize: 12, color: TEXT_GRAY }}>
+                        Enter a positive number to add stock, or a negative number to
+                        deduct stock from this batch.
+                      </p>
                     </Field>
                     <Field label="Date of Stock Entry">
                       <input
@@ -1157,8 +1164,8 @@ export default function StockUpdateModal({
 
                     <div
                       style={{
-                        background: "#F0FDF4",
-                        border: "1px solid #86EFAC",
+                        background: previewIsDecrease ? "#FEF2F2" : "#F0FDF4",
+                        border: `1px solid ${previewIsDecrease ? "#FCA5A5" : "#86EFAC"}`,
                         borderRadius: 10,
                         padding: 14,
                       }}
@@ -1168,7 +1175,7 @@ export default function StockUpdateModal({
                           margin: "0 0 8px",
                           fontSize: 12.5,
                           fontWeight: 600,
-                          color: "#15803D",
+                          color: previewIsDecrease ? "#B91C1C" : "#15803D",
                         }}
                       >
                         Updated Stock Quantity
@@ -1182,9 +1189,11 @@ export default function StockUpdateModal({
                         }}
                       >
                         <SumBlock value={previewCurrent} label="Current Stock" />
-                        <span style={{ fontSize: 18, color: "#15803D" }}>+</span>
-                        <SumBlock value={previewAdded} label="Added Stock" />
-                        <span style={{ fontSize: 18, color: "#15803D" }}>=</span>
+                        <span style={{ fontSize: 18, color: previewIsDecrease ? "#B91C1C" : "#15803D" }}>
+                          {previewIsDecrease ? "−" : "+"}
+                        </span>
+                        <SumBlock value={Math.abs(previewAdded)} label={previewIsDecrease ? "Removed Stock" : "Added Stock"} />
+                        <span style={{ fontSize: 18, color: previewIsDecrease ? "#B91C1C" : "#15803D" }}>=</span>
                         <SumBlock
                           value={previewUpdated}
                           label="Updated Stock"
@@ -1192,6 +1201,11 @@ export default function StockUpdateModal({
                           suffix="Packs"
                         />
                       </div>
+                      {previewUpdated < 0 && (
+                        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#B91C1C" }}>
+                          Updated stock cannot go below 0.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1639,8 +1653,8 @@ function SuccessView({
               value={`${result.previousStock.toLocaleString()} Packs`}
             />
             <ReviewRow
-              label="Added Stock"
-              value={`${result.addedStock.toLocaleString()} Packs`}
+              label={result.addedStock < 0 ? "Removed Stock" : "Added Stock"}
+              value={`${Math.abs(result.addedStock).toLocaleString()} Packs`}
             />
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
               <span style={{ fontSize: 13, color: TEXT_GRAY }}>Updated Stock</span>
