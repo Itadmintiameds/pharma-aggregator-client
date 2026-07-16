@@ -491,18 +491,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   useEffect(() => {
     fetchDeviceCategories();
 
-    // if (mode === "create") {
-    //   getNonConsumableProductCategories()
-    //     .then((items: MasterItem[]) => {
-    //       const nonConsumable = items.find((i) => {
-    //         const name = getMasterStr(i, "categoryName", "name").toLowerCase();
-    //         return name.includes("non-consumable") || name.includes("nonconsumable");
-    //       });
-    //       setProductCategoryId(nonConsumable ? Number(getMasterStr(nonConsumable, "categoryId", "id") || "6") : 6);
-    //     })
-    //     .catch(() => setProductCategoryId(6));
-    // }
-
     getNonConsumableCountries()
       .then((items: MasterItem[]) =>
         setCountryOptions(
@@ -751,10 +739,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (errors[field]) setErrors((p) => { const n = { ...p }; delete n[field]; return n; });
   };
 
-  const handleMaterialCheckbox = (option: SelectOption) => {
-    setSelectedMaterialTypes((prev) => prev.includes(option.value) ? prev.filter((v) => v !== option.value) : [...prev, option.value]);
-    if (errors.materialType) setErrors((p) => { const n = { ...p }; delete n.materialType; return n; });
-  };
 
   const handleCertCheckbox = (option: CertificationMasterOption) => {
     const exists = selectedCertifications.some((c) => c.id === option.value);
@@ -808,18 +792,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     setExistingBrochureUrl("");
   };
 
-  const handleManufacturingMonthSelect = (month: number, year: number) => {
-    const selectedDate = new Date(year, month, 1);
-    const today = new Date();
-    const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    if (selectedDate > currentMonth) {
-      setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
-      return;
-    }
-    setErrors((prev) => ({ ...prev, manufacturingDate: "" }));
-    setForm((p) => ({ ...p, manufacturingDate: selectedDate }));
-    setShowManufacturingMonthPicker(false);
-  };
 
   const handleViewProduct = () => {
     // Full page navigation ensures ProductView1 mounts fresh and fetches
@@ -896,37 +868,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (!pDesc) e.productDescription = "Product description is required";
     else if (pDesc.length > 1000) e.productDescription = "Product description must not exceed 1000 characters";
 
-    if (mode === "edit") {
-      const uPack = Number(form.unitPerPack);
-      if (!form.unitPerPack.trim()) e.unitPerPack = "Number of units per pack is required";
-      else if (!Number.isInteger(uPack) || uPack <= 0) e.unitPerPack = "Units per pack must be a positive integer";
-
-      const nPacks = Number(form.numberOfPacks);
-      if (!form.numberOfPacks.trim()) e.numberOfPacks = "Number of packs is required";
-      else if (!Number.isInteger(nPacks) || nPacks <= 0) e.numberOfPacks = "Number of packs must be a positive integer";
-
-      const minQ = Number(form.minimumOrderQuantity);
-      const maxQ = Number(form.maximumOrderQuantity);
-      if (!form.minimumOrderQuantity.trim()) e.minimumOrderQuantity = "Minimum order quantity is required";
-      else if (!Number.isInteger(minQ) || minQ <= 0) e.minimumOrderQuantity = "Minimum order quantity must be a positive integer";
-      if (!form.maximumOrderQuantity.trim()) e.maximumOrderQuantity = "Maximum order quantity is required";
-      else if (!Number.isInteger(maxQ) || maxQ <= 0) e.maximumOrderQuantity = "Maximum order quantity must be a positive integer";
-      else if (!isNaN(minQ) && maxQ < minQ) e.maximumOrderQuantity = "Maximum order quantity must be ≥ minimum order quantity";
-
-      const selling = parseFloat(form.sellingPrice);
-      if (!form.sellingPrice.trim()) e.sellingPrice = "Selling price is required";
-      else if (isNaN(selling) || selling <= 0) e.sellingPrice = "Selling price must be greater than 0";
-
-      const mrp = parseFloat(form.mrp);
-      if (!form.mrp.trim()) e.mrp = "MRP is required";
-      else if (isNaN(mrp) || mrp <= 0) e.mrp = "MRP must be greater than 0";
-      else if (!isNaN(selling) && mrp < selling) e.mrp = "MRP must be ≥ selling price";
-
-      if (form.discountPercentage.trim() !== "") {
-        const disc = parseFloat(form.discountPercentage);
-        if (isNaN(disc) || disc < 0 || disc > 100) e.discountPercentage = "Discount percentage must be between 0 and 100";
-      }
-    }
+   
 
     if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
     if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
@@ -984,45 +926,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         productMarketingUrl: form.productMarketingUrl || "",
         manufacturerName: form.manufacturerName,
         categoryId: productCategoryId,
-        ...(mode === "edit" ? {
-          packagingDetails: [{
-            ...(packagingId ? { packagingId } : {}),
-            packId: Number(form.packType),
-            unitPerPack: Number(form.unitPerPack) || 0,
-            numberOfPacks: Number(form.numberOfPacks) || 0,
-            packSize: Number(form.unitPerPack) * Number(form.numberOfPacks) || 0,
-            minimumOrderQuantity: Number(form.minimumOrderQuantity) || 0,
-            maximumOrderQuantity: Number(form.maximumOrderQuantity) || 0,
-          }],
-          pricingDetails: [{
-            ...(pricingId ? { pricingId } : {}),
-            manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-            stockQuantity: Number(form.stockQuantity) || 0,
-            dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-            sellingPrice: Number(form.sellingPrice) || 0,
-            mrp: Number(form.mrp) || 0,
-            discountPercentage: Number(form.discountPercentage) || 0,
-            gstPercentage: Number(form.gstPercentage) || 0,
-            finalPrice: Number(form.finalPrice) || 0,
-            hsnCode: Number(form.hsnCode) || 0,
-            batchLotNumber: form.batchLotNumber,
-            expiryDate: "",
-            additionalDiscounts: additionalDiscountSlabs.map((slab: any) => ({
-              minimumPurchaseQuantity: slab.minimumPurchaseQuantity,
-              additionalDiscountPercentage: slab.additionalDiscountPercentage,
-              effectiveStartDate: slab.effectiveStartDate || null,
-              effectiveStartTime: slab.effectiveStartTime || null,
-              effectiveEndDate: slab.effectiveEndDate || null,
-              effectiveEndTime: slab.effectiveEndTime || null,
-              displayOffer: slab.displayOffer !== false,
-            })),
-            specialSchemes: specialSchemes.map((s: any) => ({
-              ...s,
-              ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
-              displayOfferScheme: s.displayOfferScheme !== false,
-            })),
-          }],
-        } : {}),
+    
         productAttributeNonConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
           brandName: form.brandName,
@@ -1656,305 +1560,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           </div>
         </div>
 
-        {/* ── Section 2: Packaging & Order Details (edit mode only — added later via Stock Update) ── */}
-        {isEdit && (
-        <div className={sectionCard}>
-          <h2 className={sectionTitle}>Packaging &amp; Order Details</h2>
-          <div className="border-b border-neutral-200 mt-3"></div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
-
-            {/* Pack Type */}
-            {isEdit ? (
-              <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("packType") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Pack Type {requiredStar}</label>
-                <Dropdown
-                  options={packTypeApiOptions}
-                  value={form.packType}
-                  onChange={(val, label) => handleSelectChange("packType", { value: val, label })}
-                  placeholder="Select pack type"
-                  error={errors.packType ? " " : ""}
-                />
-                {errors.packType && <p className={errorMsg}>{errors.packType}</p>}
-              </div>
-            )}
-
-            {/* Units per Pack — locked after stock entry */}
-            {isEdit && Number(form.stockQuantity) > 0 ? (
-              <NonEditableField label="Number of Units per Pack Type" value={form.unitPerPack} required />
-            ) : (
-              <div ref={setFieldRef("unitPerPack") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Number of Units per Pack Type"
-                  name="unitPerPack"
-                  value={form.unitPerPack}
-                  onChange={handleChange}
-                  placeholder="e.g., 100"
-                  required
-                  error={errors.unitPerPack}
-                />
-              </div>
-            )}
-
-            {/* Number of Packs — locked after stock entry */}
-            {isEdit && Number(form.stockQuantity) > 0 ? (
-              <NonEditableField label="Number of Packs" value={form.numberOfPacks} required />
-            ) : (
-              <div ref={setFieldRef("numberOfPacks") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Number of Packs"
-                  name="numberOfPacks"
-                  value={form.numberOfPacks}
-                  onChange={handleChange}
-                  placeholder="e.g., 10"
-                  required
-                  error={errors.numberOfPacks}
-                />
-              </div>
-            )}
-
-            {/* Pack Size — read-only, auto-computed */}
-            <div>
-              <Input
-                label="Pack Size (No. of Units per Pack Type X No. of Packs)"
-                name="packSize"
-                value={form.packSize}
-                readOnly
-                className="!h-12 !rounded-xl bg-gray-50 [color:#969793] cursor-not-allowed border-gray-300 [font-family:'Open_Sans',sans-serif] text-base"
-                labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-          </div>
-
-          <p className={subSectionTitle}>Order Details</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-            <div ref={setFieldRef("minimumOrderQuantity") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Min Order Qty"
-                name="minimumOrderQuantity"
-                value={form.minimumOrderQuantity}
-                onChange={handleChange}
-                placeholder="e.g., 1"
-                required
-                error={errors.minimumOrderQuantity}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-            <div ref={setFieldRef("maximumOrderQuantity") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Max Order Qty"
-                name="maximumOrderQuantity"
-                value={form.maximumOrderQuantity}
-                onChange={handleChange}
-                placeholder="e.g., 100"
-                required
-                error={errors.maximumOrderQuantity}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-          </div>
-
-          <p className={subSectionTitle}>Batch Management</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-
-            {/* Batch Number */}
-            <div ref={setFieldRef("batchLotNumber") as React.RefCallback<HTMLDivElement>}>
-              {isEdit ? (
-                <NonEditableField label="Batch Number" value={form.batchLotNumber} required />
-              ) : (
-                <Input label="Batch Number" name="batchLotNumber" placeholder="Alphanumeric only"
-                  value={form.batchLotNumber} onChange={handleChange} error={errors.batchLotNumber} required maxLength={20} />
-              )}
-            </div>
-
-            {/* Manufacturing Date */}
-            <div ref={setFieldRef("manufacturingDate") as React.RefCallback<HTMLDivElement>} className="relative">
-              <Input
-                label="Manufacturing Month"
-                type="text"
-                name="manufacturingDate"
-                required={!isEdit}
-                readOnly={isEdit}
-                value={
-                  form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
-                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
-                    : ""
-                }
-                placeholder="MM/YYYY"
-                onChange={() => {}}
-                onClick={() => { if (!isEdit) setShowManufacturingMonthPicker(true); }}
-                onKeyDown={(e) => e.preventDefault()}
-                onPaste={(e) => e.preventDefault()}
-                error={errors.manufacturingDate}
-              />
-              {showManufacturingMonthPicker && !isEdit && (
-                <MonthPicker
-                  selectedMonth={form.manufacturingDate ? form.manufacturingDate.getMonth() : new Date().getMonth()}
-                  selectedYear={form.manufacturingDate ? form.manufacturingDate.getFullYear() : new Date().getFullYear()}
-                  maxDate={new Date()}
-                  onSelect={handleManufacturingMonthSelect}
-                  onClose={() => setShowManufacturingMonthPicker(false)}
-                />
-              )}
-            </div>
-
-            {/* Stock Quantity */}
-            {isEdit ? (
-              <NonEditableField label="Stock Quantity (in units)" value={form.stockQuantity} required />
-            ) : (
-              <div ref={setFieldRef("stockQuantity") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Stock Quantity (in units)"
-                  name="stockQuantity"
-                  value={form.stockQuantity}
-                  onChange={handleChange}
-                  placeholder="e.g., 10"
-                  required
-                  error={errors.stockQuantity}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
-
-            {/* Date of Stock Entry — always read-only */}
-            <div>
-              <Input
-                label="Date of Stock Entry"
-                name="dateOfStockEntry"
-                value={todayStr}
-                readOnly
-                required
-                className="!h-12 !rounded-xl bg-gray-50 [color:#969793] cursor-not-allowed border-gray-300 [font-family:'Open_Sans',sans-serif] text-base"
-                labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-          </div>
-
-          <p className={subSectionTitle}>Pricing</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-
-            <div ref={setFieldRef("sellingPrice") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Selling Price (per Pack Size)"
-                name="sellingPrice"
-                value={form.sellingPrice}
-                onChange={handleChange}
-                placeholder="e.g., 4500"
-                required
-                error={errors.sellingPrice}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-
-            <div ref={setFieldRef("mrp") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="MRP (per Pack Size)"
-                name="mrp"
-                value={form.mrp}
-                onChange={handleChange}
-                placeholder="e.g., 5000"
-                required
-                error={errors.mrp}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-
-            <div className="col-span-1 md:col-span-2 flex items-end gap-4">
-              <div className="w-1/2" ref={setFieldRef("discountPercentage") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Discount Percentage (%)"
-                  name="discountPercentage"
-                  value={form.discountPercentage}
-                  onChange={handleChange}
-                  placeholder="0–100"
-                  error={errors.discountPercentage}
-                />
-              </div>
-              <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAdditionalDiscountModal(true)}
-                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
-                >
-                  <img src="/icons/PlusIcon.svg" alt="add" className="w-6 h-6" />
-                  Add Special Offers
-                </button>
-              </div>
-            </div>
-
-            <AppliedOffersView
-              additionalDiscounts={convertToDiscountData(additionalDiscountSlabs)}
-              specialSchemes={specialSchemes}
-              productName={form.productName}
-              onEditDiscount={(index) => { setEditTab("additional_discount"); setEditIndex(index); setShowAdditionalDiscountModal(true); }}
-              onDeleteDiscount={(index) =>
-                setAdditionalDiscountSlabs((prev) =>
-                  prev.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } as any : d)
-                )
-              }
-              onEditScheme={(index) => { setEditTab("special_schemes"); setEditIndex(index); setShowAdditionalDiscountModal(true); }}
-              onDeleteScheme={(index) =>
-                setSpecialSchemes((prev) =>
-                  prev.map((s: any, i: number) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)
-                )
-              }
-              isEditMode={isEdit}
-            />
-          </div>
-
-          <p className={subSectionTitle}>TAX &amp; BILLING</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-
-            {/* GST % */}
-            {isEdit ? (
-              <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>GST % {requiredStar}</label>
-                <Dropdown
-                  options={gstOptions}
-                  value={form.gstPercentage}
-                  onChange={(val, label) => handleSelectChange("gstPercentage", { value: val, label })}
-                  placeholder="Select GST"
-                  error={errors.gstPercentage ? " " : ""}
-                />
-                {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
-              </div>
-            )}
-
-            {/* HSN Code */}
-            {isEdit ? (
-              <NonEditableField label="HSN Code" value={form.hsnCode} required />
-            ) : (
-              <div ref={setFieldRef("hsnCode") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="HSN Code"
-                  name="hsnCode"
-                  value={form.hsnCode}
-                  onChange={handleChange}
-                  placeholder="4, 6, or 8 digit numeric code"
-                  required
-                  error={errors.hsnCode}
-                  maxLength={8}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-        )}
+      
 
         {/* ── Section 3: Product Photos ──────────────────────────────────────────── */}
         <div ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">

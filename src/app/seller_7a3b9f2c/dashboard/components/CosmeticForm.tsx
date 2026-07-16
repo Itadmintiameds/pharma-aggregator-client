@@ -411,17 +411,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const unitDropdownRef = useRef<HTMLDivElement>(null);
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-  const toLocalDateTimeString = (date: Date | null): string | null => {
-    if (!date) return null;
-    const now = new Date();
-    const combined = new Date(
-      date.getFullYear(), date.getMonth(), date.getDate(),
-      now.getHours(), now.getMinutes(), now.getSeconds(),
-    );
-    return combined.toISOString().slice(0, 19);
-  };
 
   // ─── Fetch sub-types ─────────────────────────────────────────────────────────
   const fetchSubTypes = useCallback(async (typeId: string): Promise<SelectOption[]> => {
@@ -1195,38 +1184,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       e.certifications = `You must keep all ${mandatoryCertCount} original certifications. Please re-add any removed ones.`;
     }
 
-    // Packaging, batch/stock and pricing fields are entered later via the
-    // product view page's Add Stock flow — only required when editing.
-    if (mode === "edit") {
-      const uPack = Number(form.unitsPerPack);
-      if (!form.unitsPerPack.trim()) e.unitsPerPack = "Number of units per pack is required";
-      else if (!Number.isInteger(uPack) || uPack <= 0) e.unitsPerPack = "Units per pack must be a positive integer";
-
-      const nPacks = Number(form.numberOfPacks);
-      if (!form.numberOfPacks.trim()) e.numberOfPacks = "Number of packs is required";
-      else if (!Number.isInteger(nPacks) || nPacks <= 0) e.numberOfPacks = "Number of packs must be a positive integer";
-
-      const minQ = Number(form.minimumOrderQuantity);
-      const maxQ = Number(form.maximumOrderQuantity);
-      if (!form.minimumOrderQuantity.trim()) e.minimumOrderQuantity = "Minimum order quantity is required";
-      else if (!Number.isInteger(minQ) || minQ <= 0) e.minimumOrderQuantity = "Minimum order quantity must be a positive integer";
-      if (!form.maximumOrderQuantity.trim()) e.maximumOrderQuantity = "Maximum order quantity is required";
-      else if (!Number.isInteger(maxQ) || maxQ <= 0) e.maximumOrderQuantity = "Maximum order quantity must be a positive integer";
-      else if (!isNaN(minQ) && maxQ < minQ) e.maximumOrderQuantity = "Maximum order quantity must be ≥ minimum order quantity";
-
-      const selling = parseFloat(form.sellingPrice);
-      if (!form.sellingPrice.trim()) e.sellingPrice = "Selling price is required";
-      else if (isNaN(selling) || selling <= 0) e.sellingPrice = "Selling price must be greater than 0";
-
-      const mrp = parseFloat(form.mrp);
-      if (!form.mrp.trim()) e.mrp = "MRP is required";
-      else if (isNaN(mrp) || mrp <= 0) e.mrp = "MRP must be greater than 0";
-      else if (!isNaN(selling) && mrp < selling) e.mrp = "MRP must be ≥ selling price";
-
-      if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
-      if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
-      else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
-    }
+ 
 
     if (form.discountPercentage.trim() !== "") {
       const disc = parseFloat(form.discountPercentage);
@@ -1258,75 +1216,30 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   // ─── Submit ───────────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
+    
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       setTimeout(() => scrollToFirstError(validationErrors), 50);
       return;
     }
-
+    
     setErrors({});
     setApiError(null);
-
+    
     const certsToUpload = selectedCertifications.filter((c) => c.file && !c.existingUrl);
     const hasBrochureUpload = !!brochureFile;
     const hasImageUpload = images.length > 0;
-
+    
     setSubmitting(true);
-
+    
+    console.log("test");
     const payload = {
       productName:          form.productName,
       warningsPrecautions:  form.warningsPrecautions,
       productDescription:   form.productDescription,
       manufacturerName:     form.manufacturerName,
       categoryId:           productCategoryId,
-
-      packagingDetails: [{
-        ...(packagingId ? { packagingId } : {}),
-        packId:               Number(form.packTypeId),
-        unitPerPack:          Number(form.unitsPerPack),
-        numberOfPacks:        Number(form.numberOfPacks),
-        packSize:             Number(form.packSize),
-        minimumOrderQuantity: Number(form.minimumOrderQuantity),
-        maximumOrderQuantity: Number(form.maximumOrderQuantity),
-      }],
-
-      pricingDetails: [{
-        ...(pricingId ? { pricingId } : {}),
-        batchLotNumber:     form.batchNumber,
-        manufacturingDate:  toLocalDateTimeString(form.manufacturingDate),
-        expiryDate:         toLocalDateTimeString(form.expiryDate),
-        shelfLifeMonths: Number(form.shelfLifeMonths),
-        stockQuantity:      Number(form.stockQuantity),
-        dateOfStockEntry:   toLocalDateTimeString(form.dateOfStockEntry),
-        sellingPrice:       Number(form.sellingPrice),
-        mrp:                Number(form.mrp),
-        discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
-        gstPercentage:      Number(form.gstPercentage),
-        finalPrice:         Number(form.finalPrice),
-        hsnCode:            Number(form.hsnCode),
-        // ✅ Map additionalDiscount exactly as DrugForm does
-        additionalDiscounts: form.additionalDiscount.map((d) => ({
-          minimumPurchaseQuantity:      d.minimumPurchaseQuantity,
-          additionalDiscountPercentage: d.additionalDiscountPercentage,
-          effectiveStartDate:           d.effectiveStartDate,
-          effectiveStartTime:           d.effectiveStartTime,
-          effectiveEndDate:             d.effectiveEndDate,
-          effectiveEndTime:             d.effectiveEndTime,
-          displayOffer:                 d.displayOffer !== false,
-        })),
-        specialSchemes: (form.specialSchemes || []).map((s: any) => ({
-          schemeName: s.schemeName || "",
-          schemeType: s.schemeType || "",
-          buyQuantity: s.buyQuantity !== undefined ? s.buyQuantity : (s.purchaseQuantity || 0),
-          freeQuantity: s.freeQuantity,
-          effectiveStartDate: s.effectiveStartDate,
-          effectiveStartTime: s.effectiveStartTime,
-          effectiveEndDate: s.effectiveEndDate,
-          effectiveEndTime: s.effectiveEndTime,
-          displayOfferScheme: s.displayOfferScheme !== false,
-        })),
-      }],
 
       productAttributeCosmeticAndPersonalUse: [{
         ...(productAttributeId ? { productAttributeId } : {}),
@@ -1433,7 +1346,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     };
 
     try {
-      const { packagingDetails, pricingDetails, ...createPayload } = payload;
+      const createPayload = payload;
       const createData: ApiResponseData = await createCosmeticProduct(createPayload as Record<string, unknown>);
 
       const dataInner = (createData?.data ?? createData) as ApiResponseData;
@@ -2047,279 +1960,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           </div>
         </div>
 
-        {/* Section 2: Packaging & Order Details — added later via the product view page's Add Stock flow */}
-        {isEdit && (
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
-          <div className="text-h4 font-semibold">Packaging &amp; Order Details</div>
-          <div className="border-b border-neutral-200 mt-3"></div>
-
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-            <div className="flex flex-col gap-1" data-field="packTypeId">
-              {hasStock ? (
-                <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>Pack Type {requiredStar}</label>
-                  <Dropdown
-                    options={packTypeOptions}
-                    isLoading={loadingPackTypes}
-                    value={form.packTypeId}
-                    onChange={(val, label) => handleSelectChange("packTypeId", { value: val, label })}
-                    placeholder={loadingPackTypes ? "Loading..." : "Select pack type"}
-                    error={errors.packTypeId ? " " : ""}
-                  />
-                  {errors.packTypeId && <p className={errorMsg}>{errors.packTypeId}</p>}
-                </>
-              )}
-            </div>
-
-            {hasStock ? (
-              <NonEditableField label="Number of Units per Pack Type" value={form.unitsPerPack} required />
-            ) : (
-              <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 1"
-                value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
-            )}
-
-            {hasStock ? (
-              <NonEditableField label="Number of Packs" value={form.numberOfPacks} required />
-            ) : (
-              <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 1"
-                value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
-            )}
-
-            <Input
-              label="Pack Size (No. of Units per Pack Type × No. of Packs)"
-              name="packSize"
-              value={form.packSize}
-              readOnly
-            />
-          </div>
-
-          <div className="text-h6 font-normal col-span-2 mt-5">Order Details</div>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            <Input label="Min Order Qty (in terms of Pack Size)" name="minimumOrderQuantity" placeholder="e.g., 1"
-              value={form.minimumOrderQuantity} onChange={handleChange} error={errors.minimumOrderQuantity} required />
-            <Input label="Max Order Qty (in terms of Pack Size)" name="maximumOrderQuantity" placeholder="e.g., 100"
-              value={form.maximumOrderQuantity} onChange={handleChange} error={errors.maximumOrderQuantity} required />
-          </div>
-
-          <div className="text-h6 font-normal col-span-2 mt-5">Batch, Stock &amp; Expiry</div>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            <div data-field="batchNumber">
-              {isEdit ? (
-                <NonEditableField label="Batch Number" value={form.batchNumber} required />
-              ) : (
-                <Input label="Batch Number" name="batchNumber" placeholder="Alphanumeric only, e.g., BAT2024001"
-                  value={form.batchNumber} onChange={handleChange} error={errors.batchNumber} required maxLength={20} />
-              )}
-            </div>
-
-            <div className="relative">
-              <Input
-                label="Manufacturing Month"
-                type="text"
-                name="manufacturingDate"
-                id="manufacturingDate"
-                required
-                readOnly={isEdit}
-                value={
-                  form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
-                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
-                    : ""
-                }
-                placeholder="MM/YYYY"
-                onChange={() => {}}
-                onClick={() => { if (!isEdit) setShowManufacturingMonthPicker(true); }}
-                onKeyDown={(e) => e.preventDefault()}
-                onPaste={(e) => e.preventDefault()}
-                error={errors.manufacturingDate}
-              />
-              {showManufacturingMonthPicker && !isEdit && (
-                <MonthPicker
-                  selectedMonth={form.manufacturingDate ? form.manufacturingDate.getMonth() : new Date().getMonth()}
-                  selectedYear={form.manufacturingDate ? form.manufacturingDate.getFullYear() : new Date().getFullYear()}
-                  maxDate={new Date()}
-                  onSelect={(month, year) => handleMonthSelect("manufacturingDate", month, year)}
-                  onClose={() => setShowManufacturingMonthPicker(false)}
-                />
-              )}
-            </div>
-
-            <div className="relative">
-              <Input
-                label="Expiry Month"
-                name="expiryDate"
-                type="text"
-                required
-                readOnly={isEdit}
-                value={
-                  form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
-                    ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
-                    : ""
-                }
-                placeholder="MM/YYYY"
-                onChange={() => {}}
-                onClick={() => { if (!isEdit) setShowExpiryMonthPicker(true); }}
-                onFocus={() => { if (!isEdit) setShowExpiryMonthPicker(true); }}
-                onKeyDown={(e) => e.preventDefault()}
-                onPaste={(e) => e.preventDefault()}
-                error={errors.expiryDate}
-              />
-              {showExpiryMonthPicker && !isEdit && (
-                <MonthPicker
-                  selectedMonth={form.expiryDate ? form.expiryDate.getMonth() : new Date().getMonth()}
-                  selectedYear={form.expiryDate ? form.expiryDate.getFullYear() : new Date().getFullYear()}
-                  minDate={new Date(new Date().getFullYear(), new Date().getMonth() + 4, 1)}
-                  maxDate={
-                    form.manufacturingDate
-                      ? new Date(form.manufacturingDate.getFullYear() + 5, form.manufacturingDate.getMonth(), 1)
-                      : undefined
-                  }
-                  onSelect={(month, year) => handleMonthSelect("expiryDate", month, year)}
-                  onClose={() => setShowExpiryMonthPicker(false)}
-                />
-              )}
-            </div>
-
-            <Input
-              type="number"
-              label="Shelf Life (In Months)"
-              name="shelfLifeMonths"
-              value={form.shelfLifeMonths}
-              readOnly
-            />
-
-            <div data-field="stockQuantity">
-              {isEdit ? (
-                <NonEditableField label="Stock Quantity (in terms of Pack Size)" value={form.stockQuantity} required />
-              ) : (
-                <Input label="Stock Quantity (in terms of Pack Size)" name="stockQuantity" placeholder="e.g., 100"
-                  value={form.stockQuantity} onChange={handleChange} error={errors.stockQuantity} required />
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Date of Stock Entry {requiredStar}</label>
-              <input type="date" value={todayStr} readOnly
-                className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
-            </div>
-          </div>
-
-          <div className="text-h6 font-normal mt-5">Pricing</div>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            <Input label="MRP (per Pack Size)" name="mrp" placeholder="e.g., 599"
-              value={form.mrp} onChange={handleChange} error={errors.mrp} required />
-
-            <Input label="Selling Price (per Pack Size)" name="sellingPrice" placeholder="e.g., 499"
-              value={form.sellingPrice} onChange={handleChange} error={errors.sellingPrice} required />
-
-            {/* ✅ Discount + Add Special Discount button — identical layout to DrugForm */}
-            <div className="col-span-2 flex items-end gap-4">
-              <div className="w-1/2">
-                <Input
-                  label="Discount Percentage"
-                  name="discountPercentage"
-                  placeholder="0–100"
-                  value={form.discountPercentage}
-                  onChange={handleChange}
-                  error={errors.discountPercentage}
-                />
-              </div>
-              <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                      setEditTab(null);
-                      setEditIndex(null);
-                      setShowAdditionalDiscount(true);
-                    }}
-                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
-                >
-                  <img src="/icons/PlusIcon.svg" alt="drug" className="w-6 h-6" />
-                  Add Special Offers
-                </button>
-              </div>
-            </div>
-
-            <AppliedOffersView
-              additionalDiscounts={form.additionalDiscount}
-              specialSchemes={form.specialSchemes}
-              productName={form.productName}
-              onEditDiscount={(index) => {
-                setEditTab("additional_discount");
-                setEditIndex(index);
-                setShowAdditionalDiscount(true);
-              }}
-              onDeleteDiscount={(index) =>
-                setForm((prev) => ({
-                  ...prev,
-                  additionalDiscount: prev.additionalDiscount.map((d, i) =>
-                    i === index ? { ...d, displayOffer: false, isSelected: false } : d
-                  ),
-                }))
-              }
-              onEditScheme={(index) => {
-                setEditTab("special_schemes");
-                setEditIndex(index);
-                setShowAdditionalDiscount(true);
-              }}
-              onDeleteScheme={(index) =>
-                setForm((prev) => ({
-                  ...prev,
-                  specialSchemes: prev.specialSchemes.map((s: any, i: number) =>
-                    i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s
-                  ),
-                }))
-              }
-              isEditMode={isEdit}
-            />
-
-            {/* <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Final Price (Auto-calculated)</label>
-              <input name="finalPrice" value={form.finalPrice} readOnly
-                className="w-full h-[52px] px-4 border border-[#C0C1BE] rounded-[8px] text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
-            </div> */}
-          </div>
-
-          <div className="text-h6 font-normal mt-5">Tax &amp; Billing</div>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            <div className="flex flex-col gap-1" data-field="gstPercentage">
-              {isEdit ? (
-                <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
-              ) : (
-                <>
-                  <label className={fieldLabel}>GST % {requiredStar}</label>
-                  <Dropdown
-                    options={gstOptions}
-                    value={form.gstPercentage}
-                    onChange={(val, label) => handleSelectChange("gstPercentage", { value: val, label })}
-                    placeholder="Select GST %"
-                    error={errors.gstPercentage ? " " : ""}
-                  />
-                  {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
-                </>
-              )}
-            </div>
-
-            <div data-field="hsnCode">
-              {isEdit ? (
-                <NonEditableField label="HSN Code" value={form.hsnCode} required />
-              ) : (
-                <Input label="HSN Code" name="hsnCode" placeholder="4, 6, or 8 digit numeric code"
-                  value={form.hsnCode} onChange={handleChange} maxLength={8} error={errors.hsnCode} required />
-              )}
-            </div>
-          </div>
-        </div>
-        )}
+  
 
         {/* ── Section 3: Product Photos ─────────────────────────────────────────── */}
         <div ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
