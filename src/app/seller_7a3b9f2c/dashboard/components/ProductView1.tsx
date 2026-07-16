@@ -36,7 +36,6 @@ import Table, { Column } from "@/src/app/commonComponents/Table";
 import { toast } from "react-toastify";
 import StockUpdateModal from "./StockUpdateModal";
 import BatchStockUpdateModal from "./BatchStockUpdateModal";
-import AddBatchModal from "./AddBatchModal";
 import {
   getAvailableBatches,
   type BatchAvailability,
@@ -2591,38 +2590,19 @@ const ProductView1 = ({
           gap: 16,
         }}
       >
-        <SectionTitle>Batch Management</SectionTitle>
+        <SectionTitle>Stock Management</SectionTitle>
 
         <div
           style={{
             display: "flex",
             flexWrap: "wrap",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
+            right: 0,
             gap: 12,
           }}
         >
-          <button
-            onClick={handleAddNewBatch}
-            style={{
-              height: 40,
-              padding: "0 16px",
-              background: "white",
-              borderRadius: 8,
-              border: "1.5px solid var(--Colors-Brand-Primary-800, #6C12A9)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--Colors-Brand-Primary-800, #6C12A9)",
-              fontSize: 13.5,
-              fontFamily: "'Work Sans', sans-serif",
-              fontWeight: 600,
-              whiteSpace: "nowrap",
-            }}
-          >
-            Add New Batch
-          </button>
+        
 
           <div
             style={{
@@ -2854,17 +2834,7 @@ const ProductView1 = ({
         />
       )}
 
-      {addBatchModalOpen && (
-        <AddBatchModal
-          productName={productData.productName}
-          productId={productData.productId}
-          categoryId={resolvedCategoryId}
-          onClose={() => setAddBatchModalOpen(false)}
-          onSuccess={() => {
-            refetchProduct();
-          }}
-        />
-      )}
+    
     </div>
   );
 };
