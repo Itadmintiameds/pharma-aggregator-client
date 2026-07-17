@@ -486,7 +486,7 @@ export default function CompanyForm({
               {openDropdown === 'seller' && !loadingStates.sellerTypes && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
                   <div className="max-h-60 overflow-y-auto">
-                    {sellerTypes.map((type) => (
+                    {sellerTypes.filter(type => type.isActive).map((type) => (
                       <div
                         key={type.sellerTypeId}
                         className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
