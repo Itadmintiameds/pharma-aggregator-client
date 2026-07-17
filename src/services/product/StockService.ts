@@ -67,3 +67,12 @@ export const getAvailableBatches = async (
   const list = response.data?.data ?? response.data;
   return Array.isArray(list) ? list : [];
 };
+
+
+
+export const deleteBatch = async (
+  productId: string,
+  pricingId: string
+): Promise<void> => {
+  await api.delete(`/stock/${productId}/batches/${pricingId}`);
+};

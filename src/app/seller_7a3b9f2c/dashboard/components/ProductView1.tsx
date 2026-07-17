@@ -38,6 +38,7 @@ import StockUpdateModal from "./StockUpdateModal";
 import BatchStockUpdateModal from "./BatchStockUpdateModal";
 import {
   getAvailableBatches,
+  deleteBatch,
   type BatchAvailability,
 } from "@/src/services/product/StockService";
 import SupplementDetailsView from "./SupplementDetailsView";
@@ -804,24 +805,24 @@ const ProductView1 = ({
     const consAttr: ConsumableAttributes | null =
       consAttrArr.length > 0
         ? (consAttrArr as any[]).reduce((latest: any, curr: any) =>
-            new Date(curr.createdDate) > new Date(latest.createdDate)
-              ? curr
-              : latest,
-          )
+          new Date(curr.createdDate) > new Date(latest.createdDate)
+            ? curr
+            : latest,
+        )
         : null;
 
     const ncAttrArr = productData.productAttributeNonConsumableMedicals ?? [];
     const ncAttr: NonConsumableAttributes | null =
       ncAttrArr.length > 0
         ? (ncAttrArr as any[]).reduce((latest: any, curr: any) => {
-            const toMs = (e: any) => {
-              const d = e.updatedDate ?? e.modifiedDate ?? e.createdDate;
-              if (!d) return Infinity;
-              const t = new Date(d).getTime();
-              return isNaN(t) ? Infinity : t;
-            };
-            return toMs(curr) >= toMs(latest) ? curr : latest;
-          })
+          const toMs = (e: any) => {
+            const d = e.updatedDate ?? e.modifiedDate ?? e.createdDate;
+            if (!d) return Infinity;
+            const t = new Date(d).getTime();
+            return isNaN(t) ? Infinity : t;
+          };
+          return toMs(curr) >= toMs(latest) ? curr : latest;
+        })
         : (productData.nonConsumableAttributes ?? null);
 
     const cosAttrRaw: CosmeticAttributes | null =
@@ -1148,9 +1149,9 @@ const ProductView1 = ({
             deviceSubCategoryName =
               String(
                 found.deviceSubCatName ??
-                  found.subCategoryName ??
-                  found.name ??
-                  "",
+                found.subCategoryName ??
+                found.name ??
+                "",
               ).trim() || null;
         } catch {
           /* ignore */
@@ -1250,13 +1251,13 @@ const ProductView1 = ({
         // ── Extract raw IDs from the attribute object (handle every casing variant) ──
         const productTypeIdStr = String(
           (cosAttrRaw as any).productCategoryId ??
-            (cosAttrRaw as any).productTypeId ??
-            "",
+          (cosAttrRaw as any).productTypeId ??
+          "",
         );
         const productSubTypeIdStr = String(
           (cosAttrRaw as any).productSubcategoryId ??
-            (cosAttrRaw as any).productSubTypeId ??
-            "",
+          (cosAttrRaw as any).productSubTypeId ??
+          "",
         );
         const ageGroupIdStr = String((cosAttrRaw as any).ageGroupId ?? "");
         // ageGroupIds is an array of IDs (may include 0 as sentinel); filter those out
@@ -1264,15 +1265,15 @@ const ProductView1 = ({
           (cosAttrRaw as any).ageGroupIds,
         )
           ? (cosAttrRaw as any).ageGroupIds
-              .filter((v: unknown) => Number(v) > 0)
-              .map(String)
+            .filter((v: unknown) => Number(v) > 0)
+            .map(String)
           : ageGroupIdStr && ageGroupIdStr !== "0"
             ? [ageGroupIdStr]
             : [];
         const countryIdStr = String(
           (cosAttrRaw as any).countryId ??
-            (cosAttrRaw as any).countryOfOriginId ??
-            "",
+          (cosAttrRaw as any).countryOfOriginId ??
+          "",
         );
 
         // Raw array IDs for multi-select fields
@@ -1327,8 +1328,8 @@ const ProductView1 = ({
         // ── Extract net quantity unit ID ──
         const netQtyUnitIdStr = String(
           (cosAttrRaw as any).unitId ??
-            (cosAttrRaw as any).netQuantityUnitId ??
-            "",
+          (cosAttrRaw as any).netQuantityUnitId ??
+          "",
         );
 
         // ── Extract product form ID ──
@@ -1428,25 +1429,25 @@ const ProductView1 = ({
         const intendedUseArea =
           rawIntendedIds.length > 0
             ? rawIntendedIds
-                .map((id) => intendedOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => intendedOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const skinPart =
           rawSkinIds.length > 0
             ? rawSkinIds
-                .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const hairPart =
           rawHairIds.length > 0
             ? rawHairIds
-                .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const skinHairType =
@@ -1517,9 +1518,9 @@ const ProductView1 = ({
           ageGroup:
             (rawAgeGroupIds.length > 0
               ? rawAgeGroupIds
-                  .map((id) => ageGroupOpts.find((o) => o.value === id)?.label)
-                  .filter(Boolean)
-                  .join(", ") || null
+                .map((id) => ageGroupOpts.find((o) => o.value === id)?.label)
+                .filter(Boolean)
+                .join(", ") || null
               : null) ?? cosAttrRaw.ageGroup,
           intendedUseArea: intendedUseArea || cosAttrRaw.intendedUseArea || undefined,
           skinHairType: skinHairType ?? cosAttrRaw.skinHairType,
@@ -1565,20 +1566,20 @@ const ProductView1 = ({
   const packaging: PackagingDetails | undefined =
     packagingArr.length > 0
       ? (packagingArr as any[]).reduce((latest: any, curr: any) =>
-          new Date(curr.createdDate) > new Date(latest.createdDate)
-            ? curr
-            : latest,
-        )
+        new Date(curr.createdDate) > new Date(latest.createdDate)
+          ? curr
+          : latest,
+      )
       : undefined;
 
   const pricingArr = productData?.pricingDetails ?? [];
   const pricing: PricingDetails | undefined =
     pricingArr.length > 0
       ? (pricingArr as any[]).reduce((latest: any, curr: any) =>
-          new Date(curr.createdDate) > new Date(latest.createdDate)
-            ? curr
-            : latest,
-        )
+        new Date(curr.createdDate) > new Date(latest.createdDate)
+          ? curr
+          : latest,
+      )
       : undefined;
 
   const ncAttr: NonConsumableAttributes | null = (() => {
@@ -1701,22 +1702,22 @@ const ProductView1 = ({
     molecules.length > 0
       ? molecules
       : ([
-          drugEntry?.molecule1Name || drugEntry?.molecule1Strength
-            ? {
-                resolvedName: drugEntry?.molecule1Name ?? "—",
-                resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
-              }
-            : null,
-          drugEntry?.molecule2Name || drugEntry?.molecule2Strength
-            ? {
-                resolvedName: drugEntry?.molecule2Name ?? "—",
-                resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
-              }
-            : null,
-        ].filter(Boolean) as {
-          resolvedName: string;
-          resolvedStrength: string;
-        }[]);
+        drugEntry?.molecule1Name || drugEntry?.molecule1Strength
+          ? {
+            resolvedName: drugEntry?.molecule1Name ?? "—",
+            resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
+          }
+          : null,
+        drugEntry?.molecule2Name || drugEntry?.molecule2Strength
+          ? {
+            resolvedName: drugEntry?.molecule2Name ?? "—",
+            resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
+          }
+          : null,
+      ].filter(Boolean) as {
+        resolvedName: string;
+        resolvedStrength: string;
+      }[]);
 
   const drugSchedule =
     drugEntry?.drugSchedule ??
@@ -1855,11 +1856,11 @@ const ProductView1 = ({
   const batchColumns: Column<PricingDetails>[] = [
     ...(showBatchNumberColumn
       ? [
-          {
-            header: "Batch Number",
-            accessor: (row: PricingDetails) => row.batchLotNumber || "-",
-          },
-        ]
+        {
+          header: "Batch Number",
+          accessor: (row: PricingDetails) => row.batchLotNumber || "-",
+        },
+      ]
       : []),
     {
       header: "Mfg. Date",
@@ -1867,11 +1868,11 @@ const ProductView1 = ({
     },
     ...(showExpiryColumn
       ? [
-          {
-            header: "Expiry Date",
-            accessor: (row: PricingDetails) => formatDate(row.expiryDate),
-          },
-        ]
+        {
+          header: "Expiry Date",
+          accessor: (row: PricingDetails) => formatDate(row.expiryDate),
+        },
+      ]
       : []),
     {
       header: "Available Stock",
@@ -2002,8 +2003,34 @@ const ProductView1 = ({
     }
   };
 
-  const [addBatchModalOpen, setAddBatchModalOpen] = useState(false);
-  const handleAddNewBatch = () => setAddBatchModalOpen(true);
+  const [batchDeletingLot, setBatchDeletingLot] = useState<string | null>(null);
+  const handleDeleteBatch = async (row: PricingDetails) => {
+    if (!productData?.productId || !row.batchLotNumber) return;
+
+    const confirmed = window.confirm(
+      `Delete batch "${row.batchLotNumber}"? This action cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setBatchDeletingLot(row.batchLotNumber);
+    try {
+      const list = await getAvailableBatches(productData.productId);
+      const match = list.find((b) => b.batchLotNumber === row.batchLotNumber);
+      if (!match) {
+        toast.error("Could not find this batch. Please refresh and try again.");
+        return;
+      }
+      await deleteBatch(productData.productId, match.pricingId);
+      toast.success("Batch deleted successfully.");
+      await refetchProduct();
+    } catch (err) {
+      console.error("[ProductView] Error deleting batch:", err);
+      toast.error("Could not delete batch. Please try again.");
+    } finally {
+      setBatchDeletingLot(null);
+    }
+  };
+
 
   /* ─────────────────────────────────────────────────────
      LOADING / EMPTY STATES
@@ -2141,9 +2168,9 @@ const ProductView1 = ({
           >
             Edit
           </button>
-            {/* add Stock existing batch or create new batch  */}
+          {/* add Stock existing batch or create new batch  */}
 
-                      <button
+          <button
             onClick={handleUpdateStock}
             style={{
               height: 48,
@@ -2225,12 +2252,12 @@ const ProductView1 = ({
           nonConsAttr={
             ncAttr
               ? {
-                  ...ncAttr,
-                  safetyInstructions:
-                    ncAttr.safetyInstructions ??
-                    productData.warningsPrecautions ??
-                    undefined,
-                }
+                ...ncAttr,
+                safetyInstructions:
+                  ncAttr.safetyInstructions ??
+                  productData.warningsPrecautions ??
+                  undefined,
+              }
               : null
           }
           storageConditionName={storageCondition}
@@ -2281,18 +2308,18 @@ const ProductView1 = ({
             pricingDetails={
               pricing
                 ? {
-                    ...(pricing as any),
-                    shelfLife: shelfLifeDisplay ?? (pricing as any)?.shelfLife,
-                  }
+                  ...(pricing as any),
+                  shelfLife: shelfLifeDisplay ?? (pricing as any)?.shelfLife,
+                }
                 : null
             }
             packagingDetails={
               packaging
                 ? {
-                    ...(packaging as any),
-                    packTypeName:
-                      resolvedPackType ?? (packaging as any)?.packTypeName,
-                  }
+                  ...(packaging as any),
+                  packTypeName:
+                    resolvedPackType ?? (packaging as any)?.packTypeName,
+                }
                 : null
             }
             additionalDiscounts={additionalDiscounts}
@@ -2331,61 +2358,61 @@ const ProductView1 = ({
             </h2>
 
             <div className="w-full rounded-xl border border-primary-600 p-4 bg-white mt-4 space-y-3">
-  <div className="text-label-l4 font-medium text-pneutral-900">
-    Product Images
-  </div>
+              <div className="text-label-l4 font-medium text-pneutral-900">
+                Product Images
+              </div>
 
-  <div className="grid grid-cols-5 gap-4">
-    {displayImages.slice(0, 5).map((img, idx) => {
-      const count = displayImages.length;
+              <div className="grid grid-cols-5 gap-4">
+                {displayImages.slice(0, 5).map((img, idx) => {
+                  const count = displayImages.length;
 
-      let colStart = "";
+                  let colStart = "";
 
-      if (count === 1) {
-        colStart = "col-start-3";
-      } else if (count === 2) {
-        colStart = idx === 0 ? "col-start-2" : "";
-      } else if (count === 3) {
-        colStart = idx === 0 ? "col-start-2" : "";
-      }
+                  if (count === 1) {
+                    colStart = "col-start-3";
+                  } else if (count === 2) {
+                    colStart = idx === 0 ? "col-start-2" : "";
+                  } else if (count === 3) {
+                    colStart = idx === 0 ? "col-start-2" : "";
+                  }
 
-      return (
-        <div
-          key={idx}
-          className={`relative h-67.5 overflow-hidden rounded-xl bg-[#F5F5F5] ${colStart}`}
-        >
-          <img
-            src={img}
-            alt={`Product image ${idx + 1}`}
-            className="w-full h-full object-cover rounded-xl"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src =
-                PLACEHOLDER_IMAGE;
-            }}
-          />
+                  return (
+                    <div
+                      key={idx}
+                      className={`relative h-67.5 overflow-hidden rounded-xl bg-[#F5F5F5] ${colStart}`}
+                    >
+                      <img
+                        src={img}
+                        alt={`Product image ${idx + 1}`}
+                        className="w-full h-full object-cover rounded-xl"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src =
+                            PLACEHOLDER_IMAGE;
+                        }}
+                      />
 
-          {idx === 0 && (
-            <div className="absolute top-3 left-3 w-15 h-6.5 bg-primary-600 text-center rounded-md">
-              <span className="text-white text-xs font-normal">
-                Primary
-              </span>
+                      {idx === 0 && (
+                        <div className="absolute top-3 left-3 w-15 h-6.5 bg-primary-600 text-center rounded-md">
+                          <span className="text-white text-xs font-normal">
+                            Primary
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {displayImages.length > 3 &&
+                  Array.from({
+                    length: Math.max(0, 5 - displayImages.length),
+                  }).map((_, i) => (
+                    <div
+                      key={`empty-${i}`}
+                      className="h-67.5 rounded-xl bg-[#F5F5F5]"
+                    />
+                  ))}
+              </div>
             </div>
-          )}
-        </div>
-      );
-    })}
-
-    {displayImages.length > 3 &&
-      Array.from({
-        length: Math.max(0, 5 - displayImages.length),
-      }).map((_, i) => (
-        <div
-          key={`empty-${i}`}
-          className="h-67.5 rounded-xl bg-[#F5F5F5]"
-        />
-      ))}
-  </div>
-</div>
 
           </div>
           <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
@@ -2492,7 +2519,7 @@ const ProductView1 = ({
                     <span className="text-pneutral-800 text-base font-normal leading-[22px] break-all">
                       {decodeURIComponent(
                         brochureUrl.split("/").pop()?.split("?")[0] ||
-                          "user-manual.pdf",
+                        "user-manual.pdf",
                       )}
                     </span>
                   </a>
@@ -2602,7 +2629,7 @@ const ProductView1 = ({
             gap: 12,
           }}
         >
-        
+
 
           <div
             style={{
@@ -2612,69 +2639,69 @@ const ProductView1 = ({
               gap: 12,
             }}
           >
-              <select
-            value={batchStatusFilter}
-            onChange={(e) =>
-              setBatchStatusFilter(e.target.value as typeof batchStatusFilter)
-            }
-            style={{
-              height: 40,
-              borderRadius: 8,
-              border: "1px solid #D5D5D4",
-              padding: "0 10px",
-              fontSize: 13,
-              color: "#1E1E1D",
-              fontFamily: "'Noto Sans', sans-serif",
-            }}
-          >
-            <option value="all">All statuses</option>
-            <option value="Active">Active</option>
-            <option value="Near Expiry">Near Expiry</option>
-            <option value="Expired">Expired</option>
-          </select>
-
-
-          <div style={{ position: "relative", width: 220, flex: "0 0 auto" }}>
-            <input
-              type="text"
-              value={batchSearch}
-              onChange={(e) => setBatchSearch(e.target.value)}
-              placeholder="Search batches…"
+            <select
+              value={batchStatusFilter}
+              onChange={(e) =>
+                setBatchStatusFilter(e.target.value as typeof batchStatusFilter)
+              }
               style={{
-                width: "100%",
                 height: 40,
                 borderRadius: 8,
                 border: "1px solid #D5D5D4",
-                padding: "0 12px",
+                padding: "0 10px",
                 fontSize: 13,
                 color: "#1E1E1D",
-                boxSizing: "border-box",
                 fontFamily: "'Noto Sans', sans-serif",
               }}
-            />
-          </div>
-
-
-
-          {hasActiveBatchFilters && (
-            <button
-              onClick={clearBatchFilters}
-              style={{
-                height: 40,
-                padding: "0 14px",
-                borderRadius: 8,
-                border: "none",
-                background: "transparent",
-                color: "var(--Colors-Brand-Primary-800, #6C12A9)",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "'Work Sans', sans-serif",
-              }}
             >
-              Clear filters
-            </button>
-          )}
+              <option value="all">All statuses</option>
+              <option value="Active">Active</option>
+              <option value="Near Expiry">Near Expiry</option>
+              <option value="Expired">Expired</option>
+            </select>
+
+
+            <div style={{ position: "relative", width: 220, flex: "0 0 auto" }}>
+              <input
+                type="text"
+                value={batchSearch}
+                onChange={(e) => setBatchSearch(e.target.value)}
+                placeholder="Search batches…"
+                style={{
+                  width: "100%",
+                  height: 40,
+                  borderRadius: 8,
+                  border: "1px solid #D5D5D4",
+                  padding: "0 12px",
+                  fontSize: 13,
+                  color: "#1E1E1D",
+                  boxSizing: "border-box",
+                  fontFamily: "'Noto Sans', sans-serif",
+                }}
+              />
+            </div>
+
+
+
+            {hasActiveBatchFilters && (
+              <button
+                onClick={clearBatchFilters}
+                style={{
+                  height: 40,
+                  padding: "0 14px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'Work Sans', sans-serif",
+                }}
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         </div>
 
@@ -2683,29 +2710,54 @@ const ProductView1 = ({
             columns={batchColumns}
             data={filteredBatches}
             actions={(row) => {
-              const isLoading =
-                !!row.batchLotNumber &&
-                batchStockLoadingLot === row.batchLotNumber;
+              const isUpdating =
+                !!row.batchLotNumber && batchStockLoadingLot === row.batchLotNumber;
+              const isDeleting =
+                !!row.batchLotNumber && batchDeletingLot === row.batchLotNumber;
+              const disabled = isUpdating || isDeleting || !row.batchLotNumber;
+
               return (
-                <button
-                  onClick={() => handleUpdateStockForBatch(row)}
-                  disabled={isLoading || !row.batchLotNumber}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--Colors-Brand-Primary-800, #6C12A9)",
-                    background: "white",
-                    color: "var(--Colors-Brand-Primary-800, #6C12A9)",
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    cursor: isLoading || !row.batchLotNumber ? "not-allowed" : "pointer",
-                    opacity: isLoading || !row.batchLotNumber ? 0.55 : 1,
-                    whiteSpace: "nowrap",
-                    fontFamily: "'Work Sans', sans-serif",
-                  }}
-                >
-                  {isLoading ? "Loading…" : "Update Stock"}
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => handleUpdateStockForBatch(row)}
+                    disabled={disabled}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      border: "1px solid var(--Colors-Brand-Primary-800, #6C12A9)",
+                      background: "white",
+                      color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      opacity: disabled ? 0.55 : 1,
+                      whiteSpace: "nowrap",
+                      fontFamily: "'Work Sans', sans-serif",
+                    }}
+                  >
+                    {isUpdating ? "Loading…" : "Update Stock"}
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteBatch(row)}
+                    disabled={disabled}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      border: "1px solid var(--Colors-Warning-warning-500, #FF3B3B)",
+                      background: "white",
+                      color: "var(--Colors-Warning-warning-500, #FF3B3B)",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      opacity: disabled ? 0.55 : 1,
+                      whiteSpace: "nowrap",
+                      fontFamily: "'Work Sans', sans-serif",
+                    }}
+                  >
+                    {isDeleting ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
               );
             }}
           />
@@ -2755,15 +2807,13 @@ const ProductView1 = ({
                         margin: 0,
                       }}
                     >
-                      {`Bulk order discount (${d.minimumPurchaseQuantity}${
-                        d.maximumPurchaseQuantity
+                      {`Bulk order discount (${d.minimumPurchaseQuantity}${d.maximumPurchaseQuantity
                           ? `-${d.maximumPurchaseQuantity}`
                           : "+"
-                      } units)${
-                        startDate && endDate
+                        } units)${startDate && endDate
                           ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
                           : ""
-                      }`}
+                        }`}
                     </p>
                   </div>
                   <span
@@ -2834,7 +2884,7 @@ const ProductView1 = ({
         />
       )}
 
-    
+
     </div>
   );
 };
