@@ -160,6 +160,12 @@ export default function StockUpdateModal({
     maximumOrderQuantity: "",
   });
   const [specialDiscounts, setSpecialDiscounts] = useState<SpecialDiscountRow[]>([]);
+  // The sidebar edits a draft copy — nothing is committed to specialDiscounts (and thus the
+  // submit payload) until "Save" is clicked; "Cancel"/closing the sidebar discards the draft.
+  const [specialOffersOpen, setSpecialOffersOpen] = useState(false);
+  const [draftSpecialDiscounts, setDraftSpecialDiscounts] = useState<
+    SpecialDiscountRow[]
+  >([]);
   const [batchNumberError, setBatchNumberError] = useState<string | null>(
     null
   );
@@ -203,6 +209,8 @@ export default function StockUpdateModal({
       maximumOrderQuantity: "",
     });
     setSpecialDiscounts([]);
+    setSpecialOffersOpen(false);
+    setDraftSpecialDiscounts([]);
     setBatchNumberError(null);
     setCheckingBatchNumber(false);
     setSubmitting(false);
@@ -295,19 +303,48 @@ export default function StockUpdateModal({
     });
   };
 
-  const addSpecialDiscountRow = () =>
-    setSpecialDiscounts((rows) => [...rows, emptySpecialDiscountRow()]);
+  const openSpecialOffers = () => {
+    setDraftSpecialDiscounts(
+      specialDiscounts.length > 0
+        ? specialDiscounts
+        : [emptySpecialDiscountRow()]
+    );
+    setSpecialOffersOpen(true);
+  };
 
-  const removeSpecialDiscountRow = (index: number) =>
-    setSpecialDiscounts((rows) => rows.filter((_, i) => i !== index));
+  const cancelSpecialOffers = () => {
+    setSpecialOffersOpen(false);
+    setDraftSpecialDiscounts([]);
+  };
 
-  const updateSpecialDiscountRow = (
+  const saveSpecialOffers = () => {
+    setSpecialDiscounts(
+      draftSpecialDiscounts.filter((row) => row.percentage.trim() !== "")
+    );
+    setSpecialOffersOpen(false);
+  };
+
+  const addDraftSpecialDiscountRow = () =>
+    setDraftSpecialDiscounts((rows) => [...rows, emptySpecialDiscountRow()]);
+
+  const removeDraftSpecialDiscountRow = (index: number) =>
+    setDraftSpecialDiscounts((rows) => rows.filter((_, i) => i !== index));
+
+  const updateDraftSpecialDiscountRow = (
     index: number,
     patch: Partial<SpecialDiscountRow>
   ) =>
-    setSpecialDiscounts((rows) =>
+    setDraftSpecialDiscounts((rows) =>
       rows.map((row, i) => (i === index ? { ...row, ...patch } : row))
     );
+
+  const isDraftSpecialDiscountsValid = draftSpecialDiscounts.every(
+    (row) =>
+      row.percentage.trim() !== "" &&
+      Number(row.percentage) >= 0 &&
+      Number(row.percentage) <= 100 &&
+      Number(row.minimumPurchaseQuantity) > 0
+  );
 
   const isSpecialDiscountsValid = specialDiscounts.every(
     (row) =>
@@ -1041,207 +1078,37 @@ export default function StockUpdateModal({
                       style={inputStyle}
                     />
                   </Field>
-                  {specialDiscounts.length === 0 && (
-                    <div className="flex items-end">
-                      <button
-                        type="button"
-                        onClick={addSpecialDiscountRow}
-                        className="w-full h-11 bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[14px] leading-5 rounded-lg flex items-center justify-center gap-2.5 cursor-pointer hover:bg-purple-50 transition-all duration-200"
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 14 14"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="shrink-0"
-                        >
-                          <path
-                            d="M7 1v12M1 7h12"
-                            stroke="#9659FD"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                        <span>Add Special Offers</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {specialDiscounts.length > 0 && (
-                  <div
-                    style={{
-                      border: `1.5px solid ${PURPLE}`,
-                      background: "#FAF5FF",
-                      borderRadius: 12,
-                      padding: 16,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 16,
-                    }}
-                  >
-                    <div>
-                      <p
-                        style={{
-                          margin: "0 0 4px",
-                          fontSize: 15,
-                          fontWeight: 600,
-                          color: TEXT_DARK,
-                          fontFamily: "'Work Sans', sans-serif",
-                        }}
-                      >
-                        Special Discounts (Optional)
-                      </p>
-                      <p style={{ margin: 0, fontSize: 13, color: TEXT_GRAY }}>
-                        Separate promotional discounts, distinct from the regular
-                        Discount % above, each applied once its own minimum quantity is
-                        purchased. Add as many as you need.
-                      </p>
-                    </div>
-
-                    {specialDiscounts.map((row, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          border: `1px solid ${BORDER}`,
-                          background: "white",
-                          borderRadius: 10,
-                          padding: 14,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            marginBottom: 12,
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontSize: 12.5,
-                              fontWeight: 600,
-                              color: TEXT_GRAY,
-                              fontFamily: "'Work Sans', sans-serif",
-                            }}
-                          >
-                            Offer {index + 1}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeSpecialDiscountRow(index)}
-                            style={{
-                              background: "transparent",
-                              border: "none",
-                              cursor: "pointer",
-                              color: TEXT_GRAY,
-                              padding: 4,
-                            }}
-                            aria-label={`Remove special offer ${index + 1}`}
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
-                            gap: 16,
-                          }}
-                        >
-                          <Field label="Minimum Purchase Quantity">
-                            <input
-                              type="number"
-                              min={1}
-                              value={row.minimumPurchaseQuantity}
-                              onChange={(e) =>
-                                updateSpecialDiscountRow(index, {
-                                  minimumPurchaseQuantity: e.target.value,
-                                })
-                              }
-                              placeholder="e.g. 5"
-                              style={inputStyle}
-                            />
-                          </Field>
-                          <Field label="Special Discount %">
-                            <input
-                              type="number"
-                              min={0}
-                              max={100}
-                              step="0.01"
-                              value={row.percentage}
-                              onChange={(e) =>
-                                updateSpecialDiscountRow(index, {
-                                  percentage: e.target.value,
-                                })
-                              }
-                              placeholder="e.g. 5"
-                              style={inputStyle}
-                            />
-                          </Field>
-                        </div>
-                        <label
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            marginTop: 12,
-                            fontSize: 13,
-                            color: TEXT_DARK,
-                            cursor: "pointer",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={row.displayOffer}
-                            onChange={(e) =>
-                              updateSpecialDiscountRow(index, {
-                                displayOffer: e.target.checked,
-                              })
-                            }
-                          />
-                          Display this offer to buyers
-                        </label>
-                      </div>
-                    ))}
-
+                  <div className="flex items-end">
                     <button
                       type="button"
-                      onClick={addSpecialDiscountRow}
-                      style={{
-                        alignSelf: "flex-start",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        color: PURPLE,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        padding: 0,
-                        fontFamily: "'Work Sans', sans-serif",
-                      }}
+                      onClick={openSpecialOffers}
+                      className="w-full h-11 bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[14px] leading-5 rounded-lg flex items-center justify-center gap-2.5 cursor-pointer hover:bg-purple-50 transition-all duration-200"
                     >
                       <svg
-                        width="12"
-                        height="12"
+                        width="14"
+                        height="14"
                         viewBox="0 0 14 14"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
+                        className="shrink-0"
                       >
                         <path
                           d="M7 1v12M1 7h12"
-                          stroke={PURPLE}
+                          stroke="#9659FD"
                           strokeWidth="2.5"
                           strokeLinecap="round"
                         />
                       </svg>
-                      Add another offer
+                      <span>
+                        {specialDiscounts.length > 0
+                          ? `${specialDiscounts.length} Special Offer${
+                              specialDiscounts.length > 1 ? "s" : ""
+                            } Added — Edit`
+                          : "Add Special Offers"}
+                      </span>
                     </button>
                   </div>
-                )}
+                </div>
 
                 <div>
                   <p
@@ -1805,6 +1672,18 @@ export default function StockUpdateModal({
           </>
         )}
       </div>
+
+      {specialOffersOpen && (
+        <SpecialOffersDrawer
+          rows={draftSpecialDiscounts}
+          isValid={isDraftSpecialDiscountsValid}
+          onAddRow={addDraftSpecialDiscountRow}
+          onRemoveRow={removeDraftSpecialDiscountRow}
+          onUpdateRow={updateDraftSpecialDiscountRow}
+          onCancel={cancelSpecialOffers}
+          onSave={saveSpecialOffers}
+        />
+      )}
     </div>
   );
 }
@@ -1842,6 +1721,299 @@ function Field({
         {label}
       </label>
       {children}
+    </div>
+  );
+}
+
+function SpecialOffersDrawer({
+  rows,
+  isValid,
+  onAddRow,
+  onRemoveRow,
+  onUpdateRow,
+  onCancel,
+  onSave,
+}: {
+  rows: SpecialDiscountRow[];
+  isValid: boolean;
+  onAddRow: () => void;
+  onRemoveRow: (index: number) => void;
+  onUpdateRow: (index: number, patch: Partial<SpecialDiscountRow>) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1100,
+        background: "rgba(28, 25, 23, 0.45)",
+        backdropFilter: "blur(2px)",
+        WebkitBackdropFilter: "blur(2px)",
+        display: "flex",
+        justifyContent: "flex-end",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 420,
+          height: "100%",
+          background: "white",
+          boxShadow: "-8px 0 24px rgba(0,0,0,0.15)",
+          display: "flex",
+          flexDirection: "column",
+          fontFamily: "'Noto Sans', sans-serif",
+          animation: "stockmodal-slide-in-right 0.2s ease-out",
+        }}
+      >
+        <style>{`
+          @keyframes stockmodal-slide-in-right {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+          }
+        `}</style>
+
+        {/* ── HEADER ── */}
+        <div
+          style={{
+            padding: "20px 20px 16px",
+            borderBottom: `1px solid ${BORDER}`,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 18,
+                fontWeight: 600,
+                color: TEXT_DARK,
+                fontFamily: "'Work Sans', sans-serif",
+              }}
+            >
+              Special Offers
+            </h2>
+            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: TEXT_GRAY }}>
+              Separate promotional discounts, distinct from the regular
+              Discount % — each applied once its own minimum quantity is
+              purchased.
+            </p>
+          </div>
+          <button
+            onClick={onCancel}
+            aria-label="Close"
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: TEXT_GRAY,
+              padding: 4,
+              borderRadius: 6,
+              flexShrink: 0,
+            }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* ── BODY ── */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: 20,
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
+          {rows.map((row, index) => (
+            <div
+              key={index}
+              style={{
+                border: `1px solid ${BORDER}`,
+                background: "#FAFAF9",
+                borderRadius: 10,
+                padding: 14,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    color: TEXT_GRAY,
+                    fontFamily: "'Work Sans', sans-serif",
+                  }}
+                >
+                  Offer {index + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onRemoveRow(index)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: TEXT_GRAY,
+                    padding: 4,
+                  }}
+                  aria-label={`Remove special offer ${index + 1}`}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <Field label="Minimum Purchase Quantity">
+                  <input
+                    type="number"
+                    min={1}
+                    value={row.minimumPurchaseQuantity}
+                    onChange={(e) =>
+                      onUpdateRow(index, {
+                        minimumPurchaseQuantity: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. 5"
+                    style={inputStyle}
+                  />
+                </Field>
+                <Field label="Special Discount %">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    value={row.percentage}
+                    onChange={(e) =>
+                      onUpdateRow(index, { percentage: e.target.value })
+                    }
+                    placeholder="e.g. 5"
+                    style={inputStyle}
+                  />
+                </Field>
+              </div>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginTop: 12,
+                  fontSize: 13,
+                  color: TEXT_DARK,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={row.displayOffer}
+                  onChange={(e) =>
+                    onUpdateRow(index, { displayOffer: e.target.checked })
+                  }
+                />
+                Display this offer to buyers
+              </label>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={onAddRow}
+            style={{
+              alignSelf: "flex-start",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: PURPLE,
+              fontSize: 13,
+              fontWeight: 600,
+              padding: 0,
+              fontFamily: "'Work Sans', sans-serif",
+            }}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 14 14"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M7 1v12M1 7h12"
+                stroke={PURPLE}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+            </svg>
+            Add another offer
+          </button>
+        </div>
+
+        {/* ── FOOTER ── */}
+        <div
+          style={{
+            borderTop: `1px solid ${BORDER}`,
+            padding: "16px 20px",
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 12,
+          }}
+        >
+          <button
+            onClick={onCancel}
+            style={{
+              height: 40,
+              padding: "0 16px",
+              borderRadius: 8,
+              border: `1px solid ${BORDER}`,
+              background: "white",
+              color: TEXT_DARK,
+              fontSize: 13.5,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "'Work Sans', sans-serif",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSave}
+            disabled={!isValid}
+            style={{
+              height: 40,
+              padding: "0 20px",
+              borderRadius: 8,
+              border: "none",
+              background: PURPLE,
+              color: "white",
+              fontSize: 13.5,
+              fontWeight: 600,
+              cursor: isValid ? "pointer" : "not-allowed",
+              opacity: isValid ? 1 : 0.55,
+              fontFamily: "'Work Sans', sans-serif",
+            }}
+          >
+            Save
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
