@@ -252,7 +252,5 @@ export const drugProductCreateSchema = drugProductSchema.omit({
   sellingPrice: true,
   mrp: true,
   discountPercentage: true,
-  gstPercentage: true,
-  hsnCode: true,
 });
 

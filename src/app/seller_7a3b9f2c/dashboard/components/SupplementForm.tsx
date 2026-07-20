@@ -1584,6 +1584,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         manufacturerName: form.manufacturerName,
         categoryId: Number(categoryId),
 
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
+
         productAttributeSupplementsOrNutraceuticals: [
           {
             therapeuticCategoryId: form.therapeuticCategory,
@@ -1715,6 +1718,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         manufacturerName: form.manufacturerName,
         categoryId: Number(effectiveCategoryId),
 
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
 
         productAttributeSupplementsOrNutraceuticals: [
           {
@@ -2277,6 +2282,34 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 error={errors.manufacturerName}
                 required
                 readOnly={isEditMode}
+              />
+            </div>
+
+            {/* GST % */}
+            <div data-field="gstPercentage">
+              <Input
+                label="GST %"
+                name="gstPercentage"
+                id="gstPercentage"
+                placeholder="e.g. 12"
+                onChange={handleChange}
+                value={form.gstPercentage}
+                error={errors.gstPercentage}
+                required
+              />
+            </div>
+
+            {/* HSN Code */}
+            <div data-field="hsnCode">
+              <Input
+                label="HSN Code"
+                name="hsnCode"
+                id="hsnCode"
+                placeholder="e.g. 2106"
+                onChange={handleChange}
+                value={form.hsnCode}
+                error={errors.hsnCode}
+                required
               />
             </div>
 

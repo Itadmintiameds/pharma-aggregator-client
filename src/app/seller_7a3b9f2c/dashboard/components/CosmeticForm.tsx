@@ -1163,6 +1163,17 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       if (!mName) e.manufacturerName = "Manufacturer name is required";
       else if (mName.length > 100) e.manufacturerName = "Manufacturer name must not exceed 100 characters";
       if (!form.countryOfOriginId) e.countryOfOriginId = "Country of origin is required";
+
+      const gstVal = form.gstPercentage.trim();
+      if (!gstVal) e.gstPercentage = "GST % is required";
+      else if (isNaN(Number(gstVal))) e.gstPercentage = "GST % must be a valid number";
+
+      const hsnVal = form.hsnCode.trim();
+      if (!hsnVal) e.hsnCode = "HSN Code is required";
+      else {
+        const hsnError = validateHSNCode(hsnVal);
+        if (hsnError) e.hsnCode = hsnError;
+      }
     }
 
     if (selectedIntendedUseAreas.length === 0) e.intendedUseAreas = "At least one intended use area is required";
@@ -1240,6 +1251,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       productDescription:   form.productDescription,
       manufacturerName:     form.manufacturerName,
       categoryId:           productCategoryId,
+
+      gstPercentage:        Number(form.gstPercentage),
+      hsnCode:              Number(form.hsnCode),
 
       productAttributeCosmeticAndPersonalUse: [{
         ...(productAttributeId ? { productAttributeId } : {}),
@@ -1812,6 +1826,24 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               ) : (
                 <Input label="Manufacturer Name" name="manufacturerName" placeholder="Manufacturer company name"
                   value={form.manufacturerName} onChange={handleChange} error={errors.manufacturerName} required />
+              )}
+            </div>
+
+            <div data-field="gstPercentage">
+              {isEdit ? (
+                <NonEditableField label="GST %" value={form.gstPercentage} required />
+              ) : (
+                <Input label="GST %" name="gstPercentage" placeholder="e.g. 18"
+                  value={form.gstPercentage} onChange={handleChange} error={errors.gstPercentage} required />
+              )}
+            </div>
+
+            <div data-field="hsnCode">
+              {isEdit ? (
+                <NonEditableField label="HSN Code" value={form.hsnCode} required />
+              ) : (
+                <Input label="HSN Code" name="hsnCode" placeholder="e.g. 3304"
+                  value={form.hsnCode} onChange={handleChange} error={errors.hsnCode} required />
               )}
             </div>
 

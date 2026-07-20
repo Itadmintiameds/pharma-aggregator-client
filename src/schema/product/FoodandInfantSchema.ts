@@ -320,8 +320,6 @@ export const foodInfantCreateSchema = foodInfantBaseSchema.omit({
   stockQuantity: true,
   mrp: true,
   sellingPricePerPack: true,
-  gstPercentage: true,
-  hsnCode: true,
 });
 
 

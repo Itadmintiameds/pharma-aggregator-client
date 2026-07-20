@@ -933,6 +933,17 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (!mName) e.manufacturerName = "Manufacturer name is required";
       else if (mName.length > 100) e.manufacturerName = "Manufacturer name must not exceed 100 characters";
       if (!form.storageCondition) e.storageCondition = "Storage condition is required";
+
+      const gstVal = form.gstPercentage.trim();
+      if (!gstVal) e.gstPercentage = "GST % is required";
+      else if (isNaN(Number(gstVal))) e.gstPercentage = "GST % must be a valid number";
+
+      const hsnVal = form.hsnCode.trim();
+      if (!hsnVal) e.hsnCode = "HSN Code is required";
+      else {
+        const hsnError = validateHSNCode(hsnVal);
+        if (hsnError) e.hsnCode = hsnError;
+      }
     }
 
     const iUse = form.intendedUse.trim();
@@ -1011,7 +1022,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         productMarketingUrl: form.brochureUrl || "",
         manufacturerName: form.manufacturerName,
         categoryId: productCategoryId,
-       
+
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
+
         productAttributeConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
           deviceCatId: Number(form.deviceCategoryId),
@@ -1448,6 +1462,20 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             ) : (
               <Input label="Manufacturer Name" name="manufacturerName" placeholder="Manufacturer company name"
                 value={form.manufacturerName} onChange={handleChange} error={errors.manufacturerName} required />
+            )}
+
+            {isEdit ? (
+              <NonEditableField label="GST %" value={form.gstPercentage} required />
+            ) : (
+              <Input label="GST %" name="gstPercentage" placeholder="e.g. 12"
+                value={form.gstPercentage} onChange={handleChange} error={errors.gstPercentage} required />
+            )}
+
+            {isEdit ? (
+              <NonEditableField label="HSN Code" value={form.hsnCode} required />
+            ) : (
+              <Input label="HSN Code" name="hsnCode" placeholder="e.g. 3926"
+                value={form.hsnCode} onChange={handleChange} error={errors.hsnCode} required />
             )}
 
             {/* Storage Condition — locked after stock entry */}

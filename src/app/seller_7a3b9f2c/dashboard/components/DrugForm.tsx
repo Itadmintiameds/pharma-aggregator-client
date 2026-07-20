@@ -752,6 +752,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
         categoryId: Number(form.categoryId), // ✅ FIX
 
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
+
         // Packaging (variant) and pricing (batch/stock) are intentionally omitted here —
         // they're attached afterwards from the product view page via addPackagingVariant/addStock.
 
@@ -1048,6 +1051,9 @@ const handleUpdate = async () => {
         warningsPrecautions: form.warningsPrecautions,
         manufacturerName: form.manufacturerName,
         categoryId: Number(form.categoryId),
+
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
 
         productAttributeDrugs: [
           {
@@ -1565,6 +1571,28 @@ const handleUpdate = async () => {
               onChange={handleChange}
               readOnly={isEditMode}
               error={errors.manufacturerName}
+              required
+            />
+
+            <Input
+              label="GST %"
+              name="gstPercentage"
+              id="gstPercentage"
+              placeholder="e.g. 12"
+              value={form.gstPercentage}
+              onChange={handleChange}
+              error={errors.gstPercentage}
+              required
+            />
+
+            <Input
+              label="HSN Code"
+              name="hsnCode"
+              id="hsnCode"
+              placeholder="e.g. 3004"
+              value={form.hsnCode}
+              onChange={handleChange}
+              error={errors.hsnCode}
               required
             />
 

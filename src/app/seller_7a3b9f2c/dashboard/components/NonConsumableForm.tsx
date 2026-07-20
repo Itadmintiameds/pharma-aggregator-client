@@ -841,6 +841,17 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         e.dimensionSize = "Only letters, numbers, spaces, and dimension separators (x, ×) are allowed";
       }
       if (!form.deviceSpecificationUnitId) e.deviceSpecificationUnitId = "Unit is required";
+
+      const gstVal = form.gstPercentage.trim();
+      if (!gstVal) e.gstPercentage = "GST % is required";
+      else if (isNaN(Number(gstVal))) e.gstPercentage = "GST % must be a valid number";
+
+      const hsnVal = form.hsnCode.trim();
+      if (!hsnVal) e.hsnCode = "HSN Code is required";
+      else {
+        const hsnError = validateHSNCode(hsnVal);
+        if (hsnError) e.hsnCode = hsnError;
+      }
     }
 
     // Warranty Period and AMC are editable in both create and edit modes
@@ -926,7 +937,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         productMarketingUrl: form.productMarketingUrl || "",
         manufacturerName: form.manufacturerName,
         categoryId: productCategoryId,
-    
+
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
+
         productAttributeNonConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
           brandName: form.brandName,
@@ -1510,6 +1524,40 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                   maxLength={100}
                   // className={inputClass}
                   // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
+                />
+              </div>
+            )}
+
+            {/* GST % */}
+            {isEdit ? (
+              <NonEditableField label="GST %" value={form.gstPercentage} required />
+            ) : (
+              <div ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="GST %"
+                  name="gstPercentage"
+                  value={form.gstPercentage}
+                  onChange={handleChange}
+                  placeholder="e.g. 12"
+                  required
+                  error={errors.gstPercentage}
+                />
+              </div>
+            )}
+
+            {/* HSN Code */}
+            {isEdit ? (
+              <NonEditableField label="HSN Code" value={form.hsnCode} required />
+            ) : (
+              <div ref={setFieldRef("hsnCode") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="HSN Code"
+                  name="hsnCode"
+                  value={form.hsnCode}
+                  onChange={handleChange}
+                  placeholder="e.g. 9018"
+                  required
+                  error={errors.hsnCode}
                 />
               </div>
             )}

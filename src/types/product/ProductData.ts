@@ -3,6 +3,8 @@ export interface CreateDrugProductRequest {
   productDescription: string;
   warningsPrecautions: string;
   categoryId: number;
+  gstPercentage?: number;
+  hsnCode?: number;
   packagingDetails?: PackagingData[];
   pricingDetails?: PricingData[];
   productAttributeDrugs?: ProductAttributeDrugData[];
@@ -16,6 +18,8 @@ export interface CreateProductRequest {
   warningsPrecautions: string;
   manufacturerName?: string;
   categoryId: number;
+  gstPercentage?: number;
+  hsnCode?: number;
   packagingDetails?: PackagingData[];
   pricingDetails?: PricingData[];
   productAttributeFoodInfants?: ProductAttributeFoodInfantData[];

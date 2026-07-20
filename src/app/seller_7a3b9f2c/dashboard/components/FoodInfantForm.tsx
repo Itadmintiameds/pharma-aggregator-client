@@ -1450,6 +1450,8 @@ if ((attr as any).certificateDocuments?.length) {
       warningsPrecautions: form.warningsPrecautions,
       manufacturerName: form.manufacturerName,
       categoryId: 3,
+      gstPercentage: Number(form.gstPercentage) || 0,
+      hsnCode: Number(form.hsnCode) || 0,
       productAttributeFoodInfants: [foodInfantAttr],
       retainedImageUrls: isEditMode ? existingImages : undefined,
     };
@@ -1483,6 +1485,19 @@ if ((attr as any).certificateDocuments?.length) {
     if (!form.storageConditionId) newErrors.storageConditionId = "Storage condition is required";
     if (!form.manufacturerName.trim()) newErrors.manufacturerName = "Manufacturer Name is required";
     if (!form.countryOfOrigin) newErrors.countryOfOrigin = "Country of origin is required";
+
+    if (!form.gstPercentage) {
+      newErrors.gstPercentage = "GST % is required";
+    } else if (isNaN(Number(form.gstPercentage))) {
+      newErrors.gstPercentage = "GST % must be a valid number";
+    }
+    if (!form.hsnCode.trim()) {
+      newErrors.hsnCode = "HSN Code is required";
+    } else if (!/^\d+$/.test(form.hsnCode.trim())) {
+      newErrors.hsnCode = "HSN Code must contain only numbers";
+    } else if (![4, 6, 8].includes(form.hsnCode.trim().length)) {
+      newErrors.hsnCode = "HSN Code must be 4, 6, or 8 digits";
+    }
     
     // Product Description validation
     if (!form.productDescription.trim()) {
@@ -2104,6 +2119,32 @@ if ((attr as any).certificateDocuments?.length) {
                 readOnly={isEditMode}
                 // disabled={isEditMode}
                 error={errors.manufacturerName}
+                required
+              />
+            </div>
+
+            <div data-field="gstPercentage">
+              <Input
+                label="GST %"
+                name="gstPercentage"
+                placeholder="e.g. 5"
+                onChange={handleChange}
+                value={form.gstPercentage}
+                readOnly={isEditMode}
+                error={errors.gstPercentage}
+                required
+              />
+            </div>
+
+            <div data-field="hsnCode">
+              <Input
+                label="HSN Code"
+                name="hsnCode"
+                placeholder="e.g. 1901"
+                onChange={handleChange}
+                value={form.hsnCode}
+                readOnly={isEditMode}
+                error={errors.hsnCode}
                 required
               />
             </div>

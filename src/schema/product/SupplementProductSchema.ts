@@ -282,8 +282,6 @@ export const supplementProductCreateSchema = supplementProductBaseSchema.omit({
   mrp: true,
   sellingPrice: true,
   discountPercentage: true,
-  gstPercentage: true,
-  hsnCode: true,
 });
 
 export type SupplementProductFormData = z.infer<typeof supplementProductSchema>;
