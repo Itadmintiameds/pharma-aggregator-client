@@ -70,9 +70,18 @@ export const getAvailableBatches = async (
 
 
 
+export interface BatchDeleteResponse {
+  pricingId: string;
+  batchLotNumber: string;
+  productId: string;
+  deletedBy: string;
+  deletedAt: string;
+}
+
 export const deleteBatch = async (
   productId: string,
   pricingId: string
-): Promise<void> => {
-  await api.delete(`/stock/${productId}/batches/${pricingId}`);
+): Promise<BatchDeleteResponse> => {
+  const response = await api.delete(`/stock/${productId}/batches/${pricingId}`);
+  return response.data?.data ?? response.data;
 };

@@ -140,6 +140,8 @@ export interface PricingData {
   finalPrice: number;
   hsnCode: number;
   shelfLifeMonths?: number;
+  deletedBy?: string | null;
+  deletedAt?: string | null;
   additionalDiscounts: AdditionalDiscountData[];
   specialSchemes?: SpecialSchemesData[];
 }

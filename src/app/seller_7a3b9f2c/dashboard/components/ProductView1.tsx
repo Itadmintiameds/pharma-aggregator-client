@@ -79,6 +79,7 @@ interface PackagingDetails {
 }
 
 interface PricingDetails {
+  pricingId?: string;
   finalPrice?: number | null;
   sellingPrice?: number;
   mrp?: number;
@@ -94,6 +95,8 @@ interface PricingDetails {
   hsnCode?: string | number;
   shelfLifeMonths?: number | null;
   dateOfStockEntry?: string;
+  deletedBy?: string | null;
+  deletedAt?: string | null;
 }
 
 interface AdditionalDiscount {
@@ -2007,6 +2010,11 @@ const ProductView1 = ({
   const handleDeleteBatch = async (row: PricingDetails) => {
     if (!productData?.productId || !row.batchLotNumber) return;
 
+    if (!row.pricingId) {
+      toast.error("Could not find this batch. Please refresh and try again.");
+      return;
+    }
+
     const confirmed = window.confirm(
       `Delete batch "${row.batchLotNumber}"? This action cannot be undone.`,
     );
@@ -2014,14 +2022,15 @@ const ProductView1 = ({
 
     setBatchDeletingLot(row.batchLotNumber);
     try {
-      const list = await getAvailableBatches(productData.productId);
-      const match = list.find((b) => b.batchLotNumber === row.batchLotNumber);
-      if (!match) {
-        toast.error("Could not find this batch. Please refresh and try again.");
-        return;
-      }
-      await deleteBatch(productData.productId, match.pricingId);
-      toast.success("Batch deleted successfully.");
+      const result = await deleteBatch(productData.productId, row.pricingId);
+      const deletedAtLabel = result?.deletedAt
+        ? new Date(result.deletedAt).toLocaleString()
+        : null;
+      toast.success(
+        deletedAtLabel
+          ? `Batch deleted on ${deletedAtLabel}.`
+          : "Batch deleted successfully.",
+      );
       await refetchProduct();
     } catch (err) {
       console.error("[ProductView] Error deleting batch:", err);
