@@ -242,6 +242,14 @@ export default function BatchStockUpdateModal({
                     label="Current Stock Quantity"
                     value={`${(batch.stockQuantity ?? 0).toLocaleString()} Packs`}
                   />
+                  <InfoPair
+                    label="Discount %"
+                    value={
+                      batch.discountPercentage != null
+                        ? `${batch.discountPercentage}%`
+                        : "—"
+                    }
+                  />
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

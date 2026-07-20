@@ -46,7 +46,7 @@ import ConsumableView from "./ConsumableView";
 import NonConsumableView from "./NonConsumableView";
 import CosmeticPersonalCareView from "./CosmeticView";
 import FoodInfantView from "./FoodInfantView";
-import { FileText } from "lucide-react";
+import { FileText, Eye, X } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -66,6 +66,7 @@ interface ProductImage {
 }
 
 interface PackagingDetails {
+  packagingId?: string;
   packSize?: number;
   packId?: number;
   packType?: string;
@@ -80,6 +81,7 @@ interface PackagingDetails {
 
 interface PricingDetails {
   pricingId?: string;
+  packagingId?: string;
   finalPrice?: number | null;
   sellingPrice?: number;
   mrp?: number;
@@ -460,6 +462,329 @@ const getBatchStatus = (expiryDate?: string | null) => {
   if (monthsLeft <= 6)
     return { label: "Near Expiry", bg: "#FEF3C7", color: "#92400E" };
   return { label: "Active", bg: "#DCFCE7", color: "#15803D" };
+};
+
+const formatFullDate = (dateStr?: string | null): string => {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
+const DetailRow = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) => (
+  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+    <span style={{ fontSize: 13, color: "#5A5B58" }}>{label}</span>
+    <span
+      style={{
+        fontSize: 13,
+        fontWeight: 600,
+        color: "#1E1E1D",
+        textAlign: "right",
+      }}
+    >
+      {value ?? "—"}
+    </span>
+  </div>
+);
+
+const DetailCard = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
+  <div
+    style={{
+      border: "1px solid #D5D5D4",
+      borderRadius: 12,
+      padding: 16,
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+    }}
+  >
+    <p
+      style={{
+        margin: "0 0 4px",
+        fontSize: 14,
+        fontWeight: 600,
+        color: "#1E1E1D",
+        fontFamily: "'Work Sans', sans-serif",
+      }}
+    >
+      {title}
+    </p>
+    {children}
+  </div>
+);
+
+const BatchDetailModal = ({
+  batch,
+  variant,
+  onClose,
+}: {
+  batch: PricingDetails;
+  variant?: PackagingDetails;
+  onClose: () => void;
+}) => {
+  const status = getBatchStatus(batch.expiryDate);
+  const additionalDiscounts = batch.additionalDiscounts ?? [];
+  const specialSchemes = batch.specialSchemes ?? [];
+
+  return (
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        background: "rgba(28, 25, 23, 0.45)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 640,
+          maxHeight: "90vh",
+          overflowY: "auto",
+          background: "white",
+          borderRadius: 16,
+          boxShadow:
+            "0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
+          fontFamily: "'Noto Sans', sans-serif",
+        }}
+      >
+        <div
+          style={{
+            padding: "24px 24px 16px",
+            borderBottom: "1px solid #D5D5D4",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 20,
+                fontWeight: 600,
+                color: "#1E1E1D",
+                fontFamily: "'Work Sans', sans-serif",
+              }}
+            >
+              Batch &amp; Variant Details
+            </h2>
+            <p style={{ margin: 0, fontSize: 13, color: "#5A5B58" }}>
+              Batch: {batch.batchLotNumber || "—"}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "#5A5B58",
+              padding: 4,
+              borderRadius: 6,
+            }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div
+          style={{
+            padding: 24,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
+          <DetailCard title="Batch Information">
+            <DetailRow label="Pricing ID" value={batch.pricingId} />
+            <DetailRow label="Batch / Lot Number" value={batch.batchLotNumber} />
+            <DetailRow
+              label="Manufacturing Date"
+              value={formatFullDate(batch.manufacturingDate)}
+            />
+            <DetailRow
+              label="Expiry Date"
+              value={formatFullDate(batch.expiryDate)}
+            />
+            <DetailRow
+              label="Date of Stock Entry"
+              value={formatFullDate(batch.dateOfStockEntry)}
+            />
+            <DetailRow
+              label="Available Stock"
+              value={
+                batch.stockQuantity != null
+                  ? batch.stockQuantity.toLocaleString()
+                  : "—"
+              }
+            />
+            <DetailRow
+              label="Status"
+              value={
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "2px 10px",
+                    borderRadius: 999,
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    background: status.bg,
+                    color: status.color,
+                  }}
+                >
+                  {status.label}
+                </span>
+              }
+            />
+          </DetailCard>
+
+          <DetailCard title="Pricing & Discounts">
+            <DetailRow
+              label="MRP"
+              value={batch.mrp != null ? `₹${batch.mrp}` : "—"}
+            />
+            <DetailRow
+              label="Selling Price"
+              value={batch.sellingPrice != null ? `₹${batch.sellingPrice}` : "—"}
+            />
+            <DetailRow
+              label="Final Price"
+              value={batch.finalPrice != null ? `₹${batch.finalPrice}` : "—"}
+            />
+            <DetailRow
+              label="Discount %"
+              value={
+                batch.discountPercentage != null
+                  ? `${batch.discountPercentage}%`
+                  : "—"
+              }
+            />
+            <DetailRow label="GST %" value={batch.gstPercentage} />
+            <DetailRow label="HSN Code" value={batch.hsnCode} />
+            <DetailRow
+              label="Shelf Life"
+              value={
+                batch.shelfLifeMonths != null
+                  ? `${batch.shelfLifeMonths} months`
+                  : "—"
+              }
+            />
+          </DetailCard>
+
+          {additionalDiscounts.length > 0 && (
+            <DetailCard title="Special Discounts">
+              {additionalDiscounts.map((d, i) => (
+                <div
+                  key={d.additionalDiscountId ?? i}
+                  style={{
+                    borderTop: i > 0 ? "1px solid #EFEFEE" : "none",
+                    paddingTop: i > 0 ? 10 : 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  <DetailRow
+                    label="Minimum Purchase Quantity"
+                    value={d.minimumPurchaseQuantity}
+                  />
+                  <DetailRow
+                    label="Discount %"
+                    value={
+                      d.additionalDiscountPercentage != null
+                        ? `${d.additionalDiscountPercentage}%`
+                        : "—"
+                    }
+                  />
+                </div>
+              ))}
+            </DetailCard>
+          )}
+
+          {specialSchemes.length > 0 && (
+            <DetailCard title="Special Schemes">
+              {specialSchemes.map((s, i) => (
+                <div
+                  key={s.specialSchemesId ?? i}
+                  style={{
+                    borderTop: i > 0 ? "1px solid #EFEFEE" : "none",
+                    paddingTop: i > 0 ? 10 : 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  <DetailRow label="Scheme Name" value={s.schemeName} />
+                  <DetailRow label="Buy Quantity" value={s.buyQuantity} />
+                  <DetailRow label="Free Quantity" value={s.freeQuantity} />
+                </div>
+              ))}
+            </DetailCard>
+          )}
+
+          <DetailCard title="Variant / Packaging Information">
+            {variant ? (
+              <>
+                <DetailRow label="Packaging ID" value={variant.packagingId} />
+                <DetailRow
+                  label="Pack Type"
+                  value={variant.packType || variant.packTypeName}
+                />
+                <DetailRow
+                  label="Unit Per Pack"
+                  value={variant.unitPerPack ?? variant.unitsPerPack}
+                />
+                <DetailRow
+                  label="Number of Packs"
+                  value={variant.numberOfPacks ?? variant.numberOfUnits}
+                />
+                <DetailRow label="Pack Size" value={variant.packSize} />
+                <DetailRow
+                  label="Minimum Order Quantity"
+                  value={variant.minimumOrderQuantity}
+                />
+                <DetailRow
+                  label="Maximum Order Quantity"
+                  value={variant.maximumOrderQuantity}
+                />
+              </>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, color: "#5A5B58" }}>
+                No variant/packaging information linked to this batch.
+              </p>
+            )}
+          </DetailCard>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const toPositiveInt = (val: unknown): number | null => {
@@ -1575,6 +1900,20 @@ const ProductView1 = ({
       )
       : undefined;
 
+  // Resolves the variant/packaging a given batch belongs to — falls back to the only
+  // variant on the product when there's just one and the batch predates variant tracking.
+  const findVariantForBatch = (
+    batch: PricingDetails
+  ): PackagingDetails | undefined => {
+    if (batch.packagingId) {
+      const matched = (packagingArr as PackagingDetails[]).find(
+        (p) => p.packagingId === batch.packagingId
+      );
+      if (matched) return matched;
+    }
+    return packagingArr.length === 1 ? packagingArr[0] : undefined;
+  };
+
   const pricingArr = productData?.pricingDetails ?? [];
   const pricing: PricingDetails | undefined =
     pricingArr.length > 0
@@ -1883,6 +2222,15 @@ const ProductView1 = ({
         row.stockQuantity != null ? row.stockQuantity.toLocaleString() : "-",
     },
     {
+      header: "Discount %",
+      accessor: (row) =>
+        row.discountPercentage != null ? `${row.discountPercentage}%` : "-",
+    },
+    {
+      header: "Entry Date",
+      accessor: (row) => formatDate(row.dateOfStockEntry),
+    },
+    {
       header: "Status",
       accessor: (row) => {
         const status = getBatchStatus(row.expiryDate);
@@ -1915,6 +2263,8 @@ const ProductView1 = ({
         formatDate(b.manufacturingDate),
         formatDate(b.expiryDate),
         b.stockQuantity != null ? String(b.stockQuantity) : "",
+        b.discountPercentage != null ? `${b.discountPercentage}%` : "",
+        formatDate(b.dateOfStockEntry),
         status,
       ]
         .join(" ")
@@ -1974,6 +2324,7 @@ const ProductView1 = ({
 
   const [batchStockUpdate, setBatchStockUpdate] =
     useState<BatchAvailability | null>(null);
+  const [viewBatch, setViewBatch] = useState<PricingDetails | null>(null);
   const [batchStockLoadingLot, setBatchStockLoadingLot] = useState<
     string | null
   >(null);
@@ -2728,6 +3079,25 @@ const ProductView1 = ({
               return (
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
+                    onClick={() => setViewBatch(row)}
+                    title="View all batch & variant details"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 32,
+                      height: 32,
+                      padding: 0,
+                      borderRadius: 6,
+                      border: "1px solid #D5D5D4",
+                      background: "white",
+                      color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Eye size={16} />
+                  </button>
+                  <button
                     onClick={() => handleUpdateStockForBatch(row)}
                     disabled={disabled}
                     style={{
@@ -2771,6 +3141,14 @@ const ProductView1 = ({
             }}
           />
         </div>
+
+        {viewBatch && (
+          <BatchDetailModal
+            batch={viewBatch}
+            variant={findVariantForBatch(viewBatch)}
+            onClose={() => setViewBatch(null)}
+          />
+        )}
 
         {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
           <div

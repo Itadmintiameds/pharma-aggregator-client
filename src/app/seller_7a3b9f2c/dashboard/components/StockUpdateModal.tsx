@@ -14,6 +14,7 @@ import {
   getAvailableBatches,
   type BatchAvailability,
   type StockLedgerResponse,
+  type SpecialDiscountPayload,
 } from "@/src/services/product/StockService";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
 import {
@@ -25,6 +26,20 @@ interface SelectOption {
   value: string;
   label: string;
 }
+
+// One row of the repeatable "special discount" list on a new batch — each row becomes its
+// own AdditionalDiscount record server-side (see StockService.SpecialDiscountPayload).
+interface SpecialDiscountRow {
+  minimumPurchaseQuantity: string;
+  percentage: string;
+  displayOffer: boolean;
+}
+
+const emptySpecialDiscountRow = (): SpecialDiscountRow => ({
+  minimumPurchaseQuantity: "",
+  percentage: "",
+  displayOffer: true,
+});
 
 interface StockUpdateModalProps {
   open: boolean;
@@ -115,9 +130,10 @@ export default function StockUpdateModal({
     null
   );
   const [addQuantity, setAddQuantity] = useState("");
-  // Entry date / remarks are collected for UX parity with the design but the
-  // /stock/add API has no fields for either (entry date is always stamped
-  // server-side as "now", and there's no remarks column) — kept local-only.
+  // Entry date / remarks (for the "restock an existing batch" flow) are collected for UX
+  // parity with the design but the /stock/add API doesn't accept either for a restock —
+  // dateOfStockEntry is a batch-creation-time attribute (see newBatch.dateOfStockEntry
+  // below for the "create new batch" flow), and there's no remarks column — kept local-only.
   const [dateOfStockEntry, setDateOfStockEntry] = useState(todayIso());
   const [remarks, setRemarks] = useState("");
 
@@ -128,6 +144,11 @@ export default function StockUpdateModal({
     quantity: "",
     mrp: "",
     sellingPrice: "",
+    // Optional — discount %, shelf life, and stock-entry date. Special discounts (there can
+    // be several) are tracked separately in the specialDiscounts state below.
+    discountPercentage: "",
+    shelfLifeMonths: "",
+    dateOfStockEntry: todayIso(),
     // A brand-new batch always creates its own packaging/pack-size variant
     // alongside it (the /stock/add API accepts packagingDetails for this).
     packId: "",
@@ -138,6 +159,7 @@ export default function StockUpdateModal({
     minimumOrderQuantity: "",
     maximumOrderQuantity: "",
   });
+  const [specialDiscounts, setSpecialDiscounts] = useState<SpecialDiscountRow[]>([]);
   const [batchNumberError, setBatchNumberError] = useState<string | null>(
     null
   );
@@ -169,6 +191,9 @@ export default function StockUpdateModal({
       quantity: "",
       mrp: "",
       sellingPrice: "",
+      discountPercentage: "",
+      shelfLifeMonths: "",
+      dateOfStockEntry: todayIso(),
       packId: "",
       packTypeUnitId: "",
       unitPerPack: "",
@@ -177,6 +202,7 @@ export default function StockUpdateModal({
       minimumOrderQuantity: "",
       maximumOrderQuantity: "",
     });
+    setSpecialDiscounts([]);
     setBatchNumberError(null);
     setCheckingBatchNumber(false);
     setSubmitting(false);
@@ -269,6 +295,28 @@ export default function StockUpdateModal({
     });
   };
 
+  const addSpecialDiscountRow = () =>
+    setSpecialDiscounts((rows) => [...rows, emptySpecialDiscountRow()]);
+
+  const removeSpecialDiscountRow = (index: number) =>
+    setSpecialDiscounts((rows) => rows.filter((_, i) => i !== index));
+
+  const updateSpecialDiscountRow = (
+    index: number,
+    patch: Partial<SpecialDiscountRow>
+  ) =>
+    setSpecialDiscounts((rows) =>
+      rows.map((row, i) => (i === index ? { ...row, ...patch } : row))
+    );
+
+  const isSpecialDiscountsValid = specialDiscounts.every(
+    (row) =>
+      row.percentage.trim() !== "" &&
+      Number(row.percentage) >= 0 &&
+      Number(row.percentage) <= 100 &&
+      Number(row.minimumPurchaseQuantity) > 0
+  );
+
   const isStep2Valid =
     updateType === "existing"
       ? selectedBatchIndex != null
@@ -289,7 +337,13 @@ export default function StockUpdateModal({
         Number(newBatch.numberOfPacks) > 0 &&
         Number(newBatch.minimumOrderQuantity) > 0 &&
         Number(newBatch.maximumOrderQuantity) >=
-          Number(newBatch.minimumOrderQuantity);
+          Number(newBatch.minimumOrderQuantity) &&
+        (newBatch.discountPercentage.trim() === "" ||
+          (Number(newBatch.discountPercentage) >= 0 &&
+            Number(newBatch.discountPercentage) <= 100)) &&
+        isSpecialDiscountsValid &&
+        (newBatch.shelfLifeMonths.trim() === "" ||
+          Number(newBatch.shelfLifeMonths) > 0);
 
   const isStep3Valid =
     updateType === "existing"
@@ -353,6 +407,25 @@ export default function StockUpdateModal({
             quantity: Number(newBatch.quantity),
             mrp: Number(newBatch.mrp),
             sellingPrice: Number(newBatch.sellingPrice),
+            discountPercentage: newBatch.discountPercentage.trim()
+              ? Number(newBatch.discountPercentage)
+              : undefined,
+            specialDiscounts:
+              specialDiscounts.length > 0
+                ? specialDiscounts.map(
+                    (row): SpecialDiscountPayload => ({
+                      minimumPurchaseQuantity: Number(
+                        row.minimumPurchaseQuantity
+                      ),
+                      additionalDiscountPercentage: Number(row.percentage),
+                      displayOffer: row.displayOffer,
+                    })
+                  )
+                : undefined,
+            shelfLifeMonths: newBatch.shelfLifeMonths.trim()
+              ? Number(newBatch.shelfLifeMonths)
+              : undefined,
+            dateOfStockEntry: newBatch.dateOfStockEntry || undefined,
             referenceType: "MANUAL_STOCK_UPDATE",
           };
 
@@ -713,7 +786,7 @@ export default function StockUpdateModal({
                       <div
                         style={{
                           display: "grid",
-                          gridTemplateColumns: "36px 1.2fr 1fr 1fr 1fr 1fr",
+                          gridTemplateColumns: "36px 1.2fr 1fr 1fr 1fr 1fr 1fr",
                           background: "#FAFAF9",
                           padding: "10px 14px",
                           fontSize: 12,
@@ -727,6 +800,7 @@ export default function StockUpdateModal({
                         <span>Mfg. Date</span>
                         <span>Expiry Date</span>
                         <span>Available Stock</span>
+                        <span>Discount %</span>
                         <span>Status</span>
                       </div>
                       <div style={{ maxHeight: 220, overflowY: "auto" }}>
@@ -739,7 +813,7 @@ export default function StockUpdateModal({
                               onClick={() => setSelectedBatchIndex(i)}
                               style={{
                                 display: "grid",
-                                gridTemplateColumns: "36px 1.2fr 1fr 1fr 1fr 1fr",
+                                gridTemplateColumns: "36px 1.2fr 1fr 1fr 1fr 1fr 1fr",
                                 alignItems: "center",
                                 padding: "12px 14px",
                                 borderTop: `1px solid ${BORDER}`,
@@ -785,6 +859,11 @@ export default function StockUpdateModal({
                               </span>
                               <span>
                                 {(b.stockQuantity ?? 0).toLocaleString()}
+                              </span>
+                              <span style={{ color: TEXT_GRAY }}>
+                                {b.discountPercentage != null
+                                  ? `${b.discountPercentage}%`
+                                  : "—"}
                               </span>
                               <span>
                                 <span
@@ -917,7 +996,252 @@ export default function StockUpdateModal({
                       style={inputStyle}
                     />
                   </Field>
+                  <Field label="Discount % (Optional)">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      value={newBatch.discountPercentage}
+                      onChange={(e) =>
+                        setNewBatch((v) => ({
+                          ...v,
+                          discountPercentage: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. 10"
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Shelf Life (Months, Optional)">
+                    <input
+                      type="number"
+                      min={1}
+                      value={newBatch.shelfLifeMonths}
+                      onChange={(e) =>
+                        setNewBatch((v) => ({
+                          ...v,
+                          shelfLifeMonths: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. 24"
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Date of Stock Entry (Optional)">
+                    <input
+                      type="date"
+                      value={newBatch.dateOfStockEntry}
+                      onChange={(e) =>
+                        setNewBatch((v) => ({
+                          ...v,
+                          dateOfStockEntry: e.target.value,
+                        }))
+                      }
+                      style={inputStyle}
+                    />
+                  </Field>
+                  {specialDiscounts.length === 0 && (
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={addSpecialDiscountRow}
+                        className="w-full h-11 bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[14px] leading-5 rounded-lg flex items-center justify-center gap-2.5 cursor-pointer hover:bg-purple-50 transition-all duration-200"
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 14 14"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="shrink-0"
+                        >
+                          <path
+                            d="M7 1v12M1 7h12"
+                            stroke="#9659FD"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        <span>Add Special Offers</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
+
+                {specialDiscounts.length > 0 && (
+                  <div
+                    style={{
+                      border: `1.5px solid ${PURPLE}`,
+                      background: "#FAF5FF",
+                      borderRadius: 12,
+                      padding: 16,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 16,
+                    }}
+                  >
+                    <div>
+                      <p
+                        style={{
+                          margin: "0 0 4px",
+                          fontSize: 15,
+                          fontWeight: 600,
+                          color: TEXT_DARK,
+                          fontFamily: "'Work Sans', sans-serif",
+                        }}
+                      >
+                        Special Discounts (Optional)
+                      </p>
+                      <p style={{ margin: 0, fontSize: 13, color: TEXT_GRAY }}>
+                        Separate promotional discounts, distinct from the regular
+                        Discount % above, each applied once its own minimum quantity is
+                        purchased. Add as many as you need.
+                      </p>
+                    </div>
+
+                    {specialDiscounts.map((row, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          border: `1px solid ${BORDER}`,
+                          background: "white",
+                          borderRadius: 10,
+                          padding: 14,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 12,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 12.5,
+                              fontWeight: 600,
+                              color: TEXT_GRAY,
+                              fontFamily: "'Work Sans', sans-serif",
+                            }}
+                          >
+                            Offer {index + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeSpecialDiscountRow(index)}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              cursor: "pointer",
+                              color: TEXT_GRAY,
+                              padding: 4,
+                            }}
+                            aria-label={`Remove special offer ${index + 1}`}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 16,
+                          }}
+                        >
+                          <Field label="Minimum Purchase Quantity">
+                            <input
+                              type="number"
+                              min={1}
+                              value={row.minimumPurchaseQuantity}
+                              onChange={(e) =>
+                                updateSpecialDiscountRow(index, {
+                                  minimumPurchaseQuantity: e.target.value,
+                                })
+                              }
+                              placeholder="e.g. 5"
+                              style={inputStyle}
+                            />
+                          </Field>
+                          <Field label="Special Discount %">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step="0.01"
+                              value={row.percentage}
+                              onChange={(e) =>
+                                updateSpecialDiscountRow(index, {
+                                  percentage: e.target.value,
+                                })
+                              }
+                              placeholder="e.g. 5"
+                              style={inputStyle}
+                            />
+                          </Field>
+                        </div>
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            marginTop: 12,
+                            fontSize: 13,
+                            color: TEXT_DARK,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={row.displayOffer}
+                            onChange={(e) =>
+                              updateSpecialDiscountRow(index, {
+                                displayOffer: e.target.checked,
+                              })
+                            }
+                          />
+                          Display this offer to buyers
+                        </label>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={addSpecialDiscountRow}
+                      style={{
+                        alignSelf: "flex-start",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        color: PURPLE,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        padding: 0,
+                        fontFamily: "'Work Sans', sans-serif",
+                      }}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 14 14"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M7 1v12M1 7h12"
+                          stroke={PURPLE}
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      Add another offer
+                    </button>
+                  </div>
+                )}
 
                 <div>
                   <p
@@ -1094,6 +1418,14 @@ export default function StockUpdateModal({
                       label="Current Stock Quantity"
                       value={`${(selectedBatch?.stockQuantity ?? 0).toLocaleString()} Packs`}
                     />
+                    <InfoPair
+                      label="Discount %"
+                      value={
+                        selectedBatch?.discountPercentage != null
+                          ? `${selectedBatch.discountPercentage}%`
+                          : "—"
+                      }
+                    />
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1254,6 +1586,41 @@ export default function StockUpdateModal({
                     <ReviewRow
                       label="Expiry date"
                       value={formatDate(newBatch.expiryDate)}
+                    />
+                    <ReviewRow
+                      label="Discount"
+                      value={
+                        newBatch.discountPercentage
+                          ? `${newBatch.discountPercentage}%`
+                          : "—"
+                      }
+                    />
+                    <ReviewRow
+                      label="Special discounts"
+                      value={
+                        specialDiscounts.length > 0
+                          ? specialDiscounts
+                              .map(
+                                (row) =>
+                                  `${row.percentage || "0"}% (min qty: ${
+                                    row.minimumPurchaseQuantity || "—"
+                                  }, ${row.displayOffer ? "shown" : "hidden"})`
+                              )
+                              .join("; ")
+                          : "—"
+                      }
+                    />
+                    <ReviewRow
+                      label="Shelf life"
+                      value={
+                        newBatch.shelfLifeMonths
+                          ? `${newBatch.shelfLifeMonths} months`
+                          : "—"
+                      }
+                    />
+                    <ReviewRow
+                      label="Date of stock entry"
+                      value={formatDate(newBatch.dateOfStockEntry)}
                     />
                   </div>
 

@@ -10,6 +10,14 @@ export interface PackagingDetailsPayload {
   maximumOrderQuantity: number;
 }
 
+// Mirrors the backend's AdditionalDiscountDto — only the fields a seller sets when creating
+// a special discount on a new batch; additionalDiscountId/pricingId are server-assigned.
+export interface SpecialDiscountPayload {
+  minimumPurchaseQuantity?: number;
+  additionalDiscountPercentage?: number;
+  displayOffer?: boolean;
+}
+
 export interface StockAddRequest {
   productId: string;
   // Referencing an existing variant — must already exist on this product.
@@ -23,6 +31,17 @@ export interface StockAddRequest {
   quantity: number;
   mrp?: number;
   sellingPrice?: number;
+  // Optional — regular discount percentage on this batch (0-100). Only applies when creating
+  // a new batch; ignored when restocking an existing one.
+  discountPercentage?: number;
+  // Optional — one or more separate special-offer/promotional discounts, distinct from
+  // discountPercentage. Each entry is stored as its own AdditionalDiscount record on the
+  // batch rather than a plain field. Only applies when creating a new batch.
+  specialDiscounts?: SpecialDiscountPayload[];
+  // Optional — shelf life of this batch in months. Only applies when creating a new batch.
+  shelfLifeMonths?: number;
+  // Optional — defaults to today (server-side) if omitted. Only applies when creating a new batch.
+  dateOfStockEntry?: string;
   referenceId?: string;
   referenceType?: string;
 }
@@ -48,6 +67,9 @@ export interface BatchAvailability {
   manufacturingDate: string;
   expiryDate: string;
   stockQuantity: number;
+  discountPercentage?: number | null;
+  shelfLifeMonths?: number | null;
+  dateOfStockEntry?: string | null;
 }
 
 export const addStock = async (
