@@ -43,3 +43,6 @@ next-env.d.ts
 
 # ai agents
 CLAUDE.md
+
+# large local archives (never commit — exceeds GitHub's 100MB limit)
+docs.zip
