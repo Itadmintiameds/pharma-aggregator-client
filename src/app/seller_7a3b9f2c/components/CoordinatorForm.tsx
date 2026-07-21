@@ -25,6 +25,7 @@ interface Props {
     e: React.ChangeEvent<HTMLInputElement>,
     field: string
   ) => void;
+  onAuthorizationLetterChange: (file: File | null) => void;
   prevStep: () => void;
   nextStep: () => void;
 }
@@ -70,6 +71,7 @@ export default function CoordinatorForm({
   onEmailVerified,
   onPhoneVerified,
   onAlphabetInput,
+  onAuthorizationLetterChange,
   prevStep,
   nextStep,
 }: Props) {
@@ -77,6 +79,7 @@ export default function CoordinatorForm({
 
   const [showModal, setShowModal] = useState(false);
   const [verificationType, setVerificationType] = useState<"email" | "phone">("email");
+  const [uploadingAuthLetter, setUploadingAuthLetter] = useState(false);
 
   // Local state for name & designation to bypass parent's onAlphabetInput which strips numbers
   const [coordinatorNameLocal, setCoordinatorNameLocal] = useState<string>(formData.coordinatorName || "");
@@ -362,7 +365,37 @@ export default function CoordinatorForm({
     }
   };
 
+  const handleAuthLetterUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size should be less than 5MB");
+        return;
+      }
+
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Only PDF, JPG, JPEG, and PNG files are allowed");
+        return;
+      }
+
+      setUploadingAuthLetter(true);
+      toast.info("Uploading authorization letter...");
+
+      setTimeout(() => {
+        onAuthorizationLetterChange(file);
+        setUploadingAuthLetter(false);
+        toast.success("Authorization letter uploaded");
+      }, 1000);
+    }
+  };
+
   const handleContinue = () => {
+    if (!formData.authorizationLetterFile) {
+      toast.error("Please upload the Authorization Letter");
+      return;
+    }
+
     if (!coordinatorNameLocal?.trim()) {
       toast.error("Coordinator name is required");
       return;
@@ -618,6 +651,93 @@ export default function CoordinatorForm({
                 {emailExistsError}
               </p>
             )}
+          </div>
+
+          {/* Authorization Letter Upload - required for all seller types */}
+          <div className="flex flex-col gap-1">
+            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+              Authorization Letter
+              <span className="text-warning-500 font-semibold ml-1">*</span>
+            </label>
+
+            <input
+              id="authorization-letter-upload"
+              type="file"
+              onChange={handleAuthLetterUpload}
+              accept=".pdf,.jpg,.jpeg,.png"
+              className="hidden"
+              disabled={uploadingAuthLetter}
+            />
+
+            <div className="flex items-center h-[52px] border border-neutral-500 rounded-xl overflow-hidden bg-white">
+              <div
+                className="w-13 h-full bg-secondary-800 flex items-center justify-center shrink-0"
+                onClick={() => document.getElementById("authorization-letter-upload")?.click()}
+              >
+                <Image
+                  src="/icons/upload.png"
+                  alt="Upload"
+                  width={18}
+                  height={18}
+                  className="brightness-0 invert"
+                />
+              </div>
+
+              <div
+                className="flex-1 h-full bg-white flex items-center cursor-pointer px-3"
+                onClick={() => document.getElementById("authorization-letter-upload")?.click()}
+              >
+                <div className="flex-1 flex items-center min-w-0">
+                  {uploadingAuthLetter ? (
+                    <span className="text-p4 font-body font-regular text-pneutral-500">
+                      Uploading...
+                    </span>
+                  ) : formData.authorizationLetterFile?.name ? (
+                    <div
+                      className="flex items-center gap-2 bg-sneutral-800 rounded-md px-3 py-1 max-w-fit"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span className="text-p4 font-body font-regular text-white truncate max-w-[120px]">
+                        {formData.authorizationLetterFile.name}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAuthorizationLetterChange(null);
+                          const fileInput = document.getElementById(
+                            "authorization-letter-upload"
+                          ) as HTMLInputElement;
+                          if (fileInput) fileInput.value = "";
+                        }}
+                        className="shrink-0"
+                        aria-label="Remove file"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="white"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-p4 font-body font-regular text-pneutral-500">
+                      Upload the Authorization Letter
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -11,6 +11,7 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
 import { debounce } from "lodash";
 import LicenseWarning from "./LicenseWarning";
+import { classifySellerType, requiredAgreementCodes, mandatoryExtraDocumentCodes, optionalExtraDocumentCodes, documentTypeLabel, type SellerTypeCategory } from "@/src/schema/seller/sellerRegSchema";
 
 interface Props {
   formData: any;
@@ -22,9 +23,19 @@ interface Props {
   onLicenseNumberChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onIssuingAuthorityChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onClearLicenseNumber?: (productName: string) => void;
+  onAgreementNumberChange: (code: string, value: string) => void;
+  onAgreementFileChange: (code: string, file: File | null) => void;
+  onAgreementIssueDateChange: (date: Date | null, code: string) => void;
+  onAgreementExpiryDateChange: (date: Date | null, code: string) => void;
   prevStep: () => void;
   nextStep: () => void;
 }
+
+// Human-readable labels for seller-type-driven agreement document codes.
+// Single source of truth for document-type labels lives in sellerRegSchema.ts
+// (documentTypeLabel) so the frontend schema, this form, and SellerRegister's
+// submit payload all describe the same code the same way.
+const getAgreementLabel = (code: string): string => documentTypeLabel(code);
 
 // Helper function to calculate license status based on dates
 const calculateLicenseStatus = (issueDate: Date | null, expiryDate: Date | null): string => {
@@ -164,6 +175,10 @@ export default function DocumentForm({
   onLicenseNumberChange,
   onIssuingAuthorityChange,
   onClearLicenseNumber,
+  onAgreementNumberChange,
+  onAgreementFileChange,
+  onAgreementIssueDateChange,
+  onAgreementExpiryDateChange,
   prevStep,
   nextStep,
 }: Props) {
@@ -171,6 +186,7 @@ export default function DocumentForm({
   const router = useRouter();
   const [uploadingGST, setUploadingGST] = useState(false);
   const [uploadingLicenses, setUploadingLicenses] = useState<Record<string, boolean>>({});
+  const [uploadingAgreements, setUploadingAgreements] = useState<Record<string, boolean>>({});
   const [licenseErrors, setLicenseErrors] = useState<Record<string, string>>({});
   const [licenseExistsErrors, setLicenseExistsErrors] = useState<Record<string, string>>({});
   const [checkingLicense, setCheckingLicense] = useState<Record<string, boolean>>({});
@@ -195,19 +211,64 @@ export default function DocumentForm({
 
   const gstFileName = formData.gstFile?.name || "";
 
+  // Seller-level agreement documents required for this seller's type
+  // (Manufacturer requires none). Reuses formData.sellerType (already
+  // tracked seller type display name) rather than a new prop.
+  const sellerCategory = classifySellerType(formData.sellerType);
+  const agreementCodes = requiredAgreementCodes(sellerCategory);
+  // Additional mandatory compliance docs beyond the agreement codes above
+  // (Manufacturer's GMP/WHO-GMP Certificate, White Labeling's Trademark
+  // Certificate). Rendered together with agreementCodes as one required set.
+  const mandatoryExtraCodes = mandatoryExtraDocumentCodes(sellerCategory);
+  const requiredDocumentCodes = [...agreementCodes, ...mandatoryExtraCodes];
+  // Documents a seller MAY attach but is never required to (Import Licences,
+  // IEC Certificate, and type-specific optionals like Trademark Certificate
+  // for Manufacturer/Distributor or Distribution Agreement for White Labeling).
+  const optionalDocumentCodes = optionalExtraDocumentCodes(sellerCategory);
+
+  // Names the mandatory per-product-category licence per the requirement spec:
+  // Manufacturer needs a *Manufacturing* Licence, everyone else needs a
+  // *Wholesale*/*Trade*/*Marketing* Licence for the same product category.
+  // regulatory_category is empty for every seeded product today, so this
+  // previously fell back to the bare product name (e.g. "Drugs License Number"),
+  // which is genuinely ambiguous with the separate, optional "Drug Import
+  // Licence" field — this naming makes clear which one it is.
+  const getLicenseName = (productName: string, category: SellerTypeCategory): string => {
+    const name = productName.toLowerCase();
+    const isManufacturer = category === "MANUFACTURER";
+
+    if (name.includes("drug")) {
+      return isManufacturer ? "Drug Manufacturing Licence" : "Wholesale Drug Licence (20B/21B)";
+    }
+    if (name.includes("cosmetic")) {
+      if (isManufacturer) return "Cosmetic Manufacturing Licence";
+      if (category === "WHITE_LABELING") return "Cosmetic Marketing Licence";
+      return "Cosmetic Wholesale Licence";
+    }
+    if (name.includes("medical device")) {
+      return isManufacturer ? "Medical Device Manufacturing Licence" : "Medical Device Wholesale Licence (MD-42)";
+    }
+    if (name.includes("food") || name.includes("supplement") || name.includes("nutraceutical") || name.includes("nutrition")) {
+      if (isManufacturer) return "FSSAI Manufacturing Licence";
+      if (category === "WHITE_LABELING") return "FSSAI Trade / Marketing Licence";
+      return "FSSAI Trade Licence";
+    }
+    return productName;
+  };
+
   const getLicenseInfo = (productName: string) => {
-    const product = productTypes.find((p) => p.productTypeName === productName);
-    const licenseName = product?.regulatoryCategory || productName;
-    
+    const category = classifySellerType(formData.sellerType);
+    const licenseName = getLicenseName(productName, category);
+
     return {
       licenseName,
       placeholder: `e.g., TN/CBE/20B-12345`,
-      numberLabel: `${licenseName} License Number`,
-      fileLabel: `${licenseName} License Copy Upload`,
-      issueDateLabel: `${licenseName} License Issue Date`,
-      expiryDateLabel: `${licenseName} License Expiry Date`,
-      authorityLabel: `${licenseName} License Issuing Authority`,
-      statusLabel: `${licenseName} License Status`,
+      numberLabel: `${licenseName} Number`,
+      fileLabel: `${licenseName} Copy Upload`,
+      issueDateLabel: `${licenseName} Issue Date`,
+      expiryDateLabel: `${licenseName} Expiry Date`,
+      authorityLabel: `${licenseName} Issuing Authority`,
+      statusLabel: `${licenseName} Status`,
     };
   };
 
@@ -683,6 +744,31 @@ export default function DocumentForm({
     }
   };
 
+  const handleAgreementFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, code: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size should be less than 5MB");
+        return;
+      }
+
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Only PDF, JPG, JPEG, and PNG files are allowed");
+        return;
+      }
+
+      setUploadingAgreements(prev => ({ ...prev, [code]: true }));
+      toast.info(`Uploading ${getAgreementLabel(code)}...`);
+
+      setTimeout(() => {
+        onAgreementFileChange(code, file);
+        setUploadingAgreements(prev => ({ ...prev, [code]: false }));
+        toast.success(`${getAgreementLabel(code)} uploaded successfully`);
+      }, 1000);
+    }
+  };
+
   const expiredProducts = formData.productTypes.filter((productName: string) => {
     const licenseData = formData.licenses[productName];
     const status = calculateLicenseStatus(licenseData?.issueDate || null, licenseData?.expiryDate || null);
@@ -724,7 +810,13 @@ export default function DocumentForm({
       toast.error("Please fix duplicate GST number before continuing.");
       return;
     }
-    
+
+    const missingAgreement = requiredDocumentCodes.find((code: string) => !formData.agreements?.[code]?.file);
+    if (missingAgreement) {
+      toast.error(`Please upload the ${getAgreementLabel(missingAgreement)} document.`);
+      return;
+    }
+
     nextStep();
   };
 
@@ -1179,6 +1271,220 @@ export default function DocumentForm({
             </div>
           );
         })}
+
+        {/* AGREEMENT & COMPLIANCE DOCUMENTS - seller-type-driven, separate from
+            per-product licenses above. renderDocumentBlock is shared between
+            the mandatory set (agreements + GMP/Trademark) and the purely
+            optional set (Import Licences, IEC Certificate, etc.) below —
+            only the "required" flag changes what's shown/enforced. */}
+        {(() => {
+          const renderDocumentBlock = (code: string, isRequired: boolean) => {
+            const agreementData = formData.agreements?.[code] || {
+              number: "",
+              file: null,
+              issueDate: null,
+              expiryDate: null,
+            };
+            const agreementFileName = agreementData.file?.name || "";
+            const isUploading = uploadingAgreements[code];
+            const label = getAgreementLabel(code);
+
+            return (
+              <div key={code} className="mb-4">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                  {/* NUMBER (optional) */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                      {label} Number (optional)
+                    </label>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      value={agreementData.number}
+                      onChange={(e) => onAgreementNumberChange(code, e.target.value)}
+                      placeholder={`Enter ${label} number`}
+                      maxLength={30}
+                      className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
+                    />
+                  </div>
+
+                  {/* DOCUMENT UPLOAD (required only if isRequired) */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                      {label} Document
+                      {isRequired ? (
+                        <span className="text-warning-500 font-semibold ml-1">*</span>
+                      ) : (
+                        <span className="text-pneutral-500 font-normal ml-1">(optional)</span>
+                      )}
+                    </label>
+
+                    <input
+                      id={`agreement-upload-${code}`}
+                      type="file"
+                      onChange={(e) => handleAgreementFileUpload(e, code)}
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      className="hidden"
+                      disabled={isUploading}
+                    />
+
+                    <div
+                      className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer"
+                      onClick={() => document.getElementById(`agreement-upload-${code}`)?.click()}
+                    >
+                      <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
+                        <Image
+                          src="/icons/upload.png"
+                          alt="Upload"
+                          width={18}
+                          height={18}
+                          className="brightness-0 invert"
+                        />
+                      </div>
+
+                      <div className="flex-1 h-full flex items-center justify-between px-3">
+                        <div className="flex-1 flex items-center min-w-0">
+                          {isUploading ? (
+                            <span className="text-p4 font-body font-regular text-pneutral-500">Uploading...</span>
+                          ) : agreementFileName ? (
+                            <div className="flex items-center gap-2 bg-sneutral-800 rounded-md px-3 py-1 max-w-fit">
+                              <span className="text-p4 font-body font-regular text-white truncate max-w-[120px]">
+                                {agreementFileName}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onAgreementFileChange(code, null);
+                                  const fileInput = document.getElementById(`agreement-upload-${code}`) as HTMLInputElement;
+                                  if (fileInput) fileInput.value = "";
+                                }}
+                                className="shrink-0"
+                                aria-label="Remove file"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="white"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <line x1="18" y1="6" x2="6" y2="18" />
+                                  <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-p4 font-body font-regular text-pneutral-500">
+                              Upload the {label}{isRequired ? "" : " (optional)"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ISSUE DATE (optional) */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                      {label} Issue Date (optional)
+                    </label>
+                    <DatePicker
+                      value={agreementData.issueDate}
+                      onChange={(date) => onAgreementIssueDateChange(date, code)}
+                      maxDate={new Date()}
+                      format="dd/MM/yyyy"
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          placeholder: "DD/MM/YYYY",
+                          sx: {
+                            '& .MuiOutlinedInput-root': {
+                              height: '52px',
+                              borderRadius: '12px',
+                              backgroundColor: '#ffffff',
+                            },
+                            '& .MuiInputBase-input': {
+                              padding: '0 14px',
+                              fontSize: '16px',
+                              fontFamily: 'var(--font-body)',
+                              fontWeight: 400,
+                              color: '#1E1E1D',
+                            },
+                          },
+                        },
+                      }}
+                    />
+                  </div>
+
+                  {/* EXPIRY DATE (optional) */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                      {label} Expiry Date (optional)
+                    </label>
+                    <DatePicker
+                      value={agreementData.expiryDate}
+                      onChange={(date) => onAgreementExpiryDateChange(date, code)}
+                      minDate={agreementData.issueDate || undefined}
+                      format="dd/MM/yyyy"
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          placeholder: "DD/MM/YYYY",
+                          sx: {
+                            '& .MuiOutlinedInput-root': {
+                              height: '52px',
+                              borderRadius: '12px',
+                              backgroundColor: '#ffffff',
+                            },
+                            '& .MuiInputBase-input': {
+                              padding: '0 14px',
+                              fontSize: '16px',
+                              fontFamily: 'var(--font-body)',
+                              fontWeight: 400,
+                              color: '#1E1E1D',
+                            },
+                          },
+                        },
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          return (
+            <>
+              {requiredDocumentCodes.length > 0 && (
+                <div className="mt-2">
+                  <h3 className="text-label-l5 font-heading font-semibold text-pneutral-900 mb-3">
+                    Agreement &amp; Compliance Documents
+                  </h3>
+                  {requiredDocumentCodes.map((code: string) => renderDocumentBlock(code, true))}
+                </div>
+              )}
+
+              {optionalDocumentCodes.length > 0 && (
+                <div className="mt-2">
+                  <h3 className="text-label-l5 font-heading font-semibold text-pneutral-900 mb-3">
+                    Additional Documents (Optional)
+                  </h3>
+                  <p className="text-p4 font-body font-regular text-pneutral-500 mb-3">
+                    These aren&apos;t required to submit your registration — attach them only if applicable (e.g. import licences only apply if you import).
+                  </p>
+                  {optionalDocumentCodes.map((code: string) => renderDocumentBlock(code, false))}
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* GST SECTION */}
         <div className="mt-2">

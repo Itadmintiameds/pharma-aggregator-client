@@ -18,6 +18,13 @@ interface Props {
   prevStep: () => void;
 }
 
+const AGREEMENT_LABELS: Record<string, string> = {
+  BRAND_OWNER_AGREEMENT: "Brand Owner Agreement",
+  WHITE_LABELING_AGREEMENT: "White Labeling Agreement",
+  DISTRIBUTION_AGREEMENT: "Distribution Agreement",
+  PCD_AGREEMENT: "PCD Agreement",
+};
+
 export default function ReviewForm({
   formData,
   onEdit,
@@ -50,6 +57,12 @@ export default function ReviewForm({
           <Row label="Company Type" value={formData.companyType} />
           <Row label="Seller Type" value={formData.sellerType} />
           <Row label="GST Number" value={formData.gstNumber} />
+          {!!formData.parentManufacturerName && (
+            <Row label="Parent Manufacturer Name" value={formData.parentManufacturerName} />
+          )}
+          {!!formData.brandOwnerName && (
+            <Row label="Brand Owner Name" value={formData.brandOwnerName} />
+          )}
         </Card>
 
         {/* COORDINATOR DETAILS */}
@@ -58,6 +71,12 @@ export default function ReviewForm({
           <Row label="Designation" value={formData.coordinatorDesignation} />
           <Row label="Email" value={formData.coordinatorEmail} />
           <Row label="Phone Number" value={formData.coordinatorMobile} />
+          <FileRow
+            label="Authorization Letter"
+            name={formData.authorizationLetterFile?.name || "-"}
+            uploaded={!!formData.authorizationLetterFile}
+            file={formData.authorizationLetterFile}
+          />
         </Card>
         </div>
 
@@ -94,6 +113,27 @@ export default function ReviewForm({
               </div>
             </div>
           )}
+
+          {/* Seller-type-driven agreement documents */}
+          {formData.agreements && Object.keys(formData.agreements).length > 0 && (
+            <div className="mt-2 space-y-3">
+              {Object.entries(formData.agreements as Record<string, any>).map(([code, agreement]) => {
+                if (!agreement?.file && !agreement?.number) return null;
+                const label = AGREEMENT_LABELS[code] || code.replace(/_/g, " ");
+                return (
+                  <div key={code} className="flex flex-col gap-1">
+                    {agreement?.number && <Row label={`${label} Number`} value={agreement.number} />}
+                    <FileRow
+                      label={label}
+                      name={agreement?.file?.name || "-"}
+                      uploaded={!!agreement?.file}
+                      file={agreement?.file}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
 
         {/* BANK DETAILS - Combined Card */}
@@ -108,6 +148,12 @@ export default function ReviewForm({
     <Row label="Branch Name" value={formData.branch} />
 
     <Row label="IFSC Code" value={formData.ifscCode} />
+
+    <Row label="Bank State" value={formData.bankState} />
+
+    <Row label="Bank District" value={formData.bankDistrict} />
+
+    <Row label="Bank Taluka" value={formData.bankTaluka} />
 
     <Row
       label="Account Number"

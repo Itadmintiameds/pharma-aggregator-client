@@ -12,6 +12,9 @@ export interface DocumentUploadRequest {
   gstFile?: File;
   bankFile?: File;
   companyRegistrationCertificate?: File;
+  // Authorization letter (Coordinator step) - same singular-file pattern as
+  // companyRegistrationCertificate.
+  authorizationLetter?: File;
   licenses?: LicenseFileItem[];
 }
  
@@ -61,7 +64,11 @@ class UploadSellerRegDocService {
       if (request.companyRegistrationCertificate) {
   formData.append("companyRegistrationCertificate", request.companyRegistrationCertificate);
 }
- 
+
+      if (request.authorizationLetter) {
+        formData.append("authorizationLetter", request.authorizationLetter);
+      }
+
       if (request.licenses?.length) {
         request.licenses.forEach((license) => {
           if (!license.documentId) {
@@ -143,6 +150,56 @@ class UploadSellerRegDocService {
  
     console.log("✅ Final license payload:", result);
  
+    return result;
+  }
+
+  // Builds LicenseFileItem[] for seller-level agreement documents (Brand Owner
+  // Agreement, White Labeling Agreement, Distribution Agreement, PCD Agreement).
+  // These are uploaded through the SAME licenseFiles/licenseNames/documentIds
+  // convention as per-product licenses - the backend attaches by documentId
+  // regardless of whether the row is a licence or an agreement. Matching is
+  // done by documentTypeId (agreement rows have no productTypeId), unlike
+  // per-product licenses which are matched by productTypeName above.
+  prepareAgreementFiles(
+    agreements: Record<string, { number: string; file: File | null; issueDate: Date | null; expiryDate: Date | null }>,
+    documents: Array<{ productTypes?: unknown; documentType?: { documentTypeId?: number }; DocumentsId?: number; documentId?: number }>,
+    documentTypeIdByCode: Record<string, number>
+  ): LicenseFileItem[] {
+    const result: LicenseFileItem[] = [];
+
+    console.log("📦 Backend documents (for agreement matching):", documents);
+
+    Object.entries(agreements).forEach(([code, agreement]) => {
+      if (!agreement?.file) return;
+
+      const targetDocumentTypeId = documentTypeIdByCode[code];
+
+      // The backend serializes the raw TempSeller entity here (not a flat
+      // DTO), so productType/documentType come back as nested objects — same
+      // as doc.productTypes?.productTypeName above in prepareLicenseFiles.
+      const matchingDoc = documents.find(
+        (doc) =>
+          !doc.productTypes &&
+          doc.documentType?.documentTypeId === targetDocumentTypeId
+      );
+
+      console.log(`🔍 Matching agreement ${code}:`, matchingDoc);
+
+      const documentId = matchingDoc?.DocumentsId ?? matchingDoc?.documentId;
+
+      if (!documentId) {
+        throw new Error(`❌ No documentId for agreement ${code}`);
+      }
+
+      result.push({
+        file: agreement.file,
+        licenseName: code,
+        documentId,
+      });
+    });
+
+    console.log("✅ Final agreement payload:", result);
+
     return result;
   }
 

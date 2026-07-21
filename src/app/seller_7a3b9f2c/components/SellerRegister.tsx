@@ -19,7 +19,7 @@ import { sellerRegService } from "@/src/services/seller/sellerRegistrationServic
 import { fetchBankDetails } from "@/src/services/seller/IFSCService"
 import { ifscSchema } from "@/src/schema/seller/IFSCSchema"
 import { step1Schema, step2Schema, step3Schema, step4Schema } from "@/src/schema/seller/sellerRegSchema"
-import { CompanyTypeResponse, SellerTypeResponse, ProductTypeResponse, StateResponse, DistrictResponse, TalukaResponse, } from "@/src/types/seller/SellerRegMasterData"
+import { CompanyTypeResponse, SellerTypeResponse, ProductTypeResponse, StateResponse, DistrictResponse, TalukaResponse, DocumentTypeResponse, } from "@/src/types/seller/SellerRegMasterData"
 import { TempSellerRequest, TempSellerDocument, TempSellerBankDetails, TempSellerAddress, TempSellerCoordinator } from "@/src/types/seller/sellerRegistrationData"
 
 export default function SellerRegistration() {
@@ -46,6 +46,9 @@ export default function SellerRegistration() {
   const [states, setStates] = useState<StateResponse[]>([])
   const [districts, setDistricts] = useState<DistrictResponse[]>([])
   const [talukas, setTalukas] = useState<TalukaResponse[]>([])
+  const [bankDistricts, setBankDistricts] = useState<DistrictResponse[]>([])
+  const [bankTalukas, setBankTalukas] = useState<TalukaResponse[]>([])
+  const [documentTypes, setDocumentTypes] = useState<DocumentTypeResponse[]>([])
 
   // Loading States
   const [loadingStates, setLoadingStates] = useState({
@@ -55,6 +58,9 @@ export default function SellerRegistration() {
     states: true,
     districts: false,
     talukas: false,
+    bankDistricts: false,
+    bankTalukas: false,
+    documentTypes: true,
   })
   const [submitting, setSubmitting] = useState(false)
 
@@ -73,6 +79,8 @@ export default function SellerRegistration() {
     companyType: "",
     sellerType: "",
     productTypes: [] as string[],
+    parentManufacturerName: "",
+    brandOwnerName: "",
     state: "",
     district: "",
     taluka: "",
@@ -90,6 +98,7 @@ export default function SellerRegistration() {
     coordinatorDesignation: "",
     coordinatorEmail: "",
     coordinatorMobile: "",
+    authorizationLetterFile: null as File | null,
 
     // GST
     gstNumber: "",
@@ -108,9 +117,21 @@ export default function SellerRegistration() {
       status: 'Active' | 'Expired';
     }>,
 
+    // Seller-type-driven agreement documents, keyed by documentTypeCode
+    agreements: {} as Record<string, {
+      number: string;
+      file: File | null;
+      issueDate: Date | null;
+      expiryDate: Date | null;
+    }>,
+
     // Bank details
+    bankStateId: 0,
+    bankDistrictId: 0,
+    bankTalukaId: 0,
     bankState: "",
     bankDistrict: "",
+    bankTaluka: "",
     bankName: "",
     branch: "",
     ifscCode: "",
@@ -140,6 +161,7 @@ export default function SellerRegistration() {
     fetchStates()
     fetchSellerTypes()
     fetchProductTypes()
+    fetchDocumentTypes()
   }, [])
 
   // Master data fetch functions (exactly as in old version)
@@ -196,6 +218,50 @@ export default function SellerRegistration() {
       toast.error("Failed to load product types")
     } finally {
       setLoadingStates(prev => ({ ...prev, productTypes: false }))
+    }
+  }
+
+  const fetchDocumentTypes = async () => {
+    setLoadingStates(prev => ({ ...prev, documentTypes: true }))
+    try {
+      const data = await sellerRegMasterService.getDocumentTypes()
+      setDocumentTypes(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error("Error fetching document types:", error)
+      setDocumentTypes([])
+      toast.error("Failed to load document types")
+    } finally {
+      setLoadingStates(prev => ({ ...prev, documentTypes: false }))
+    }
+  }
+
+  const fetchBankDistrictsByState = async (stateId: number) => {
+    if (!stateId) return
+    setLoadingStates(prev => ({ ...prev, bankDistricts: true }))
+    try {
+      const data = await sellerRegMasterService.getDistrictsByStateId(stateId)
+      setBankDistricts(data)
+    } catch (error) {
+      console.error("Error fetching bank districts:", error)
+      setBankDistricts([])
+      toast.error("Failed to load districts")
+    } finally {
+      setLoadingStates(prev => ({ ...prev, bankDistricts: false }))
+    }
+  }
+
+  const fetchBankTalukasByDistrict = async (districtId: number) => {
+    if (!districtId) return
+    setLoadingStates(prev => ({ ...prev, bankTalukas: true }))
+    try {
+      const data = await sellerRegMasterService.getTalukasByDistrictId(districtId)
+      setBankTalukas(data)
+    } catch (error) {
+      console.error("Error fetching bank talukas:", error)
+      setBankTalukas([])
+      toast.error("Failed to load talukas")
+    } finally {
+      setLoadingStates(prev => ({ ...prev, bankTalukas: false }))
     }
   }
 
@@ -651,6 +717,118 @@ export default function SellerRegistration() {
     }))
   }
 
+  // Bank State handler - mirrors handleStateChange (company address) but
+  // writes to the bank-branch-specific fields/master lists.
+  const handleBankStateChange = (selected: any) => {
+    const selectedId = selected ? parseInt(selected.value) : 0
+    const selectedState = states.find(s => s.stateId === selectedId)
+
+    setFormData(prev => ({
+      ...prev,
+      bankStateId: selectedId,
+      bankState: selectedState?.stateName || "",
+      bankDistrictId: 0,
+      bankDistrict: "",
+      bankTalukaId: 0,
+      bankTaluka: "",
+    }))
+
+    setBankDistricts([])
+    setBankTalukas([])
+
+    if (selectedId) {
+      fetchBankDistrictsByState(selectedId)
+    }
+  }
+
+  const handleBankDistrictChange = (selected: any) => {
+    const selectedId = selected ? parseInt(selected.value) : 0
+    const selectedDistrict = bankDistricts.find(d => d.districtId === selectedId)
+
+    setFormData(prev => ({
+      ...prev,
+      bankDistrictId: selectedId,
+      bankDistrict: selectedDistrict?.districtName || "",
+      bankTalukaId: 0,
+      bankTaluka: "",
+    }))
+
+    setBankTalukas([])
+
+    if (selectedId) {
+      fetchBankTalukasByDistrict(selectedId)
+    }
+  }
+
+  const handleBankTalukaChange = (selected: any) => {
+    const selectedId = selected ? parseInt(selected.value) : 0
+    const selectedTaluka = bankTalukas.find(t => t.talukaId === selectedId)
+
+    setFormData(prev => ({
+      ...prev,
+      bankTalukaId: selectedId,
+      bankTaluka: selectedTaluka?.talukaName || "",
+    }))
+  }
+
+  // Authorization letter handler (Coordinator step - required for all seller types)
+  const handleAuthorizationLetterChange = (file: File | null) => {
+    setFormData(prev => ({ ...prev, authorizationLetterFile: file }))
+  }
+
+  // Agreement document handlers (seller-type-driven, keyed by documentTypeCode)
+  const handleAgreementFileChange = (code: string, file: File | null) => {
+    setFormData(prev => ({
+      ...prev,
+      agreements: {
+        ...prev.agreements,
+        [code]: {
+          ...(prev.agreements[code] || { number: "", file: null, issueDate: null, expiryDate: null }),
+          file,
+        },
+      },
+    }))
+  }
+
+  const handleAgreementNumberChange = (code: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      agreements: {
+        ...prev.agreements,
+        [code]: {
+          ...(prev.agreements[code] || { number: "", file: null, issueDate: null, expiryDate: null }),
+          number: value,
+        },
+      },
+    }))
+  }
+
+  const handleAgreementIssueDateChange = (date: Date | null, code: string) => {
+    setFormData(prev => ({
+      ...prev,
+      agreements: {
+        ...prev.agreements,
+        [code]: {
+          ...(prev.agreements[code] || { number: "", file: null, issueDate: null, expiryDate: null }),
+          issueDate: date,
+        },
+      },
+    }))
+  }
+
+  const handleAgreementExpiryDateChange = (date: Date | null, code: string) => {
+    setFormData(prev => ({
+      ...prev,
+      agreements: {
+        ...prev.agreements,
+        [code]: {
+          ...(prev.agreements[code] || { number: "", file: null, issueDate: null, expiryDate: null }),
+          expiryDate: date,
+        },
+      },
+    }))
+  }
+
   // Upload file function
   const uploadFile = async (file: File, folder: string): Promise<string> => {
     return new Promise((resolve) => {
@@ -666,7 +844,10 @@ export default function SellerRegistration() {
     // Step 1 Validation
     if (step === 1) {
       try {
-        step1Schema.parse(formData);
+        // step1Schema's conditional Parent Manufacturer Name requirement keys
+        // off `sellerTypeName`, while formData tracks the same value under
+        // `sellerType` - map it across before validating.
+        step1Schema.parse({ ...formData, sellerTypeName: formData.sellerType });
         // Check if company registration certificate is uploaded
         if (!formData.companyRegistrationCertificateFile) {
           toast.error("Please upload Company Registration Certificate");
@@ -731,11 +912,22 @@ export default function SellerRegistration() {
           return acc
         }, {} as any)
 
-        const schema = step3Schema(formData.productTypes)
+        const agreementsForValidation = Object.entries(formData.agreements).reduce((acc, [key, value]: [string, any]) => {
+          acc[key] = {
+            ...value,
+            issueDate: value.issueDate ? value.issueDate.toISOString().split('T')[0] : '',
+            expiryDate: value.expiryDate ? value.expiryDate.toISOString().split('T')[0] : '',
+            file: value.file,
+          }
+          return acc
+        }, {} as any)
+
+        const schema = step3Schema(formData.productTypes, formData.sellerType)
         schema.parse({
           gstNumber: formData.gstNumber,
           gstFile: formData.gstFile,
           licenses: licensesForValidation,
+          agreements: agreementsForValidation,
         })
       } catch (error) {
         if (error instanceof z.ZodError) {
@@ -798,7 +990,9 @@ export default function SellerRegistration() {
         designation: formData.coordinatorDesignation,
         email: formData.coordinatorEmail,
         mobile: formData.coordinatorMobile,
-        authorizationLetterUrl: "",
+        // Same "PENDING" placeholder pattern used for gstFileUrl/bankDocumentFileUrl
+        // below - the real URL is filled in once the upload step completes.
+        authorizationLetterUrl: placeholderUrl,
       };
 
       // Build bank details WITH placeholder
@@ -806,18 +1000,26 @@ export default function SellerRegistration() {
         bankName: formData.bankName,
         branch: formData.branch,
         ifscCode: formData.ifscCode,
+        stateId: formData.bankStateId,
+        districtId: formData.bankDistrictId,
+        talukaId: formData.bankTalukaId,
         accountNumber: formData.accountNumber,
         accountHolderName: formData.accountHolderName,
         bankDocumentFileUrl: placeholderUrl,
       };
 
-      // Prepare documents array WITH placeholder
-      const documents: TempSellerDocument[] = formData.productTypes.map((productName: string) => {
+      // Prepare per-product license documents array WITH placeholder.
+      // productTypeId alone identifies these rows server-side; documentTypeId
+      // is intentionally omitted here (left undefined) — it's only required
+      // for seller-level documents that have no product type (see agreements
+      // below). The backend enforces "exactly one of productTypeId/
+      // documentTypeId must be present" per document row.
+      const licenseDocuments: TempSellerDocument[] = formData.productTypes.map((productName: string) => {
         const product = productTypes.find(p => p.productTypeName === productName);
         const license = formData.licenses[productName];
 
         return {
-          productTypeId: product?.productTypeId || 0,
+          productTypeId: product?.productTypeId,
           documentNumber: license?.number || "",
           documentFileUrl: placeholderUrl,
           licenseIssueDate: license?.issueDate ? license.issueDate.toISOString().split('T')[0] : undefined,
@@ -825,6 +1027,31 @@ export default function SellerRegistration() {
           licenseIssuingAuthority: license?.issuingAuthority || "",
         };
       });
+
+      // Seller-level agreement/compliance documents (Brand Owner/White Labeling/
+      // Distribution/PCD Agreement, GMP/WHO-GMP Certificate, Trademark
+      // Certificate, IEC Certificate, Import Licences) - no productTypeId,
+      // documentTypeId is resolved from the /document-types master list by
+      // matching code. Includes every code the user actually attached a file
+      // for, not just the required ones — optional docs (e.g. Import Licence)
+      // should still be submitted if the seller chose to provide them.
+      const attachedAgreementCodes = Object.keys(formData.agreements || {});
+      const agreementDocuments: TempSellerDocument[] = attachedAgreementCodes
+        .filter((code) => formData.agreements[code]?.file)
+        .map((code) => {
+          const agreement = formData.agreements[code];
+          const documentTypeId = documentTypes.find(dt => dt.documentTypeCode === code)?.documentTypeId;
+
+          return {
+            documentTypeId,
+            documentNumber: agreement.number || "N/A",
+            documentFileUrl: placeholderUrl,
+            licenseIssueDate: agreement.issueDate ? agreement.issueDate.toISOString().split('T')[0] : undefined,
+            licenseExpiryDate: agreement.expiryDate ? agreement.expiryDate.toISOString().split('T')[0] : undefined,
+          };
+        });
+
+      const documents: TempSellerDocument[] = [...licenseDocuments, ...agreementDocuments];
 
       // Create the request WITH placeholders
       const request: TempSellerRequest = {
@@ -836,6 +1063,8 @@ export default function SellerRegistration() {
         email: formData.email,
         termsAccepted: true,
         website: formData.website || undefined,
+        parentManufacturerName: formData.parentManufacturerName || undefined,
+        brandOwnerName: formData.brandOwnerName || undefined,
         address,
         coordinator,
         bankDetails,
@@ -867,14 +1096,27 @@ export default function SellerRegistration() {
         tempSellerDetails.documents || []
       );
 
+      // Agreement documents are uploaded through the SAME licenseFiles/
+      // licenseNames/documentIds convention as per-product licenses (the
+      // backend attaches by documentId regardless of licence vs. agreement).
+      const documentTypeIdByCode: Record<string, number> = {};
+      documentTypes.forEach(dt => { documentTypeIdByCode[dt.documentTypeCode] = dt.documentTypeId; });
+      const agreementsPayload = uploadSellerRegDocService.prepareAgreementFiles(
+        formData.agreements,
+        tempSellerDetails.documents || [],
+        documentTypeIdByCode
+      );
+      const combinedLicensesPayload = [...licensesPayload, ...agreementsPayload];
+
       try {
         // Attempt document upload
         const uploadResponse = await uploadSellerRegDocService.uploadDocuments(tempSellerId, {
           sellerImage: undefined,
           gstFile: formData.gstFile || undefined,
           bankFile: formData.cancelledChequeFile || undefined,
-          licenses: licensesPayload.length > 0 ? licensesPayload : undefined,
+          licenses: combinedLicensesPayload.length > 0 ? combinedLicensesPayload : undefined,
           companyRegistrationCertificate: formData.companyRegistrationCertificateFile || undefined,
+          authorizationLetter: formData.authorizationLetterFile || undefined,
         });
 
         console.log("✅ Documents uploaded successfully:", uploadResponse);
@@ -1012,6 +1254,7 @@ export default function SellerRegistration() {
             onEmailVerified={() => setEmailVerified(true)}
             onPhoneVerified={() => setPhoneVerified(true)}
             onAlphabetInput={handleAlphabetInput}
+            onAuthorizationLetterChange={handleAuthorizationLetterChange}
             prevStep={prevStep}
             nextStep={() => setStep(3)}
           />
@@ -1040,6 +1283,10 @@ export default function SellerRegistration() {
                 }
               }));
             }}
+            onAgreementNumberChange={handleAgreementNumberChange}
+            onAgreementFileChange={handleAgreementFileChange}
+            onAgreementIssueDateChange={handleAgreementIssueDateChange}
+            onAgreementExpiryDateChange={handleAgreementExpiryDateChange}
             prevStep={prevStep}
             nextStep={nextStep}
           />
@@ -1063,6 +1310,10 @@ export default function SellerRegistration() {
           <BankForm
             formData={formData}
             ifscError={ifscError}
+            states={states}
+            bankDistricts={bankDistricts}
+            bankTalukas={bankTalukas}
+            loadingStates={loadingStates}
             onIfscChange={handleIfscChange}
             onFileChange={handleFileChange}
             onAlphabetInput={handleAlphabetInput}
@@ -1070,6 +1321,9 @@ export default function SellerRegistration() {
             onChange={handleChange}
             onCheckAccountMatch={() => formData.accountNumber === formData.confirmAccountNumber}
             onUpdateFormData={handleFormDataUpdate}
+            onBankStateChange={handleBankStateChange}
+            onBankDistrictChange={handleBankDistrictChange}
+            onBankTalukaChange={handleBankTalukaChange}
             prevStep={prevStep}
             nextStep={nextStep}
           />

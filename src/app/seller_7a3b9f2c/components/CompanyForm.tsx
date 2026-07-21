@@ -14,6 +14,7 @@ import {
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
+import { classifySellerType } from "@/src/schema/seller/sellerRegSchema";
 
 interface Props {
   formData: any;
@@ -164,6 +165,11 @@ export default function CompanyForm({
     const selected = sellerTypes.find(s => s.sellerTypeId === formData.sellerTypeId);
     return selected?.sellerTypeName || "";
   };
+
+  // Drives the conditional Parent Manufacturer Name / Brand Owner Name fields
+  // below. Reuses formData.sellerType (already tracked seller type display
+  // name) rather than threading a new prop.
+  const sellerTypeCategory = classifySellerType(formData.sellerType);
 
   const getSelectedStateLabel = () => {
     const selected = states.find(s => s.stateId === formData.stateId);
@@ -505,6 +511,92 @@ export default function CompanyForm({
               )}
             </div>
           </div>
+
+          {/* Row 2.5: Parent Manufacturer Name | Brand Owner Name - shown based on seller type */}
+          {sellerTypeCategory === "PCD" && (
+            <div className="flex flex-col gap-1">
+              <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+                Parent Manufacturer Name:
+                <span className="text-warning-500 font-semibold ml-1">*</span>
+              </label>
+              <input
+                type="text"
+                name="parentManufacturerName"
+                autoComplete="off"
+                value={formData.parentManufacturerName || ""}
+                onChange={(e) => {
+                  let value = e.target.value;
+                  value = value.replace(/\s{2,}/g, ' ');
+                  if (value.length <= 100) {
+                    const syntheticEvent = {
+                      ...e,
+                      target: { ...e.target, name: "parentManufacturerName", value }
+                    };
+                    onChange(syntheticEvent);
+                  }
+                }}
+                maxLength={100}
+                placeholder="Enter Parent Manufacturer Name"
+                className="w-full h-13 px-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
+              />
+            </div>
+          )}
+
+          {sellerTypeCategory === "WHITE_LABELING" && (
+            <>
+              <div className="flex flex-col gap-1">
+                <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+                  Parent Manufacturer Name (recommended):
+                </label>
+                <input
+                  type="text"
+                  name="parentManufacturerName"
+                  autoComplete="off"
+                  value={formData.parentManufacturerName || ""}
+                  onChange={(e) => {
+                    let value = e.target.value;
+                    value = value.replace(/\s{2,}/g, ' ');
+                    if (value.length <= 100) {
+                      const syntheticEvent = {
+                        ...e,
+                        target: { ...e.target, name: "parentManufacturerName", value }
+                      };
+                      onChange(syntheticEvent);
+                    }
+                  }}
+                  maxLength={100}
+                  placeholder="Enter Parent Manufacturer Name"
+                  className="w-full h-13 px-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+                  Brand Owner Name (recommended):
+                </label>
+                <input
+                  type="text"
+                  name="brandOwnerName"
+                  autoComplete="off"
+                  value={formData.brandOwnerName || ""}
+                  onChange={(e) => {
+                    let value = e.target.value;
+                    value = value.replace(/\s{2,}/g, ' ');
+                    if (value.length <= 100) {
+                      const syntheticEvent = {
+                        ...e,
+                        target: { ...e.target, name: "brandOwnerName", value }
+                      };
+                      onChange(syntheticEvent);
+                    }
+                  }}
+                  maxLength={100}
+                  placeholder="Enter Brand Owner Name"
+                  className="w-full h-13 px-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
+                />
+              </div>
+            </>
+          )}
 
           {/* Row 3: Product Types | State */}
           <div className="flex flex-col gap-1">

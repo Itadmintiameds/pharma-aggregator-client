@@ -1,24 +1,36 @@
 "use client";
 
 import React, { useState } from "react";
-import { Hash, Building2, MapPin } from "lucide-react";
+import { Hash, Building2, MapPin, ChevronDown } from "lucide-react";
 import { HiOutlineUser } from "react-icons/hi2";
 import { IoLockClosedOutline } from "react-icons/io5";
 import { RiBankLine } from "react-icons/ri";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
+import {
+  StateResponse,
+  DistrictResponse,
+  TalukaResponse,
+} from "@/src/types/seller/SellerRegMasterData";
 
 interface Props {
   formData: any;
   ifscError: string;
+  states: StateResponse[];
+  bankDistricts: DistrictResponse[];
+  bankTalukas: TalukaResponse[];
+  loadingStates: any;
   onIfscChange: (value: string) => void;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>, field: string) => void;
   onAlphabetInput: (e: React.ChangeEvent<HTMLInputElement>, field: string) => void;
   onNumericInput: (e: React.ChangeEvent<HTMLInputElement>, field: string, maxLength?: number) => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onCheckAccountMatch: () => boolean;
-   onUpdateFormData?: (field: string, value: any) => void; 
+   onUpdateFormData?: (field: string, value: any) => void;
+  onBankStateChange: (selected: any) => void;
+  onBankDistrictChange: (selected: any) => void;
+  onBankTalukaChange: (selected: any) => void;
   prevStep: () => void;
   nextStep: () => void;
 }
@@ -26,6 +38,10 @@ interface Props {
 export default function BankForm({
   formData,
   ifscError,
+  states,
+  bankDistricts,
+  bankTalukas,
+  loadingStates,
   onIfscChange,
   onFileChange,
   onAlphabetInput,
@@ -33,13 +49,53 @@ export default function BankForm({
   onChange,
   onCheckAccountMatch,
   onUpdateFormData,
+  onBankStateChange,
+  onBankDistrictChange,
+  onBankTalukaChange,
   prevStep,
   nextStep
 }: Props) {
 
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
-  
+
+  // Custom dropdown open state, mirroring CompanyForm's address dropdown pattern.
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const bankStateDropdownRef = React.useRef<HTMLDivElement>(null);
+  const bankDistrictDropdownRef = React.useRef<HTMLDivElement>(null);
+  const bankTalukaDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (bankStateDropdownRef.current && !bankStateDropdownRef.current.contains(event.target as Node)) {
+        if (openDropdown === 'bankState') setOpenDropdown(null);
+      }
+      if (bankDistrictDropdownRef.current && !bankDistrictDropdownRef.current.contains(event.target as Node)) {
+        if (openDropdown === 'bankDistrict') setOpenDropdown(null);
+      }
+      if (bankTalukaDropdownRef.current && !bankTalukaDropdownRef.current.contains(event.target as Node)) {
+        if (openDropdown === 'bankTaluka') setOpenDropdown(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openDropdown]);
+
+  const getSelectedBankStateLabel = () => {
+    const selected = states.find(s => s.stateId === formData.bankStateId);
+    return selected?.stateName || "";
+  };
+
+  const getSelectedBankDistrictLabel = () => {
+    const selected = bankDistricts.find(d => d.districtId === formData.bankDistrictId);
+    return selected?.districtName || "";
+  };
+
+  const getSelectedBankTalukaLabel = () => {
+    const selected = bankTalukas.find(t => t.talukaId === formData.bankTalukaId);
+    return selected?.talukaName || "";
+  };
+
   const selectedFileName = formData.cancelledChequeFile?.name || "";
 
   const handleIfscInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,7 +165,12 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
       toast.error("Account number and confirm account number do not match");
       return;
     }
-    
+
+    if (!formData.bankStateId || !formData.bankDistrictId || !formData.bankTalukaId) {
+      toast.error("Please select Bank State, District, and Taluka");
+      return;
+    }
+
     nextStep();
   };
 
@@ -282,39 +343,136 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             </div>
           </div>
 
-          {/* Bank State (Auto-filled) */}
+          {/* Bank State */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
               Bank State
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-500" />
-              <input
-                type="text"
-                name="bankState"
-                value={formData.bankState}
-                readOnly
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 bg-gray-50 text-p4 font-body font-regular text-pneutral-900"
-              />
+            <div className="relative" ref={bankStateDropdownRef}>
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
+              <div
+                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center"
+                onClick={() => setOpenDropdown(openDropdown === 'bankState' ? null : 'bankState')}
+              >
+                <span className={!getSelectedBankStateLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                  {loadingStates?.states
+                    ? "Loading..."
+                    : getSelectedBankStateLabel() || "Select State"}
+                </span>
+                <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'bankState' ? 'rotate-180' : ''}`} />
+              </div>
+
+              {openDropdown === 'bankState' && !loadingStates?.states && (
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <div className="max-h-60 overflow-y-auto">
+                    {states.map((state) => (
+                      <div
+                        key={state.stateId}
+                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        onClick={() => {
+                          onBankStateChange({ value: state.stateId.toString(), label: state.stateName });
+                          setOpenDropdown(null);
+                        }}
+                      >
+                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                          {state.stateName}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Bank District (Auto-filled) */}
+          {/* Bank District */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
               Bank District
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-500" />
-              <input
-                type="text"
-                name="bankDistrict"
-                value={formData.bankDistrict}
-                readOnly
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 bg-gray-50 text-p4 font-body font-regular text-pneutral-900"
-              />
+            <div className="relative" ref={bankDistrictDropdownRef}>
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
+              <div
+                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center ${formData.bankStateId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                onClick={() => formData.bankStateId && setOpenDropdown(openDropdown === 'bankDistrict' ? null : 'bankDistrict')}
+              >
+                <span className={!getSelectedBankDistrictLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                  {loadingStates?.bankDistricts
+                    ? "Loading..."
+                    : getSelectedBankDistrictLabel() || "Select District"}
+                </span>
+                {formData.bankStateId && (
+                  <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'bankDistrict' ? 'rotate-180' : ''}`} />
+                )}
+              </div>
+
+              {openDropdown === 'bankDistrict' && !loadingStates?.bankDistricts && formData.bankStateId && (
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <div className="max-h-60 overflow-y-auto">
+                    {bankDistricts.map((district) => (
+                      <div
+                        key={district.districtId}
+                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        onClick={() => {
+                          onBankDistrictChange({ value: district.districtId.toString(), label: district.districtName });
+                          setOpenDropdown(null);
+                        }}
+                      >
+                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                          {district.districtName}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bank Taluka */}
+          <div className="flex flex-col gap-1">
+            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+              Bank Taluka
+              <span className="text-warning-500 font-semibold ml-1">*</span>
+            </label>
+            <div className="relative" ref={bankTalukaDropdownRef}>
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
+              <div
+                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center ${formData.bankDistrictId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                onClick={() => formData.bankDistrictId && setOpenDropdown(openDropdown === 'bankTaluka' ? null : 'bankTaluka')}
+              >
+                <span className={!getSelectedBankTalukaLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                  {loadingStates?.bankTalukas
+                    ? "Loading..."
+                    : getSelectedBankTalukaLabel() || "Select Taluka"}
+                </span>
+                {formData.bankDistrictId && (
+                  <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'bankTaluka' ? 'rotate-180' : ''}`} />
+                )}
+              </div>
+
+              {openDropdown === 'bankTaluka' && !loadingStates?.bankTalukas && formData.bankDistrictId && (
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <div className="max-h-60 overflow-y-auto">
+                    {bankTalukas.map((taluka) => (
+                      <div
+                        key={taluka.talukaId}
+                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        onClick={() => {
+                          onBankTalukaChange({ value: taluka.talukaId.toString(), label: taluka.talukaName });
+                          setOpenDropdown(null);
+                        }}
+                      >
+                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                          {taluka.talukaName}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

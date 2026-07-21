@@ -28,6 +28,13 @@ export interface SellerTypeResponse {
   isActive: boolean;
 }
 
+export interface DocumentTypeResponse {
+  documentTypeId: number;
+  documentTypeName: string;
+  documentTypeCode: string;
+  isActive: boolean;
+}
+
 export interface StateResponse {
   stateId: number;
   stateCode: string;
