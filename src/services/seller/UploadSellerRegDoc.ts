@@ -175,12 +175,13 @@ class UploadSellerRegDocService {
       const targetDocumentTypeId = documentTypeIdByCode[code];
 
       // The backend serializes the raw TempSeller entity here (not a flat
-      // DTO), so productType/documentType come back as nested objects — same
-      // as doc.productTypes?.productTypeName above in prepareLicenseFiles.
+      // DTO), so documentType comes back as a nested object — same as
+      // doc.productTypes?.productTypeName above in prepareLicenseFiles.
+      // documentType alone is the correct discriminator: agreement/compliance
+      // rows point productTypes at a reserved placeholder (never null), so
+      // that field can no longer be used to tell licences and agreements apart.
       const matchingDoc = documents.find(
-        (doc) =>
-          !doc.productTypes &&
-          doc.documentType?.documentTypeId === targetDocumentTypeId
+        (doc) => doc.documentType?.documentTypeId === targetDocumentTypeId
       );
 
       console.log(`🔍 Matching agreement ${code}:`, matchingDoc);

@@ -12,6 +12,7 @@ export interface UploadDocPayload {
   gstFile?: File;
   bankFile?: File;
   companyRegistrationCertificate?: File;
+  sellerImage?: File;
   licenses?: LicenseFileItem[];
 }
 
@@ -42,6 +43,15 @@ export const uploadSellerDocuments = async (
     /* ================= BANK ================= */
     if (payload.bankFile) {
       formData.append("bankFile", payload.bankFile);
+      hasFile = true;
+    }
+
+    /* ================= SELLER IMAGE / LOGO ================= */
+    // NOTE: backend does not yet accept a `sellerImage` part on this endpoint
+    // (only the temp-seller registration upload does) - this is sent in
+    // anticipation of that support being added; until then it is a no-op.
+    if (payload.sellerImage) {
+      formData.append("sellerImage", payload.sellerImage);
       hasFile = true;
     }
 

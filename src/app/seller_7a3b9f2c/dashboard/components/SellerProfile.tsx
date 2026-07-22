@@ -16,8 +16,7 @@ import {
 
   Globe,
   Mail,
-  MapPin as MapPinIcon,
-  X
+  MapPin as MapPinIcon
 } from "lucide-react";
 import { GoCheckCircle } from "react-icons/go";
 import { PiInfo } from "react-icons/pi";
@@ -494,6 +493,9 @@ const [licenseNumbersChanged, setLicenseNumbersChanged] = useState<Record<string
 
   const [hasDocumentChanges, setHasDocumentChanges] = useState(false);
 
+  const [sellerImagePreviewUrl, setSellerImagePreviewUrl] = useState<string | null>(null);
+  const sellerImageInputRef = useRef<HTMLInputElement>(null);
+
   const [loadingStates, setLoadingStates] = useState({
     companyTypes: true,
     sellerTypes: true,
@@ -569,6 +571,8 @@ const [licenseNumbersChanged, setLicenseNumbersChanged] = useState<Record<string
     gstFileUrl: "",
     companyRegistrationCertificateFile: null as File | null,
     companyRegistrationCertificateUrl: "",
+    sellerImageFile: null as File | null,
+    sellerImageUrl: "",
     licenses: {} as Record<string, {
       number: string;
       file: File | null;
@@ -591,6 +595,16 @@ const [licenseNumbersChanged, setLicenseNumbersChanged] = useState<Record<string
     cancelledChequeFile: null as File | null,
     cancelledChequeFileUrl: "",
   });
+
+  useEffect(() => {
+    if (!formData.sellerImageFile) {
+      setSellerImagePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(formData.sellerImageFile);
+    setSellerImagePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [formData.sellerImageFile]);
 
   // Helper function to scroll to specific error element
   const scrollToError = (errorType: string, productName?: string) => {
@@ -808,6 +822,8 @@ const [licenseNumbersChanged, setLicenseNumbersChanged] = useState<Record<string
         gstFileUrl: profileData.sellerGST?.gstFileUrl || '',
         companyRegistrationCertificateFile: null,
         companyRegistrationCertificateUrl: profileData.companyRegistrationCertificateUrl || "",
+        sellerImageFile: null,
+        sellerImageUrl: profileData.sellerImageUrl || "",
         licenses,
         bankState: '',
         bankDistrict: '',
@@ -1198,6 +1214,8 @@ setLicenseNumbersChanged({});
             gstFileUrl: data.sellerGST?.gstFileUrl || '',
             companyRegistrationCertificateFile: null,
             companyRegistrationCertificateUrl: data.companyRegistrationCertificateUrl || "",
+            sellerImageFile: null,
+            sellerImageUrl: data.sellerImageUrl || "",
             licenses,
             bankState: '',
             bankDistrict: '',
@@ -1327,6 +1345,25 @@ const checkIfLicenseNumberChanged = (productName: string): boolean => {
     if (gstCertError) {
     setGSTCertError(false);
   }
+  };
+
+  const handleSellerImageFileChange = (file: File) => {
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG, JPEG, and PNG files are allowed for the logo");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo size should be less than 5MB");
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      sellerImageFile: file,
+      sellerImageUrl: "PENDING"
+    }));
+    setHasDocumentChanges(true);
   };
 
   const handleCompanyCertFileChange = (file: File) => {
@@ -2618,7 +2655,7 @@ const handleIfscChange = async (value: string) => {
             }
 
             const filesToUpload = pendingSectionData.filesToUpload;
-            const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.licenses.length > 0;
+            const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.sellerImageFile || filesToUpload.licenses.length > 0;
 
             if (hasFilesToUpload) {
               console.log('📤 OTP Flow - Step 2: Uploading documents...');
@@ -2639,6 +2676,7 @@ const handleIfscChange = async (value: string) => {
                 gstFile: filesToUpload.gstFile || undefined,
                 bankFile: filesToUpload.bankFile || undefined,
                 companyRegistrationCertificate: filesToUpload.companyCertFile || undefined,
+                sellerImage: filesToUpload.sellerImageFile || undefined,
                 licenses: licensesWithIds
               });
 
@@ -2672,6 +2710,7 @@ const handleIfscChange = async (value: string) => {
               gstFile: null,
               companyRegistrationCertificateFile: null,
               cancelledChequeFile: null,
+              sellerImageFile: null,
               licenses: Object.fromEntries(
                 Object.entries(prev.licenses).map(([key, value]: [string, any]) => [key, { ...value, file: null }])
               )
@@ -3408,6 +3447,7 @@ if (missingLicenses.length > 0) {
       gstFile: null as File | null,
       bankFile: null as File | null,
       companyCertFile: null as File | null,
+      sellerImageFile: null as File | null,
       licenses: [] as Array<{
         productName: string;
         productTypeId: number;
@@ -3425,6 +3465,10 @@ if (missingLicenses.length > 0) {
 
     if (formData.cancelledChequeFile) {
       filesToUpload.bankFile = formData.cancelledChequeFile;
+    }
+
+    if (formData.sellerImageFile) {
+      filesToUpload.sellerImageFile = formData.sellerImageFile;
     }
 
     const currentDocs = profileData?.documents || [];
@@ -3697,6 +3741,7 @@ if (missingLicenses.length > 0) {
           gstNumber: updatedProfile.sellerGST?.gstNumber || '',
           gstFileUrl: updatedProfile.sellerGST?.gstFileUrl || '',
           companyRegistrationCertificateUrl: updatedProfile.companyRegistrationCertificateUrl || '',
+          sellerImageUrl: updatedProfile.sellerImageUrl || '',
           bankName: updatedProfile.bankDetails?.bankName || '',
           branch: updatedProfile.bankDetails?.branch || '',
           ifscCode: updatedProfile.bankDetails?.ifscCode || '',
@@ -3749,7 +3794,7 @@ if (missingLicenses.length > 0) {
         });
       }
 
-      const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.licenses.length > 0;
+      const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.sellerImageFile || filesToUpload.licenses.length > 0;
 
       if (hasFilesToUpload) {
         try {
@@ -3776,6 +3821,7 @@ if (missingLicenses.length > 0) {
             gstFile: filesToUpload.gstFile || undefined,
             bankFile: filesToUpload.bankFile || undefined,
             companyRegistrationCertificate: filesToUpload.companyCertFile || undefined,
+            sellerImage: filesToUpload.sellerImageFile || undefined,
             licenses: licensesWithIds
           });
           toast.success('Changes submitted for admin review.');
@@ -3829,6 +3875,7 @@ if (missingLicenses.length > 0) {
         gstFile: null,
         companyRegistrationCertificateFile: null,
         cancelledChequeFile: null,
+        sellerImageFile: null,
         licenses: Object.fromEntries(
           Object.entries(prev.licenses).map(([key, value]: [string, any]) => [key, { ...value, file: null }])
         )
@@ -4116,14 +4163,44 @@ if (missingLicenses.length > 0) {
           <div className="p-6">
             <div className="space-y-6">
               <div className="flex flex-col items-center gap-2">
-                <Image
-                  src="/icons/companylogo.png"
-                  alt="Company Logo"
-                  width={160}
-                  height={160}
-                  className="rounded-md shadow object-cover"
-                />
+                <div className="relative w-40 h-40">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={
+                      sellerImagePreviewUrl ||
+                      (formData.sellerImageUrl && formData.sellerImageUrl !== "PENDING"
+                        ? formData.sellerImageUrl
+                        : "/icons/companylogo.png")
+                    }
+                    alt="Company Logo"
+                    className="w-40 h-40 rounded-md shadow object-cover"
+                  />
+                  {editingSection && (
+                    <button
+                      type="button"
+                      onClick={() => sellerImageInputRef.current?.click()}
+                      className="absolute bottom-1 right-1 bg-primary-900 text-base-white p-2 rounded-full shadow hover:bg-primary-800 transition-colors"
+                      title="Change Logo"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
+                  <input
+                    ref={sellerImageInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleSellerImageFileChange(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
                 <p className="text-p3 text-pneutral-600">Company Logo</p>
+                {formData.sellerImageUrl === "PENDING" && (
+                  <p className="text-p2 text-warning-600">New logo selected — will be submitted for admin review</p>
+                )}
               </div>
 
               <hr className="border-pneutral-200" />
@@ -5398,9 +5475,9 @@ function FileField({
                 type="button"
                 onClick={handleReplaceClick}
                 className="text-secondary-900 hover:opacity-80"
-                title="Remove file"
+                title="Replace file"
               >
-                <X size={20} />
+                <Pencil size={18} />
               </button>
 
               <button
