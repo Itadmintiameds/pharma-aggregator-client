@@ -546,7 +546,7 @@ export default function CompanyForm({
             <>
               <div className="flex flex-col gap-1">
                 <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-                  Parent Manufacturer Name (recommended):
+                  Parent Manufacturer Name (optional):
                 </label>
                 <input
                   type="text"
@@ -572,7 +572,7 @@ export default function CompanyForm({
 
               <div className="flex flex-col gap-1">
                 <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-                  Brand Owner Name (recommended):
+                  Brand Owner Name (optional):
                 </label>
                 <input
                   type="text"

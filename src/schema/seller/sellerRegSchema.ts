@@ -147,20 +147,45 @@ export function mandatoryExtraDocumentCodes(category: SellerTypeCategory): strin
   }
 }
 
+// Maps a selected product type name to the Import Licence document code it
+// unlocks. Uses the same substring matching as getLicenseName() in
+// DocumentForm.tsx so a product like "Cosmetics" or "Medical Devices" lines
+// up with the same category everywhere. Null entries (e.g. IEC, which is a
+// general Import Export Code cert not tied to one product category) are
+// handled separately in optionalExtraDocumentCodes().
+function importLicenceCodeForProductType(productName: string): string | null {
+  const name = productName.toLowerCase();
+  if (name.includes("drug")) return "DRUG_IMPORT_LICENCE";
+  if (name.includes("cosmetic")) return "COSMETIC_IMPORT_LICENCE";
+  if (name.includes("medical device")) return "MEDICAL_DEVICE_IMPORT_LICENCE";
+  if (name.includes("food") || name.includes("supplement") || name.includes("nutraceutical") || name.includes("nutrition")) {
+    return "FSSAI_IMPORT_LICENCE";
+  }
+  return null;
+}
+
 // Documents a seller MAY attach but is never required to, per the requirement
-// spec's "Recommended"/"Optional" rows. Import Licences + IEC Certificate are
-// optional across all 4 types; Trademark Certificate is optional (not
+// spec's "Recommended"/"Optional" rows. Trademark Certificate is optional (not
 // mandatory) for Manufacturer/Distributor; Distribution Agreement is optional
 // for White Labeling (it's mandatory only for Distributor). PCD has no
 // optional Trademark Certificate slot — it's Not Applicable for PCD.
-export function optionalExtraDocumentCodes(category: SellerTypeCategory): string[] {
-  const common = [
-    "IEC_CERTIFICATE",
-    "DRUG_IMPORT_LICENCE",
-    "FSSAI_IMPORT_LICENCE",
-    "COSMETIC_IMPORT_LICENCE",
-    "MEDICAL_DEVICE_IMPORT_LICENCE",
-  ];
+//
+// The per-product Import Licences (Drug/FSSAI/Cosmetic/Medical Device) are
+// only offered when the matching product type was selected in Step 1 —
+// e.g. Drug Import Licence only appears if "Drugs" is among productTypes.
+// IEC Certificate (the general Import Export Code) is offered whenever any
+// import-eligible product type is selected, since it isn't product-specific.
+export function optionalExtraDocumentCodes(category: SellerTypeCategory, productTypes: string[] = []): string[] {
+  const applicableImportLicences = Array.from(
+    new Set(
+      productTypes
+        .map(importLicenceCodeForProductType)
+        .filter((code): code is string => code !== null)
+    )
+  );
+  const common = applicableImportLicences.length > 0
+    ? ["IEC_CERTIFICATE", ...applicableImportLicences]
+    : [];
   switch (category) {
     case "MANUFACTURER":
     case "DISTRIBUTOR":

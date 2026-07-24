@@ -85,45 +85,131 @@ const getMaxIssueDate = (): Date => {
   return maxDate;
 };
 
-// License Number validation function with dynamic license name
-const validateLicenseNumber = (value: string, licenseName: string): string | null => {
+// License number format category, per the regulatory format table (Drugs,
+// Supplements/Nutraceuticals FSSAI, Food & Infant FSSAI, Cosmetic, Medical
+// Devices). Supplements and Food/Infant share the same FSSAI 14-digit rule.
+type LicenseValidationCategory = "DRUG" | "FSSAI" | "COSMETIC" | "MEDICAL_DEVICE" | "OTHER";
+
+const getLicenseValidationCategory = (productName: string): LicenseValidationCategory => {
+  const name = productName.toLowerCase();
+  if (name.includes("drug")) return "DRUG";
+  if (name.includes("cosmetic")) return "COSMETIC";
+  if (name.includes("medical device")) return "MEDICAL_DEVICE";
+  if (name.includes("food") || name.includes("supplement") || name.includes("nutraceutical") || name.includes("nutrition")) return "FSSAI";
+  return "OTHER";
+};
+
+const LICENSE_MAX_LENGTH: Record<LicenseValidationCategory, number> = {
+  DRUG: 30,
+  FSSAI: 30,
+  COSMETIC: 30,
+  MEDICAL_DEVICE: 30,
+  OTHER: 30,
+};
+
+// License Number validation function, format rules keyed off product category
+const validateLicenseNumber = (value: string, licenseName: string, category: LicenseValidationCategory): string | null => {
   const cleaned = value.trim().toUpperCase();
-  
+
   if (!cleaned) {
     return `${licenseName} Number is required`;
   }
-  
-  if (cleaned.length < 8) {
-    return `${licenseName} Number must be at least 8 characters`;
+
+  switch (category) {
+    case "FSSAI": {
+      if (!/^\d+$/.test(cleaned)) {
+        return `${licenseName} Number must contain digits only`;
+      }
+      if (cleaned.length !== 14) {
+        return `${licenseName} Number must be exactly 14 digits`;
+      }
+      return null;
+    }
+    case "DRUG": {
+      if (cleaned.length < 10) {
+        return `${licenseName} Number must be at least 10 characters`;
+      }
+      if (cleaned.length > 30) {
+        return `${licenseName} Number cannot exceed 30 characters`;
+      }
+      if (!/^[A-Z0-9\/\-]+$/.test(cleaned)) {
+        return `${licenseName} Number can only contain letters, numbers, "/" and "-"`;
+      }
+      return null;
+    }
+    case "COSMETIC": {
+      if (cleaned.length < 10) {
+        return `${licenseName} Number must be at least 10 characters`;
+      }
+      if (cleaned.length > 30) {
+        return `${licenseName} Number cannot exceed 30 characters`;
+      }
+      if (!/^[A-Z0-9\-]+$/.test(cleaned)) {
+        return `${licenseName} Number can only contain letters, numbers and "-"`;
+      }
+      return null;
+    }
+    case "MEDICAL_DEVICE": {
+      if (cleaned.length < 10) {
+        return `${licenseName} Number must be at least 10 characters`;
+      }
+      if (cleaned.length > 30) {
+        return `${licenseName} Number cannot exceed 30 characters`;
+      }
+      if (!/^[A-Z0-9\/\-]+$/.test(cleaned)) {
+        return `${licenseName} Number can only contain letters, numbers, "/" and "-"`;
+      }
+      return null;
+    }
+    default: {
+      if (cleaned.length < 10) {
+        return `${licenseName} Number must be at least 10 characters`;
+      }
+      if (cleaned.length > 30) {
+        return `${licenseName} Number cannot exceed 30 characters`;
+      }
+
+      const patterns = [
+        /^[A-Z]{2}\/[A-Z]{3}\/\d{2}[A-Z]?-\d{3,10}$/,
+        /^[A-Z]{2}-[A-Z0-9]{2,4}-\d{4,10}$/,
+        /^[A-Z]{2}-\d{2,3}-\d{5,10}$/,
+        /^\d{2}[A-Z]?-\d{3,10}$/,
+        /^\d{2}\/\d{2}-\d{3,10}$/,
+        /^[A-Z]{2}\/\d{2}[A-Z]?-\d{3,10}$/,
+        /^[A-Z]{2}\/\d{2,3}\/\d{4,10}$/,
+        /^[A-Z]{2}[A-Z0-9]{2,4}\d{4,10}$/,
+      ];
+
+      const isValid = patterns.some(pattern => pattern.test(cleaned));
+
+      if (!isValid) {
+        return `Invalid ${licenseName} Number format`;
+      }
+      return null;
+    }
   }
-  
-  if (cleaned.length > 30) {
-    return `${licenseName} Number cannot exceed 30 characters`;
-  }
-  
-  const patterns = [
-    /^[A-Z]{2}\/[A-Z]{3}\/\d{2}[A-Z]?-\d{3,10}$/,
-    /^[A-Z]{2}-[A-Z0-9]{2,4}-\d{4,10}$/,
-    /^[A-Z]{2}-\d{2,3}-\d{5,10}$/,
-    /^\d{2}[A-Z]?-\d{3,10}$/,
-    /^\d{2}\/\d{2}-\d{3,10}$/,
-    /^[A-Z]{2}\/\d{2}[A-Z]?-\d{3,10}$/,
-    /^[A-Z]{2}\/\d{2,3}\/\d{4,10}$/,
-    /^[A-Z]{2}[A-Z0-9]{2,4}\d{4,10}$/,
-  ];
-  
-  const isValid = patterns.some(pattern => pattern.test(cleaned));
-  
-  if (!isValid) {
-    return `Invalid ${licenseName} Number format`;
-  }
-  
-  return null;
 };
 
-const formatLicenseNumber = (value: string): string => {
+// Import Licence agreement codes that carry a real regulatory license number
+// format (same rules as the mandatory per-product licenses above). Other
+// agreement codes (e.g. distributorship agreement number, IEC Certificate)
+// have no standardized format, so they stay free text.
+const AGREEMENT_LICENSE_CATEGORY: Record<string, LicenseValidationCategory> = {
+  DRUG_IMPORT_LICENCE: "DRUG",
+  FSSAI_IMPORT_LICENCE: "FSSAI",
+  COSMETIC_IMPORT_LICENCE: "COSMETIC",
+  MEDICAL_DEVICE_IMPORT_LICENCE: "MEDICAL_DEVICE",
+};
+
+const formatLicenseNumber = (value: string, category: LicenseValidationCategory): string => {
   let cleaned = value.toUpperCase();
-  cleaned = cleaned.replace(/[^A-Z0-9\/\-]/g, '');
+  if (category === "FSSAI") {
+    cleaned = cleaned.replace(/[^0-9]/g, '');
+  } else if (category === "COSMETIC") {
+    cleaned = cleaned.replace(/[^A-Z0-9\-]/g, '');
+  } else {
+    cleaned = cleaned.replace(/[^A-Z0-9\/\-]/g, '');
+  }
   return cleaned;
 };
 
@@ -191,6 +277,7 @@ export default function DocumentForm({
   const [licenseExistsErrors, setLicenseExistsErrors] = useState<Record<string, string>>({});
   const [checkingLicense, setCheckingLicense] = useState<Record<string, boolean>>({});
   const [dateErrors, setDateErrors] = useState<Record<string, string>>({});
+  const [agreementErrors, setAgreementErrors] = useState<Record<string, string>>({});
   const [warningState, setWarningState] = useState<{
     isOpen: boolean;
     licenseNumber: string;
@@ -224,7 +311,7 @@ export default function DocumentForm({
   // Documents a seller MAY attach but is never required to (Import Licences,
   // IEC Certificate, and type-specific optionals like Trademark Certificate
   // for Manufacturer/Distributor or Distribution Agreement for White Labeling).
-  const optionalDocumentCodes = optionalExtraDocumentCodes(sellerCategory);
+  const optionalDocumentCodes = optionalExtraDocumentCodes(sellerCategory, formData.productTypes);
 
   // Names the mandatory per-product-category licence per the requirement spec:
   // Manufacturer needs a *Manufacturing* Licence, everyone else needs a
@@ -256,13 +343,24 @@ export default function DocumentForm({
     return productName;
   };
 
+  const LICENSE_PLACEHOLDER: Record<LicenseValidationCategory, string> = {
+    DRUG: "e.g., KA-BLR-20B-123456",
+    FSSAI: "e.g., 11223344556677",
+    COSMETIC: "e.g., COS-KA-2026-12345",
+    MEDICAL_DEVICE: "e.g., MD-KA-2026-123456",
+    OTHER: "e.g., TN/CBE/20B-12345",
+  };
+
   const getLicenseInfo = (productName: string) => {
     const category = classifySellerType(formData.sellerType);
     const licenseName = getLicenseName(productName, category);
+    const validationCategory = getLicenseValidationCategory(productName);
 
     return {
       licenseName,
-      placeholder: `e.g., TN/CBE/20B-12345`,
+      validationCategory,
+      maxLength: LICENSE_MAX_LENGTH[validationCategory],
+      placeholder: LICENSE_PLACEHOLDER[validationCategory],
       numberLabel: `${licenseName} Number`,
       fileLabel: `${licenseName} Copy Upload`,
       issueDateLabel: `${licenseName} Issue Date`,
@@ -551,25 +649,25 @@ export default function DocumentForm({
 
   const handleLicenseNumberChangeWithValidation = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
     let value = e.target.value;
-    const cleanedValue = formatLicenseNumber(value);
-    
+    const licenseInfo = getLicenseInfo(productName);
+    const cleanedValue = formatLicenseNumber(value, licenseInfo.validationCategory);
+
     if (cleanedValue !== value) {
       return;
     }
-    
-    if (cleanedValue.length > 30) {
+
+    if (cleanedValue.length > licenseInfo.maxLength) {
       return;
     }
-    
+
     const syntheticEvent = {
       ...e,
       target: { ...e.target, name: `licenseNumber-${productName}`, value: cleanedValue }
     } as React.ChangeEvent<HTMLInputElement>;
-    
+
     onLicenseNumberChange(syntheticEvent);
-    
-    const licenseInfo = getLicenseInfo(productName);
-    const error = validateLicenseNumber(cleanedValue, licenseInfo.licenseName);
+
+    const error = validateLicenseNumber(cleanedValue, licenseInfo.licenseName, licenseInfo.validationCategory);
     
     // Clear existing errors first
     setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
@@ -601,13 +699,17 @@ export default function DocumentForm({
     }
   };
 
-  const handleLicenseKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentValue: string) => {
+  const handleLicenseKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentValue: string, category: LicenseValidationCategory) => {
     const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
     if (allowedKeys.includes(e.key)) {
       return;
     }
-    
-    const allowedChars = /^[A-Za-z0-9\/\-]$/;
+
+    const allowedChars = category === "FSSAI"
+      ? /^[0-9]$/
+      : category === "COSMETIC"
+        ? /^[A-Za-z0-9\-]$/
+        : /^[A-Za-z0-9\/\-]$/;
     if (!allowedChars.test(e.key)) {
       e.preventDefault();
     }
@@ -615,7 +717,7 @@ export default function DocumentForm({
 
   const handleLicenseNumberBlur = (value: string, productName: string) => {
     const licenseInfo = getLicenseInfo(productName);
-    const error = validateLicenseNumber(value, licenseInfo.licenseName);
+    const error = validateLicenseNumber(value, licenseInfo.licenseName, licenseInfo.validationCategory);
     setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
     
     if (value.length >= 8 && !error) {
@@ -684,6 +786,30 @@ export default function DocumentForm({
     } else {
       onIssuingAuthorityChange(e);
     }
+  };
+
+  const handleAgreementNumberChangeWithValidation = (code: string, value: string, label: string) => {
+    const category = AGREEMENT_LICENSE_CATEGORY[code];
+
+    if (!category) {
+      onAgreementNumberChange(code, value);
+      return;
+    }
+
+    const cleaned = formatLicenseNumber(value, category);
+    if (cleaned.length > LICENSE_MAX_LENGTH[category]) {
+      return;
+    }
+
+    onAgreementNumberChange(code, cleaned);
+
+    if (!cleaned) {
+      setAgreementErrors(prev => ({ ...prev, [code]: "" }));
+      return;
+    }
+
+    const error = validateLicenseNumber(cleaned, label, category);
+    setAgreementErrors(prev => ({ ...prev, [code]: error || "" }));
   };
 
   const handleGSTFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -808,6 +934,12 @@ export default function DocumentForm({
     
     if (gstExistsError) {
       toast.error("Please fix duplicate GST number before continuing.");
+      return;
+    }
+
+    const hasAgreementNumberErrors = Object.values(agreementErrors).some(error => error !== "");
+    if (hasAgreementNumberErrors) {
+      toast.error("Please fix invalid import licence numbers before continuing.");
       return;
     }
 
@@ -947,10 +1079,10 @@ export default function DocumentForm({
                       name={`licenseNumber-${productName}`}
                       value={licenseData.number}
                       onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
-                      onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number)}
+                      onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number, licenseInfo.validationCategory)}
                       onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
                       placeholder={licenseInfo.placeholder}
-                      maxLength={30}
+                      maxLength={licenseInfo.maxLength}
                       className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 uppercase ${
                         licenseError || licenseExistsError ? 'border-red-500' : 'border-neutral-500'
                       }`}
@@ -1288,6 +1420,8 @@ export default function DocumentForm({
             const agreementFileName = agreementData.file?.name || "";
             const isUploading = uploadingAgreements[code];
             const label = getAgreementLabel(code);
+            const licenseCategory = AGREEMENT_LICENSE_CATEGORY[code];
+            const agreementNumberError = agreementErrors[code];
 
             return (
               <div key={code} className="mb-4">
@@ -1301,11 +1435,20 @@ export default function DocumentForm({
                       type="text"
                       autoComplete="off"
                       value={agreementData.number}
-                      onChange={(e) => onAgreementNumberChange(code, e.target.value)}
-                      placeholder={`Enter ${label} number`}
-                      maxLength={30}
-                      className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
+                      onChange={(e) => handleAgreementNumberChangeWithValidation(code, e.target.value, label)}
+                      onKeyDown={licenseCategory ? (e) => handleLicenseKeyDown(e, agreementData.number, licenseCategory) : undefined}
+                      placeholder={licenseCategory ? LICENSE_PLACEHOLDER[licenseCategory] : `Enter ${label} number`}
+                      maxLength={licenseCategory ? LICENSE_MAX_LENGTH[licenseCategory] : 30}
+                      className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${
+                        licenseCategory ? 'uppercase' : ''
+                      } ${agreementNumberError ? 'border-red-500' : 'border-neutral-500'}`}
                     />
+                    {agreementNumberError && (
+                      <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                        <span className="mr-1">⚠️</span>
+                        <span>{agreementNumberError}</span>
+                      </p>
+                    )}
                   </div>
 
                   {/* DOCUMENT UPLOAD (required only if isRequired) */}
