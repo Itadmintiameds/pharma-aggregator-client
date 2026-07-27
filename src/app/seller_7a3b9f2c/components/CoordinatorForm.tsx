@@ -669,10 +669,21 @@ export default function CoordinatorForm({
               disabled={uploadingAuthLetter}
             />
 
-            <div className="flex items-center h-[52px] border border-neutral-500 rounded-xl overflow-hidden bg-white">
+            <div
+              tabIndex={uploadingAuthLetter ? -1 : 0}
+              role="button"
+              aria-label="Upload Authorization Letter"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  document.getElementById("authorization-letter-upload")?.click();
+                }
+              }}
+              className="flex items-center h-[52px] border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-800"
+              onClick={() => document.getElementById("authorization-letter-upload")?.click()}
+            >
               <div
                 className="w-13 h-full bg-secondary-800 flex items-center justify-center shrink-0"
-                onClick={() => document.getElementById("authorization-letter-upload")?.click()}
               >
                 <Image
                   src="/icons/upload.png"
@@ -684,8 +695,7 @@ export default function CoordinatorForm({
               </div>
 
               <div
-                className="flex-1 h-full bg-white flex items-center cursor-pointer px-3"
-                onClick={() => document.getElementById("authorization-letter-upload")?.click()}
+                className="flex-1 h-full bg-white flex items-center px-3"
               >
                 <div className="flex-1 flex items-center min-w-0">
                   {uploadingAuthLetter ? (

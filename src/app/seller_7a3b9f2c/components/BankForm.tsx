@@ -81,6 +81,27 @@ export default function BankForm({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openDropdown]);
 
+  // Custom dropdown divs have no native keyboard behavior. Enter/Space opens
+  // them like a real select; the closing setTimeout (not an immediate close)
+  // lets an option's onClick fire before the option list unmounts on blur,
+  // since Tab/mouse-click-away both blur the div before the option's click
+  // event would otherwise land on a removed node.
+  const handleDropdownKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, name: string, enabled = true) => {
+    if (!enabled) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpenDropdown(openDropdown === name ? null : name);
+    } else if (e.key === "Escape") {
+      setOpenDropdown(null);
+    }
+  };
+
+  const handleDropdownBlur = (name: string) => {
+    setTimeout(() => {
+      setOpenDropdown((current) => (current === name ? null : current));
+    }, 150);
+  };
+
   const getSelectedBankStateLabel = () => {
     const selected = states.find(s => s.stateId === formData.bankStateId);
     return selected?.stateName || "";
@@ -352,8 +373,14 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             <div className="relative" ref={bankStateDropdownRef}>
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
               <div
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center"
+                tabIndex={0}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'bankState'}
+                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
                 onClick={() => setOpenDropdown(openDropdown === 'bankState' ? null : 'bankState')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'bankState')}
+                onBlur={() => handleDropdownBlur('bankState')}
               >
                 <span className={!getSelectedBankStateLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates?.states
@@ -395,8 +422,14 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             <div className="relative" ref={bankDistrictDropdownRef}>
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
               <div
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center ${formData.bankStateId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                tabIndex={formData.bankStateId ? 0 : -1}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'bankDistrict'}
+                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800 ${formData.bankStateId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
                 onClick={() => formData.bankStateId && setOpenDropdown(openDropdown === 'bankDistrict' ? null : 'bankDistrict')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'bankDistrict', !!formData.bankStateId)}
+                onBlur={() => handleDropdownBlur('bankDistrict')}
               >
                 <span className={!getSelectedBankDistrictLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates?.bankDistricts
@@ -440,8 +473,14 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             <div className="relative" ref={bankTalukaDropdownRef}>
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
               <div
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center ${formData.bankDistrictId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                tabIndex={formData.bankDistrictId ? 0 : -1}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'bankTaluka'}
+                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800 ${formData.bankDistrictId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
                 onClick={() => formData.bankDistrictId && setOpenDropdown(openDropdown === 'bankTaluka' ? null : 'bankTaluka')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'bankTaluka', !!formData.bankDistrictId)}
+                onBlur={() => handleDropdownBlur('bankTaluka')}
               >
                 <span className={!getSelectedBankTalukaLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates?.bankTalukas
@@ -487,7 +526,16 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
           </label>
 
           <div
-            className="border-2 border-dashed border-primary-300 rounded-xl p-8 text-center bg-neutral-50 cursor-pointer transition-none"
+            tabIndex={uploading ? -1 : 0}
+            role="button"
+            aria-label="Upload cancelled Cheque / Passbook front page copy"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                document.getElementById('cheque-upload')?.click();
+              }
+            }}
+            className="border-2 border-dashed border-primary-300 rounded-xl p-8 text-center bg-neutral-50 cursor-pointer transition-none focus:outline-none focus:ring-2 focus:ring-primary-800"
             onClick={() => document.getElementById('cheque-upload')?.click()}
           >
             <input

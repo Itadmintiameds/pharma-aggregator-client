@@ -1125,7 +1125,16 @@ export default function DocumentForm({
                   />
 
                   <div
-                    className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer"
+                    tabIndex={isUploading ? -1 : 0}
+                    role="button"
+                    aria-label={`Upload ${licenseInfo.fileLabel}`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        document.getElementById(`license-upload-${productName}`)?.click();
+                      }
+                    }}
+                    className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-800"
                     onClick={() => document.getElementById(`license-upload-${productName}`)?.click()}
                   >
                     <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
@@ -1472,7 +1481,16 @@ export default function DocumentForm({
                     />
 
                     <div
-                      className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer"
+                      tabIndex={isUploading ? -1 : 0}
+                      role="button"
+                      aria-label={`Upload ${label} Document`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          document.getElementById(`agreement-upload-${code}`)?.click();
+                        }
+                      }}
+                      className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-800"
                       onClick={() => document.getElementById(`agreement-upload-${code}`)?.click()}
                     >
                       <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
@@ -1694,7 +1712,16 @@ export default function DocumentForm({
               />
 
               <div
-                className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer"
+                tabIndex={uploadingGST ? -1 : 0}
+                role="button"
+                aria-label="Upload GST Certificate"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    document.getElementById('gst-upload')?.click();
+                  }
+                }}
+                className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-800"
                 onClick={() => document.getElementById('gst-upload')?.click()}
               >
                 <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">

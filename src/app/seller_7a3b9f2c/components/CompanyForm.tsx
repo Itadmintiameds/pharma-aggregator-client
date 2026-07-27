@@ -275,6 +275,27 @@ export default function CompanyForm({
     return 15;
   };
 
+  // Custom dropdown divs have no native keyboard behavior. Enter/Space opens
+  // them like a real select; the closing setTimeout (not an immediate close)
+  // lets an option's onClick fire before the option list unmounts on blur,
+  // since Tab/mouse-click-away both blur the div before the option's click
+  // event would otherwise land on a removed node.
+  const handleDropdownKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, name: string, enabled = true) => {
+    if (!enabled) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpenDropdown(openDropdown === name ? null : name);
+    } else if (e.key === "Escape") {
+      setOpenDropdown(null);
+    }
+  };
+
+  const handleDropdownBlur = (name: string) => {
+    setTimeout(() => {
+      setOpenDropdown((current) => (current === name ? null : current));
+    }, 150);
+  };
+
   const getPlaceholder = () => {
     if (selectedCompanyCountryCode === "+91") return "Enter 10-digit mobile number";
     return "Enter phone number";
@@ -340,8 +361,14 @@ export default function CompanyForm({
                 className="absolute left-3 top-1/2 -translate-y-1/2 z-10"
               />
               <div
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center"
+                tabIndex={0}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'company'}
+                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
                 onClick={() => setOpenDropdown(openDropdown === 'company' ? null : 'company')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'company')}
+                onBlur={() => handleDropdownBlur('company')}
               >
                 <span className={!getSelectedCompanyLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.companyTypes
@@ -391,11 +418,22 @@ export default function CompanyForm({
     disabled={uploading}
   />
 
-  <div className="flex items-center h-[52px] border border-neutral-500 rounded-xl overflow-hidden bg-white">
+  <div
+    tabIndex={uploading ? -1 : 0}
+    role="button"
+    aria-label="Upload Company Type Certificate"
+    onKeyDown={(e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        document.getElementById("company-reg-upload")?.click();
+      }
+    }}
+    className="flex items-center h-[52px] border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-800"
+    onClick={() => document.getElementById("company-reg-upload")?.click()}
+  >
     {/* Upload Icon Box - with border on all sides */}
-    <div 
+    <div
       className="w-13 h-full bg-secondary-800 flex items-center justify-center shrink-0"
-      onClick={() => document.getElementById("company-reg-upload")?.click()}
     >
       <Image
         src="/icons/upload.png"
@@ -408,8 +446,7 @@ export default function CompanyForm({
 
     {/* Content Area - with border on top, right, bottom (no left border to avoid double border) */}
     <div
-      className="flex-1 h-full bg-white flex items-center cursor-pointer px-3"
-      onClick={() => document.getElementById("company-reg-upload")?.click()}
+      className="flex-1 h-full bg-white flex items-center px-3"
     >
       <div className="flex-1 flex items-center min-w-0">
         {uploading ? (
@@ -478,8 +515,14 @@ export default function CompanyForm({
                 className="absolute left-3 top-1/2 -translate-y-1/2 z-10"
               />
               <div
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center"
+                tabIndex={0}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'seller'}
+                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
                 onClick={() => setOpenDropdown(openDropdown === 'seller' ? null : 'seller')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'seller')}
+                onBlur={() => handleDropdownBlur('seller')}
               >
                 <span className={!getSelectedSellerLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.sellerTypes
@@ -613,8 +656,21 @@ export default function CompanyForm({
                 className="absolute left-3 top-1/2 -translate-y-1/2 z-10"
               />
               <div
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center"
+                tabIndex={0}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={isProductDropdownOpen}
+                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
                 onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setIsProductDropdownOpen(!isProductDropdownOpen);
+                  } else if (e.key === "Escape") {
+                    setIsProductDropdownOpen(false);
+                  }
+                }}
+                onBlur={() => setTimeout(() => setIsProductDropdownOpen(false), 150)}
               >
                 <span className={formData.productTypes.length === 0 ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.productTypes
@@ -682,8 +738,14 @@ export default function CompanyForm({
             <div className="relative" ref={stateDropdownRef}>
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
               <div
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center"
+                tabIndex={0}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'state'}
+                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
                 onClick={() => setOpenDropdown(openDropdown === 'state' ? null : 'state')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'state')}
+                onBlur={() => handleDropdownBlur('state')}
               >
                 <span className={!getSelectedStateLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.states
@@ -725,8 +787,14 @@ export default function CompanyForm({
             <div className="relative" ref={districtDropdownRef}>
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
               <div
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center ${formData.stateId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                tabIndex={formData.stateId ? 0 : -1}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'district'}
+                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800 ${formData.stateId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
                 onClick={() => formData.stateId && setOpenDropdown(openDropdown === 'district' ? null : 'district')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'district', !!formData.stateId)}
+                onBlur={() => handleDropdownBlur('district')}
               >
                 <span className={!getSelectedDistrictLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.districts
@@ -769,8 +837,14 @@ export default function CompanyForm({
             <div className="relative" ref={talukaDropdownRef}>
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
               <div
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center ${formData.districtId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                tabIndex={formData.districtId ? 0 : -1}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'taluka'}
+                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800 ${formData.districtId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
                 onClick={() => formData.districtId && setOpenDropdown(openDropdown === 'taluka' ? null : 'taluka')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'taluka', !!formData.districtId)}
+                onBlur={() => handleDropdownBlur('taluka')}
               >
                 <span className={!getSelectedTalukaLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.talukas
