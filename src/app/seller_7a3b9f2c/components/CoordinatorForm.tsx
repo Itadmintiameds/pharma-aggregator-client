@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Briefcase, Phone, Mail, ChevronDown } from "lucide-react";
 import VerificationModal from "./OtpModalSixBox";
 import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
+import { sellerAuthService } from "@/src/services/seller/authService";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
@@ -90,6 +91,22 @@ export default function CoordinatorForm({
   const [phoneError, setPhoneError] = useState("");
   const [emailError, setEmailError] = useState("");
   const phoneDropdownRef = useRef<HTMLDivElement>(null);
+
+  // "Same as my login email" checkbox — the seller already verified this
+  // email via OTP during signup, so re-verifying it here is redundant.
+  const [sameAsLoginEmail, setSameAsLoginEmail] = useState(false);
+  const loginEmail = sellerAuthService.getCurrentUser()?.username || "";
+
+  const handleSameAsLoginToggle = (checked: boolean) => {
+    setSameAsLoginEmail(checked);
+    setEmailError("");
+    if (checked) {
+      onEmailChange(loginEmail);
+      onEmailVerified();
+    } else {
+      onEmailChange("");
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -608,6 +625,24 @@ export default function CoordinatorForm({
               Coordinator Email ID
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
+
+            {loginEmail && (
+              <div className="flex items-center gap-2 mb-1">
+                <input
+                  type="checkbox"
+                  id="same-as-login-email"
+                  checked={sameAsLoginEmail}
+                  onChange={(e) => handleSameAsLoginToggle(e.target.checked)}
+                  className="w-4 h-4 rounded border-neutral-400 accent-primary-800"
+                />
+                <label
+                  htmlFor="same-as-login-email"
+                  className="text-p3 font-body text-pneutral-700 cursor-pointer"
+                >
+                  Same as my login email ({loginEmail})
+                </label>
+              </div>
+            )}
 
             <div className="flex gap-3 items-start">
               <div className="relative flex-1">

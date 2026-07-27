@@ -16,11 +16,16 @@ import {
   type ResetPasswordFormData 
 } from "@/src/schema/seller/loginSchema";
 import { sellerAuthService } from "@/src/services/seller/authService";
+import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
 import { User, AuthStep } from "@/src/types/seller/authData";
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
+  // Optional override: when provided, a successful login calls this instead
+  // of redirecting to the role dashboard (e.g. so the registration wizard
+  // can stay on the current page and just unlock once the user is logged in).
+  onLoginSuccess?: () => void;
 }
 
 // Carousel slides data
@@ -81,7 +86,7 @@ const carouselSlides = [
   }
 ];
 
-const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
+const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -464,14 +469,33 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
       
       // Clear stored credentials after successful verification
       clearCredentials();
-      
+
       toast.success("Login successful!");
+      window.dispatchEvent(new Event('auth-changed'));
+
+      if (onLoginSuccess) {
+        onLoginSuccess();
+        onClose();
+        setIsLoading(false);
+        return;
+      }
+
       setIsNavigating(true);
-      
+
       // Navigate based on role
       let dashboardPath = "";
       if (role === "seller") {
-        dashboardPath = "/seller_7a3b9f2c/dashboard";
+        // A seller login doesn't necessarily mean registration was completed —
+        // they may have only just signed up, or have a TempSeller still
+        // pending approval. Only send them to the dashboard if an approved
+        // Seller profile actually exists; otherwise send them back into the
+        // registration wizard to finish/continue it.
+        try {
+          await sellerProfileService.getCurrentSellerProfile();
+          dashboardPath = "/seller_7a3b9f2c/dashboard";
+        } catch {
+          dashboardPath = "/seller_7a3b9f2c";
+        }
         router.push(dashboardPath);
       } else if (role === "buyer") {
         dashboardPath = "/buyer_e8d45a1b";

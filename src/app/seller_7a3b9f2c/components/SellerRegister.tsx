@@ -12,10 +12,13 @@ import DocumentForm from "./DocumentForm";
 import BankForm from "./BankForm";
 import ReviewForm from "./ReviewForm";
 import SuccessModal from "./SuccessModal";
+import SignupForm from "./SignupForm";
+import LoginModals from "@/src/app/modals/LoginModals/LoginModals";
 import { uploadSellerRegDocService } from "@/src/services/seller/UploadSellerRegDoc";
 import SellerRegistrationLayout from "./SellerRegistrationLayout"
 import { sellerRegMasterService } from "@/src/services/seller/SellerRegMasterService"
 import { sellerRegService } from "@/src/services/seller/sellerRegistrationService"
+import { sellerAuthService } from "@/src/services/seller/authService"
 import { fetchBankDetails } from "@/src/services/seller/IFSCService"
 import { ifscSchema } from "@/src/schema/seller/IFSCSchema"
 import { step1Schema, step2Schema, step3Schema, step4Schema } from "@/src/schema/seller/sellerRegSchema"
@@ -24,6 +27,9 @@ import { TempSellerRequest, TempSellerDocument, TempSellerBankDetails, TempSelle
 
 export default function SellerRegistration() {
   const router = useRouter()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
   const [step, setStep] = useState(1)
   const [emailVerified, setEmailVerified] = useState(false)
   const [phoneVerified, setPhoneVerified] = useState(false)
@@ -140,6 +146,13 @@ export default function SellerRegistration() {
     confirmAccountNumber: "",
     cancelledChequeFile: null as File | null,
   })
+
+  // Registration now requires a login (created via the signup-first flow) —
+  // check once on mount so returning users skip straight to the wizard.
+  useEffect(() => {
+    setIsAuthenticated(sellerAuthService.isAuthenticated())
+    setAuthChecked(true)
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -1185,6 +1198,23 @@ export default function SellerRegistration() {
       case 'documents': setStep(3); break
       case 'bank': setStep(4); break
     }
+  }
+
+  if (!authChecked) {
+    return null
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 py-12 px-4">
+        <SignupForm onOpenLogin={() => setShowLoginModal(true)} />
+        <LoginModals
+          isOpen={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+          onLoginSuccess={() => setIsAuthenticated(true)}
+        />
+      </div>
+    )
   }
 
   return (

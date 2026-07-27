@@ -10,6 +10,10 @@ interface Props {
   onClose: () => void;
   onVerified: () => void;
   onResend: () => Promise<void>;
+  // Optional override for the verify call — defaults to the temp-seller
+  // registration email/SMS OTP endpoints below. Pass this to reuse the modal
+  // for other OTP flows (e.g. signup) without forking the component.
+  onVerify?: (otp: string) => Promise<void>;
 }
 
 export default function VerificationModal({
@@ -19,6 +23,7 @@ export default function VerificationModal({
   onVerified,
   type,
   onResend,
+  onVerify,
 }: Props) {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -108,17 +113,17 @@ export default function VerificationModal({
     setError("");
 
     try {
-      let response: any;
-
-      if (type === "email") {
-        response = await sellerRegService.verifyEmailOtp({
+      if (onVerify) {
+        await onVerify(enteredOtp);
+      } else if (type === "email") {
+        await sellerRegService.verifyEmailOtp({
           email: label,
           otp: enteredOtp,
         });
       } else {
         const phoneWithPrefix = formatPhone(label);
 
-        response = await sellerRegService.verifySMSOtp({
+        await sellerRegService.verifySMSOtp({
           phone: phoneWithPrefix,
           otp: enteredOtp,
         });

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { sellerAuthService } from "@/src/services/seller/authService";
 import {
   FaUserPlus,
   FaBox,
@@ -25,6 +26,15 @@ const SellerJourney = () => {
   const [showProductOnboarding, setShowProductOnboarding] = useState(false);
   const [showDeclaration, setShowDeclaration] = useState(false);
   const [showProductList, setShowProductList] = useState(false);
+
+  // A logged-in seller landing on /seller_7a3b9f2c (e.g. redirected here
+  // after login because they haven't completed registration yet) should go
+  // straight into the wizard, not the marketing splash page.
+  useEffect(() => {
+    if (sellerAuthService.isAuthenticated()) {
+      setShowRegister(true);
+    }
+  }, []);
 
   const handleSellerLogin = () => {
     alert(
@@ -119,7 +129,7 @@ const SellerJourney = () => {
 
   if (showRegister) {
     return (
-      <div className="min-h-screen bg-primary-100 pt-4">
+      <div className="min-h-screen bg-primary-100 pt-20">
         <SellerRegister />
       </div>
     );

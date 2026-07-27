@@ -1,15 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import Button from "@/src/app/commonComponents/Button";
-import { FiMenu, FiX } from "react-icons/fi";
+import { FiMenu, FiX, FiLogOut } from "react-icons/fi";
+import { sellerAuthService } from "@/src/services/seller/authService";
 
 
 
 const Header = () => {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(sellerAuthService.isAuthenticated());
+  }, []);
+
+  useEffect(() => {
+    // Login/logout can happen without a page navigation (e.g. logging in
+    // from within the registration wizard), so listen for the auth-changed
+    // event instead of only checking once on mount.
+    const handleAuthChanged = () => setIsLoggedIn(sellerAuthService.isAuthenticated());
+    window.addEventListener('auth-changed', handleAuthChanged);
+    return () => window.removeEventListener('auth-changed', handleAuthChanged);
+  }, []);
+
+  const handleLogout = async () => {
+    await sellerAuthService.logout();
+    setMenuOpen(false);
+    router.push("/");
+  };
 
   return (
     <>
@@ -56,6 +79,16 @@ const Header = () => {
                   className="w-23.75"
                 />
               ))}
+
+              {isLoggedIn && (
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full text-p3 font-body font-semibold text-primary-800 hover:bg-primary-50 transition-colors"
+                >
+                  <FiLogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              )}
 
             </div>
 
@@ -134,6 +167,16 @@ const Header = () => {
               className="w-full justify-start"
             />
           ))}
+
+          {isLoggedIn && (
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-2 px-4 py-2 rounded-full text-p3 font-body font-semibold text-primary-800 hover:bg-primary-50 transition-colors"
+            >
+              <FiLogOut className="w-4 h-4" />
+              Logout
+            </button>
+          )}
 
         </div>
       </div>

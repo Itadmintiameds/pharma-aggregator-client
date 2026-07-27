@@ -77,6 +77,7 @@ class SellerAuthService {
   private readonly authBaseUrl = '/authentication';
   private readonly passwordBaseUrl = '/auth';
   private readonly otpBaseUrl = '/temp-seller/email-otp';
+  private readonly signupBaseUrl = '/auth/signup';
   
   // For preventing multiple refresh attempts
   private isRefreshing = false;
@@ -417,6 +418,68 @@ class SellerAuthService {
     }
   }
 
+  // ========== SIGNUP (standalone "signup first" flow) ==========
+
+  /**
+   * STEP 1: Signup - email + password, sends OTP to verify the email
+   */
+  async sendSignupOtp(data: { email: string; password: string }): Promise<OtpSentResponse> {
+    try {
+      const response = await api.post<LoginApiResponse>(this.signupBaseUrl, data);
+      const responseData = response.data;
+
+      if (responseData.status === "SUCCESS" && responseData.data) {
+        return responseData.data;
+      }
+      throw new Error(responseData.message || "Signup failed");
+    } catch (error: any) {
+      console.error("❌ Signup send-OTP error:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      // Backend wraps every response (including error bodies) in a generic
+      // {status:"SUCCESS", message:"Request processed successfully", data:{...}}
+      // envelope regardless of HTTP status — the real message is one level
+      // deeper, inside data.message (or data.data.message for exceptions
+      // handled by GlobalExceptionHandler).
+      const msg =
+        error?.response?.data?.data?.message ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to send OTP. Please try again.";
+      throw new Error(msg);
+    }
+  }
+
+  /**
+   * STEP 2: Verify signup OTP - creates the account. No tokens are issued —
+   * the user must log in explicitly afterward via login().
+   */
+  async verifySignupOtp(data: { email: string; otp: string }): Promise<OtpSentResponse> {
+    try {
+      const response = await api.post<LoginApiResponse>(`${this.signupBaseUrl}/verify-otp`, data);
+      const responseData = response.data;
+
+      if (responseData.status === "SUCCESS" && responseData.data) {
+        return responseData.data;
+      }
+      throw new Error(responseData.message || "OTP verification failed");
+    } catch (error: any) {
+      console.error("❌ Signup verify-OTP error:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      const msg =
+        error?.response?.data?.data?.message ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "OTP verification failed. Please try again.";
+      throw new Error(msg);
+    }
+  }
+
   // Add refresh method
   async refreshTokens(): Promise<{ accessToken: string; refreshToken: string }> {
     const refreshToken = localStorage.getItem('refreshToken');
@@ -534,6 +597,10 @@ class SellerAuthService {
       user: afterUser ? "Still Present!" : "Removed ✅",
       cookie: afterCookie ? "Still Present!" : "Removed ✅"
     });
+
+    // Let components that only check auth state on mount (e.g. Header) know
+    // it changed, without requiring a full page navigation/reload.
+    window.dispatchEvent(new Event('auth-changed'));
   }
 
   // ========== SESSION VALIDATION ==========
