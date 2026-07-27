@@ -59,7 +59,7 @@ const Home = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <LandingHeader onLoginClick={() => setIsLoginOpen(true)} />
+      <LandingHeader />
 
       {/* Main Content */}
       <main className="pt-38">

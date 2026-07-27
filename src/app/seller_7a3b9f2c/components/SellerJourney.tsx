@@ -20,12 +20,14 @@ import SellerRegister from "./SellerRegister";
 import ProductOnboarding from "./ProductOnboarding";
 import SellerDeclaration from "./SellerDeclaration";
 import DrugProductList from "./DrugProductList";
+import LoginModals from "@/src/app/modals/LoginModals/LoginModals";
 
 const SellerJourney = () => {
   const [showRegister, setShowRegister] = useState(false);
   const [showProductOnboarding, setShowProductOnboarding] = useState(false);
   const [showDeclaration, setShowDeclaration] = useState(false);
   const [showProductList, setShowProductList] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // A logged-in seller landing on /seller_7a3b9f2c (e.g. redirected here
   // after login because they haven't completed registration yet) should go
@@ -37,9 +39,7 @@ const SellerJourney = () => {
   }, []);
 
   const handleSellerLogin = () => {
-    alert(
-      "Seller login is currently under maintenance. Please try again later.",
-    );
+    setShowLoginModal(true);
   };
 
   const handleAcceptDeclaration = () => {
@@ -144,6 +144,12 @@ const SellerJourney = () => {
           onClose={handleCloseDeclaration}
         />
       )}
+
+      {/* Login Modal */}
+      <LoginModals
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+      />
 
       <div className="relative py-12 lg:py-14 mt-16">
         {/* Why Choose TiaMeds with CTA Buttons */}

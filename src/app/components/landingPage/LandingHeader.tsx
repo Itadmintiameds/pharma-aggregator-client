@@ -5,11 +5,7 @@ import Image from "next/image";
 import { Search } from "lucide-react";
 import Button from "@/src/app/commonComponents/Button";
 
-interface LandingHeaderProps {
-    onLoginClick?: () => void;
-}
-
-const LandingHeader = ({ onLoginClick }: LandingHeaderProps) => {
+const LandingHeader = () => {
     return (
         <header className="w-full bg-base-white fixed top-0 left-0 z-50">
 
@@ -69,7 +65,7 @@ const LandingHeader = ({ onLoginClick }: LandingHeaderProps) => {
                     </div>
 
                     {/* Right Actions */}
-                    <div className="w-[514px] h-12 flex items-center gap-4">
+                    <div className="h-12 flex items-center gap-2">
 
                         <Link href="/buyer_e8d45a1b">
                             <Button
@@ -89,22 +85,6 @@ const LandingHeader = ({ onLoginClick }: LandingHeaderProps) => {
                                 className="w-[155px]"
                             />
                         </Link>
-
-                        <Button
-                            variant="filled"
-                            size="md"
-                            shape="round"
-                            label="Login"
-                            icon={<Image
-                                src="/icons/user1.svg"
-                                alt="User"
-                                width={20}
-                                height={20}
-                            />}
-                            iconPosition="left"
-                            className="w-[102px]"
-                            onClick={onLoginClick}
-                        />
 
                         <Link href="/admin_f6c29e3d">
                             <Button
