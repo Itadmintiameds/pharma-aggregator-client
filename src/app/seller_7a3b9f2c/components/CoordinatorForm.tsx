@@ -584,21 +584,19 @@ export default function CoordinatorForm({
                   placeholder={getPlaceholder()}
                   maxLength={getMaxLength()}
                   disabled={phoneVerified}
-                  className={`flex-1 h-13 px-4 rounded-r-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${
-                    phoneError ? 'border-neutral-500' : 'border-neutral-500'
-                  }`}
+                  className={`flex-1 h-13 px-4 rounded-r-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${phoneError ? 'border-neutral-500' : 'border-neutral-500'
+                    }`}
                 />
 
                 <button
                   onClick={handleSendPhoneOTP}
                   disabled={!!phoneError || !formData.coordinatorMobile || phoneVerified}
-                  className={`h-11 px-4 rounded-xl text-white font-semibold ml-3 transition-none ${
-                    phoneVerified
+                  className={`h-11 px-4 rounded-xl text-white font-semibold ml-3 transition-none ${phoneVerified
                       ? 'bg-primary-800 cursor-not-allowed '
                       : phoneError || !formData.coordinatorMobile
                         ? 'bg-primary-800 cursor-not-allowed '
                         : 'bg-primary-800'
-                  }`}
+                    }`}
                 >
                   {phoneVerified ? " Verified" : "Send OTP"}
                 </button>
@@ -626,6 +624,35 @@ export default function CoordinatorForm({
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
 
+
+            <div className="flex gap-3 items-start">
+              <div className="relative flex-1">
+                {/* <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" /> */}
+                <input
+                  type="email"
+                  autoComplete="new-password"
+                  value={formData.coordinatorEmail}
+                  onChange={handleEmailChange}
+                  placeholder="Enter email"
+                  disabled={emailVerified}
+                  className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${emailError ? 'border-neutral-500' : 'border-neutral-500'
+                    }`}
+                />
+              </div>
+
+              <button
+                onClick={handleSendEmailOTP}
+                disabled={!formData.coordinatorEmail || !!emailError || emailVerified}
+                className={`h-11 px-4 rounded-xl text-white font-semibold transition-none ${emailVerified
+                    ? 'bg-primary-800 cursor-not-allowed'
+                    : !formData.coordinatorEmail || !!emailError
+                      ? 'bg-primary-800 cursor-not-allowed'
+                      : 'bg-primary-800'
+                  }`}
+              >
+                {emailVerified ? "Verified" : "Send OTP"}
+              </button>
+            </div>
             {loginEmail && (
               <div className="flex items-center gap-2 mb-1">
                 <input
@@ -643,37 +670,6 @@ export default function CoordinatorForm({
                 </label>
               </div>
             )}
-
-            <div className="flex gap-3 items-start">
-              <div className="relative flex-1">
-                {/* <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" /> */}
-                <input
-                  type="email"
-                  autoComplete="new-password"
-                  value={formData.coordinatorEmail}
-                  onChange={handleEmailChange}
-                  placeholder="Enter email"
-                  disabled={emailVerified}
-                  className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${
-                    emailError ? 'border-neutral-500' : 'border-neutral-500'
-                  }`}
-                />
-              </div>
-
-              <button
-                onClick={handleSendEmailOTP}
-                disabled={!formData.coordinatorEmail || !!emailError || emailVerified}
-                className={`h-11 px-4 rounded-xl text-white font-semibold transition-none ${
-                  emailVerified
-                    ? 'bg-primary-800 cursor-not-allowed'
-                    : !formData.coordinatorEmail || !!emailError
-                      ? 'bg-primary-800 cursor-not-allowed'
-                      : 'bg-primary-800'
-                }`}
-              >
-                {emailVerified ? "Verified" : "Send OTP"}
-              </button>
-            </div>
 
             {emailError && (
               <p className="text-p2 font-body font-regular text-red-500 mt-1">

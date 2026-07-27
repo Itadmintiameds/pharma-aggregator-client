@@ -370,33 +370,41 @@ export default function SellerRegistration() {
     setFormData(prev => ({ ...prev, gstNumber: value }))
   }
 
-  // IFSC handler with auto-fill
+  // Clears the bank name/branch/location fields and the bank State/District/
+  // Taluka dropdown selections — shared by every "IFSC lookup didn't work" path.
+  const clearBankLookupFields = () => {
+    setFormData(prev => ({
+      ...prev,
+      bankName: "",
+      branch: "",
+      bankState: "",
+      bankDistrict: "",
+      bankTaluka: "",
+      bankStateId: 0,
+      bankDistrictId: 0,
+      bankTalukaId: 0,
+    }))
+    setBankDistricts([])
+    setBankTalukas([])
+  }
+
+  // IFSC handler with auto-fill — also drives the bank State/District/Taluka
+  // dropdowns by matching the IFSC lookup's STATE/DISTRICT/CITY strings against
+  // the master-data lists, so the user isn't asked to re-pick what IFSC already told us.
   const handleIfscChange = async (value: string) => {
     const ifsc = value.toUpperCase()
     setFormData(prev => ({ ...prev, ifscCode: ifsc }))
     setIfscError("")
 
     if (ifsc.length !== 11) {
-      setFormData(prev => ({
-        ...prev,
-        bankName: "",
-        branch: "",
-        bankState: "",
-        bankDistrict: "",
-      }))
+      clearBankLookupFields()
       return
     }
 
     const parseResult = ifscSchema.safeParse(ifsc)
     if (!parseResult.success) {
       setIfscError(parseResult.error.issues[0].message)
-      setFormData(prev => ({
-        ...prev,
-        bankName: "",
-        branch: "",
-        bankState: "",
-        bankDistrict: "",
-      }))
+      clearBankLookupFields()
       toast.error(parseResult.error.issues[0].message)
       return
     }
@@ -410,15 +418,72 @@ export default function SellerRegistration() {
         bankState: data.STATE || "",
         bankDistrict: data.DISTRICT || data.CITY || "",
       }))
-    } catch {
-      setIfscError("Invalid IFSC Code")
+
+      const matchedState = states.find(
+        s => s.stateName.trim().toLowerCase() === (data.STATE || "").trim().toLowerCase()
+      )
+
+      if (!matchedState) {
+        setFormData(prev => ({ ...prev, bankStateId: 0, bankDistrictId: 0, bankTalukaId: 0 }))
+        setBankDistricts([])
+        setBankTalukas([])
+        return
+      }
+
       setFormData(prev => ({
         ...prev,
-        bankName: "",
-        branch: "",
-        bankState: "",
-        bankDistrict: "",
+        bankStateId: matchedState.stateId,
+        bankDistrictId: 0,
+        bankTalukaId: 0,
       }))
+      setBankTalukas([])
+
+      setLoadingStates(prev => ({ ...prev, bankDistricts: true }))
+      let districtList: DistrictResponse[] = []
+      try {
+        const districtsData = await sellerRegMasterService.getDistrictsByStateId(matchedState.stateId)
+        districtList = Array.isArray(districtsData) ? districtsData : []
+        setBankDistricts(districtList)
+      } catch (error) {
+        console.error("Error fetching bank districts:", error)
+        setBankDistricts([])
+      } finally {
+        setLoadingStates(prev => ({ ...prev, bankDistricts: false }))
+      }
+
+      const districtName = (data.DISTRICT || data.CITY || "").trim().toLowerCase()
+      const matchedDistrict = districtList.find(
+        d => d.districtName.trim().toLowerCase() === districtName
+      )
+
+      if (!matchedDistrict) return
+
+      setFormData(prev => ({ ...prev, bankDistrictId: matchedDistrict.districtId, bankTalukaId: 0 }))
+
+      setLoadingStates(prev => ({ ...prev, bankTalukas: true }))
+      let talukaList: TalukaResponse[] = []
+      try {
+        const talukasData = await sellerRegMasterService.getTalukasByDistrictId(matchedDistrict.districtId)
+        talukaList = Array.isArray(talukasData) ? talukasData : []
+        setBankTalukas(talukaList)
+      } catch (error) {
+        console.error("Error fetching bank talukas:", error)
+        setBankTalukas([])
+      } finally {
+        setLoadingStates(prev => ({ ...prev, bankTalukas: false }))
+      }
+
+      const cityName = (data.CITY || "").trim().toLowerCase()
+      const matchedTaluka = cityName
+        ? talukaList.find(t => t.talukaName.trim().toLowerCase() === cityName)
+        : undefined
+
+      if (matchedTaluka) {
+        setFormData(prev => ({ ...prev, bankTalukaId: matchedTaluka.talukaId }))
+      }
+    } catch {
+      setIfscError("Invalid IFSC Code")
+      clearBankLookupFields()
       toast.error("Invalid IFSC Code")
     }
   }
