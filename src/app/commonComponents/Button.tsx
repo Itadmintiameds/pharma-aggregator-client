@@ -76,7 +76,7 @@ const Button: React.FC<ButtonProps> = ({
       disabled: "bg-neutral-200 text-neutral-700",
     },
     outline: {
-      default: "border-2 border-primary-900 text-primary-900 bg-transparent hover:bg-primary-900 hover:text-white active:border-primary-800 active:text-primary-800 focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2",
+      default: "border-2 border-primary-900 text-primary-900 bg-transparent hover:bg-primary-900 hover:text-white active:bg-primary-800 active:text-white focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2",
       disabled: "border-neutral-200 text-neutral-700 bg-transparent",
     },
     tonal: {
