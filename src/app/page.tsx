@@ -6,5 +6,6 @@ export default function Page() {
     <Suspense fallback={<div>Loading...</div>}>
       <Home />
     </Suspense>
+    // marketplace
   );
 }
