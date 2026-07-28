@@ -25,7 +25,7 @@ interface LoginModalProps {
   // Optional override: when provided, a successful login calls this instead
   // of redirecting to the role dashboard (e.g. so the registration wizard
   // can stay on the current page and just unlock once the user is logged in).
-  onLoginSuccess?: () => void;
+  onLoginSuccess?: () => void | Promise<void>;
 }
 
 // Carousel slides data
@@ -474,8 +474,15 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
       window.dispatchEvent(new Event('auth-changed'));
 
       if (onLoginSuccess) {
-        onLoginSuccess();
+        // Keep the modal (with its spinner) up until the caller's async
+        // work — e.g. checking whether a seller profile already exists —
+        // finishes. Closing immediately here exposed whatever page sits
+        // behind the modal (e.g. the signup form) for a moment before that
+        // check redirected away.
+        setIsNavigating(true);
+        await onLoginSuccess();
         onClose();
+        setIsNavigating(false);
         setIsLoading(false);
         return;
       }
@@ -493,8 +500,21 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
         try {
           await sellerProfileService.getCurrentSellerProfile();
           dashboardPath = "/seller_7a3b9f2c/dashboard";
-        } catch {
-          dashboardPath = "/seller_7a3b9f2c";
+        } catch (profileError: any) {
+          // Only "no profile yet" (404 → "Seller profile not found") means the
+          // seller genuinely hasn't completed/been approved for registration.
+          // Any other failure (network blip, 500, timeout) is not proof of
+          // that, so don't silently dump an approved seller back into the
+          // registration wizard for it — surface the error and stop instead.
+          if (profileError?.message === "Seller profile not found") {
+            dashboardPath = "/seller_7a3b9f2c";
+          } else {
+            console.error("❌ Failed to verify seller profile status:", profileError);
+            toast.error("Unable to verify your account status. Please try logging in again.");
+            setIsNavigating(false);
+            setIsLoading(false);
+            return;
+          }
         }
         router.push(dashboardPath);
       } else if (role === "buyer") {

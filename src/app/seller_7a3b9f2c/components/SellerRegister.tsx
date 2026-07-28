@@ -19,6 +19,7 @@ import SellerRegistrationLayout from "./SellerRegistrationLayout"
 import { sellerRegMasterService } from "@/src/services/seller/SellerRegMasterService"
 import { sellerRegService } from "@/src/services/seller/sellerRegistrationService"
 import { sellerAuthService } from "@/src/services/seller/authService"
+import { sellerProfileService } from "@/src/services/seller/sellerProfileService"
 import { fetchBankDetails } from "@/src/services/seller/IFSCService"
 import { ifscSchema } from "@/src/schema/seller/IFSCSchema"
 import { step1Schema, step2Schema, step3Schema, step4Schema } from "@/src/schema/seller/sellerRegSchema"
@@ -1256,6 +1257,23 @@ export default function SellerRegistration() {
       setSubmitting(false);
     }
   };
+  // Logging in from the "Already have an account?" link doesn't mean the
+  // wizard should just unlock at step 1 — an existing seller with an
+  // approved profile should land on the dashboard, not Company Details.
+  const handleLoginSuccess = async () => {
+    try {
+      await sellerProfileService.getCurrentSellerProfile()
+      router.push("/seller_7a3b9f2c/dashboard")
+    } catch (error: any) {
+      if (error?.message === "Seller profile not found") {
+        setIsAuthenticated(true)
+      } else {
+        console.error("Error checking seller profile after login:", error)
+        toast.error("Unable to verify your account status. Please try logging in again.")
+      }
+    }
+  }
+
   const handleEdit = (section: string) => {
     switch (section) {
       case 'company': setStep(1); break
@@ -1276,7 +1294,7 @@ export default function SellerRegistration() {
         <LoginModals
           isOpen={showLoginModal}
           onClose={() => setShowLoginModal(false)}
-          onLoginSuccess={() => setIsAuthenticated(true)}
+          onLoginSuccess={handleLoginSuccess}
         />
       </div>
     )
