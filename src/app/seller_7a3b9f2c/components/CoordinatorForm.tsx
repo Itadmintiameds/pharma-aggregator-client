@@ -91,6 +91,7 @@ export default function CoordinatorForm({
   const [phoneError, setPhoneError] = useState("");
   const [emailError, setEmailError] = useState("");
   const phoneDropdownRef = useRef<HTMLDivElement>(null);
+    const [isSendingEmailOTP, setIsSendingEmailOTP] = useState(false);
 
   // "Same as my login email" checkbox — the seller already verified this
   // email via OTP during signup, so re-verifying it here is redundant.
@@ -277,6 +278,11 @@ export default function CoordinatorForm({
   };
 
   const handleSendEmailOTP = async () => {
+
+      if (isSendingEmailOTP) {
+        return;
+      }
+
     if (!formData.coordinatorEmail) {
       toast.error("Please enter email address");
       return;
@@ -297,6 +303,7 @@ export default function CoordinatorForm({
       toast.info("Please wait while checking email");
       return;
     }
+    setIsSendingEmailOTP(true);
 
     try {
       await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
@@ -306,6 +313,7 @@ export default function CoordinatorForm({
     } catch (error: any) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Failed to send email OTP");
+      setIsSendingEmailOTP(false);
     }
   };
 
