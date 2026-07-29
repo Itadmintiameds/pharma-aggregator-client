@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import Button from "@/src/app/commonComponents/Button";
 import { FiMenu, FiX, FiLogOut } from "react-icons/fi";
 import { sellerAuthService } from "@/src/services/seller/authService";
 
@@ -58,26 +57,20 @@ const Header = () => {
             </Link>
 
             {/* ================= DESKTOP NAVIGATION ================= */}
-            <div className="hidden lg:flex items-center gap-4">
+            <div className="hidden lg:flex items-center gap-6">
 
-              {[1, 2, 3, 4].map((item) => (
-                <Button
-                  key={item}
-                  variant="text"
-                  size="sm"
-                  shape="round"
-                  label="Home"
-                  icon={
-                    <Image
-                      src="/icons/home.svg"
-                      alt="Home"
-                      width={16}
-                      height={16}
-                    />
-                  }
-                  iconPosition="left"
-                  className="w-23.75"
-                />
+              {[
+                { label: "Home", href: "/" },
+                { label: "About", href: "/about" },
+                { label: "Contact", href: "/contact" },
+              ].map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="text-p3 font-body font-semibold text-neutral-700 hover:text-primary-800 transition-colors"
+                >
+                  {item.label}
+                </Link>
               ))}
 
               {isLoggedIn && (
@@ -148,24 +141,19 @@ const Header = () => {
         {/* Mobile Navigation */}
         <div className="p-4 space-y-3">
 
-          {[1, 2, 3, 4].map((item) => (
-            <Button
-              key={item}
-              variant="text"
-              size="md"
-              shape="round"
-              label="Home"
-              icon={
-                <Image
-                  src="/icons/home.svg"
-                  alt="Home"
-                  width={18}
-                  height={18}
-                />
-              }
-              iconPosition="left"
-              className="w-full justify-start"
-            />
+          {[
+            { label: "Home", href: "/" },
+            { label: "About", href: "/about" },
+            { label: "Contact", href: "/contact" },
+          ].map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              onClick={() => setMenuOpen(false)}
+              className="block px-4 py-2 rounded-full text-p3 font-body font-semibold text-neutral-700 hover:bg-primary-50 hover:text-primary-800 transition-colors"
+            >
+              {item.label}
+            </Link>
           ))}
 
           {isLoggedIn && (

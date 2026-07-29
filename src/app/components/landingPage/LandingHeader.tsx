@@ -25,27 +25,21 @@ const LandingHeader = () => {
                     </Link>
 
                     {/* Right Navigation */}
-                    <div className="w-[428px] h-10 flex items-center gap-4">
-                        {[1, 2, 3, 4].map((item) => (
-                            <Button
-                                key={item}
-                                variant="text"
-                                size="sm"
-                                shape="round"
-                                label="Home"
-                                icon={
-                                    <Image
-                                        src="/icons/home.svg"
-                                        alt="Home"
-                                        width={16}
-                                        height={16}
-                                    />
-                                }
-                                iconPosition="left"
-                                className="w-[95px]"
-                            />
+                    <nav className="h-10 flex items-center gap-6">
+                        {[
+                            { label: "Home", href: "/" },
+                            { label: "About", href: "/about" },
+                            { label: "Contact", href: "/contact" },
+                        ].map((item) => (
+                            <Link
+                                key={item.label}
+                                href={item.href}
+                                className="text-p3 font-body font-semibold text-neutral-700 hover:text-primary-800 transition-colors"
+                            >
+                                {item.label}
+                            </Link>
                         ))}
-                    </div>
+                    </nav>
                 </div>
             </div>
 
