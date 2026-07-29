@@ -314,6 +314,7 @@ export default function CoordinatorForm({
       console.error(error);
       toast.error(error?.response?.data?.message || "Failed to send email OTP");
       setIsSendingEmailOTP(false);
+      //check it code
     }
   };
 
