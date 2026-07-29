@@ -26,10 +26,11 @@ import SellerDeclaration from "./SellerDeclaration";
 import DrugProductList from "./DrugProductList";
 import LoginModals from "@/src/app/modals/LoginModals/LoginModals";
 
+type SellerViewState = "checking" | "guest" | "register" | "pending";
+
 const SellerJourney = () => {
   const router = useRouter();
-  const [showRegister, setShowRegister] = useState(false);
-  const [showPendingApproval, setShowPendingApproval] = useState(false);
+  const [viewState, setViewState] = useState<SellerViewState>("checking");
   const [showProductOnboarding, setShowProductOnboarding] = useState(false);
   const [showDeclaration, setShowDeclaration] = useState(false);
   const [showProductList, setShowProductList] = useState(false);
@@ -37,29 +38,31 @@ const SellerJourney = () => {
 
 
   const routeAuthenticatedSeller = async () => {
-    if (!sellerAuthService.isAuthenticated()) return;
-    setShowRegister(false);
-    setShowPendingApproval(false);
+    if (!sellerAuthService.isAuthenticated()) {
+      setViewState("guest");
+      return;
+    }
+    setViewState("checking");
 
     try {
       await sellerProfileService.getCurrentSellerProfile();
       router.replace("/seller_7a3b9f2c/dashboard");
-      return;
+      return; // keep showing the spinner until the navigation lands
     } catch {
       // No approved Seller row yet — fall through to check TempSeller.
     }
 
     const currentUser = sellerAuthService.getCurrentUser();
     if (!currentUser?.userId) {
-      setShowRegister(true);
+      setViewState("register");
       return;
     }
 
     try {
       await sellerRegService.getTempSellerByUserId(currentUser.userId);
-      setShowPendingApproval(true);
+      setViewState("pending");
     } catch {
-      setShowRegister(true);
+      setViewState("register");
     }
   };
 
@@ -81,7 +84,7 @@ const SellerJourney = () => {
 
   const handleAcceptDeclaration = () => {
     setShowDeclaration(false);
-    setShowRegister(true);
+    setViewState("register");
   };
 
   const handleCloseDeclaration = () => {
@@ -164,7 +167,18 @@ const SellerJourney = () => {
     { value: "10K+", label: "Active Sellers" },
   ];
 
-  if (showRegister) {
+  // Brief spinner while we resolve which of the two seller tables (if any)
+  // has this user's data — never the marketing/login page, so a returning
+  // seller can't accidentally hit "Register" or "Login" mid-check.
+  if (viewState === "checking") {
+    return (
+      <div className="min-h-screen bg-primary-100 pt-20 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-primary-200 border-t-primary-700 animate-spin" />
+      </div>
+    );
+  }
+
+  if (viewState === "register") {
     return (
       <div className="min-h-screen bg-primary-100 pt-20">
         <SellerRegister />
@@ -172,7 +186,7 @@ const SellerJourney = () => {
     );
   }
 
-  if (showPendingApproval) {
+  if (viewState === "pending") {
     return (
       <div className="min-h-screen bg-primary-100 pt-20 flex items-center justify-center px-4">
         <div className="bg-base-white rounded-2xl shadow-lg max-w-[28rem] w-full p-10 text-center">
