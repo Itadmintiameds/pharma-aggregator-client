@@ -1,14 +1,51 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "react-toastify";
+import confetti from "canvas-confetti";
 import VerificationModal from "./OtpModalSixBox";
 import { sellerAuthService } from "@/src/services/seller/authService";
 import { signupSchema } from "@/src/schema/seller/signupSchema";
 
 interface Props {
   onOpenLogin: () => void;
+}
+
+// Google brand colors
+const CONFETTI_COLORS = ["#4285F4", "#EA4335", "#FBBC05", "#34A853"];
+
+function celebrate() {
+  confetti({
+    particleCount: 120,
+    spread: 90,
+    startVelocity: 45,
+    origin: { y: 0.6 },
+    colors: CONFETTI_COLORS,
+    zIndex: 60,
+  });
+
+  const end = Date.now() + 2000;
+  const shower = () => {
+    confetti({
+      particleCount: 3,
+      angle: 60,
+      spread: 55,
+      origin: { x: 0 },
+      colors: CONFETTI_COLORS,
+      zIndex: 60,
+    });
+    confetti({
+      particleCount: 3,
+      angle: 120,
+      spread: 55,
+      origin: { x: 1 },
+      colors: CONFETTI_COLORS,
+      zIndex: 60,
+    });
+    if (Date.now() < end) requestAnimationFrame(shower);
+  };
+  shower();
 }
 
 export default function SignupForm({ onOpenLogin }: Props) {
@@ -60,6 +97,10 @@ export default function SignupForm({ onOpenLogin }: Props) {
   const handleResend = async () => {
     await sellerAuthService.sendSignupOtp({ email, password });
   };
+
+  useEffect(() => {
+    if (signupComplete) celebrate();
+  }, [signupComplete]);
 
   if (signupComplete) {
     return (

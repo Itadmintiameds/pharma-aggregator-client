@@ -38,6 +38,16 @@ const SellerJourney = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const handleAuthChanged = () => {
+      if (sellerAuthService.isAuthenticated()) {
+        setShowRegister(true);
+      }
+    };
+    window.addEventListener('auth-changed', handleAuthChanged);
+    return () => window.removeEventListener('auth-changed', handleAuthChanged);
+  }, []);
+
   const handleSellerLogin = () => {
     setShowLoginModal(true);
   };

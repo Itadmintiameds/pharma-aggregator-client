@@ -280,15 +280,21 @@ class SellerAuthService {
       const response = await api.post<LoginApiResponse>(`${this.authBaseUrl}/login`, credentials);
       
       const responseData = response.data;
-      
-      if (responseData.status === "SUCCESS" && responseData.data) {
+
+      // Backend sometimes wraps auth failures inside a 200 envelope, e.g.
+      // { status: "SUCCESS", data: { error: "Unauthorized", message: "...", status: 401 } }
+      // so the outer "SUCCESS" alone doesn't mean the login actually succeeded.
+      const nestedError = responseData.data as unknown as { error?: string; status?: number; message?: string };
+      const isNestedFailure = !!nestedError && (nestedError.status === 401 || !!nestedError.error);
+
+      if (responseData.status === "SUCCESS" && responseData.data && !isNestedFailure) {
         // Store username for OTP verification step
         localStorage.setItem('otpUsername', responseData.data.username);
         console.log("✅ Login successful - OTP will be sent");
         console.log("=========================================");
         return responseData.data;
       } else {
-        const errorMsg = responseData.message || "Login failed";
+        const errorMsg = nestedError?.message || responseData.message || "Login failed";
         console.error("❌ Login failed - invalid response structure");
         console.error("=========================================");
         throw new Error(errorMsg);
@@ -300,6 +306,14 @@ class SellerAuthService {
       console.error("Error message:", error.message);
       console.error("Error status:", error.response?.status);
       console.error("=========================================");
+
+      // Backend error body is double-wrapped, e.g.
+      // { message: "Request processed successfully", data: { message: "Invalid username or password" } }
+      // — the outer "message" is a generic envelope string, the real reason is nested under data.message.
+      const nestedMessage = error.response?.data?.data?.message;
+      if (nestedMessage) {
+        throw new Error(nestedMessage);
+      }
       throw error;
     }
   }

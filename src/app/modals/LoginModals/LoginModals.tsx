@@ -7,7 +7,7 @@ import { X, Eye, EyeOff } from "lucide-react";
 import { TbMailFilled } from "react-icons/tb";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import toast from "react-hot-toast";
+import { toast } from "react-toastify";
 import Link from "next/link";
 import { 
   loginSchema,

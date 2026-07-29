@@ -54,12 +54,22 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-    
+
     // Don't retry refresh endpoint
     if (originalRequest.url?.includes('/refresh')) {
       return Promise.reject(error);
     }
-    
+
+    // Auth endpoints (login/signup/OTP) return 401 for invalid credentials —
+    // that's a normal login failure, not an expired session, so skip the
+    // force-logout redirect and let the caller's catch block show the error.
+    const isAuthEndpoint = originalRequest.url?.includes('/authentication/login')
+      || originalRequest.url?.includes('/authentication/verify-otp')
+      || originalRequest.url?.includes('/auth/signup');
+    if (isAuthEndpoint) {
+      return Promise.reject(error);
+    }
+
     // If 401 and not retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
