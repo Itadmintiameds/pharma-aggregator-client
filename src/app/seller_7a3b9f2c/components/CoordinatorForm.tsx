@@ -202,8 +202,22 @@ export default function CoordinatorForm({
     if (value) {
       const error = validateEmail(value);
       setEmailError(error || "");
+
+      // Auto-verify when the typed email matches the seller's login email —
+      // it was already OTP-verified during signup, so skip re-verification.
+      if (
+        !error &&
+        loginEmail &&
+        value.trim().toLowerCase() === loginEmail.trim().toLowerCase()
+      ) {
+        setSameAsLoginEmail(true);
+        onEmailVerified();
+      } else {
+        setSameAsLoginEmail(false);
+      }
     } else {
       setEmailError("");
+      setSameAsLoginEmail(false);
     }
   };
 
