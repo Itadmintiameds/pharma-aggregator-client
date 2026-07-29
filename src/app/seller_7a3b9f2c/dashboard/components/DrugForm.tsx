@@ -1404,10 +1404,11 @@ const handleUpdate = async () => {
               />
             </div>
 
-            {form.molecules.map((molecule, index) => (
+            <div className="col-span-2 border border-[#C0C1BE] rounded-lg p-4 space-y-6">
+              {form.molecules.map((molecule, index) => (
               <div
                 key={index}
-                className="grid grid-cols-[1fr_0.87fr_52px] gap-6 col-span-2 items-start"
+                className="grid grid-cols-[1fr_0.87fr_52px] gap-6 items-start"
               >
                 {/* Molecule */}
                 <div className="w-full min-w-0">
@@ -1464,7 +1465,7 @@ const handleUpdate = async () => {
 
                 {/* Remove button / spacer */}
                 <div className="flex items-end h-full">
-                  {!isEditMode ? (
+                  {!isEditMode && form.molecules.length > 1 ? (
                     <button
                       onClick={() => removeMolecule(index)}
                       className="border-2 border-[#FF3B3B] w-13 h-12 rounded-lg flex items-center justify-center"
@@ -1480,22 +1481,23 @@ const handleUpdate = async () => {
                   )}
                 </div>
               </div>
-            ))}
+              ))}
 
-            {!isEditMode && (
-              <button
-                onClick={addMolecule}
-                className="col-span-2 w-40 h-12 border-2 border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5"
-              >
-                {" "}
-                <img
-                  src="/icons/PlusIcon.svg"
-                  alt="drug"
-                  className="w-5 h-5 rounded-md object-cover"
-                />{" "}
-                Add Molecule{" "}
-              </button>
-            )}
+              {!isEditMode && (
+                <button
+                  onClick={addMolecule}
+                  className="w-40 h-12 border-2 border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5"
+                >
+                  {" "}
+                  <img
+                    src="/icons/PlusIcon.svg"
+                    alt="drug"
+                    className="w-5 h-5 rounded-md object-cover"
+                  />{" "}
+                  Add Molecule{" "}
+                </button>
+              )}
+            </div>
 
             <Input
               label="Drug Schedule"
