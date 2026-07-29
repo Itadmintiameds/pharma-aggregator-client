@@ -77,6 +77,16 @@ class SellerRegService {
     }
   }
 
+  async getTempSellerByUserId(userId: number): Promise<any> {
+    try {
+      const response = await api.get<ApiResponseWrapper<any>>(`/temp-sellers/user/${userId}`);
+      return response.data.data;
+    } catch (error) {
+      console.error(`Error fetching temp seller for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
   // ==================== EMAIL OTP SERVICES ====================
 
   async sendEmailOtp(data: EmailOtpSendRequest): Promise<OtpResponse> {

@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { sellerAuthService } from "@/src/services/seller/authService";
+import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
+import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
 import {
   FaUserPlus,
   FaBox,
@@ -14,6 +17,7 @@ import {
   FaHandsHelping,
   FaSignInAlt,
   FaArrowRight,
+  FaClock,
 } from "react-icons/fa";
 
 import SellerRegister from "./SellerRegister";
@@ -23,26 +27,49 @@ import DrugProductList from "./DrugProductList";
 import LoginModals from "@/src/app/modals/LoginModals/LoginModals";
 
 const SellerJourney = () => {
+  const router = useRouter();
   const [showRegister, setShowRegister] = useState(false);
+  const [showPendingApproval, setShowPendingApproval] = useState(false);
   const [showProductOnboarding, setShowProductOnboarding] = useState(false);
   const [showDeclaration, setShowDeclaration] = useState(false);
   const [showProductList, setShowProductList] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // A logged-in seller landing on /seller_7a3b9f2c (e.g. redirected here
-  // after login because they haven't completed registration yet) should go
-  // straight into the wizard, not the marketing splash page.
-  useEffect(() => {
-    if (sellerAuthService.isAuthenticated()) {
+
+  const routeAuthenticatedSeller = async () => {
+    if (!sellerAuthService.isAuthenticated()) return;
+    setShowRegister(false);
+    setShowPendingApproval(false);
+
+    try {
+      await sellerProfileService.getCurrentSellerProfile();
+      router.replace("/seller_7a3b9f2c/dashboard");
+      return;
+    } catch {
+      // No approved Seller row yet — fall through to check TempSeller.
+    }
+
+    const currentUser = sellerAuthService.getCurrentUser();
+    if (!currentUser?.userId) {
+      setShowRegister(true);
+      return;
+    }
+
+    try {
+      await sellerRegService.getTempSellerByUserId(currentUser.userId);
+      setShowPendingApproval(true);
+    } catch {
       setShowRegister(true);
     }
+  };
+
+  useEffect(() => {
+    routeAuthenticatedSeller();
   }, []);
 
   useEffect(() => {
     const handleAuthChanged = () => {
-      if (sellerAuthService.isAuthenticated()) {
-        setShowRegister(true);
-      }
+      routeAuthenticatedSeller();
     };
     window.addEventListener('auth-changed', handleAuthChanged);
     return () => window.removeEventListener('auth-changed', handleAuthChanged);
@@ -141,6 +168,32 @@ const SellerJourney = () => {
     return (
       <div className="min-h-screen bg-primary-100 pt-20">
         <SellerRegister />
+      </div>
+    );
+  }
+
+  if (showPendingApproval) {
+    return (
+      <div className="min-h-screen bg-primary-100 pt-20 flex items-center justify-center px-4">
+        <div className="bg-base-white rounded-2xl shadow-lg max-w-[28rem] w-full p-10 text-center">
+          <div className="w-16 h-16 rounded-full bg-warning-50 flex items-center justify-center mx-auto mb-6 text-warning-500">
+            <FaClock className="w-7 h-7" />
+          </div>
+          <h2 className="text-h4 font-heading font-bold text-pneutral-900 mb-3">
+            Application Under Review
+          </h2>
+          <p className="text-p3 font-body text-pneutral-600 mb-6">
+            You&apos;ve already submitted your company details. Our team is
+            reviewing your registration and you&apos;ll be notified by email
+            once your account is approved.
+          </p>
+          <button
+            onClick={() => router.push("/")}
+            className="px-6 py-3 rounded-md bg-primary-800 text-base-white font-bold"
+          >
+            Back to Home
+          </button>
+        </div>
       </div>
     );
   }
