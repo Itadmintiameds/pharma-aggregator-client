@@ -224,7 +224,11 @@ export default function StockUpdateModal({
     if (!productId) return;
     setBatchesLoading(true);
     getAvailableBatches(productId, packagingId)
-      .then((list) => setBatches(list))
+      .then((list) => {
+        setBatches(list);
+        // No existing batches to add stock to — force the "create new batch" flow.
+        if (list.length === 0) setUpdateType("new");
+      })
       .catch((err) => setBatchesError(extractErrorMessage(err)))
       .finally(() => setBatchesLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -391,7 +395,11 @@ export default function StockUpdateModal({
       : true;
 
   const canGoNext =
-    step === 1 ? true : step === 2 ? isStep2Valid : isStep3Valid;
+    step === 1
+      ? !batchesLoading
+      : step === 2
+      ? isStep2Valid
+      : isStep3Valid;
 
   const handleClose = () => {
     if (submitting) return;
@@ -651,6 +659,23 @@ export default function StockUpdateModal({
                   >
                     Select the type of stock update you want to perform
                   </p>
+                  {batchesLoading ? (
+                    // Cards aren't rendered at all until we know the batch count, so there's
+                    // no dim → enable / auto-select flicker once loading finishes — the final
+                    // correct state is what first appears.
+                    <div
+                      style={{
+                        border: `1px dashed ${BORDER}`,
+                        borderRadius: 10,
+                        padding: 20,
+                        textAlign: "center",
+                        color: TEXT_GRAY,
+                        fontSize: 13,
+                      }}
+                    >
+                      Checking available batches…
+                    </div>
+                  ) : (
                   <div
                     style={{
                       display: "grid",
@@ -676,22 +701,33 @@ export default function StockUpdateModal({
                     ).map((card) => {
                       const selected = updateType === card.type;
                       const Icon = card.icon;
+                      // Nothing to add stock to — force "create new batch" instead.
+                      const disabled =
+                        card.type === "existing" && batches.length === 0;
                       return (
                         <div
                           key={card.type}
-                          onClick={() => setUpdateType(card.type)}
+                          onClick={() => {
+                            if (disabled) return;
+                            setUpdateType(card.type);
+                          }}
                           style={{
                             position: "relative",
-                            cursor: "pointer",
+                            cursor: disabled ? "not-allowed" : "pointer",
                             borderRadius: 12,
                             border: `1.5px solid ${selected ? PURPLE : BORDER}`,
-                            background: selected ? "#FAF5FF" : "white",
+                            background: disabled
+                              ? "#FAFAF9"
+                              : selected
+                              ? "#FAF5FF"
+                              : "white",
                             padding: "24px 16px 20px",
                             display: "flex",
                             flexDirection: "column",
                             alignItems: "center",
                             textAlign: "center",
                             gap: 8,
+                            opacity: disabled ? 0.55 : 1,
                             transition: "border-color 0.15s, background 0.15s",
                           }}
                         >
@@ -747,12 +783,15 @@ export default function StockUpdateModal({
                             {card.title}
                           </span>
                           <span style={{ fontSize: 12.5, color: TEXT_GRAY }}>
-                            {card.desc}
+                            {disabled
+                              ? "No existing batches available for this product."
+                              : card.desc}
                           </span>
                         </div>
                       );
                     })}
                   </div>
+                  )}
                 </div>
               )}
 
