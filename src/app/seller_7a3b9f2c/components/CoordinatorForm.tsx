@@ -82,6 +82,14 @@ export default function CoordinatorForm({
   const [verificationType, setVerificationType] = useState<"email" | "phone">("email");
   const [uploadingAuthLetter, setUploadingAuthLetter] = useState(false);
 
+  // Guards against double-send: handleSendEmailOTP/handleSendPhoneOTP are
+  // async, so a second click landing before the first request's await
+  // resolves would otherwise fire a duplicate OTP. Set synchronously before
+  // the await and clear in finally so the button is disabled for the whole
+  // request lifetime, not just after it settles.
+  const [isSendingEmailOtp, setIsSendingEmailOtp] = useState(false);
+  const [isSendingPhoneOtp, setIsSendingPhoneOtp] = useState(false);
+
   // Local state for name & designation to bypass parent's onAlphabetInput which strips numbers
   const [coordinatorNameLocal, setCoordinatorNameLocal] = useState<string>(formData.coordinatorName || "");
   const [coordinatorDesignationLocal, setCoordinatorDesignationLocal] = useState<string>(formData.coordinatorDesignation || "");
@@ -291,6 +299,8 @@ export default function CoordinatorForm({
   };
 
   const handleSendEmailOTP = async () => {
+    if (isSendingEmailOtp) return;
+
     if (!formData.coordinatorEmail) {
       toast.error("Please enter email address");
       return;
@@ -312,6 +322,7 @@ export default function CoordinatorForm({
       return;
     }
 
+    setIsSendingEmailOtp(true);
     try {
       await sellerRegService.sendEmailOtp({ email: formData.coordinatorEmail });
       setVerificationType("email");
@@ -320,10 +331,14 @@ export default function CoordinatorForm({
     } catch (error: any) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Failed to send email OTP");
+    } finally {
+      setIsSendingEmailOtp(false);
     }
   };
 
   const handleSendPhoneOTP = async () => {
+    if (isSendingPhoneOtp) return;
+
     if (phoneVerified) {
       toast.info("Phone number is already verified");
       return;
@@ -353,6 +368,7 @@ export default function CoordinatorForm({
       return;
     }
 
+    setIsSendingPhoneOtp(true);
     try {
       const fullPhone = `${selectedCountryCode}${formData.coordinatorMobile}`;
       await sellerRegService.sendSMSOtp({ phone: fullPhone });
@@ -362,6 +378,8 @@ export default function CoordinatorForm({
     } catch (error: any) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Failed to send phone OTP");
+    } finally {
+      setIsSendingPhoneOtp(false);
     }
   };
 
@@ -604,15 +622,13 @@ export default function CoordinatorForm({
 
                 <button
                   onClick={handleSendPhoneOTP}
-                  disabled={!!phoneError || !formData.coordinatorMobile || phoneVerified}
-                  className={`h-11 px-4 rounded-xl text-white font-semibold ml-3 transition-none ${phoneVerified
+                  disabled={!!phoneError || !formData.coordinatorMobile || phoneVerified || isSendingPhoneOtp}
+                  className={`h-11 px-4 rounded-xl text-white font-semibold ml-3 transition-none ${phoneVerified || phoneError || !formData.coordinatorMobile || isSendingPhoneOtp
                       ? 'bg-primary-800 cursor-not-allowed '
-                      : phoneError || !formData.coordinatorMobile
-                        ? 'bg-primary-800 cursor-not-allowed '
-                        : 'bg-primary-800'
+                      : 'bg-primary-800'
                     }`}
                 >
-                  {phoneVerified ? " Verified" : "Send OTP"}
+                  {phoneVerified ? " Verified" : isSendingPhoneOtp ? "Sending..." : "Send OTP"}
                 </button>
               </div>
             </div>
@@ -656,15 +672,13 @@ export default function CoordinatorForm({
 
               <button
                 onClick={handleSendEmailOTP}
-                disabled={!formData.coordinatorEmail || !!emailError || emailVerified}
-                className={`h-11 px-4 rounded-xl text-white font-semibold transition-none ${emailVerified
+                disabled={!formData.coordinatorEmail || !!emailError || emailVerified || isSendingEmailOtp}
+                className={`h-11 px-4 rounded-xl text-white font-semibold transition-none ${emailVerified || !formData.coordinatorEmail || !!emailError || isSendingEmailOtp
                     ? 'bg-primary-800 cursor-not-allowed'
-                    : !formData.coordinatorEmail || !!emailError
-                      ? 'bg-primary-800 cursor-not-allowed'
-                      : 'bg-primary-800'
+                    : 'bg-primary-800'
                   }`}
               >
-                {emailVerified ? "Verified" : "Send OTP"}
+                {emailVerified ? "Verified" : isSendingEmailOtp ? "Sending..." : "Send OTP"}
               </button>
             </div>
             {loginEmail && (
