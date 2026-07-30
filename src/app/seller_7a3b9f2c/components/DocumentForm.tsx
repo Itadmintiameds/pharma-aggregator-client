@@ -648,8 +648,9 @@ export default function DocumentForm({
   };
 
   const handleLicenseNumberChangeWithValidation = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
-    let value = e.target.value;
     const licenseInfo = getLicenseInfo(productName);
+    const value = e.target.value.toUpperCase();
+
     const cleanedValue = formatLicenseNumber(value, licenseInfo.validationCategory);
 
     if (cleanedValue !== value) {
@@ -1074,10 +1075,10 @@ export default function DocumentForm({
 
                   <div className="relative">
                     <input
-                      type="text"
+                      type="text" 
                       autoComplete="off"
                       name={`licenseNumber-${productName}`}
-                      value={licenseData.number}
+                      value={licenseData.number} 
                       onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
                       onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number, licenseInfo.validationCategory)}
                       onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
@@ -2577,7 +2578,7 @@ export default function DocumentForm({
 //       <div className="flex flex-col gap-5 bg-white">
 //         <div>
 //           <div className="text-h3 font-heading font-medium text-pneutral-900 leading-[40px]">
-//             Statutory Documents
+//             Statutory Documents 
 //           </div>
 //           <div className="text-label-l4 font-heading font-regular text-pneutral-800 leading-[24px] mt-1">
 //             License and GST compliance upload
