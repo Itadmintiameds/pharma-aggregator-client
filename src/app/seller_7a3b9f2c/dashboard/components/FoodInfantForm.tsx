@@ -1259,8 +1259,8 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
             mrp: pricing.mrp?.toString() || "",
             sellingPricePerPack: pricing.sellingPrice?.toString() || "",
             discountPercentage: pricing.discountPercentage?.toString() || "",
-            gstPercentage: pricing.gstPercentage?.toString() || "",
-            hsnCode: pricing.hsnCode?.toString() || "",
+            gstPercentage: (pricing.gstPercentage ?? (attr as any).gstPercentage ?? prod.gstPercentage)?.toString() || "",
+            hsnCode: (pricing.hsnCode ?? (attr as any).hsnCode ?? prod.hsnCode)?.toString() || "",
             manualFile: null,
             finalPrice: pricing.finalPrice?.toString() || "",
           }));
@@ -2129,8 +2129,8 @@ if ((attr as any).certificateDocuments?.length) {
                 name="gstPercentage"
                 placeholder="e.g. 5"
                 onChange={handleChange}
-                value={form.gstPercentage}
                 readOnly={isEditMode}
+                value={form.gstPercentage}
                 error={errors.gstPercentage}
                 required
               />
@@ -2142,8 +2142,8 @@ if ((attr as any).certificateDocuments?.length) {
                 name="hsnCode"
                 placeholder="e.g. 1901"
                 onChange={handleChange}
-                value={form.hsnCode}
                 readOnly={isEditMode}
+                value={form.hsnCode}
                 error={errors.hsnCode}
                 required
               />

@@ -375,7 +375,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const countryIdStr = String(attribute.countryId || "");
       const storageCondIdStr = String(attribute.storageConditionId || "");
       const packIdStr = String(packaging.packId || "");
-      const gstVal = String(pricing.gstPercentage ?? "");
+      const gstVal = String(pricing.gstPercentage ?? attribute.gstPercentage ?? data.gstPercentage ?? "");
 
       // Fetch sub-categories for this category so we can resolve the label
       let resolvedSubCats = currentSubCategoryOptions;
@@ -444,7 +444,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         sellingPricePerPack: pricing.sellingPrice != null ? String(pricing.sellingPrice) : "",
         discountPercentage: String(pricing.discountPercentage || ""),
         gstPercentage: gstVal,
-        hsnCode: String(pricing.hsnCode || ""),
+        hsnCode: String(pricing.hsnCode || attribute.hsnCode || data.hsnCode || ""),
         finalPrice: String(pricing.finalPrice || ""),
         shelfLifeMonths: String(computeShelfLife(mfgDate, expDate) ?? ""),
       });

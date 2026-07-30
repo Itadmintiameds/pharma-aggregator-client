@@ -1467,10 +1467,13 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         stockQuantity: String(pricing.stockQuantity ?? ""),
         sellingPrice: String(pricing.sellingPrice ?? ""),
         mrp: String(pricing.mrp ?? ""),
-        gstPercentage: pricing.gstPercentage != null ? String(pricing.gstPercentage) : "",
+        gstPercentage: (() => {
+          const resolvedGst = pricing.gstPercentage ?? attr.gstPercentage ?? data.gstPercentage;
+          return resolvedGst !== null && resolvedGst !== undefined ? String(resolvedGst) : "";
+        })(),
         discountPercentage: String(pricing.discountPercentage ?? ""),
         finalPrice: String(pricing.finalPrice ?? ""),
-        hsnCode: String(pricing.hsnCode ?? ""),
+        hsnCode: String(pricing.hsnCode ?? attr.hsnCode ?? data.hsnCode ?? ""),
         shelfLifeMonths: String(pricing.shelfLifeMonths ?? ""),
         additionalDiscount: pricing.additionalDiscounts || [],
         specialSchemes: pricing.specialSchemes || [],

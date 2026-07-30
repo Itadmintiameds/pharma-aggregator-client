@@ -483,7 +483,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       const storageCondIdStr    = String(attribute.storageConditionId || "");
       const countryIdStr        = String(attribute.countryId || "");
       const packIdStr           = String(packaging.packId || "");
-      const gstVal              = String(pricing.gstPercentage ?? "");
+      const gstVal              = String(pricing.gstPercentage ?? attribute.gstPercentage ?? data.gstPercentage ?? "");
       const netQuantityUnitIdStr = String(attribute.unitId || attribute.netQuantityUnitId || "");
       const productFormIdStr    = String(attribute.formId || attribute.productFormId || "");
 
@@ -549,7 +549,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         mrp:                  pricing.mrp != null ? String(pricing.mrp) : "",
         discountPercentage:   String(pricing.discountPercentage || ""),
         gstPercentage:        gstVal,
-        hsnCode:              String(pricing.hsnCode || ""),
+        hsnCode:              String(pricing.hsnCode || attribute.hsnCode || data.hsnCode || ""),
         finalPrice:           String(pricing.finalPrice || ""),
         shelfLifeMonths:      String(computeShelfLife(mfgDate, expDate) ?? ""),
         // ✅ Load additionalDiscount directly — same shape as DrugForm

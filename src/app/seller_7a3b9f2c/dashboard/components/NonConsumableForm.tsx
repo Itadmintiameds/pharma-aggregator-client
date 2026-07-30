@@ -442,10 +442,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         stockQuantity: String(pricing.stockQuantity || ""),
         sellingPrice: pricing.sellingPrice != null ? String(pricing.sellingPrice) : "",
         mrp: pricing.mrp != null ? String(pricing.mrp) : "",
-        gstPercentage: String(pricing.gstPercentage ?? ""),
+        gstPercentage: String(pricing.gstPercentage ?? attribute.gstPercentage ?? data.gstPercentage ?? ""),
         discountPercentage: String(pricing.discountPercentage || ""),
         finalPrice: String(pricing.finalPrice || ""),
-        hsnCode: String(pricing.hsnCode || ""),
+        hsnCode: String(pricing.hsnCode || attribute.hsnCode || data.hsnCode || ""),
         batchLotNumber: pricing.batchLotNumber || "",
       });
 
