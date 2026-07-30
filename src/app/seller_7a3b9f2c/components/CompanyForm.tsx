@@ -63,6 +63,31 @@ const companyCountryCodes = [
   { code: "+20", country: "Egypt", flag: "🇪🇬", validate: (value: string) => null },
 ];
 
+function DropdownSearchInput({
+  value,
+  onChange,
+  placeholder = "Search...",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="p-2 border-b border-neutral-200 sticky top-0 bg-white">
+      <input
+        type="text"
+        autoFocus
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        placeholder={placeholder}
+        className="w-full h-9 px-3 rounded-lg border border-neutral-300 text-p4 font-body font-regular text-pneutral-900 focus:outline-none focus:ring-1 focus:ring-primary-800"
+      />
+    </div>
+  );
+}
+
 export default function CompanyForm({
   formData,
   companyTypes,
@@ -104,6 +129,68 @@ export default function CompanyForm({
   const districtDropdownRef = React.useRef<HTMLDivElement>(null);
   const talukaDropdownRef = React.useRef<HTMLDivElement>(null);
   const companyPhoneDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Search terms for dropdown filtering. `dropdownSearch` is shared by the
+  // single-select dropdowns since only one of them (openDropdown) can be open
+  // at a time; the product multi-select and phone country picker have their
+  // own state since they can be open independently of `openDropdown`.
+  const [dropdownSearch, setDropdownSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [phoneCountrySearch, setPhoneCountrySearch] = useState("");
+
+  React.useEffect(() => {
+    setDropdownSearch("");
+  }, [openDropdown]);
+
+  React.useEffect(() => {
+    if (!isProductDropdownOpen) setProductSearch("");
+  }, [isProductDropdownOpen]);
+
+  React.useEffect(() => {
+    if (!isCompanyPhoneDropdownOpen) setPhoneCountrySearch("");
+  }, [isCompanyPhoneDropdownOpen]);
+
+  const filteredCompanyTypes = companyTypes.filter((type) =>
+    type.companyTypeName.toLowerCase().includes(dropdownSearch.toLowerCase())
+  );
+  const filteredSellerTypes = sellerTypes
+    .filter((type) => type.isActive)
+    .filter((type) => type.sellerTypeName.toLowerCase().includes(dropdownSearch.toLowerCase()));
+  const filteredStates = states.filter((state) =>
+    state.stateName.toLowerCase().includes(dropdownSearch.toLowerCase())
+  );
+  const filteredDistricts = districts.filter((district) =>
+    district.districtName.toLowerCase().includes(dropdownSearch.toLowerCase())
+  );
+  const filteredTalukas = talukas.filter((taluka) =>
+    taluka.talukaName.toLowerCase().includes(dropdownSearch.toLowerCase())
+  );
+  const filteredProductTypes = productTypes.filter((product) =>
+    product.productTypeName.toLowerCase().includes(productSearch.toLowerCase())
+  );
+  const filteredCompanyCountryCodes = companyCountryCodes.filter(
+    (country) =>
+      country.country.toLowerCase().includes(phoneCountrySearch.toLowerCase()) ||
+      country.code.includes(phoneCountrySearch)
+  );
+
+  // Skip auto-closing a dropdown when focus is moving to an element still
+  // inside its container (e.g. the search input) — the click-outside
+  // listener above is what actually closes it on a real outside click.
+  const handleDropdownBlur = (
+    e: React.FocusEvent<HTMLDivElement>,
+    name: string,
+    containerRef: React.RefObject<HTMLDivElement | null>
+  ) => {
+    const nextFocus = e.relatedTarget as Node | null;
+    if (containerRef.current && nextFocus && containerRef.current.contains(nextFocus)) {
+      return;
+    }
+    setTimeout(() => {
+      setOpenDropdown((current) => (current === name ? null : current));
+    }, 150);
+  };
+
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -290,12 +377,6 @@ export default function CompanyForm({
     }
   };
 
-  const handleDropdownBlur = (name: string) => {
-    setTimeout(() => {
-      setOpenDropdown((current) => (current === name ? null : current));
-    }, 150);
-  };
-
   const getPlaceholder = () => {
     if (selectedCompanyCountryCode === "+91") return "Enter 10-digit mobile number";
     return "Enter phone number";
@@ -368,7 +449,7 @@ export default function CompanyForm({
                 className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
                 onClick={() => setOpenDropdown(openDropdown === 'company' ? null : 'company')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'company')}
-                onBlur={() => handleDropdownBlur('company')}
+                onBlur={(e) => handleDropdownBlur(e, 'company', companyDropdownRef)}
               >
                 <span className={!getSelectedCompanyLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.companyTypes
@@ -380,8 +461,12 @@ export default function CompanyForm({
 
               {openDropdown === 'company' && !loadingStates.companyTypes && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search company type..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {companyTypes.map((type) => (
+                    {filteredCompanyTypes.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+                    {filteredCompanyTypes.map((type) => (
                       <div
                         key={type.companyTypeId}
                         className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -522,7 +607,7 @@ export default function CompanyForm({
                 className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
                 onClick={() => setOpenDropdown(openDropdown === 'seller' ? null : 'seller')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'seller')}
-                onBlur={() => handleDropdownBlur('seller')}
+                onBlur={(e) => handleDropdownBlur(e, 'seller', sellerDropdownRef)}
               >
                 <span className={!getSelectedSellerLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.sellerTypes
@@ -534,8 +619,12 @@ export default function CompanyForm({
 
               {openDropdown === 'seller' && !loadingStates.sellerTypes && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search seller type..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {sellerTypes.filter(type => type.isActive).map((type) => (
+                    {filteredSellerTypes.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+                    {filteredSellerTypes.map((type) => (
                       <div
                         key={type.sellerTypeId}
                         className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -670,7 +759,13 @@ export default function CompanyForm({
                     setIsProductDropdownOpen(false);
                   }
                 }}
-                onBlur={() => setTimeout(() => setIsProductDropdownOpen(false), 150)}
+                onBlur={(e) => {
+                  const nextFocus = e.relatedTarget as Node | null;
+                  if (productDropdownRef.current && nextFocus && productDropdownRef.current.contains(nextFocus)) {
+                    return;
+                  }
+                  setTimeout(() => setIsProductDropdownOpen(false), 150);
+                }}
               >
                 <span className={formData.productTypes.length === 0 ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.productTypes
@@ -684,8 +779,9 @@ export default function CompanyForm({
 
               {isProductDropdownOpen && !loadingStates.productTypes && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={productSearch} onChange={setProductSearch} placeholder="Search product types..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {productTypes.length > 0 && (
+                    {productSearch === "" && productTypes.length > 0 && (
                       <div
                         className="flex items-center px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200"
                         onClick={onSelectAll}
@@ -702,7 +798,11 @@ export default function CompanyForm({
                       </div>
                     )}
 
-                    {productTypes.map((product) => (
+                    {filteredProductTypes.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+
+                    {filteredProductTypes.map((product) => (
                       <div
                         key={product.productTypeId}
                         className="flex items-center px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -745,7 +845,7 @@ export default function CompanyForm({
                 className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
                 onClick={() => setOpenDropdown(openDropdown === 'state' ? null : 'state')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'state')}
-                onBlur={() => handleDropdownBlur('state')}
+                onBlur={(e) => handleDropdownBlur(e, 'state', stateDropdownRef)}
               >
                 <span className={!getSelectedStateLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.states
@@ -757,8 +857,12 @@ export default function CompanyForm({
 
               {openDropdown === 'state' && !loadingStates.states && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search state..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {states.map((state) => (
+                    {filteredStates.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+                    {filteredStates.map((state) => (
                       <div
                         key={state.stateId}
                         className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -794,7 +898,7 @@ export default function CompanyForm({
                 className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800 ${formData.stateId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
                 onClick={() => formData.stateId && setOpenDropdown(openDropdown === 'district' ? null : 'district')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'district', !!formData.stateId)}
-                onBlur={() => handleDropdownBlur('district')}
+                onBlur={(e) => handleDropdownBlur(e, 'district', districtDropdownRef)}
               >
                 <span className={!getSelectedDistrictLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.districts
@@ -808,8 +912,12 @@ export default function CompanyForm({
 
               {openDropdown === 'district' && !loadingStates.districts && formData.stateId && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search district..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {districts.map((district) => (
+                    {filteredDistricts.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+                    {filteredDistricts.map((district) => (
                       <div
                         key={district.districtId}
                         className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -844,7 +952,7 @@ export default function CompanyForm({
                 className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800 ${formData.districtId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
                 onClick={() => formData.districtId && setOpenDropdown(openDropdown === 'taluka' ? null : 'taluka')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'taluka', !!formData.districtId)}
-                onBlur={() => handleDropdownBlur('taluka')}
+                onBlur={(e) => handleDropdownBlur(e, 'taluka', talukaDropdownRef)}
               >
                 <span className={!getSelectedTalukaLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.talukas
@@ -858,8 +966,12 @@ export default function CompanyForm({
 
               {openDropdown === 'taluka' && !loadingStates.talukas && formData.districtId && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search taluka..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {talukas.map((taluka) => (
+                    {filteredTalukas.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+                    {filteredTalukas.map((taluka) => (
                       <div
                         key={taluka.talukaId}
                         className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -1062,7 +1174,11 @@ export default function CompanyForm({
                         onClick={() => setIsCompanyPhoneDropdownOpen(false)}
                       />
                       <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-xl shadow-lg z-20 max-h-60 overflow-y-auto">
-                        {companyCountryCodes.map((country) => (
+                        <DropdownSearchInput value={phoneCountrySearch} onChange={setPhoneCountrySearch} placeholder="Search country..." />
+                        {filteredCompanyCountryCodes.length === 0 && (
+                          <div className="px-3 py-2.5 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                        )}
+                        {filteredCompanyCountryCodes.map((country) => (
                           <button
                             key={country.code}
                             onClick={() => {
