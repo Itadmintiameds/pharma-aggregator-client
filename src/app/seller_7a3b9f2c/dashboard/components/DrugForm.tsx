@@ -1008,13 +1008,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         stockQuantity: String(pricing.stockQuantity ?? ""),
         sellingPrice: String(pricing.sellingPrice ?? ""),
         mrp: String(pricing.mrp ?? ""),
-        gstPercentage:
-          pricing.gstPercentage !== null && pricing.gstPercentage !== undefined
-            ? String(pricing.gstPercentage)
-            : "",
+        gstPercentage: (() => {
+          const resolvedGst =
+            pricing.gstPercentage ?? attributeDrug.gstPercentage ?? data.gstPercentage;
+          return resolvedGst !== null && resolvedGst !== undefined ? String(resolvedGst) : "";
+        })(),
         discountPercentage: String(pricing.discountPercentage ?? ""),
         finalPrice: String(pricing.finalPrice ?? ""),
-        hsnCode: String(pricing.hsnCode ?? ""),
+        hsnCode: String(pricing.hsnCode ?? attributeDrug.hsnCode ?? data.hsnCode ?? ""),
         shelfLifeMonths: String(pricing.shelfLifeMonths ?? ""),
         additionalDiscount: pricing.additionalDiscounts || [],
       }));
