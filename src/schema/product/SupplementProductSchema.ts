@@ -145,7 +145,10 @@ const supplementProductBaseSchema = z
       .string()
       .trim()
       .min(1, "Manufacturer Name is required")
-      .max(100, "Manufacturer Name must not exceed 100 characters"),
+      .max(100, "Manufacturer Name must not exceed 100 characters")
+      .regex(/^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/,
+        "Manufacturer Name can contain alphanumeric and special characters"
+      ),
 
     countryOfOrigin: z.string().min(1, "Country of Origin is required"),
 

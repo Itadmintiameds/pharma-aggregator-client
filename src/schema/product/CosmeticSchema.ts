@@ -148,8 +148,12 @@ const cosmeticFormBaseSchema = z
 
     manufacturerName: z
       .string()
+      .trim()
       .min(1, "Manufacturer name is required")
-      .max(100, "Manufacturer name must not exceed 100 characters"),
+      .max(100, "Manufacturer name must not exceed 100 characters")
+      .regex(/^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/,
+        "Manufacturer Name can contain alphanumeric and special characters"
+      ),
 
     countryOfOriginId: z.string().min(1, "Country of origin is required"),
 

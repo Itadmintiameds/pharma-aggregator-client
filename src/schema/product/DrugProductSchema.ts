@@ -52,7 +52,10 @@ export const drugProductSchema = z.object({
     .string()
     .trim()
     .min(1, "Manufacturer Name is required")
-    .regex(/^[A-Za-z\s]+$/, "Only alphabets and spaces are allowed"),
+    .max(100, "Manufacturer Name must not exceed 100 characters")
+    .regex(/^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/,
+      "Manufacturer Name can contain alphanumeric and special characters"
+    ),
 
   warningsPrecautions: z
     .string()
