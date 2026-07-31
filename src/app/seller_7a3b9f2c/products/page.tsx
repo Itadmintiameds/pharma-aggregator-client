@@ -1,11 +1,24 @@
 "use client";
 
 import Products from "../dashboard/components/Products";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardView } from "@/src/types/seller/dashboard";
-import ProductList from "../dashboard/components/ProductList";
+import ProductList, {
+  categoryMap,
+  CategoryFilter,
+  StockFilter,
+} from "../dashboard/components/ProductList";
 import { OnboardingModal } from "../dashboard/components/DashboardFilters";
+import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
+import { useClickOutside } from "@/src/hooks/useClickOutside";
+
+const STOCK_LABELS: Record<StockFilter, string> = {
+  all: "All Stocks",
+  in: "In Stock",
+  low: "Low Stock",
+  out: "Out of Stock",
+};
 
 interface ProductsProps {
   setCurrentView: (view: DashboardView) => void;
@@ -18,6 +31,35 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
     null,
   );
   const [showAddModal, setShowAddModal] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [stockFilter, setStockFilter] = useState<StockFilter>("all");
+  const [showStockDropdown, setShowStockDropdown] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [allowedCategoryIds, setAllowedCategoryIds] = useState<number[]>([]);
+  const stockDropdownRef = useRef<HTMLDivElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  useClickOutside(stockDropdownRef, () => setShowStockDropdown(false));
+  useClickOutside(categoryDropdownRef, () => setShowCategoryDropdown(false));
+
+  useEffect(() => {
+    const fetchSellerCategories = async () => {
+      try {
+        const profile = await sellerProfileService.getCurrentSellerProfile();
+        setAllowedCategoryIds(
+          profile.productTypes.map((pt) => pt.productTypeId),
+        );
+      } catch (error) {
+        console.error("Error fetching seller product categories:", error);
+        setAllowedCategoryIds([]);
+      }
+    };
+    fetchSellerCategories();
+  }, []);
+
+  const availableCategoryEntries = Object.entries(categoryMap).filter(
+    ([id]) => allowedCategoryIds.includes(Number(id)),
+  );
 
   const handleSetCurrentView = (view: DashboardView) => {
     if (view === "addProduct") {
@@ -40,28 +82,113 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
 
   return (
     <>
-      <div className="flex gap-6 font-open-sans">
-        <button className="w-44.5 h-12 bg-neutral-50 rounded-lg text-lable-l2 font-semibold text-pneutral-900 flex items-center justify-between px-4 gap-2 shadow-md">
-          All Stocks
-          <img
-            src="/icons/DownArrow.svg"
-            alt="filter"
-            className="w-4.5 h-4.5"
-          />
-        </button>
+      <div className="flex items-center gap-6 font-open-sans">
+        <div className="relative shrink-0" ref={stockDropdownRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowStockDropdown((prev) => !prev);
+              setShowCategoryDropdown(false);
+            }}
+            className="w-44.5 h-12 bg-neutral-50 border border-pneutral-200 rounded-lg text-lable-l2 font-semibold text-pneutral-900 flex items-center justify-between px-4 gap-2 cursor-pointer"
+          >
+            <span className="truncate">{STOCK_LABELS[stockFilter]}</span>
+            <img
+              src="/icons/DownArrow.svg"
+              alt="filter"
+              className={`w-4.5 h-4.5 shrink-0 transition-transform duration-200 ${
+                showStockDropdown ? "rotate-180" : ""
+              }`}
+            />
+          </button>
 
-        <button className="w-44.5 h-12 bg-neutral-50 rounded-lg text-lable-l2 font-semibold text-pneutral-900 flex items-center justify-between px-4 gap-2 shadow-md">
-          All Categories
-          <img
-            src="/icons/DownArrow.svg"
-            alt="filter"
-            className="w-4.5 h-4.5"
-          />
-        </button>
+          {showStockDropdown && (
+            <div className="absolute left-0 top-14 z-20 w-44.5 bg-neutral-50 rounded-lg shadow-md py-2">
+              {(Object.keys(STOCK_LABELS) as StockFilter[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setStockFilter(key);
+                    setShowStockDropdown(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 text-lable-l2 hover:bg-neutral-100 cursor-pointer ${
+                    stockFilter === key
+                      ? "font-semibold text-primary-900"
+                      : "text-pneutral-900"
+                  }`}
+                >
+                  {STOCK_LABELS[key]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="relative shrink-0" ref={categoryDropdownRef}>
+          <button
+            type="button"
+            title={
+              categoryFilter === "all" ? "All Categories" : categoryMap[categoryFilter]
+            }
+            onClick={() => {
+              setShowCategoryDropdown((prev) => !prev);
+              setShowStockDropdown(false);
+            }}
+            className="w-72 h-12 bg-neutral-50 border border-pneutral-200 rounded-lg text-lable-l2 font-semibold text-pneutral-900 flex items-center justify-between px-4 gap-2 cursor-pointer"
+          >
+            <span className="truncate">
+              {categoryFilter === "all" ? "All Categories" : categoryMap[categoryFilter]}
+            </span>
+            <img
+              src="/icons/DownArrow.svg"
+              alt="filter"
+              className={`w-4.5 h-4.5 shrink-0 transition-transform duration-200 ${
+                showCategoryDropdown ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {showCategoryDropdown && (
+            <div className="absolute left-0 top-14 z-20 w-72 bg-neutral-50 rounded-lg shadow-md py-2 max-h-72 overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryFilter("all");
+                  setShowCategoryDropdown(false);
+                }}
+                className={`w-full text-left px-4 py-2 text-lable-l2 hover:bg-neutral-100 cursor-pointer ${
+                  categoryFilter === "all"
+                    ? "font-semibold text-primary-900"
+                    : "text-pneutral-900"
+                }`}
+              >
+                All Categories
+              </button>
+              {availableCategoryEntries.map(([id, name]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    setCategoryFilter(Number(id));
+                    setShowCategoryDropdown(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 text-lable-l2 hover:bg-neutral-100 cursor-pointer ${
+                    categoryFilter === Number(id)
+                      ? "font-semibold text-primary-900"
+                      : "text-pneutral-900"
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="w-50 h-12 bg-primary-900 rounded-lg text-white text-lable-l2 font-medium cursor-pointer flex items-center justify-center gap-3"
+          className="w-50 h-12 shrink-0 bg-primary-900 rounded-lg text-white text-lable-l2 font-medium cursor-pointer flex items-center justify-center gap-3"
         >
           <img
             src="/icons/PlusIconWhite.svg"
@@ -76,6 +203,8 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
         <ProductList
           setCurrentView={setCurrentView}
           setSelectedProductId={setSelectedProductId}
+          categoryFilter={categoryFilter}
+          stockFilter={stockFilter}
         />
       </div>
 

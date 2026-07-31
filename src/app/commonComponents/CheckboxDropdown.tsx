@@ -43,12 +43,14 @@ const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null); 
 
-  // Filter options based on search term
-  const filteredOptions = searchTerm
-    ? options.filter((opt) =>
-        opt.label.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : options;
+  // Filter options based on search term, always shown in ascending order
+  const filteredOptions = (
+    searchTerm
+      ? options.filter((opt) =>
+          opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : options
+  ).slice().sort((a, b) => a.label.localeCompare(b.label));
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

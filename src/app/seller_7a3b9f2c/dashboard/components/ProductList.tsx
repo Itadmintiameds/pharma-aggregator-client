@@ -1,20 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Table, { Column } from "@/src/app/commonComponents/Table";
 import { getProductList } from "@/src/services/product/ProductService";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { ProductListData } from "@/src/types/product/ProductData";
+import { useClickOutside } from "@/src/hooks/useClickOutside";
 import Delete from "./Delete";
+
+export type StockFilter = "all" | "in" | "low" | "out";
+export type CategoryFilter = number | "all";
 
 interface ProductListProps {
   setCurrentView: (view: DashboardView) => void;
   setSelectedProductId: (id: string) => void;
   refreshKey?: number;
+  categoryFilter?: CategoryFilter;
+  stockFilter?: StockFilter;
 }
 
-const categoryMap: Record<number, string> = {
+export const categoryMap: Record<number, string> = {
   1: "Drugs",
   2: "Supplements/ Nutraceuticals",
   3: "Food & Infant Nutrition",
@@ -23,6 +29,8 @@ const categoryMap: Record<number, string> = {
   6: "Non-Consumable Medical Devices & Equipment",
 };
 
+const LOW_STOCK_THRESHOLD = 10;
+
 const getBatchCount = (pricingDetails: any[] = []) => pricingDetails.length;
 
 const getTotalStock = (pricingDetails: any[] = []) =>
@@ -30,6 +38,69 @@ const getTotalStock = (pricingDetails: any[] = []) =>
     (sum, batch) => sum + (Number(batch.stockQuantity) || 0),
     0,
   );
+
+const getStockStatus = (totalStock: number): Exclude<StockFilter, "all"> => {
+  if (totalStock <= 0) return "out";
+  if (totalStock < LOW_STOCK_THRESHOLD) return "low";
+  return "in";
+};
+
+type SortOption =
+  | "nameAsc"
+  | "nameDesc"
+  | "categoryAsc"
+  | "categoryDesc"
+  | "batchesAsc"
+  | "batchesDesc"
+  | "stockAsc"
+  | "stockDesc";
+
+const SORT_LABELS: Record<SortOption, string> = {
+  nameAsc: "Product Name (A-Z)",
+  nameDesc: "Product Name (Z-A)",
+  categoryAsc: "Category (A-Z)",
+  categoryDesc: "Category (Z-A)",
+  batchesAsc: "Batches (Low to High)",
+  batchesDesc: "Batches (High to Low)",
+  stockAsc: "Total Stock (Low to High)",
+  stockDesc: "Total Stock (High to Low)",
+};
+
+const sortData = (
+  data: ProductListData[],
+  sortOption: SortOption | null,
+): ProductListData[] => {
+  if (!sortOption) return data;
+
+  const sorted = [...data];
+  sorted.sort((a, b) => {
+    switch (sortOption) {
+      case "nameAsc":
+        return (a.productName ?? "").localeCompare(b.productName ?? "");
+      case "nameDesc":
+        return (b.productName ?? "").localeCompare(a.productName ?? "");
+      case "categoryAsc":
+        return (categoryMap[a.categoryId as number] ?? "").localeCompare(
+          categoryMap[b.categoryId as number] ?? "",
+        );
+      case "categoryDesc":
+        return (categoryMap[b.categoryId as number] ?? "").localeCompare(
+          categoryMap[a.categoryId as number] ?? "",
+        );
+      case "batchesAsc":
+        return getBatchCount(a.pricingDetails) - getBatchCount(b.pricingDetails);
+      case "batchesDesc":
+        return getBatchCount(b.pricingDetails) - getBatchCount(a.pricingDetails);
+      case "stockAsc":
+        return getTotalStock(a.pricingDetails) - getTotalStock(b.pricingDetails);
+      case "stockDesc":
+        return getTotalStock(b.pricingDetails) - getTotalStock(a.pricingDetails);
+      default:
+        return 0;
+    }
+  });
+  return sorted;
+};
 
 const columns: Column<ProductListData>[] = [
   {
@@ -73,6 +144,8 @@ const ProductList = ({
   setCurrentView,
   setSelectedProductId,
   refreshKey,
+  categoryFilter = "all",
+  stockFilter = "all",
 }: ProductListProps) => {
   const [data, setData] = useState<ProductListData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -81,7 +154,12 @@ const ProductList = ({
     string | null
   >(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortOption, setSortOption] = useState<SortOption | null>(null);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  useClickOutside(sortDropdownRef, () => setShowSortDropdown(false));
 
   const fetchProducts = async () => {
     try {
@@ -111,25 +189,28 @@ const ProductList = ({
   const filteredData = data.filter((item) => {
     const term = searchTerm.toLowerCase();
 
-    return (
+    const matchesSearch =
+      !term ||
       item.productName?.toLowerCase().includes(term) ||
       categoryMap[item.categoryId as number]?.toLowerCase().includes(term) ||
       String(getBatchCount(item.pricingDetails)).includes(term) ||
-      String(getTotalStock(item.pricingDetails)).includes(term)
-    );
+      String(getTotalStock(item.pricingDetails)).includes(term);
+
+    const matchesCategory =
+      categoryFilter === "all" || item.categoryId === categoryFilter;
+
+    const matchesStock =
+      stockFilter === "all" ||
+      getStockStatus(getTotalStock(item.pricingDetails)) === stockFilter;
+
+    return matchesSearch && matchesCategory && matchesStock;
   });
+
+  const sortedData = sortData(filteredData, sortOption);
 
   return (
     <>
       <div className="flex justify-between gap-10 font-open-sans">
-        <button className="w-32 h-12 bg-pneutral-50 border border-pneutral-200 rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2">
-          <img
-            src="/icons/FilterIcon.svg"
-            alt="filter"
-            className="w-4.5 h-4.5"
-          />
-          Filter
-        </button>
         <div className="relative w-full">
           <input
             type="text"
@@ -146,20 +227,62 @@ const ProductList = ({
           </div>
         </div>
 
-        <button className="w-36 h-12 bg-pneutral-50 border border-pneutral-200 rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2">
-          Sort By
-          <img
-            src="/icons/SortbyIcon.svg"
-            alt="filter"
-            className="w-4.5 h-4.5"
-          />
-        </button>
+        <div className="relative shrink-0" ref={sortDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setShowSortDropdown((prev) => !prev)}
+            className="w-36 h-12 bg-pneutral-50 border border-pneutral-200 rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            Sort By
+            <img
+              src="/icons/DownArrow.svg"
+              alt="sort"
+              className={`w-4.5 h-4.5 transition-transform duration-200 ${
+                showSortDropdown ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {showSortDropdown && (
+            <div className="absolute right-0 top-14 z-20 w-56 bg-white border border-pneutral-200 rounded-lg shadow-lg py-2">
+              {sortOption && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortOption(null);
+                    setShowSortDropdown(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-p4 font-semibold text-primary-900 hover:bg-neutral-100 cursor-pointer"
+                >
+                  Clear sort
+                </button>
+              )}
+              {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setSortOption(key);
+                    setShowSortDropdown(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 text-p4 hover:bg-neutral-100 cursor-pointer ${
+                    sortOption === key
+                      ? "font-semibold text-primary-900"
+                      : "text-neutral-900"
+                  }`}
+                >
+                  {SORT_LABELS[key]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div>
         <Table<ProductListData>
           columns={columns}
-          data={filteredData}
+          data={sortedData}
           loading={loading}
           actions={(row) => (
             <div className="flex items-center gap-3">

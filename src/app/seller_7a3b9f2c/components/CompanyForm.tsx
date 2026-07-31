@@ -150,29 +150,42 @@ export default function CompanyForm({
     if (!isCompanyPhoneDropdownOpen) setPhoneCountrySearch("");
   }, [isCompanyPhoneDropdownOpen]);
 
-  const filteredCompanyTypes = companyTypes.filter((type) =>
-    type.companyTypeName.toLowerCase().includes(dropdownSearch.toLowerCase())
-  );
+  const filteredCompanyTypes = companyTypes
+    .filter((type) =>
+      type.companyTypeName.toLowerCase().includes(dropdownSearch.toLowerCase())
+    )
+    .sort((a, b) => a.companyTypeName.localeCompare(b.companyTypeName));
   const filteredSellerTypes = sellerTypes
     .filter((type) => type.isActive)
-    .filter((type) => type.sellerTypeName.toLowerCase().includes(dropdownSearch.toLowerCase()));
-  const filteredStates = states.filter((state) =>
-    state.stateName.toLowerCase().includes(dropdownSearch.toLowerCase())
-  );
-  const filteredDistricts = districts.filter((district) =>
-    district.districtName.toLowerCase().includes(dropdownSearch.toLowerCase())
-  );
-  const filteredTalukas = talukas.filter((taluka) =>
-    taluka.talukaName.toLowerCase().includes(dropdownSearch.toLowerCase())
-  );
-  const filteredProductTypes = productTypes.filter((product) =>
-    product.productTypeName.toLowerCase().includes(productSearch.toLowerCase())
-  );
-  const filteredCompanyCountryCodes = companyCountryCodes.filter(
-    (country) =>
-      country.country.toLowerCase().includes(phoneCountrySearch.toLowerCase()) ||
-      country.code.includes(phoneCountrySearch)
-  );
+    .filter((type) => type.sellerTypeName.toLowerCase().includes(dropdownSearch.toLowerCase()))
+    .sort((a, b) => a.sellerTypeName.localeCompare(b.sellerTypeName));
+  const filteredStates = states
+    .filter((state) =>
+      state.stateName.toLowerCase().includes(dropdownSearch.toLowerCase())
+    )
+    .sort((a, b) => a.stateName.localeCompare(b.stateName));
+  const filteredDistricts = districts
+    .filter((district) =>
+      district.districtName.toLowerCase().includes(dropdownSearch.toLowerCase())
+    )
+    .sort((a, b) => a.districtName.localeCompare(b.districtName));
+  const filteredTalukas = talukas
+    .filter((taluka) =>
+      taluka.talukaName.toLowerCase().includes(dropdownSearch.toLowerCase())
+    )
+    .sort((a, b) => a.talukaName.localeCompare(b.talukaName));
+  const filteredProductTypes = productTypes
+    .filter((product) =>
+      product.productTypeName.toLowerCase().includes(productSearch.toLowerCase())
+    )
+    .sort((a, b) => a.productTypeName.localeCompare(b.productTypeName));
+  const filteredCompanyCountryCodes = companyCountryCodes
+    .filter(
+      (country) =>
+        country.country.toLowerCase().includes(phoneCountrySearch.toLowerCase()) ||
+        country.code.includes(phoneCountrySearch)
+    )
+    .sort((a, b) => a.country.localeCompare(b.country));
 
   // Skip auto-closing a dropdown when focus is moving to an element still
   // inside its container (e.g. the search input) — the click-outside
