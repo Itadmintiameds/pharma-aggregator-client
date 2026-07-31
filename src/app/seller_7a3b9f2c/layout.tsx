@@ -35,6 +35,10 @@ export default function SellerLayout({
       "/seller_7a3b9f2c/products",
       "/seller_7a3b9f2c/profile",
       "/seller_7a3b9f2c/reports",
+      "/seller_7a3b9f2c/orders",
+      "/seller_7a3b9f2c/conversions",
+      "/seller_7a3b9f2c/settings",
+      "/seller_7a3b9f2c/shipment",
     ];
     return protectedPaths.some(protectedPath => pathname.startsWith(protectedPath));
   };
