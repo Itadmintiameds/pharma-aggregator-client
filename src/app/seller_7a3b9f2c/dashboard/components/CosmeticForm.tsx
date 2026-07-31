@@ -310,6 +310,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [loadingNetQuantityUnits, setLoadingNetQuantityUnits] = useState(false);
   const [loadingProductForms, setLoadingProductForms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   // ─── Form state ──────────────────────────────────────────────────────────────
   const [form, setForm] = useState({
@@ -1254,6 +1255,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
       gstPercentage:        Number(form.gstPercentage),
       hsnCode:              Number(form.hsnCode),
+      status:               "PUBLISHED" as const,
 
       productAttributeCosmeticAndPersonalUse: [{
         ...(productAttributeId ? { productAttributeId } : {}),
@@ -1438,6 +1440,82 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     }
   };
 
+
+  // ─── Save Draft ───────────────────────────────────────────────────────────────
+  const handleSaveDraft = async () => {
+    setIsSavingDraft(true);
+    try {
+      const draftPayload = {
+        productName:          form.productName,
+        warningsPrecautions:  form.warningsPrecautions,
+        productDescription:   form.productDescription,
+        manufacturerName:     form.manufacturerName,
+        categoryId:           productCategoryId,
+
+        gstPercentage:        form.gstPercentage ? Number(form.gstPercentage) : undefined,
+        hsnCode:              form.hsnCode ? Number(form.hsnCode) : undefined,
+        status:               "DRAFT" as const,
+
+        productAttributeCosmeticAndPersonalUse: [{
+          ...(productAttributeId ? { productAttributeId } : {}),
+          productCategoryId:    form.productTypeId ? Number(form.productTypeId) : undefined,
+          productSubcategoryId: form.productSubTypeId ? Number(form.productSubTypeId) : undefined,
+          brandName:            form.brandName,
+          VariantName:          form.variantName || null,
+          Gender:               form.gender,
+          useAreaId:            selectedIntendedUseAreas.map(Number),
+          intendedUseAreaIds:   selectedIntendedUseAreas.map(Number),
+          IntendedUseArea:      selectedIntendedUseAreas.map((id) => ({ useAreaId: Number(id) })),
+          skintypeId:           skinHairRule.skinType !== "hidden" ? selectedSkinTypes.map(Number) : [],
+          typeId:               skinHairRule.hairType !== "hidden" ? selectedHairTypes.map(Number) : [],
+          ActiveIngredients:    form.activeIngredients,
+          NetQuantityStrength:  form.netQuantity ? Number(form.netQuantity) : undefined,
+          unitId:               form.netQuantityUnitId ? Number(form.netQuantityUnitId) : undefined,
+          formId:               form.productFormId ? Number(form.productFormId) : undefined,
+          ageGroupId:           selectedAgeGroups.length > 0 ? Number(selectedAgeGroups[0]) : 0,
+          ageGroupIds:          selectedAgeGroups.map(Number),
+          ProductClaims:        form.productClaims,
+          WarningsPrecautions:  form.warningsPrecautions,
+          storageConditionId:   form.storageConditionId ? Number(form.storageConditionId) : undefined,
+          countryId:            form.countryOfOriginId ? Number(form.countryOfOriginId) : undefined,
+          manufacturerName:     form.manufacturerName,
+          brochureType:         "PDF",
+          brochurePath:         existingBrochureUrl || "PENDING",
+          brochurePathStatus:   existingBrochureUrl || brochureFile ? "TO_UPLOAD" : "PENDING",
+          certificateDocuments: selectedCertifications.map((c) => ({
+            certificationId: Number(c.id),
+            certificateUrl:  c.existingUrl || "PENDING",
+          })),
+        }],
+
+        productImages: images.map(() => ({ productImage: "PENDING" })),
+        retainedImageUrls: existingImages,
+      };
+
+      let currentProductId = resolvedProductId || productId || "";
+
+      if (mode === "edit" && currentProductId) {
+        await updateProduct(currentProductId, draftPayload as never);
+        if (images.length > 0) await uploadProductImages(currentProductId, images);
+      } else {
+        const draftData: ApiResponseData = await createCosmeticProduct(draftPayload as Record<string, unknown>);
+        const dataInner = (draftData?.data ?? draftData) as ApiResponseData;
+        const newProductId = String(dataInner?.productId ?? "").trim();
+        if (newProductId && newProductId !== "undefined") {
+          currentProductId = newProductId;
+          setResolvedProductId(newProductId);
+        }
+        if (currentProductId && images.length > 0) await uploadProductImages(currentProductId, images);
+      }
+
+      alert("Draft saved!");
+    } catch (err) {
+      console.error("❌ Save Draft Error:", err);
+      alert("❌ Failed to save draft");
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
 
   // ─── Loading guard ─────────────────────────────────────────────────────────────
   if (mode === "edit" && loadingProduct) {
@@ -2017,10 +2095,11 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
               Cancel
             </button>
-            <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }}
-              className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
+            <button type="button" onClick={handleSaveDraft} disabled={isSavingDraft}
+              style={{ background: "#9F75FC", borderRadius: "8px" }}
+              className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-60">
               <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
-              Save Draft
+              {isSavingDraft ? "Saving..." : "Save Draft"}
             </button>
           </div>
           <button type="button" onClick={handleSubmit} disabled={submitting}

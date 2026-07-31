@@ -249,6 +249,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [loadingMaterialTypes, setLoadingMaterialTypes] = useState(false);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -1025,6 +1026,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        status: "PUBLISHED" as const,
 
         productAttributeConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
@@ -1120,6 +1122,74 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       alert(`Failed to ${mode === "edit" ? "update" : "create"} product: ${errorMessage}`);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    setIsSavingDraft(true);
+    try {
+      const draftPayload = {
+        productName: form.productName,
+        warningsPrecautions: form.safetyInstructions,
+        productDescription: form.productDescription,
+        productMarketingUrl: form.brochureUrl || "",
+        manufacturerName: form.manufacturerName,
+        categoryId: productCategoryId,
+
+        gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : undefined,
+        hsnCode: form.hsnCode ? Number(form.hsnCode) : undefined,
+        status: "DRAFT" as const,
+
+        productAttributeConsumableMedicals: [{
+          ...(productAttributeId ? { productAttributeId } : {}),
+          deviceCatId: form.deviceCategoryId ? Number(form.deviceCategoryId) : undefined,
+          deviceSubCatId: form.deviceSubCategoryId ? Number(form.deviceSubCategoryId) : undefined,
+          brandName: form.brandName,
+          materialTypeId: selectedMaterialTypes.map(Number),
+          dimensionSize: form.sizeDimension.trim() || null,
+          deviceSpecificationUnitId: form.deviceSpecificationUnitId ? Number(form.deviceSpecificationUnitId) : undefined,
+          sterileOrNonSterile: form.sterileStatus === "sterile" ? "Sterile" : "Non-Sterile",
+          disposalOrReusable: form.disposableType === "disposable" ? "Disposable" : "Reusable",
+          purpose: form.intendedUse,
+          keyFeaturesSpecifications: form.keyFeatures,
+          safetyInstructions: form.safetyInstructions,
+          countryId: form.countryOfOrigin ? Number(form.countryOfOrigin) : undefined,
+          manufacturerName: form.manufacturerName,
+          storageConditionId: form.storageCondition ? Number(form.storageCondition) : undefined,
+          shelfLife: form.shelfLifeMonths,
+          brochureType: "PDF",
+          brochurePathStatus: existingBrochureUrl || (brochureFile ? "TO_UPLOAD" : "PENDING"),
+          certificateDocuments: selectedCertifications.map((c) => ({
+            certificationId: Number(c.id),
+            certificateUrl: c.existingUrl || "PENDING",
+          })),
+        }],
+        productImages: images.map(() => ({ productImage: "PENDING" })),
+        retainedImageUrls: existingImages,
+      };
+
+      let currentProductId = resolvedProductId || productId || "";
+
+      if (mode === "edit" && currentProductId) {
+        await updateProduct(currentProductId, draftPayload as any);
+        if (images.length > 0) await uploadProductImages(currentProductId, images);
+      } else {
+        const createData: ApiResponseData = await createConsumableProduct(draftPayload as Record<string, unknown>);
+        const dataInner = createData?.data as ApiResponseData | undefined;
+        const newProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
+        if (newProductId && newProductId !== "undefined") {
+          currentProductId = newProductId;
+          setResolvedProductId(newProductId);
+        }
+        if (currentProductId && images.length > 0) await uploadProductImages(currentProductId, images);
+      }
+
+      alert("Draft saved!");
+    } catch (err) {
+      console.error("❌ Save Draft Error:", err);
+      alert("❌ Failed to save draft");
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -1557,10 +1627,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
               Cancel
             </button>
-            <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }}
-              className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
+            <button type="button" onClick={handleSaveDraft} disabled={isSavingDraft}
+              style={{ background: "#9F75FC", borderRadius: "8px" }}
+              className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-60">
               <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
-              Save Draft
+              {isSavingDraft ? "Saving..." : "Save Draft"}
             </button>
           </div>
           <button type="button" onClick={handleSubmit} disabled={submitting}

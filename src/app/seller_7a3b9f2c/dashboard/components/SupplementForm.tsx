@@ -363,6 +363,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [showCertDropdown, setShowCertDropdown] = useState(false);
   const [showAgeGroupDropdown, setShowAgeGroupDropdown] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
   const [modalType, setModalType] = useState<"create" | "update">("create");
@@ -1589,6 +1590,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        status: "PUBLISHED" as const,
 
         productAttributeSupplementsOrNutraceuticals: [
           {
@@ -1723,6 +1725,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        status: "PUBLISHED" as const,
 
         productAttributeSupplementsOrNutraceuticals: [
           {
@@ -1834,6 +1837,89 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       alert("❌ Failed to update supplement product");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // ── handleSaveDraft: saves a partial product without full validation ────────
+  const handleSaveDraft = async () => {
+    setIsSavingDraft(true);
+    try {
+      const draftPayload = {
+        productName: form.productName,
+        warningsPrecautions: form.warningsPrecautions,
+        productDescription: form.productDescription,
+        manufacturerName: form.manufacturerName,
+        categoryId: effectiveCategoryId ? Number(effectiveCategoryId) : (categoryId ? Number(categoryId) : undefined),
+
+        gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : undefined,
+        hsnCode: form.hsnCode ? Number(form.hsnCode) : undefined,
+        status: "DRAFT" as const,
+
+        productAttributeSupplementsOrNutraceuticals: [
+          {
+            therapeuticCategoryId: form.therapeuticCategory,
+            therapeuticSubCategoryId: form.therapeuticSubcategory,
+            brandName: form.brandName,
+            variantName: form.variantName,
+            dosageFormId: form.dosageForm ? Number(form.dosageForm) : undefined,
+            netQuantity: form.netQuantityValue ? Number(form.netQuantityValue) : undefined,
+            netQuantityUnitId: Number(
+              netQuantityUnitsList.find((item) => extractUnitString(item) === form.netQuantityUnit)?.unitId ||
+              netQuantityUnitsList.find((item) => extractUnitString(item) === form.netQuantityUnit)?.id ||
+              form.netQuantityUnitId ||
+              0
+            ),
+            servingSize: form.servingSizeValue ? Number(form.servingSizeValue) : null,
+            servingSizeUnitId: form.servingSizeUnitId ? Number(form.servingSizeUnitId) : null,
+            strength: form.strength,
+            activeIngredients: form.activeIngredients,
+            otherIngredients: form.excipients,
+            nutritionalInformation: form.nutritionalInfoType === "label" ? "As per the label." : "",
+            nutritionalInformationImageUrl: "",
+            intendedUse: form.intendedUse,
+            ageGroupId: form.ageGroup ? Number(form.ageGroup.split(",")[0]) : 0,
+            ageGroupIds: form.ageGroup ? form.ageGroup.split(",").map(Number) : [],
+            gender: form.gender,
+            vegOrNonVegIndicator: form.vegNonVeg,
+            allergenInformation: form.allergenInfo,
+            flavourId: form.flavour ? Number(form.flavour) : undefined,
+            productClaims: form.productClaims,
+            storageConditionId: form.storageCondition ? Number(form.storageCondition) : undefined,
+            countryId: form.countryOfOrigin ? Number(form.countryOfOrigin) : undefined,
+            certificateDocuments: selectedCertifications.map((cert) => ({
+              certificationId: Number(cert.id),
+              certificateUrl: cert.existingUrl || "PENDING",
+            })),
+            brochurePath: existingBrochureUrl || "PENDING",
+          },
+        ],
+
+        productImages: images.map((img) => ({ productImage: img.name })),
+        retainedImageUrls: existingImages,
+      };
+
+      if (isEditMode && form.productId) {
+        await updateProduct(form.productId, draftPayload as any);
+        if (images.length > 0) {
+          await uploadSupplementProductImages(form.productId, images);
+        }
+      } else {
+        const productResponse = await createSupplementProduct(draftPayload);
+        const newProductId = productResponse?.data?.productId;
+        if (newProductId) {
+          setForm((prev) => ({ ...prev, productId: newProductId }));
+          if (images.length > 0) {
+            await uploadSupplementProductImages(newProductId, images);
+          }
+        }
+      }
+
+      alert("Draft saved!");
+    } catch (err) {
+      console.error("❌ Save Draft Error:", err);
+      alert("❌ Failed to save draft");
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -2482,13 +2568,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               Cancel
             </button>
 
-            <button className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={isSavingDraft}
+              className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5 disabled:opacity-60"
+            >
               <img
                 src="/icons/SaveDraftIcon.svg"
                 alt="drug"
                 className="w-5 h-5 rounded-md object-cover"
               />
-              Save Draft
+              {isSavingDraft ? "Saving..." : "Save Draft"}
             </button>
           </div>
           <div>

@@ -245,6 +245,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [dosageOptions, setDosageOptions] = useState<any[]>([]);
   const [loadingDosage, setLoadingDosage] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [moleculeOptions, setMoleculeOptions] = useState<any[]>([]);
   const [loadingMolecules, setLoadingMolecules] = useState(false);
@@ -754,6 +755,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        status: "PUBLISHED" as const,
 
         // Packaging (variant) and pricing (batch/stock) are intentionally omitted here —
         // they're attached afterwards from the product view page via addPackagingVariant/addStock.
@@ -1055,6 +1057,7 @@ const handleUpdate = async () => {
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        status: "PUBLISHED" as const,
 
         productAttributeDrugs: [
           {
@@ -1097,6 +1100,63 @@ const handleUpdate = async () => {
     }
   };
 
+  const handleSaveDraft = async () => {
+    setIsSavingDraft(true);
+    try {
+      const draftPayload = {
+        productId: form.productId,
+        productName: form.productName,
+        productDescription: form.productDescription,
+        warningsPrecautions: form.warningsPrecautions,
+        manufacturerName: form.manufacturerName,
+        categoryId: form.categoryId ? Number(form.categoryId) : undefined,
+        gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : undefined,
+        hsnCode: form.hsnCode ? Number(form.hsnCode) : undefined,
+        status: "DRAFT" as const,
+        productAttributeDrugs: [
+          {
+            therapeuticCategoryId: form.therapeuticCategory,
+            therapeuticSubcategoryId:
+              form.therapeuticSubcategoryId || form.therapeuticSubcategory,
+            dosageForm:
+              dosageOptions.find((d) => Number(d.value) === Number(form.dosageId))
+                ?.label || "",
+            strength: form.strength,
+            storageConditionIds: form.storageConditionIds,
+            molecules: form.molecules.map((m) => ({
+              moleculeId: Number(m.moleculeId),
+              strength: m.strength,
+            })),
+          },
+        ],
+        productImages: images.map((img) => ({ productImage: img.name })),
+        retainedImageUrls: existingImages,
+      };
+
+      if (mode === "edit" && form.productId) {
+        await updateProduct(form.productId, draftPayload as any);
+        if (images.length > 0) {
+          await uploadProductImages(form.productId, images);
+        }
+      } else {
+        const productResponse = await createDrugProduct(draftPayload as any);
+        const productId = productResponse?.data?.productId;
+        if (productId) {
+          setForm((prev) => ({ ...prev, productId }));
+          if (images.length > 0) {
+            await uploadProductImages(productId, images);
+          }
+        }
+      }
+
+      alert("Draft saved!");
+    } catch (err) {
+      console.error("❌ Save Draft Error:", err);
+      alert("❌ Failed to save draft");
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
 
   const fetchDosage = async (
     categoryId: string | number,
@@ -1680,14 +1740,16 @@ const handleUpdate = async () => {
 
             <button
               type="button"
-              className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5"
+              onClick={handleSaveDraft}
+              disabled={isSavingDraft}
+              className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5 disabled:opacity-60"
             >
               <img
                 src="/icons/SaveDraftIcon.svg"
                 alt="drug"
                 className="w-5 h-5 rounded-md object-cover"
               />
-              Save Draft
+              {isSavingDraft ? "Saving..." : "Save Draft"}
             </button>
           </div>
           <div>

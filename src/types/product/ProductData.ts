@@ -5,6 +5,7 @@ export interface CreateDrugProductRequest {
   categoryId: number;
   gstPercentage?: number;
   hsnCode?: number;
+  status?: "DRAFT" | "PUBLISHED";
   packagingDetails?: PackagingData[];
   pricingDetails?: PricingData[];
   productAttributeDrugs?: ProductAttributeDrugData[];
@@ -20,6 +21,7 @@ export interface CreateProductRequest {
   categoryId: number;
   gstPercentage?: number;
   hsnCode?: number;
+  status?: "DRAFT" | "PUBLISHED";
   packagingDetails?: PackagingData[];
   pricingDetails?: PricingData[];
   productAttributeFoodInfants?: ProductAttributeFoodInfantData[];
@@ -187,6 +189,7 @@ export interface ProductListData {
   productName: string;
   categoryName?: string;
   categoryId?: number;
+  status?: "DRAFT" | "PUBLISHED";
   pricingDetails: PricingData[];
   productImages?: {
     productImage: string;

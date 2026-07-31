@@ -368,6 +368,7 @@ const [certificateDocumentIds, setCertificateDocumentIds] = useState<Map<number,
   const [loadingStorageConditions, setLoadingStorageConditions] = useState(false);
   const [loadingPackTypes, setLoadingPackTypes] = useState(false);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [ageGroupOptionsMap, setAgeGroupOptionsMap] = useState<Map<string, string>>(new Map());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1452,6 +1453,7 @@ if ((attr as any).certificateDocuments?.length) {
       categoryId: 3,
       gstPercentage: Number(form.gstPercentage) || 0,
       hsnCode: Number(form.hsnCode) || 0,
+      status: "PUBLISHED" as const,
       productAttributeFoodInfants: [foodInfantAttr],
       retainedImageUrls: isEditMode ? existingImages : undefined,
     };
@@ -1729,6 +1731,96 @@ if ((attr as any).certificateDocuments?.length) {
       console.error("Submit failed", err);
       setErrors({ submit: err.message || "Submission failed" });
       alert(`Failed to ${isEditMode ? "update" : "create"} product: ${err.message}`);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    setIsSavingDraft(true);
+    try {
+      const ageGroupMastersDto = form.ageGroup.map((id) => ({ ageGroupId: Number(id) }));
+      const firstAgeGroupId = form.ageGroup.length > 0 ? Number(form.ageGroup[0]) : undefined;
+
+      const foodInfantAttr = {
+        productCategoryId: form.productCategory ? Number(form.productCategory) : undefined,
+        productSubcategoryId: form.productSubcategory ? Number(form.productSubcategory) : undefined,
+        brandName: form.brandName,
+        variantName: form.variantName,
+        productFormId: form.productForm ? Number(form.productForm) : undefined,
+        netQuantity: form.netQuantityValue ? Number(form.netQuantityValue) : undefined,
+        unitId: form.netQuantityUnitId || undefined,
+        ageGroupId: firstAgeGroupId,
+        ageGroupMastersDto,
+        vegNonvegIndicator: form.dietaryClassification || undefined,
+        allergenInformation: form.allergenInformation,
+        nutritionalInformation: form.nutritionalInfoType,
+        nutritionalInformationImageUrl:
+          isEditMode && existingNutritionalImageUrl ? existingNutritionalImageUrl : "",
+        activeIngredients: form.activeIngredients,
+        additivesPreservatives: form.additivesPreservatives,
+        productClaims: form.productClaims,
+        storageConditionId: form.storageConditionId ? Number(form.storageConditionId) : undefined,
+        countryId: form.countryOfOrigin ? Number(form.countryOfOrigin) : undefined,
+        certificateDocuments: certificationsDetails
+          .filter((c) => {
+            const hasValidExistingUrl =
+              c.existingUrl &&
+              c.existingUrl !== "NOT_UPLOADED" &&
+              c.existingUrl !== "PENDING" &&
+              !c.existingUrl.startsWith("blob:");
+            return c.isUploaded || hasValidExistingUrl;
+          })
+          .map((c) => ({
+            certificationId: Number(c.id),
+            certificateUrl:
+              c.existingUrl &&
+              c.existingUrl !== "NOT_UPLOADED" &&
+              c.existingUrl !== "PENDING" &&
+              !c.existingUrl.startsWith("blob:")
+                ? c.existingUrl
+                : c.file
+                ? URL.createObjectURL(c.file)
+                : "",
+          })),
+        productUserManual: existingManualFile || "PENDING",
+      };
+
+      const draftPayload: CreateProductRequest = {
+        productName: form.productName,
+        productDescription: form.productDescription,
+        warningsPrecautions: form.warningsPrecautions,
+        manufacturerName: form.manufacturerName,
+        categoryId: 3,
+        gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : undefined,
+        hsnCode: form.hsnCode ? Number(form.hsnCode) : undefined,
+        status: "DRAFT" as const,
+        productAttributeFoodInfants: [foodInfantAttr as any],
+        retainedImageUrls: isEditMode ? existingImages : undefined,
+      };
+
+      const targetProductId = isEditMode && productId ? productId : createdProductId;
+
+      if (targetProductId) {
+        await updateProduct(targetProductId, draftPayload);
+        if (images.length > 0) {
+          await uploadProductImages(targetProductId, images);
+        }
+      } else {
+        const response = await createFoodInfantProduct(draftPayload);
+        const newProductId = response?.data?.productId;
+        if (newProductId) {
+          setCreatedProductId(newProductId);
+          if (images.length > 0) {
+            await uploadProductImages(newProductId, images);
+          }
+        }
+      }
+
+      alert("Draft saved!");
+    } catch (err) {
+      console.error("❌ Save Draft Error:", err);
+      alert("❌ Failed to save draft");
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -2324,9 +2416,14 @@ if ((attr as any).certificateDocuments?.length) {
         <div className="flex justify-between mt-6 pb-8">
           <div className="flex gap-4">
             <button type="button" onClick={() => router.back()} className="px-6 py-2 border-2 border-warning-500 rounded-lg text-warning-500 font-semibold">Cancel</button>
-            <button type="button" className="px-6 py-2 bg-secondary-700 text-white rounded-lg flex items-center gap-2 font-semibold">
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={isSavingDraft}
+              className="px-6 py-2 bg-secondary-700 text-white rounded-lg flex items-center gap-2 font-semibold disabled:opacity-60"
+            >
               <img src="/icons/SaveDraftIcon.svg" alt="save" className="w-5 h-5" />
-              Save Draft
+              {isSavingDraft ? "Saving..." : "Save Draft"}
             </button>
           </div>
           <button

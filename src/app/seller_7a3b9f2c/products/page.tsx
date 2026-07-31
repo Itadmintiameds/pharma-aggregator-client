@@ -8,6 +8,7 @@ import ProductList, {
   categoryMap,
   CategoryFilter,
   StockFilter,
+  StatusFilter,
 } from "../dashboard/components/ProductList";
 import { OnboardingModal } from "../dashboard/components/DashboardFilters";
 import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
@@ -18,6 +19,12 @@ const STOCK_LABELS: Record<StockFilter, string> = {
   in: "In Stock",
   low: "Low Stock",
   out: "Out of Stock",
+};
+
+const STATUS_LABELS: Record<StatusFilter, string> = {
+  all: "All Status",
+  draft: "Draft",
+  published: "Published",
 };
 
 interface ProductsProps {
@@ -33,14 +40,18 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [stockFilter, setStockFilter] = useState<StockFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [showStockDropdown, setShowStockDropdown] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [allowedCategoryIds, setAllowedCategoryIds] = useState<number[]>([]);
   const stockDropdownRef = useRef<HTMLDivElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
 
   useClickOutside(stockDropdownRef, () => setShowStockDropdown(false));
   useClickOutside(categoryDropdownRef, () => setShowCategoryDropdown(false));
+  useClickOutside(statusDropdownRef, () => setShowStatusDropdown(false));
 
   useEffect(() => {
     const fetchSellerCategories = async () => {
@@ -89,6 +100,7 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
             onClick={() => {
               setShowStockDropdown((prev) => !prev);
               setShowCategoryDropdown(false);
+              setShowStatusDropdown(false);
             }}
             className="w-44.5 h-12 bg-neutral-50 border border-pneutral-200 rounded-lg text-lable-l2 font-semibold text-pneutral-900 flex items-center justify-between px-4 gap-2 cursor-pointer"
           >
@@ -125,6 +137,49 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
           )}
         </div>
 
+        <div className="relative shrink-0" ref={statusDropdownRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowStatusDropdown((prev) => !prev);
+              setShowStockDropdown(false);
+              setShowCategoryDropdown(false);
+            }}
+            className="w-44.5 h-12 bg-neutral-50 border border-pneutral-200 rounded-lg text-lable-l2 font-semibold text-pneutral-900 flex items-center justify-between px-4 gap-2 cursor-pointer"
+          >
+            <span className="truncate">{STATUS_LABELS[statusFilter]}</span>
+            <img
+              src="/icons/DownArrow.svg"
+              alt="filter"
+              className={`w-4.5 h-4.5 shrink-0 transition-transform duration-200 ${
+                showStatusDropdown ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {showStatusDropdown && (
+            <div className="absolute left-0 top-14 z-20 w-44.5 bg-neutral-50 rounded-lg shadow-md py-2">
+              {(Object.keys(STATUS_LABELS) as StatusFilter[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter(key);
+                    setShowStatusDropdown(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 text-lable-l2 hover:bg-neutral-100 cursor-pointer ${
+                    statusFilter === key
+                      ? "font-semibold text-primary-900"
+                      : "text-pneutral-900"
+                  }`}
+                >
+                  {STATUS_LABELS[key]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="relative shrink-0" ref={categoryDropdownRef}>
           <button
             type="button"
@@ -134,6 +189,7 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
             onClick={() => {
               setShowCategoryDropdown((prev) => !prev);
               setShowStockDropdown(false);
+              setShowStatusDropdown(false);
             }}
             className="w-72 h-12 bg-neutral-50 border border-pneutral-200 rounded-lg text-lable-l2 font-semibold text-pneutral-900 flex items-center justify-between px-4 gap-2 cursor-pointer"
           >
@@ -205,6 +261,7 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
           setSelectedProductId={setSelectedProductId}
           categoryFilter={categoryFilter}
           stockFilter={stockFilter}
+          statusFilter={statusFilter}
         />
       </div>
 

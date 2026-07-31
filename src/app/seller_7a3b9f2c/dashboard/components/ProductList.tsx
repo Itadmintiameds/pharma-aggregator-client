@@ -11,6 +11,7 @@ import Delete from "./Delete";
 
 export type StockFilter = "all" | "in" | "low" | "out";
 export type CategoryFilter = number | "all";
+export type StatusFilter = "all" | "draft" | "published";
 
 interface ProductListProps {
   setCurrentView: (view: DashboardView) => void;
@@ -18,6 +19,7 @@ interface ProductListProps {
   refreshKey?: number;
   categoryFilter?: CategoryFilter;
   stockFilter?: StockFilter;
+  statusFilter?: StatusFilter;
 }
 
 export const categoryMap: Record<number, string> = {
@@ -138,6 +140,23 @@ const columns: Column<ProductListData>[] = [
     header: "Total Stock",
     accessor: (row) => getTotalStock(row.pricingDetails),
   },
+  {
+    header: "Status",
+    accessor: (row) => {
+      const isDraft = row.status === "DRAFT";
+      return (
+        <span
+          className={`px-3 py-1 rounded-full text-p4 font-medium ${
+            isDraft
+              ? "bg-warning-50 text-warning-900"
+              : "bg-success-50 text-success-900"
+          }`}
+        >
+          {isDraft ? "Draft" : "Published"}
+        </span>
+      );
+    },
+  },
 ];
 
 const ProductList = ({
@@ -146,6 +165,7 @@ const ProductList = ({
   refreshKey,
   categoryFilter = "all",
   stockFilter = "all",
+  statusFilter = "all",
 }: ProductListProps) => {
   const [data, setData] = useState<ProductListData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -203,7 +223,11 @@ const ProductList = ({
       stockFilter === "all" ||
       getStockStatus(getTotalStock(item.pricingDetails)) === stockFilter;
 
-    return matchesSearch && matchesCategory && matchesStock;
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "draft" ? item.status === "DRAFT" : item.status !== "DRAFT");
+
+    return matchesSearch && matchesCategory && matchesStock && matchesStatus;
   });
 
   const sortedData = sortData(filteredData, sortOption);

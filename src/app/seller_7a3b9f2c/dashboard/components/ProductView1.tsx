@@ -305,6 +305,7 @@ interface ProductApiData {
   gstPercentage?: string | number;
   hsnCode?: string;
   specialOffers?: SpecialOffer[];
+  status?: "DRAFT" | "PUBLISHED";
 }
 
 export interface SpecialOffer {
@@ -2449,6 +2450,8 @@ const ProductView1 = ({
      RENDER
   ───────────────────────────────────────────────────── */
 
+  const isDraftProduct = productData.status === "DRAFT";
+
   return (
     <div
       style={{
@@ -2533,14 +2536,19 @@ const ProductView1 = ({
 
           <button
             onClick={handleUpdateStock}
+            disabled={isDraftProduct}
+            title={isDraftProduct ? "Publish this product before updating stock" : undefined}
             style={{
               height: 48,
               minWidth: 152,
               padding: "12px 16px",
-              background: "var(--Colors-Brand-Primary-800, #6C12A9)",
+              background: isDraftProduct
+                ? "#B5B5B4"
+                : "var(--Colors-Brand-Primary-800, #6C12A9)",
               borderRadius: 8,
               border: "none",
-              cursor: "pointer",
+              cursor: isDraftProduct ? "not-allowed" : "pointer",
+              opacity: isDraftProduct ? 0.7 : 1,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -3091,7 +3099,7 @@ const ProductView1 = ({
                 !!row.batchLotNumber && batchStockLoadingLot === row.batchLotNumber;
               const isDeleting =
                 !!row.batchLotNumber && batchDeletingLot === row.batchLotNumber;
-              const disabled = isUpdating || isDeleting || !row.batchLotNumber;
+              const disabled = isUpdating || isDeleting || !row.batchLotNumber || isDraftProduct;
 
               return (
                 <div style={{ display: "flex", gap: 8 }}>
@@ -3117,6 +3125,7 @@ const ProductView1 = ({
                   <button
                     onClick={() => handleUpdateStockForBatch(row)}
                     disabled={disabled}
+                    title={isDraftProduct ? "Publish this product before updating stock" : undefined}
                     style={{
                       padding: "6px 12px",
                       borderRadius: 6,
