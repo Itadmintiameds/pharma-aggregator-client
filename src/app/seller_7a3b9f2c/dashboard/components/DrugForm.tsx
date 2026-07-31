@@ -42,6 +42,7 @@ import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import NumericInputWithUnit from "@/src/app/commonComponents/NumericInputWithUnit";
 import { getPackTypeUnits } from "@/src/services/product/PackTypeService";
+import { getGstPercentages } from "@/src/services/product/GstPercentageService";
 
 interface SelectOption {
   value: string;
@@ -223,13 +224,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     additionalDiscount: [],
   };
 
-  const gstOptions = [
-    { value: "0", label: "0%" },
-    { value: "5", label: "5%" },
-    { value: "12", label: "12%" },
-    { value: "18", label: "18%" },
-  ];
-
   const router = useRouter();
   const [therapeuticCategories, setTherapeuticCategories] = useState<
     SelectOption[]
@@ -281,6 +275,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] =
     useState(false);
   const [packTypeUnitOptions, setPackTypeUnitOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [gstOptions, setGstOptions] = useState<
     { label: string; value: string }[]
   >([]);
 
@@ -1317,6 +1314,27 @@ const handleUpdate = async () => {
     }
   };
 
+  useEffect(() => {
+    fetchGstPercentages();
+  }, []);
+
+  const fetchGstPercentages = async () => {
+    try {
+      const response = await getGstPercentages();
+
+      const options = response
+        .map((item: any) => ({
+          label: `${item.gstPercentageValue}%`,
+          value: String(item.gstPercentageValue),
+        }))
+        .sort((a: any, b: any) => Number(a.value) - Number(b.value));
+
+      setGstOptions(options);
+    } catch (error) {
+      console.error("Error fetching GST percentages:", error);
+    }
+  };
+
   return (
     <>
       <PopupModal
@@ -1637,13 +1655,14 @@ const handleUpdate = async () => {
               required
             />
 
-            <Input
+            <Dropdown
               label="GST %"
-              name="gstPercentage"
-              id="gstPercentage"
-              placeholder="e.g. 12"
-              value={form.gstPercentage}
-              onChange={handleChange}
+              options={gstOptions}
+              value={form.gstPercentage || ""}
+              onChange={(value) =>
+                setForm((prev) => ({ ...prev, gstPercentage: value }))
+              }
+              placeholder="Select GST %"
               error={errors.gstPercentage}
               required
             />

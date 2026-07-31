@@ -169,11 +169,8 @@ const foodInfantBaseSchema = z
 
     gstPercentage: z
       .string()
-      .trim()
-      .min(1, "GST % is required")
-      .regex(/^\d+(\.\d+)?$/, "Only numeric values are allowed")
-      .refine((val) => Number(val) >= 0 && Number(val) <= 100, {
-        message: "GST must be between 0 and 100",
+      .refine((val) => ["0", "5", "8", "10", "12"].includes(val), {
+        message: "Select a valid GST %",
       }),
 
     hsnCode: z

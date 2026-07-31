@@ -205,9 +205,9 @@ const supplementProductBaseSchema = z
 
     gstPercentage: z
       .string()
-      .trim()
-      .min(1, "GST % is required")
-      .regex(/^\d+(\.\d+)?$/, "Must be a valid number"),
+      .refine((val) => ["0", "5", "8", "10", "12"].includes(val), {
+        message: "Select a valid GST %",
+      }),
 
     hsnCode: z
       .string()

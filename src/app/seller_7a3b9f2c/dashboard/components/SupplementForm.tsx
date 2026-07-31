@@ -30,6 +30,7 @@ import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours
 import { getPackTypeUnits } from "@/src/services/product/PackTypeService";
 import { getProductById, updateProduct } from "@/src/services/product/ProductService";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
+import { getGstPercentages } from "@/src/services/product/GstPercentageService";
 
 import { getTherapeuticCategory, getTherapeuticSubcategory } from "@/src/services/product/TherapeuticCategoryService";
 import { supplementProductSchema, supplementProductCreateSchema } from "@/src/schema/product/SupplementProductSchema";
@@ -620,6 +621,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [storageOptions, setStorageOptions] = useState<SelectOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
   const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
+  const [gstOptions, setGstOptions] = useState<SelectOption[]>([]);
   const [certificationOptions, setCertificationOptions] = useState<any[]>([]);
   const [netQuantityUnitOptions, setNetQuantityUnitOptions] = useState<string[]>([]);
   const [netQuantityUnitsList, setNetQuantityUnitsList] = useState<any[]>([]);
@@ -639,6 +641,23 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [loadingPackTypes, setLoadingPackTypes] = useState(false);
   const [packTypeUnitsList, setPackTypeUnitsList] = useState<any[]>([]);
   const [loadingPackTypeUnits, setLoadingPackTypeUnits] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await getGstPercentages();
+        const options = response
+          .map((item: any) => ({
+            label: `${item.gstPercentageValue}%`,
+            value: String(item.gstPercentageValue),
+          }))
+          .sort((a: any, b: any) => Number(a.value) - Number(b.value));
+        setGstOptions(options);
+      } catch (error) {
+        console.error("Error fetching GST percentages:", error);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const fetchPackTypeUnits = async () => {
@@ -2376,13 +2395,14 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
             {/* GST % */}
             <div data-field="gstPercentage">
-              <Input
+              <Dropdown
                 label="GST %"
-                name="gstPercentage"
-                id="gstPercentage"
-                placeholder="e.g. 12"
-                onChange={handleChange}
-                value={form.gstPercentage}
+                options={gstOptions}
+                value={form.gstPercentage || ""}
+                onChange={(value) =>
+                  setForm((prev) => ({ ...prev, gstPercentage: value }))
+                }
+                placeholder="Select GST %"
                 error={errors.gstPercentage}
                 required
               />

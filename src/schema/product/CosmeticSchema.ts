@@ -200,7 +200,11 @@ const cosmeticFormBaseSchema = z
     finalPrice: z.string().optional(),
 
     // ── Tax ────────────────────────────────────────────────────────────────
-    gstPercentage: z.string().min(1, "GST percentage is required"),
+    gstPercentage: z
+      .string()
+      .refine((val) => ["0", "5", "8", "10", "12"].includes(val), {
+        message: "Select a valid GST %",
+      }),
 
     hsnCode: hsnRule,
   });

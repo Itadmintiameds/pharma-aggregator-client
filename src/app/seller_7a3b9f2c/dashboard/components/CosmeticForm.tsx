@@ -25,6 +25,7 @@ import {
   uploadProductImages,
 } from "@/src/services/product/ProductService";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
+import { getGstPercentages } from "@/src/services/product/GstPercentageService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
@@ -255,13 +256,6 @@ const genderOptions: SelectOption[] = [
   { value: "unisex", label: "Unisex" },
 ];
 
-const gstOptions: SelectOption[] = [
-  { value: "0",  label: "0%"  },
-  { value: "5",  label: "5%"  },
-  { value: "12", label: "12%" },
-  { value: "18", label: "18%" },
-];
-
 
 // ─── Non-editable display fields ──────────────────────────────────────────────
 
@@ -311,6 +305,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [loadingProductForms, setLoadingProductForms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [gstOptions, setGstOptions] = useState<SelectOption[]>([]);
 
   // ─── Form state ──────────────────────────────────────────────────────────────
   const [form, setForm] = useState({
@@ -630,6 +625,24 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       setLoadingProduct(false);
     }
   }, [mode, productId, fetchSubTypes]);
+
+  // ─── Fetch valid GST % values from the master list ────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await getGstPercentages();
+        const options = response
+          .map((item: any) => ({
+            label: `${item.gstPercentageValue}%`,
+            value: String(item.gstPercentageValue),
+          }))
+          .sort((a: any, b: any) => Number(a.value) - Number(b.value));
+        setGstOptions(options);
+      } catch (error) {
+        console.error("Error fetching GST percentages:", error);
+      }
+    })();
+  }, []);
 
   // ─── Load all master data ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -1167,7 +1180,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
       const gstVal = form.gstPercentage.trim();
       if (!gstVal) e.gstPercentage = "GST % is required";
-      else if (isNaN(Number(gstVal))) e.gstPercentage = "GST % must be a valid number";
+      else if (!["0", "5", "8", "10", "12"].includes(gstVal)) e.gstPercentage = "Select a valid GST %";
 
       const hsnVal = form.hsnCode.trim();
       if (!hsnVal) e.hsnCode = "HSN Code is required";
@@ -1911,8 +1924,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               {isEdit ? (
                 <NonEditableField label="GST %" value={form.gstPercentage} required />
               ) : (
-                <Input label="GST %" name="gstPercentage" placeholder="e.g. 18"
-                  value={form.gstPercentage} onChange={handleChange} error={errors.gstPercentage} required />
+                <Dropdown label="GST %" options={gstOptions}
+                  value={form.gstPercentage || ""}
+                  onChange={(value) => setForm((prev) => ({ ...prev, gstPercentage: value }))}
+                  placeholder="Select GST %" error={errors.gstPercentage} required />
               )}
             </div>
 

@@ -114,9 +114,8 @@ export const nonconsumableDeviceSchema = z.object({
   effectiveEndTime: z.string().optional(),
   gstPercentage: z
     .string()
-    .min(1, "GST % is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
+    .refine((val) => ["0", "5", "8", "10", "12"].includes(val), {
+      message: "Select a valid GST %",
     }),
   finalPrice: z.string().optional(),
   hsnCode: z

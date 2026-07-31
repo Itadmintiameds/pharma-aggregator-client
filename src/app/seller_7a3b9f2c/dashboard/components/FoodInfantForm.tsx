@@ -9,6 +9,7 @@ import { foodInfantSchema } from "@/src/schema/product/FoodandInfantSchema";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
+import { getGstPercentages } from "@/src/services/product/GstPercentageService";
 import {
   getProductById,
   updateProduct,
@@ -66,14 +67,6 @@ interface FoodInfantFormProps {
   mode?: "create" | "edit";
   productId?: string;
 }
-
-// Hardcoded GST options
-const gstOptions = [
-  { value: "0", label: "0%" },
-  { value: "5", label: "5%" },
-  { value: "12", label: "12%" },
-  { value: "18", label: "18%" },
-];
 
 const dietaryOptions = [
   { value: "veg", label: "Veg" },
@@ -328,6 +321,7 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
   const [storageConditions, setStorageConditions] = useState<SelectOption[]>([]);
   const [packTypes, setPackTypes] = useState<SelectOption[]>([]);
   const [certificationsMaster, setCertificationsMaster] = useState<SelectOption[]>([]);
+  const [gstOptions, setGstOptions] = useState<SelectOption[]>([]);
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
 
   // Unit options states
@@ -907,6 +901,23 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       return newErrors;
     });
   };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await getGstPercentages();
+        const options = response
+          .map((item: any) => ({
+            label: `${item.gstPercentageValue}%`,
+            value: String(item.gstPercentageValue),
+          }))
+          .sort((a: any, b: any) => Number(a.value) - Number(b.value));
+        setGstOptions(options);
+      } catch (error) {
+        console.error("Error fetching GST percentages:", error);
+      }
+    })();
+  }, []);
 
   const handleDropdownChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -1490,8 +1501,8 @@ if ((attr as any).certificateDocuments?.length) {
 
     if (!form.gstPercentage) {
       newErrors.gstPercentage = "GST % is required";
-    } else if (isNaN(Number(form.gstPercentage))) {
-      newErrors.gstPercentage = "GST % must be a valid number";
+    } else if (!["0", "5", "8", "10", "12"].includes(form.gstPercentage)) {
+      newErrors.gstPercentage = "Select a valid GST %";
     }
     if (!form.hsnCode.trim()) {
       newErrors.hsnCode = "HSN Code is required";
@@ -2216,13 +2227,13 @@ if ((attr as any).certificateDocuments?.length) {
             </div>
 
             <div data-field="gstPercentage">
-              <Input
+              <Dropdown
                 label="GST %"
-                name="gstPercentage"
-                placeholder="e.g. 5"
-                onChange={handleChange}
-                readOnly={isEditMode}
-                value={form.gstPercentage}
+                options={gstOptions}
+                value={form.gstPercentage || ""}
+                onChange={(value) => handleDropdownChange("gstPercentage", value)}
+                placeholder="Select GST %"
+                isDisabled={isEditMode}
                 error={errors.gstPercentage}
                 required
               />

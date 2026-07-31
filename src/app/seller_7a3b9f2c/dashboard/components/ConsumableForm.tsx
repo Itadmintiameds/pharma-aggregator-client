@@ -15,6 +15,7 @@ import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
+import { getGstPercentages } from "@/src/services/product/GstPercentageService";
 import {
   getConsumableDeviceCategories,
   getConsumableDeviceSubCategories,
@@ -234,6 +235,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
   const [storageConditionOptions, setStorageConditionOptions] = useState<SelectOption[]>([]);
   const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
+  const [gstOptions, setGstOptions] = useState<SelectOption[]>([]);
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
   const [materialTypeOptions, setMaterialTypeOptions] = useState<SelectOption[]>([]);
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
@@ -276,12 +278,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const disposableOptions: SelectOption[] = [
     { value: "disposable", label: "Disposable" },
     { value: "reusable", label: "Reusable" },
-  ];
-  const gstOptions: SelectOption[] = [
-    { value: "0", label: "0%" },
-    { value: "5", label: "5%" },
-    { value: "12", label: "12%" },
-    { value: "18", label: "18%" },
   ];
 
   const convertToDiscountSlab = (data: AdditionalDiscountData[]): AdditionalDiscountSlab[] =>
@@ -642,6 +638,24 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.deviceSubCategoryId, mode]);
 
+  // Fetch valid GST % values from the master list
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await getGstPercentages();
+        const options = response
+          .map((item: any) => ({
+            label: `${item.gstPercentageValue}%`,
+            value: String(item.gstPercentageValue),
+          }))
+          .sort((a: any, b: any) => Number(a.value) - Number(b.value));
+        setGstOptions(options);
+      } catch (error) {
+        console.error("Error fetching GST percentages:", error);
+      }
+    })();
+  }, []);
+
   // Auto-compute pack size
   useEffect(() => {
     const u = parseFloat(form.unitsPerPack), p = parseFloat(form.numberOfPacks);
@@ -937,7 +951,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
       const gstVal = form.gstPercentage.trim();
       if (!gstVal) e.gstPercentage = "GST % is required";
-      else if (isNaN(Number(gstVal))) e.gstPercentage = "GST % must be a valid number";
+      else if (!["0", "5", "8", "10", "12"].includes(gstVal)) e.gstPercentage = "Select a valid GST %";
 
       const hsnVal = form.hsnCode.trim();
       if (!hsnVal) e.hsnCode = "HSN Code is required";
@@ -1537,8 +1551,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             {isEdit ? (
               <NonEditableField label="GST %" value={form.gstPercentage} required />
             ) : (
-              <Input label="GST %" name="gstPercentage" placeholder="e.g. 12"
-                value={form.gstPercentage} onChange={handleChange} error={errors.gstPercentage} required />
+              <Dropdown label="GST %" options={gstOptions}
+                value={form.gstPercentage || ""}
+                onChange={(value) => setForm((prev) => ({ ...prev, gstPercentage: value }))}
+                placeholder="Select GST %" error={errors.gstPercentage} required />
             )}
 
             {isEdit ? (
