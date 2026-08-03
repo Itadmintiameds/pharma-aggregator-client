@@ -7,6 +7,8 @@ import {
   type BatchAvailability,
   type StockLedgerResponse,
 } from "@/src/services/product/StockService";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
 interface BatchStockUpdateModalProps {
   onClose: () => void;
@@ -82,6 +84,9 @@ export default function BatchStockUpdateModal({
     onClose();
   };
 
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(handleClose);
+
   const handleConfirm = async () => {
     if (!productId) {
       setSubmitError("Missing product ID — cannot update stock.");
@@ -123,7 +128,7 @@ export default function BatchStockUpdateModal({
   return (
     <div
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) handleClose();
+        if (e.target === e.currentTarget) requestClose();
       }}
       style={{
         position: "fixed",
@@ -138,6 +143,11 @@ export default function BatchStockUpdateModal({
         padding: 16,
       }}
     >
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
       <div
         style={{
           width: "100%",

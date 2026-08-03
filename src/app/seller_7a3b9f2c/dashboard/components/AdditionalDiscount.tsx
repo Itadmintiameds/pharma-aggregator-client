@@ -17,6 +17,8 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { Pencil, Trash2 } from "lucide-react";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,6 +61,8 @@ const DatePickerModal = ({
     return null;
   });
   const [viewMode, setViewMode] = useState<"days" | "months" | "years">("days");
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(onClose);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -156,7 +160,12 @@ const DatePickerModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" onClick={requestClose} />
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
       <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-96">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Select Date</h3>
@@ -365,6 +374,8 @@ const TimePickerModal = ({
     }
     return "PM";
   });
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(onClose);
 
   const handleConfirm = () => {
     let hour24 = parseInt(hours);
@@ -377,7 +388,12 @@ const TimePickerModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" onClick={requestClose} />
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
       <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-80">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Select Time</h3>

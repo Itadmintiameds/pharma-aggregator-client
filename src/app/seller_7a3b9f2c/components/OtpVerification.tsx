@@ -1,6 +1,8 @@
 "use client";
 import React, { useRef, useState, useEffect } from "react";
 import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
 interface Props {
   show: boolean;
@@ -27,6 +29,8 @@ export default function VerificationModal({
   const [resendCountdown, setResendCountdown] = useState(0);
   const [error, setError] = useState<string>("");
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(onClose);
 
   useEffect(() => {
     if (show) {
@@ -273,14 +277,19 @@ const verify = async () => {
   if (!show) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 transition-opacity duration-300"
-      onClick={onClose}
+      onClick={requestClose}
     >
-      <div 
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
+      <div
         className={`w-[360px] bg-white rounded-xl shadow-lg p-8 text-center transform transition-all duration-500 ease-in-out ${
-          isTransitioning 
-            ? 'opacity-0 scale-95 translate-y-4' 
+          isTransitioning
+            ? 'opacity-0 scale-95 translate-y-4'
             : 'opacity-100 scale-100 translate-y-0'
         }`}
         onClick={(e) => e.stopPropagation()}

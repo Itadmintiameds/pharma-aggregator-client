@@ -21,6 +21,8 @@ import {
   getPackTypesByCategory,
   getPackTypeUnits,
 } from "@/src/services/product/PackTypeService";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
 interface SelectOption {
   value: string;
@@ -258,6 +260,14 @@ export default function StockUpdateModal({
       .catch((err) => console.error("Error fetching pack type units:", err));
   }, [open, categoryId]);
 
+  const handleClose = () => {
+    if (submitting) return;
+    onClose();
+  };
+
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(handleClose);
+
   if (!open) return null;
 
   const selectedBatch =
@@ -401,11 +411,6 @@ export default function StockUpdateModal({
       ? isStep2Valid
       : isStep3Valid;
 
-  const handleClose = () => {
-    if (submitting) return;
-    onClose();
-  };
-
   const handleNext = () => {
     if (step < 3) {
       setStep((s) => s + 1);
@@ -499,7 +504,7 @@ export default function StockUpdateModal({
   return (
     <div
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) handleClose();
+        if (e.target === e.currentTarget) requestClose();
       }}
       style={{
         position: "fixed",
@@ -514,6 +519,11 @@ export default function StockUpdateModal({
         padding: 16,
       }}
     >
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
       <div
         style={{
           width: "100%",
@@ -1781,10 +1791,13 @@ function SpecialOffersDrawer({
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(onCancel);
+
   return (
     <div
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel();
+        if (e.target === e.currentTarget) requestClose();
       }}
       style={{
         position: "fixed",
@@ -1797,6 +1810,11 @@ function SpecialOffersDrawer({
         justifyContent: "flex-end",
       }}
     >
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
       <div
         style={{
           width: "100%",

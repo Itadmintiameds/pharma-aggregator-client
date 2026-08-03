@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { Pencil, Trash2, X, Plus } from "lucide-react";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
 interface DiscountSlab {
   minQt: number;
@@ -95,6 +97,8 @@ const VariantFormModal = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(onClose);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -143,7 +147,12 @@ const VariantFormModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60" onClick={requestClose} />
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
       <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-200 sticky top-0 bg-white z-10">
@@ -434,10 +443,17 @@ const VariantFormModal = ({
 
 const VariantDetailPanel = ({ variant, onClose }: { variant: Variant; onClose: () => void }) => {
   const discountSlabs: DiscountSlab[] = variant.discountSlabs || [];
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(onClose);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60" onClick={requestClose} />
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
       <div className="relative w-full max-w-md h-full bg-[#1a1a1a] overflow-y-auto shadow-2xl flex flex-col">
         {/* Header - matching Figma with white background */}
         <div className="flex items-center justify-between px-6 py-4 bg-white sticky top-0 z-10 border-b border-neutral-200">

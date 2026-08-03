@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaArrowRight, FaTimes } from 'react-icons/fa';
 import Image from 'next/image';
+import { useConfirmClose } from '@/src/hooks/useConfirmClose';
+import ConfirmCloseDialog from '@/src/components/common/ConfirmCloseDialog';
 
 interface SellerDeclarationProps {
     onAccept: () => void;
@@ -13,6 +15,7 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
     const [isAccepted, setIsAccepted] = useState(false);
     const [hasSeenBottom, setHasSeenBottom] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
+    const { isConfirmOpen, requestClose, confirmClose, cancelClose } = useConfirmClose(onClose);
 
      useEffect(() => {
         document.body.style.overflow = 'hidden';
@@ -275,7 +278,13 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
             {/* Semi-transparent overlay */}
             <div
                 className="absolute inset-0 backdrop-blur bg-opacity-10"
-                onClick={onClose}
+                onClick={requestClose}
+            />
+
+            <ConfirmCloseDialog
+                isOpen={isConfirmOpen}
+                onConfirm={confirmClose}
+                onCancel={cancelClose}
             />
 
             {/* Modal Container*/}
