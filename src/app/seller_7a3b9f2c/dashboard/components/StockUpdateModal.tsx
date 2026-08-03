@@ -416,8 +416,10 @@ export default function StockUpdateModal({
         Number(newBatch.unitPerPack) > 0 &&
         Number(newBatch.numberOfPacks) > 0 &&
         Number(newBatch.minimumOrderQuantity) > 0 &&
+        Number(newBatch.minimumOrderQuantity) <= Number(newBatch.quantity) &&
         Number(newBatch.maximumOrderQuantity) >=
           Number(newBatch.minimumOrderQuantity) &&
+        Number(newBatch.maximumOrderQuantity) <= Number(newBatch.quantity) &&
         (newBatch.discountPercentage.trim() === "" ||
           (Number(newBatch.discountPercentage) >= 0 &&
             Number(newBatch.discountPercentage) <= 100)) &&
@@ -1342,6 +1344,21 @@ export default function StockUpdateModal({
                         placeholder="e.g. 5"
                         style={inputStyle}
                       />
+                      {newBatch.quantity.trim() !== "" &&
+                        newBatch.minimumOrderQuantity.trim() !== "" &&
+                        Number(newBatch.minimumOrderQuantity) >
+                          Number(newBatch.quantity) && (
+                          <p
+                            style={{
+                              margin: "6px 0 0",
+                              fontSize: 12,
+                              color: "#B91C1C",
+                            }}
+                          >
+                            Minimum order quantity cannot exceed the batch
+                            quantity ({newBatch.quantity}).
+                          </p>
+                        )}
                     </Field>
                     <Field label="Maximum Order Quantity *">
                       <input
@@ -1357,6 +1374,37 @@ export default function StockUpdateModal({
                         placeholder="e.g. 500"
                         style={inputStyle}
                       />
+                      {newBatch.quantity.trim() !== "" &&
+                        newBatch.maximumOrderQuantity.trim() !== "" &&
+                        Number(newBatch.maximumOrderQuantity) >
+                          Number(newBatch.quantity) && (
+                          <p
+                            style={{
+                              margin: "6px 0 0",
+                              fontSize: 12,
+                              color: "#B91C1C",
+                            }}
+                          >
+                            Maximum order quantity cannot exceed the batch
+                            quantity ({newBatch.quantity}).
+                          </p>
+                        )}
+                      {newBatch.minimumOrderQuantity.trim() !== "" &&
+                        newBatch.maximumOrderQuantity.trim() !== "" &&
+                        Number(newBatch.maximumOrderQuantity) <
+                          Number(newBatch.minimumOrderQuantity) && (
+                          <p
+                            style={{
+                              margin: "6px 0 0",
+                              fontSize: 12,
+                              color: "#B91C1C",
+                            }}
+                          >
+                            Maximum order quantity must be greater than or
+                            equal to the minimum order quantity (
+                            {newBatch.minimumOrderQuantity}).
+                          </p>
+                        )}
                     </Field>
                   </div>
                 </div>
