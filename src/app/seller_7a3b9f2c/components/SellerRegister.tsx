@@ -483,9 +483,18 @@ export default function SellerRegistration() {
         setFormData(prev => ({ ...prev, bankTalukaId: matchedTaluka.talukaId }))
       }
     } catch {
-      setIfscError("Invalid IFSC Code")
+      setIfscError("Please enter valid IFSC code")
       clearBankLookupFields()
-      toast.error("Invalid IFSC Code")
+      toast.error("Please enter valid IFSC code")
+    }
+  }
+
+  // Catches the "typed 10 chars then tabbed away" gap — handleIfscChange only
+  // flags incomplete input silently (no error) so it doesn't nag mid-typing.
+  const handleIfscBlur = () => {
+    const ifsc = formData.ifscCode
+    if (ifsc && ifsc.length !== 11) {
+      setIfscError("Please enter valid IFSC code")
     }
   }
 
@@ -1428,6 +1437,7 @@ export default function SellerRegistration() {
             bankTalukas={bankTalukas}
             loadingStates={loadingStates}
             onIfscChange={handleIfscChange}
+            onIfscBlur={handleIfscBlur}
             onFileChange={handleFileChange}
             onAlphabetInput={handleAlphabetInput}
             onNumericInput={handleNumericInput}

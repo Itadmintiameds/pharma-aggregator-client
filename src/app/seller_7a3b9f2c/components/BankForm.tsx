@@ -14,23 +14,49 @@ import {
   TalukaResponse,
 } from "@/src/types/seller/SellerRegMasterData";
 
+interface BankFormData {
+  accountHolderName: string;
+  ifscCode: string;
+  accountNumber: string;
+  confirmAccountNumber: string;
+  bankName: string;
+  branch: string;
+  bankStateId: number;
+  bankDistrictId: number;
+  bankTalukaId: number;
+  cancelledChequeFile: File | null;
+}
+
+interface LoadingStates {
+  states?: boolean;
+  bankDistricts?: boolean;
+  bankTalukas?: boolean;
+  [key: string]: boolean | undefined;
+}
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
 interface Props {
-  formData: any;
+  formData: BankFormData;
   ifscError: string;
   states: StateResponse[];
   bankDistricts: DistrictResponse[];
   bankTalukas: TalukaResponse[];
-  loadingStates: any;
+  loadingStates: LoadingStates;
   onIfscChange: (value: string) => void;
+  onIfscBlur?: () => void;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>, field: string) => void;
   onAlphabetInput: (e: React.ChangeEvent<HTMLInputElement>, field: string) => void;
   onNumericInput: (e: React.ChangeEvent<HTMLInputElement>, field: string, maxLength?: number) => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onCheckAccountMatch: () => boolean;
-   onUpdateFormData?: (field: string, value: any) => void;
-  onBankStateChange: (selected: any) => void;
-  onBankDistrictChange: (selected: any) => void;
-  onBankTalukaChange: (selected: any) => void;
+  onUpdateFormData?: (field: string, value: string) => void;
+  onBankStateChange: (selected: SelectOption) => void;
+  onBankDistrictChange: (selected: SelectOption) => void;
+  onBankTalukaChange: (selected: SelectOption) => void;
   prevStep: () => void;
   nextStep: () => void;
 }
@@ -43,6 +69,7 @@ export default function BankForm({
   bankTalukas,
   loadingStates,
   onIfscChange,
+  onIfscBlur,
   onFileChange,
   onAlphabetInput,
   onNumericInput,
@@ -58,6 +85,7 @@ export default function BankForm({
 
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
+  const [confirmAccountError, setConfirmAccountError] = useState("");
 
   // Custom dropdown open state, mirroring CompanyForm's address dropdown pattern.
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -121,6 +149,41 @@ export default function BankForm({
 
   const handleIfscInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     onIfscChange(e.target.value);
+  };
+
+  // Blocks a wrong digit at the point of entry instead of validating after the
+  // fact, so the confirm field can never end up holding a mismatched value.
+  const handleConfirmAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digitsOnly = e.target.value.replace(/\D/g, "");
+
+    if (!formData.accountNumber) {
+      setConfirmAccountError("Enter Bank Account Number first");
+      return;
+    }
+
+    const truncated = digitsOnly.slice(0, formData.accountNumber.length);
+    let matched = "";
+    for (let i = 0; i < truncated.length; i++) {
+      if (truncated[i] === formData.accountNumber[i]) {
+        matched += truncated[i];
+      } else {
+        break;
+      }
+    }
+
+    setConfirmAccountError(
+      matched.length < truncated.length ? "Account number does not match" : ""
+    );
+
+    if (onUpdateFormData) {
+      onUpdateFormData("confirmAccountNumber", matched);
+    } else {
+      const syntheticEvent = {
+        ...e,
+        target: { ...e.target, name: "confirmAccountNumber", value: matched },
+      };
+      onChange(syntheticEvent);
+    }
   };
 
 const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -266,6 +329,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 autoComplete="off"
                 value={formData.ifscCode}
                 onChange={handleIfscInput}
+                onBlur={onIfscBlur}
                 placeholder="e.g., SBIN0001234"
                 maxLength={11}
                 className={`w-full h-13 pl-10 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 uppercase ${
@@ -314,7 +378,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 name="confirmAccountNumber"
                 autoComplete="off"
                 value={formData.confirmAccountNumber}
-                onChange={onChange}
+                onChange={handleConfirmAccountNumberChange}
                 placeholder="Re-enter account number"
                 maxLength={18}
                 onPaste={handleConfirmAccountPaste}
@@ -322,10 +386,18 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 onCut={handleConfirmAccountCut}
                 onDragStart={handleConfirmAccountDrag}
                 onDrop={handleConfirmAccountDrag}
-                className="w-full h-13 pl-4 pr-10 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
+                className={`w-full h-13 pl-4 pr-10 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${
+                  confirmAccountError ? 'border-red-500' : 'border-neutral-500'
+                }`}
               />
               <Hash className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
             </div>
+            {confirmAccountError && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{confirmAccountError}</span>
+              </p>
+            )}
           </div>
 
           {/* Bank Name (Auto-filled) */}
@@ -568,7 +640,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                       e.stopPropagation();
                       const syntheticEvent = {
                         target: { files: null }
-                      } as any;
+                      } as unknown as React.ChangeEvent<HTMLInputElement>;
                       onFileChange(syntheticEvent, 'cancelledChequeFile');
                       const fileInput = document.getElementById('cheque-upload') as HTMLInputElement;
                       if (fileInput) fileInput.value = "";
