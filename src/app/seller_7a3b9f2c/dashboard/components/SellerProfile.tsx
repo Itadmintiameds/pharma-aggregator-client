@@ -4788,6 +4788,12 @@ if (missingLicenses.length > 0) {
       maxDate={new Date()}
       format="dd/MM/yyyy"
       slotProps={{
+        field: {
+          clearable: true,
+        },
+        actionBar: {
+          actions: ["clear"],
+        },
         textField: {
           fullWidth: true,
           size: "small",
@@ -4816,6 +4822,9 @@ if (missingLicenses.length > 0) {
               fontWeight: 400,
               color: '#5A5B58',
             },
+            '& .clearButton': {
+              opacity: '1 !important',
+            },
           },
         },
       }}
@@ -4841,6 +4850,12 @@ if (missingLicenses.length > 0) {
       minDate={licenseData.issueDate || undefined}
       format="dd/MM/yyyy"
       slotProps={{
+        field: {
+          clearable: true,
+        },
+        actionBar: {
+          actions: ["clear"],
+        },
         textField: {
           fullWidth: true,
           size: "small",
@@ -4869,6 +4884,9 @@ if (missingLicenses.length > 0) {
               fontFamily: 'Noto Sans',
               fontWeight: 400,
               color: '#5A5B58',
+            },
+            '& .clearButton': {
+              opacity: '1 !important',
             },
           },
         },

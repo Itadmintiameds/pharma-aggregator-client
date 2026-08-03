@@ -8,7 +8,9 @@ import {
 import React, { forwardRef, useImperativeHandle, useState, useEffect } from "react";
 import Select, { StylesConfig } from "react-select";
 import { formatDate } from "../commonComponent/DateFormat";
-import DatePicker from "@/src/app/commonComponents/DatePicker";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 type OptionType = {
   value: string;
@@ -80,8 +82,6 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
     );
 
     const [touched, setTouched] = useState<Record<string, boolean>>({});
-    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-    const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
     useEffect(() => {
@@ -176,6 +176,13 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
       const [day, month, year] = value.split("/");
 
       return new Date(Number(year), Number(month) - 1, Number(day));
+    };
+
+    const formatDateToDDMMYYYY = (date: Date | null) => {
+      if (!date) return "";
+      return `${String(date.getDate()).padStart(2, "0")}/${String(
+        date.getMonth() + 1,
+      ).padStart(2, "0")}/${date.getFullYear()}`;
     };
 
     const validateForm = (
@@ -605,73 +612,61 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                 </label>
                 <div className="flex gap-3">
                   <div className="relative flex flex-col">
-                    <input
-                      type="text"
-                      name="effectiveStartDate"
-                      id="effectiveStartDate"
-                      readOnly
-                      disabled={alwaysActive}
-                      placeholder="dd/mm/yyyy"
-                      value={form.effectiveStartDate || ""}
-                      onClick={() =>
-                        !alwaysActive && setShowStartDatePicker(true)
-                      }
-                      className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
-                        alwaysActive
-                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                          : "border-pneutral-300 cursor-pointer"
-                      }`}
-                    />
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={parseDate(form.effectiveStartDate || "")}
+                        disabled={alwaysActive}
+                        format="dd/MM/yyyy"
+                        onChange={(date) => {
+                          const formattedDate = formatDateToDDMMYYYY(date);
 
-                    {showStartDatePicker && (
-                      <div className="absolute bottom-full left-0 mb-2 z-50">
-                        <DatePicker
-                          selectedDate={
-                            form.effectiveStartDate
-                              ? new Date(
-                                  form.effectiveStartDate
-                                    .split("/")
-                                    .reverse()
-                                    .join("-"),
-                                )
-                              : new Date()
-                          }
-                          onSelect={(date) => {
-                            const formattedDate = `${String(
-                              date.getDate(),
-                            ).padStart(2, "0")}/${String(
-                              date.getMonth() + 1,
-                            ).padStart(2, "0")}/${date.getFullYear()}`;
+                          const updatedForm = {
+                            ...form,
+                            effectiveStartDate: formattedDate,
+                          };
 
-                            const updatedForm = {
-                              ...form,
-                              effectiveStartDate: formattedDate,
-                            };
+                          setForm(updatedForm);
 
-                            setForm(updatedForm);
+                          setTouched((prev) => ({
+                            ...prev,
+                            effectiveStartDate: true,
+                          }));
 
-                            setTouched((prev) => ({
-                              ...prev,
-                              effectiveStartDate: true,
-                            }));
+                          const validationErrors = validateForm(
+                            updatedForm,
+                            "effectiveStartDate",
+                          );
 
-                            const validationErrors = validateForm(
-                              updatedForm,
-                              "effectiveStartDate",
-                            );
-
-                            setErrors((prev) => ({
-                              ...prev,
-                              effectiveStartDate:
-                                validationErrors.effectiveStartDate || "",
-                            }));
-
-                            setShowStartDatePicker(false);
-                          }}
-                          onClose={() => setShowStartDatePicker(false)}
-                        />
-                      </div>
-                    )}
+                          setErrors((prev) => ({
+                            ...prev,
+                            effectiveStartDate:
+                              validationErrors.effectiveStartDate || "",
+                          }));
+                        }}
+                        slotProps={{
+                          field: {
+                            clearable: true,
+                          },
+                          actionBar: {
+                            actions: ["clear"],
+                          },
+                          textField: {
+                            placeholder: "dd/mm/yyyy",
+                            error: !!errors.effectiveStartDate,
+                            sx: {
+                              width: "220.5px",
+                              "& .MuiOutlinedInput-root": {
+                                height: "48px",
+                                borderRadius: "8px",
+                              },
+                              "& .clearButton": {
+                                opacity: "1 !important",
+                              },
+                            },
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
 
                     {errors.effectiveStartDate && (
                       <p className="text-warning-500 text-xs mt-1">
@@ -712,73 +707,61 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                 </label>
                 <div className="flex gap-3">
                   <div className="relative flex flex-col">
-                    <input
-                      type="text"
-                      name="effectiveEndDate"
-                      id="effectiveEndDate"
-                      readOnly
-                      disabled={alwaysActive}
-                      placeholder="dd/mm/yyyy"
-                      value={form.effectiveEndDate || ""}
-                      onClick={() =>
-                        !alwaysActive && setShowEndDatePicker(true)
-                      }
-                      className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
-                        alwaysActive
-                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                          : "border-pneutral-300 cursor-pointer"
-                      }`}
-                    />
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={parseDate(form.effectiveEndDate || "")}
+                        disabled={alwaysActive}
+                        format="dd/MM/yyyy"
+                        onChange={(date) => {
+                          const formattedDate = formatDateToDDMMYYYY(date);
 
-                    {showEndDatePicker && (
-                      <div className="absolute bottom-full left-0 mb-2 z-50">
-                        <DatePicker
-                          selectedDate={
-                            form.effectiveEndDate
-                              ? new Date(
-                                  form.effectiveEndDate
-                                    .split("/")
-                                    .reverse()
-                                    .join("-"),
-                                )
-                              : new Date()
-                          }
-                          onSelect={(date) => {
-                            const formattedDate = `${String(
-                              date.getDate(),
-                            ).padStart(2, "0")}/${String(
-                              date.getMonth() + 1,
-                            ).padStart(2, "0")}/${date.getFullYear()}`;
+                          const updatedForm = {
+                            ...form,
+                            effectiveEndDate: formattedDate,
+                          };
 
-                            const updatedForm = {
-                              ...form,
-                              effectiveEndDate: formattedDate,
-                            };
+                          setForm(updatedForm);
 
-                            setForm(updatedForm);
+                          setTouched((prev) => ({
+                            ...prev,
+                            effectiveEndDate: true,
+                          }));
 
-                            setTouched((prev) => ({
-                              ...prev,
-                              effectiveEndDate: true,
-                            }));
+                          const validationErrors = validateForm(
+                            updatedForm,
+                            "effectiveEndDate",
+                          );
 
-                            const validationErrors = validateForm(
-                              updatedForm,
-                              "effectiveEndDate",
-                            );
-
-                            setErrors((prev) => ({
-                              ...prev,
-                              effectiveEndDate:
-                                validationErrors.effectiveEndDate || "",
-                            }));
-
-                            setShowEndDatePicker(false);
-                          }}
-                          onClose={() => setShowEndDatePicker(false)}
-                        />
-                      </div>
-                    )}
+                          setErrors((prev) => ({
+                            ...prev,
+                            effectiveEndDate:
+                              validationErrors.effectiveEndDate || "",
+                          }));
+                        }}
+                        slotProps={{
+                          field: {
+                            clearable: true,
+                          },
+                          actionBar: {
+                            actions: ["clear"],
+                          },
+                          textField: {
+                            placeholder: "dd/mm/yyyy",
+                            error: !!errors.effectiveEndDate,
+                            sx: {
+                              width: "220.5px",
+                              "& .MuiOutlinedInput-root": {
+                                height: "48px",
+                                borderRadius: "8px",
+                              },
+                              "& .clearButton": {
+                                opacity: "1 !important",
+                              },
+                            },
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
 
                     {errors.effectiveEndDate && (
                       <p className="text-warning-500 text-xs mt-1">

@@ -1211,6 +1211,12 @@ export default function DocumentForm({
                       maxDate={maxIssueDate}
                       format="dd/MM/yyyy"
                       slotProps={{
+                        field: {
+                          clearable: true,
+                        },
+                        actionBar: {
+                          actions: ["clear"],
+                        },
                         textField: {
                           fullWidth: true,
                           size: "small",
@@ -1247,6 +1253,9 @@ export default function DocumentForm({
                                 color: '#969793',
                               },
                             },
+                            '& .clearButton': {
+                              opacity: '1 !important',
+                            },
                           },
                         },
                       }}
@@ -1276,6 +1285,12 @@ export default function DocumentForm({
                       disabled={isExpiryDisabled}
                       format="dd/MM/yyyy"
                       slotProps={{
+                        field: {
+                          clearable: true,
+                        },
+                        actionBar: {
+                          actions: ["clear"],
+                        },
                         textField: {
                           fullWidth: true,
                           size: "small",
@@ -1315,6 +1330,9 @@ export default function DocumentForm({
                             },
                             '& .Mui-disabled': {
                               WebkitTextFillColor: '#969793 !important',
+                            },
+                            '& .clearButton': {
+                              opacity: '1 !important',
                             },
                           },
                         },
@@ -1560,6 +1578,12 @@ export default function DocumentForm({
                       maxDate={new Date()}
                       format="dd/MM/yyyy"
                       slotProps={{
+                        field: {
+                          clearable: true,
+                        },
+                        actionBar: {
+                          actions: ["clear"],
+                        },
                         textField: {
                           fullWidth: true,
                           size: "small",
@@ -1576,6 +1600,9 @@ export default function DocumentForm({
                               fontFamily: 'var(--font-body)',
                               fontWeight: 400,
                               color: '#1E1E1D',
+                            },
+                            '& .clearButton': {
+                              opacity: '1 !important',
                             },
                           },
                         },
@@ -1594,6 +1621,12 @@ export default function DocumentForm({
                       minDate={agreementData.issueDate || undefined}
                       format="dd/MM/yyyy"
                       slotProps={{
+                        field: {
+                          clearable: true,
+                        },
+                        actionBar: {
+                          actions: ["clear"],
+                        },
                         textField: {
                           fullWidth: true,
                           size: "small",
@@ -1610,6 +1643,9 @@ export default function DocumentForm({
                               fontFamily: 'var(--font-body)',
                               fontWeight: 400,
                               color: '#1E1E1D',
+                            },
+                            '& .clearButton': {
+                              opacity: '1 !important',
                             },
                           },
                         },

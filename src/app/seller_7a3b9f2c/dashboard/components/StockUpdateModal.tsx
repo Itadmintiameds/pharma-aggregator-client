@@ -23,6 +23,9 @@ import {
 } from "@/src/services/product/PackTypeService";
 import { useConfirmClose } from "@/src/hooks/useConfirmClose";
 import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 interface SelectOption {
   value: string;
@@ -86,6 +89,17 @@ function formatDate(value?: string | null): string {
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function isoToDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function dateToIso(date: Date | null): string {
+  if (!date || isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function getBatchStatus(expiryDate?: string | null) {
@@ -1057,30 +1071,42 @@ export default function StockUpdateModal({
                     />
                   </Field>
                   <Field label="Manufacturing Date">
-                    <input
-                      type="date"
-                      value={newBatch.manufacturingDate}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({
-                          ...v,
-                          manufacturingDate: e.target.value,
-                        }))
-                      }
-                      style={inputStyle}
-                    />
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={isoToDate(newBatch.manufacturingDate)}
+                        onChange={(date) =>
+                          setNewBatch((v) => ({
+                            ...v,
+                            manufacturingDate: dateToIso(date),
+                          }))
+                        }
+                        format="dd/MM/yyyy"
+                        slotProps={{
+                          field: { clearable: true },
+                          actionBar: { actions: ["clear"] },
+                          textField: { fullWidth: true, sx: datePickerSx },
+                        }}
+                      />
+                    </LocalizationProvider>
                   </Field>
                   <Field label="Expiry Date">
-                    <input
-                      type="date"
-                      value={newBatch.expiryDate}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({
-                          ...v,
-                          expiryDate: e.target.value,
-                        }))
-                      }
-                      style={inputStyle}
-                    />
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={isoToDate(newBatch.expiryDate)}
+                        onChange={(date) =>
+                          setNewBatch((v) => ({
+                            ...v,
+                            expiryDate: dateToIso(date),
+                          }))
+                        }
+                        format="dd/MM/yyyy"
+                        slotProps={{
+                          field: { clearable: true },
+                          actionBar: { actions: ["clear"] },
+                          textField: { fullWidth: true, sx: datePickerSx },
+                        }}
+                      />
+                    </LocalizationProvider>
                   </Field>
                   <Field label="Discount % (Optional)">
                     <input
@@ -1115,17 +1141,23 @@ export default function StockUpdateModal({
                     />
                   </Field>
                   <Field label="Date of Stock Entry (Optional)">
-                    <input
-                      type="date"
-                      value={newBatch.dateOfStockEntry}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({
-                          ...v,
-                          dateOfStockEntry: e.target.value,
-                        }))
-                      }
-                      style={inputStyle}
-                    />
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={isoToDate(newBatch.dateOfStockEntry)}
+                        onChange={(date) =>
+                          setNewBatch((v) => ({
+                            ...v,
+                            dateOfStockEntry: dateToIso(date),
+                          }))
+                        }
+                        format="dd/MM/yyyy"
+                        slotProps={{
+                          field: { clearable: true },
+                          actionBar: { actions: ["clear"] },
+                          textField: { fullWidth: true, sx: datePickerSx },
+                        }}
+                      />
+                    </LocalizationProvider>
                   </Field>
                   <div className="flex items-end">
                     <button
@@ -1393,12 +1425,18 @@ export default function StockUpdateModal({
                       </p>
                     </Field>
                     <Field label="Date of Stock Entry">
-                      <input
-                        type="date"
-                        value={dateOfStockEntry}
-                        onChange={(e) => setDateOfStockEntry(e.target.value)}
-                        style={inputStyle}
-                      />
+                      <LocalizationProvider dateAdapter={AdapterDateFns}>
+                        <DatePicker
+                          value={isoToDate(dateOfStockEntry)}
+                          onChange={(date) => setDateOfStockEntry(dateToIso(date))}
+                          format="dd/MM/yyyy"
+                          slotProps={{
+                            field: { clearable: true },
+                            actionBar: { actions: ["clear"] },
+                            textField: { fullWidth: true, sx: datePickerSx },
+                          }}
+                        />
+                      </LocalizationProvider>
                     </Field>
                     <Field label="Remarks (Optional)">
                       <textarea
@@ -1736,6 +1774,18 @@ export default function StockUpdateModal({
     </div>
   );
 }
+
+const datePickerSx = {
+  "& .MuiOutlinedInput-root": {
+    height: 44,
+    borderRadius: "8px",
+    fontFamily: "'Noto Sans', sans-serif",
+    fontSize: 14,
+  },
+  "& .clearButton": {
+    opacity: "1 !important",
+  },
+};
 
 const inputStyle: React.CSSProperties = {
   width: "100%",

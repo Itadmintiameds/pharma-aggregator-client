@@ -444,7 +444,8 @@ const validUrl = (url?: string | null): string | null => {
 const formatDate = (dateStr?: string | null): string => {
   if (!dateStr) return "—";
   try {
-    return new Date(dateStr).toLocaleDateString("en-IN", {
+    return new Date(dateStr).toLocaleDateString("en-GB", {
+      day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
@@ -464,17 +465,6 @@ const getBatchStatus = (expiryDate?: string | null) => {
   if (monthsLeft <= 6)
     return { label: "Near Expiry", bg: "#FEF3C7", color: "#92400E" };
   return { label: "Active", bg: "#DCFCE7", color: "#15803D" };
-};
-
-const formatFullDate = (dateStr?: string | null): string => {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
 };
 
 const DetailRow = ({
@@ -629,15 +619,15 @@ const BatchDetailModal = ({
             <DetailRow label="Batch / Lot Number" value={batch.batchLotNumber} />
             <DetailRow
               label="Manufacturing Date"
-              value={formatFullDate(batch.manufacturingDate)}
+              value={formatDate(batch.manufacturingDate)}
             />
             <DetailRow
               label="Expiry Date"
-              value={formatFullDate(batch.expiryDate)}
+              value={formatDate(batch.expiryDate)}
             />
             <DetailRow
               label="Date of Stock Entry"
-              value={formatFullDate(batch.dateOfStockEntry)}
+              value={formatDate(batch.dateOfStockEntry)}
             />
             <DetailRow
               label="Available Stock"
@@ -2377,7 +2367,7 @@ const ProductView1 = ({
     try {
       const result = await deleteBatch(productData.productId, row.pricingId);
       const deletedAtLabel = result?.deletedAt
-        ? new Date(result.deletedAt).toLocaleString()
+        ? new Date(result.deletedAt).toLocaleString('en-GB')
         : null;
       toast.success(
         deletedAtLabel
