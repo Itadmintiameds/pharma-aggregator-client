@@ -102,6 +102,18 @@ function dateToIso(date: Date | null): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+// Whole months between manufacturing and expiry dates (e.g. 15 Jan → 15 Jul = 6 months).
+function monthsBetween(mfgIso: string, expIso: string): string {
+  const mfg = isoToDate(mfgIso);
+  const exp = isoToDate(expIso);
+  if (!mfg || !exp || exp <= mfg) return "";
+  let months =
+    (exp.getFullYear() - mfg.getFullYear()) * 12 +
+    (exp.getMonth() - mfg.getMonth());
+  if (exp.getDate() < mfg.getDate()) months -= 1;
+  return months > 0 ? String(months) : "";
+}
+
 function getBatchStatus(expiryDate?: string | null) {
   if (!expiryDate)
     return { label: "Active", bg: "#DCFCE7", color: "#15803D" };
@@ -1016,7 +1028,7 @@ export default function StockUpdateModal({
                     gap: 16,
                   }}
                 >
-                  <Field label="Batch / Lot Number">
+                  <Field label="Batch / Lot Number *">
                     <input
                       type="text"
                       value={newBatch.batchLotNumber}
@@ -1047,7 +1059,7 @@ export default function StockUpdateModal({
                       </p>
                     ) : null}
                   </Field>
-                  <Field label="Quantity">
+                  <Field label="Quantity *">
                     <input
                       type="number"
                       min={1}
@@ -1059,7 +1071,7 @@ export default function StockUpdateModal({
                       style={inputStyle}
                     />
                   </Field>
-                  <Field label="MRP (₹)">
+                  <Field label="MRP (₹) *">
                     <input
                       type="number"
                       min={0}
@@ -1072,7 +1084,7 @@ export default function StockUpdateModal({
                       style={inputStyle}
                     />
                   </Field>
-                  <Field label="Selling Price (₹)">
+                  <Field label="Selling Price (₹) *">
                     <input
                       type="number"
                       min={0}
@@ -1088,15 +1100,22 @@ export default function StockUpdateModal({
                       style={inputStyle}
                     />
                   </Field>
-                  <Field label="Manufacturing Date">
+                  <Field label="Manufacturing Date *">
                     <LocalizationProvider dateAdapter={AdapterDateFns}>
                       <DatePicker
                         value={isoToDate(newBatch.manufacturingDate)}
                         onChange={(date) =>
-                          setNewBatch((v) => ({
-                            ...v,
-                            manufacturingDate: dateToIso(date),
-                          }))
+                          setNewBatch((v) => {
+                            const manufacturingDate = dateToIso(date);
+                            return {
+                              ...v,
+                              manufacturingDate,
+                              shelfLifeMonths: monthsBetween(
+                                manufacturingDate,
+                                v.expiryDate
+                              ),
+                            };
+                          })
                         }
                         format="dd/MM/yyyy"
                         slotProps={{
@@ -1107,15 +1126,22 @@ export default function StockUpdateModal({
                       />
                     </LocalizationProvider>
                   </Field>
-                  <Field label="Expiry Date">
+                  <Field label="Expiry Date *">
                     <LocalizationProvider dateAdapter={AdapterDateFns}>
                       <DatePicker
                         value={isoToDate(newBatch.expiryDate)}
                         onChange={(date) =>
-                          setNewBatch((v) => ({
-                            ...v,
-                            expiryDate: dateToIso(date),
-                          }))
+                          setNewBatch((v) => {
+                            const expiryDate = dateToIso(date);
+                            return {
+                              ...v,
+                              expiryDate,
+                              shelfLifeMonths: monthsBetween(
+                                v.manufacturingDate,
+                                expiryDate
+                              ),
+                            };
+                          })
                         }
                         format="dd/MM/yyyy"
                         slotProps={{
@@ -1143,19 +1169,13 @@ export default function StockUpdateModal({
                       style={inputStyle}
                     />
                   </Field>
-                  <Field label="Shelf Life (Months, Optional)">
+                  <Field label="Shelf Life (Months, auto-calculated)">
                     <input
                       type="number"
-                      min={1}
                       value={newBatch.shelfLifeMonths}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({
-                          ...v,
-                          shelfLifeMonths: e.target.value,
-                        }))
-                      }
-                      placeholder="e.g. 24"
-                      style={inputStyle}
+                      readOnly
+                      placeholder="Manufacturing Date → Expiry Date"
+                      style={{ ...inputStyle, background: "#F5F5F5", color: TEXT_GRAY }}
                     />
                   </Field>
                   <Field label="Date of Stock Entry (Optional)">
@@ -1231,7 +1251,7 @@ export default function StockUpdateModal({
                       gap: 16,
                     }}
                   >
-                    <Field label="Pack Type">
+                    <Field label="Pack Type *">
                       <select
                         value={newBatch.packId}
                         onChange={(e) =>
@@ -1247,7 +1267,7 @@ export default function StockUpdateModal({
                         ))}
                       </select>
                     </Field>
-                    <Field label="Pack Type Unit">
+                    <Field label="Pack Type Unit *">
                       <select
                         value={newBatch.packTypeUnitId}
                         onChange={(e) =>
@@ -1266,7 +1286,7 @@ export default function StockUpdateModal({
                         ))}
                       </select>
                     </Field>
-                    <Field label="Unit Per Pack">
+                    <Field label="Unit Per Pack *">
                       <input
                         type="number"
                         min={1}
@@ -1281,7 +1301,7 @@ export default function StockUpdateModal({
                         style={inputStyle}
                       />
                     </Field>
-                    <Field label="Number of Packs">
+                    <Field label="Number of Packs *">
                       <input
                         type="number"
                         min={1}
@@ -1305,7 +1325,7 @@ export default function StockUpdateModal({
                         style={{ ...inputStyle, background: "#F5F5F5", color: TEXT_GRAY }}
                       />
                     </Field>
-                    <Field label="Minimum Order Quantity">
+                    <Field label="Minimum Order Quantity *">
                       <input
                         type="number"
                         min={1}
@@ -1320,7 +1340,7 @@ export default function StockUpdateModal({
                         style={inputStyle}
                       />
                     </Field>
-                    <Field label="Maximum Order Quantity">
+                    <Field label="Maximum Order Quantity *">
                       <input
                         type="number"
                         min={1}
@@ -1824,6 +1844,8 @@ function Field({
   label: string;
   children: React.ReactNode;
 }) {
+  const isRequired = label.trim().endsWith("*");
+  const labelText = isRequired ? label.trim().slice(0, -1).trim() : label;
   return (
     <div>
       <label
@@ -1835,7 +1857,8 @@ function Field({
           marginBottom: 6,
         }}
       >
-        {label}
+        {labelText}
+        {isRequired && <span style={{ color: "#DC2626" }}> *</span>}
       </label>
       {children}
     </div>
