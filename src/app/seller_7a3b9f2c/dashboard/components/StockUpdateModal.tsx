@@ -195,6 +195,7 @@ export default function StockUpdateModal({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<SuccessResult | null>(null);
+  const [showCreateBatchConfirm, setShowCreateBatchConfirm] = useState(false);
 
   const reset = () => {
     setStep(1);
@@ -232,6 +233,7 @@ export default function StockUpdateModal({
     setSubmitting(false);
     setSubmitError(null);
     setResult(null);
+    setShowCreateBatchConfirm(false);
   };
 
   useEffect(() => {
@@ -430,6 +432,15 @@ export default function StockUpdateModal({
       setStep((s) => s + 1);
       return;
     }
+    if (updateType === "new") {
+      setShowCreateBatchConfirm(true);
+      return;
+    }
+    handleConfirm();
+  };
+
+  const confirmCreateBatch = () => {
+    setShowCreateBatchConfirm(false);
     handleConfirm();
   };
 
@@ -537,6 +548,13 @@ export default function StockUpdateModal({
         isOpen={isConfirmOpen}
         onConfirm={confirmClose}
         onCancel={cancelClose}
+      />
+      <ConfirmCloseDialog
+        isOpen={showCreateBatchConfirm}
+        onConfirm={confirmCreateBatch}
+        onCancel={() => setShowCreateBatchConfirm(false)}
+        title="Create New Batch?"
+        message="Are you sure you want to create this batch?"
       />
       <div
         style={{

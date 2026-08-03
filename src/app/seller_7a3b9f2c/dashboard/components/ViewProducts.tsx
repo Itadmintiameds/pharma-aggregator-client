@@ -480,7 +480,7 @@ const ViewProducts = () => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl max-w-md w-full mx-4 p-6">
+          <div className="bg-white rounded-xl max-w-112 w-full mx-4 p-6">
             <div className="text-center mb-4">
               <div className="w-16 h-16 bg-warning-50 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Trash2 size={32} className="text-warning-600" />

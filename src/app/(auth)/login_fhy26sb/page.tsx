@@ -17,7 +17,7 @@ export default function SellerLoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-secondary-50 px-4">
-      <div className="bg-secondary-50 shadow-lg rounded-xl p-8 w-full max-w-md">
+      <div className="bg-secondary-50 shadow-lg rounded-xl p-8 w-full max-w-112">
 
         {/* Dynamic Title */}
         {step === "LOGIN" && (

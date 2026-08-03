@@ -508,7 +508,7 @@ const VariantDetailPanel = ({ variant, onClose }: { variant: Variant; onClose: (
         onConfirm={confirmClose}
         onCancel={cancelClose}
       />
-      <div className="relative w-full max-w-md h-full bg-[#1a1a1a] overflow-y-auto shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-112 h-full bg-[#1a1a1a] overflow-y-auto shadow-2xl flex flex-col">
         {/* Header - matching Figma with white background */}
         <div className="flex items-center justify-between px-6 py-4 bg-white sticky top-0 z-10 border-b border-neutral-200">
           <h2 className="text-neutral-900 font-semibold text-lg">Variants Details</h2>
