@@ -404,6 +404,7 @@ export default function StockUpdateModal({
         !checkingBatchNumber &&
         newBatch.manufacturingDate !== "" &&
         newBatch.expiryDate !== "" &&
+        newBatch.manufacturingDate <= newBatch.expiryDate &&
         Number(newBatch.quantity) > 0 &&
         !isNaN(Number(newBatch.quantity)) &&
         Number(newBatch.mrp) > 0 &&
@@ -1118,6 +1119,7 @@ export default function StockUpdateModal({
                           })
                         }
                         format="dd/MM/yyyy"
+                        maxDate={isoToDate(newBatch.expiryDate) ?? undefined}
                         slotProps={{
                           field: { clearable: true },
                           actionBar: { actions: ["clear"] },
@@ -1144,6 +1146,7 @@ export default function StockUpdateModal({
                           })
                         }
                         format="dd/MM/yyyy"
+                        minDate={isoToDate(newBatch.manufacturingDate) ?? undefined}
                         slotProps={{
                           field: { clearable: true },
                           actionBar: { actions: ["clear"] },
