@@ -36,7 +36,7 @@ const openSans = Open_Sans({
 // });
 
 export const metadata: Metadata = {
-  title: "Tiameds-MarketPlace(MarketPlace for Tiamed)",
+  title: "Tiameds-MarketPlace",
   description: "Tiameds-MarketPlace",
 };
 
