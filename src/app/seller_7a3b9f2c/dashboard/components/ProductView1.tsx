@@ -525,14 +525,43 @@ const BatchDetailModal = ({
   batch,
   variant,
   onClose,
+  fallbackGstPercentage,
+  fallbackHsnCode,
+  fallbackShelfLifeMonths,
+  fallbackPackTypeName,
 }: {
   batch: PricingDetails;
   variant?: PackagingDetails;
   onClose: () => void;
+  fallbackGstPercentage?: string | number | null;
+  fallbackHsnCode?: string | number | null;
+  fallbackShelfLifeMonths?: number | null;
+  fallbackPackTypeName?: string | null;
 }) => {
   const status = getBatchStatus(batch.expiryDate);
   const additionalDiscounts = batch.additionalDiscounts ?? [];
   const specialSchemes = batch.specialSchemes ?? [];
+  const finalPrice =
+    batch.finalPrice ??
+    (batch.sellingPrice != null && batch.discountPercentage != null
+      ? batch.sellingPrice - (batch.sellingPrice * batch.discountPercentage) / 100
+      : (batch.sellingPrice ?? batch.mrp ?? null));
+  const gstPercentage = batch.gstPercentage ?? fallbackGstPercentage ?? null;
+  const hsnCode = batch.hsnCode ?? fallbackHsnCode ?? null;
+  const shelfLifeMonths = (() => {
+    if (batch.manufacturingDate && batch.expiryDate) {
+      const mfg = new Date(batch.manufacturingDate);
+      const exp = new Date(batch.expiryDate);
+      if (!isNaN(mfg.getTime()) && !isNaN(exp.getTime()) && exp > mfg) {
+        const months =
+          (exp.getFullYear() - mfg.getFullYear()) * 12 +
+          (exp.getMonth() - mfg.getMonth()) +
+          (exp.getDate() >= mfg.getDate() ? 0 : -1);
+        return Math.max(months, 0);
+      }
+    }
+    return batch.shelfLifeMonths ?? fallbackShelfLifeMonths ?? null;
+  })();
 
   return (
     <div
@@ -668,23 +697,19 @@ const BatchDetailModal = ({
             />
             <DetailRow
               label="Final Price"
-              value={batch.finalPrice != null ? `₹${batch.finalPrice}` : "—"}
+              value={finalPrice != null ? `₹${finalPrice}` : "—"}
             />
             <DetailRow
               label="Discount %"
-              value={
-                batch.discountPercentage != null
-                  ? `${batch.discountPercentage}%`
-                  : "—"
-              }
+              value={`${batch.discountPercentage ?? 0}%`}
             />
-            <DetailRow label="GST %" value={batch.gstPercentage} />
-            <DetailRow label="HSN Code" value={batch.hsnCode} />
+            <DetailRow label="GST %" value={gstPercentage != null ? `${gstPercentage}%` : "—"} />
+            <DetailRow label="HSN Code" value={hsnCode ?? "—"} />
             <DetailRow
               label="Shelf Life"
               value={
-                batch.shelfLifeMonths != null
-                  ? `${batch.shelfLifeMonths} months`
+                shelfLifeMonths != null
+                  ? `${shelfLifeMonths} months`
                   : "—"
               }
             />
@@ -747,7 +772,12 @@ const BatchDetailModal = ({
                 <DetailRow label="Packaging ID" value={variant.packagingId} />
                 <DetailRow
                   label="Pack Type"
-                  value={variant.packType || variant.packTypeName}
+                  value={
+                    variant.packType ||
+                    variant.packTypeName ||
+                    fallbackPackTypeName ||
+                    (variant.packId != null ? `Pack #${variant.packId}` : null)
+                  }
                 />
                 <DetailRow
                   label="Unit Per Pack"
@@ -3163,6 +3193,12 @@ const ProductView1 = ({
             batch={viewBatch}
             variant={findVariantForBatch(viewBatch)}
             onClose={() => setViewBatch(null)}
+            fallbackGstPercentage={gstPercentage}
+            fallbackHsnCode={hsnCode}
+            fallbackShelfLifeMonths={pricing?.shelfLifeMonths ?? null}
+            fallbackPackTypeName={
+              typeof resolvedPackType === "string" ? resolvedPackType : null
+            }
           />
         )}
 
