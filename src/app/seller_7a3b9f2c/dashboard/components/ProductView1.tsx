@@ -2245,8 +2245,7 @@ const ProductView1 = ({
     },
     {
       header: "Discount %",
-      accessor: (row) =>
-        row.discountPercentage != null ? `${row.discountPercentage}%` : "-",
+      accessor: (row) => `${row.discountPercentage ?? 0}%`,
     },
     {
       header: "Entry Date",
@@ -2285,7 +2284,7 @@ const ProductView1 = ({
         formatDate(b.manufacturingDate),
         formatDate(b.expiryDate),
         b.stockQuantity != null ? String(b.stockQuantity) : "",
-        b.discountPercentage != null ? `${b.discountPercentage}%` : "",
+        `${b.discountPercentage ?? 0}%`,
         formatDate(b.dateOfStockEntry),
         status,
       ]
