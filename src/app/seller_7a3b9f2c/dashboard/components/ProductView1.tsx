@@ -36,6 +36,7 @@ import Table, { Column } from "@/src/app/commonComponents/Table";
 import { toast } from "react-toastify";
 import StockUpdateModal from "./StockUpdateModal";
 import BatchStockUpdateModal from "./BatchStockUpdateModal";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import {
   getAvailableBatches,
   deleteBatch,
@@ -2379,7 +2380,10 @@ const ProductView1 = ({
   };
 
   const [batchDeletingLot, setBatchDeletingLot] = useState<string | null>(null);
-  const handleDeleteBatch = async (row: PricingDetails) => {
+  const [batchPendingDelete, setBatchPendingDelete] =
+    useState<PricingDetails | null>(null);
+
+  const handleDeleteBatch = (row: PricingDetails) => {
     if (!productData?.productId || !row.batchLotNumber) return;
 
     if (!row.pricingId) {
@@ -2387,10 +2391,15 @@ const ProductView1 = ({
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete batch "${row.batchLotNumber}"? This action cannot be undone.`,
-    );
-    if (!confirmed) return;
+    setBatchPendingDelete(row);
+  };
+
+  const confirmDeleteBatch = async () => {
+    const row = batchPendingDelete;
+    if (!productData?.productId || !row?.batchLotNumber || !row.pricingId) {
+      setBatchPendingDelete(null);
+      return;
+    }
 
     setBatchDeletingLot(row.batchLotNumber);
     try {
@@ -2409,6 +2418,7 @@ const ProductView1 = ({
       toast.error("Could not delete batch. Please try again.");
     } finally {
       setBatchDeletingLot(null);
+      setBatchPendingDelete(null);
     }
   };
 
@@ -3186,6 +3196,20 @@ const ProductView1 = ({
             }}
           />
         </div>
+
+        <DeleteConfirmationModal
+          isOpen={!!batchPendingDelete}
+          title="Delete Batch"
+          message={`Delete batch "${batchPendingDelete?.batchLotNumber ?? ""}"?`}
+          subMessage="This action cannot be undone."
+          confirmLabel="Yes, Delete Batch"
+          isProcessing={
+            !!batchPendingDelete &&
+            batchDeletingLot === batchPendingDelete.batchLotNumber
+          }
+          onClose={() => setBatchPendingDelete(null)}
+          onConfirm={confirmDeleteBatch}
+        />
 
         {viewBatch && (
           <BatchDetailModal
