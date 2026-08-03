@@ -8,6 +8,7 @@ import { DashboardView } from "@/src/types/seller/dashboard";
 import { ProductListData } from "@/src/types/product/ProductData";
 import { useClickOutside } from "@/src/hooks/useClickOutside";
 import Delete from "./Delete";
+import StockUpdateModal from "./StockUpdateModal";
 
 export type StockFilter = "all" | "in" | "low" | "out";
 export type CategoryFilter = number | "all";
@@ -173,6 +174,8 @@ const ProductList = ({
   const [selectedProductIdLocal, setSelectedProductIdLocal] = useState<
     string | null
   >(null);
+  const [stockUpdateProduct, setStockUpdateProduct] =
+    useState<ProductListData | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState<SortOption | null>(null);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -196,15 +199,6 @@ const ProductList = ({
   useEffect(() => {
     fetchProducts();
   }, [refreshKey]);
-
-  const categoryViewMap: Record<number, DashboardView> = {
-    1: "editDrug",
-    2: "editSupplement",
-    3: "editFoodInfant",
-    4: "editCosmetic",
-    5: "editConsumable",
-    6: "editNonConsumable",
-  };
 
   const filteredData = data.filter((item) => {
     const term = searchTerm.toLowerCase();
@@ -308,38 +302,19 @@ const ProductList = ({
           columns={columns}
           data={sortedData}
           loading={loading}
+          onRowClick={(row) => {
+            if (!row.productId) return;
+            router.push(`/seller_7a3b9f2c/products/view/${row.productId}`);
+          }}
           actions={(row) => (
             <div className="flex items-center gap-3">
-              <img
-                src="/icons/EditIcon.svg"
-                alt="edit"
-                className="w-6 h-6 rounded-md object-cover cursor-pointer"
-                onClick={() => {
-                  const categoryViewMap: Record<number, string> = {
-                    1: "editDrug",
-                    2: "editSupplement",
-                    3: "editFoodInfant",
-                    4: "editCosmetic",
-                    5: "editConsumable",
-                    6: "editNonConsumable",
-                  };
-                  const category = categoryViewMap[row.categoryId as number];
-                  if (!category || !row.productId) return;
-                  router.push(
-                    `/seller_7a3b9f2c/products/edit/${row.productId}?category=${category}`,
-                  );
-                }}
-              />
-              <img
-                src="/icons/ViewIcon.svg"
-                className="w-6 h-6 cursor-pointer"
-                onClick={() => {
-                  if (!row.productId) return;
-                  router.push(
-                    `/seller_7a3b9f2c/products/view/${row.productId}`,
-                  );
-                }}
-              />
+              <button
+                type="button"
+                onClick={() => setStockUpdateProduct(row)}
+                className="px-3 py-1.5 rounded-md border border-primary-900 text-primary-900 text-p4 font-semibold whitespace-nowrap cursor-pointer hover:bg-primary-50"
+              >
+                Update Stock
+              </button>
               <img
                 src="/icons/DeleteIcon.svg"
                 alt="delete"
@@ -364,6 +339,17 @@ const ProductList = ({
           }}
         />
       )}
+      <StockUpdateModal
+        open={!!stockUpdateProduct}
+        onClose={() => setStockUpdateProduct(null)}
+        productName={stockUpdateProduct?.productName}
+        productId={stockUpdateProduct?.productId}
+        categoryId={stockUpdateProduct?.categoryId as number | null}
+        onSuccess={async () => {
+          await fetchProducts();
+          setStockUpdateProduct(null);
+        }}
+      />
     </>
   );
 };
