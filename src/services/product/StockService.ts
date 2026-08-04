@@ -38,8 +38,10 @@ export interface StockAddRequest {
   // discountPercentage. Each entry is stored as its own AdditionalDiscount record on the
   // batch rather than a plain field. Only applies when creating a new batch.
   specialDiscounts?: SpecialDiscountPayload[];
-  // Optional — shelf life of this batch in months. Only applies when creating a new batch.
+  // Optional — shelf life of this batch in whole months. Only applies when creating a new batch.
   shelfLifeMonths?: number;
+  // Optional — shelf life of this batch in whole days. Only applies when creating a new batch.
+  shelfLifeDays?: number;
   // Optional — defaults to today (server-side) if omitted. Only applies when creating a new batch.
   dateOfStockEntry?: string;
   referenceId?: string;
@@ -69,6 +71,7 @@ export interface BatchAvailability {
   stockQuantity: number;
   discountPercentage?: number | null;
   shelfLifeMonths?: number | null;
+  shelfLifeDays?: number | null;
   dateOfStockEntry?: string | null;
 }
 

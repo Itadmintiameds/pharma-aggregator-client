@@ -103,15 +103,37 @@ function dateToIso(date: Date | null): string {
 }
 
 // Whole months between manufacturing and expiry dates (e.g. 15 Jan → 15 Jul = 6 months).
+// Manufacturing date is allowed to equal expiry date (0 shelf life) — only a later
+// manufacturing date is rejected (returns "").
 function monthsBetween(mfgIso: string, expIso: string): string {
   const mfg = isoToDate(mfgIso);
   const exp = isoToDate(expIso);
-  if (!mfg || !exp || exp <= mfg) return "";
+  if (!mfg || !exp || exp < mfg) return "";
   let months =
     (exp.getFullYear() - mfg.getFullYear()) * 12 +
     (exp.getMonth() - mfg.getMonth());
   if (exp.getDate() < mfg.getDate()) months -= 1;
-  return months > 0 ? String(months) : "";
+  return months >= 0 ? String(months) : "";
+}
+
+// Whole days between manufacturing and expiry dates.
+function daysBetween(mfgIso: string, expIso: string): string {
+  const mfg = isoToDate(mfgIso);
+  const exp = isoToDate(expIso);
+  if (!mfg || !exp || exp < mfg) return "";
+  const days = Math.round((exp.getTime() - mfg.getTime()) / (1000 * 60 * 60 * 24));
+  return String(days);
+}
+
+// Shelf life under 6 months reads better in days than in "0 months".
+function shelfLifeDisplay(
+  monthsStr: string,
+  daysStr: string
+): { unit: "Days" | "Months"; value: string } {
+  if (monthsStr === "" || daysStr === "") return { unit: "Months", value: "" };
+  return Number(monthsStr) >= 6
+    ? { unit: "Months", value: monthsStr }
+    : { unit: "Days", value: daysStr };
 }
 
 function getBatchStatus(expiryDate?: string | null) {
@@ -201,6 +223,7 @@ export default function StockUpdateModal({
     // be several) are tracked separately in the specialDiscounts state below.
     discountPercentage: "",
     shelfLifeMonths: "",
+    shelfLifeDays: "",
     dateOfStockEntry: todayIso(),
     // A brand-new batch always creates its own packaging/pack-size variant
     // alongside it (the /stock/add API accepts packagingDetails for this).
@@ -253,6 +276,7 @@ export default function StockUpdateModal({
       sellingPrice: "",
       discountPercentage: "",
       shelfLifeMonths: "",
+      shelfLifeDays: "",
       dateOfStockEntry: todayIso(),
       packId: "",
       packTypeUnitId: "",
@@ -450,8 +474,8 @@ export default function StockUpdateModal({
           (Number(newBatch.discountPercentage) >= 0 &&
             Number(newBatch.discountPercentage) <= 100)) &&
         isSpecialDiscountsValid &&
-        (newBatch.shelfLifeMonths.trim() === "" ||
-          Number(newBatch.shelfLifeMonths) > 0);
+        newBatch.shelfLifeDays.trim() !== "" &&
+        Number(newBatch.shelfLifeDays) >= 0;
 
   const isStep3Valid =
     updateType === "existing"
@@ -540,6 +564,9 @@ export default function StockUpdateModal({
                 : undefined,
             shelfLifeMonths: newBatch.shelfLifeMonths.trim()
               ? Number(newBatch.shelfLifeMonths)
+              : undefined,
+            shelfLifeDays: newBatch.shelfLifeDays.trim()
+              ? Number(newBatch.shelfLifeDays)
               : undefined,
             dateOfStockEntry: newBatch.dateOfStockEntry || undefined,
             referenceType: "MANUAL_STOCK_UPDATE",
@@ -1296,6 +1323,10 @@ export default function StockUpdateModal({
                                 manufacturingDate,
                                 v.expiryDate
                               ),
+                              shelfLifeDays: daysBetween(
+                                manufacturingDate,
+                                v.expiryDate
+                              ),
                             };
                           })
                         }
@@ -1323,6 +1354,10 @@ export default function StockUpdateModal({
                                 v.manufacturingDate,
                                 expiryDate
                               ),
+                              shelfLifeDays: daysBetween(
+                                v.manufacturingDate,
+                                expiryDate
+                              ),
                             };
                           })
                         }
@@ -1336,10 +1371,17 @@ export default function StockUpdateModal({
                       />
                     </LocalizationProvider>
                   </Field>
-                  <Field label="Shelf Life (Months, auto-calculated) *">
+                  <Field
+                    label={`Shelf Life (${
+                      shelfLifeDisplay(newBatch.shelfLifeMonths, newBatch.shelfLifeDays).unit
+                    }, auto-calculated) *`}
+                  >
                     <input
-                      type="number"
-                      value={newBatch.shelfLifeMonths}
+                      type="text"
+                      value={
+                        shelfLifeDisplay(newBatch.shelfLifeMonths, newBatch.shelfLifeDays)
+                          .value
+                      }
                       readOnly
                       placeholder="Manufacturing Date → Expiry Date"
                       style={{ ...inputStyle, background: "#F5F5F5", color: TEXT_GRAY }}
@@ -1722,11 +1764,15 @@ export default function StockUpdateModal({
                     />
                     <ReviewRow
                       label="Shelf life"
-                      value={
-                        newBatch.shelfLifeMonths
-                          ? `${newBatch.shelfLifeMonths} months`
-                          : "—"
-                      }
+                      value={(() => {
+                        const shelfLife = shelfLifeDisplay(
+                          newBatch.shelfLifeMonths,
+                          newBatch.shelfLifeDays
+                        );
+                        return shelfLife.value
+                          ? `${shelfLife.value} ${shelfLife.unit.toLowerCase()}`
+                          : "—";
+                      })()}
                     />
                     <ReviewRow
                       label="Date of stock entry"
