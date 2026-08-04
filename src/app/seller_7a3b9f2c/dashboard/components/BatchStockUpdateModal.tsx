@@ -176,7 +176,7 @@ export default function BatchStockUpdateModal({
         }}
       >
         {result ? (
-          <SuccessView productId={productId} result={result} onClose={onClose} />
+          <SuccessView productName={productName} result={result} onClose={onClose} />
         ) : (
           <>
             {/* ── HEADER ── */}
@@ -597,11 +597,11 @@ const CONFETTI = [
 ];
 
 function SuccessView({
-  productId,
+  productName,
   result,
   onClose,
 }: {
-  productId?: string | null;
+  productName?: string | null;
   result: SuccessResult;
   onClose: () => void;
 }) {
@@ -680,7 +680,7 @@ function SuccessView({
           }}
         >
           <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-            <ReviewRow label="Product ID" value={productId || "—"} />
+            <ReviewRow label="Product Name" value={productName || "—"} />
             <ReviewRow label="Batch Number" value={result.batchNumber || "—"} />
           </div>
           <div style={{ borderTop: `1px solid ${BORDER}` }} />

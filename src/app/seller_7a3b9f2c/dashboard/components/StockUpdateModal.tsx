@@ -586,7 +586,7 @@ export default function StockUpdateModal({
       >
         {result ? (
           <SuccessView
-            productId={productId}
+            productName={productName}
             result={result}
             onViewInventory={onClose}
             onClose={onClose}
@@ -2313,12 +2313,12 @@ const CONFETTI = [
 ];
 
 function SuccessView({
-  productId,
+  productName,
   result,
   onViewInventory,
   onClose,
 }: {
-  productId?: string | null;
+  productName?: string | null;
   result: SuccessResult;
   onViewInventory: () => void;
   onClose: () => void;
@@ -2398,7 +2398,7 @@ function SuccessView({
           }}
         >
           <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-            <ReviewRow label="Product ID" value={productId || "—"} />
+            <ReviewRow label="Product Name" value={productName || "—"} />
             <ReviewRow label="Batch Number" value={result.batchNumber || "—"} />
           </div>
           <div style={{ borderTop: `1px solid ${BORDER}` }} />

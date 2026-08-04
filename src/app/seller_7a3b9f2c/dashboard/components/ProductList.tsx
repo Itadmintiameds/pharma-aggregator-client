@@ -347,7 +347,6 @@ const ProductList = ({
         categoryId={stockUpdateProduct?.categoryId as number | null}
         onSuccess={async () => {
           await fetchProducts();
-          setStockUpdateProduct(null);
         }}
       />
     </>
