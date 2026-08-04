@@ -2,6 +2,11 @@
 
 import React, { useState } from "react";
 import { Pencil, Trash2, X, Plus } from "lucide-react";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 interface DiscountSlab {
   minQt: number;
@@ -46,6 +51,28 @@ interface VariantListProps {
   onAdd: (variant: Omit<Variant, 'id'>) => void;
   onEdit: (variant: Variant) => void;
   onDelete: (id: string) => void;
+}
+
+function isoToDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function dateToIso(date: Date | null): string {
+  if (!date || isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function formatDisplayDate(value?: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 const DetailRow = ({ label, value }: { label: string; value: string }) => (
@@ -95,6 +122,8 @@ const VariantFormModal = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(onClose);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -143,7 +172,12 @@ const VariantFormModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60" onClick={requestClose} />
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
       <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-200 sticky top-0 bg-white z-10">
@@ -269,15 +303,29 @@ const VariantFormModal = ({
                 <label className="block text-sm font-medium text-neutral-700 mb-1.5">
                   Expiry Date <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
-                  name="expiryDate"
-                  value={formData.expiryDate}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition ${
-                    errors.expiryDate ? "border-red-500" : "border-neutral-300"
-                  }`}
-                />
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DatePicker
+                    value={isoToDate(formData.expiryDate)}
+                    onChange={(date) => {
+                      setFormData((prev) => ({ ...prev, expiryDate: dateToIso(date) }));
+                      if (errors.expiryDate) {
+                        setErrors((prev) => ({ ...prev, expiryDate: "" }));
+                      }
+                    }}
+                    format="dd/MM/yyyy"
+                    slotProps={{
+                      field: { clearable: true },
+                      actionBar: { actions: ["clear"] },
+                      textField: {
+                        fullWidth: true,
+                        error: !!errors.expiryDate,
+                        sx: {
+                          "& .clearButton": { opacity: "1 !important" },
+                        },
+                      },
+                    }}
+                  />
+                </LocalizationProvider>
                 {errors.expiryDate && <p className="text-red-500 text-xs mt-1">{errors.expiryDate}</p>}
               </div>
             </div>
@@ -352,13 +400,28 @@ const VariantFormModal = ({
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1.5">Manufacturing Date</label>
-                <input
-                  type="date"
-                  name="manufacturingDate"
-                  value={formData.manufacturingDate}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
-                />
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DatePicker
+                    value={isoToDate(formData.manufacturingDate)}
+                    onChange={(date) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        manufacturingDate: dateToIso(date),
+                      }))
+                    }
+                    format="dd/MM/yyyy"
+                    slotProps={{
+                      field: { clearable: true },
+                      actionBar: { actions: ["clear"] },
+                      textField: {
+                        fullWidth: true,
+                        sx: {
+                          "& .clearButton": { opacity: "1 !important" },
+                        },
+                      },
+                    }}
+                  />
+                </LocalizationProvider>
               </div>
 
               <div>
@@ -434,11 +497,18 @@ const VariantFormModal = ({
 
 const VariantDetailPanel = ({ variant, onClose }: { variant: Variant; onClose: () => void }) => {
   const discountSlabs: DiscountSlab[] = variant.discountSlabs || [];
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(onClose);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full max-w-md h-full bg-[#1a1a1a] overflow-y-auto shadow-2xl flex flex-col">
+      <div className="absolute inset-0 bg-black/60" onClick={requestClose} />
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
+      <div className="relative w-full max-w-112 h-full bg-[#1a1a1a] overflow-y-auto shadow-2xl flex flex-col">
         {/* Header - matching Figma with white background */}
         <div className="flex items-center justify-between px-6 py-4 bg-white sticky top-0 z-10 border-b border-neutral-200">
           <h2 className="text-neutral-900 font-semibold text-lg">Variants Details</h2>
@@ -458,10 +528,10 @@ const VariantDetailPanel = ({ variant, onClose }: { variant: Variant; onClose: (
 
           <SectionHeader title="Batch Details" />
           <DetailRow label="Batch / Lot Number" value={variant.batch} />
-          <DetailRow label="Manufacturing Date" value={variant.manufacturingDate || "18/02/2026"} />
-          <DetailRow label="Expiry Date" value={variant.expiryDate} />
+          <DetailRow label="Manufacturing Date" value={variant.manufacturingDate ? formatDisplayDate(variant.manufacturingDate) : "18/02/2026"} />
+          <DetailRow label="Expiry Date" value={formatDisplayDate(variant.expiryDate)} />
           <DetailRow label="Stock Quantity" value={variant.stockQuantity || variant.stock} />
-          <DetailRow label="Date of Entry" value={variant.dateOfEntry || "20/02/2026"} />
+          <DetailRow label="Date of Entry" value={variant.dateOfEntry ? formatDisplayDate(variant.dateOfEntry) : "20/02/2026"} />
 
           <SectionHeader title="Pricing Details" />
           <DetailRow label="MRP" value={variant.mrp ? `₹${variant.mrp}` : "₹1,500"} />
@@ -614,7 +684,7 @@ const VariantList: React.FC<VariantListProps> = ({ variants, onAdd, onEdit, onDe
                   <td className="p-3">{variant.mrp ? `₹${variant.mrp}` : "—"}</td>
                   <td className="p-3">{variant.moq || "—"}</td>
                   <td className="p-3">{variant.batch || "—"}</td>
-                  <td className="p-3">{variant.expiryDate || "—"}</td>
+                  <td className="p-3">{variant.expiryDate ? formatDisplayDate(variant.expiryDate) : "—"}</td>
                   <td className="p-3">
                     <div className="flex gap-3" onClick={e => e.stopPropagation()}>
                       <button

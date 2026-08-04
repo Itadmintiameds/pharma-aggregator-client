@@ -2427,15 +2427,17 @@ if ((attr as any).certificateDocuments?.length) {
         <div className="flex justify-between mt-6 pb-8">
           <div className="flex gap-4">
             <button type="button" onClick={() => router.back()} className="px-6 py-2 border-2 border-warning-500 rounded-lg text-warning-500 font-semibold">Cancel</button>
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              disabled={isSavingDraft}
-              className="px-6 py-2 bg-secondary-700 text-white rounded-lg flex items-center gap-2 font-semibold disabled:opacity-60"
-            >
-              <img src="/icons/SaveDraftIcon.svg" alt="save" className="w-5 h-5" />
-              {isSavingDraft ? "Saving..." : "Save Draft"}
-            </button>
+            {mode !== "edit" && (
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft}
+                className="px-6 py-2 bg-secondary-700 text-white rounded-lg flex items-center gap-2 font-semibold disabled:opacity-60"
+              >
+                <img src="/icons/SaveDraftIcon.svg" alt="save" className="w-5 h-5" />
+                {isSavingDraft ? "Saving..." : "Save Draft"}
+              </button>
+            )}
           </div>
           <button
             type="button"

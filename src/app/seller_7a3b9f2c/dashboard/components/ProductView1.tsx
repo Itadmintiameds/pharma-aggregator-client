@@ -36,6 +36,7 @@ import Table, { Column } from "@/src/app/commonComponents/Table";
 import { toast } from "react-toastify";
 import StockUpdateModal from "./StockUpdateModal";
 import BatchStockUpdateModal from "./BatchStockUpdateModal";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import {
   getAvailableBatches,
   deleteBatch,
@@ -444,7 +445,8 @@ const validUrl = (url?: string | null): string | null => {
 const formatDate = (dateStr?: string | null): string => {
   if (!dateStr) return "—";
   try {
-    return new Date(dateStr).toLocaleDateString("en-IN", {
+    return new Date(dateStr).toLocaleDateString("en-GB", {
+      day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
@@ -464,17 +466,6 @@ const getBatchStatus = (expiryDate?: string | null) => {
   if (monthsLeft <= 6)
     return { label: "Near Expiry", bg: "#FEF3C7", color: "#92400E" };
   return { label: "Active", bg: "#DCFCE7", color: "#15803D" };
-};
-
-const formatFullDate = (dateStr?: string | null): string => {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
 };
 
 const DetailRow = ({
@@ -535,14 +526,43 @@ const BatchDetailModal = ({
   batch,
   variant,
   onClose,
+  fallbackGstPercentage,
+  fallbackHsnCode,
+  fallbackShelfLifeMonths,
+  fallbackPackTypeName,
 }: {
   batch: PricingDetails;
   variant?: PackagingDetails;
   onClose: () => void;
+  fallbackGstPercentage?: string | number | null;
+  fallbackHsnCode?: string | number | null;
+  fallbackShelfLifeMonths?: number | null;
+  fallbackPackTypeName?: string | null;
 }) => {
   const status = getBatchStatus(batch.expiryDate);
   const additionalDiscounts = batch.additionalDiscounts ?? [];
   const specialSchemes = batch.specialSchemes ?? [];
+  const finalPrice =
+    batch.finalPrice ??
+    (batch.sellingPrice != null && batch.discountPercentage != null
+      ? batch.sellingPrice - (batch.sellingPrice * batch.discountPercentage) / 100
+      : (batch.sellingPrice ?? batch.mrp ?? null));
+  const gstPercentage = batch.gstPercentage ?? fallbackGstPercentage ?? null;
+  const hsnCode = batch.hsnCode ?? fallbackHsnCode ?? null;
+  const shelfLifeMonths = (() => {
+    if (batch.manufacturingDate && batch.expiryDate) {
+      const mfg = new Date(batch.manufacturingDate);
+      const exp = new Date(batch.expiryDate);
+      if (!isNaN(mfg.getTime()) && !isNaN(exp.getTime()) && exp > mfg) {
+        const months =
+          (exp.getFullYear() - mfg.getFullYear()) * 12 +
+          (exp.getMonth() - mfg.getMonth()) +
+          (exp.getDate() >= mfg.getDate() ? 0 : -1);
+        return Math.max(months, 0);
+      }
+    }
+    return batch.shelfLifeMonths ?? fallbackShelfLifeMonths ?? null;
+  })();
 
   return (
     <div
@@ -629,15 +649,15 @@ const BatchDetailModal = ({
             <DetailRow label="Batch / Lot Number" value={batch.batchLotNumber} />
             <DetailRow
               label="Manufacturing Date"
-              value={formatFullDate(batch.manufacturingDate)}
+              value={formatDate(batch.manufacturingDate)}
             />
             <DetailRow
               label="Expiry Date"
-              value={formatFullDate(batch.expiryDate)}
+              value={formatDate(batch.expiryDate)}
             />
             <DetailRow
               label="Date of Stock Entry"
-              value={formatFullDate(batch.dateOfStockEntry)}
+              value={formatDate(batch.dateOfStockEntry)}
             />
             <DetailRow
               label="Available Stock"
@@ -678,23 +698,19 @@ const BatchDetailModal = ({
             />
             <DetailRow
               label="Final Price"
-              value={batch.finalPrice != null ? `₹${batch.finalPrice}` : "—"}
+              value={finalPrice != null ? `₹${finalPrice}` : "—"}
             />
             <DetailRow
               label="Discount %"
-              value={
-                batch.discountPercentage != null
-                  ? `${batch.discountPercentage}%`
-                  : "—"
-              }
+              value={`${batch.discountPercentage ?? 0}%`}
             />
-            <DetailRow label="GST %" value={batch.gstPercentage} />
-            <DetailRow label="HSN Code" value={batch.hsnCode} />
+            <DetailRow label="GST %" value={gstPercentage != null ? `${gstPercentage}%` : "—"} />
+            <DetailRow label="HSN Code" value={hsnCode ?? "—"} />
             <DetailRow
               label="Shelf Life"
               value={
-                batch.shelfLifeMonths != null
-                  ? `${batch.shelfLifeMonths} months`
+                shelfLifeMonths != null
+                  ? `${shelfLifeMonths} months`
                   : "—"
               }
             />
@@ -757,7 +773,12 @@ const BatchDetailModal = ({
                 <DetailRow label="Packaging ID" value={variant.packagingId} />
                 <DetailRow
                   label="Pack Type"
-                  value={variant.packType || variant.packTypeName}
+                  value={
+                    variant.packType ||
+                    variant.packTypeName ||
+                    fallbackPackTypeName ||
+                    (variant.packId != null ? `Pack #${variant.packId}` : null)
+                  }
                 />
                 <DetailRow
                   label="Unit Per Pack"
@@ -2225,8 +2246,7 @@ const ProductView1 = ({
     },
     {
       header: "Discount %",
-      accessor: (row) =>
-        row.discountPercentage != null ? `${row.discountPercentage}%` : "-",
+      accessor: (row) => `${row.discountPercentage ?? 0}%`,
     },
     {
       header: "Entry Date",
@@ -2265,7 +2285,7 @@ const ProductView1 = ({
         formatDate(b.manufacturingDate),
         formatDate(b.expiryDate),
         b.stockQuantity != null ? String(b.stockQuantity) : "",
-        b.discountPercentage != null ? `${b.discountPercentage}%` : "",
+        `${b.discountPercentage ?? 0}%`,
         formatDate(b.dateOfStockEntry),
         status,
       ]
@@ -2360,7 +2380,10 @@ const ProductView1 = ({
   };
 
   const [batchDeletingLot, setBatchDeletingLot] = useState<string | null>(null);
-  const handleDeleteBatch = async (row: PricingDetails) => {
+  const [batchPendingDelete, setBatchPendingDelete] =
+    useState<PricingDetails | null>(null);
+
+  const handleDeleteBatch = (row: PricingDetails) => {
     if (!productData?.productId || !row.batchLotNumber) return;
 
     if (!row.pricingId) {
@@ -2368,16 +2391,21 @@ const ProductView1 = ({
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete batch "${row.batchLotNumber}"? This action cannot be undone.`,
-    );
-    if (!confirmed) return;
+    setBatchPendingDelete(row);
+  };
+
+  const confirmDeleteBatch = async () => {
+    const row = batchPendingDelete;
+    if (!productData?.productId || !row?.batchLotNumber || !row.pricingId) {
+      setBatchPendingDelete(null);
+      return;
+    }
 
     setBatchDeletingLot(row.batchLotNumber);
     try {
       const result = await deleteBatch(productData.productId, row.pricingId);
       const deletedAtLabel = result?.deletedAt
-        ? new Date(result.deletedAt).toLocaleString()
+        ? new Date(result.deletedAt).toLocaleString('en-GB')
         : null;
       toast.success(
         deletedAtLabel
@@ -2390,6 +2418,7 @@ const ProductView1 = ({
       toast.error("Could not delete batch. Please try again.");
     } finally {
       setBatchDeletingLot(null);
+      setBatchPendingDelete(null);
     }
   };
 
@@ -3168,11 +3197,31 @@ const ProductView1 = ({
           />
         </div>
 
+        <DeleteConfirmationModal
+          isOpen={!!batchPendingDelete}
+          title="Delete Batch"
+          message={`Delete batch "${batchPendingDelete?.batchLotNumber ?? ""}"?`}
+          subMessage="This action cannot be undone."
+          confirmLabel="Yes, Delete Batch"
+          isProcessing={
+            !!batchPendingDelete &&
+            batchDeletingLot === batchPendingDelete.batchLotNumber
+          }
+          onClose={() => setBatchPendingDelete(null)}
+          onConfirm={confirmDeleteBatch}
+        />
+
         {viewBatch && (
           <BatchDetailModal
             batch={viewBatch}
             variant={findVariantForBatch(viewBatch)}
             onClose={() => setViewBatch(null)}
+            fallbackGstPercentage={gstPercentage}
+            fallbackHsnCode={hsnCode}
+            fallbackShelfLifeMonths={pricing?.shelfLifeMonths ?? null}
+            fallbackPackTypeName={
+              typeof resolvedPackType === "string" ? resolvedPackType : null
+            }
           />
         )}
 

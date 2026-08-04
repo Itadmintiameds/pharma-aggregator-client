@@ -3,6 +3,8 @@ import { PiSealCheckLight } from "react-icons/pi";
 import { FileText, ExternalLink, Edit2, X, Gift, BadgePercent, ShoppingBag, Tag } from "lucide-react";
 import Image from "next/image";
 import { downloadProductImage } from "@/src/utils/downloadImage";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -133,6 +135,16 @@ export default function SupplementDetailsView({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCertModal, setShowCertModal] = useState(false);
   const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
+  const closeCertModal = () => {
+    setShowCertModal(false);
+    setActiveCertDoc(null);
+  };
+  const {
+    isConfirmOpen: isCertCloseConfirmOpen,
+    requestClose: requestCertModalClose,
+    confirmClose: confirmCertModalClose,
+    cancelClose: cancelCertModalClose,
+  } = useConfirmClose(closeCertModal);
 
   if (!suppAttr) return null;
 
@@ -421,8 +433,13 @@ export default function SupplementDetailsView({
       {showCertModal && activeCertDoc !== null && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.5)]"
-          onClick={() => { setShowCertModal(false); setActiveCertDoc(null); }}
+          onClick={requestCertModalClose}
         >
+          <ConfirmCloseDialog
+            isOpen={isCertCloseConfirmOpen}
+            onConfirm={confirmCertModalClose}
+            onCancel={cancelCertModalClose}
+          />
           <div
             className="bg-base-white rounded-2xl shadow-2xl w-full max-w-[672px] mx-4 overflow-hidden flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}

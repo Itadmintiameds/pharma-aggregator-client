@@ -43,6 +43,7 @@ import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import NumericInputWithUnit from "@/src/app/commonComponents/NumericInputWithUnit";
 import { getPackTypeUnits } from "@/src/services/product/PackTypeService";
 import { getGstPercentages } from "@/src/services/product/GstPercentageService";
+import { getStrengthUnitsByCategory } from "@/src/services/product/StrengthUnitService";
 
 interface SelectOption {
   value: string;
@@ -85,6 +86,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       mechanismOfAction: string;
       primaryUse: string;
       strength: string;
+      strengthUnit: string;
     }[];
 
     packId: string;
@@ -139,6 +141,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         mechanismOfAction: "",
         primaryUse: "",
         strength: "",
+        strengthUnit: "",
       },
     ],
 
@@ -194,6 +197,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         mechanismOfAction: "",
         primaryUse: "",
         strength: "",
+        strengthUnit: "",
       },
     ],
 
@@ -275,6 +279,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] =
     useState(false);
   const [packTypeUnitOptions, setPackTypeUnitOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [strengthUnitOptions, setStrengthUnitOptions] = useState<
     { label: string; value: string }[]
   >([]);
   const [gstOptions, setGstOptions] = useState<
@@ -662,6 +669,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           mechanismOfAction: "",
           primaryUse: "",
           strength: "",
+          strengthUnit: "",
         },
       ],
     }));
@@ -671,6 +679,17 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     const updated = [...form.molecules];
 
     updated[index].strength = value;
+
+    setForm((prev) => ({
+      ...prev,
+      molecules: updated,
+    }));
+  };
+
+  const handleStrengthUnitChange = (index: number, unit: string) => {
+    const updated = [...form.molecules];
+
+    updated[index].strengthUnit = unit;
 
     setForm((prev) => ({
       ...prev,
@@ -691,6 +710,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
     //   return newErrors;
     // });
+  };
+
+  const buildMoleculeStrength = (molecule: { strength: string; strengthUnit: string }) => {
+    const unitLabel = strengthUnitOptions.find(
+      (option) => option.value === molecule.strengthUnit,
+    )?.label;
+
+    return unitLabel ? `${molecule.strength} ${unitLabel}`.trim() : molecule.strength;
   };
 
   const getFinalDrugSchedule = (molecules: any[]) => {
@@ -771,7 +798,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
             molecules: form.molecules.map((m) => ({
               moleculeId: Number(m.moleculeId),
-              strength: m.strength,
+              strength: buildMoleculeStrength(m),
             })),
           },
         ],
@@ -880,6 +907,25 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         attributeDrug.therapeuticSubcategoryId || "",
       );
 
+      let fetchedStrengthUnitOptions: { label: string; value: string }[] = [];
+      try {
+        const strengthUnitData = await getStrengthUnitsByCategory(
+          Number(data.categoryId),
+        );
+
+        fetchedStrengthUnitOptions = strengthUnitData.map((item: any) => ({
+          label: item.unitName,
+          value: String(item.strengthUnitId),
+        }));
+
+        setStrengthUnitOptions(fetchedStrengthUnitOptions);
+      } catch (error) {
+        console.error(
+          "Failed to fetch strength units for edit prefill:",
+          error,
+        );
+      }
+
       let fetchedMolecules: any[] = [];
       let fullMoleculeMap = allMoleculeMap;
 
@@ -937,6 +983,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                     String(opt.value.moleculeId) === String(m.moleculeId),
                 )?.value;
 
+              const { value: parsedStrength, unit: parsedUnit } =
+                parseMoleculeStrength(m.strength, fetchedStrengthUnitOptions);
+
               return {
                 moleculeId: m.moleculeId ?? "",
                 moleculeName: full?.moleculeName || "",
@@ -944,7 +993,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 drugSchedule: full?.drugSchedule || "",
                 mechanismOfAction: full?.mechanismOfAction || "",
                 primaryUse: full?.primaryUse || "",
-                strength: m.strength ?? "",
+                strength: parsedStrength,
+                strengthUnit: parsedUnit,
               };
             })
           : [
@@ -956,6 +1006,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 mechanismOfAction: "",
                 primaryUse: "",
                 strength: "",
+                strengthUnit: "",
               },
             ];
 
@@ -1072,7 +1123,7 @@ const handleUpdate = async () => {
 
             molecules: form.molecules.map((m) => ({
               moleculeId: Number(m.moleculeId),
-              strength: m.strength,
+              strength: buildMoleculeStrength(m),
             })),
           },
         ],
@@ -1122,7 +1173,7 @@ const handleUpdate = async () => {
             storageConditionIds: form.storageConditionIds,
             molecules: form.molecules.map((m) => ({
               moleculeId: Number(m.moleculeId),
-              strength: m.strength,
+              strength: buildMoleculeStrength(m),
             })),
           },
         ],
@@ -1200,6 +1251,7 @@ const handleUpdate = async () => {
           moleculeStrengthFormat: "",
           drugSchedule: "",
           strength: "",
+          strengthUnit: "",
           mechanismOfAction: "",
           primaryUse: "",
         },
@@ -1293,7 +1345,53 @@ const handleUpdate = async () => {
     label: item.conditionName,
   }));
 
- 
+  useEffect(() => {
+    const fetchStrengthUnits = async () => {
+      if (!form.categoryId) return;
+
+      try {
+        const data = await getStrengthUnitsByCategory(Number(form.categoryId));
+
+        setStrengthUnitOptions(
+          data.map((item: any) => ({
+            label: item.unitName,
+            value: String(item.strengthUnitId),
+          })),
+        );
+      } catch (error) {
+        console.error("Failed to fetch strength units:", error);
+      }
+    };
+
+    fetchStrengthUnits();
+  }, [form.categoryId]);
+
+  const parseMoleculeStrength = (
+    raw: string | undefined | null,
+    unitOptions: { label: string; value: string }[] = strengthUnitOptions,
+  ) => {
+    const text = String(raw ?? "").trim();
+
+    if (!text) return { value: "", unit: "" };
+
+    // Split off the leading number regardless of whether the trailing unit
+    // text matches a known option — the numeric input can't render "500 mg",
+    // only "500", so this split must not depend on strengthUnitOptions
+    // already being loaded (it's fetched async and can lose that race).
+    const match = text.match(/^(-?\d+(?:\.\d+)?)\s*(.*)$/);
+
+    if (!match) return { value: text, unit: "" };
+
+    const [, numericValue, unitText] = match;
+
+    if (!unitText) return { value: numericValue, unit: "" };
+
+    const matchedOption = unitOptions.find(
+      (option) => option.label.toLowerCase() === unitText.toLowerCase(),
+    );
+
+    return { value: numericValue, unit: matchedOption?.value ?? "" };
+  };
 
   useEffect(() => {
     fetchPackTypeUnits();
@@ -1519,7 +1617,7 @@ const handleUpdate = async () => {
 
                 {/* Strength */}
                 <div className="w-full min-w-0">
-                  <Input
+                  <NumericInputWithUnit
                     label="Molecule Strength"
                     name="strength"
                     placeholder={
@@ -1528,8 +1626,13 @@ const handleUpdate = async () => {
                       "Enter strength"
                     }
                     value={molecule.strength || ""}
-                    onChange={(e) =>
-                      handleStrengthChange(index, e.target.value)
+                    unit={molecule.strengthUnit || ""}
+                    options={strengthUnitOptions}
+                    onValueChange={(value) =>
+                      handleStrengthChange(index, value)
+                    }
+                    onUnitChange={(unit) =>
+                      handleStrengthUnitChange(index, unit)
                     }
                     readOnly={isEditMode}
                     required
@@ -1757,19 +1860,21 @@ const handleUpdate = async () => {
               Cancel
             </button>
 
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              disabled={isSavingDraft}
-              className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5 disabled:opacity-60"
-            >
-              <img
-                src="/icons/SaveDraftIcon.svg"
-                alt="drug"
-                className="w-5 h-5 rounded-md object-cover"
-              />
-              {isSavingDraft ? "Saving..." : "Save Draft"}
-            </button>
+            {mode !== "edit" && (
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft}
+                className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5 disabled:opacity-60"
+              >
+                <img
+                  src="/icons/SaveDraftIcon.svg"
+                  alt="drug"
+                  className="w-5 h-5 rounded-md object-cover"
+                />
+                {isSavingDraft ? "Saving..." : "Save Draft"}
+              </button>
+            )}
           </div>
           <div>
             {mode === "edit" ? (

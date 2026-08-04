@@ -14,6 +14,8 @@ import {
   getStorageConditionsByCategory,
   getNetQuantityUnits,
 } from "@/src/services/product/FoodInfantService";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -122,6 +124,16 @@ const FoodInfantView = ({
   const [loading, setLoading] = useState(true);
   const [ageGroupLabels, setAgeGroupLabels] = useState<Map<number, string>>(new Map());
   const [unitLabels, setUnitLabels] = useState<Map<number, string>>(new Map());
+  const closeCertModal = () => {
+    setShowCertModal(false);
+    setActiveCertDoc(null);
+  };
+  const {
+    isConfirmOpen: isCertCloseConfirmOpen,
+    requestClose: requestCertModalClose,
+    confirmClose: confirmCertModalClose,
+    cancelClose: cancelCertModalClose,
+  } = useConfirmClose(closeCertModal);
 
   // Fetch age groups for mapping IDs to labels
   useEffect(() => {
@@ -529,11 +541,13 @@ console.log('Is Image:', isImageUrl(activeCertDoc?.certificateUrl || ''));
       {showCertModal && activeCertDoc !== null && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.5)]"
-          onClick={() => {
-            setShowCertModal(false);
-            setActiveCertDoc(null);
-          }}
+          onClick={requestCertModalClose}
         >
+          <ConfirmCloseDialog
+            isOpen={isCertCloseConfirmOpen}
+            onConfirm={confirmCertModalClose}
+            onCancel={cancelCertModalClose}
+          />
           <div
             className="bg-base-white rounded-2xl shadow-2xl w-full max-w-[672px] mx-4 overflow-hidden flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}

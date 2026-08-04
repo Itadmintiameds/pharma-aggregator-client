@@ -2588,19 +2588,21 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               Cancel
             </button>
 
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              disabled={isSavingDraft}
-              className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5 disabled:opacity-60"
-            >
-              <img
-                src="/icons/SaveDraftIcon.svg"
-                alt="drug"
-                className="w-5 h-5 rounded-md object-cover"
-              />
-              {isSavingDraft ? "Saving..." : "Save Draft"}
-            </button>
+            {mode !== "edit" && (
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft}
+                className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5 disabled:opacity-60"
+              >
+                <img
+                  src="/icons/SaveDraftIcon.svg"
+                  alt="drug"
+                  className="w-5 h-5 rounded-md object-cover"
+                />
+                {isSavingDraft ? "Saving..." : "Save Draft"}
+              </button>
+            )}
           </div>
           <div>
             <button

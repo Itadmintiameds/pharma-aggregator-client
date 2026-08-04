@@ -281,7 +281,8 @@ const formatVal = (val?: number | string | null): string => {
 const formatDate = (val?: string | null): string => {
   if (!val) return "—";
   try {
-    return new Date(val).toLocaleDateString("en-IN", {
+    return new Date(val).toLocaleDateString("en-GB", {
+      day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });

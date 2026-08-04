@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
 interface CommonModalProps {
   children: React.ReactNode;
@@ -15,6 +17,17 @@ const CommonModal = ({
 }: CommonModalProps) => {
   const [isVisible, setIsVisible] = useState(false);
 
+  const handleClose = () => {
+    setIsVisible(false);
+
+    setTimeout(() => {
+      onClose();
+    }, 300);
+  };
+
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(handleClose);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(true);
@@ -22,7 +35,7 @@ const CommonModal = ({
 
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        handleClose();
+        requestClose();
       }
     };
 
@@ -32,15 +45,7 @@ const CommonModal = ({
       clearTimeout(timer);
       document.removeEventListener("keydown", handleEsc);
     };
-  }, []);
-
-  const handleClose = () => {
-    setIsVisible(false);
-
-    setTimeout(() => {
-      onClose();
-    }, 300);
-  };
+  }, [requestClose]);
 
   return (
     <div
@@ -50,8 +55,13 @@ const CommonModal = ({
         transition-opacity duration-300
         ${isVisible ? "opacity-100" : "opacity-0"}
       `}
-      onClick={handleClose}
+      onClick={requestClose}
     >
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
       <div
         className={`
           bg-white

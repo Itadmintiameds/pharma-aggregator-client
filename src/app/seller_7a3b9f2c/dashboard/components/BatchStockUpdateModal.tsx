@@ -7,6 +7,11 @@ import {
   type BatchAvailability,
   type StockLedgerResponse,
 } from "@/src/services/product/StockService";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 interface BatchStockUpdateModalProps {
   onClose: () => void;
@@ -41,6 +46,17 @@ function formatDate(value?: string | null): string {
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function isoToDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function dateToIso(date: Date | null): string {
+  if (!date || isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function extractErrorMessage(err: unknown): string {
@@ -81,6 +97,9 @@ export default function BatchStockUpdateModal({
     if (submitting) return;
     onClose();
   };
+
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(handleClose);
 
   const handleConfirm = async () => {
     if (!productId) {
@@ -123,7 +142,7 @@ export default function BatchStockUpdateModal({
   return (
     <div
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) handleClose();
+        if (e.target === e.currentTarget) requestClose();
       }}
       style={{
         position: "fixed",
@@ -138,6 +157,11 @@ export default function BatchStockUpdateModal({
         padding: 16,
       }}
     >
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
       <div
         style={{
           width: "100%",
@@ -301,12 +325,18 @@ export default function BatchStockUpdateModal({
                     </p>
                   </Field>
                   <Field label="Date of Stock Entry">
-                    <input
-                      type="date"
-                      value={dateOfStockEntry}
-                      onChange={(e) => setDateOfStockEntry(e.target.value)}
-                      style={inputStyle}
-                    />
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={isoToDate(dateOfStockEntry)}
+                        onChange={(date) => setDateOfStockEntry(dateToIso(date))}
+                        format="dd/MM/yyyy"
+                        slotProps={{
+                          field: { clearable: true },
+                          actionBar: { actions: ["clear"] },
+                          textField: { fullWidth: true, sx: datePickerSx },
+                        }}
+                      />
+                    </LocalizationProvider>
                   </Field>
                   <Field label="Remarks (Optional)">
                     <textarea
@@ -438,6 +468,18 @@ export default function BatchStockUpdateModal({
     </div>
   );
 }
+
+const datePickerSx = {
+  "& .MuiOutlinedInput-root": {
+    height: 44,
+    borderRadius: "8px",
+    fontFamily: "'Noto Sans', sans-serif",
+    fontSize: 14,
+  },
+  "& .clearButton": {
+    opacity: "1 !important",
+  },
+};
 
 const inputStyle: React.CSSProperties = {
   width: "100%",

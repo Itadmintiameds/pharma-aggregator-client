@@ -18,6 +18,8 @@ import {
 import { sellerAuthService } from "@/src/services/seller/authService";
 import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
 import { User, AuthStep } from "@/src/types/seller/authData";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -106,7 +108,8 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
   const [tempCredentials, setTempCredentials] = useState<{ username: string; password: string } | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
-  
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } = useConfirmClose(onClose);
+
   // ========== NEW STATE FOR FORGOT PASSWORD OTP FLOW ==========
   const [forgotPasswordToken, setForgotPasswordToken] = useState<string>("");
   const [forgotPasswordOtp, setForgotPasswordOtp] = useState(Array(6).fill(""));
@@ -1228,7 +1231,13 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
       <div
         className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
+        onClick={requestClose}
+      />
+
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
       />
 
       <div className="relative w-full max-w-5xl">

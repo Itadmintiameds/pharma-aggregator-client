@@ -21,6 +21,11 @@ import {
   getPackTypesByCategory,
   getPackTypeUnits,
 } from "@/src/services/product/PackTypeService";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 interface SelectOption {
   value: string;
@@ -84,6 +89,29 @@ function formatDate(value?: string | null): string {
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function isoToDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function dateToIso(date: Date | null): string {
+  if (!date || isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+// Whole months between manufacturing and expiry dates (e.g. 15 Jan → 15 Jul = 6 months).
+function monthsBetween(mfgIso: string, expIso: string): string {
+  const mfg = isoToDate(mfgIso);
+  const exp = isoToDate(expIso);
+  if (!mfg || !exp || exp <= mfg) return "";
+  let months =
+    (exp.getFullYear() - mfg.getFullYear()) * 12 +
+    (exp.getMonth() - mfg.getMonth());
+  if (exp.getDate() < mfg.getDate()) months -= 1;
+  return months > 0 ? String(months) : "";
 }
 
 function getBatchStatus(expiryDate?: string | null) {
@@ -179,6 +207,7 @@ export default function StockUpdateModal({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<SuccessResult | null>(null);
+  const [showCreateBatchConfirm, setShowCreateBatchConfirm] = useState(false);
 
   const reset = () => {
     setStep(1);
@@ -216,6 +245,7 @@ export default function StockUpdateModal({
     setSubmitting(false);
     setSubmitError(null);
     setResult(null);
+    setShowCreateBatchConfirm(false);
   };
 
   useEffect(() => {
@@ -257,6 +287,14 @@ export default function StockUpdateModal({
       )
       .catch((err) => console.error("Error fetching pack type units:", err));
   }, [open, categoryId]);
+
+  const handleClose = () => {
+    if (submitting) return;
+    onClose();
+  };
+
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(handleClose);
 
   if (!open) return null;
 
@@ -366,6 +404,7 @@ export default function StockUpdateModal({
         !checkingBatchNumber &&
         newBatch.manufacturingDate !== "" &&
         newBatch.expiryDate !== "" &&
+        newBatch.manufacturingDate <= newBatch.expiryDate &&
         Number(newBatch.quantity) > 0 &&
         !isNaN(Number(newBatch.quantity)) &&
         Number(newBatch.mrp) > 0 &&
@@ -377,8 +416,10 @@ export default function StockUpdateModal({
         Number(newBatch.unitPerPack) > 0 &&
         Number(newBatch.numberOfPacks) > 0 &&
         Number(newBatch.minimumOrderQuantity) > 0 &&
+        Number(newBatch.minimumOrderQuantity) <= Number(newBatch.quantity) &&
         Number(newBatch.maximumOrderQuantity) >=
           Number(newBatch.minimumOrderQuantity) &&
+        Number(newBatch.maximumOrderQuantity) <= Number(newBatch.quantity) &&
         (newBatch.discountPercentage.trim() === "" ||
           (Number(newBatch.discountPercentage) >= 0 &&
             Number(newBatch.discountPercentage) <= 100)) &&
@@ -401,16 +442,20 @@ export default function StockUpdateModal({
       ? isStep2Valid
       : isStep3Valid;
 
-  const handleClose = () => {
-    if (submitting) return;
-    onClose();
-  };
-
   const handleNext = () => {
     if (step < 3) {
       setStep((s) => s + 1);
       return;
     }
+    if (updateType === "new") {
+      setShowCreateBatchConfirm(true);
+      return;
+    }
+    handleConfirm();
+  };
+
+  const confirmCreateBatch = () => {
+    setShowCreateBatchConfirm(false);
     handleConfirm();
   };
 
@@ -499,7 +544,7 @@ export default function StockUpdateModal({
   return (
     <div
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) handleClose();
+        if (e.target === e.currentTarget) requestClose();
       }}
       style={{
         position: "fixed",
@@ -514,6 +559,18 @@ export default function StockUpdateModal({
         padding: 16,
       }}
     >
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
+      <ConfirmCloseDialog
+        isOpen={showCreateBatchConfirm}
+        onConfirm={confirmCreateBatch}
+        onCancel={() => setShowCreateBatchConfirm(false)}
+        title="Create New Batch?"
+        message="Are you sure you want to create this batch?"
+      />
       <div
         style={{
           width: "100%",
@@ -974,7 +1031,7 @@ export default function StockUpdateModal({
                     gap: 16,
                   }}
                 >
-                  <Field label="Batch / Lot Number">
+                  <Field label="Batch / Lot Number *">
                     <input
                       type="text"
                       value={newBatch.batchLotNumber}
@@ -1005,7 +1062,7 @@ export default function StockUpdateModal({
                       </p>
                     ) : null}
                   </Field>
-                  <Field label="Quantity">
+                  <Field label="Quantity *">
                     <input
                       type="number"
                       min={1}
@@ -1017,7 +1074,7 @@ export default function StockUpdateModal({
                       style={inputStyle}
                     />
                   </Field>
-                  <Field label="MRP (₹)">
+                  <Field label="MRP (₹) *">
                     <input
                       type="number"
                       min={0}
@@ -1030,7 +1087,7 @@ export default function StockUpdateModal({
                       style={inputStyle}
                     />
                   </Field>
-                  <Field label="Selling Price (₹)">
+                  <Field label="Selling Price (₹) *">
                     <input
                       type="number"
                       min={0}
@@ -1046,31 +1103,59 @@ export default function StockUpdateModal({
                       style={inputStyle}
                     />
                   </Field>
-                  <Field label="Manufacturing Date">
-                    <input
-                      type="date"
-                      value={newBatch.manufacturingDate}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({
-                          ...v,
-                          manufacturingDate: e.target.value,
-                        }))
-                      }
-                      style={inputStyle}
-                    />
+                  <Field label="Manufacturing Date *">
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={isoToDate(newBatch.manufacturingDate)}
+                        onChange={(date) =>
+                          setNewBatch((v) => {
+                            const manufacturingDate = dateToIso(date);
+                            return {
+                              ...v,
+                              manufacturingDate,
+                              shelfLifeMonths: monthsBetween(
+                                manufacturingDate,
+                                v.expiryDate
+                              ),
+                            };
+                          })
+                        }
+                        format="dd/MM/yyyy"
+                        maxDate={isoToDate(newBatch.expiryDate) ?? undefined}
+                        slotProps={{
+                          field: { clearable: true },
+                          actionBar: { actions: ["clear"] },
+                          textField: { fullWidth: true, sx: datePickerSx },
+                        }}
+                      />
+                    </LocalizationProvider>
                   </Field>
-                  <Field label="Expiry Date">
-                    <input
-                      type="date"
-                      value={newBatch.expiryDate}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({
-                          ...v,
-                          expiryDate: e.target.value,
-                        }))
-                      }
-                      style={inputStyle}
-                    />
+                  <Field label="Expiry Date *">
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={isoToDate(newBatch.expiryDate)}
+                        onChange={(date) =>
+                          setNewBatch((v) => {
+                            const expiryDate = dateToIso(date);
+                            return {
+                              ...v,
+                              expiryDate,
+                              shelfLifeMonths: monthsBetween(
+                                v.manufacturingDate,
+                                expiryDate
+                              ),
+                            };
+                          })
+                        }
+                        format="dd/MM/yyyy"
+                        minDate={isoToDate(newBatch.manufacturingDate) ?? undefined}
+                        slotProps={{
+                          field: { clearable: true },
+                          actionBar: { actions: ["clear"] },
+                          textField: { fullWidth: true, sx: datePickerSx },
+                        }}
+                      />
+                    </LocalizationProvider>
                   </Field>
                   <Field label="Discount % (Optional)">
                     <input
@@ -1089,33 +1174,33 @@ export default function StockUpdateModal({
                       style={inputStyle}
                     />
                   </Field>
-                  <Field label="Shelf Life (Months, Optional)">
+                  <Field label="Shelf Life (Months, auto-calculated)">
                     <input
                       type="number"
-                      min={1}
                       value={newBatch.shelfLifeMonths}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({
-                          ...v,
-                          shelfLifeMonths: e.target.value,
-                        }))
-                      }
-                      placeholder="e.g. 24"
-                      style={inputStyle}
+                      readOnly
+                      placeholder="Manufacturing Date → Expiry Date"
+                      style={{ ...inputStyle, background: "#F5F5F5", color: TEXT_GRAY }}
                     />
                   </Field>
                   <Field label="Date of Stock Entry (Optional)">
-                    <input
-                      type="date"
-                      value={newBatch.dateOfStockEntry}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({
-                          ...v,
-                          dateOfStockEntry: e.target.value,
-                        }))
-                      }
-                      style={inputStyle}
-                    />
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={isoToDate(newBatch.dateOfStockEntry)}
+                        onChange={(date) =>
+                          setNewBatch((v) => ({
+                            ...v,
+                            dateOfStockEntry: dateToIso(date),
+                          }))
+                        }
+                        format="dd/MM/yyyy"
+                        slotProps={{
+                          field: { clearable: true },
+                          actionBar: { actions: ["clear"] },
+                          textField: { fullWidth: true, sx: datePickerSx },
+                        }}
+                      />
+                    </LocalizationProvider>
                   </Field>
                   <div className="flex items-end">
                     <button
@@ -1171,7 +1256,7 @@ export default function StockUpdateModal({
                       gap: 16,
                     }}
                   >
-                    <Field label="Pack Type">
+                    <Field label="Pack Type *">
                       <select
                         value={newBatch.packId}
                         onChange={(e) =>
@@ -1187,7 +1272,7 @@ export default function StockUpdateModal({
                         ))}
                       </select>
                     </Field>
-                    <Field label="Pack Type Unit">
+                    <Field label="Pack Type Unit *">
                       <select
                         value={newBatch.packTypeUnitId}
                         onChange={(e) =>
@@ -1206,7 +1291,7 @@ export default function StockUpdateModal({
                         ))}
                       </select>
                     </Field>
-                    <Field label="Unit Per Pack">
+                    <Field label="Unit Per Pack *">
                       <input
                         type="number"
                         min={1}
@@ -1221,7 +1306,7 @@ export default function StockUpdateModal({
                         style={inputStyle}
                       />
                     </Field>
-                    <Field label="Number of Packs">
+                    <Field label="Number of Packs *">
                       <input
                         type="number"
                         min={1}
@@ -1245,7 +1330,7 @@ export default function StockUpdateModal({
                         style={{ ...inputStyle, background: "#F5F5F5", color: TEXT_GRAY }}
                       />
                     </Field>
-                    <Field label="Minimum Order Quantity">
+                    <Field label="Minimum Order Quantity *">
                       <input
                         type="number"
                         min={1}
@@ -1259,8 +1344,23 @@ export default function StockUpdateModal({
                         placeholder="e.g. 5"
                         style={inputStyle}
                       />
+                      {newBatch.quantity.trim() !== "" &&
+                        newBatch.minimumOrderQuantity.trim() !== "" &&
+                        Number(newBatch.minimumOrderQuantity) >
+                          Number(newBatch.quantity) && (
+                          <p
+                            style={{
+                              margin: "6px 0 0",
+                              fontSize: 12,
+                              color: "#B91C1C",
+                            }}
+                          >
+                            Minimum order quantity cannot exceed the batch
+                            quantity ({newBatch.quantity}).
+                          </p>
+                        )}
                     </Field>
-                    <Field label="Maximum Order Quantity">
+                    <Field label="Maximum Order Quantity *">
                       <input
                         type="number"
                         min={1}
@@ -1274,6 +1374,37 @@ export default function StockUpdateModal({
                         placeholder="e.g. 500"
                         style={inputStyle}
                       />
+                      {newBatch.quantity.trim() !== "" &&
+                        newBatch.maximumOrderQuantity.trim() !== "" &&
+                        Number(newBatch.maximumOrderQuantity) >
+                          Number(newBatch.quantity) && (
+                          <p
+                            style={{
+                              margin: "6px 0 0",
+                              fontSize: 12,
+                              color: "#B91C1C",
+                            }}
+                          >
+                            Maximum order quantity cannot exceed the batch
+                            quantity ({newBatch.quantity}).
+                          </p>
+                        )}
+                      {newBatch.minimumOrderQuantity.trim() !== "" &&
+                        newBatch.maximumOrderQuantity.trim() !== "" &&
+                        Number(newBatch.maximumOrderQuantity) <
+                          Number(newBatch.minimumOrderQuantity) && (
+                          <p
+                            style={{
+                              margin: "6px 0 0",
+                              fontSize: 12,
+                              color: "#B91C1C",
+                            }}
+                          >
+                            Maximum order quantity must be greater than or
+                            equal to the minimum order quantity (
+                            {newBatch.minimumOrderQuantity}).
+                          </p>
+                        )}
                     </Field>
                   </div>
                 </div>
@@ -1383,12 +1514,18 @@ export default function StockUpdateModal({
                       </p>
                     </Field>
                     <Field label="Date of Stock Entry">
-                      <input
-                        type="date"
-                        value={dateOfStockEntry}
-                        onChange={(e) => setDateOfStockEntry(e.target.value)}
-                        style={inputStyle}
-                      />
+                      <LocalizationProvider dateAdapter={AdapterDateFns}>
+                        <DatePicker
+                          value={isoToDate(dateOfStockEntry)}
+                          onChange={(date) => setDateOfStockEntry(dateToIso(date))}
+                          format="dd/MM/yyyy"
+                          slotProps={{
+                            field: { clearable: true },
+                            actionBar: { actions: ["clear"] },
+                            textField: { fullWidth: true, sx: datePickerSx },
+                          }}
+                        />
+                      </LocalizationProvider>
                     </Field>
                     <Field label="Remarks (Optional)">
                       <textarea
@@ -1727,6 +1864,18 @@ export default function StockUpdateModal({
   );
 }
 
+const datePickerSx = {
+  "& .MuiOutlinedInput-root": {
+    height: 44,
+    borderRadius: "8px",
+    fontFamily: "'Noto Sans', sans-serif",
+    fontSize: 14,
+  },
+  "& .clearButton": {
+    opacity: "1 !important",
+  },
+};
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   height: 44,
@@ -1746,6 +1895,8 @@ function Field({
   label: string;
   children: React.ReactNode;
 }) {
+  const isRequired = label.trim().endsWith("*");
+  const labelText = isRequired ? label.trim().slice(0, -1).trim() : label;
   return (
     <div>
       <label
@@ -1757,7 +1908,8 @@ function Field({
           marginBottom: 6,
         }}
       >
-        {label}
+        {labelText}
+        {isRequired && <span style={{ color: "#DC2626" }}> *</span>}
       </label>
       {children}
     </div>
@@ -1781,10 +1933,13 @@ function SpecialOffersDrawer({
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } =
+    useConfirmClose(onCancel);
+
   return (
     <div
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel();
+        if (e.target === e.currentTarget) requestClose();
       }}
       style={{
         position: "fixed",
@@ -1797,6 +1952,11 @@ function SpecialOffersDrawer({
         justifyContent: "flex-end",
       }}
     >
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
+      />
       <div
         style={{
           width: "100%",
