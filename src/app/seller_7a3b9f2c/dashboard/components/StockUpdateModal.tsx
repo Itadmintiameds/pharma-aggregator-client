@@ -128,6 +128,31 @@ function getBatchStatus(expiryDate?: string | null) {
   return { label: "Active", bg: "#DCFCE7", color: "#15803D" };
 }
 
+// Whole numbers only — truncates at the first "." rather than deleting it, so
+// "12.5" becomes "12" instead of merging into "125".
+function sanitizeInteger(value: string): string {
+  return value.split(".")[0].replace(/[^\d]/g, "");
+}
+
+// Non-negative decimal with up to `maxDecimals` places (2 by default).
+function sanitizeDecimal(value: string, maxDecimals = 2): string {
+  let v = value.replace(/[^\d.]/g, "");
+  const firstDot = v.indexOf(".");
+  if (firstDot !== -1) {
+    v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "");
+  }
+  const [intPart, decPart] = v.split(".");
+  if (decPart !== undefined) v = `${intPart}.${decPart.slice(0, maxDecimals)}`;
+  return v;
+}
+
+// Same as sanitizeDecimal but clamps the numeric value to a maximum (e.g. 100 for a percentage).
+function sanitizePercentage(value: string): string {
+  const v = sanitizeDecimal(value, 2);
+  if (v !== "" && Number(v) > 100) return "100";
+  return v;
+}
+
 function extractErrorMessage(err: unknown): string {
   const anyErr = err as any;
   return (
@@ -335,7 +360,7 @@ export default function StockUpdateModal({
     value: string
   ) => {
     setNewBatch((v) => {
-      const next = { ...v, [field]: value };
+      const next = { ...v, [field]: sanitizeInteger(value) };
       const unitPerPack = Number(next.unitPerPack) || 0;
       const numberOfPacks = Number(next.numberOfPacks) || 0;
       next.packSize = unitPerPack && numberOfPacks
@@ -411,6 +436,7 @@ export default function StockUpdateModal({
         !isNaN(Number(newBatch.mrp)) &&
         Number(newBatch.sellingPrice) > 0 &&
         !isNaN(Number(newBatch.sellingPrice)) &&
+        Number(newBatch.sellingPrice) <= Number(newBatch.mrp) &&
         newBatch.packId !== "" &&
         newBatch.packTypeUnitId !== "" &&
         Number(newBatch.unitPerPack) > 0 &&
@@ -1085,6 +1111,7 @@ export default function StockUpdateModal({
                       <input
                         type="number"
                         min={1}
+                        step={1}
                         value={newBatch.unitPerPack}
                         onChange={(e) =>
                           handleUnitPerPackOrCountChange(
@@ -1100,6 +1127,7 @@ export default function StockUpdateModal({
                       <input
                         type="number"
                         min={1}
+                        step={1}
                         value={newBatch.numberOfPacks}
                         onChange={(e) =>
                           handleUnitPerPackOrCountChange(
@@ -1124,11 +1152,12 @@ export default function StockUpdateModal({
                       <input
                         type="number"
                         min={1}
+                        step={1}
                         value={newBatch.minimumOrderQuantity}
                         onChange={(e) =>
                           setNewBatch((v) => ({
                             ...v,
-                            minimumOrderQuantity: e.target.value,
+                            minimumOrderQuantity: sanitizeInteger(e.target.value),
                           }))
                         }
                         placeholder="e.g. 5"
@@ -1154,11 +1183,12 @@ export default function StockUpdateModal({
                       <input
                         type="number"
                         min={1}
+                        step={1}
                         value={newBatch.maximumOrderQuantity}
                         onChange={(e) =>
                           setNewBatch((v) => ({
                             ...v,
-                            maximumOrderQuantity: e.target.value,
+                            maximumOrderQuantity: sanitizeInteger(e.target.value),
                           }))
                         }
                         placeholder="e.g. 500"
@@ -1319,9 +1349,13 @@ export default function StockUpdateModal({
                     <input
                       type="number"
                       min={1}
+                      step={1}
                       value={newBatch.quantity}
                       onChange={(e) =>
-                        setNewBatch((v) => ({ ...v, quantity: e.target.value }))
+                        setNewBatch((v) => ({
+                          ...v,
+                          quantity: sanitizeInteger(e.target.value),
+                        }))
                       }
                       placeholder="Enter quantity"
                       style={inputStyle}
@@ -1356,7 +1390,7 @@ export default function StockUpdateModal({
                       onChange={(e) =>
                         setNewBatch((v) => ({
                           ...v,
-                          discountPercentage: e.target.value,
+                          discountPercentage: sanitizePercentage(e.target.value),
                         }))
                       }
                       placeholder="e.g. 10"
@@ -1370,7 +1404,10 @@ export default function StockUpdateModal({
                       step="0.01"
                       value={newBatch.mrp}
                       onChange={(e) =>
-                        setNewBatch((v) => ({ ...v, mrp: e.target.value }))
+                        setNewBatch((v) => ({
+                          ...v,
+                          mrp: sanitizeDecimal(e.target.value),
+                        }))
                       }
                       placeholder="Enter MRP"
                       style={inputStyle}
@@ -1385,12 +1422,25 @@ export default function StockUpdateModal({
                       onChange={(e) =>
                         setNewBatch((v) => ({
                           ...v,
-                          sellingPrice: e.target.value,
+                          sellingPrice: sanitizeDecimal(e.target.value),
                         }))
                       }
                       placeholder="Enter selling price"
                       style={inputStyle}
                     />
+                    {newBatch.mrp.trim() !== "" &&
+                      newBatch.sellingPrice.trim() !== "" &&
+                      Number(newBatch.sellingPrice) > Number(newBatch.mrp) && (
+                        <p
+                          style={{
+                            margin: "6px 0 0",
+                            fontSize: 12,
+                            color: "#B91C1C",
+                          }}
+                        >
+                          Selling price cannot exceed the MRP ({newBatch.mrp}).
+                        </p>
+                      )}
                   </Field>
                   <div className="flex items-end">
                     <button
