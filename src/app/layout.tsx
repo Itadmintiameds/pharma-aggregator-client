@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { Noto_Sans, Work_Sans, Open_Sans } from "next/font/google";
 // import "bootstrap-icons/font/bootstrap-icons.css";
 import "./global.css";
+import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer } from "react-toastify";
 
 const notoSans = Noto_Sans({
   subsets: ["latin"],
@@ -53,6 +55,19 @@ export default function RootLayout({
         className={`antialiased ${notoSans.variable} ${workSans.variable} ${openSans.variable}`}
       >
         {children}
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+          style={{ zIndex: 9999 }}
+        />
       </body>
     </html>
   );
