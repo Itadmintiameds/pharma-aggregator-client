@@ -1023,217 +1023,7 @@ export default function StockUpdateModal({
               )}
 
               {step === 2 && updateType === "new" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 16,
-                  }}
-                >
-                  <Field label="Batch / Lot Number *">
-                    <input
-                      type="text"
-                      value={newBatch.batchLotNumber}
-                      onChange={(e) =>
-                        handleNewBatchLotNumberChange(e.target.value)
-                      }
-                      placeholder="e.g. BATCH-2026-01"
-                      style={{
-                        ...inputStyle,
-                        border: `1px solid ${
-                          batchNumberError ? "#FCA5A5" : BORDER
-                        }`,
-                      }}
-                    />
-                    {checkingBatchNumber ? (
-                      <p style={{ margin: "6px 0 0", fontSize: 12, color: TEXT_GRAY }}>
-                        Checking batch ID…
-                      </p>
-                    ) : batchNumberError ? (
-                      <p
-                        style={{
-                          margin: "6px 0 0",
-                          fontSize: 12,
-                          color: "#B91C1C",
-                        }}
-                      >
-                        {batchNumberError}
-                      </p>
-                    ) : null}
-                  </Field>
-                  <Field label="Quantity *">
-                    <input
-                      type="number"
-                      min={1}
-                      value={newBatch.quantity}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({ ...v, quantity: e.target.value }))
-                      }
-                      placeholder="Enter quantity"
-                      style={inputStyle}
-                    />
-                  </Field>
-                  <Field label="MRP (₹) *">
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={newBatch.mrp}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({ ...v, mrp: e.target.value }))
-                      }
-                      placeholder="Enter MRP"
-                      style={inputStyle}
-                    />
-                  </Field>
-                  <Field label="Selling Price (₹) *">
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={newBatch.sellingPrice}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({
-                          ...v,
-                          sellingPrice: e.target.value,
-                        }))
-                      }
-                      placeholder="Enter selling price"
-                      style={inputStyle}
-                    />
-                  </Field>
-                  <Field label="Manufacturing Date *">
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
-                      <DatePicker
-                        value={isoToDate(newBatch.manufacturingDate)}
-                        onChange={(date) =>
-                          setNewBatch((v) => {
-                            const manufacturingDate = dateToIso(date);
-                            return {
-                              ...v,
-                              manufacturingDate,
-                              shelfLifeMonths: monthsBetween(
-                                manufacturingDate,
-                                v.expiryDate
-                              ),
-                            };
-                          })
-                        }
-                        format="dd/MM/yyyy"
-                        maxDate={isoToDate(newBatch.expiryDate) ?? undefined}
-                        slotProps={{
-                          field: { clearable: true },
-                          actionBar: { actions: ["clear"] },
-                          textField: { fullWidth: true, sx: datePickerSx },
-                        }}
-                      />
-                    </LocalizationProvider>
-                  </Field>
-                  <Field label="Expiry Date *">
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
-                      <DatePicker
-                        value={isoToDate(newBatch.expiryDate)}
-                        onChange={(date) =>
-                          setNewBatch((v) => {
-                            const expiryDate = dateToIso(date);
-                            return {
-                              ...v,
-                              expiryDate,
-                              shelfLifeMonths: monthsBetween(
-                                v.manufacturingDate,
-                                expiryDate
-                              ),
-                            };
-                          })
-                        }
-                        format="dd/MM/yyyy"
-                        minDate={isoToDate(newBatch.manufacturingDate) ?? undefined}
-                        slotProps={{
-                          field: { clearable: true },
-                          actionBar: { actions: ["clear"] },
-                          textField: { fullWidth: true, sx: datePickerSx },
-                        }}
-                      />
-                    </LocalizationProvider>
-                  </Field>
-                  <Field label="Discount % (Optional)">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="0.01"
-                      value={newBatch.discountPercentage}
-                      onChange={(e) =>
-                        setNewBatch((v) => ({
-                          ...v,
-                          discountPercentage: e.target.value,
-                        }))
-                      }
-                      placeholder="e.g. 10"
-                      style={inputStyle}
-                    />
-                  </Field>
-                  <Field label="Shelf Life (Months, auto-calculated)">
-                    <input
-                      type="number"
-                      value={newBatch.shelfLifeMonths}
-                      readOnly
-                      placeholder="Manufacturing Date → Expiry Date"
-                      style={{ ...inputStyle, background: "#F5F5F5", color: TEXT_GRAY }}
-                    />
-                  </Field>
-                  <Field label="Date of Stock Entry (Optional)">
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
-                      <DatePicker
-                        value={isoToDate(newBatch.dateOfStockEntry)}
-                        onChange={(date) =>
-                          setNewBatch((v) => ({
-                            ...v,
-                            dateOfStockEntry: dateToIso(date),
-                          }))
-                        }
-                        format="dd/MM/yyyy"
-                        slotProps={{
-                          field: { clearable: true },
-                          actionBar: { actions: ["clear"] },
-                          textField: { fullWidth: true, sx: datePickerSx },
-                        }}
-                      />
-                    </LocalizationProvider>
-                  </Field>
-                  <div className="flex items-end">
-                    <button
-                      type="button"
-                      onClick={openSpecialOffers}
-                      className="w-full h-11 bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[14px] leading-5 rounded-lg flex items-center justify-center gap-2.5 cursor-pointer hover:bg-purple-50 transition-all duration-200"
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 14 14"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="shrink-0"
-                      >
-                        <path
-                          d="M7 1v12M1 7h12"
-                          stroke="#9659FD"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      <span>
-                        {specialDiscounts.length > 0
-                          ? `${specialDiscounts.length} Special Offer${
-                              specialDiscounts.length > 1 ? "s" : ""
-                            } Added — Edit`
-                          : "Add Special Offers"}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
+              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                 <div>
                   <p
                     style={{
@@ -1291,7 +1081,7 @@ export default function StockUpdateModal({
                         ))}
                       </select>
                     </Field>
-                    <Field label="Unit Per Pack *">
+                    <Field label="Number of Units per Pack Type *">
                       <input
                         type="number"
                         min={1}
@@ -1321,16 +1111,16 @@ export default function StockUpdateModal({
                         style={inputStyle}
                       />
                     </Field>
-                    <Field label="Pack Size (auto-calculated)">
+                    <Field label="Pack Size (Number of Units per Pack Type X Number of Packs)">
                       <input
                         type="number"
                         value={newBatch.packSize}
                         readOnly
-                        placeholder="Unit Per Pack × Number of Packs"
+                        placeholder="Number of Units per Pack Type × Number of Packs"
                         style={{ ...inputStyle, background: "#F5F5F5", color: TEXT_GRAY }}
                       />
                     </Field>
-                    <Field label="Minimum Order Quantity *">
+                    <Field label="Minimum Order Quantity (MOQ) (in terms of Pack Size) *">
                       <input
                         type="number"
                         min={1}
@@ -1360,7 +1150,7 @@ export default function StockUpdateModal({
                           </p>
                         )}
                     </Field>
-                    <Field label="Maximum Order Quantity *">
+                    <Field label="Maximum Order Quantity (in terms of Pack Size) *">
                       <input
                         type="number"
                         min={1}
@@ -1408,6 +1198,233 @@ export default function StockUpdateModal({
                     </Field>
                   </div>
                 </div>
+
+                <div>
+                  <p
+                    style={{
+                      margin: "0 0 4px",
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: TEXT_DARK,
+                      fontFamily: "'Work Sans', sans-serif",
+                    }}
+                  >
+                    Batch, Stock Entry, Pricing & Tax Details
+                  </p>
+                  <p style={{ margin: "0 0 16px", fontSize: 13, color: TEXT_GRAY }}>
+                    Batch identification, dates, stock, discount, and pricing for this batch.
+                  </p>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 16,
+                    }}
+                  >
+                  <Field label="Batch Number *">
+                    <input
+                      type="text"
+                      value={newBatch.batchLotNumber}
+                      onChange={(e) =>
+                        handleNewBatchLotNumberChange(e.target.value)
+                      }
+                      placeholder="e.g. BATCH-2026-01"
+                      style={{
+                        ...inputStyle,
+                        border: `1px solid ${
+                          batchNumberError ? "#FCA5A5" : BORDER
+                        }`,
+                      }}
+                    />
+                    {checkingBatchNumber ? (
+                      <p style={{ margin: "6px 0 0", fontSize: 12, color: TEXT_GRAY }}>
+                        Checking batch ID…
+                      </p>
+                    ) : batchNumberError ? (
+                      <p
+                        style={{
+                          margin: "6px 0 0",
+                          fontSize: 12,
+                          color: "#B91C1C",
+                        }}
+                      >
+                        {batchNumberError}
+                      </p>
+                    ) : null}
+                  </Field>
+                  <Field label="Manufacturing Date *">
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={isoToDate(newBatch.manufacturingDate)}
+                        onChange={(date) =>
+                          setNewBatch((v) => {
+                            const manufacturingDate = dateToIso(date);
+                            return {
+                              ...v,
+                              manufacturingDate,
+                              shelfLifeMonths: monthsBetween(
+                                manufacturingDate,
+                                v.expiryDate
+                              ),
+                            };
+                          })
+                        }
+                        format="dd/MM/yyyy"
+                        maxDate={isoToDate(newBatch.expiryDate) ?? undefined}
+                        slotProps={{
+                          field: { clearable: true },
+                          actionBar: { actions: ["clear"] },
+                          textField: { fullWidth: true, sx: datePickerSx },
+                        }}
+                      />
+                    </LocalizationProvider>
+                  </Field>
+                  <Field label="Expiry Date *">
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={isoToDate(newBatch.expiryDate)}
+                        onChange={(date) =>
+                          setNewBatch((v) => {
+                            const expiryDate = dateToIso(date);
+                            return {
+                              ...v,
+                              expiryDate,
+                              shelfLifeMonths: monthsBetween(
+                                v.manufacturingDate,
+                                expiryDate
+                              ),
+                            };
+                          })
+                        }
+                        format="dd/MM/yyyy"
+                        minDate={isoToDate(newBatch.manufacturingDate) ?? undefined}
+                        slotProps={{
+                          field: { clearable: true },
+                          actionBar: { actions: ["clear"] },
+                          textField: { fullWidth: true, sx: datePickerSx },
+                        }}
+                      />
+                    </LocalizationProvider>
+                  </Field>
+                  <Field label="Shelf Life (Months, auto-calculated) *">
+                    <input
+                      type="number"
+                      value={newBatch.shelfLifeMonths}
+                      readOnly
+                      placeholder="Manufacturing Date → Expiry Date"
+                      style={{ ...inputStyle, background: "#F5F5F5", color: TEXT_GRAY }}
+                    />
+                  </Field>
+                  <Field label="Stock Quantity (in terms of Pack Size) *">
+                    <input
+                      type="number"
+                      min={1}
+                      value={newBatch.quantity}
+                      onChange={(e) =>
+                        setNewBatch((v) => ({ ...v, quantity: e.target.value }))
+                      }
+                      placeholder="Enter quantity"
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Date of Stock Entry *">
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={isoToDate(newBatch.dateOfStockEntry)}
+                        onChange={(date) =>
+                          setNewBatch((v) => ({
+                            ...v,
+                            dateOfStockEntry: dateToIso(date),
+                          }))
+                        }
+                        format="dd/MM/yyyy"
+                        slotProps={{
+                          field: { clearable: true },
+                          actionBar: { actions: ["clear"] },
+                          textField: { fullWidth: true, sx: datePickerSx },
+                        }}
+                      />
+                    </LocalizationProvider>
+                  </Field>
+                  <Field label="Discount Percentage (per Pack Size)">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      value={newBatch.discountPercentage}
+                      onChange={(e) =>
+                        setNewBatch((v) => ({
+                          ...v,
+                          discountPercentage: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. 10"
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="MRP (₹) *">
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={newBatch.mrp}
+                      onChange={(e) =>
+                        setNewBatch((v) => ({ ...v, mrp: e.target.value }))
+                      }
+                      placeholder="Enter MRP"
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Selling Price (₹) *">
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={newBatch.sellingPrice}
+                      onChange={(e) =>
+                        setNewBatch((v) => ({
+                          ...v,
+                          sellingPrice: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter selling price"
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={openSpecialOffers}
+                      className="w-full h-11 bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[14px] leading-5 rounded-lg flex items-center justify-center gap-2.5 cursor-pointer hover:bg-purple-50 transition-all duration-200"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 14 14"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="shrink-0"
+                      >
+                        <path
+                          d="M7 1v12M1 7h12"
+                          stroke="#9659FD"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <span>
+                        {specialDiscounts.length > 0
+                          ? `${specialDiscounts.length} Special Offer${
+                              specialDiscounts.length > 1 ? "s" : ""
+                            } Added — Edit`
+                          : "Add Special Offers"}
+                      </span>
+                    </button>
+                  </div>
+                  </div>
+                </div>
+
                 </div>
               )}
 
