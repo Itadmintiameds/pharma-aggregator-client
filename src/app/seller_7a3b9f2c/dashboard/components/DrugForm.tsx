@@ -260,6 +260,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [dosageFormLabel, setDosageFormLabel] = useState<string>("");
   const [manualFile, setManualFile] = useState<File | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftModalError, setDraftModalError] = useState(false);
   const [createdProductId, setCreatedProductId] = useState<string | null>(
     null,
   );
@@ -1197,10 +1199,12 @@ const handleUpdate = async () => {
         }
       }
 
-      alert("Draft saved!");
+      setDraftModalError(false);
+      setShowDraftModal(true);
     } catch (err) {
       console.error("❌ Save Draft Error:", err);
-      alert("❌ Failed to save draft");
+      setDraftModalError(true);
+      setShowDraftModal(true);
     } finally {
       setIsSavingDraft(false);
     }
@@ -1458,6 +1462,20 @@ const handleUpdate = async () => {
         }
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
+      />
+
+      <PopupModal
+        isOpen={showDraftModal}
+        title={draftModalError ? "Failed to Save Draft" : "Draft Saved!"}
+        description={
+          draftModalError
+            ? "Something went wrong while saving your draft. Please try again."
+            : "Your product has been saved as a draft."
+        }
+        primaryActionText="OK"
+        celebrate={!draftModalError}
+        onPrimaryAction={() => setShowDraftModal(false)}
+        onClose={() => setShowDraftModal(false)}
       />
 
       {showAdditionalDiscount && (

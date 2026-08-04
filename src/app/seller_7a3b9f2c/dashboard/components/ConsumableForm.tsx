@@ -270,6 +270,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
   const [specialSchemes, setSpecialSchemes] = useState<any[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftModalError, setDraftModalError] = useState(false);
 
   const sterileOptions: SelectOption[] = [
     { value: "sterile", label: "Sterile" },
@@ -1198,10 +1200,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         if (currentProductId && images.length > 0) await uploadProductImages(currentProductId, images);
       }
 
-      alert("Draft saved!");
+      setDraftModalError(false);
+      setShowDraftModal(true);
     } catch (err) {
       console.error("❌ Save Draft Error:", err);
-      alert("❌ Failed to save draft");
+      setDraftModalError(true);
+      setShowDraftModal(true);
     } finally {
       setIsSavingDraft(false);
     }
@@ -1242,6 +1246,20 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         onSecondaryAction={isEdit ? () => setShowSuccessModal(false) : handleContinueAdding}
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
+      />
+
+      <PopupModal
+        isOpen={showDraftModal}
+        title={draftModalError ? "Failed to Save Draft" : "Draft Saved!"}
+        description={
+          draftModalError
+            ? "Something went wrong while saving your draft. Please try again."
+            : "Your product has been saved as a draft."
+        }
+        primaryActionText="OK"
+        celebrate={!draftModalError}
+        onPrimaryAction={() => setShowDraftModal(false)}
+        onClose={() => setShowDraftModal(false)}
       />
 
       {showAdditionalDiscountModal && (

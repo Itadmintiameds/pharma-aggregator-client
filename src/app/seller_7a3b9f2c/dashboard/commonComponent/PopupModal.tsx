@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import confetti from "canvas-confetti";
 
 type PopupModalProps = {
@@ -13,6 +13,7 @@ type PopupModalProps = {
   onSecondaryAction?: () => void;
   onTertiaryAction?: () => void;
   onClose?: () => void;
+  celebrate?: boolean;
 };
 
 // Google brand colors
@@ -62,16 +63,29 @@ export default function PopupModal({
   onSecondaryAction,
   onTertiaryAction,
   onClose,
+  celebrate: shouldCelebrate = true,
 }: PopupModalProps) {
   useEffect(() => {
-    if (isOpen) celebrate();
-  }, [isOpen]);
+    if (isOpen && shouldCelebrate) celebrate();
+  }, [isOpen, shouldCelebrate]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 font-open-sans">
       <div className="bg-white rounded-2xl w-125.25 p-8 pt-10 shadow-xl relative overflow-hidden">
+        {/* Close */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-pneutral-500 hover:bg-pneutral-100 hover:text-pneutral-900 cursor-pointer"
+          >
+            <X size={20} />
+          </button>
+        )}
+
         {/* Icon */}
         <div className="flex justify-center mb-4">
           <div className="w-18 h-18 rounded-full bg-[#DCFCE7] flex items-center justify-center">

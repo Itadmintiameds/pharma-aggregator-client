@@ -405,6 +405,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [editTab, setEditTab] = useState<"additional_discount" | "special_schemes" | null>(null);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftModalError, setDraftModalError] = useState(false);
   const unitDropdownRef = useRef<HTMLDivElement>(null);
 
 
@@ -1521,10 +1523,12 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         if (currentProductId && images.length > 0) await uploadProductImages(currentProductId, images);
       }
 
-      alert("Draft saved!");
+      setDraftModalError(false);
+      setShowDraftModal(true);
     } catch (err) {
       console.error("❌ Save Draft Error:", err);
-      alert("❌ Failed to save draft");
+      setDraftModalError(true);
+      setShowDraftModal(true);
     } finally {
       setIsSavingDraft(false);
     }
@@ -1560,6 +1564,20 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         onSecondaryAction={isEdit ? () => setShowSuccessModal(false) : () => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); }}
         onTertiaryAction={() => { router.push("/seller_7a3b9f2c/dashboard"); }}
         onClose={() => setShowSuccessModal(false)}
+      />
+
+      <PopupModal
+        isOpen={showDraftModal}
+        title={draftModalError ? "Failed to Save Draft" : "Draft Saved!"}
+        description={
+          draftModalError
+            ? "Something went wrong while saving your draft. Please try again."
+            : "Your product has been saved as a draft."
+        }
+        primaryActionText="OK"
+        celebrate={!draftModalError}
+        onPrimaryAction={() => setShowDraftModal(false)}
+        onClose={() => setShowDraftModal(false)}
       />
 
       {showAdditionalDiscount && (

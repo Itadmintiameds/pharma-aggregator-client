@@ -306,26 +306,34 @@ const ProductList = ({
             if (!row.productId) return;
             router.push(`/seller_7a3b9f2c/products/view/${row.productId}`);
           }}
-          actions={(row) => (
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setStockUpdateProduct(row)}
-                className="px-3 py-1.5 rounded-md border border-primary-900 text-primary-900 text-p4 font-semibold whitespace-nowrap cursor-pointer hover:bg-primary-50"
-              >
-                Update Stock
-              </button>
-              <img
-                src="/icons/DeleteIcon.svg"
-                alt="delete"
-                className="w-6 h-6 rounded-md object-cover cursor-pointer"
-                onClick={() => {
-                  setSelectedProductIdLocal(row.productId);
-                  setOpenDeleteModal(true);
-                }}
-              />
-            </div>
-          )}
+          actions={(row) => {
+            const isDraft = row.status === "DRAFT";
+            return (
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={isDraft}
+                  onClick={() => setStockUpdateProduct(row)}
+                  className={`px-3 py-1.5 rounded-md border text-p4 font-semibold whitespace-nowrap ${
+                    isDraft
+                      ? "border-neutral-300 text-neutral-400 cursor-not-allowed"
+                      : "border-primary-900 text-primary-900 cursor-pointer hover:bg-primary-50"
+                  }`}
+                >
+                  Update Stock
+                </button>
+                <img
+                  src="/icons/DeleteIcon.svg"
+                  alt="delete"
+                  className="w-6 h-6 rounded-md object-cover cursor-pointer"
+                  onClick={() => {
+                    setSelectedProductIdLocal(row.productId);
+                    setOpenDeleteModal(true);
+                  }}
+                />
+              </div>
+            );
+          }}
         />
       </div>
       {openDeleteModal && selectedProductIdLocal && (

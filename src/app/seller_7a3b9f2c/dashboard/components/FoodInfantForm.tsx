@@ -363,6 +363,8 @@ const [certificateDocumentIds, setCertificateDocumentIds] = useState<Map<number,
   const [loadingPackTypes, setLoadingPackTypes] = useState(false);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftModalError, setDraftModalError] = useState(false);
   const [ageGroupOptionsMap, setAgeGroupOptionsMap] = useState<Map<string, string>>(new Map());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1826,10 +1828,12 @@ if ((attr as any).certificateDocuments?.length) {
         }
       }
 
-      alert("Draft saved!");
+      setDraftModalError(false);
+      setShowDraftModal(true);
     } catch (err) {
       console.error("❌ Save Draft Error:", err);
-      alert("❌ Failed to save draft");
+      setDraftModalError(true);
+      setShowDraftModal(true);
     } finally {
       setIsSavingDraft(false);
     }
@@ -1912,6 +1916,20 @@ if ((attr as any).certificateDocuments?.length) {
         onSecondaryAction={handleContinueEditing}
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowUpdateSuccessModal(false)}
+      />
+
+      <PopupModal
+        isOpen={showDraftModal}
+        title={draftModalError ? "Failed to Save Draft" : "Draft Saved!"}
+        description={
+          draftModalError
+            ? "Something went wrong while saving your draft. Please try again."
+            : "Your product has been saved as a draft."
+        }
+        primaryActionText="OK"
+        celebrate={!draftModalError}
+        onPrimaryAction={() => setShowDraftModal(false)}
+        onClose={() => setShowDraftModal(false)}
       />
 
       {showAdditionalDiscount && (
