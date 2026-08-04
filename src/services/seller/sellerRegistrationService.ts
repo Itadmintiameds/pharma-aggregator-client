@@ -82,7 +82,15 @@ class SellerRegService {
       const response = await api.get<ApiResponseWrapper<any>>(`/temp-sellers/user/${userId}`);
       return response.data.data;
     } catch (error) {
-      console.error(`Error fetching temp seller for user ${userId}:`, error);
+      // A 404 here just means this user never submitted a TempSeller
+      // registration — an expected state (checked by routeAuthenticatedSeller
+      // to decide between "pending" and "register"), not an error worth
+      // surfacing as one.
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        console.log(`ℹ️ No temp seller yet for user ${userId}`);
+      } else {
+        console.error(`Error fetching temp seller for user ${userId}:`, error);
+      }
       throw error;
     }
   }

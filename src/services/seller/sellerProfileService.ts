@@ -70,14 +70,30 @@ class SellerProfileService {
       
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message?: string }>;
-      
+
+      // Backend currently returns HTTP 500 (not 404) for this case, with
+      // "Seller not found for user id: X" buried in the message body — so a
+      // brand-new seller who hasn't been approved yet looks identical to a
+      // real server error unless we match on the message text too.
+      const responseMessage = axiosError.response?.data?.message;
+      const isSellerNotFound =
+        axiosError.response?.status === 404 ||
+        /seller not found/i.test(responseMessage ?? '');
+
+      if (isSellerNotFound) {
+        // Expected state for any seller who hasn't been approved yet —
+        // not an error, so don't spam the console with a red error log.
+        console.log('ℹ️ No seller profile yet for user ID:', userId);
+        throw new Error('Seller profile not found');
+      }
+
       console.error('❌ Error fetching seller profile:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         response: axiosError.response?.data,
         status: axiosError.response?.status,
         userId: userId
       });
-      
+
       // Handle specific error cases
       if (axiosError.response?.status === 401) {
         console.log('🔒 Unauthorized - clearing auth and redirecting');
@@ -87,15 +103,11 @@ class SellerProfileService {
         }
         throw new Error('Session expired. Please login again.');
       }
-      
+
       if (axiosError.response?.status === 403) {
         throw new Error('You do not have permission to view this profile');
       }
-      
-      if (axiosError.response?.status === 404) {
-        throw new Error('Seller profile not found');
-      }
-      
+
       if (error instanceof Error) {
         throw error;
       }
