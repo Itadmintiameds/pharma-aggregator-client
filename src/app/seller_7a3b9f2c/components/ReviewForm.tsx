@@ -16,6 +16,7 @@ interface Props {
   onSubmit: () => void;
   submitting: boolean;
   prevStep: () => void;
+  onSaveDraft: () => void;
 }
 
 const AGREEMENT_LABELS: Record<string, string> = {
@@ -30,7 +31,8 @@ export default function ReviewForm({
   onEdit,
   onSubmit,
   submitting,
-  prevStep
+  prevStep,
+  onSaveDraft
 }: Props) {
 
   const router = useRouter();
@@ -205,6 +207,15 @@ export default function ReviewForm({
               height={20}
             />
             Back
+          </button>
+
+          <button
+            type="button"
+            onClick={onSaveDraft}
+            disabled={submitting}
+            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-secondary-800 text-secondary-800 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Save Draft
           </button>
 
           <button

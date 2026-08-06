@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { FiMenu, FiX, FiLogOut } from "react-icons/fi";
 import { sellerAuthService } from "@/src/services/seller/authService";
 
@@ -11,6 +11,7 @@ import { sellerAuthService } from "@/src/services/seller/authService";
 
 const Header = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -28,6 +29,15 @@ const Header = () => {
   }, []);
 
   const handleLogout = async () => {
+    // The registration wizard has its own in-progress form data worth saving
+    // before logging out - it owns that state, this component doesn't, so
+    // hand off to it via an event instead of logging out directly here.
+    if (pathname === "/seller_7a3b9f2c") {
+      setMenuOpen(false);
+      window.dispatchEvent(new CustomEvent("seller-wizard-logout-request"));
+      return;
+    }
+
     await sellerAuthService.logout();
     setMenuOpen(false);
     router.push("/");

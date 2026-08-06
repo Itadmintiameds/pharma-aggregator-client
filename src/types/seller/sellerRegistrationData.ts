@@ -123,6 +123,34 @@ export interface TempSellerRequest {
   documents?: TempSellerDocument[];
 }
 
+// ==================== DRAFT (SAVE-FOR-LATER) TYPES ====================
+// Draft save/update hits /temp-sellers/draft(/{id}) with a partial subset of
+// the full registration payload — no file fields, no strict validation on the
+// backend. These mirror TempSellerRequest's nested shapes but drop every
+// *FileUrl field (drafts never carry a real uploaded file) and make
+// everything optional.
+
+export type TempSellerDraftAddress = Partial<TempSellerAddress>;
+
+export type TempSellerDraftCoordinator = Partial<Omit<TempSellerCoordinator, 'authorizationLetterUrl'>>;
+
+export type TempSellerDraftBankDetails = Partial<Omit<TempSellerBankDetails, 'bankDocumentFileUrl'>>;
+
+export type TempSellerDraftDocument = Partial<Omit<TempSellerDocument, 'documentFileUrl' | 'gstFileUrl'>>;
+
+export interface TempSellerDraftRequest
+  extends Partial<
+    Omit<
+      TempSellerRequest,
+      'companyRegistrationCertificateUrl' | 'gstFileUrl' | 'address' | 'coordinator' | 'bankDetails' | 'documents'
+    >
+  > {
+  address?: TempSellerDraftAddress;
+  coordinator?: TempSellerDraftCoordinator;
+  bankDetails?: TempSellerDraftBankDetails;
+  documents?: TempSellerDraftDocument[];
+}
+
 export interface TempSellerResponse {
   tempSellerId: number;
   sellerName: string;

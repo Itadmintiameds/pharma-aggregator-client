@@ -12,6 +12,8 @@ import { sellerRegService } from "@/src/services/seller/sellerRegistrationServic
 import { debounce } from "lodash";
 import LicenseWarning from "./LicenseWarning";
 import { classifySellerType, requiredAgreementCodes, mandatoryExtraDocumentCodes, optionalExtraDocumentCodes, documentTypeLabel, type SellerTypeCategory } from "@/src/schema/seller/sellerRegSchema";
+import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
+import UploadedFileChip from "./UploadedFileChip";
 
 interface Props {
   formData: any;
@@ -27,8 +29,12 @@ interface Props {
   onAgreementFileChange: (code: string, file: File | null) => void;
   onAgreementIssueDateChange: (date: Date | null, code: string) => void;
   onAgreementExpiryDateChange: (date: Date | null, code: string) => void;
+  onDeleteGstFile: () => void;
+  onDeleteLicenseFile: (productName: string) => void;
+  onDeleteAgreementFile: (code: string) => void;
   prevStep: () => void;
   nextStep: () => void;
+  onSaveDraft: () => void;
 }
 
 // Human-readable labels for seller-type-driven agreement document codes.
@@ -265,8 +271,12 @@ export default function DocumentForm({
   onAgreementFileChange,
   onAgreementIssueDateChange,
   onAgreementExpiryDateChange,
+  onDeleteGstFile,
+  onDeleteLicenseFile,
+  onDeleteAgreementFile,
   prevStep,
   nextStep,
+  onSaveDraft,
 }: Props) {
 
   const router = useRouter();
@@ -289,6 +299,7 @@ export default function DocumentForm({
   
   const [gstError, setGstError] = useState<string>("");
   const [gstExistsError, setGstExistsError] = useState<string>("");
+  const [gstFileError, setGstFileError] = useState<string>("");
   const [checkingGST, setCheckingGST] = useState(false);
 
   const debouncedCheckLicenseExists = useRef<Record<string, ReturnType<typeof debounce>>>({});
@@ -943,9 +954,80 @@ export default function DocumentForm({
       return;
     }
 
-    const missingAgreement = requiredDocumentCodes.find((code: string) => !formData.agreements?.[code]?.file);
-    if (missingAgreement) {
-      toast.error(`Please upload the ${getAgreementLabel(missingAgreement)} document.`);
+    // ---- Required-field inline validation ----
+    // Below, missing-value checks are surfaced as per-field inline errors
+    // (reusing the same local error-state buckets already rendered per row)
+    // instead of a single generic toast, so the seller can see exactly which
+    // field on which product/document is empty.
+    let hasRequiredFieldErrors = false;
+
+    // GST number / GST certificate required
+    const trimmedGstNumber = (formData.gstNumber || "").trim();
+    if (!trimmedGstNumber) {
+      setGstError("GST Number is required");
+      hasRequiredFieldErrors = true;
+    }
+    const hasGstFile = !!formData.gstFile || isRealFileUrl(formData.gstFileUrl);
+    if (!hasGstFile) {
+      setGstFileError("GST Certificate is required");
+      hasRequiredFieldErrors = true;
+    } else {
+      setGstFileError("");
+    }
+
+    // Per-product license required fields (number, file, issue date, expiry
+    // date, issuing authority). Skips a product that already has a more
+    // specific error (format error or duplicate-exists error) so we don't
+    // clobber it with a generic "required" message.
+    const newLicenseErrors: Record<string, string> = {};
+    formData.productTypes.forEach((productName: string) => {
+      if (licenseErrors[productName] || licenseExistsErrors[productName]) {
+        return;
+      }
+      const licenseData = formData.licenses[productName] || {};
+      const licenseInfo = getLicenseInfo(productName);
+      const hasLicenseFile = !!licenseData.file || isRealFileUrl(licenseData.fileUrl);
+
+      if (!licenseData.number || !licenseData.number.trim()) {
+        newLicenseErrors[productName] = `${licenseInfo.numberLabel} is required`;
+      } else if (!hasLicenseFile) {
+        newLicenseErrors[productName] = `${licenseInfo.fileLabel} is required`;
+      } else if (!licenseData.issueDate) {
+        newLicenseErrors[productName] = `${licenseInfo.issueDateLabel} is required`;
+      } else if (!licenseData.expiryDate) {
+        newLicenseErrors[productName] = `${licenseInfo.expiryDateLabel} is required`;
+      } else if (!licenseData.issuingAuthority || !licenseData.issuingAuthority.trim()) {
+        newLicenseErrors[productName] = `${licenseInfo.authorityLabel} is required`;
+      }
+    });
+    if (Object.keys(newLicenseErrors).length > 0) {
+      setLicenseErrors(prev => ({ ...prev, ...newLicenseErrors }));
+      hasRequiredFieldErrors = true;
+    }
+
+    // Per-agreement required document check (replaces the old generic
+    // "Please upload the X document" toast with an inline error next to
+    // the relevant agreement block, keyed the same way agreementErrors
+    // already is). Only the document file is enforced here — the number
+    // field on these agreement codes is explicitly optional in the UI and
+    // in step3Schema's refine, so it is intentionally not required here.
+    const newAgreementErrors: Record<string, string> = {};
+    requiredDocumentCodes.forEach((code: string) => {
+      if (agreementErrors[code]) {
+        return;
+      }
+      const agreementData = formData.agreements?.[code];
+      const hasAgreementFile = !!agreementData?.file || isRealFileUrl(agreementData?.fileUrl);
+      if (!hasAgreementFile) {
+        newAgreementErrors[code] = `${getAgreementLabel(code)} document is required`;
+      }
+    });
+    if (Object.keys(newAgreementErrors).length > 0) {
+      setAgreementErrors(prev => ({ ...prev, ...newAgreementErrors }));
+      hasRequiredFieldErrors = true;
+    }
+
+    if (hasRequiredFieldErrors) {
       return;
     }
 
@@ -1124,6 +1206,14 @@ export default function DocumentForm({
                     disabled={isUploading}
                   />
 
+                  {!licenseFileName && isRealFileUrl(licenseData.fileUrl) ? (
+                    <UploadedFileChip
+                      url={licenseData.fileUrl}
+                      fileName={licenseData.fileName}
+                      inputId={`license-upload-${productName}`}
+                      onDelete={() => onDeleteLicenseFile(productName)}
+                    />
+                  ) : (
                   <div
                     tabIndex={isUploading ? -1 : 0}
                     role="button"
@@ -1192,6 +1282,7 @@ export default function DocumentForm({
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
 
                 {/* ISSUE DATE - With 5 year lookback restriction (exclusive) */}
@@ -1498,6 +1589,14 @@ export default function DocumentForm({
                       disabled={isUploading}
                     />
 
+                    {!agreementFileName && isRealFileUrl(agreementData.fileUrl) ? (
+                      <UploadedFileChip
+                        url={agreementData.fileUrl}
+                        fileName={agreementData.fileName}
+                        inputId={`agreement-upload-${code}`}
+                        onDelete={() => onDeleteAgreementFile(code)}
+                      />
+                    ) : (
                     <div
                       tabIndex={isUploading ? -1 : 0}
                       role="button"
@@ -1565,6 +1664,7 @@ export default function DocumentForm({
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
 
                   {/* ISSUE DATE (optional) */}
@@ -1747,6 +1847,14 @@ export default function DocumentForm({
                 disabled={uploadingGST}
               />
 
+              {!gstFileName && isRealFileUrl(formData.gstFileUrl) ? (
+                <UploadedFileChip
+                  url={formData.gstFileUrl}
+                  fileName={formData.gstFileName}
+                  inputId="gst-upload"
+                  onDelete={onDeleteGstFile}
+                />
+              ) : (
               <div
                 tabIndex={uploadingGST ? -1 : 0}
                 role="button"
@@ -1815,6 +1923,13 @@ export default function DocumentForm({
                   </div>
                 </div>
               </div>
+              )}
+              {gstFileError && (
+                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                  <span className="mr-1">⚠️</span>
+                  <span>{gstFileError}</span>
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -1842,6 +1957,14 @@ export default function DocumentForm({
                 height={18}
               />
               Back
+            </button>
+
+            <button
+              type="button"
+              onClick={onSaveDraft}
+              className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-secondary-800 text-secondary-800 font-semibold"
+            >
+              Save Draft
             </button>
 
             <button

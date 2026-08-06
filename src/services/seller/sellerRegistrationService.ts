@@ -6,6 +6,7 @@ import {
   TempSellerRequest,
   TempSellerResponse,
   TempSellerAdminResponse,
+  TempSellerDraftRequest,
   ApiResponse,
   EmailOtpSendRequest,
   EmailOtpVerifyRequest,
@@ -47,6 +48,74 @@ class SellerRegService {
       return sellerData;
     } catch (error) {
       console.error('❌ Error creating temp seller:', error);
+      throw error;
+    }
+  }
+
+  // ==================== SELLER REGISTRATION DRAFTS ====================
+
+  async createDraftTempSeller(data: TempSellerDraftRequest): Promise<{ tempSellerId: number; [key: string]: unknown }> {
+    try {
+      console.log("📡 Creating draft temp seller with data:", data);
+
+      const response = await api.post<ApiResponseWrapper<{ tempSellerId: number; [key: string]: unknown }>>('/temp-sellers/draft', data);
+
+      console.log("✅ Raw draft response:", response);
+      const draftData = response.data?.data;
+
+      if (!draftData) {
+        throw new Error("No data received from server");
+      }
+
+      console.log("✅ Extracted draft data:", draftData);
+
+      return draftData;
+    } catch (error) {
+      console.error('❌ Error creating draft temp seller:', error);
+      throw error;
+    }
+  }
+
+  async updateDraftTempSeller(id: number, data: TempSellerDraftRequest): Promise<{ tempSellerId: number; [key: string]: unknown }> {
+    try {
+      console.log(`📡 Updating draft temp seller ${id} with data:`, data);
+
+      const response = await api.put<ApiResponseWrapper<{ tempSellerId: number; [key: string]: unknown }>>(`/temp-sellers/draft/${id}`, data);
+
+      console.log("✅ Raw draft update response:", response);
+      const draftData = response.data?.data;
+
+      if (!draftData) {
+        throw new Error("No data received from server");
+      }
+
+      console.log("✅ Extracted draft data:", draftData);
+
+      return draftData;
+    } catch (error) {
+      console.error(`❌ Error updating draft temp seller ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async finalizeDraftTempSeller(id: number, data: TempSellerRequest): Promise<TempSellerResponse> {
+    try {
+      console.log(`📡 Finalizing draft temp seller ${id} with data:`, data);
+
+      const response = await api.post<ApiResponseWrapper<TempSellerResponse>>(`/temp-sellers/draft/${id}/finalize`, data);
+
+      console.log("✅ Raw finalize response:", response);
+      const sellerData = response.data?.data;
+
+      if (!sellerData) {
+        throw new Error("No data received from server");
+      }
+
+      console.log("✅ Extracted finalized seller data:", sellerData);
+
+      return sellerData;
+    } catch (error) {
+      console.error(`❌ Error finalizing draft temp seller ${id}:`, error);
       throw error;
     }
   }

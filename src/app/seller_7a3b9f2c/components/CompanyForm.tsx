@@ -15,9 +15,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { classifySellerType } from "@/src/schema/seller/sellerRegSchema";
+import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
+import UploadedFileChip from "./UploadedFileChip";
 
 interface Props {
   formData: any;
+  errors: Record<string, string>;
   companyTypes: CompanyTypeResponse[];
   sellerTypes: SellerTypeResponse[];
   productTypes: ProductTypeResponse[];
@@ -38,9 +41,11 @@ interface Props {
   onNumericInput: (e: React.ChangeEvent<HTMLInputElement>, field: string, maxLength?: number) => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onCompanyRegFileChange: (file: File | null) => void;
+  onDeleteCompanyRegistrationCertificate: () => void;
   setIsProductDropdownOpen: (open: boolean) => void;
   prevStep: () => void;
   nextStep: () => void;
+  onSaveDraft: () => void;
 }
 
 // Country codes data for company phone with validation rules
@@ -90,6 +95,7 @@ function DropdownSearchInput({
 
 export default function CompanyForm({
   formData,
+  errors,
   companyTypes,
   sellerTypes,
   productTypes,
@@ -110,9 +116,11 @@ export default function CompanyForm({
   onNumericInput,
   onChange,
   onCompanyRegFileChange,
+  onDeleteCompanyRegistrationCertificate,
   setIsProductDropdownOpen,
   prevStep,
   nextStep,
+  onSaveDraft,
 }: Props) {
 
   const router = useRouter();
@@ -439,6 +447,12 @@ export default function CompanyForm({
                 className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
+            {errors.sellerName && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.sellerName}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -497,6 +511,12 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.companyTypeId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.companyTypeId}</span>
+              </p>
+            )}
           </div>
 
           {/* Row 2: Company Registration Certificate Upload | Seller Type */}
@@ -506,7 +526,9 @@ export default function CompanyForm({
     <span className="text-warning-500 font-semibold ml-1">*</span>
   </label>
 
-  {/* Hidden File Input - placed above the icon div */}
+  {/* Hidden File Input - placed above the icon div. Stays mounted even in the
+      "already uploaded" state below so the chip's Edit button can trigger it
+      to pick a replacement. */}
   <input
     id="company-reg-upload"
     type="file"
@@ -516,6 +538,14 @@ export default function CompanyForm({
     disabled={uploading}
   />
 
+  {!formData.companyRegistrationCertificateFile && isRealFileUrl(formData.companyRegistrationCertificateUrl) ? (
+    <UploadedFileChip
+      url={formData.companyRegistrationCertificateUrl}
+      fileName={formData.companyRegistrationCertificateFileName}
+      inputId="company-reg-upload"
+      onDelete={onDeleteCompanyRegistrationCertificate}
+    />
+  ) : (
   <div
     tabIndex={uploading ? -1 : 0}
     role="button"
@@ -597,6 +627,13 @@ export default function CompanyForm({
       </div>
     </div>
   </div>
+  )}
+  {errors.companyRegistrationCertificateFile && (
+    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+      <span className="mr-1">⚠️</span>
+      <span>{errors.companyRegistrationCertificateFile}</span>
+    </p>
+  )}
 </div>
 
           <div className="flex flex-col gap-1">
@@ -655,6 +692,12 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.sellerTypeId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.sellerTypeId}</span>
+              </p>
+            )}
           </div>
 
           {/* Row 2.5: Parent Manufacturer Name | Brand Owner Name - shown based on seller type */}
@@ -684,6 +727,12 @@ export default function CompanyForm({
                 placeholder="Enter Parent Manufacturer Name"
                 className="w-full h-13 px-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
+              {errors.parentManufacturerName && (
+                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                  <span className="mr-1">⚠️</span>
+                  <span>{errors.parentManufacturerName}</span>
+                </p>
+              )}
             </div>
           )}
 
@@ -841,6 +890,12 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.productTypeIds && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.productTypeIds}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -893,6 +948,12 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.stateId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.stateId}</span>
+              </p>
+            )}
           </div>
 
           {/* Row 4: District | Taluka */}
@@ -948,6 +1009,12 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.districtId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.districtId}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -1002,6 +1069,12 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.talukaId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.talukaId}</span>
+              </p>
+            )}
           </div>
 
           {/* Row 5: City | Building No. */}
@@ -1033,6 +1106,12 @@ export default function CompanyForm({
                 className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
+            {errors.city && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.city}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -1063,6 +1142,12 @@ export default function CompanyForm({
                 className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
+            {errors.buildingNo && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.buildingNo}</span>
+              </p>
+            )}
           </div>
 
           {/* Row 6: Street | Pincode */}
@@ -1094,6 +1179,12 @@ export default function CompanyForm({
                 className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
+            {errors.street && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.street}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -1114,6 +1205,12 @@ export default function CompanyForm({
                 className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
+            {errors.pincode && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.pincode}</span>
+              </p>
+            )}
           </div>
 
           {/* Row 7: Landmark | Company Phone */}
@@ -1142,6 +1239,12 @@ export default function CompanyForm({
               placeholder="Enter Landmark"
               className="w-full h-13 px-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
             />
+            {errors.landmark && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.landmark}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -1160,6 +1263,12 @@ export default function CompanyForm({
                 className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
+            {errors.website && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.website}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -1231,7 +1340,12 @@ export default function CompanyForm({
                   className={`flex-1 h-13 px-4 pr-4 rounded-r-md border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${companyPhoneError ? 'border-red-500' : 'border-neutral-500'}`}
                 />
               </div>
-              {companyPhoneError && (
+              {errors.phone ? (
+                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                  <span className="mr-1">⚠️</span>
+                  <span>{errors.phone}</span>
+                </p>
+              ) : companyPhoneError && (
                 <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
                   <span className="mr-1">⚠️</span>
                   <span>{companyPhoneError}</span>
@@ -1258,6 +1372,12 @@ export default function CompanyForm({
                 className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
+            {errors.email && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.email}</span>
+              </p>
+            )}
           </div>
 
           
@@ -1276,6 +1396,13 @@ export default function CompanyForm({
         </div>
 
         <div className="flex gap-4">
+          <button
+            type="button"
+            onClick={onSaveDraft}
+            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-secondary-800 text-secondary-800 font-semibold"
+          >
+            Save Draft
+          </button>
           <button
             onClick={nextStep}
             className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"

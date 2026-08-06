@@ -12,9 +12,10 @@ import DocumentForm from "./DocumentForm";
 import BankForm from "./BankForm";
 import ReviewForm from "./ReviewForm";
 import SuccessModal from "./SuccessModal";
+import SaveBeforeLogoutModal from "./SaveBeforeLogoutModal";
 import SignupForm from "./SignupForm";
 import LoginModals from "@/src/app/modals/LoginModals/LoginModals";
-import { uploadSellerRegDocService } from "@/src/services/seller/UploadSellerRegDoc";
+import { uploadSellerRegDocService, LicenseFileItem } from "@/src/services/seller/UploadSellerRegDoc";
 import SellerRegistrationLayout from "./SellerRegistrationLayout"
 import { sellerRegMasterService } from "@/src/services/seller/SellerRegMasterService"
 import { sellerRegService } from "@/src/services/seller/sellerRegistrationService"
@@ -24,7 +25,30 @@ import { fetchBankDetails } from "@/src/services/seller/IFSCService"
 import { ifscSchema } from "@/src/schema/seller/IFSCSchema"
 import { step1Schema, step2Schema, step3Schema, step4Schema } from "@/src/schema/seller/sellerRegSchema"
 import { CompanyTypeResponse, SellerTypeResponse, ProductTypeResponse, StateResponse, DistrictResponse, TalukaResponse, DocumentTypeResponse, } from "@/src/types/seller/SellerRegMasterData"
-import { TempSellerRequest, TempSellerDocument, TempSellerBankDetails, TempSellerAddress, TempSellerCoordinator } from "@/src/types/seller/sellerRegistrationData"
+import { TempSellerRequest, TempSellerDocument, TempSellerBankDetails, TempSellerAddress, TempSellerCoordinator, TempSellerDraftRequest } from "@/src/types/seller/sellerRegistrationData"
+import { isRealFileUrl } from "@/src/utils/sellerRegFiles"
+
+// GET /temp-sellers/user/{userId} returns the raw TempSeller JPA entity, not
+// a flat DTO — every master reference (state/district/taluka/companyType/
+// sellerType/productType/documentType) comes back as a nested object (e.g.
+// address.state.stateName, not address.stateName). These interfaces describe
+// only the fields this file actually reads back into formData.
+interface DraftDocumentRow {
+  // Present (non-null) for a per-product license row; the placeholder
+  // seller-level product type is used for agreements, so distinguish by
+  // documentType instead (see TempSellerServiceImpl#documentKey).
+  productTypes?: { productTypeId?: number; productTypeName?: string };
+  documentType?: { documentTypeId?: number; documentTypeCode?: string; documentTypeName?: string };
+  documentNumber?: string;
+  licenseIssueDate?: string;
+  licenseExpiryDate?: string;
+  licenseIssuingAuthority?: string;
+  // The raw entity's document row id - needed to call the per-document
+  // delete endpoint (DELETE /temp-sellers/{id}/documents/{documentId}/file).
+  DocumentsId?: number;
+  documentFileUrl?: string;
+  documentFileName?: string;
+}
 
 export default function SellerRegistration() {
   const router = useRouter()
@@ -37,6 +61,10 @@ export default function SellerRegistration() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [applicationId, setApplicationId] = useState("")
   const [ifscError, setIfscError] = useState("")
+  // Per-field inline validation errors for steps 1/2/4 (zod issue.path[0] -> message).
+  // Cleared wholesale at the start of each step's nextStep() validation attempt,
+  // and per-field whenever the user edits that specific field.
+  const [stepErrors, setStepErrors] = useState<Record<string, string>>({})
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false)
   const productDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -70,6 +98,19 @@ export default function SellerRegistration() {
     documentTypes: true,
   })
   const [submitting, setSubmitting] = useState(false)
+
+  // Draft support: when a temp seller row already exists for this user (either
+  // resumed on mount or created by an earlier "Save Draft" click this session),
+  // subsequent saves PUT to it instead of POSTing a new one, and final submit
+  // finalizes it instead of creating a brand-new temp seller.
+  const [tempSellerId, setTempSellerId] = useState<number | null>(null)
+
+  // Save-before-logout prompt: Header.tsx has no access to this component's
+  // formData/handleSaveDraft, so it dispatches this event instead of logging
+  // out directly whenever Logout is clicked on the wizard page - see the
+  // listener effect below.
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [loggingOutSaving, setLoggingOutSaving] = useState(false)
 
   // Form State (Full old version state)
   const [formData, setFormData] = useState({
@@ -106,18 +147,29 @@ export default function SellerRegistration() {
     coordinatorEmail: "",
     coordinatorMobile: "",
     authorizationLetterFile: null as File | null,
+    authorizationLetterUrl: "",
+    authorizationLetterFileName: "",
 
     // GST
     gstNumber: "",
     gstFile: null as File | null,
+    gstFileUrl: "",
+    gstFileName: "",
 
     // company registration certificate
     companyRegistrationCertificateFile: null as File | null,
+    companyRegistrationCertificateUrl: "",
+    companyRegistrationCertificateFileName: "",
 
     // Licenses per product
     licenses: {} as Record<string, {
       number: string;
       file: File | null;
+      fileUrl?: string;
+      fileName?: string;
+      // Real TempSellerDocument row id, needed to call the per-document
+      // delete-file endpoint once a license file has actually been uploaded.
+      documentId?: number;
       issueDate: Date | null;
       expiryDate: Date | null;
       issuingAuthority: string;
@@ -128,6 +180,9 @@ export default function SellerRegistration() {
     agreements: {} as Record<string, {
       number: string;
       file: File | null;
+      fileUrl?: string;
+      fileName?: string;
+      documentId?: number;
       issueDate: Date | null;
       expiryDate: Date | null;
     }>,
@@ -146,6 +201,8 @@ export default function SellerRegistration() {
     accountHolderName: "",
     confirmAccountNumber: "",
     cancelledChequeFile: null as File | null,
+    cancelledChequeUrl: "",
+    cancelledChequeFileName: "",
   })
 
   // Registration now requires a login (created via the signup-first flow) —
@@ -153,6 +210,192 @@ export default function SellerRegistration() {
   useEffect(() => {
     setIsAuthenticated(sellerAuthService.isAuthenticated())
     setAuthChecked(true)
+  }, [])
+
+  // Header.tsx dispatches this instead of logging out directly when Logout
+  // is clicked while on this page - see handleLogout in Header.tsx.
+  useEffect(() => {
+    const handleLogoutRequest = () => setShowLogoutModal(true)
+    window.addEventListener("seller-wizard-logout-request", handleLogoutRequest)
+    return () => window.removeEventListener("seller-wizard-logout-request", handleLogoutRequest)
+  }, [])
+
+  // Resume an in-progress draft (if one exists) so a returning seller doesn't
+  // have to retype everything. GET /temp-sellers/user/{userId} 404s when the
+  // user has never started a registration - that's the normal "nothing to
+  // resume" case, not an error, so it's swallowed silently.
+  useEffect(() => {
+    const resumeDraft = async () => {
+      try {
+        // getUserIdFromToken() reads a "token" localStorage key that this app
+        // never actually writes (real key is "accessToken", set by
+        // authService.ts) — it always returns null. sellerAuthService's
+        // getCurrentUser() reads the "user" key that IS reliably set on
+        // login, and is the same source SellerJourney.tsx already uses.
+        const userId = sellerAuthService.getCurrentUser()?.userId
+        if (!userId) return
+
+        const row = await sellerRegService.getTempSellerByUserId(userId)
+        if (!row || typeof row.status !== "string" || row.status.toUpperCase() !== "DRAFT") {
+          return
+        }
+
+        setTempSellerId(row.tempSellerId ?? null)
+
+        // productTypes comes back as an array of full ProductTypeMaster
+        // objects ({productTypeId, productTypeName, ...}), not parallel
+        // id/name arrays.
+        const draftProductTypes: Array<{ productTypeId?: number; productTypeName?: string }> =
+          Array.isArray(row.productTypes) ? row.productTypes : []
+
+        setFormData(prev => ({
+          ...prev,
+          companyTypeId: row.companyType?.companyTypeId ?? prev.companyTypeId,
+          sellerTypeId: row.sellerType?.sellerTypeId ?? prev.sellerTypeId,
+          productTypeIds: draftProductTypes.length
+            ? draftProductTypes.map(pt => pt.productTypeId).filter((id): id is number => id != null)
+            : prev.productTypeIds,
+          sellerName: row.sellerName ?? prev.sellerName,
+          companyType: row.companyType?.companyTypeName ?? prev.companyType,
+          sellerType: row.sellerType?.sellerTypeName ?? prev.sellerType,
+          productTypes: draftProductTypes.length
+            ? draftProductTypes.map(pt => pt.productTypeName).filter((name): name is string => !!name)
+            : prev.productTypes,
+          parentManufacturerName: row.parentManufacturerName ?? prev.parentManufacturerName,
+          brandOwnerName: row.brandOwnerName ?? prev.brandOwnerName,
+
+          stateId: row.address?.state?.stateId ?? prev.stateId,
+          districtId: row.address?.district?.districtId ?? prev.districtId,
+          talukaId: row.address?.taluka?.talukaId ?? prev.talukaId,
+          state: row.address?.state?.stateName ?? prev.state,
+          district: row.address?.district?.districtName ?? prev.district,
+          taluka: row.address?.taluka?.talukaName ?? prev.taluka,
+          city: row.address?.city ?? prev.city,
+          street: row.address?.street ?? prev.street,
+          buildingNo: row.address?.buildingNo ?? prev.buildingNo,
+          landmark: row.address?.landmark ?? prev.landmark,
+          pincode: row.address?.pinCode ?? prev.pincode,
+
+          phone: row.phone ?? prev.phone,
+          email: row.email ?? prev.email,
+          website: row.website ?? prev.website,
+
+          coordinatorName: row.coordinator?.name ?? prev.coordinatorName,
+          coordinatorDesignation: row.coordinator?.designation ?? prev.coordinatorDesignation,
+          coordinatorEmail: row.coordinator?.email ?? prev.coordinatorEmail,
+          coordinatorMobile: row.coordinator?.mobile ?? prev.coordinatorMobile,
+          // Files themselves are never part of a draft — authorizationLetterFile,
+          // gstFile, companyRegistrationCertificateFile, cancelledChequeFile,
+          // and every license/agreement `file` stay null/untouched here.
+          // Their already-uploaded *Url counterparts ARE restored below (when
+          // real, i.e. not the backend's "PENDING" placeholder) so the forms
+          // can render the "already uploaded — View / Delete" branch instead
+          // of the empty upload prompt.
+          companyRegistrationCertificateUrl: isRealFileUrl(row.companyRegistrationCertificateUrl)
+            ? row.companyRegistrationCertificateUrl
+            : prev.companyRegistrationCertificateUrl,
+          companyRegistrationCertificateFileName: row.companyRegistrationCertificateFileName ?? prev.companyRegistrationCertificateFileName,
+          gstFileUrl: isRealFileUrl(row.gstFileUrl) ? row.gstFileUrl : prev.gstFileUrl,
+          gstFileName: row.gstFileName ?? prev.gstFileName,
+          authorizationLetterUrl: isRealFileUrl(row.coordinator?.authorizationLetterUrl)
+            ? row.coordinator.authorizationLetterUrl
+            : prev.authorizationLetterUrl,
+          authorizationLetterFileName: row.coordinator?.authorizationLetterFileName ?? prev.authorizationLetterFileName,
+          cancelledChequeUrl: isRealFileUrl(row.bankDetails?.bankDocumentFileUrl)
+            ? row.bankDetails.bankDocumentFileUrl
+            : prev.cancelledChequeUrl,
+          cancelledChequeFileName: row.bankDetails?.bankDocumentFileName ?? prev.cancelledChequeFileName,
+
+          gstNumber: row.gstNumber ?? prev.gstNumber,
+
+          bankName: row.bankDetails?.bankName ?? prev.bankName,
+          branch: row.bankDetails?.branch ?? prev.branch,
+          ifscCode: row.bankDetails?.ifscCode ?? prev.ifscCode,
+          bankStateId: row.bankDetails?.state?.stateId ?? prev.bankStateId,
+          bankDistrictId: row.bankDetails?.district?.districtId ?? prev.bankDistrictId,
+          bankTalukaId: row.bankDetails?.taluka?.talukaId ?? prev.bankTalukaId,
+          bankState: row.bankDetails?.state?.stateName ?? prev.bankState,
+          bankDistrict: row.bankDetails?.district?.districtName ?? prev.bankDistrict,
+          bankTaluka: row.bankDetails?.taluka?.talukaName ?? prev.bankTaluka,
+          accountNumber: row.bankDetails?.accountNumber ?? prev.accountNumber,
+          accountHolderName: row.bankDetails?.accountHolderName ?? prev.accountHolderName,
+          confirmAccountNumber: row.bankDetails?.accountNumber ?? prev.confirmAccountNumber,
+        }))
+
+        // formData.districtId/talukaId (and the bank equivalents) are now set,
+        // but the `districts`/`talukas` dropdown OPTION LISTS are separate
+        // state arrays that only ever get populated by the cascading
+        // fetch*ByState/District functions the manual dropdown onChange
+        // handlers call — restoring the ids alone leaves those lists empty,
+        // so the district/taluka selects render with no matching <option>
+        // and look blank even though the underlying id is correct. Trigger
+        // the same fetches here so the resumed selection actually renders.
+        const resumedStateId = row.address?.state?.stateId
+        const resumedDistrictId = row.address?.district?.districtId
+        const resumedBankStateId = row.bankDetails?.state?.stateId
+        const resumedBankDistrictId = row.bankDetails?.district?.districtId
+
+        if (resumedStateId) await fetchDistrictsByState(resumedStateId)
+        if (resumedDistrictId) await fetchTalukasByDistrict(resumedDistrictId)
+        if (resumedBankStateId) await fetchBankDistrictsByState(resumedBankStateId)
+        if (resumedBankDistrictId) await fetchBankTalukasByDistrict(resumedBankDistrictId)
+
+        // Best-effort restore of per-product license metadata (number/dates/
+        // issuing authority) from the draft's saved documents, keyed by the
+        // product type name the same way formData.licenses is keyed elsewhere.
+        // A row with a documentType is a seller-level agreement (its
+        // productTypes is only the reserved placeholder); otherwise it's a
+        // per-product license — see TempSellerServiceImpl#documentKey.
+        if (Array.isArray(row.documents) && row.documents.length > 0) {
+          const draftDocuments: DraftDocumentRow[] = row.documents
+          setFormData(prev => {
+            const licenses = { ...prev.licenses }
+            const agreements = { ...prev.agreements }
+
+            draftDocuments.forEach((doc) => {
+              if (doc.documentType?.documentTypeCode) {
+                agreements[doc.documentType.documentTypeCode] = {
+                  number: doc.documentNumber || "",
+                  file: null,
+                  ...(isRealFileUrl(doc.documentFileUrl) && {
+                    fileUrl: doc.documentFileUrl,
+                    documentId: doc.DocumentsId,
+                    fileName: doc.documentFileName,
+                  }),
+                  issueDate: doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null,
+                  expiryDate: doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null,
+                }
+              } else if (doc.productTypes?.productTypeName) {
+                licenses[doc.productTypes.productTypeName] = {
+                  number: doc.documentNumber || "",
+                  file: null,
+                  ...(isRealFileUrl(doc.documentFileUrl) && {
+                    fileUrl: doc.documentFileUrl,
+                    documentId: doc.DocumentsId,
+                    fileName: doc.documentFileName,
+                  }),
+                  issueDate: doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null,
+                  expiryDate: doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null,
+                  issuingAuthority: doc.licenseIssuingAuthority || "",
+                  status: calculateLicenseStatus(
+                    doc.licenseIssueDate ? new Date(doc.licenseIssueDate) : null,
+                    doc.licenseExpiryDate ? new Date(doc.licenseExpiryDate) : null
+                  ),
+                }
+              }
+            })
+
+            return { ...prev, licenses, agreements }
+          })
+        }
+      } catch (error) {
+        // 404 just means no draft/temp seller exists yet for this user - stay
+        // on step 1 blank, matching today's default behavior.
+        console.log("ℹ️ No draft to resume (or resume check failed):", error)
+      }
+    }
+
+    resumeDraft()
   }, [])
 
   // Close dropdown when clicking outside
@@ -363,6 +606,19 @@ export default function SellerRegistration() {
     }
   }
 
+  // Clears a single field's inline stepErrors entry (steps 1/2/4 only) - called
+  // from every input handler that touches a step1/2/4 schema field, so the
+  // error disappears as soon as the user starts correcting it rather than
+  // waiting for the next Continue click.
+  const clearStepError = (field: string) => {
+    setStepErrors(prev => {
+      if (!(field in prev)) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
+
   // GST handler
   const handleGSTChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.toUpperCase()
@@ -396,6 +652,7 @@ export default function SellerRegistration() {
     const ifsc = value.toUpperCase()
     setFormData(prev => ({ ...prev, ifscCode: ifsc }))
     setIfscError("")
+    clearStepError("ifscCode")
 
     if (ifsc.length !== 11) {
       clearBankLookupFields()
@@ -512,6 +769,7 @@ export default function SellerRegistration() {
   const handleProductTypeToggle = (product: ProductTypeResponse) => {
     if (!product) return
 
+    clearStepError("productTypeIds")
     setFormData(prev => {
       let newProductTypeIds = [...prev.productTypeIds]
       let newProductTypes = [...prev.productTypes]
@@ -545,10 +803,13 @@ export default function SellerRegistration() {
 
   const handleCompanyRegFileChange = (file: File | null) => {
     setFormData(prev => ({ ...prev, companyRegistrationCertificateFile: file }));
+    clearStepError("companyRegistrationCertificateFile")
   };
 
   const handleSelectAllProductTypes = () => {
     if (!productTypes.length) return
+
+    clearStepError("productTypeIds")
 
     if (formData.productTypes.length === productTypes.length) {
       // Deselect all
@@ -620,6 +881,7 @@ export default function SellerRegistration() {
       setFormData(prev => ({ ...prev, gstFile: file }))
     } else if (field === 'cancelledChequeFile') {
       setFormData(prev => ({ ...prev, cancelledChequeFile: file }))
+      clearStepError("cancelledChequeFile")
     }
   }
 
@@ -675,12 +937,14 @@ export default function SellerRegistration() {
 
   const handleFormDataUpdate = (field: string, value: any) => {
   setFormData(prev => ({ ...prev, [field]: value }));
+  clearStepError(field)
 };
 
   // Input handlers with validation
   const handleAlphabetInput = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
     const value = e.target.value.replace(/[^a-zA-Z\s,'.-]/g, "")
-    setFormData(prev => ({ ...prev, [field]: value }))    
+    setFormData(prev => ({ ...prev, [field]: value }))
+    clearStepError(field)
   }
 
   const handleNumericInput = (e: React.ChangeEvent<HTMLInputElement>, field: string, maxLength?: number) => {
@@ -689,6 +953,7 @@ export default function SellerRegistration() {
       value = value.substring(0, maxLength)
     }
     setFormData(prev => ({ ...prev, [field]: value }))
+    clearStepError(field)
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -723,6 +988,7 @@ export default function SellerRegistration() {
       }))
     } else {
       setFormData(prev => ({ ...prev, [name]: value }))
+      clearStepError(name)
     }
   }
 
@@ -736,6 +1002,7 @@ export default function SellerRegistration() {
       companyTypeId: selectedId,
       companyType: selectedCompany?.companyTypeName || "",
     }))
+    clearStepError("companyTypeId")
   }
 
   // Seller type handler
@@ -748,6 +1015,8 @@ export default function SellerRegistration() {
       sellerTypeId: selectedId,
       sellerType: selectedSeller?.sellerTypeName || "",
     }))
+    clearStepError("sellerTypeId")
+    clearStepError("parentManufacturerName")
   }
 
   // State handler
@@ -767,6 +1036,7 @@ export default function SellerRegistration() {
 
     setDistricts([])
     setTalukas([])
+    clearStepError("stateId")
 
     if (selectedId) {
       fetchDistrictsByState(selectedId)
@@ -787,6 +1057,7 @@ export default function SellerRegistration() {
     }))
 
     setTalukas([])
+    clearStepError("districtId")
 
     if (selectedId) {
       fetchTalukasByDistrict(selectedId)
@@ -803,6 +1074,7 @@ export default function SellerRegistration() {
       talukaId: selectedId,
       taluka: selectedTaluka?.talukaName || "",
     }))
+    clearStepError("talukaId")
   }
 
   // Bank State handler - mirrors handleStateChange (company address) but
@@ -823,6 +1095,7 @@ export default function SellerRegistration() {
 
     setBankDistricts([])
     setBankTalukas([])
+    clearStepError("bankStateId")
 
     if (selectedId) {
       fetchBankDistrictsByState(selectedId)
@@ -842,6 +1115,7 @@ export default function SellerRegistration() {
     }))
 
     setBankTalukas([])
+    clearStepError("bankDistrictId")
 
     if (selectedId) {
       fetchBankTalukasByDistrict(selectedId)
@@ -857,11 +1131,13 @@ export default function SellerRegistration() {
       bankTalukaId: selectedId,
       bankTaluka: selectedTaluka?.talukaName || "",
     }))
+    clearStepError("bankTalukaId")
   }
 
   // Authorization letter handler (Coordinator step - required for all seller types)
   const handleAuthorizationLetterChange = (file: File | null) => {
     setFormData(prev => ({ ...prev, authorizationLetterFile: file }))
+    clearStepError("authorizationLetterFile")
   }
 
   // Agreement document handlers (seller-type-driven, keyed by documentTypeCode)
@@ -917,6 +1193,97 @@ export default function SellerRegistration() {
     }))
   }
 
+  // Draft file deletion handlers - the "Delete" half of the "already
+  // uploaded — View / Delete" branch each form renders once formData holds a
+  // real *Url. Every one of these needs an existing tempSellerId (nothing to
+  // delete server-side otherwise) and, on success, clears both the url and
+  // any stray local File so the form falls back to the empty upload prompt.
+  const handleDeleteCompanyRegistrationCertificate = async () => {
+    if (!tempSellerId) return;
+    try {
+      await uploadSellerRegDocService.deleteDraftCompanyRegistrationCertificate(tempSellerId);
+      setFormData(prev => ({ ...prev, companyRegistrationCertificateUrl: "", companyRegistrationCertificateFile: null }));
+      toast.success("Company registration certificate removed");
+    } catch (error) {
+      console.error("Failed to delete company registration certificate:", error);
+      toast.error("Failed to delete file. Please try again.");
+    }
+  };
+
+  const handleDeleteGstFile = async () => {
+    if (!tempSellerId) return;
+    try {
+      await uploadSellerRegDocService.deleteDraftGstFile(tempSellerId);
+      setFormData(prev => ({ ...prev, gstFileUrl: "", gstFile: null }));
+      toast.success("GST file removed");
+    } catch (error) {
+      console.error("Failed to delete GST file:", error);
+      toast.error("Failed to delete file. Please try again.");
+    }
+  };
+
+  const handleDeleteAuthorizationLetter = async () => {
+    if (!tempSellerId) return;
+    try {
+      await uploadSellerRegDocService.deleteDraftAuthorizationLetter(tempSellerId);
+      setFormData(prev => ({ ...prev, authorizationLetterUrl: "", authorizationLetterFile: null }));
+      toast.success("Authorization letter removed");
+    } catch (error) {
+      console.error("Failed to delete authorization letter:", error);
+      toast.error("Failed to delete file. Please try again.");
+    }
+  };
+
+  const handleDeleteBankDocument = async () => {
+    if (!tempSellerId) return;
+    try {
+      await uploadSellerRegDocService.deleteDraftBankDocument(tempSellerId);
+      setFormData(prev => ({ ...prev, cancelledChequeUrl: "", cancelledChequeFile: null }));
+      toast.success("Bank document removed");
+    } catch (error) {
+      console.error("Failed to delete bank document:", error);
+      toast.error("Failed to delete file. Please try again.");
+    }
+  };
+
+  const handleDeleteLicenseFile = async (productName: string) => {
+    const documentId = formData.licenses[productName]?.documentId;
+    if (!tempSellerId || !documentId) return;
+    try {
+      await uploadSellerRegDocService.deleteDraftDocumentFile(tempSellerId, documentId);
+      setFormData(prev => ({
+        ...prev,
+        licenses: {
+          ...prev.licenses,
+          [productName]: { ...prev.licenses[productName], fileUrl: "", documentId: undefined, file: null },
+        },
+      }));
+      toast.success("License file removed");
+    } catch (error) {
+      console.error("Failed to delete license file:", error);
+      toast.error("Failed to delete file. Please try again.");
+    }
+  };
+
+  const handleDeleteAgreementFile = async (code: string) => {
+    const documentId = formData.agreements[code]?.documentId;
+    if (!tempSellerId || !documentId) return;
+    try {
+      await uploadSellerRegDocService.deleteDraftDocumentFile(tempSellerId, documentId);
+      setFormData(prev => ({
+        ...prev,
+        agreements: {
+          ...prev.agreements,
+          [code]: { ...prev.agreements[code], fileUrl: "", documentId: undefined, file: null },
+        },
+      }));
+      toast.success("Document removed");
+    } catch (error) {
+      console.error("Failed to delete agreement document:", error);
+      toast.error("Failed to delete file. Please try again.");
+    }
+  };
+
   // Upload file function
   const uploadFile = async (file: File, folder: string): Promise<string> => {
     return new Promise((resolve) => {
@@ -931,19 +1298,33 @@ export default function SellerRegistration() {
   const nextStep = async () => {
     // Step 1 Validation
     if (step === 1) {
+      setStepErrors({})
       try {
         // step1Schema's conditional Parent Manufacturer Name requirement keys
         // off `sellerTypeName`, while formData tracks the same value under
-        // `sellerType` - map it across before validating.
-        step1Schema.parse({ ...formData, sellerTypeName: formData.sellerType });
-        // Check if company registration certificate is uploaded
-        if (!formData.companyRegistrationCertificateFile) {
-          toast.error("Please upload Company Registration Certificate");
+        // `sellerType` - map it across before validating. A resumed draft
+        // never restores the raw File object for an already-uploaded
+        // certificate, only its URL, so fall back to that URL when there's
+        // no local File - otherwise the schema would wrongly reject an
+        // already-uploaded certificate as missing.
+        step1Schema.parse({
+          ...formData,
+          sellerTypeName: formData.sellerType,
+          companyRegistrationCertificateFile: formData.companyRegistrationCertificateFile
+            || (isRealFileUrl(formData.companyRegistrationCertificateUrl) ? formData.companyRegistrationCertificateUrl : undefined),
+        });
+        // Check if company registration certificate is uploaded (locally picked OR already uploaded)
+        if (!formData.companyRegistrationCertificateFile && !isRealFileUrl(formData.companyRegistrationCertificateUrl)) {
+          setStepErrors({ companyRegistrationCertificateFile: "Please upload Company Registration Certificate" })
           return;
         }
       } catch (error) {
         if (error instanceof z.ZodError) {
-          error.issues.forEach(issue => toast.error(issue.message))
+          const fieldErrors: Record<string, string> = {}
+          error.issues.forEach(issue => {
+            fieldErrors[String(issue.path[0])] = issue.message
+          })
+          setStepErrors(fieldErrors)
         } else {
           toast.error("Please fill all required company information fields.")
         }
@@ -953,11 +1334,21 @@ export default function SellerRegistration() {
 
     // Step 2 Validation
     if (step === 2) {
+      setStepErrors({})
       try {
-        step2Schema.parse(formData)
+        // Same already-uploaded-file fallback as step 1, for the authorization letter.
+        step2Schema.parse({
+          ...formData,
+          authorizationLetterFile: formData.authorizationLetterFile
+            || (isRealFileUrl(formData.authorizationLetterUrl) ? formData.authorizationLetterUrl : undefined),
+        })
       } catch (error) {
         if (error instanceof z.ZodError) {
-          error.issues.forEach(issue => toast.error(issue.message))
+          const fieldErrors: Record<string, string> = {}
+          error.issues.forEach(issue => {
+            fieldErrors[String(issue.path[0])] = issue.message
+          })
+          setStepErrors(fieldErrors)
         } else {
           toast.error("Please fill all coordinator details.")
         }
@@ -984,18 +1375,22 @@ export default function SellerRegistration() {
           }
         }
       }
-      return
+      // All step 2 checks passed — fall through to the shared setStep(step + 1)
+      // at the end of this function, same as steps 1/3/4 already do on success.
     }
 
     // Step 3 Validation
     if (step === 3) {
       try {
+        // Same already-uploaded-file fallback as steps 1/2 — a resumed
+        // draft's licenses/agreements only carry a `fileUrl`, not the raw
+        // File object, once already uploaded.
         const licensesForValidation = Object.entries(formData.licenses).reduce((acc, [key, value]) => {
           acc[key] = {
             ...value,
             issueDate: value.issueDate ? value.issueDate.toISOString().split('T')[0] : '',
             expiryDate: value.expiryDate ? value.expiryDate.toISOString().split('T')[0] : '',
-            file: value.file,
+            file: value.file || (isRealFileUrl(value.fileUrl) ? value.fileUrl : undefined),
           }
           return acc
         }, {} as any)
@@ -1005,7 +1400,7 @@ export default function SellerRegistration() {
             ...value,
             issueDate: value.issueDate ? value.issueDate.toISOString().split('T')[0] : '',
             expiryDate: value.expiryDate ? value.expiryDate.toISOString().split('T')[0] : '',
-            file: value.file,
+            file: value.file || (isRealFileUrl(value.fileUrl) ? value.fileUrl : undefined),
           }
           return acc
         }, {} as any)
@@ -1013,7 +1408,7 @@ export default function SellerRegistration() {
         const schema = step3Schema(formData.productTypes, formData.sellerType)
         schema.parse({
           gstNumber: formData.gstNumber,
-          gstFile: formData.gstFile,
+          gstFile: formData.gstFile || (isRealFileUrl(formData.gstFileUrl) ? formData.gstFileUrl : undefined),
           licenses: licensesForValidation,
           agreements: agreementsForValidation,
         })
@@ -1029,11 +1424,21 @@ export default function SellerRegistration() {
 
     // Step 4 Validation
     if (step === 4) {
+      setStepErrors({})
       try {
-        step4Schema.parse(formData)
+        // Same already-uploaded-file fallback as steps 1/2/3, for the cancelled cheque.
+        step4Schema.parse({
+          ...formData,
+          cancelledChequeFile: formData.cancelledChequeFile
+            || (isRealFileUrl(formData.cancelledChequeUrl) ? formData.cancelledChequeUrl : undefined),
+        })
       } catch (error) {
         if (error instanceof z.ZodError) {
-          error.issues.forEach(issue => toast.error(issue.message))
+          const fieldErrors: Record<string, string> = {}
+          error.issues.forEach(issue => {
+            fieldErrors[String(issue.path[0])] = issue.message
+          })
+          setStepErrors(fieldErrors)
         } else {
           toast.error("Please fill all bank account details.")
         }
@@ -1045,15 +1450,299 @@ export default function SellerRegistration() {
       }
     }
 
+    // Auto-save this step's progress now that validation passed, so closing
+    // the tab right after Continue doesn't lose it. Silent on success (the
+    // step transition itself is the feedback); a failure still surfaces via
+    // its own toast but must never block advancing - the step's own
+    // validation already passed, so the seller should keep moving forward
+    // regardless, same "never trap the user over a save failure" principle
+    // the rest of the draft-save feature already follows.
+    await handleSaveDraft(true)
+
     setStep(step + 1)
   }
 
   const prevStep = () => {
     if (step > 1) setStep(step - 1)
   }
+
+  // Builds the partial, file-less payload sent to the draft endpoints.
+  // Mirrors the address/coordinator/bankDetails/documents nesting handleSubmit
+  // builds for the real submission below, but every field is optional and no
+  // schema validation runs — the draft endpoint accepts whatever's filled in
+  // so far.
+  const buildDraftPayload = (): TempSellerDraftRequest => {
+    const address = {
+      stateId: formData.stateId || undefined,
+      districtId: formData.districtId || undefined,
+      talukaId: formData.talukaId || undefined,
+      city: formData.city || undefined,
+      street: formData.street || undefined,
+      buildingNo: formData.buildingNo || undefined,
+      landmark: formData.landmark || undefined,
+      pinCode: formData.pincode || undefined,
+    };
+
+    const coordinator = {
+      name: formData.coordinatorName || undefined,
+      designation: formData.coordinatorDesignation || undefined,
+      email: formData.coordinatorEmail || undefined,
+      mobile: formData.coordinatorMobile || undefined,
+    };
+
+    const bankDetails = {
+      bankName: formData.bankName || undefined,
+      branch: formData.branch || undefined,
+      ifscCode: formData.ifscCode || undefined,
+      stateId: formData.bankStateId || undefined,
+      districtId: formData.bankDistrictId || undefined,
+      talukaId: formData.bankTalukaId || undefined,
+      accountNumber: formData.accountNumber || undefined,
+      accountHolderName: formData.accountHolderName || undefined,
+    };
+
+    // Per-product license metadata (no file — drafts never carry files).
+    const licenseDocuments = formData.productTypes.map((productName: string) => {
+      const product = productTypes.find(p => p.productTypeName === productName);
+      const license = formData.licenses[productName];
+      return {
+        productTypeId: product?.productTypeId,
+        documentNumber: license?.number || undefined,
+        licenseIssueDate: license?.issueDate ? license.issueDate.toISOString().split('T')[0] : undefined,
+        licenseExpiryDate: license?.expiryDate ? license.expiryDate.toISOString().split('T')[0] : undefined,
+        licenseIssuingAuthority: license?.issuingAuthority || undefined,
+      };
+    });
+
+    // Seller-level agreement/compliance document metadata (no file).
+    const agreementDocuments = Object.keys(formData.agreements || {}).map((code) => {
+      const agreement = formData.agreements[code];
+      const documentTypeId = documentTypes.find(dt => dt.documentTypeCode === code)?.documentTypeId;
+      return {
+        documentTypeId,
+        documentNumber: agreement?.number || undefined,
+        licenseIssueDate: agreement?.issueDate ? agreement.issueDate.toISOString().split('T')[0] : undefined,
+        licenseExpiryDate: agreement?.expiryDate ? agreement.expiryDate.toISOString().split('T')[0] : undefined,
+      };
+    });
+
+    const documents = [...licenseDocuments, ...agreementDocuments];
+
+    return {
+      sellerName: formData.sellerName || undefined,
+      productTypeId: formData.productTypeIds?.length ? formData.productTypeIds : undefined,
+      companyTypeId: formData.companyTypeId || undefined,
+      sellerTypeId: formData.sellerTypeId || undefined,
+      phone: formData.phone || undefined,
+      email: formData.email || undefined,
+      website: formData.website || undefined,
+      parentManufacturerName: formData.parentManufacturerName || undefined,
+      brandOwnerName: formData.brandOwnerName || undefined,
+      gstNumber: formData.gstNumber || undefined,
+      address,
+      coordinator,
+      bankDetails,
+      documents: documents.length > 0 ? documents : undefined,
+    };
+  };
+
+  // Shared multipart-request shape for POST /temp-sellers/{id}/documents/upload -
+  // used by both handleSubmit (final submit) and handleSaveDraft (draft file
+  // upload) so the two flows send identical field names to
+  // uploadSellerRegDocService.uploadDocuments instead of two hand-maintained
+  // copies of the same object literal.
+  const buildDocumentUploadRequest = (combinedLicensesPayload: LicenseFileItem[]) => ({
+    sellerImage: undefined,
+    gstFile: formData.gstFile || undefined,
+    bankFile: formData.cancelledChequeFile || undefined,
+    licenses: combinedLicensesPayload.length > 0 ? combinedLicensesPayload : undefined,
+    companyRegistrationCertificate: formData.companyRegistrationCertificateFile || undefined,
+    authorizationLetter: formData.authorizationLetterFile || undefined,
+  });
+
+  // Save-for-later: usable from every step, doesn't go through any step's
+  // Continue validation. Creates the draft temp seller row on first save,
+  // then PUTs to the same row on every subsequent save this session.
+  //
+  // Unlike handleSubmit, files are no longer deferred to final submit -
+  // any file the user has already picked locally gets uploaded right here,
+  // immediately after the text-field draft save succeeds. A failure in the
+  // file-upload step only shows an error toast; it must NOT roll back or
+  // delete the draft row that was just saved (that all-or-nothing behavior
+  // is specific to handleSubmit's final-submit flow).
+  // `silent` suppresses the "Draft saved successfully" toast - used when this
+  // save is an automatic side-effect (advancing a step, logging out) rather
+  // than an explicit "Save Draft" click, where success is expected/invisible
+  // and a toast on every action would be noise. The failure toast always
+  // shows regardless, since a failed save is actionable either way.
+  const handleSaveDraft = async (silent: boolean = false) => {
+    let currentTempSellerId = tempSellerId;
+
+    try {
+      const draftPayload = buildDraftPayload();
+
+      if (currentTempSellerId) {
+        await sellerRegService.updateDraftTempSeller(currentTempSellerId, draftPayload);
+      } else {
+        const result = await sellerRegService.createDraftTempSeller(draftPayload);
+        currentTempSellerId = result.tempSellerId;
+        setTempSellerId(currentTempSellerId);
+      }
+
+      if (!silent) {
+        toast.success("Draft saved successfully");
+      }
+    } catch (error) {
+      console.error("Failed to save draft:", error);
+      toast.error("Failed to save draft. Please try again.");
+      return;
+    }
+
+    const hasAnyFileToUpload =
+      !!formData.companyRegistrationCertificateFile ||
+      !!formData.authorizationLetterFile ||
+      !!formData.gstFile ||
+      !!formData.cancelledChequeFile ||
+      Object.values(formData.licenses).some((license) => !!license?.file) ||
+      Object.values(formData.agreements).some((agreement) => !!agreement?.file);
+
+    if (!hasAnyFileToUpload || !currentTempSellerId) {
+      return;
+    }
+
+    try {
+      // The draft save above just made the backend create placeholder
+      // document rows (real documentIds) for any license/agreement entry
+      // that has a documentNumber - re-fetch so prepareLicenseFiles/
+      // prepareAgreementFiles below have those ids to match files against,
+      // the same way handleSubmit's STEP 2 does after creating the temp
+      // seller.
+      const tempSellerDetails = await sellerRegService.getTempSellerById(currentTempSellerId);
+      const draftDocuments = tempSellerDetails.documents || [];
+
+      const licensesPayload = uploadSellerRegDocService.prepareLicenseFiles(
+        formData.licenses,
+        draftDocuments
+      );
+
+      const documentTypeIdByCode: Record<string, number> = {};
+      documentTypes.forEach(dt => { documentTypeIdByCode[dt.documentTypeCode] = dt.documentTypeId; });
+      const agreementsPayload = uploadSellerRegDocService.prepareAgreementFiles(
+        formData.agreements,
+        draftDocuments,
+        documentTypeIdByCode
+      );
+      const combinedLicensesPayload = [...licensesPayload, ...agreementsPayload];
+
+      const uploadResponse = await uploadSellerRegDocService.uploadDocuments(
+        currentTempSellerId,
+        buildDocumentUploadRequest(combinedLicensesPayload)
+      );
+
+      // Move every freshly-uploaded field into the "already uploaded" state:
+      // record the returned URL and clear the local File so the forms
+      // switch from the upload picker to the View/Delete chip.
+      setFormData(prev => {
+        const next = { ...prev };
+        const data = uploadResponse.data;
+
+        if (data?.gstFileUrl) {
+          next.gstFileUrl = data.gstFileUrl;
+          next.gstFileName = data.gstFileName ?? "";
+          next.gstFile = null;
+        }
+        if (data?.bankDocumentFileUrl) {
+          next.cancelledChequeUrl = data.bankDocumentFileUrl;
+          next.cancelledChequeFileName = data.bankDocumentFileName ?? "";
+          next.cancelledChequeFile = null;
+        }
+        if (data?.companyRegistrationCertificateUrl) {
+          next.companyRegistrationCertificateUrl = data.companyRegistrationCertificateUrl;
+          next.companyRegistrationCertificateFileName = data.companyRegistrationCertificateFileName ?? "";
+          next.companyRegistrationCertificateFile = null;
+        }
+        if (data?.authorizationLetterUrl) {
+          next.authorizationLetterUrl = data.authorizationLetterUrl;
+          next.authorizationLetterFileName = data.authorizationLetterFileName ?? "";
+          next.authorizationLetterFile = null;
+        }
+
+        // licenseResults covers both per-product licenses and seller-level
+        // agreements (they share the licenseFiles/licenseNames/documentIds
+        // upload convention) - licenseName is the productName for a license
+        // entry or the documentTypeCode for an agreement entry, matching the
+        // keys prepareLicenseFiles/prepareAgreementFiles used to build the
+        // request above.
+        if (data?.licenseResults?.length) {
+          const licenses = { ...next.licenses };
+          const agreements = { ...next.agreements };
+
+          data.licenseResults.forEach((result) => {
+            if (licenses[result.licenseName]) {
+              licenses[result.licenseName] = {
+                ...licenses[result.licenseName],
+                fileUrl: result.documentFileUrl,
+                fileName: result.documentFileName,
+                documentId: result.documentId,
+                file: null,
+              };
+            } else if (agreements[result.licenseName]) {
+              agreements[result.licenseName] = {
+                ...agreements[result.licenseName],
+                fileUrl: result.documentFileUrl,
+                fileName: result.documentFileName,
+                documentId: result.documentId,
+                file: null,
+              };
+            }
+          });
+
+          next.licenses = licenses;
+          next.agreements = agreements;
+        }
+
+        return next;
+      });
+
+      if (!silent) {
+        toast.success("Files uploaded successfully");
+      }
+    } catch (error) {
+      // Deliberately NOT deleting/rolling back the temp seller here - the
+      // draft's text fields already saved successfully above, and a file
+      // upload failure during Save Draft shouldn't cost the user that
+      // progress. They can retry the upload on a later Save Draft click.
+      console.error("Failed to upload draft files:", error);
+      toast.error("Draft saved, but uploading your file(s) failed. Please try again.");
+    }
+  };
+
+  const finishLogout = async () => {
+    await sellerAuthService.logout();
+    setShowLogoutModal(false);
+    router.push("/");
+  };
+
+  const handleSaveAndLogout = async () => {
+    setLoggingOutSaving(true);
+    try {
+      // Never trap the seller on the page over a failed save - handleSaveDraft
+      // already shows its own error toast on failure, so logout proceeds
+      // regardless of the outcome here.
+      await handleSaveDraft(true);
+    } finally {
+      setLoggingOutSaving(false);
+    }
+    await finishLogout();
+  };
+
+  const handleLogoutWithoutSaving = async () => {
+    await finishLogout();
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
-    let tempSellerId: number | null = null;
+    let createdTempSellerId: number | null = null;
     let tempSellerRequestId: string | null = null;
 
     try {
@@ -1162,21 +1851,26 @@ export default function SellerRegistration() {
         documents,
       };
 
-      // STEP 1: Create temp seller with placeholder URLs
+      // STEP 1: Create (or finalize an existing draft into) the temp seller
+      // with placeholder URLs. If a draft was already created earlier this
+      // session (via Save Draft or resumed on mount), finalize it instead of
+      // creating a brand-new temp seller row.
       console.log("📡 Step 1: Creating temp seller...");
-      const response = await sellerRegService.createTempSeller(request);
+      const response = tempSellerId
+        ? await sellerRegService.finalizeDraftTempSeller(tempSellerId, request)
+        : await sellerRegService.createTempSeller(request);
       console.log("✅ Temp seller created:", response);
 
-      tempSellerId = response.tempSellerId;
+      createdTempSellerId = response.tempSellerId;
       tempSellerRequestId = response.sellerRequestId;
 
       // STEP 2: Fetch the created temp seller details to get document IDs
       console.log(`📡 Step 2: Fetching temp seller details to get document IDs...`);
-      const tempSellerDetails = await sellerRegService.getTempSellerById(tempSellerId);
+      const tempSellerDetails = await sellerRegService.getTempSellerById(createdTempSellerId);
       console.log("✅ Temp seller details:", tempSellerDetails);
 
       // STEP 3: Upload actual documents using the tempSellerId and document IDs
-      console.log(`📡 Step 3: Uploading documents for temp seller ID: ${tempSellerId}`);
+      console.log(`📡 Step 3: Uploading documents for temp seller ID: ${createdTempSellerId}`);
 
       // Prepare license files in correct order
       const licensesPayload = uploadSellerRegDocService.prepareLicenseFiles(
@@ -1198,14 +1892,10 @@ export default function SellerRegistration() {
 
       try {
         // Attempt document upload
-        const uploadResponse = await uploadSellerRegDocService.uploadDocuments(tempSellerId, {
-          sellerImage: undefined,
-          gstFile: formData.gstFile || undefined,
-          bankFile: formData.cancelledChequeFile || undefined,
-          licenses: combinedLicensesPayload.length > 0 ? combinedLicensesPayload : undefined,
-          companyRegistrationCertificate: formData.companyRegistrationCertificateFile || undefined,
-          authorizationLetter: formData.authorizationLetterFile || undefined,
-        });
+        const uploadResponse = await uploadSellerRegDocService.uploadDocuments(
+          createdTempSellerId,
+          buildDocumentUploadRequest(combinedLicensesPayload)
+        );
 
         console.log("✅ Documents uploaded successfully:", uploadResponse);
 
@@ -1234,9 +1924,9 @@ export default function SellerRegistration() {
         toast.error(errorMessage + "Your application could not be completed. Please try again.");
 
         // Delete the incomplete temp seller record
-        if (tempSellerId) {
+        if (createdTempSellerId) {
           toast.info("Please Try Again");
-          await uploadSellerRegDocService.deleteTempSeller(tempSellerId);
+          await uploadSellerRegDocService.deleteTempSeller(createdTempSellerId);
           toast.info("Please Try Again");
         }
 
@@ -1254,9 +1944,9 @@ export default function SellerRegistration() {
         toast.error("Submission failed. Please try again.");
       }
 
-      if (tempSellerId && !showSuccessModal) {
+      if (createdTempSellerId && !showSuccessModal) {
         try {
-          await uploadSellerRegDocService.deleteTempSeller(tempSellerId);
+          await uploadSellerRegDocService.deleteTempSeller(createdTempSellerId);
           console.log("✅ Cleaned up incomplete registration");
         } catch (cleanupError) {
           console.error("Cleanup failed:", cleanupError);
@@ -1315,7 +2005,9 @@ export default function SellerRegistration() {
         {step === 1 && (
           <CompanyForm
             formData={formData}
+            errors={stepErrors}
             onCompanyRegFileChange={handleCompanyRegFileChange}
+            onDeleteCompanyRegistrationCertificate={handleDeleteCompanyRegistrationCertificate}
             companyTypes={companyTypes}
             sellerTypes={sellerTypes}
             productTypes={productTypes}
@@ -1338,12 +2030,14 @@ export default function SellerRegistration() {
             setIsProductDropdownOpen={setIsProductDropdownOpen}
             prevStep={prevStep}
             nextStep={nextStep}
+            onSaveDraft={() => handleSaveDraft(false)}
           />
         )}
 
         {step === 2 && (
           <CoordinatorForm
             formData={formData}
+            errors={stepErrors}
             isCheckingEmail={isCheckingEmail}
             isCheckingPhone={isCheckingPhone}
             emailExistsError={emailExistsError}
@@ -1352,6 +2046,7 @@ export default function SellerRegistration() {
             phoneVerified={phoneVerified}
             onEmailChange={async (email) => {
               setFormData(prev => ({ ...prev, coordinatorEmail: email }))
+              clearStepError("coordinatorEmail")
               if (email && email.includes('@') && email.includes('.')) {
                 await checkCoordinatorEmailExists(email)
               } else {
@@ -1363,6 +2058,7 @@ export default function SellerRegistration() {
             }}
             onPhoneChange={async (phone) => {
               setFormData(prev => ({ ...prev, coordinatorMobile: phone }))
+              clearStepError("coordinatorMobile")
               const cleanPhone = phone.replace(/\D/g, '')
               if (cleanPhone.length === 10) {
                 await checkCoordinatorPhoneExists(phone)
@@ -1377,8 +2073,10 @@ export default function SellerRegistration() {
             onPhoneVerified={() => setPhoneVerified(true)}
             onAlphabetInput={handleAlphabetInput}
             onAuthorizationLetterChange={handleAuthorizationLetterChange}
+            onDeleteAuthorizationLetter={handleDeleteAuthorizationLetter}
             prevStep={prevStep}
-            nextStep={() => setStep(3)}
+            nextStep={nextStep}
+            onSaveDraft={() => handleSaveDraft(false)}
           />
         )}
 
@@ -1409,8 +2107,12 @@ export default function SellerRegistration() {
             onAgreementFileChange={handleAgreementFileChange}
             onAgreementIssueDateChange={handleAgreementIssueDateChange}
             onAgreementExpiryDateChange={handleAgreementExpiryDateChange}
+            onDeleteGstFile={handleDeleteGstFile}
+            onDeleteLicenseFile={handleDeleteLicenseFile}
+            onDeleteAgreementFile={handleDeleteAgreementFile}
             prevStep={prevStep}
             nextStep={nextStep}
+            onSaveDraft={() => handleSaveDraft(false)}
           />
 
           // this is without warning pop up in license......
@@ -1431,6 +2133,7 @@ export default function SellerRegistration() {
         {step === 4 && (
           <BankForm
             formData={formData}
+            errors={stepErrors}
             ifscError={ifscError}
             states={states}
             bankDistricts={bankDistricts}
@@ -1439,6 +2142,7 @@ export default function SellerRegistration() {
             onIfscChange={handleIfscChange}
             onIfscBlur={handleIfscBlur}
             onFileChange={handleFileChange}
+            onDeleteBankDocument={handleDeleteBankDocument}
             onAlphabetInput={handleAlphabetInput}
             onNumericInput={handleNumericInput}
             onChange={handleChange}
@@ -1449,6 +2153,7 @@ export default function SellerRegistration() {
             onBankTalukaChange={handleBankTalukaChange}
             prevStep={prevStep}
             nextStep={nextStep}
+            onSaveDraft={() => handleSaveDraft(false)}
           />
         )}
 
@@ -1461,6 +2166,7 @@ export default function SellerRegistration() {
             onSubmit={handleSubmit}
             submitting={submitting}
             prevStep={prevStep}
+            onSaveDraft={() => handleSaveDraft(false)}
           />
         )}
       </SellerRegistrationLayout>
@@ -1473,6 +2179,14 @@ export default function SellerRegistration() {
         }}
         applicationId={applicationId}
         email={formData.coordinatorEmail}
+      />
+
+      <SaveBeforeLogoutModal
+        isOpen={showLogoutModal}
+        saving={loggingOutSaving}
+        onCancel={() => setShowLogoutModal(false)}
+        onSaveAndLogout={handleSaveAndLogout}
+        onLogoutWithoutSaving={handleLogoutWithoutSaving}
       />
     </LocalizationProvider>
   )

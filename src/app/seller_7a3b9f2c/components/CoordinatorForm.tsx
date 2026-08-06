@@ -9,9 +9,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { HiOutlineUserGroup } from "react-icons/hi2";
+import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
+import UploadedFileChip from "./UploadedFileChip";
 
 interface Props {
   formData: any;
+  errors: Record<string, string>;
   isCheckingEmail: boolean;
   isCheckingPhone: boolean;
   emailExistsError: string;
@@ -27,8 +30,10 @@ interface Props {
     field: string
   ) => void;
   onAuthorizationLetterChange: (file: File | null) => void;
+  onDeleteAuthorizationLetter: () => void;
   prevStep: () => void;
   nextStep: () => void;
+  onSaveDraft: () => void;
 }
 
 // Country codes data with validation rules
@@ -61,6 +66,7 @@ const validateEmail = (email: string) => {
 
 export default function CoordinatorForm({
   formData,
+  errors,
   isCheckingEmail,
   isCheckingPhone,
   emailExistsError,
@@ -73,8 +79,10 @@ export default function CoordinatorForm({
   onPhoneVerified,
   onAlphabetInput,
   onAuthorizationLetterChange,
+  onDeleteAuthorizationLetter,
   prevStep,
   nextStep,
+  onSaveDraft,
 }: Props) {
   const router = useRouter();
 
@@ -440,54 +448,17 @@ export default function CoordinatorForm({
   };
 
   const handleContinue = () => {
-    if (!formData.authorizationLetterFile) {
-      toast.error("Please upload the Authorization Letter");
-      return;
-    }
-
-    if (!coordinatorNameLocal?.trim()) {
-      toast.error("Coordinator name is required");
-      return;
-    }
-
-    if (!coordinatorDesignationLocal?.trim()) {
-      toast.error("Coordinator designation is required");
-      return;
-    }
-
-    if (!formData.coordinatorEmail) {
-      toast.error("Coordinator email is required");
-      return;
-    }
-
-    const emailValidationError = validateEmail(formData.coordinatorEmail);
-    if (emailValidationError) {
-      toast.error(emailValidationError);
-      return;
-    }
-
-    if (!formData.coordinatorMobile) {
-      toast.error("Coordinator mobile number is required");
-      return;
-    }
-
-    const selectedCountry = countryCodes.find(c => c.code === selectedCountryCode);
-    if (selectedCountry && selectedCountry.validate) {
-      const error = selectedCountry.validate(formData.coordinatorMobile);
-      if (error) {
-        toast.error(error);
-        return;
-      }
-    }
-
+    // Required-ness/format checks (name, designation, email/mobile format,
+    // authorization letter presence) are no longer duplicated here — they're
+    // handled by step2Schema inside the parent's nextStep(), which now sets
+    // inline errors (`errors.<field>`) instead of a toast. Only checks that
+    // genuinely don't fit that inline, per-field model stay here.
     if (emailExistsError) {
-      toast.error(emailExistsError);
-      return;
+      return; // already shown inline via the existing emailExistsError chip
     }
 
     if (phoneExistsError) {
-      toast.error(phoneExistsError);
-      return;
+      return; // already shown inline via the existing phoneExistsError chip
     }
 
     if (!emailVerified || !phoneVerified) {
@@ -533,6 +504,11 @@ export default function CoordinatorForm({
                 className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
+            {errors.coordinatorName && (
+              <p className="text-p2 font-body font-regular text-red-500 mt-1">
+                {errors.coordinatorName}
+              </p>
+            )}
           </div>
 
           {/* Designation */}
@@ -554,6 +530,11 @@ export default function CoordinatorForm({
                 className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
+            {errors.coordinatorDesignation && (
+              <p className="text-p2 font-body font-regular text-red-500 mt-1">
+                {errors.coordinatorDesignation}
+              </p>
+            )}
           </div>
 
           {/* Phone */}
@@ -633,17 +614,25 @@ export default function CoordinatorForm({
               </div>
             </div>
 
-            {phoneError && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{phoneError}</span>
-              </p>
-            )}
-
-            {phoneExistsError && !phoneError && (
+            {errors.coordinatorMobile ? (
               <p className="text-p2 font-body font-regular text-red-500 mt-1">
-                {phoneExistsError}
+                {errors.coordinatorMobile}
               </p>
+            ) : (
+              <>
+                {phoneError && (
+                  <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                    <span className="mr-1">⚠️</span>
+                    <span>{phoneError}</span>
+                  </p>
+                )}
+
+                {phoneExistsError && !phoneError && (
+                  <p className="text-p2 font-body font-regular text-red-500 mt-1">
+                    {phoneExistsError}
+                  </p>
+                )}
+              </>
             )}
           </div>
 
@@ -699,16 +688,24 @@ export default function CoordinatorForm({
               </div>
             )}
 
-            {emailError && (
+            {errors.coordinatorEmail ? (
               <p className="text-p2 font-body font-regular text-red-500 mt-1">
-                {emailError}
+                {errors.coordinatorEmail}
               </p>
-            )}
+            ) : (
+              <>
+                {emailError && (
+                  <p className="text-p2 font-body font-regular text-red-500 mt-1">
+                    {emailError}
+                  </p>
+                )}
 
-            {emailExistsError && !emailError && (
-              <p className="text-p2 font-body font-regular text-red-500 mt-1">
-                {emailExistsError}
-              </p>
+                {emailExistsError && !emailError && (
+                  <p className="text-p2 font-body font-regular text-red-500 mt-1">
+                    {emailExistsError}
+                  </p>
+                )}
+              </>
             )}
           </div>
 
@@ -728,6 +725,14 @@ export default function CoordinatorForm({
               disabled={uploadingAuthLetter}
             />
 
+            {!formData.authorizationLetterFile && isRealFileUrl(formData.authorizationLetterUrl) ? (
+              <UploadedFileChip
+                url={formData.authorizationLetterUrl}
+                fileName={formData.authorizationLetterFileName}
+                inputId="authorization-letter-upload"
+                onDelete={onDeleteAuthorizationLetter}
+              />
+            ) : (
             <div
               tabIndex={uploadingAuthLetter ? -1 : 0}
               role="button"
@@ -807,6 +812,12 @@ export default function CoordinatorForm({
                 </div>
               </div>
             </div>
+            )}
+            {errors.authorizationLetterFile && (
+              <p className="text-p2 font-body font-regular text-red-500 mt-1">
+                {errors.authorizationLetterFile}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -832,6 +843,14 @@ export default function CoordinatorForm({
               height={18}
             />
             Back
+          </button>
+
+          <button
+            type="button"
+            onClick={onSaveDraft}
+            className="h-12 px-6 border-2 border-secondary-800 text-secondary-800 rounded-xl font-semibold"
+          >
+            Save Draft
           </button>
 
           <button

@@ -4,12 +4,24 @@ import { z } from "zod";
 const noConsecutiveSpaces = /^(?!.*\s{2,})/;
 
 // Helper for optional fields to prevent consecutive spaces
-const optionalNoConsecutiveSpaces = (fieldName: string) => 
+const optionalNoConsecutiveSpaces = (fieldName: string) =>
   z.string()
     .optional()
     .refine(val => !val || !/\s{2,}/.test(val), {
       message: `${fieldName} should not contain consecutive spaces`
     });
+
+// Accepts either a freshly-picked File OR a non-empty string (an
+// already-uploaded file's URL, restored on a resumed draft — see
+// isRealFileUrl in src/utils/sellerRegFiles.ts). Resuming a draft never
+// restores the raw File object for an already-uploaded field, only its URL,
+// so a plain z.instanceof(File) would incorrectly reject an already-uploaded
+// file as "required" every time.
+const fileOrUploadedUrl = (message: string) =>
+  z.any().refine(
+    (val) => val instanceof File || (typeof val === "string" && val.trim().length > 0),
+    { message }
+  );
 
 // Classifies a seller type name into one of the 4 known onboarding categories.
 // Deliberately a plain helper rather than a config-driven rules engine — these
@@ -55,7 +67,7 @@ export const step1Schema = z.object({
   // Optional fields
   landmark: optionalNoConsecutiveSpaces("Landmark"),
   website: z.string().url("Invalid website URL").optional().or(z.literal("")),
-  companyRegistrationCertificateFile: z.instanceof(File, { message: "Company Registration Certificate is required" }),
+  companyRegistrationCertificateFile: fileOrUploadedUrl("Company Registration Certificate is required"),
 }).superRefine((data, ctx) => {
   const category = classifySellerType(data.sellerTypeName);
   if (category === "PCD" && !data.parentManufacturerName?.trim()) {
@@ -79,13 +91,13 @@ export const step2Schema = z.object({
   coordinatorMobile: z.string()
     .length(10, "Mobile must be 10 digits only")
     .regex(/^\d+$/, "Mobile number must contain only digits"),
-  authorizationLetterFile: z.instanceof(File, { message: "Authorization letter is required" }),
+  authorizationLetterFile: fileOrUploadedUrl("Authorization letter is required"),
 });
 
 // License validation schema
 export const licenseSchema = z.object({
   number: z.string().min(1, "License number is required"),
-  file: z.instanceof(File, { message: "License file is required" }),
+  file: fileOrUploadedUrl("License file is required"),
   issueDate: z.string().min(1, "Issue date is required"),
   expiryDate: z.string().min(1, "Expiry date is required"),
   issuingAuthority: z
@@ -111,7 +123,7 @@ export const licenseSchema = z.object({
 // document file, issue date, and expiry date are consistently mandatory).
 export const agreementSchema = z.object({
   number: z.string().optional(),
-  file: z.instanceof(File, { message: "Agreement document is required" }),
+  file: fileOrUploadedUrl("Agreement document is required"),
   issueDate: z.string().optional(),
   expiryDate: z.string().optional(),
 });
@@ -228,7 +240,7 @@ export const step3Schema = (productTypes: string[], sellerTypeName?: string) =>
         /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/,
         "Invalid GST number format"
       ),
-    gstFile: z.instanceof(File, { message: "GST certificate is required" }),
+    gstFile: fileOrUploadedUrl("GST certificate is required"),
     licenses: z.record(
       z.string(),
       licenseSchema
@@ -281,7 +293,7 @@ export const step4Schema = z.object({
   bankStateId: z.number().min(1, "State is required"),
   bankDistrictId: z.number().min(1, "District is required"),
   bankTalukaId: z.number().min(1, "Taluka is required"),
-  cancelledChequeFile: z.instanceof(File, { message: "Cancelled cheque is required" }),
+  cancelledChequeFile: fileOrUploadedUrl("Cancelled cheque is required"),
 });
 
 export const fullFormSchema = step1Schema.merge(step2Schema).merge(step4Schema).extend({});

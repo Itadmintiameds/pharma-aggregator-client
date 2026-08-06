@@ -13,6 +13,8 @@ import {
   DistrictResponse,
   TalukaResponse,
 } from "@/src/types/seller/SellerRegMasterData";
+import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
+import UploadedFileChip from "./UploadedFileChip";
 
 interface BankFormData {
   accountHolderName: string;
@@ -25,6 +27,8 @@ interface BankFormData {
   bankDistrictId: number;
   bankTalukaId: number;
   cancelledChequeFile: File | null;
+  cancelledChequeUrl?: string;
+  cancelledChequeFileName?: string;
 }
 
 interface LoadingStates {
@@ -41,6 +45,7 @@ interface SelectOption {
 
 interface Props {
   formData: BankFormData;
+  errors: Record<string, string>;
   ifscError: string;
   states: StateResponse[];
   bankDistricts: DistrictResponse[];
@@ -49,6 +54,7 @@ interface Props {
   onIfscChange: (value: string) => void;
   onIfscBlur?: () => void;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>, field: string) => void;
+  onDeleteBankDocument: () => void;
   onAlphabetInput: (e: React.ChangeEvent<HTMLInputElement>, field: string) => void;
   onNumericInput: (e: React.ChangeEvent<HTMLInputElement>, field: string, maxLength?: number) => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
@@ -59,10 +65,12 @@ interface Props {
   onBankTalukaChange: (selected: SelectOption) => void;
   prevStep: () => void;
   nextStep: () => void;
+  onSaveDraft: () => void;
 }
 
 export default function BankForm({
   formData,
+  errors,
   ifscError,
   states,
   bankDistricts,
@@ -71,6 +79,7 @@ export default function BankForm({
   onIfscChange,
   onIfscBlur,
   onFileChange,
+  onDeleteBankDocument,
   onAlphabetInput,
   onNumericInput,
   onChange,
@@ -80,7 +89,8 @@ export default function BankForm({
   onBankDistrictChange,
   onBankTalukaChange,
   prevStep,
-  nextStep
+  nextStep,
+  onSaveDraft
 }: Props) {
 
   const router = useRouter();
@@ -313,6 +323,12 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
+            {errors.accountHolderName && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.accountHolderName}</span>
+              </p>
+            )}
           </div>
 
           {/* IFSC Code */}
@@ -337,7 +353,12 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 }`}
               />
             </div>
-            {ifscError && (
+            {errors.ifscCode ? (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.ifscCode}</span>
+              </p>
+            ) : ifscError && (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
                 <span className="mr-1">⚠️</span>
                 <span>{ifscError}</span>
@@ -364,6 +385,12 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
               />
               <Hash className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
             </div>
+            {errors.accountNumber && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.accountNumber}</span>
+              </p>
+            )}
           </div>
 
           {/* Confirm Account Number - No copy-paste allowed */}
@@ -483,6 +510,12 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 </div>
               )}
             </div>
+            {errors.bankStateId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.bankStateId}</span>
+              </p>
+            )}
           </div>
 
           {/* Bank District */}
@@ -534,6 +567,12 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 </div>
               )}
             </div>
+            {errors.bankDistrictId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.bankDistrictId}</span>
+              </p>
+            )}
           </div>
 
           {/* Bank Taluka */}
@@ -585,6 +624,12 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 </div>
               )}
             </div>
+            {errors.bankTalukaId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.bankTalukaId}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -597,6 +642,24 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             <span className="text-warning-500 font-semibold ml-1">*</span>
           </label>
 
+          <input
+            id="cheque-upload"
+            type="file"
+            name="cancelledChequeFile"
+            className="hidden"
+            accept=".pdf,.jpg,.jpeg,.png"
+            onChange={handleFileUpload}
+            disabled={uploading}
+          />
+
+          {!formData.cancelledChequeFile && isRealFileUrl(formData.cancelledChequeUrl) ? (
+            <UploadedFileChip
+              url={formData.cancelledChequeUrl ?? ""}
+              fileName={formData.cancelledChequeFileName}
+              inputId="cheque-upload"
+              onDelete={onDeleteBankDocument}
+            />
+          ) : (
           <div
             tabIndex={uploading ? -1 : 0}
             role="button"
@@ -610,16 +673,6 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             className="border-2 border-dashed border-primary-300 rounded-xl p-8 text-center bg-neutral-50 cursor-pointer transition-none focus:outline-none focus:ring-2 focus:ring-primary-800"
             onClick={() => document.getElementById('cheque-upload')?.click()}
           >
-            <input
-              id="cheque-upload"
-              type="file"
-              name="cancelledChequeFile"
-              className="hidden"
-              accept=".pdf,.jpg,.jpeg,.png"
-              onChange={handleFileUpload}
-              disabled={uploading}
-            />
-
             <div className="flex flex-col items-center gap-2">
               <Image
                 src="/icons/folder.png"
@@ -676,6 +729,13 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
               )}
             </div>
           </div>
+          )}
+          {errors.cancelledChequeFile && (
+            <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+              <span className="mr-1">⚠️</span>
+              <span>{errors.cancelledChequeFile}</span>
+            </p>
+          )}
         </div>
       </div>
 
@@ -702,6 +762,14 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
               height={18}
             />
             Back
+          </button>
+
+          <button
+            type="button"
+            onClick={onSaveDraft}
+            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-secondary-800 text-secondary-800 font-semibold"
+          >
+            Save Draft
           </button>
 
           <button

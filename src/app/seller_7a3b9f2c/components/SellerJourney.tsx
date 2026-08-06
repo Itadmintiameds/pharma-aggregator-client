@@ -59,8 +59,14 @@ const SellerJourney = () => {
     }
 
     try {
-      await sellerRegService.getTempSellerByUserId(currentUser.userId);
-      setViewState("pending");
+      const tempSeller = await sellerRegService.getTempSellerByUserId(currentUser.userId);
+      const status = typeof tempSeller?.status === "string" ? tempSeller.status.toUpperCase() : "";
+      // A DRAFT row is an in-progress, unsubmitted registration - route back
+      // into the wizard (which resumes it) rather than the "already
+      // submitted, pending review" screen. Any other status (OPEN,
+      // RESUBMITTED, CORRECTION_REQUIRED, REJECTED, ...) means a real
+      // submission exists, so "pending" is still correct for those.
+      setViewState(status === "DRAFT" ? "register" : "pending");
     } catch {
       setViewState("register");
     }
