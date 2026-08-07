@@ -5,7 +5,6 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { ProductTypeResponse } from "@/src/types/seller/SellerRegMasterData";
 import { toast } from "react-toastify";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
@@ -34,7 +33,6 @@ interface Props {
   onDeleteAgreementFile: (code: string) => void;
   prevStep: () => void;
   nextStep: () => void;
-  onSaveDraft: () => void;
 }
 
 // Human-readable labels for seller-type-driven agreement document codes.
@@ -276,10 +274,8 @@ export default function DocumentForm({
   onDeleteAgreementFile,
   prevStep,
   nextStep,
-  onSaveDraft,
 }: Props) {
 
-  const router = useRouter();
   const [uploadingGST, setUploadingGST] = useState(false);
   const [uploadingLicenses, setUploadingLicenses] = useState<Record<string, boolean>>({});
   const [uploadingAgreements, setUploadingAgreements] = useState<Record<string, boolean>>({});
@@ -297,6 +293,11 @@ export default function DocumentForm({
     pendingLicenseNumber: string;
   } | null>(null);
   
+  // Inline feedback for a rejected keystroke on the per-product Issuing
+  // Authority field - shown until the next valid keystroke or blur, keyed by
+  // productName the same way licenseErrors already is.
+  const [issuingAuthorityFormatErrors, setIssuingAuthorityFormatErrors] = useState<Record<string, string>>({});
+
   const [gstError, setGstError] = useState<string>("");
   const [gstExistsError, setGstExistsError] = useState<string>("");
   const [gstFileError, setGstFileError] = useState<string>("");
@@ -489,6 +490,10 @@ export default function DocumentForm({
         checkGSTExists(value);
       }
     }
+    // Hide the transient "must be 15 characters"/"invalid format" message once
+    // focus leaves - gstExistsError (a real duplicate-GST conflict, checked
+    // above) is left alone, same as the coordinator email/phone exists-checks.
+    setGstError("");
   };
 
   const checkLicenseExists = async (licenseNumber: string, productName: string, licenseName: string) => {
@@ -664,10 +669,12 @@ export default function DocumentForm({
     const cleanedValue = formatLicenseNumber(value, licenseInfo.validationCategory);
 
     if (cleanedValue !== value) {
+      setLicenseErrors(prev => ({ ...prev, [productName]: "Invalid character in license number" }));
       return;
     }
 
     if (cleanedValue.length > licenseInfo.maxLength) {
+      setLicenseErrors(prev => ({ ...prev, [productName]: "License number exceeds maximum length" }));
       return;
     }
 
@@ -710,7 +717,7 @@ export default function DocumentForm({
     }
   };
 
-  const handleLicenseKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentValue: string, category: LicenseValidationCategory) => {
+  const handleLicenseKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentValue: string, category: LicenseValidationCategory, onInvalidKey?: () => void) => {
     const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
     if (allowedKeys.includes(e.key)) {
       return;
@@ -723,6 +730,7 @@ export default function DocumentForm({
         : /^[A-Za-z0-9\/\-]$/;
     if (!allowedChars.test(e.key)) {
       e.preventDefault();
+      onInvalidKey?.();
     }
   };
 
@@ -787,14 +795,16 @@ export default function DocumentForm({
   const handleIssuingAuthorityInput = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
     let value = e.target.value;
     const filteredValue = value.replace(/[^a-zA-Z0-9\s]/g, '');
-    
+
     if (filteredValue !== value) {
+      setIssuingAuthorityFormatErrors(prev => ({ ...prev, [productName]: "Issuing authority can only contain letters, numbers, and spaces" }));
       const syntheticEvent = {
         ...e,
         target: { ...e.target, name: `issuingAuthority-${productName}`, value: filteredValue }
       } as React.ChangeEvent<HTMLInputElement>;
       onIssuingAuthorityChange(syntheticEvent);
     } else {
+      setIssuingAuthorityFormatErrors(prev => ({ ...prev, [productName]: "" }));
       onIssuingAuthorityChange(e);
     }
   };
@@ -1161,7 +1171,7 @@ export default function DocumentForm({
                       name={`licenseNumber-${productName}`}
                       value={licenseData.number}
                       onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
-                      onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number, licenseInfo.validationCategory)}
+                      onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number, licenseInfo.validationCategory, () => setLicenseErrors(prev => ({ ...prev, [productName]: "Invalid character" })))}
                       onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
                       placeholder={licenseInfo.placeholder}
                       maxLength={licenseInfo.maxLength}
@@ -1463,11 +1473,18 @@ export default function DocumentForm({
                       name={`issuingAuthority-${productName}`}
                       value={licenseData.issuingAuthority}
                       onChange={(e) => handleIssuingAuthorityInput(e, productName)}
+                      onBlur={() => setIssuingAuthorityFormatErrors(prev => ({ ...prev, [productName]: "" }))}
                       placeholder="Enter issuing authority"
                       maxLength={150}
                       className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
                     />
                   </div>
+                  {issuingAuthorityFormatErrors[productName] && (
+                    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                      <span className="mr-1">⚠️</span>
+                      <span>{issuingAuthorityFormatErrors[productName]}</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* LICENSE STATUS */}
@@ -1554,7 +1571,8 @@ export default function DocumentForm({
                       autoComplete="off"
                       value={agreementData.number}
                       onChange={(e) => handleAgreementNumberChangeWithValidation(code, e.target.value, label)}
-                      onKeyDown={licenseCategory ? (e) => handleLicenseKeyDown(e, agreementData.number, licenseCategory) : undefined}
+                      onKeyDown={licenseCategory ? (e) => handleLicenseKeyDown(e, agreementData.number, licenseCategory, () => setAgreementErrors(prev => ({ ...prev, [code]: "Invalid character" }))) : undefined}
+                      onBlur={() => setAgreementErrors(prev => ({ ...prev, [code]: "" }))}
                       placeholder={licenseCategory ? LICENSE_PLACEHOLDER[licenseCategory] : `Enter ${label} number`}
                       maxLength={licenseCategory ? LICENSE_MAX_LENGTH[licenseCategory] : 30}
                       className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${
@@ -1935,16 +1953,7 @@ export default function DocumentForm({
         </div>
 
         {/* BUTTONS */}
-        <div className="flex justify-between mt-10">
-          <div className="flex gap-4">
-            <button
-              onClick={() => router.push("/")}
-              className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold"
-            >
-              Cancel
-            </button>
-          </div>
-
+        <div className="flex justify-end mt-10">
           <div className="flex gap-4">
             <button
               onClick={prevStep}
@@ -1957,14 +1966,6 @@ export default function DocumentForm({
                 height={18}
               />
               Back
-            </button>
-
-            <button
-              type="button"
-              onClick={onSaveDraft}
-              className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-secondary-800 text-secondary-800 font-semibold"
-            >
-              Save Draft
             </button>
 
             <button

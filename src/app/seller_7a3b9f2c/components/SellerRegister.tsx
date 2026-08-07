@@ -2105,7 +2105,6 @@ export default function SellerRegistration() {
             setIsProductDropdownOpen={setIsProductDropdownOpen}
             prevStep={prevStep}
             nextStep={nextStep}
-            onSaveDraft={() => handleSaveDraft(false)}
           />
         )}
 
@@ -2151,7 +2150,6 @@ export default function SellerRegistration() {
             onDeleteAuthorizationLetter={handleDeleteAuthorizationLetter}
             prevStep={prevStep}
             nextStep={nextStep}
-            onSaveDraft={() => handleSaveDraft(false)}
           />
         )}
 
@@ -2187,7 +2185,6 @@ export default function SellerRegistration() {
             onDeleteAgreementFile={handleDeleteAgreementFile}
             prevStep={prevStep}
             nextStep={nextStep}
-            onSaveDraft={() => handleSaveDraft(false)}
           />
 
           // this is without warning pop up in license......
@@ -2228,7 +2225,6 @@ export default function SellerRegistration() {
             onBankTalukaChange={handleBankTalukaChange}
             prevStep={prevStep}
             nextStep={nextStep}
-            onSaveDraft={() => handleSaveDraft(false)}
           />
         )}
 
@@ -2241,7 +2237,6 @@ export default function SellerRegistration() {
             onSubmit={handleSubmit}
             submitting={submitting}
             prevStep={prevStep}
-            onSaveDraft={() => handleSaveDraft(false)}
           />
         )}
       </SellerRegistrationLayout>

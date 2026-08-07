@@ -6,7 +6,6 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { GoCheckCircleFill } from "react-icons/go";
-import { useRouter } from "next/navigation";
 
 interface Props {
   formData: any;
@@ -16,7 +15,6 @@ interface Props {
   onSubmit: () => void;
   submitting: boolean;
   prevStep: () => void;
-  onSaveDraft: () => void;
 }
 
 const AGREEMENT_LABELS: Record<string, string> = {
@@ -32,10 +30,7 @@ export default function ReviewForm({
   onSubmit,
   submitting,
   prevStep,
-  onSaveDraft
 }: Props) {
-
-  const router = useRouter();
 
   return (
     <div className="flex flex-col gap-6">
@@ -186,15 +181,7 @@ export default function ReviewForm({
       </div>
 
       {/* ACTION BUTTONS */}
-      <div className="flex justify-between items-center pt-4">
-        <div className="flex gap-4">
-          <button 
-          onClick={() => router.push("/")}
-          className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold">
-            Cancel
-          </button>
-        </div>
-
+      <div className="flex justify-end items-center pt-4">
         <div className="flex gap-4">
           <button
             onClick={prevStep}
@@ -207,15 +194,6 @@ export default function ReviewForm({
               height={20}
             />
             Back
-          </button>
-
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            disabled={submitting}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-secondary-800 text-secondary-800 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Save Draft
           </button>
 
           <button

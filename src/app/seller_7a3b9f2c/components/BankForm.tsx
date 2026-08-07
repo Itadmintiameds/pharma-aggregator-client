@@ -6,7 +6,6 @@ import { HiOutlineUser } from "react-icons/hi2";
 import { IoLockClosedOutline } from "react-icons/io5";
 import { RiBankLine } from "react-icons/ri";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import {
   StateResponse,
@@ -65,7 +64,6 @@ interface Props {
   onBankTalukaChange: (selected: SelectOption) => void;
   prevStep: () => void;
   nextStep: () => void;
-  onSaveDraft: () => void;
 }
 
 export default function BankForm({
@@ -90,12 +88,15 @@ export default function BankForm({
   onBankTalukaChange,
   prevStep,
   nextStep,
-  onSaveDraft
 }: Props) {
 
-  const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const [confirmAccountError, setConfirmAccountError] = useState("");
+  // Inline feedback for a rejected keystroke - shown until the next valid
+  // keystroke or blur, same convention as the other transient format errors
+  // on this step.
+  const [accountHolderNameFormatError, setAccountHolderNameFormatError] = useState<string>("");
+  const [accountNumberFormatError, setAccountNumberFormatError] = useState<string>("");
 
   // Custom dropdown open state, mirroring CompanyForm's address dropdown pattern.
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -198,10 +199,10 @@ export default function BankForm({
 
 const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   let value = e.target.value;
-  
+
   // First, decode any HTML entities
   value = value.replace(/&amp;/g, '&');
-  
+
   // Allow: letters, spaces, hyphens, dots, ampersands
   let cleaned = '';
   for (let i = 0; i < value.length; i++) {
@@ -210,12 +211,18 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
       cleaned += char;
     }
   }
-  
+
+  if (cleaned.length !== value.length) {
+    setAccountHolderNameFormatError("Account holder name can only contain letters, spaces, hyphens, dots, and ampersands");
+  } else {
+    setAccountHolderNameFormatError("");
+  }
+
   // Prevent consecutive spaces
   cleaned = cleaned.replace(/\s{2,}/g, ' ');
   // cleaned = cleaned.trim();
 
-  
+
   // Directly update form data without going through onAlphabetInput
   if (onUpdateFormData) {
     onUpdateFormData("accountHolderName", cleaned);
@@ -228,6 +235,19 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
     onAlphabetInput(syntheticEvent, "accountHolderName");
   }
 };
+
+  // The shared onNumericInput prop strips non-digits with no feedback back to
+  // this specific field, so detect the rejected keystroke here locally before
+  // delegating to it for the actual stripping/update.
+  const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digitsOnly = e.target.value.replace(/\D/g, '');
+    if (digitsOnly !== e.target.value) {
+      setAccountNumberFormatError("Account number can only contain digits");
+    } else {
+      setAccountNumberFormatError("");
+    }
+    onNumericInput(e, "accountNumber", 18);
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -318,15 +338,21 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 value={formData.accountHolderName}
                 // onChange={(e) => onAlphabetInput(e, "accountHolderName")}
                 onChange={handleAccountHolderNameChange}
+                onBlur={() => setAccountHolderNameFormatError("")}
                 placeholder="As per bank records"
                 maxLength={100}
                 className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
-            {errors.accountHolderName && (
+            {errors.accountHolderName ? (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
                 <span className="mr-1">⚠️</span>
                 <span>{errors.accountHolderName}</span>
+              </p>
+            ) : accountHolderNameFormatError && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{accountHolderNameFormatError}</span>
               </p>
             )}
           </div>
@@ -378,17 +404,23 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 name="accountNumber"
                 autoComplete="off"
                 value={formData.accountNumber}
-                onChange={(e) => onNumericInput(e, "accountNumber", 18)}
+                onChange={handleAccountNumberChange}
+                onBlur={() => setAccountNumberFormatError("")}
                 placeholder="Enter Account number"
                 maxLength={18}
                 className="w-full h-13 pl-4 pr-10 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
               <Hash className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
             </div>
-            {errors.accountNumber && (
+            {errors.accountNumber ? (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
                 <span className="mr-1">⚠️</span>
                 <span>{errors.accountNumber}</span>
+              </p>
+            ) : accountNumberFormatError && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{accountNumberFormatError}</span>
               </p>
             )}
           </div>
@@ -740,16 +772,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
       </div>
 
       {/* Buttons */}
-      <div className="flex justify-between mt-10">
-        <div className="flex gap-4">
-          <button 
-            onClick={() => router.push("/")}
-            className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold"
-          >
-            Cancel
-          </button>
-        </div>
-
+      <div className="flex justify-end mt-10">
         <div className="flex gap-4">
           <button
             onClick={prevStep}
@@ -762,14 +785,6 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
               height={18}
             />
             Back
-          </button>
-
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-secondary-800 text-secondary-800 font-semibold"
-          >
-            Save Draft
           </button>
 
           <button

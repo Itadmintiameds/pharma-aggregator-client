@@ -45,7 +45,6 @@ interface Props {
   setIsProductDropdownOpen: (open: boolean) => void;
   prevStep: () => void;
   nextStep: () => void;
-  onSaveDraft: () => void;
 }
 
 // Country codes data for company phone with validation rules
@@ -120,7 +119,6 @@ export default function CompanyForm({
   setIsProductDropdownOpen,
   prevStep,
   nextStep,
-  onSaveDraft,
 }: Props) {
 
   const router = useRouter();
@@ -128,6 +126,10 @@ export default function CompanyForm({
   const [selectedCompanyCountryCode, setSelectedCompanyCountryCode] = useState("+91");
   const [isCompanyPhoneDropdownOpen, setIsCompanyPhoneDropdownOpen] = useState(false);
   const [companyPhoneError, setCompanyPhoneError] = useState("");
+  // Inline feedback for a rejected keystroke on the landmark field - shown
+  // until the next valid keystroke or blur, same convention as the other
+  // transient format errors on this step.
+  const [landmarkFormatError, setLandmarkFormatError] = useState<string>("");
 
   // State for custom dropdowns
   const [openDropdown, setOpenDropdown] = React.useState<string | null>(null);
@@ -1228,21 +1230,30 @@ export default function CompanyForm({
                 value = value.replace(/\s{2,}/g, ' ');
                 const allowedChars = /^[a-zA-Z0-9\s]*$/;
                 if (value.length <= 100 && (value === "" || allowedChars.test(value))) {
+                  setLandmarkFormatError("");
                   const syntheticEvent = {
                     ...e,
                     target: { ...e.target, name: "landmark", value }
                   };
                   onChange(syntheticEvent);
+                } else {
+                  setLandmarkFormatError("Landmark should only contain letters, numbers, and spaces");
                 }
               }}
+              onBlur={() => setLandmarkFormatError("")}
               maxLength={100}
               placeholder="Enter Landmark"
               className="w-full h-13 px-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
             />
-            {errors.landmark && (
+            {errors.landmark ? (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
                 <span className="mr-1">⚠️</span>
                 <span>{errors.landmark}</span>
+              </p>
+            ) : landmarkFormatError && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <span className="mr-1">⚠️</span>
+                <span>{landmarkFormatError}</span>
               </p>
             )}
           </div>
@@ -1335,6 +1346,7 @@ export default function CompanyForm({
                   onChange={handleCompanyPhoneChange}
                   onKeyDown={handlePhoneKeyDown}
                   onPaste={handlePhonePaste}
+                  onBlur={() => setCompanyPhoneError("")}
                   placeholder={getPlaceholder()}
                   maxLength={getMaxLength()}
                   className={`flex-1 h-13 px-4 pr-4 rounded-r-md border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${companyPhoneError ? 'border-red-500' : 'border-neutral-500'}`}
@@ -1391,18 +1403,11 @@ export default function CompanyForm({
             onClick={() => router.push("/")}
             className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold"
           >
-            Cancel
+            Back
           </button>
         </div>
 
         <div className="flex gap-4">
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-secondary-800 text-secondary-800 font-semibold"
-          >
-            Save Draft
-          </button>
           <button
             onClick={nextStep}
             className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"

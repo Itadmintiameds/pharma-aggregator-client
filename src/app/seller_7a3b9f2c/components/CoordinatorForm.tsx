@@ -6,7 +6,6 @@ import VerificationModal from "./OtpModalSixBox";
 import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
 import { sellerAuthService } from "@/src/services/seller/authService";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { HiOutlineUserGroup } from "react-icons/hi2";
 import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
@@ -33,7 +32,6 @@ interface Props {
   onDeleteAuthorizationLetter: () => void;
   prevStep: () => void;
   nextStep: () => void;
-  onSaveDraft: () => void;
 }
 
 // Country codes data with validation rules
@@ -82,9 +80,7 @@ export default function CoordinatorForm({
   onDeleteAuthorizationLetter,
   prevStep,
   nextStep,
-  onSaveDraft,
 }: Props) {
-  const router = useRouter();
 
   const [showModal, setShowModal] = useState(false);
   const [verificationType, setVerificationType] = useState<"email" | "phone">("email");
@@ -157,11 +153,13 @@ export default function CoordinatorForm({
     }
 
     if (!/^[A-Za-z]/.test(value)) {
+      setCoordinatorNameFormatError("Coordinator name must start with a letter");
       return;
     }
 
     const allowedCharsRegex = /^[A-Za-z][A-Za-z\s]*$/;
     if (!allowedCharsRegex.test(value)) {
+      setCoordinatorNameFormatError("Coordinator name should only contain letters and spaces");
       return;
     }
 
@@ -202,11 +200,13 @@ export default function CoordinatorForm({
     }
 
     if (!/^[A-Za-z]/.test(value)) {
+      setCoordinatorDesignationFormatError("Coordinator designation must start with a letter");
       return;
     }
 
     const allowedCharsRegex = /^[A-Za-z][A-Za-z\s]*$/;
     if (!allowedCharsRegex.test(value)) {
+      setCoordinatorDesignationFormatError("Coordinator designation should only contain letters and spaces");
       return;
     }
 
@@ -623,6 +623,7 @@ export default function CoordinatorForm({
                   onChange={handlePhoneChange}
                   onKeyDown={handlePhoneKeyDown}
                   onPaste={handlePhonePaste}
+                  onBlur={() => setPhoneError("")}
                   placeholder={getPlaceholder()}
                   maxLength={getMaxLength()}
                   disabled={phoneVerified}
@@ -681,6 +682,7 @@ export default function CoordinatorForm({
                   autoComplete="new-password"
                   value={formData.coordinatorEmail}
                   onChange={handleEmailChange}
+                  onBlur={() => setEmailError("")}
                   placeholder="Enter email"
                   disabled={emailVerified}
                   className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${emailError ? 'border-neutral-500' : 'border-neutral-500'
@@ -852,14 +854,7 @@ export default function CoordinatorForm({
       </div>
 
       {/* Buttons */}
-      <div className="flex justify-between mt-10">
-        <button
-          onClick={() => router.push("/")}
-          className="h-12 px-6 border-2 border-warning-500 text-warning-500 rounded-xl font-semibold"
-        >
-          Cancel
-        </button>
-
+      <div className="flex justify-end mt-10">
         <div className="flex gap-4">
           <button
             onClick={prevStep}
@@ -872,14 +867,6 @@ export default function CoordinatorForm({
               height={18}
             />
             Back
-          </button>
-
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            className="h-12 px-6 border-2 border-secondary-800 text-secondary-800 rounded-xl font-semibold"
-          >
-            Save Draft
           </button>
 
           <button
