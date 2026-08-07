@@ -27,6 +27,7 @@ import { step1Schema, step2Schema, step3Schema, step4Schema } from "@/src/schema
 import { CompanyTypeResponse, SellerTypeResponse, ProductTypeResponse, StateResponse, DistrictResponse, TalukaResponse, DocumentTypeResponse, } from "@/src/types/seller/SellerRegMasterData"
 import { TempSellerRequest, TempSellerDocument, TempSellerBankDetails, TempSellerAddress, TempSellerCoordinator, TempSellerDraftRequest } from "@/src/types/seller/sellerRegistrationData"
 import { isRealFileUrl } from "@/src/utils/sellerRegFiles"
+import LogoutConfirmationModal from "@/src/app/seller_7a3b9f2c/dashboard/components/LogoutConfirmationModal"
 
 // GET /temp-sellers/user/{userId} returns the raw TempSeller JPA entity, not
 // a flat DTO — every master reference (state/district/taluka/companyType/
@@ -54,6 +55,12 @@ export default function SellerRegistration() {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
+  // Gates rendering the wizard's inputs until the draft-resume fetch below
+  // has settled (success, 404, or error) - otherwise a seller who starts
+  // typing before that (necessarily async) fetch resolves can have their
+  // fresh edit silently overwritten moments later when the fetch's
+  // setFormData call finally lands with the OLDER, pre-edit server value.
+  const [resumeChecked, setResumeChecked] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [step, setStep] = useState(1)
   const [emailVerified, setEmailVerified] = useState(false)
@@ -111,6 +118,27 @@ export default function SellerRegistration() {
   // listener effect below.
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [loggingOutSaving, setLoggingOutSaving] = useState(false)
+  // Shown instead when there's nothing unsaved to offer saving - a plain
+  // "are you sure?" rather than the 3-option save prompt above.
+  const [showPlainLogoutConfirm, setShowPlainLogoutConfirm] = useState(false)
+
+  // Snapshot of the draft payload as of the last successful save (or the
+  // freshly-resumed state) - "unsaved changes" is decided by comparing the
+  // CURRENT payload's content against this, not by "did formData change at
+  // all". A blanket "any setFormData call means dirty" check is wrong: e.g.
+  // retyping the exact same text into a field still fires onChange/
+  // setFormData, but produces no actual content difference and shouldn't
+  // trigger a save prompt. A ref, not state, since the logout-request
+  // listener below is registered once on mount and needs to read the
+  // LATEST snapshot at click time without needing to re-subscribe.
+  const lastSavedPayloadRef = useRef<string>("")
+  // Set to true immediately before a setFormData call that represents newly
+  // LOADED (not edited) state - resuming a draft - so the effect below can
+  // re-baseline the snapshot to the freshly-resumed content once it lands,
+  // rather than comparing against the pre-resume (usually blank) baseline.
+  // Starts true so the very first snapshot (the initial blank form, before
+  // any resume or edit) is captured too.
+  const pendingResumeSnapshotRef = useRef(true)
 
   // Form State (Full old version state)
   const [formData, setFormData] = useState({
@@ -205,6 +233,13 @@ export default function SellerRegistration() {
     cancelledChequeFileName: "",
   })
 
+  useEffect(() => {
+    if (pendingResumeSnapshotRef.current) {
+      pendingResumeSnapshotRef.current = false
+      lastSavedPayloadRef.current = JSON.stringify(buildDraftPayload())
+    }
+  }, [formData])
+
   // Registration now requires a login (created via the signup-first flow) —
   // check once on mount so returning users skip straight to the wizard.
   useEffect(() => {
@@ -215,7 +250,21 @@ export default function SellerRegistration() {
   // Header.tsx dispatches this instead of logging out directly when Logout
   // is clicked while on this page - see handleLogout in Header.tsx.
   useEffect(() => {
-    const handleLogoutRequest = () => setShowLogoutModal(true)
+    const handleLogoutRequest = () => {
+      // Compare the CURRENT draft payload's actual content against the
+      // last-saved snapshot - not just "did some setFormData call happen" -
+      // so retyping the same value (or a save-triggered sync) never counts
+      // as an unsaved change.
+      const hasUnsavedChanges = JSON.stringify(buildDraftPayload()) !== lastSavedPayloadRef.current
+      if (!hasUnsavedChanges) {
+        // Nothing unsaved - there's nothing to offer saving, but still
+        // confirm the logout itself rather than acting on a single click
+        // with zero confirmation.
+        setShowPlainLogoutConfirm(true)
+        return
+      }
+      setShowLogoutModal(true)
+    }
     window.addEventListener("seller-wizard-logout-request", handleLogoutRequest)
     return () => window.removeEventListener("seller-wizard-logout-request", handleLogoutRequest)
   }, [])
@@ -248,6 +297,10 @@ export default function SellerRegistration() {
         const draftProductTypes: Array<{ productTypeId?: number; productTypeName?: string }> =
           Array.isArray(row.productTypes) ? row.productTypes : []
 
+        // This is loading already-saved state, not a new edit - re-baseline
+        // the "last saved" snapshot to this resumed content once it lands,
+        // instead of comparing future edits against the pre-resume (blank) state.
+        pendingResumeSnapshotRef.current = true
         setFormData(prev => ({
           ...prev,
           companyTypeId: row.companyType?.companyTypeId ?? prev.companyTypeId,
@@ -348,6 +401,7 @@ export default function SellerRegistration() {
         // per-product license — see TempSellerServiceImpl#documentKey.
         if (Array.isArray(row.documents) && row.documents.length > 0) {
           const draftDocuments: DraftDocumentRow[] = row.documents
+          pendingResumeSnapshotRef.current = true
           setFormData(prev => {
             const licenses = { ...prev.licenses }
             const agreements = { ...prev.agreements }
@@ -392,6 +446,10 @@ export default function SellerRegistration() {
         // 404 just means no draft/temp seller exists yet for this user - stay
         // on step 1 blank, matching today's default behavior.
         console.log("ℹ️ No draft to resume (or resume check failed):", error)
+      } finally {
+        // Always unblock rendering - whether a draft was found, there was
+        // none (404), the user isn't logged in yet, or the fetch errored.
+        setResumeChecked(true)
       }
     }
 
@@ -1472,33 +1530,41 @@ export default function SellerRegistration() {
   // schema validation runs — the draft endpoint accepts whatever's filled in
   // so far.
   const buildDraftPayload = (): TempSellerDraftRequest => {
+    // Note: string fields below are sent as-is (including "") rather than
+    // falling back to `undefined` when empty - the backend's saveDraft only
+    // touches a field when it's present (`!= null`) in the request, by
+    // design, so a user CLEARING a field (e.g. removing their website) must
+    // still reach the backend as an explicit "" to actually take effect;
+    // omitting it via `|| undefined` would make the clear silently a no-op
+    // and leave the old value in place. Numeric id fields (dropdowns) keep
+    // `|| undefined` for 0 since there's no "explicitly clear to zero" case.
     const address = {
       stateId: formData.stateId || undefined,
       districtId: formData.districtId || undefined,
       talukaId: formData.talukaId || undefined,
-      city: formData.city || undefined,
-      street: formData.street || undefined,
-      buildingNo: formData.buildingNo || undefined,
-      landmark: formData.landmark || undefined,
-      pinCode: formData.pincode || undefined,
+      city: formData.city,
+      street: formData.street,
+      buildingNo: formData.buildingNo,
+      landmark: formData.landmark,
+      pinCode: formData.pincode,
     };
 
     const coordinator = {
-      name: formData.coordinatorName || undefined,
-      designation: formData.coordinatorDesignation || undefined,
-      email: formData.coordinatorEmail || undefined,
-      mobile: formData.coordinatorMobile || undefined,
+      name: formData.coordinatorName,
+      designation: formData.coordinatorDesignation,
+      email: formData.coordinatorEmail,
+      mobile: formData.coordinatorMobile,
     };
 
     const bankDetails = {
-      bankName: formData.bankName || undefined,
-      branch: formData.branch || undefined,
-      ifscCode: formData.ifscCode || undefined,
+      bankName: formData.bankName,
+      branch: formData.branch,
+      ifscCode: formData.ifscCode,
       stateId: formData.bankStateId || undefined,
       districtId: formData.bankDistrictId || undefined,
       talukaId: formData.bankTalukaId || undefined,
-      accountNumber: formData.accountNumber || undefined,
-      accountHolderName: formData.accountHolderName || undefined,
+      accountNumber: formData.accountNumber,
+      accountHolderName: formData.accountHolderName,
     };
 
     // Per-product license metadata (no file — drafts never carry files).
@@ -1529,16 +1595,16 @@ export default function SellerRegistration() {
     const documents = [...licenseDocuments, ...agreementDocuments];
 
     return {
-      sellerName: formData.sellerName || undefined,
+      sellerName: formData.sellerName,
       productTypeId: formData.productTypeIds?.length ? formData.productTypeIds : undefined,
       companyTypeId: formData.companyTypeId || undefined,
       sellerTypeId: formData.sellerTypeId || undefined,
-      phone: formData.phone || undefined,
-      email: formData.email || undefined,
-      website: formData.website || undefined,
-      parentManufacturerName: formData.parentManufacturerName || undefined,
-      brandOwnerName: formData.brandOwnerName || undefined,
-      gstNumber: formData.gstNumber || undefined,
+      phone: formData.phone,
+      email: formData.email,
+      website: formData.website,
+      parentManufacturerName: formData.parentManufacturerName,
+      brandOwnerName: formData.brandOwnerName,
+      gstNumber: formData.gstNumber,
       address,
       coordinator,
       bankDetails,
@@ -1588,6 +1654,12 @@ export default function SellerRegistration() {
         currentTempSellerId = result.tempSellerId;
         setTempSellerId(currentTempSellerId);
       }
+
+      // This exact payload is now saved server-side - re-baseline the
+      // snapshot to it so a later logout-click comparison sees no
+      // difference (file-only changes never show up here either way,
+      // since buildDraftPayload never reads file/fileUrl/documentId fields).
+      lastSavedPayloadRef.current = JSON.stringify(draftPayload);
 
       if (!silent) {
         toast.success("Draft saved successfully");
@@ -1641,7 +1713,9 @@ export default function SellerRegistration() {
 
       // Move every freshly-uploaded field into the "already uploaded" state:
       // record the returned URL and clear the local File so the forms
-      // switch from the upload picker to the View/Delete chip.
+      // switch from the upload picker to the View/Delete chip. No dirty-
+      // snapshot handling needed here - buildDraftPayload never reads
+      // file/fileUrl/documentId, so this sync can't change its output.
       setFormData(prev => {
         const next = { ...prev };
         const data = uploadResponse.data;
@@ -1720,6 +1794,7 @@ export default function SellerRegistration() {
   const finishLogout = async () => {
     await sellerAuthService.logout();
     setShowLogoutModal(false);
+    setShowPlainLogoutConfirm(false);
     router.push("/");
   };
 
@@ -1982,7 +2057,7 @@ export default function SellerRegistration() {
     }
   }
 
-  if (!authChecked) {
+  if (!authChecked || !resumeChecked) {
     return null
   }
 
@@ -2187,6 +2262,12 @@ export default function SellerRegistration() {
         onCancel={() => setShowLogoutModal(false)}
         onSaveAndLogout={handleSaveAndLogout}
         onLogoutWithoutSaving={handleLogoutWithoutSaving}
+      />
+
+      <LogoutConfirmationModal
+        isOpen={showPlainLogoutConfirm}
+        onClose={() => setShowPlainLogoutConfirm(false)}
+        onConfirm={finishLogout}
       />
     </LocalizationProvider>
   )

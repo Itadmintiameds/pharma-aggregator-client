@@ -83,10 +83,12 @@ export const step1Schema = z.object({
 export const step2Schema = z.object({
   coordinatorName: z.string()
     .min(1, "Coordinator name is required")
-    .regex(noConsecutiveSpaces, "Coordinator name should not contain consecutive spaces"),
+    .regex(noConsecutiveSpaces, "Coordinator name should not contain consecutive spaces")
+    .regex(/^[A-Za-z\s]+$/, "Coordinator name should not contain numbers"),
   coordinatorDesignation: z.string()
     .min(1, "Coordinator designation is required")
-    .regex(noConsecutiveSpaces, "Coordinator designation should not contain consecutive spaces"),
+    .regex(noConsecutiveSpaces, "Coordinator designation should not contain consecutive spaces")
+    .regex(/^[A-Za-z\s]+$/, "Coordinator designation should not contain numbers"),
   coordinatorEmail: z.string().email("Invalid email format"),
   coordinatorMobile: z.string()
     .length(10, "Mobile must be 10 digits only")

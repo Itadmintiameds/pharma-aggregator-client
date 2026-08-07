@@ -101,6 +101,11 @@ export default function CoordinatorForm({
   // Local state for name & designation to bypass parent's onAlphabetInput which strips numbers
   const [coordinatorNameLocal, setCoordinatorNameLocal] = useState<string>(formData.coordinatorName || "");
   const [coordinatorDesignationLocal, setCoordinatorDesignationLocal] = useState<string>(formData.coordinatorDesignation || "");
+  // Inline feedback for a rejected keystroke (currently only "contains a
+  // number") - shown until the next valid keystroke, same convention as the
+  // other inline errors on this step.
+  const [coordinatorNameFormatError, setCoordinatorNameFormatError] = useState<string>("");
+  const [coordinatorDesignationFormatError, setCoordinatorDesignationFormatError] = useState<string>("");
 
   const [selectedCountryCode, setSelectedCountryCode] = useState("+91");
   const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
@@ -141,7 +146,13 @@ export default function CoordinatorForm({
 
     if (value === "") {
       setCoordinatorNameLocal("");
+      setCoordinatorNameFormatError("");
       onAlphabetInput(e, "coordinatorName");
+      return;
+    }
+
+    if (/\d/.test(value)) {
+      setCoordinatorNameFormatError("Coordinator name should not contain numbers");
       return;
     }
 
@@ -149,13 +160,14 @@ export default function CoordinatorForm({
       return;
     }
 
-    const allowedCharsRegex = /^[A-Za-z][A-Za-z0-9\s]*$/;
+    const allowedCharsRegex = /^[A-Za-z][A-Za-z\s]*$/;
     if (!allowedCharsRegex.test(value)) {
       return;
     }
 
     if (value.length > 100) return;
 
+    setCoordinatorNameFormatError("");
     setCoordinatorNameLocal(value);
 
     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
@@ -179,7 +191,13 @@ export default function CoordinatorForm({
 
     if (value === "") {
       setCoordinatorDesignationLocal("");
+      setCoordinatorDesignationFormatError("");
       onAlphabetInput(e, "coordinatorDesignation");
+      return;
+    }
+
+    if (/\d/.test(value)) {
+      setCoordinatorDesignationFormatError("Coordinator designation should not contain numbers");
       return;
     }
 
@@ -187,13 +205,14 @@ export default function CoordinatorForm({
       return;
     }
 
-    const allowedCharsRegex = /^[A-Za-z][A-Za-z0-9\s]*$/;
+    const allowedCharsRegex = /^[A-Za-z][A-Za-z\s]*$/;
     if (!allowedCharsRegex.test(value)) {
       return;
     }
 
     if (value.length > 100) return;
 
+    setCoordinatorDesignationFormatError("");
     setCoordinatorDesignationLocal(value);
 
     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
@@ -499,14 +518,19 @@ export default function CoordinatorForm({
                 autoComplete="new-password"
                 value={coordinatorNameLocal}
                 onChange={handleCoordinatorNameChange}
+                onBlur={() => setCoordinatorNameFormatError("")}
                 placeholder="Enter coordinator name"
                 maxLength={100}
                 className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
-            {errors.coordinatorName && (
+            {errors.coordinatorName ? (
               <p className="text-p2 font-body font-regular text-red-500 mt-1">
                 {errors.coordinatorName}
+              </p>
+            ) : coordinatorNameFormatError && (
+              <p className="text-p2 font-body font-regular text-red-500 mt-1">
+                {coordinatorNameFormatError}
               </p>
             )}
           </div>
@@ -525,14 +549,19 @@ export default function CoordinatorForm({
                 autoComplete="new-password"
                 value={coordinatorDesignationLocal}
                 onChange={handleCoordinatorDesignationChange}
+                onBlur={() => setCoordinatorDesignationFormatError("")}
                 placeholder="Enter designation"
                 maxLength={100}
                 className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
               />
             </div>
-            {errors.coordinatorDesignation && (
+            {errors.coordinatorDesignation ? (
               <p className="text-p2 font-body font-regular text-red-500 mt-1">
                 {errors.coordinatorDesignation}
+              </p>
+            ) : coordinatorDesignationFormatError && (
+              <p className="text-p2 font-body font-regular text-red-500 mt-1">
+                {coordinatorDesignationFormatError}
               </p>
             )}
           </div>
