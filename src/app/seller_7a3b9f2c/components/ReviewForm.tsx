@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { GoCheckCircleFill } from "react-icons/go";
+import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
 
 interface Props {
   formData: any;
@@ -70,9 +71,10 @@ export default function ReviewForm({
           <Row label="Phone Number" value={formData.coordinatorMobile} />
           <FileRow
             label="Authorization Letter"
-            name={formData.authorizationLetterFile?.name || "-"}
-            uploaded={!!formData.authorizationLetterFile}
+            name={formData.authorizationLetterFile?.name || formData.authorizationLetterFileName || "-"}
+            uploaded={!!formData.authorizationLetterFile || isRealFileUrl(formData.authorizationLetterUrl)}
             file={formData.authorizationLetterFile}
+            fileUrl={formData.authorizationLetterUrl}
           />
         </Card>
         </div>
@@ -84,8 +86,9 @@ export default function ReviewForm({
             <LicenseRow
               productName="GST"
               licenseNumber={formData.gstNumber}
-              uploaded={!!formData.gstFile}
+              uploaded={!!formData.gstFile || isRealFileUrl(formData.gstFileUrl)}
               file={formData.gstFile}
+              fileUrl={formData.gstFileUrl}
               showView={true}
             />
           </div>
@@ -101,8 +104,9 @@ export default function ReviewForm({
                       key={productName}
                       productName={productName}
                       licenseNumber={license?.number || ""}
-                      uploaded={!!license?.file}
+                      uploaded={!!license?.file || isRealFileUrl(license?.fileUrl)}
                       file={license?.file}
+                      fileUrl={license?.fileUrl}
                       showView={true}
                     />
                   );
@@ -115,16 +119,17 @@ export default function ReviewForm({
           {formData.agreements && Object.keys(formData.agreements).length > 0 && (
             <div className="mt-2 space-y-3">
               {Object.entries(formData.agreements as Record<string, any>).map(([code, agreement]) => {
-                if (!agreement?.file && !agreement?.number) return null;
+                if (!agreement?.file && !agreement?.fileUrl && !agreement?.number) return null;
                 const label = AGREEMENT_LABELS[code] || code.replace(/_/g, " ");
                 return (
                   <div key={code} className="flex flex-col gap-1">
                     {agreement?.number && <Row label={`${label} Number`} value={agreement.number} />}
                     <FileRow
                       label={label}
-                      name={agreement?.file?.name || "-"}
-                      uploaded={!!agreement?.file}
+                      name={agreement?.file?.name || agreement?.fileName || "-"}
+                      uploaded={!!agreement?.file || isRealFileUrl(agreement?.fileUrl)}
                       file={agreement?.file}
+                      fileUrl={agreement?.fileUrl}
                     />
                   </div>
                 );
@@ -159,9 +164,10 @@ export default function ReviewForm({
 
     <FileRow
       label=""
-      name={formData.cancelledChequeFile?.name || "cancelled-cheque.pdf"}
-      uploaded={!!formData.cancelledChequeFile}
+      name={formData.cancelledChequeFile?.name || formData.cancelledChequeFileName || "cancelled-cheque.pdf"}
+      uploaded={!!formData.cancelledChequeFile || isRealFileUrl(formData.cancelledChequeUrl)}
       file={formData.cancelledChequeFile}
+      fileUrl={formData.cancelledChequeUrl}
       showStatus={false}
     />
 
@@ -285,17 +291,20 @@ function LicenseRow({
   licenseNumber,
   uploaded,
   file,
+  fileUrl,
   showView = true
 }: {
   productName: string;
   licenseNumber: string;
   uploaded: boolean;
   file?: File | null;
+  fileUrl?: string;
   showView?: boolean;
 }) {
   const handleView = () => {
     if (file) {
-      const fileUrl = URL.createObjectURL(file);
+      window.open(URL.createObjectURL(file), "_blank");
+    } else if (fileUrl) {
       window.open(fileUrl, "_blank");
     }
   };
@@ -332,7 +341,7 @@ function LicenseRow({
                 Uploaded
               </span>
 
-              {showView && file && (
+              {showView && (file || fileUrl) && (
                 <button
                   onClick={handleView}
                   className="text-primary-800 text-p3 font-body font-medium hover:underline whitespace-nowrap"
@@ -361,18 +370,21 @@ function FileRow({
   name,
   uploaded,
   file,
+  fileUrl,
   label,
   showStatus = true
 }: {
   name: string;
   uploaded: boolean;
   file?: File | null;
+  fileUrl?: string;
   label?: string;
    showStatus?: boolean;
 }) {
   const handleView = () => {
     if (file) {
-      const fileUrl = URL.createObjectURL(file);
+      window.open(URL.createObjectURL(file), '_blank');
+    } else if (fileUrl) {
       window.open(fileUrl, '_blank');
     }
   };
@@ -397,7 +409,7 @@ function FileRow({
               </>
             )}
 
-            {file && (
+            {(file || fileUrl) && (
               <button
                 onClick={handleView}
                 className="text-primary-800 text-p3 font-body font-medium hover:underline cursor-pointer"

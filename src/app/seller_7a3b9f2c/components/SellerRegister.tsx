@@ -1848,18 +1848,25 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
         pinCode: formData.pincode,
       };
 
-      // Build coordinator object
+      // Build coordinator object. If the authorization letter was already
+      // uploaded during an earlier Save Draft (the common case - formData's
+      // local File is cleared to null once that upload succeeds), send that
+      // real URL through instead of "PENDING" - otherwise finalizeDraft
+      // unconditionally overwrites the stored URL with whatever's in this
+      // request, and since there's no local File left to re-upload in STEP 3
+      // below, the real URL would never come back and the submitted seller
+      // would be left with a permanent "PENDING" placeholder.
       const coordinator: TempSellerCoordinator = {
         name: formData.coordinatorName,
         designation: formData.coordinatorDesignation,
         email: formData.coordinatorEmail,
         mobile: formData.coordinatorMobile,
-        // Same "PENDING" placeholder pattern used for gstFileUrl/bankDocumentFileUrl
-        // below - the real URL is filled in once the upload step completes.
-        authorizationLetterUrl: placeholderUrl,
+        authorizationLetterUrl: isRealFileUrl(formData.authorizationLetterUrl)
+          ? formData.authorizationLetterUrl
+          : placeholderUrl,
       };
 
-      // Build bank details WITH placeholder
+      // Build bank details - same already-uploaded fallback as coordinator above.
       const bankDetails: TempSellerBankDetails = {
         bankName: formData.bankName,
         branch: formData.branch,
@@ -1869,7 +1876,9 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
         talukaId: formData.bankTalukaId,
         accountNumber: formData.accountNumber,
         accountHolderName: formData.accountHolderName,
-        bankDocumentFileUrl: placeholderUrl,
+        bankDocumentFileUrl: isRealFileUrl(formData.cancelledChequeUrl)
+          ? formData.cancelledChequeUrl
+          : placeholderUrl,
       };
 
       // Prepare per-product license documents array WITH placeholder.
@@ -1882,10 +1891,12 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
         const product = productTypes.find(p => p.productTypeName === productName);
         const license = formData.licenses[productName];
 
+        const licenseFileUrl: string | undefined = license?.fileUrl;
+
         return {
           productTypeId: product?.productTypeId,
           documentNumber: license?.number || "",
-          documentFileUrl: placeholderUrl,
+          documentFileUrl: isRealFileUrl(licenseFileUrl) ? (licenseFileUrl as string) : placeholderUrl,
           licenseIssueDate: license?.issueDate ? license.issueDate.toISOString().split('T')[0] : undefined,
           licenseExpiryDate: license?.expiryDate ? license.expiryDate.toISOString().split('T')[0] : undefined,
           licenseIssuingAuthority: license?.issuingAuthority || "",
@@ -1899,17 +1910,24 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
       // matching code. Includes every code the user actually attached a file
       // for, not just the required ones — optional docs (e.g. Import Licence)
       // should still be submitted if the seller chose to provide them.
+      // A code counts as "attached" whether the file is still a fresh local
+      // File (not yet uploaded) OR was already uploaded during an earlier
+      // Save Draft (local file cleared to null, only fileUrl remains) -
+      // checking .file alone silently drops every already-uploaded agreement
+      // from the finalize request, which then gets rejected server-side as
+      // missing even though the seller genuinely attached it earlier.
       const attachedAgreementCodes = Object.keys(formData.agreements || {});
       const agreementDocuments: TempSellerDocument[] = attachedAgreementCodes
-        .filter((code) => formData.agreements[code]?.file)
+        .filter((code) => formData.agreements[code]?.file || isRealFileUrl(formData.agreements[code]?.fileUrl))
         .map((code) => {
           const agreement = formData.agreements[code];
           const documentTypeId = documentTypes.find(dt => dt.documentTypeCode === code)?.documentTypeId;
+          const agreementFileUrl: string | undefined = agreement.fileUrl;
 
           return {
             documentTypeId,
             documentNumber: agreement.number || "N/A",
-            documentFileUrl: placeholderUrl,
+            documentFileUrl: isRealFileUrl(agreementFileUrl) ? (agreementFileUrl as string) : placeholderUrl,
             licenseIssueDate: agreement.issueDate ? agreement.issueDate.toISOString().split('T')[0] : undefined,
             licenseExpiryDate: agreement.expiryDate ? agreement.expiryDate.toISOString().split('T')[0] : undefined,
           };
@@ -1933,8 +1951,11 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
         coordinator,
         bankDetails,
         gstNumber: formData.gstNumber,
-        gstFileUrl: placeholderUrl,
-        companyRegistrationCertificateUrl: placeholderUrl,
+        // Same already-uploaded fallback as coordinator/bankDetails above.
+        gstFileUrl: isRealFileUrl(formData.gstFileUrl) ? formData.gstFileUrl : placeholderUrl,
+        companyRegistrationCertificateUrl: isRealFileUrl(formData.companyRegistrationCertificateUrl)
+          ? formData.companyRegistrationCertificateUrl
+          : placeholderUrl,
         documents,
       };
 
@@ -2010,10 +2031,13 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
 
         toast.error(errorMessage + "Your application could not be completed. Please try again.");
 
-        // Delete the incomplete temp seller record
+        // Delete the incomplete temp seller record. tempSellerId must be
+        // cleared too - otherwise a retry keeps calling finalizeDraftTempSeller
+        // on this now-deleted id and 404s forever instead of creating a fresh one.
         if (createdTempSellerId) {
           toast.info("Please Try Again");
           await uploadSellerRegDocService.deleteTempSeller(createdTempSellerId);
+          setTempSellerId(null);
           toast.info("Please Try Again");
         }
 
@@ -2034,6 +2058,7 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
       if (createdTempSellerId && !showSuccessModal) {
         try {
           await uploadSellerRegDocService.deleteTempSeller(createdTempSellerId);
+          setTempSellerId(null);
           console.log("✅ Cleaned up incomplete registration");
         } catch (cleanupError) {
           console.error("Cleanup failed:", cleanupError);

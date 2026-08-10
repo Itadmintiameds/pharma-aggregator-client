@@ -156,6 +156,11 @@ class UploadSellerRegDocService {
  
         console.log(`🔍 Matching ${productName}:`, matchingDoc);
  
+        // Verified live against the running backend: GET /temp-sellers/{id}
+        // returns the raw TempSellerDocument entity, and Jackson serializes
+        // its id field as "DocumentsId" (capital D, matching the entity's
+        // unconventionally-named Java field) rather than the getter-mangled
+        // "documentsId" one would normally expect.
         const documentId = matchingDoc?.DocumentsId;
  
         if (!documentId) {
