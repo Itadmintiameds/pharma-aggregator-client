@@ -208,12 +208,15 @@ async verifyEmailOtp(
 /**
  * Check if coordinator email already exists in the system
  */
-async checkCoordinatorEmail(email: string): Promise<boolean> {
+async checkCoordinatorEmail(email: string, excludeTempSellerId?: number | null): Promise<boolean> {
   try {
     console.log(`📡 Checking if coordinator email exists: ${email}`);
-    
+
     const response = await api.get<any>('/temp-sellers/coordinator/check-email', {
-      params: { email }
+      // excludeTempSellerId keeps this from flagging the email the seller
+      // already saved on their OWN in-progress draft as a duplicate when
+      // they re-visit this step (see backend TempSellerCoordinatorService).
+      params: { email, tempSellerId: excludeTempSellerId ?? undefined }
     });
     
     console.log("✅ Email check response:", response.data);
@@ -283,13 +286,13 @@ async verifySMSOtp(data: SMSVerifyOtpRequest): Promise<SMSOtpResponse> {
     return Promise.reject({ message });
   }
 }
-async checkCoordinatorPhone(phone: string): Promise<boolean> {
+async checkCoordinatorPhone(phone: string, excludeTempSellerId?: number | null): Promise<boolean> {
   try {
     const cleanPhone = phone.replace(/\D/g, '');
-    
+
     console.log(`📡 Checking if coordinator phone exists: ${cleanPhone}`);
     const response = await api.get<any>('/temp-sellers/coordinator/check-phone', {
-      params: { mobile: cleanPhone }
+      params: { mobile: cleanPhone, tempSellerId: excludeTempSellerId ?? undefined }
     });
     
     console.log("✅ Phone check response:", response.data);

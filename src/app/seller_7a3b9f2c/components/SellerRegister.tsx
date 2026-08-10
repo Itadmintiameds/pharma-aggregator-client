@@ -633,7 +633,7 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
     setEmailExistsError("")
 
     try {
-      const exists = await sellerRegService.checkCoordinatorEmail(email)
+      const exists = await sellerRegService.checkCoordinatorEmail(email, tempSellerId)
       if (exists) {
         setEmailExistsError("This email is already registered. Please use a different email address.")
         return true
@@ -660,7 +660,7 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
     setPhoneExistsError("")
 
     try {
-      const exists = await sellerRegService.checkCoordinatorPhone(cleanPhone)
+      const exists = await sellerRegService.checkCoordinatorPhone(cleanPhone, tempSellerId)
       if (exists) {
         setPhoneExistsError("This phone number is already registered. Please use a different number.")
         return true
