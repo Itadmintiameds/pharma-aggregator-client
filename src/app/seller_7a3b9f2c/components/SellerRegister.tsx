@@ -51,7 +51,19 @@ interface DraftDocumentRow {
   documentFileName?: string;
 }
 
-export default function SellerRegistration() {
+interface SellerRegistrationProps {
+  // Set when rendered inside the dashboard's onboarding gate rather than the
+  // standalone marketing page: suppresses this wizard's own 5-step sidebar
+  // (the gate renders its own 3-point stepper instead) and, on submit,
+  // hands control back to the gate instead of navigating away.
+  embedded?: boolean
+  onSubmitted?: () => void
+  // Called by the very first step's "Back" button when embedded, since
+  // there's no earlier wizard step for it to fall back to (see CompanyForm).
+  onExitToIntro?: () => void
+}
+
+export default function SellerRegistration({ embedded = false, onSubmitted, onExitToIntro }: SellerRegistrationProps = {}) {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
@@ -2076,7 +2088,7 @@ export default function SellerRegistration() {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <SellerRegistrationLayout step={step}>
+      <SellerRegistrationLayout step={step} hideSidebar={embedded}>
         {step === 1 && (
           <CompanyForm
             formData={formData}
@@ -2105,6 +2117,7 @@ export default function SellerRegistration() {
             setIsProductDropdownOpen={setIsProductDropdownOpen}
             prevStep={prevStep}
             nextStep={nextStep}
+            onExitToIntro={embedded ? onExitToIntro : undefined}
           />
         )}
 
@@ -2245,7 +2258,11 @@ export default function SellerRegistration() {
         open={showSuccessModal}
         onClose={() => {
           setShowSuccessModal(false)
-          router.push("/")
+          if (embedded) {
+            onSubmitted?.()
+          } else {
+            router.push("/")
+          }
         }}
         applicationId={applicationId}
         email={formData.coordinatorEmail}

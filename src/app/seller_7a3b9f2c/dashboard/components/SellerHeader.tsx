@@ -14,9 +14,13 @@ import { SellerProfile } from "@/src/types/seller/SellerProfileData";
 interface SellerHeaderProps {
   currentView?: string;
   setCurrentView?: (view: any) => void;
+  // While the seller isn't yet approved, My Profile/Settings are disabled —
+  // same admin-approval gate as the sidebar (see OnboardingGate). Defaults
+  // to true so this behaves as before wherever it isn't passed.
+  approved?: boolean;
 }
 
-const SellerHeader = ({ currentView, setCurrentView }: SellerHeaderProps) => {
+const SellerHeader = ({ currentView, setCurrentView, approved = true }: SellerHeaderProps) => {
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -141,15 +145,17 @@ const SellerHeader = ({ currentView, setCurrentView }: SellerHeaderProps) => {
             {showUserMenu && (
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-neutral-100 py-1 z-50">
                 <button
-                  onClick={() => { setShowUserMenu(false); router.push("/seller_7a3b9f2c/profile"); }}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 hover:bg-primary-05 transition-colors"
+                  onClick={() => { if (!approved) return; setShowUserMenu(false); router.push("/seller_7a3b9f2c/profile"); }}
+                  disabled={!approved}
+                  className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 transition-colors ${approved ? "hover:bg-primary-05" : "opacity-40 cursor-not-allowed"}`}
                 >
                   <User size={16} />
                   <span>My Profile</span>
                 </button>
                 <button
-                  onClick={() => { setShowUserMenu(false); router.push("/seller_7a3b9f2c/settings"); }}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 hover:bg-primary-05 transition-colors"
+                  onClick={() => { if (!approved) return; setShowUserMenu(false); router.push("/seller_7a3b9f2c/settings"); }}
+                  disabled={!approved}
+                  className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 transition-colors ${approved ? "hover:bg-primary-05" : "opacity-40 cursor-not-allowed"}`}
                 >
                   <Settings size={16} />
                   <span>Settings</span>

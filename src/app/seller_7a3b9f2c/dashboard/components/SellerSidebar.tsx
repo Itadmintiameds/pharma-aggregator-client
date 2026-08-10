@@ -8,6 +8,7 @@ import {
   Package,
   Gift,
   ChevronRight,
+  Lock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { HiOutlineShoppingBag } from "react-icons/hi";
@@ -21,9 +22,14 @@ import { sellerAuthService } from "@/src/services/seller/authService";
 interface SellerSidebarProps {
   currentView: DashboardView;
   setCurrentView: (view: DashboardView) => void;
+  // While the seller isn't yet approved, every item except Overview is
+  // disabled — the dashboard's Overview area is the only thing they can use
+  // until admin approval (see OnboardingGate). Defaults to true so pages
+  // that don't pass it (e.g. any leftover standalone usage) behave as before.
+  approved?: boolean;
 }
 
-const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
+const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerSidebarProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -61,6 +67,7 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
   const handleUpgrade = () => toast.success("Upgrade account clicked");
 
   const handleMenuClick = (itemId: string, path: string) => {
+    if (!approved && itemId !== "overview") return;
     setCurrentView(itemId as DashboardView);
     router.push(path);
   };
@@ -82,10 +89,12 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
       <nav className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 8 }}>
         {menuItems.map((item) => {
           const active = isActive(item.id, item.path);
+          const disabled = !approved && item.id !== "overview";
           return (
             <button
               key={item.id}
               onClick={() => handleMenuClick(item.id, item.path)}
+              disabled={disabled}
               style={{
                 alignSelf: "stretch",
                 height: 48,
@@ -94,7 +103,7 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
                 background: active ? "var(--Colors-Secondary-Secondary-700, #7D32FC)" : "transparent",
                 borderRadius: 8,
                 border: "none",
-                cursor: "pointer",
+                cursor: disabled ? "not-allowed" : "pointer",
                 display: "flex",
                 alignItems: "center",
                 paddingLeft: 16,
@@ -103,17 +112,19 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
                 overflow: "hidden",
               }}
               onMouseEnter={(e) => {
-                if (!active) (e.currentTarget as HTMLButtonElement).style.background = "#F4F0FF";
+                if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "#F4F0FF";
               }}
               onMouseLeave={(e) => {
-                if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
               }}
             >
-              <span style={{ display: "flex", flexShrink: 0, color: active ? "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" : "var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)" }}>
+              <span style={{ display: "flex", flexShrink: 0, color: disabled ? "var(--Colors-Primary-Neutral-pneutral-500, #9C9C9A)" : active ? "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" : "var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)" }}>
                 {item.icon}
               </span>
               <span style={{
-                color: active ? "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" : "var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)",
+                flex: 1,
+                textAlign: "left",
+                color: disabled ? "var(--Colors-Primary-Neutral-pneutral-500, #9C9C9A)" : active ? "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" : "var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)",
                 fontSize: 16,
                 fontFamily: "Work Sans, sans-serif",
                 fontWeight: active ? 500 : 400,
@@ -121,6 +132,9 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
               }}>
                 {item.label}
               </span>
+              {disabled && (
+                <Lock size={16} style={{ flexShrink: 0, color: "var(--Colors-Primary-Neutral-pneutral-500, #9C9C9A)" }} />
+              )}
             </button>
           );
         })}

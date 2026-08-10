@@ -2,9 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { sellerAuthService } from "@/src/services/seller/authService";
-import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
-import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
 import {
   FaUserPlus,
   FaBox,
@@ -17,72 +14,38 @@ import {
   FaHandsHelping,
   FaSignInAlt,
   FaArrowRight,
-  FaClock,
 } from "react-icons/fa";
 
-import SellerRegister from "./SellerRegister";
 import ProductOnboarding from "./ProductOnboarding";
 import SellerDeclaration from "./SellerDeclaration";
+import SellerRegister from "./SellerRegister";
 import DrugProductList from "./DrugProductList";
 import LoginModals from "@/src/app/modals/LoginModals/LoginModals";
-
-type SellerViewState = "checking" | "guest" | "register" | "pending";
+import { useSellerOnboardingStatus } from "@/src/hooks/useSellerOnboardingStatus";
 
 const SellerJourney = () => {
   const router = useRouter();
-  const [viewState, setViewState] = useState<SellerViewState>("checking");
+  const { status } = useSellerOnboardingStatus();
   const [showProductOnboarding, setShowProductOnboarding] = useState(false);
   const [showDeclaration, setShowDeclaration] = useState(false);
   const [showProductList, setShowProductList] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  // Only for a brand-new visitor starting signup from this marketing page —
+  // SellerRegister's own SignupForm step handles account creation before any
+  // session exists, so it has to render here rather than behind the
+  // dashboard's auth guard. The moment that signup makes them authenticated,
+  // the redirect effect below takes over and sends them to the dashboard to
+  // continue the same wizard (resumed from their now-existing TempSeller draft).
+  const [showRegisterFlow, setShowRegisterFlow] = useState(false);
 
-
-  const routeAuthenticatedSeller = async () => {
-    if (!sellerAuthService.isAuthenticated()) {
-      setViewState("guest");
-      return;
-    }
-    setViewState("checking");
-
-    try {
-      await sellerProfileService.getCurrentSellerProfile();
+  // Any authenticated seller — regardless of registration/approval status —
+  // now lands on the dashboard, which owns the onboarding wizard/pending
+  // gate itself. This marketing page only ever renders for guests.
+  useEffect(() => {
+    if (status !== "guest" && status !== "checking") {
       router.replace("/seller_7a3b9f2c/dashboard");
-      return; // keep showing the spinner until the navigation lands
-    } catch {
-      // No approved Seller row yet — fall through to check TempSeller.
     }
-
-    const currentUser = sellerAuthService.getCurrentUser();
-    if (!currentUser?.userId) {
-      setViewState("register");
-      return;
-    }
-
-    try {
-      const tempSeller = await sellerRegService.getTempSellerByUserId(currentUser.userId);
-      const status = typeof tempSeller?.status === "string" ? tempSeller.status.toUpperCase() : "";
-      // A DRAFT row is an in-progress, unsubmitted registration - route back
-      // into the wizard (which resumes it) rather than the "already
-      // submitted, pending review" screen. Any other status (OPEN,
-      // RESUBMITTED, CORRECTION_REQUIRED, REJECTED, ...) means a real
-      // submission exists, so "pending" is still correct for those.
-      setViewState(status === "DRAFT" ? "register" : "pending");
-    } catch {
-      setViewState("register");
-    }
-  };
-
-  useEffect(() => {
-    routeAuthenticatedSeller();
-  }, []);
-
-  useEffect(() => {
-    const handleAuthChanged = () => {
-      routeAuthenticatedSeller();
-    };
-    window.addEventListener('auth-changed', handleAuthChanged);
-    return () => window.removeEventListener('auth-changed', handleAuthChanged);
-  }, []);
+  }, [status, router]);
 
   const handleSellerLogin = () => {
     setShowLoginModal(true);
@@ -90,7 +53,7 @@ const SellerJourney = () => {
 
   const handleAcceptDeclaration = () => {
     setShowDeclaration(false);
-    setViewState("register");
+    setShowRegisterFlow(true);
   };
 
   const handleCloseDeclaration = () => {
@@ -176,7 +139,7 @@ const SellerJourney = () => {
   // Brief spinner while we resolve which of the two seller tables (if any)
   // has this user's data — never the marketing/login page, so a returning
   // seller can't accidentally hit "Register" or "Login" mid-check.
-  if (viewState === "checking") {
+  if (status === "checking") {
     return (
       <div className="min-h-screen bg-primary-100 pt-20 flex items-center justify-center">
         <div className="w-10 h-10 rounded-full border-4 border-primary-200 border-t-primary-700 animate-spin" />
@@ -184,7 +147,7 @@ const SellerJourney = () => {
     );
   }
 
-  if (viewState === "register") {
+  if (showRegisterFlow && status === "guest") {
     return (
       <div className="min-h-screen bg-primary-100 pt-20">
         <SellerRegister />
@@ -192,28 +155,12 @@ const SellerJourney = () => {
     );
   }
 
-  if (viewState === "pending") {
+  // Any other non-guest status is mid-redirect (see effect above) — keep
+  // showing the spinner rather than flashing the marketing page.
+  if (status !== "guest") {
     return (
-      <div className="min-h-screen bg-primary-100 pt-20 flex items-center justify-center px-4">
-        <div className="bg-base-white rounded-2xl shadow-lg max-w-[28rem] w-full p-10 text-center">
-          <div className="w-16 h-16 rounded-full bg-warning-50 flex items-center justify-center mx-auto mb-6 text-warning-500">
-            <FaClock className="w-7 h-7" />
-          </div>
-          <h2 className="text-h4 font-heading font-bold text-pneutral-900 mb-3">
-            Application Under Review
-          </h2>
-          <p className="text-p3 font-body text-pneutral-600 mb-6">
-            You&apos;ve already submitted your company details. Our team is
-            reviewing your registration and you&apos;ll be notified by email
-            once your account is approved.
-          </p>
-          <button
-            onClick={() => router.push("/")}
-            className="px-6 py-3 rounded-md bg-primary-800 text-base-white font-bold"
-          >
-            Back to Home
-          </button>
-        </div>
+      <div className="min-h-screen bg-primary-100 pt-20 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-primary-200 border-t-primary-700 animate-spin" />
       </div>
     );
   }

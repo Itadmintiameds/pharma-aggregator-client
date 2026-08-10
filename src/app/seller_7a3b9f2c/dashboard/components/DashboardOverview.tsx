@@ -20,6 +20,7 @@ import FoodInfantForm from "./FoodInfantForm";
 import CosmeticForm from "./CosmeticForm";
 import ConsumableForm from "./ConsumableForm";
 import NonConsumableForm from "./NonConsumableForm";
+import OnboardingGate from "./OnboardingGate";
 
 // interface DashboardOverviewProps {
 //   setCurrentView: (view: DashboardView) => void;
@@ -86,6 +87,7 @@ const DashboardOverview = ({
   }
 
   return (
+    <OnboardingGate>
     <div className="space-y-8">
       {/* Filters */}
       <DashboardFilters 
@@ -177,6 +179,7 @@ const DashboardOverview = ({
         refreshKey={refreshKey}
       />
     </div>
+    </OnboardingGate>
   );
 };
 

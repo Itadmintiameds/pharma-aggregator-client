@@ -8,8 +8,10 @@ import SellerSidebar from "./dashboard/components/SellerSidebar";
 import SellerHeader from "./dashboard/components/SellerHeader";
 import { sellerAuthService } from "@/src/services/seller/authService";
 import { useSessionManager } from "@/src/hooks/useSessionManager";
+import { useSellerOnboardingStatus } from "@/src/hooks/useSellerOnboardingStatus";
 import toast from "react-hot-toast";
 import LogoutConfirmationModal from "./dashboard/components/LogoutConfirmationModal";
+import { DashboardBackInterceptContext } from "@/src/context/DashboardBackInterceptContext";
 
 export default function SellerLayout({
   children,
@@ -20,7 +22,9 @@ export default function SellerLayout({
   const router = useRouter();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const hasPushedState = useRef(false);
+  const backInterceptorRef = useRef<(() => boolean) | null>(null);
   useSessionManager();
+  const { status: onboardingStatus } = useSellerOnboardingStatus();
 
   // Define public routes that don't require authentication
   const isPublicRoute = () => {
@@ -93,13 +97,26 @@ export default function SellerLayout({
     }
 
     const onBackButton = () => {
-      setShowLogoutModal(true);
+      // Give a downstream component (e.g. the onboarding wizard's own
+      // step-back) first refusal on this back-press before falling back to
+      // the logout-confirmation prompt.
+      const handledDownstream = backInterceptorRef.current?.();
+      if (!handledDownstream) {
+        setShowLogoutModal(true);
+      }
 
       window.history.pushState(
         { dashboardProtected: true },
         "",
         window.location.href
       );
+      // Belt-and-suspenders: a raw history.pushState can leave Next's App
+      // Router out of sync with the browser's history stack (it doesn't
+      // carry Next's own navigation metadata), which has shown up as a
+      // fallback hard navigation away from the dashboard on the very next
+      // back-press instead of staying trapped here. Re-assert the route
+      // through Next's own router too so it can't drift.
+      router.replace("/seller_7a3b9f2c/dashboard");
     };
 
     const timeout = setTimeout(() => {
@@ -156,14 +173,17 @@ export default function SellerLayout({
 
   // For protected routes, render with sidebar and header
   return (
+    <DashboardBackInterceptContext.Provider value={backInterceptorRef}>
     <div className="min-h-screen bg-secondary-50">
       <SellerSidebar
         currentView={currentView}
         setCurrentView={() => {}}
+        approved={onboardingStatus === "approved"}
       />
       <SellerHeader
         currentView={currentView}
         setCurrentView={() => {}}
+        approved={onboardingStatus === "approved"}
       />
       <main className="ml-64 p-6" style={{ marginTop: 74 }}>
         {children}
@@ -188,6 +208,7 @@ export default function SellerLayout({
         onConfirm={handleConfirmLogout}
       />
     </div>
+    </DashboardBackInterceptContext.Provider>
   );
 }
 

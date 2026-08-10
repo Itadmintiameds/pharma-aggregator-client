@@ -46,6 +46,11 @@ interface Props {
   setIsProductDropdownOpen: (open: boolean) => void;
   prevStep: () => void;
   nextStep: () => void;
+  // When rendered inside the dashboard's onboarding gate, "Back" on this
+  // first step has nowhere earlier in the wizard to go to, so it returns to
+  // the gate's "Fill Company Details" intro card instead of navigating to
+  // the marketing homepage.
+  onExitToIntro?: () => void;
 }
 
 // Country codes data for company phone with validation rules
@@ -120,6 +125,7 @@ export default function CompanyForm({
   setIsProductDropdownOpen,
   prevStep,
   nextStep,
+  onExitToIntro,
 }: Props) {
 
   const router = useRouter();
@@ -1289,9 +1295,15 @@ export default function CompanyForm({
       <div className="flex justify-between mt-10">
         <div className="flex gap-4">
           <button
-            onClick={() => router.push("/")}
-            className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold"
+            onClick={() => (onExitToIntro ? onExitToIntro() : router.push("/"))}
+            className="h-12 px-6 border-2 border-pneutral-900 text-pneutral-900 rounded-xl flex items-center gap-2"
           >
+            <Image
+              src="/icons/backbuttonicon.png"
+              alt="Back"
+              width={18}
+              height={18}
+            />
             Back
           </button>
         </div>

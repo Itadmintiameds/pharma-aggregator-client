@@ -16,7 +16,6 @@ import {
   type ResetPasswordFormData 
 } from "@/src/schema/seller/loginSchema";
 import { sellerAuthService } from "@/src/services/seller/authService";
-import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
 import { User, AuthStep } from "@/src/types/seller/authData";
 import { useConfirmClose } from "@/src/hooks/useConfirmClose";
 import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
@@ -497,28 +496,11 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
       if (role === "seller") {
         // A seller login doesn't necessarily mean registration was completed —
         // they may have only just signed up, or have a TempSeller still
-        // pending approval. Only send them to the dashboard if an approved
-        // Seller profile actually exists; otherwise send them back into the
-        // registration wizard to finish/continue it.
-        try {
-          await sellerProfileService.getCurrentSellerProfile();
-          dashboardPath = "/seller_7a3b9f2c/dashboard";
-        } catch (profileError: any) {
-          // Only "no profile yet" (404 → "Seller profile not found") means the
-          // seller genuinely hasn't completed/been approved for registration.
-          // Any other failure (network blip, 500, timeout) is not proof of
-          // that, so don't silently dump an approved seller back into the
-          // registration wizard for it — surface the error and stop instead.
-          if (profileError?.message === "Seller profile not found") {
-            dashboardPath = "/seller_7a3b9f2c";
-          } else {
-            console.error("❌ Failed to verify seller profile status:", profileError);
-            toast.error("Unable to verify your account status. Please try logging in again.");
-            setIsNavigating(false);
-            setIsLoading(false);
-            return;
-          }
-        }
+        // pending approval. The dashboard itself now handles that: it shows
+        // the onboarding wizard/pending-approval gate in place of the normal
+        // Overview until an approved Seller profile exists, so every seller
+        // login lands there directly regardless of status.
+        dashboardPath = "/seller_7a3b9f2c/dashboard";
         router.push(dashboardPath);
       } else if (role === "buyer") {
         dashboardPath = "/buyer_e8d45a1b";
