@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Hash, Building2, MapPin, ChevronDown } from "lucide-react";
+import { Hash, Building2, MapPin, ChevronDown, AlertCircle } from "lucide-react";
 import { HiOutlineUser } from "react-icons/hi2";
 import { IoLockClosedOutline } from "react-icons/io5";
 import { RiBankLine } from "react-icons/ri";
@@ -466,7 +466,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             </div>
             {errors.bankStateId && (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.bankStateId}</span>
               </p>
             )}
@@ -523,7 +523,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             </div>
             {errors.bankDistrictId && (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.bankDistrictId}</span>
               </p>
             )}
@@ -580,7 +580,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             </div>
             {errors.bankTalukaId && (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.bankTalukaId}</span>
               </p>
             )}
@@ -686,7 +686,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
           )}
           {errors.cancelledChequeFile && (
             <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-              <span className="mr-1">⚠️</span>
+              <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
               <span>{errors.cancelledChequeFile}</span>
             </p>
           )}

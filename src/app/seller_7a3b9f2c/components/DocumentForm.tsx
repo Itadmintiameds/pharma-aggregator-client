@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { AlertCircle } from "lucide-react";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { ProductTypeResponse } from "@/src/types/seller/SellerRegMasterData";
 import { toast } from "react-toastify";
@@ -41,6 +42,58 @@ interface Props {
 // (documentTypeLabel) so the frontend schema, this form, and SellerRegister's
 // submit payload all describe the same code the same way.
 const getAgreementLabel = (code: string): string => documentTypeLabel(code);
+
+// MUI's DatePicker can't take Tailwind classes, so its look has to be
+// hand-matched to FormInput.tsx's default ("lg") field instead of drifting
+// per call site. This is the one place that mapping lives - every DatePicker
+// on this page should use it so date fields are indistinguishable from the
+// text fields around them. #737373/#f5f5f5 mirror Tailwind's built-in
+// neutral-500/neutral-100 (the "neutral" palette FormInput's default border
+// uses is never overridden in global.css, so it's Tailwind's stock color,
+// not one of this app's custom --pneutral-* tokens); #ef4444 mirrors
+// Tailwind's stock red-500 (FormInput's `border-red-500` error state). The
+// focus color intentionally *does* use a custom token (var(--secondary-500))
+// since FormInput's focus ring is themed, not a Tailwind default.
+const dateFieldSx = (hasError: boolean, disabled?: boolean) => ({
+  "& .MuiOutlinedInput-root": {
+    height: "52px",
+    borderRadius: "12px",
+    backgroundColor: disabled ? "#f5f5f5" : "#ffffff",
+    "& .MuiOutlinedInput-notchedOutline": {
+      borderColor: hasError ? "#ef4444" : "#737373",
+    },
+    "&:hover .MuiOutlinedInput-notchedOutline": {
+      borderColor: hasError ? "#ef4444" : "#737373",
+    },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      borderColor: hasError ? "#ef4444" : "var(--secondary-500)",
+      borderWidth: "2px",
+    },
+    "&.Mui-focused": {
+      boxShadow: hasError ? "none" : "0 0 0 2px var(--secondary-200)",
+    },
+  },
+  "& .MuiInputBase-input": {
+    padding: "0 14px",
+    fontSize: "16px",
+    fontFamily: "var(--font-body)",
+    fontWeight: 400,
+    color: disabled ? "var(--pneutral-500)" : "var(--pneutral-900)",
+    "&::placeholder": {
+      fontSize: "16px",
+      fontFamily: "var(--font-body)",
+      fontWeight: 400,
+      color: "var(--pneutral-500)",
+      opacity: 1,
+    },
+  },
+  "& .Mui-disabled": {
+    WebkitTextFillColor: "var(--pneutral-500) !important",
+  },
+  "& .clearButton": {
+    opacity: "1 !important",
+  },
+});
 
 // Helper function to calculate license status based on dates
 const calculateLicenseStatus = (issueDate: Date | null, expiryDate: Date | null): string => {
@@ -1305,44 +1358,13 @@ export default function DocumentForm({
                           inputProps: {
                             onKeyDown: handleDateInputKeyDown,
                           },
-                          sx: {
-                            '& .MuiOutlinedInput-root': {
-                              height: '52px',
-                              borderRadius: '12px',
-                              backgroundColor: '#ffffff',
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: issueDateError ? '#ef4444' : '#d1d5db',
-                              },
-                              '&:hover .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#d1d5db',
-                              },
-                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#d1d5db',
-                              },
-                            },
-                            '& .MuiInputBase-input': {
-                              padding: '0 14px',
-                              fontSize: '16px',
-                              fontFamily: 'var(--font-body)',
-                              fontWeight: 400,
-                              color: '#1E1E1D',
-                              '&::placeholder': {
-                                fontSize: '16px',
-                                fontFamily: 'var(--font-body)',
-                                fontWeight: 400,
-                                color: '#969793',
-                              },
-                            },
-                            '& .clearButton': {
-                              opacity: '1 !important',
-                            },
-                          },
+                          sx: dateFieldSx(!!issueDateError),
                         },
                       }}
                     />
                     {issueDateError && (
                       <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                        <span className="mr-1">⚠️</span>
+                        <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                         <span>{issueDateError}</span>
                       </p>
                     )}
@@ -1380,47 +1402,13 @@ export default function DocumentForm({
                             onKeyDown: handleDateInputKeyDown,
                             readOnly: isExpiryDisabled,
                           },
-                          sx: {
-                            '& .MuiOutlinedInput-root': {
-                              height: '52px',
-                              borderRadius: '12px',
-                              backgroundColor: isExpiryDisabled ? '#f5f5f5' : '#ffffff',
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: expiryDateError ? '#ef4444' : '#d1d5db',
-                              },
-                              '&:hover .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#d1d5db',
-                              },
-                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#d1d5db',
-                              },
-                            },
-                            '& .MuiInputBase-input': {
-                              padding: '0 14px',
-                              fontSize: '16px',
-                              fontFamily: 'var(--font-body)',
-                              fontWeight: 400,
-                              color: isExpiryDisabled ? '#969793' : '#1E1E1D',
-                              '&::placeholder': {
-                                fontSize: '16px',
-                                fontFamily: 'var(--font-body)',
-                                fontWeight: 400,
-                                color: '#969793',
-                              },
-                            },
-                            '& .Mui-disabled': {
-                              WebkitTextFillColor: '#969793 !important',
-                            },
-                            '& .clearButton': {
-                              opacity: '1 !important',
-                            },
-                          },
+                          sx: dateFieldSx(!!expiryDateError, isExpiryDisabled),
                         },
                       }}
                     />
                     {expiryDateError && (
                       <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                        <span className="mr-1">⚠️</span>
+                        <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                         <span>{expiryDateError}</span>
                       </p>
                     )}
@@ -1661,23 +1649,7 @@ export default function DocumentForm({
                           fullWidth: true,
                           size: "small",
                           placeholder: "DD/MM/YYYY",
-                          sx: {
-                            '& .MuiOutlinedInput-root': {
-                              height: '52px',
-                              borderRadius: '12px',
-                              backgroundColor: '#ffffff',
-                            },
-                            '& .MuiInputBase-input': {
-                              padding: '0 14px',
-                              fontSize: '16px',
-                              fontFamily: 'var(--font-body)',
-                              fontWeight: 400,
-                              color: '#1E1E1D',
-                            },
-                            '& .clearButton': {
-                              opacity: '1 !important',
-                            },
-                          },
+                          sx: dateFieldSx(false),
                         },
                       }}
                     />
@@ -1704,23 +1676,7 @@ export default function DocumentForm({
                           fullWidth: true,
                           size: "small",
                           placeholder: "DD/MM/YYYY",
-                          sx: {
-                            '& .MuiOutlinedInput-root': {
-                              height: '52px',
-                              borderRadius: '12px',
-                              backgroundColor: '#ffffff',
-                            },
-                            '& .MuiInputBase-input': {
-                              padding: '0 14px',
-                              fontSize: '16px',
-                              fontFamily: 'var(--font-body)',
-                              fontWeight: 400,
-                              color: '#1E1E1D',
-                            },
-                            '& .clearButton': {
-                              opacity: '1 !important',
-                            },
-                          },
+                          sx: dateFieldSx(false),
                         },
                       }}
                     />
@@ -1877,7 +1833,7 @@ export default function DocumentForm({
               )}
               {gstFileError && (
                 <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                  <span className="mr-1">⚠️</span>
+                  <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                   <span>{gstFileError}</span>
                 </p>
               )}

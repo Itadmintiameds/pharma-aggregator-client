@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { MapPin, Phone, Mail, Globe, ChevronDown } from "lucide-react";
+import { MapPin, Phone, Mail, Globe, ChevronDown, AlertCircle } from "lucide-react";
 import { HiOutlineUserGroup } from "react-icons/hi2";
 import {
   CompanyTypeResponse,
@@ -504,7 +504,7 @@ export default function CompanyForm({
             </div>
             {errors.companyTypeId && (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.companyTypeId}</span>
               </p>
             )}
@@ -623,7 +623,7 @@ export default function CompanyForm({
   )}
   {errors.companyRegistrationCertificateFile && (
     <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-      <span className="mr-1">⚠️</span>
+      <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
       <span>{errors.companyRegistrationCertificateFile}</span>
     </p>
   )}
@@ -687,7 +687,7 @@ export default function CompanyForm({
             </div>
             {errors.sellerTypeId && (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.sellerTypeId}</span>
               </p>
             )}
@@ -867,7 +867,7 @@ export default function CompanyForm({
             </div>
             {errors.productTypeIds && (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.productTypeIds}</span>
               </p>
             )}
@@ -925,7 +925,7 @@ export default function CompanyForm({
             </div>
             {errors.stateId && (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.stateId}</span>
               </p>
             )}
@@ -988,7 +988,7 @@ export default function CompanyForm({
             </div>
             {errors.districtId && (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.districtId}</span>
               </p>
             )}
@@ -1050,7 +1050,7 @@ export default function CompanyForm({
             </div>
             {errors.talukaId && (
               <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.talukaId}</span>
               </p>
             )}
@@ -1262,7 +1262,7 @@ export default function CompanyForm({
             </div>
             {(errors.phone || companyPhoneError) && (
               <p className="text-p2 font-body font-regular text-red-500 flex items-start mt-1">
-                <span className="mr-1">⚠️</span>
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.phone || companyPhoneError}</span>
               </p>
             )}

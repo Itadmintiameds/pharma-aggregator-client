@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Briefcase, Phone, Mail, ChevronDown } from "lucide-react";
+import { Briefcase, Mail, ChevronDown, AlertCircle } from "lucide-react";
 import VerificationModal from "./OtpModalSixBox";
 import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
 import { sellerAuthService } from "@/src/services/seller/authService";
@@ -599,7 +599,6 @@ export default function CoordinatorForm({
                   placeholder={getPlaceholder()}
                   maxLength={getMaxLength()}
                   disabled={phoneVerified}
-                  leftIcon={<Phone className="w-5 h-5" />}
                   error={errors.coordinatorMobile || phoneError || phoneExistsError}
                   hideMessage
                 />
@@ -618,7 +617,7 @@ export default function CoordinatorForm({
             </div>
             {(errors.coordinatorMobile || phoneError || phoneExistsError) && (
               <p className="text-p2 font-body font-regular text-red-500 flex items-start mt-1">
-                <span className="mr-1">⚠️</span>
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.coordinatorMobile || phoneError || phoneExistsError}</span>
               </p>
             )}
@@ -811,7 +810,7 @@ export default function CoordinatorForm({
       </div>
 
       {/* Buttons */}
-      <div className="flex justify-end mt-10">
+      <div className="flex justify-between mt-10">
         <div className="flex gap-4">
           <button
             onClick={prevStep}
@@ -825,7 +824,9 @@ export default function CoordinatorForm({
             />
             Back
           </button>
+        </div>
 
+        <div className="flex gap-4">
           <button
             onClick={handleContinue}
             className="h-12 px-6 border-2 border-primary-800 text-primary-800 rounded-xl flex items-center gap-2"
