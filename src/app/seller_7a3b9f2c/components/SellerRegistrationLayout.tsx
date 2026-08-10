@@ -22,7 +22,7 @@ export default function SellerRegistrationLayout({
     <div className="flex min-h-screen pt-12">
       <SellerSidebar step={step} />
       
-      <div className="flex-1 bg-white overflow-y-auto">
+      <div className="flex-1 bg-white overflow-visible">
         <div className="p-4 sm:p-6 lg:p-10">
           {children}
         </div>

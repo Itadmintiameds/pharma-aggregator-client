@@ -10,6 +10,7 @@ import { toast } from "react-toastify";
 import { HiOutlineUserGroup } from "react-icons/hi2";
 import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
 import UploadedFileChip from "./UploadedFileChip";
+import FormInput from "./FormInput";
 
 interface Props {
   formData: any;
@@ -505,66 +506,34 @@ export default function CoordinatorForm({
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-2">
 
           {/* Name */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Coordinator Name
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-
-            <div className="relative">
-              {/* <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" /> */}
-              <input
-                type="text"
-                autoComplete="new-password"
-                value={coordinatorNameLocal}
-                onChange={handleCoordinatorNameChange}
-                onBlur={() => setCoordinatorNameFormatError("")}
-                placeholder="Enter coordinator name"
-                maxLength={100}
-                className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-            {errors.coordinatorName ? (
-              <p className="text-p2 font-body font-regular text-red-500 mt-1">
-                {errors.coordinatorName}
-              </p>
-            ) : coordinatorNameFormatError && (
-              <p className="text-p2 font-body font-regular text-red-500 mt-1">
-                {coordinatorNameFormatError}
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="Coordinator Name"
+            required
+            type="text"
+            autoComplete="new-password"
+            value={coordinatorNameLocal}
+            onChange={handleCoordinatorNameChange}
+            onBlur={() => setCoordinatorNameFormatError("")}
+            placeholder="Enter coordinator name"
+            maxLength={100}
+            leftIcon={<HiOutlineUserGroup className="w-5 h-5" />}
+            error={errors.coordinatorName ? errors.coordinatorName : coordinatorNameFormatError}
+          />
 
           {/* Designation */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Coordinator Designation
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-
-            <div className="relative">
-              {/* <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" /> */}
-              <input
-                type="text"
-                autoComplete="new-password"
-                value={coordinatorDesignationLocal}
-                onChange={handleCoordinatorDesignationChange}
-                onBlur={() => setCoordinatorDesignationFormatError("")}
-                placeholder="Enter designation"
-                maxLength={100}
-                className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-            {errors.coordinatorDesignation ? (
-              <p className="text-p2 font-body font-regular text-red-500 mt-1">
-                {errors.coordinatorDesignation}
-              </p>
-            ) : coordinatorDesignationFormatError && (
-              <p className="text-p2 font-body font-regular text-red-500 mt-1">
-                {coordinatorDesignationFormatError}
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="Coordinator Designation"
+            required
+            type="text"
+            autoComplete="new-password"
+            value={coordinatorDesignationLocal}
+            onChange={handleCoordinatorDesignationChange}
+            onBlur={() => setCoordinatorDesignationFormatError("")}
+            placeholder="Enter designation"
+            maxLength={100}
+            leftIcon={<Briefcase className="w-5 h-5" />}
+            error={errors.coordinatorDesignation ? errors.coordinatorDesignation : coordinatorDesignationFormatError}
+          />
 
           {/* Phone */}
           <div className="flex flex-col gap-1">
@@ -574,14 +543,15 @@ export default function CoordinatorForm({
             </label>
 
             <div className="relative" ref={phoneDropdownRef}>
-              {/* <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900 z-10" /> */}
               <div className="flex items-start">
                 {/* Country Code Dropdown */}
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setIsPhoneDropdownOpen(!isPhoneDropdownOpen)}
-                    className="h-13 px-2 pl-5 pr-2 rounded-l-xl border border-r-0 border-neutral-500 bg-white flex items-center gap-1 focus:outline-none"
+                    className={`h-13 px-2 pl-5 pr-2 rounded-l-xl border border-r-0 bg-white flex items-center gap-1 focus:outline-none ${
+                      (errors.coordinatorMobile || phoneError || phoneExistsError) ? "border-red-500" : "border-neutral-500"
+                    }`}
                   >
                     <span className="text-p4 font-body font-regular text-pneutral-900">{selectedCountryCode}</span>
                     <ChevronDown className="w-4 h-4 text-pneutral-900" />
@@ -616,7 +586,9 @@ export default function CoordinatorForm({
                 </div>
 
                 {/* Phone Number Input */}
-                <input
+                <FormInput
+                  containerClassName="flex-1"
+                  inputClassName="rounded-l-none! rounded-r-xl! pl-4!"
                   type="tel"
                   autoComplete="new-password"
                   value={formData.coordinatorMobile}
@@ -627,8 +599,9 @@ export default function CoordinatorForm({
                   placeholder={getPlaceholder()}
                   maxLength={getMaxLength()}
                   disabled={phoneVerified}
-                  className={`flex-1 h-13 px-4 rounded-r-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${phoneError ? 'border-neutral-500' : 'border-neutral-500'
-                    }`}
+                  leftIcon={<Phone className="w-5 h-5" />}
+                  error={errors.coordinatorMobile || phoneError || phoneExistsError}
+                  hideMessage
                 />
 
                 <button
@@ -643,26 +616,11 @@ export default function CoordinatorForm({
                 </button>
               </div>
             </div>
-
-            {errors.coordinatorMobile ? (
-              <p className="text-p2 font-body font-regular text-red-500 mt-1">
-                {errors.coordinatorMobile}
+            {(errors.coordinatorMobile || phoneError || phoneExistsError) && (
+              <p className="text-p2 font-body font-regular text-red-500 flex items-start mt-1">
+                <span className="mr-1">⚠️</span>
+                <span>{errors.coordinatorMobile || phoneError || phoneExistsError}</span>
               </p>
-            ) : (
-              <>
-                {phoneError && (
-                  <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                    <span className="mr-1">⚠️</span>
-                    <span>{phoneError}</span>
-                  </p>
-                )}
-
-                {phoneExistsError && !phoneError && (
-                  <p className="text-p2 font-body font-regular text-red-500 mt-1">
-                    {phoneExistsError}
-                  </p>
-                )}
-              </>
             )}
           </div>
 
@@ -675,20 +633,19 @@ export default function CoordinatorForm({
 
 
             <div className="flex gap-3 items-start">
-              <div className="relative flex-1">
-                {/* <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" /> */}
-                <input
-                  type="email"
-                  autoComplete="new-password"
-                  value={formData.coordinatorEmail}
-                  onChange={handleEmailChange}
-                  onBlur={() => setEmailError("")}
-                  placeholder="Enter email"
-                  disabled={emailVerified}
-                  className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${emailError ? 'border-neutral-500' : 'border-neutral-500'
-                    }`}
-                />
-              </div>
+              <FormInput
+                containerClassName="flex-1"
+                type="email"
+                autoComplete="new-password"
+                value={formData.coordinatorEmail}
+                onChange={handleEmailChange}
+                onBlur={() => setEmailError("")}
+                placeholder="Enter email"
+                disabled={emailVerified}
+                leftIcon={<Mail className="w-5 h-5" />}
+                error={errors.coordinatorEmail || emailError || emailExistsError}
+                hideMessage
+              />
 
               <button
                 onClick={handleSendEmailOTP}
@@ -774,7 +731,7 @@ export default function CoordinatorForm({
                   document.getElementById("authorization-letter-upload")?.click();
                 }
               }}
-              className="flex items-center h-[52px] border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-800"
+              className="flex items-center h-[52px] border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
               onClick={() => document.getElementById("authorization-letter-upload")?.click()}
             >
               <div

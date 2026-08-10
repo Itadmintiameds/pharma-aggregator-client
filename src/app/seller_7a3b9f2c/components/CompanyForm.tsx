@@ -17,6 +17,7 @@ import { toast } from "react-toastify";
 import { classifySellerType } from "@/src/schema/seller/sellerRegSchema";
 import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
 import UploadedFileChip from "./UploadedFileChip";
+import FormInput from "./FormInput";
 
 interface Props {
   formData: any;
@@ -86,7 +87,7 @@ function DropdownSearchInput({
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
         placeholder={placeholder}
-        className="w-full h-9 px-3 rounded-lg border border-neutral-300 text-p4 font-body font-regular text-pneutral-900 focus:outline-none focus:ring-1 focus:ring-primary-800"
+        className="w-full h-9 px-3 rounded-lg border border-neutral-300 text-p4 font-body font-regular text-pneutral-900 focus:outline-none focus:border-secondary-500 focus:ring-1 focus:ring-secondary-200"
       />
     </div>
   );
@@ -421,41 +422,29 @@ export default function CompanyForm({
       <div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-2">
           {/* Row 1: Company Name | Company Type */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Seller Name / Company Name:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="sellerName"
-                autoComplete="off"
-                value={formData.sellerName}
-                onChange={(e) => {
-                  let value = e.target.value;
-                  value = value.replace(/\s{2,}/g, ' ');
-                  if (value.length <= 60) {
-                    const syntheticEvent = {
-                      ...e,
-                      target: { ...e.target, name: "sellerName", value }
-                    };
-                    onChange(syntheticEvent);
-                  }
-                }}
-                maxLength={60}
-                placeholder="Enter Your Name/Company Name"
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-            {errors.sellerName && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{errors.sellerName}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="Seller Name / Company Name:"
+            required
+            type="text"
+            name="sellerName"
+            autoComplete="off"
+            value={formData.sellerName}
+            onChange={(e) => {
+              let value = e.target.value;
+              value = value.replace(/\s{2,}/g, ' ');
+              if (value.length <= 60) {
+                const syntheticEvent = {
+                  ...e,
+                  target: { ...e.target, name: "sellerName", value }
+                };
+                onChange(syntheticEvent);
+              }
+            }}
+            maxLength={60}
+            placeholder="Enter Your Name/Company Name"
+            leftIcon={<HiOutlineUserGroup className="w-5 h-5" />}
+            error={errors.sellerName}
+          />
 
           <div className="flex flex-col gap-1">
             <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
@@ -475,7 +464,7 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'company'}
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.companyTypeId ? "border-red-500" : "border-neutral-500"}`}
                 onClick={() => setOpenDropdown(openDropdown === 'company' ? null : 'company')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'company')}
                 onBlur={(e) => handleDropdownBlur(e, 'company', companyDropdownRef)}
@@ -558,7 +547,9 @@ export default function CompanyForm({
         document.getElementById("company-reg-upload")?.click();
       }
     }}
-    className="flex items-center h-[52px] border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-800"
+    className={`flex items-center h-13 border rounded-xl overflow-hidden bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
+      errors.companyRegistrationCertificateFile ? "border-red-500" : "border-neutral-500"
+    }`}
     onClick={() => document.getElementById("company-reg-upload")?.click()}
   >
     {/* Upload Icon Box - with border on all sides */}
@@ -656,7 +647,7 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'seller'}
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.sellerTypeId ? "border-red-500" : "border-neutral-500"}`}
                 onClick={() => setOpenDropdown(openDropdown === 'seller' ? null : 'seller')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'seller')}
                 onBlur={(e) => handleDropdownBlur(e, 'seller', sellerDropdownRef)}
@@ -704,12 +695,34 @@ export default function CompanyForm({
 
           {/* Row 2.5: Parent Manufacturer Name | Brand Owner Name - shown based on seller type */}
           {sellerTypeCategory === "PCD" && (
-            <div className="flex flex-col gap-1">
-              <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-                Parent Manufacturer Name:
-                <span className="text-warning-500 font-semibold ml-1">*</span>
-              </label>
-              <input
+            <FormInput
+              label="Parent Manufacturer Name:"
+              required
+              type="text"
+              name="parentManufacturerName"
+              autoComplete="off"
+              value={formData.parentManufacturerName || ""}
+              onChange={(e) => {
+                let value = e.target.value;
+                value = value.replace(/\s{2,}/g, ' ');
+                if (value.length <= 100) {
+                  const syntheticEvent = {
+                    ...e,
+                    target: { ...e.target, name: "parentManufacturerName", value }
+                  };
+                  onChange(syntheticEvent);
+                }
+              }}
+              maxLength={100}
+              placeholder="Enter Parent Manufacturer Name"
+              error={errors.parentManufacturerName}
+            />
+          )}
+
+          {sellerTypeCategory === "WHITE_LABELING" && (
+            <>
+              <FormInput
+                label="Parent Manufacturer Name (optional):"
                 type="text"
                 name="parentManufacturerName"
                 autoComplete="off"
@@ -727,70 +740,30 @@ export default function CompanyForm({
                 }}
                 maxLength={100}
                 placeholder="Enter Parent Manufacturer Name"
-                className="w-full h-13 px-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
+                error={errors.parentManufacturerName}
               />
-              {errors.parentManufacturerName && (
-                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                  <span className="mr-1">⚠️</span>
-                  <span>{errors.parentManufacturerName}</span>
-                </p>
-              )}
-            </div>
-          )}
 
-          {sellerTypeCategory === "WHITE_LABELING" && (
-            <>
-              <div className="flex flex-col gap-1">
-                <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-                  Parent Manufacturer Name (optional):
-                </label>
-                <input
-                  type="text"
-                  name="parentManufacturerName"
-                  autoComplete="off"
-                  value={formData.parentManufacturerName || ""}
-                  onChange={(e) => {
-                    let value = e.target.value;
-                    value = value.replace(/\s{2,}/g, ' ');
-                    if (value.length <= 100) {
-                      const syntheticEvent = {
-                        ...e,
-                        target: { ...e.target, name: "parentManufacturerName", value }
-                      };
-                      onChange(syntheticEvent);
-                    }
-                  }}
-                  maxLength={100}
-                  placeholder="Enter Parent Manufacturer Name"
-                  className="w-full h-13 px-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-                  Brand Owner Name (optional):
-                </label>
-                <input
-                  type="text"
-                  name="brandOwnerName"
-                  autoComplete="off"
-                  value={formData.brandOwnerName || ""}
-                  onChange={(e) => {
-                    let value = e.target.value;
-                    value = value.replace(/\s{2,}/g, ' ');
-                    if (value.length <= 100) {
-                      const syntheticEvent = {
-                        ...e,
-                        target: { ...e.target, name: "brandOwnerName", value }
-                      };
-                      onChange(syntheticEvent);
-                    }
-                  }}
-                  maxLength={100}
-                  placeholder="Enter Brand Owner Name"
-                  className="w-full h-13 px-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-                />
-              </div>
+              <FormInput
+                label="Brand Owner Name (optional):"
+                type="text"
+                name="brandOwnerName"
+                autoComplete="off"
+                value={formData.brandOwnerName || ""}
+                onChange={(e) => {
+                  let value = e.target.value;
+                  value = value.replace(/\s{2,}/g, ' ');
+                  if (value.length <= 100) {
+                    const syntheticEvent = {
+                      ...e,
+                      target: { ...e.target, name: "brandOwnerName", value }
+                    };
+                    onChange(syntheticEvent);
+                  }
+                }}
+                maxLength={100}
+                placeholder="Enter Brand Owner Name"
+                error={errors.brandOwnerName}
+              />
             </>
           )}
 
@@ -813,7 +786,7 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={isProductDropdownOpen}
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.productTypeIds ? "border-red-500" : "border-neutral-500"}`}
                 onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -912,7 +885,7 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'state'}
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.stateId ? "border-red-500" : "border-neutral-500"}`}
                 onClick={() => setOpenDropdown(openDropdown === 'state' ? null : 'state')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'state')}
                 onBlur={(e) => handleDropdownBlur(e, 'state', stateDropdownRef)}
@@ -971,7 +944,9 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'district'}
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800 ${formData.stateId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
+                  errors.districtId ? "border-red-500" : "border-neutral-500"
+                } ${formData.stateId ? "cursor-pointer bg-white" : "cursor-not-allowed bg-neutral-100"}`}
                 onClick={() => formData.stateId && setOpenDropdown(openDropdown === 'district' ? null : 'district')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'district', !!formData.stateId)}
                 onBlur={(e) => handleDropdownBlur(e, 'district', districtDropdownRef)}
@@ -1031,7 +1006,9 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'taluka'}
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800 ${formData.districtId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
+                  errors.talukaId ? "border-red-500" : "border-neutral-500"
+                } ${formData.districtId ? "cursor-pointer bg-white" : "cursor-not-allowed bg-neutral-100"}`}
                 onClick={() => formData.districtId && setOpenDropdown(openDropdown === 'taluka' ? null : 'taluka')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'taluka', !!formData.districtId)}
                 onBlur={(e) => handleDropdownBlur(e, 'taluka', talukaDropdownRef)}
@@ -1080,207 +1057,132 @@ export default function CompanyForm({
           </div>
 
           {/* Row 5: City | Building No. */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              City / Town / Village:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="city"
-                autoComplete="new-password"
-                value={formData.city}
-                onChange={(e) => {
-                  let value = e.target.value;
-                  value = value.replace(/\s{2,}/g, ' ');
-                  if (value.length <= 100) {
-                    const syntheticEvent = {
-                      ...e,
-                      target: { ...e.target, name: "city", value }
-                    };
-                    onChange(syntheticEvent);
-                  }
-                }}
-                maxLength={100}
-                placeholder="Enter City/Town/Village"
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-            {errors.city && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{errors.city}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="City / Town / Village:"
+            required
+            type="text"
+            name="city"
+            autoComplete="new-password"
+            value={formData.city}
+            onChange={(e) => {
+              let value = e.target.value;
+              value = value.replace(/\s{2,}/g, ' ');
+              if (value.length <= 100) {
+                const syntheticEvent = {
+                  ...e,
+                  target: { ...e.target, name: "city", value }
+                };
+                onChange(syntheticEvent);
+              }
+            }}
+            maxLength={100}
+            placeholder="Enter City/Town/Village"
+            leftIcon={<MapPin className="w-5 h-5" />}
+            error={errors.city}
+          />
 
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Building No./House No.:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="buildingNo"
-                autoComplete="off"
-                value={formData.buildingNo}
-                onChange={(e) => {
-                  let value = e.target.value;
-                  value = value.replace(/\s{2,}/g, ' ');
-                  if (value.length <= 50) {
-                    const syntheticEvent = {
-                      ...e,
-                      target: { ...e.target, name: "buildingNo", value }
-                    };
-                    onChange(syntheticEvent);
-                  }
-                }}
-                maxLength={50}
-                placeholder="Enter Building/House No."
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-            {errors.buildingNo && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{errors.buildingNo}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="Building No./House No.:"
+            required
+            type="text"
+            name="buildingNo"
+            autoComplete="off"
+            value={formData.buildingNo}
+            onChange={(e) => {
+              let value = e.target.value;
+              value = value.replace(/\s{2,}/g, ' ');
+              if (value.length <= 50) {
+                const syntheticEvent = {
+                  ...e,
+                  target: { ...e.target, name: "buildingNo", value }
+                };
+                onChange(syntheticEvent);
+              }
+            }}
+            maxLength={50}
+            placeholder="Enter Building/House No."
+            leftIcon={<MapPin className="w-5 h-5" />}
+            error={errors.buildingNo}
+          />
 
           {/* Row 6: Street | Pincode */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Street / Road / Lane:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="street"
-                autoComplete="off"
-                value={formData.street}
-                onChange={(e) => {
-                  let value = e.target.value;
-                  value = value.replace(/\s{2,}/g, ' ');
-                  if (value.length <= 100) {
-                    const syntheticEvent = {
-                      ...e,
-                      target: { ...e.target, name: "street", value }
-                    };
-                    onChange(syntheticEvent);
-                  }
-                }}
-                maxLength={100}
-                placeholder="Enter Street/Area/Road"
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-            {errors.street && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{errors.street}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="Street / Road / Lane:"
+            required
+            type="text"
+            name="street"
+            autoComplete="off"
+            value={formData.street}
+            onChange={(e) => {
+              let value = e.target.value;
+              value = value.replace(/\s{2,}/g, ' ');
+              if (value.length <= 100) {
+                const syntheticEvent = {
+                  ...e,
+                  target: { ...e.target, name: "street", value }
+                };
+                onChange(syntheticEvent);
+              }
+            }}
+            maxLength={100}
+            placeholder="Enter Street/Area/Road"
+            leftIcon={<MapPin className="w-5 h-5" />}
+            error={errors.street}
+          />
 
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Pin Code:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="pincode"
-                autoComplete="new-password"
-                value={formData.pincode}
-                onChange={(e) => onNumericInput(e, "pincode", 6)}
-                placeholder="Enter 6-Digit Pincode"
-                maxLength={6}
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-            {errors.pincode && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{errors.pincode}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="Pin Code:"
+            required
+            type="text"
+            name="pincode"
+            autoComplete="new-password"
+            value={formData.pincode}
+            onChange={(e) => onNumericInput(e, "pincode", 6)}
+            placeholder="Enter 6-Digit Pincode"
+            maxLength={6}
+            leftIcon={<MapPin className="w-5 h-5" />}
+            error={errors.pincode}
+          />
 
           {/* Row 7: Landmark | Company Phone */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Landmark (optional):
-            </label>
-            <input
-              type="text"
-              name="landmark"
-              autoComplete="off"
-              value={formData.landmark}
-              onChange={(e) => {
-                let value = e.target.value;
-                value = value.replace(/\s{2,}/g, ' ');
-                const allowedChars = /^[a-zA-Z0-9\s]*$/;
-                if (value.length <= 100 && (value === "" || allowedChars.test(value))) {
-                  setLandmarkFormatError("");
-                  const syntheticEvent = {
-                    ...e,
-                    target: { ...e.target, name: "landmark", value }
-                  };
-                  onChange(syntheticEvent);
-                } else {
-                  setLandmarkFormatError("Landmark should only contain letters, numbers, and spaces");
-                }
-              }}
-              onBlur={() => setLandmarkFormatError("")}
-              maxLength={100}
-              placeholder="Enter Landmark"
-              className="w-full h-13 px-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-            />
-            {errors.landmark ? (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{errors.landmark}</span>
-              </p>
-            ) : landmarkFormatError && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{landmarkFormatError}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="Landmark (optional):"
+            type="text"
+            name="landmark"
+            autoComplete="off"
+            value={formData.landmark}
+            onChange={(e) => {
+              let value = e.target.value;
+              value = value.replace(/\s{2,}/g, ' ');
+              const allowedChars = /^[a-zA-Z0-9\s]*$/;
+              if (value.length <= 100 && (value === "" || allowedChars.test(value))) {
+                setLandmarkFormatError("");
+                const syntheticEvent = {
+                  ...e,
+                  target: { ...e.target, name: "landmark", value }
+                };
+                onChange(syntheticEvent);
+              } else {
+                setLandmarkFormatError("Landmark should only contain letters, numbers, and spaces");
+              }
+            }}
+            onBlur={() => setLandmarkFormatError("")}
+            maxLength={100}
+            placeholder="Enter Landmark"
+            error={errors.landmark || landmarkFormatError}
+          />
 
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Company Website (Optional):
-            </label>
-            <div className="relative">
-              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="website"
-                autoComplete="off"
-                value={formData.website}
-                onChange={onChange}
-                placeholder="https://example.com"
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-            {errors.website && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{errors.website}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="Company Website (Optional):"
+            type="text"
+            name="website"
+            autoComplete="off"
+            value={formData.website}
+            onChange={onChange}
+            placeholder="https://example.com"
+            leftIcon={<Globe className="w-5 h-5" />}
+            error={errors.website}
+          />
 
           <div className="flex flex-col gap-1">
             <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
@@ -1294,7 +1196,9 @@ export default function CompanyForm({
                   <button
                     type="button"
                     onClick={() => setIsCompanyPhoneDropdownOpen(!isCompanyPhoneDropdownOpen)}
-                    className="h-13 px-2 pl-10 pr-2 rounded-l-md border border-r-0 border-neutral-500 bg-white flex items-center gap-1 focus:outline-none"
+                    className={`h-13 px-2 pl-10 pr-2 rounded-l-xl border border-r-0 bg-white flex items-center gap-1 focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
+                      (errors.phone || companyPhoneError) ? "border-red-500" : "border-neutral-500"
+                    }`}
                   >
                     <span className="text-p4 font-body font-regular text-pneutral-900">{selectedCompanyCountryCode}</span>
                     <ChevronDown className="w-4 h-4 text-pneutral-900" />
@@ -1303,10 +1207,10 @@ export default function CompanyForm({
                   {isCompanyPhoneDropdownOpen && (
                     <>
                       <div
-                        className="fixed inset-0 z-10"
+                        className="fixed inset-0 z-40"
                         onClick={() => setIsCompanyPhoneDropdownOpen(false)}
                       />
-                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-xl shadow-lg z-20 max-h-60 overflow-y-auto">
+                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
                         <DropdownSearchInput value={phoneCountrySearch} onChange={setPhoneCountrySearch} placeholder="Search country..." />
                         {filteredCompanyCountryCodes.length === 0 && (
                           <div className="px-3 py-2.5 text-p4 font-body font-regular text-pneutral-500">No results found</div>
@@ -1338,7 +1242,9 @@ export default function CompanyForm({
                   )}
                 </div>
 
-                <input
+                <FormInput
+                  containerClassName="flex-1"
+                  inputClassName="rounded-l-none! rounded-r-xl! pl-4!"
                   type="tel"
                   name="phone"
                   autoComplete="new-password"
@@ -1349,50 +1255,33 @@ export default function CompanyForm({
                   onBlur={() => setCompanyPhoneError("")}
                   placeholder={getPlaceholder()}
                   maxLength={getMaxLength()}
-                  className={`flex-1 h-13 px-4 pr-4 rounded-r-md border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${companyPhoneError ? 'border-red-500' : 'border-neutral-500'}`}
+                  error={errors.phone || companyPhoneError}
+                  hideMessage
                 />
               </div>
-              {errors.phone ? (
-                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                  <span className="mr-1">⚠️</span>
-                  <span>{errors.phone}</span>
-                </p>
-              ) : companyPhoneError && (
-                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                  <span className="mr-1">⚠️</span>
-                  <span>{companyPhoneError}</span>
-                </p>
-              )}
             </div>
-          </div>
-
-          {/* Row 8: Company Email */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Company Email ID:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="email"
-                name="email"
-                autoComplete="new-password"
-                value={formData.email}
-                onChange={onChange}
-                placeholder="Enter Company Email ID"
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-            {errors.email && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+            {(errors.phone || companyPhoneError) && (
+              <p className="text-p2 font-body font-regular text-red-500 flex items-start mt-1">
                 <span className="mr-1">⚠️</span>
-                <span>{errors.email}</span>
+                <span>{errors.phone || companyPhoneError}</span>
               </p>
             )}
           </div>
 
-          
+          {/* Row 8: Company Email */}
+          <FormInput
+            label="Company Email ID:"
+            required
+            type="email"
+            name="email"
+            autoComplete="new-password"
+            value={formData.email}
+            onChange={onChange}
+            placeholder="Enter Company Email ID"
+            leftIcon={<Mail className="w-5 h-5" />}
+            error={errors.email}
+          />
+
         </div>
       </div>
 

@@ -181,37 +181,35 @@ export default function ReviewForm({
       </div>
 
       {/* ACTION BUTTONS */}
-      <div className="flex justify-end items-center pt-4">
-        <div className="flex gap-4">
-          <button
-            onClick={prevStep}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
-          >
+      <div className="flex justify-between items-center pt-4">
+        <button
+          onClick={prevStep}
+          className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
+        >
+          <Image
+            src="/icons/backbuttonicon.png"
+            alt="Back"
+            width={20}
+            height={20}
+          />
+          Back
+        </button>
+
+        <button
+          onClick={onSubmit}
+          disabled={submitting}
+          className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting ? "Submitting..." : "Submit"}
+          {!submitting && (
             <Image
-              src="/icons/backbuttonicon.png"
-              alt="Back"
+              src="/icons/continueicon.png"
+              alt="Continue"
               width={20}
               height={20}
             />
-            Back
-          </button>
-
-          <button
-            onClick={onSubmit}
-            disabled={submitting}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitting ? "Submitting..." : "Submit"}
-            {!submitting && (
-              <Image
-                src="/icons/continueicon.png"
-                alt="Continue"
-                width={20}
-                height={20}
-              />
-            )}
-          </button>
-        </div>
+          )}
+        </button>
       </div>
 
     </div>

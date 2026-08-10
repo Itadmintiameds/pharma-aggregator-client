@@ -13,6 +13,7 @@ import LicenseWarning from "./LicenseWarning";
 import { classifySellerType, requiredAgreementCodes, mandatoryExtraDocumentCodes, optionalExtraDocumentCodes, documentTypeLabel, type SellerTypeCategory } from "@/src/schema/seller/sellerRegSchema";
 import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
 import UploadedFileChip from "./UploadedFileChip";
+import FormInput from "./FormInput";
 
 interface Props {
   formData: any;
@@ -1158,46 +1159,24 @@ export default function DocumentForm({
 
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 {/* LICENSE NUMBER */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-                    {licenseInfo.numberLabel}
-                    <span className="text-warning-500 font-semibold ml-1">*</span>
-                  </label>
-
-                  <div className="relative">
-                    <input
-                      type="text"
-                      autoComplete="off"
-                      name={`licenseNumber-${productName}`}
-                      value={licenseData.number}
-                      onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
-                      onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number, licenseInfo.validationCategory, () => setLicenseErrors(prev => ({ ...prev, [productName]: "Invalid character" })))}
-                      onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
-                      placeholder={licenseInfo.placeholder}
-                      maxLength={licenseInfo.maxLength}
-                      className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 uppercase ${
-                        licenseError || licenseExistsError ? 'border-red-500' : 'border-neutral-500'
-                      }`}
-                    />
-                    {isCheckingLicense && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
-                      </div>
-                    )}
-                  </div>
-                  {licenseError && (
-                    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                      <span className="mr-1">⚠️</span>
-                      <span>{licenseError}</span>
-                    </p>
-                  )}
-                  {licenseExistsError && !licenseError && (
-                    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                      <span className="mr-1">⚠️</span>
-                      <span>{licenseExistsError}</span>
-                    </p>
-                  )}
-                </div>
+                <FormInput
+                  label={licenseInfo.numberLabel}
+                  required
+                  type="text"
+                  autoComplete="off"
+                  name={`licenseNumber-${productName}`}
+                  value={licenseData.number}
+                  onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
+                  onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number, licenseInfo.validationCategory, () => setLicenseErrors(prev => ({ ...prev, [productName]: "Invalid character" })))}
+                  onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
+                  placeholder={licenseInfo.placeholder}
+                  maxLength={licenseInfo.maxLength}
+                  uppercase
+                  error={licenseError || (!licenseError && licenseExistsError ? licenseExistsError : undefined)}
+                  rightSlot={isCheckingLicense ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                  ) : undefined}
+                />
 
                 {/* LICENSE FILE UPLOAD WITH CROSS BUTTON */}
                 <div className="flex flex-col gap-1">
@@ -1234,7 +1213,7 @@ export default function DocumentForm({
                         document.getElementById(`license-upload-${productName}`)?.click();
                       }
                     }}
-                    className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-800"
+                    className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
                     onClick={() => document.getElementById(`license-upload-${productName}`)?.click()}
                   >
                     <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
@@ -1460,32 +1439,19 @@ export default function DocumentForm({
                 </div>
 
                 {/* ISSUING AUTHORITY */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-                    {licenseInfo.authorityLabel}
-                    <span className="text-warning-500 font-semibold ml-1">*</span>
-                  </label>
-
-                  <div className="relative">
-                    <input
-                      type="text"
-                      autoComplete="off"
-                      name={`issuingAuthority-${productName}`}
-                      value={licenseData.issuingAuthority}
-                      onChange={(e) => handleIssuingAuthorityInput(e, productName)}
-                      onBlur={() => setIssuingAuthorityFormatErrors(prev => ({ ...prev, [productName]: "" }))}
-                      placeholder="Enter issuing authority"
-                      maxLength={150}
-                      className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-                    />
-                  </div>
-                  {issuingAuthorityFormatErrors[productName] && (
-                    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                      <span className="mr-1">⚠️</span>
-                      <span>{issuingAuthorityFormatErrors[productName]}</span>
-                    </p>
-                  )}
-                </div>
+                <FormInput
+                  label={licenseInfo.authorityLabel}
+                  required
+                  type="text"
+                  autoComplete="off"
+                  name={`issuingAuthority-${productName}`}
+                  value={licenseData.issuingAuthority}
+                  onChange={(e) => handleIssuingAuthorityInput(e, productName)}
+                  onBlur={() => setIssuingAuthorityFormatErrors(prev => ({ ...prev, [productName]: "" }))}
+                  placeholder="Enter issuing authority"
+                  maxLength={150}
+                  error={issuingAuthorityFormatErrors[productName]}
+                />
 
                 {/* LICENSE STATUS */}
                 <div className="flex items-center gap-4 mt-1">
@@ -1562,30 +1528,19 @@ export default function DocumentForm({
               <div key={code} className="mb-4">
                 <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                   {/* NUMBER (optional) */}
-                  <div className="flex flex-col gap-1">
-                    <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-                      {label} Number (optional)
-                    </label>
-                    <input
-                      type="text"
-                      autoComplete="off"
-                      value={agreementData.number}
-                      onChange={(e) => handleAgreementNumberChangeWithValidation(code, e.target.value, label)}
-                      onKeyDown={licenseCategory ? (e) => handleLicenseKeyDown(e, agreementData.number, licenseCategory, () => setAgreementErrors(prev => ({ ...prev, [code]: "Invalid character" }))) : undefined}
-                      onBlur={() => setAgreementErrors(prev => ({ ...prev, [code]: "" }))}
-                      placeholder={licenseCategory ? LICENSE_PLACEHOLDER[licenseCategory] : `Enter ${label} number`}
-                      maxLength={licenseCategory ? LICENSE_MAX_LENGTH[licenseCategory] : 30}
-                      className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${
-                        licenseCategory ? 'uppercase' : ''
-                      } ${agreementNumberError ? 'border-red-500' : 'border-neutral-500'}`}
-                    />
-                    {agreementNumberError && (
-                      <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                        <span className="mr-1">⚠️</span>
-                        <span>{agreementNumberError}</span>
-                      </p>
-                    )}
-                  </div>
+                  <FormInput
+                    label={`${label} Number (optional)`}
+                    type="text"
+                    autoComplete="off"
+                    value={agreementData.number}
+                    onChange={(e) => handleAgreementNumberChangeWithValidation(code, e.target.value, label)}
+                    onKeyDown={licenseCategory ? (e) => handleLicenseKeyDown(e, agreementData.number, licenseCategory, () => setAgreementErrors(prev => ({ ...prev, [code]: "Invalid character" }))) : undefined}
+                    onBlur={() => setAgreementErrors(prev => ({ ...prev, [code]: "" }))}
+                    placeholder={licenseCategory ? LICENSE_PLACEHOLDER[licenseCategory] : `Enter ${label} number`}
+                    maxLength={licenseCategory ? LICENSE_MAX_LENGTH[licenseCategory] : 30}
+                    uppercase={!!licenseCategory}
+                    error={agreementNumberError}
+                  />
 
                   {/* DOCUMENT UPLOAD (required only if isRequired) */}
                   <div className="flex flex-col gap-1">
@@ -1625,7 +1580,7 @@ export default function DocumentForm({
                           document.getElementById(`agreement-upload-${code}`)?.click();
                         }
                       }}
-                      className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-800"
+                      className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
                       onClick={() => document.getElementById(`agreement-upload-${code}`)?.click()}
                     >
                       <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
@@ -1808,45 +1763,23 @@ export default function DocumentForm({
           </h3>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-                GSTIN Number
-                <span className="text-warning-500 font-semibold ml-1">*</span>
-              </label>
-
-              <div className="relative">
-                <input
-                  type="text"
-                  name="gstNumber"
-                  autoComplete="off"
-                  value={formData.gstNumber}
-                  onChange={handleGSTChangeWithValidation}
-                  onBlur={(e) => handleGSTBlur(e.target.value)}
-                  placeholder="Enter GST number"
-                  maxLength={15}
-                  className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 uppercase ${
-                    gstError || gstExistsError ? 'border-red-500' : 'border-neutral-500'
-                  }`}
-                />
-                {checkingGST && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
-                  </div>
-                )}
-              </div>
-              {gstError && (
-                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                  <span className="mr-1">⚠️</span>
-                  <span>{gstError}</span>
-                </p>
-              )}
-              {gstExistsError && !gstError && (
-                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                  <span className="mr-1">⚠️</span>
-                  <span>{gstExistsError}</span>
-                </p>
-              )}
-            </div>
+            <FormInput
+              label="GSTIN Number"
+              required
+              type="text"
+              name="gstNumber"
+              autoComplete="off"
+              value={formData.gstNumber}
+              onChange={handleGSTChangeWithValidation}
+              onBlur={(e) => handleGSTBlur(e.target.value)}
+              placeholder="Enter GST number"
+              maxLength={15}
+              uppercase
+              error={gstError || (!gstError && gstExistsError ? gstExistsError : undefined)}
+              rightSlot={checkingGST ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+              ) : undefined}
+            />
 
             {/* GST FILE UPLOAD WITH CROSS BUTTON */}
             <div className="flex flex-col gap-1">
@@ -1883,7 +1816,7 @@ export default function DocumentForm({
                     document.getElementById('gst-upload')?.click();
                   }
                 }}
-                className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-800"
+                className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
                 onClick={() => document.getElementById('gst-upload')?.click()}
               >
                 <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
@@ -1953,34 +1886,32 @@ export default function DocumentForm({
         </div>
 
         {/* BUTTONS */}
-        <div className="flex justify-end mt-10">
-          <div className="flex gap-4">
-            <button
-              onClick={prevStep}
-              className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
-            >
-              <Image
-                src="/icons/backbuttonicon.png"
-                alt="Back"
-                width={18}
-                height={18}
-              />
-              Back
-            </button>
+        <div className="flex justify-between mt-10">
+          <button
+            onClick={prevStep}
+            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
+          >
+            <Image
+              src="/icons/backbuttonicon.png"
+              alt="Back"
+              width={18}
+              height={18}
+            />
+            Back
+          </button>
 
-            <button
-              onClick={handleContinue}
-              className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"
-            >
-              Continue
-              <Image
-                src="/icons/continueicon.png"
-                alt="Continue"
-                width={20}
-                height={20}
-              />
-            </button>
-          </div>
+          <button
+            onClick={handleContinue}
+            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"
+          >
+            Continue
+            <Image
+              src="/icons/continueicon.png"
+              alt="Continue"
+              width={20}
+              height={20}
+            />
+          </button>
         </div>
 
       </div>

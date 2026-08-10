@@ -14,6 +14,7 @@ import {
 } from "@/src/types/seller/SellerRegMasterData";
 import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
 import UploadedFileChip from "./UploadedFileChip";
+import FormInput from "./FormInput";
 
 interface BankFormData {
   accountHolderName: string;
@@ -324,176 +325,97 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
       <div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-2">
           {/* Account Holder Name */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              Account Holder Name
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <HiOutlineUser className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="accountHolderName"
-                autoComplete="off"
-                value={formData.accountHolderName}
-                // onChange={(e) => onAlphabetInput(e, "accountHolderName")}
-                onChange={handleAccountHolderNameChange}
-                onBlur={() => setAccountHolderNameFormatError("")}
-                placeholder="As per bank records"
-                maxLength={100}
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-            {errors.accountHolderName ? (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{errors.accountHolderName}</span>
-              </p>
-            ) : accountHolderNameFormatError && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{accountHolderNameFormatError}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="Account Holder Name"
+            required
+            type="text"
+            name="accountHolderName"
+            autoComplete="off"
+            value={formData.accountHolderName}
+            onChange={handleAccountHolderNameChange}
+            onBlur={() => setAccountHolderNameFormatError("")}
+            placeholder="As per bank records"
+            maxLength={100}
+            leftIcon={<HiOutlineUser className="w-5 h-5" />}
+            error={errors.accountHolderName || accountHolderNameFormatError}
+          />
 
           {/* IFSC Code */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              IFSC Code
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <IoLockClosedOutline className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="ifscCode"
-                autoComplete="off"
-                value={formData.ifscCode}
-                onChange={handleIfscInput}
-                onBlur={onIfscBlur}
-                placeholder="e.g., SBIN0001234"
-                maxLength={11}
-                className={`w-full h-13 pl-10 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 uppercase ${
-                  ifscError ? 'border-red-500' : 'border-neutral-500'
-                }`}
-              />
-            </div>
-            {errors.ifscCode ? (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{errors.ifscCode}</span>
-              </p>
-            ) : ifscError && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{ifscError}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="IFSC Code"
+            required
+            type="text"
+            name="ifscCode"
+            autoComplete="off"
+            value={formData.ifscCode}
+            onChange={handleIfscInput}
+            onBlur={onIfscBlur}
+            placeholder="e.g., SBIN0001234"
+            maxLength={11}
+            uppercase
+            leftIcon={<IoLockClosedOutline className="w-5 h-5" />}
+            error={errors.ifscCode || ifscError}
+          />
 
           {/* Account Number */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              Bank Account Number
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                name="accountNumber"
-                autoComplete="off"
-                value={formData.accountNumber}
-                onChange={handleAccountNumberChange}
-                onBlur={() => setAccountNumberFormatError("")}
-                placeholder="Enter Account number"
-                maxLength={18}
-                className="w-full h-13 pl-4 pr-10 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-              <Hash className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-            </div>
-            {errors.accountNumber ? (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{errors.accountNumber}</span>
-              </p>
-            ) : accountNumberFormatError && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{accountNumberFormatError}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="Bank Account Number"
+            required
+            type="text"
+            name="accountNumber"
+            autoComplete="off"
+            value={formData.accountNumber}
+            onChange={handleAccountNumberChange}
+            onBlur={() => setAccountNumberFormatError("")}
+            placeholder="Enter Account number"
+            maxLength={18}
+            rightSlot={<Hash className="w-5 h-5 text-pneutral-900" />}
+            error={errors.accountNumber || accountNumberFormatError}
+          />
 
           {/* Confirm Account Number - No copy-paste allowed */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              Confirm Account Number
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                name="confirmAccountNumber"
-                autoComplete="off"
-                value={formData.confirmAccountNumber}
-                onChange={handleConfirmAccountNumberChange}
-                placeholder="Re-enter account number"
-                maxLength={18}
-                onPaste={handleConfirmAccountPaste}
-                onCopy={handleConfirmAccountCopy}
-                onCut={handleConfirmAccountCut}
-                onDragStart={handleConfirmAccountDrag}
-                onDrop={handleConfirmAccountDrag}
-                className={`w-full h-13 pl-4 pr-10 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${
-                  confirmAccountError ? 'border-red-500' : 'border-neutral-500'
-                }`}
-              />
-              <Hash className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-            </div>
-            {confirmAccountError && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{confirmAccountError}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="Confirm Account Number"
+            required
+            type="text"
+            name="confirmAccountNumber"
+            autoComplete="off"
+            value={formData.confirmAccountNumber}
+            onChange={handleConfirmAccountNumberChange}
+            placeholder="Re-enter account number"
+            maxLength={18}
+            onPaste={handleConfirmAccountPaste}
+            onCopy={handleConfirmAccountCopy}
+            onCut={handleConfirmAccountCut}
+            onDragStart={handleConfirmAccountDrag}
+            onDrop={handleConfirmAccountDrag}
+            rightSlot={<Hash className="w-5 h-5 text-pneutral-900" />}
+            error={confirmAccountError}
+          />
 
           {/* Bank Name (Auto-filled) */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              Bank Name
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <RiBankLine className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-500" />
-              <input
-                type="text"
-                name="bankName"
-                value={formData.bankName}
-                readOnly
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 bg-gray-50 text-p4 font-body font-regular text-pneutral-900"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="Bank Name"
+            required
+            type="text"
+            name="bankName"
+            value={formData.bankName}
+            readOnly
+            leftIcon={<RiBankLine className="w-5 h-5 text-pneutral-500" />}
+            inputClassName="bg-neutral-100 border-neutral-300"
+          />
 
           {/* Branch (Auto-filled) */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              Branch
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-500" />
-              <input
-                type="text"
-                name="branch"
-                value={formData.branch}
-                readOnly
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 bg-gray-50 text-p4 font-body font-regular text-pneutral-900"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="Branch"
+            required
+            type="text"
+            name="branch"
+            value={formData.branch}
+            readOnly
+            leftIcon={<Building2 className="w-5 h-5 text-pneutral-500" />}
+            inputClassName="bg-neutral-100 border-neutral-300"
+          />
 
           {/* Bank State */}
           <div className="flex flex-col gap-1">
@@ -508,7 +430,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'bankState'}
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800"
+                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
                 onClick={() => setOpenDropdown(openDropdown === 'bankState' ? null : 'bankState')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'bankState')}
                 onBlur={() => handleDropdownBlur('bankState')}
@@ -563,7 +485,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'bankDistrict'}
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800 ${formData.bankStateId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${formData.bankStateId ? 'cursor-pointer' : 'cursor-not-allowed bg-neutral-100'}`}
                 onClick={() => formData.bankStateId && setOpenDropdown(openDropdown === 'bankDistrict' ? null : 'bankDistrict')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'bankDistrict', !!formData.bankStateId)}
                 onBlur={() => handleDropdownBlur('bankDistrict')}
@@ -620,7 +542,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'bankTaluka'}
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-primary-800 ${formData.bankDistrictId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${formData.bankDistrictId ? 'cursor-pointer' : 'cursor-not-allowed bg-neutral-100'}`}
                 onClick={() => formData.bankDistrictId && setOpenDropdown(openDropdown === 'bankTaluka' ? null : 'bankTaluka')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'bankTaluka', !!formData.bankDistrictId)}
                 onBlur={() => handleDropdownBlur('bankTaluka')}
@@ -702,7 +624,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 document.getElementById('cheque-upload')?.click();
               }
             }}
-            className="border-2 border-dashed border-primary-300 rounded-xl p-8 text-center bg-neutral-50 cursor-pointer transition-none focus:outline-none focus:ring-2 focus:ring-primary-800"
+            className="border-2 border-dashed border-primary-300 rounded-xl p-8 text-center bg-neutral-50 cursor-pointer transition-none focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
             onClick={() => document.getElementById('cheque-upload')?.click()}
           >
             <div className="flex flex-col items-center gap-2">
@@ -772,34 +694,32 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
       </div>
 
       {/* Buttons */}
-      <div className="flex justify-end mt-10">
-        <div className="flex gap-4">
-          <button
-            onClick={prevStep}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
-          >
-            <Image
-              src="/icons/backbuttonicon.png"
-              alt="Back"
-              width={18}
-              height={18}
-            />
-            Back
-          </button>
+      <div className="flex justify-between mt-10">
+        <button
+          onClick={prevStep}
+          className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
+        >
+          <Image
+            src="/icons/backbuttonicon.png"
+            alt="Back"
+            width={18}
+            height={18}
+          />
+          Back
+        </button>
 
-          <button
-            onClick={handleContinue}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"
-          >
-            Continue
-            <Image
-              src="/icons/continueicon.png"
-              alt="Continue"
-              width={20}
-              height={20}
-            />
-          </button>
-        </div>
+        <button
+          onClick={handleContinue}
+          className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"
+        >
+          Continue
+          <Image
+            src="/icons/continueicon.png"
+            alt="Continue"
+            width={20}
+            height={20}
+          />
+        </button>
       </div>
     </div>
   );
