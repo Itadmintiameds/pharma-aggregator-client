@@ -348,9 +348,19 @@ export default function DocumentForm({
   const [uploadingAgreements, setUploadingAgreements] = useState<Record<string, boolean>>({});
   const [licenseErrors, setLicenseErrors] = useState<Record<string, string>>({});
   const [licenseExistsErrors, setLicenseExistsErrors] = useState<Record<string, string>>({});
+  // "Copy Upload is required" - kept separate from licenseErrors (which
+  // renders only under the License Number field) so this shows under the
+  // file upload box it's actually about, instead of surfacing next to the
+  // wrong field.
+  const [licenseFileErrors, setLicenseFileErrors] = useState<Record<string, string>>({});
   const [checkingLicense, setCheckingLicense] = useState<Record<string, boolean>>({});
   const [dateErrors, setDateErrors] = useState<Record<string, string>>({});
   const [agreementErrors, setAgreementErrors] = useState<Record<string, string>>({});
+  // Keyed `${code}_issue` / `${code}_expiry`, same convention as dateErrors
+  // above (which is keyed by productName instead of agreement code) - kept
+  // separate rather than sharing dateErrors since the keys are drawn from
+  // different domains (agreement codes vs. product names) and could collide.
+  const [agreementDateErrors, setAgreementDateErrors] = useState<Record<string, string>>({});
   const [warningState, setWarningState] = useState<{
     isOpen: boolean;
     licenseNumber: string;
@@ -447,6 +457,21 @@ export default function DocumentForm({
       authorityLabel: `${licenseName} Issuing Authority`,
       statusLabel: `${licenseName} Status`,
     };
+  };
+
+  // Whether an agreement/compliance document's whole set of fields (number,
+  // file, issue date, expiry date) is mandatory: either the code itself is
+  // always required (isRequiredCode - e.g. Distribution Agreement for a
+  // Distributor), or it's an otherwise-optional code (IEC Certificate,
+  // Import Licences, ...) that the seller has started filling in - a number
+  // or file with no dates is the same orphaned-document gap as a number with
+  // no file. Shared between renderDocumentBlock (drives the labels) and
+  // handleContinue (drives the actual validation) so the two can't drift.
+  const isAgreementPairRequired = (code: string, isRequiredCode: boolean): boolean => {
+    const agreementData = formData.agreements?.[code];
+    const hasNumber = !!agreementData?.number && !!agreementData.number.trim();
+    const hasFile = !!agreementData?.file || isRealFileUrl(agreementData?.fileUrl);
+    return isRequiredCode || hasNumber || hasFile;
   };
 
   // Check for duplicate license numbers within the same form and show warning
@@ -953,6 +978,7 @@ export default function DocumentForm({
         };
         onFileChange(syntheticEvent, 'license', productName);
         setUploadingLicenses(prev => ({ ...prev, [productName]: false }));
+        setLicenseFileErrors(prev => ({ ...prev, [productName]: "" }));
         toast.success("License uploaded successfully");
       }, 1000);
     }
@@ -1055,8 +1081,16 @@ export default function DocumentForm({
     // Per-product license required fields (number, file, issue date, expiry
     // date, issuing authority). Skips a product that already has a more
     // specific error (format error or duplicate-exists error) so we don't
-    // clobber it with a generic "required" message.
+    // clobber it with a generic "required" message. Each sub-check writes
+    // into the error bucket that's actually rendered next to that field -
+    // they used to all land in newLicenseErrors/licenseErrors, which is only
+    // displayed under the License Number field, so e.g. a missing Issuing
+    // Authority showed its error under Number instead of under Issuing
+    // Authority (or a missing file/date showed no visible error at all).
     const newLicenseErrors: Record<string, string> = {};
+    const newLicenseFileErrors: Record<string, string> = {};
+    const newLicenseDateErrors: Record<string, string> = {};
+    const newAuthorityErrors: Record<string, string> = {};
     formData.productTypes.forEach((productName: string) => {
       if (licenseErrors[productName] || licenseExistsErrors[productName]) {
         return;
@@ -1068,39 +1102,76 @@ export default function DocumentForm({
       if (!licenseData.number || !licenseData.number.trim()) {
         newLicenseErrors[productName] = `${licenseInfo.numberLabel} is required`;
       } else if (!hasLicenseFile) {
-        newLicenseErrors[productName] = `${licenseInfo.fileLabel} is required`;
+        newLicenseFileErrors[productName] = `${licenseInfo.fileLabel} is required`;
       } else if (!licenseData.issueDate) {
-        newLicenseErrors[productName] = `${licenseInfo.issueDateLabel} is required`;
+        newLicenseDateErrors[`${productName}_issue`] = `${licenseInfo.issueDateLabel} is required`;
       } else if (!licenseData.expiryDate) {
-        newLicenseErrors[productName] = `${licenseInfo.expiryDateLabel} is required`;
+        newLicenseDateErrors[`${productName}_expiry`] = `${licenseInfo.expiryDateLabel} is required`;
       } else if (!licenseData.issuingAuthority || !licenseData.issuingAuthority.trim()) {
-        newLicenseErrors[productName] = `${licenseInfo.authorityLabel} is required`;
+        newAuthorityErrors[productName] = `${licenseInfo.authorityLabel} is required`;
       }
     });
     if (Object.keys(newLicenseErrors).length > 0) {
       setLicenseErrors(prev => ({ ...prev, ...newLicenseErrors }));
       hasRequiredFieldErrors = true;
     }
+    if (Object.keys(newLicenseFileErrors).length > 0) {
+      setLicenseFileErrors(prev => ({ ...prev, ...newLicenseFileErrors }));
+      hasRequiredFieldErrors = true;
+    }
+    if (Object.keys(newLicenseDateErrors).length > 0) {
+      setDateErrors(prev => ({ ...prev, ...newLicenseDateErrors }));
+      hasRequiredFieldErrors = true;
+    }
+    if (Object.keys(newAuthorityErrors).length > 0) {
+      setIssuingAuthorityFormatErrors(prev => ({ ...prev, ...newAuthorityErrors }));
+      hasRequiredFieldErrors = true;
+    }
 
-    // Per-agreement required document check (replaces the old generic
-    // "Please upload the X document" toast with an inline error next to
-    // the relevant agreement block, keyed the same way agreementErrors
-    // already is). Only the document file is enforced here — the number
-    // field on these agreement codes is explicitly optional in the UI and
-    // in step3Schema's refine, so it is intentionally not required here.
+    // Per-agreement required-field check (replaces the old generic "Please
+    // upload the X document" toast with inline errors next to the relevant
+    // agreement block). Covers both always-required codes (requiredDocumentCodes)
+    // and otherwise-optional ones the seller has started filling in
+    // (isAgreementPairRequired - see its comment): number, file, issue date,
+    // and expiry date are all-or-nothing once any one of them applies, same
+    // ordering as the per-product license check above, so a mandatory/started
+    // document can't be "completed" while still missing a piece of itself.
     const newAgreementErrors: Record<string, string> = {};
-    requiredDocumentCodes.forEach((code: string) => {
+    const newAgreementDateErrors: Record<string, string> = {};
+    [...requiredDocumentCodes, ...optionalDocumentCodes].forEach((code: string) => {
       if (agreementErrors[code]) {
         return;
       }
+      const isCodeRequired = requiredDocumentCodes.includes(code);
+      if (!isAgreementPairRequired(code, isCodeRequired)) {
+        return; // untouched optional document - nothing to enforce
+      }
+
+      const label = getAgreementLabel(code);
       const agreementData = formData.agreements?.[code];
+      const hasAgreementNumber = !!agreementData?.number && !!agreementData.number.trim();
       const hasAgreementFile = !!agreementData?.file || isRealFileUrl(agreementData?.fileUrl);
-      if (!hasAgreementFile) {
-        newAgreementErrors[code] = `${getAgreementLabel(code)} document is required`;
+
+      if (!hasAgreementNumber) {
+        newAgreementErrors[code] = isCodeRequired
+          ? `${label} number is required`
+          : `${label} number is required once a document is uploaded`;
+      } else if (!hasAgreementFile) {
+        newAgreementErrors[code] = isCodeRequired
+          ? `${label} document is required`
+          : `${label} document is required once a number is entered`;
+      } else if (!agreementData?.issueDate) {
+        newAgreementDateErrors[`${code}_issue`] = `${label} Issue Date is required`;
+      } else if (!agreementData?.expiryDate) {
+        newAgreementDateErrors[`${code}_expiry`] = `${label} Expiry Date is required`;
       }
     });
     if (Object.keys(newAgreementErrors).length > 0) {
       setAgreementErrors(prev => ({ ...prev, ...newAgreementErrors }));
+      hasRequiredFieldErrors = true;
+    }
+    if (Object.keys(newAgreementDateErrors).length > 0) {
+      setAgreementDateErrors(prev => ({ ...prev, ...newAgreementDateErrors }));
       hasRequiredFieldErrors = true;
     }
 
@@ -1177,6 +1248,7 @@ export default function DocumentForm({
           const isUploading = uploadingLicenses[productName];
           const licenseError = licenseErrors[productName];
           const licenseExistsError = licenseExistsErrors[productName];
+          const licenseFileError = licenseFileErrors[productName];
           const isCheckingLicense = checkingLicense[productName];
           const issueDateError = dateErrors[`${productName}_issue`];
           const expiryDateError = dateErrors[`${productName}_expiry`];
@@ -1337,6 +1409,12 @@ export default function DocumentForm({
                       </div>
                     </div>
                   </div>
+                  )}
+                  {licenseFileError && (
+                    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                      <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                      <span>{licenseFileError}</span>
+                    </p>
                   )}
                 </div>
 
@@ -1524,13 +1602,30 @@ export default function DocumentForm({
             const label = getAgreementLabel(code);
             const licenseCategory = AGREEMENT_LICENSE_CATEGORY[code];
             const agreementNumberError = agreementErrors[code];
+            // Filling in either half of an otherwise-optional document (e.g.
+            // IEC Certificate) makes the whole set mandatory - number, file,
+            // issue date, and expiry date all-or-nothing (see
+            // isAgreementPairRequired's comment). All four fields share this
+            // one flag, including whichever one is already filled in (e.g.
+            // upload the file first and the file's own label switches to
+            // required too, not just Number's - it's now a committed
+            // document, not still individually optional).
+            const isDocumentPairRequired = isAgreementPairRequired(code, isRequired);
+            const issueDateError = agreementDateErrors[`${code}_issue`];
+            const expiryDateError = agreementDateErrors[`${code}_expiry`];
+            const isFileEffectivelyRequired = isDocumentPairRequired;
+            const isNumberEffectivelyRequired = isDocumentPairRequired;
 
             return (
               <div key={code} className="mb-4">
                 <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                  {/* NUMBER (optional) */}
+                  {/* NUMBER - required whenever the document itself is required,
+                      or once its file has been attached (see isNumberEffectivelyRequired
+                      above - a mandatory/uploaded document with no way to key its
+                      number is a logical gap). */}
                   <FormInput
-                    label={`${label} Number (optional)`}
+                    label={isNumberEffectivelyRequired ? `${label} Number` : `${label} Number (optional)`}
+                    required={isNumberEffectivelyRequired}
                     type="text"
                     autoComplete="off"
                     value={agreementData.number}
@@ -1543,11 +1638,11 @@ export default function DocumentForm({
                     error={agreementNumberError}
                   />
 
-                  {/* DOCUMENT UPLOAD (required only if isRequired) */}
+                  {/* DOCUMENT UPLOAD (required if isRequired, or once a number has been entered) */}
                   <div className="flex flex-col gap-1">
                     <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
                       {label} Document
-                      {isRequired ? (
+                      {isFileEffectivelyRequired ? (
                         <span className="text-warning-500 font-semibold ml-1">*</span>
                       ) : (
                         <span className="text-pneutral-500 font-normal ml-1">(optional)</span>
@@ -1632,7 +1727,7 @@ export default function DocumentForm({
                             </div>
                           ) : (
                             <span className="text-p4 font-body font-regular text-pneutral-500">
-                              Upload the {label}{isRequired ? "" : " (optional)"}
+                              Upload the {label}{isFileEffectivelyRequired ? "" : " (optional)"}
                             </span>
                           )}
                         </div>
@@ -1641,14 +1736,21 @@ export default function DocumentForm({
                     )}
                   </div>
 
-                  {/* ISSUE DATE (optional) */}
+                  {/* ISSUE DATE - required whenever the document pair is (see isAgreementPairRequired) */}
                   <div className="flex flex-col gap-1">
                     <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-                      {label} Issue Date (optional)
+                      {label} Issue Date{isDocumentPairRequired ? (
+                        <span className="text-warning-500 font-semibold ml-1">*</span>
+                      ) : (
+                        " (optional)"
+                      )}
                     </label>
                     <DatePicker
                       value={agreementData.issueDate}
-                      onChange={(date) => onAgreementIssueDateChange(date, code)}
+                      onChange={(date) => {
+                        setAgreementDateErrors(prev => ({ ...prev, [`${code}_issue`]: "" }));
+                        onAgreementIssueDateChange(date, code);
+                      }}
                       maxDate={new Date()}
                       format="dd/MM/yyyy"
                       slotProps={{
@@ -1662,20 +1764,34 @@ export default function DocumentForm({
                           fullWidth: true,
                           size: "small",
                           placeholder: "DD/MM/YYYY",
-                          sx: dateFieldSx(false),
+                          error: !!issueDateError,
+                          sx: dateFieldSx(!!issueDateError),
                         },
                       }}
                     />
+                    {issueDateError && (
+                      <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                        <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                        <span>{issueDateError}</span>
+                      </p>
+                    )}
                   </div>
 
-                  {/* EXPIRY DATE (optional) */}
+                  {/* EXPIRY DATE - required whenever the document pair is (see isAgreementPairRequired) */}
                   <div className="flex flex-col gap-1">
                     <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-                      {label} Expiry Date (optional)
+                      {label} Expiry Date{isDocumentPairRequired ? (
+                        <span className="text-warning-500 font-semibold ml-1">*</span>
+                      ) : (
+                        " (optional)"
+                      )}
                     </label>
                     <DatePicker
                       value={agreementData.expiryDate}
-                      onChange={(date) => onAgreementExpiryDateChange(date, code)}
+                      onChange={(date) => {
+                        setAgreementDateErrors(prev => ({ ...prev, [`${code}_expiry`]: "" }));
+                        onAgreementExpiryDateChange(date, code);
+                      }}
                       minDate={agreementData.issueDate || undefined}
                       format="dd/MM/yyyy"
                       slotProps={{
@@ -1689,10 +1805,17 @@ export default function DocumentForm({
                           fullWidth: true,
                           size: "small",
                           placeholder: "DD/MM/YYYY",
-                          sx: dateFieldSx(false),
+                          error: !!expiryDateError,
+                          sx: dateFieldSx(!!expiryDateError),
                         },
                       }}
                     />
+                    {expiryDateError && (
+                      <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                        <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                        <span>{expiryDateError}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

@@ -121,13 +121,26 @@ export const licenseSchema = z.object({
 );
 
 // Agreement document validation schema (Brand Owner/White Labeling/Distribution/
-// PCD Agreement). Agreement Number is optional (per requirement spec — only the
-// document file, issue date, and expiry date are consistently mandatory).
+// PCD Agreement, plus the purely-optional codes like IEC Certificate/Import
+// Licences). All four fields are unconditionally required here - this looks
+// like it contradicts the optional document codes, but a code's entry only
+// exists in the agreements record once the seller has touched ONE of its
+// fields (see onAgreementNumberChange/onAgreementFileChange/onAgreementIssue
+// DateChange/onAgreementExpiryDateChange in SellerRegister.tsx); an untouched
+// optional code is simply absent from the record, so z.record never runs
+// this schema against it at all. The effect once an entry DOES exist is
+// symmetric and intentional: a number with no file, a file with no dates, an
+// issue date with no expiry, etc. is an orphaned/incomplete document
+// regardless of which single field the seller happened to fill in first -
+// disallowed regardless of whether the code itself is required. Which
+// SPECIFIC codes are mandatory even when *untouched* (so the seller can't
+// skip them entirely) is a separate, stricter check in the record-level
+// refine below, keyed off requiredAgreementCodes/mandatoryExtraDocumentCodes.
 export const agreementSchema = z.object({
-  number: z.string().optional(),
+  number: z.string().min(1, "Document number is required"),
   file: fileOrUploadedUrl("Agreement document is required"),
-  issueDate: z.string().optional(),
-  expiryDate: z.string().optional(),
+  issueDate: z.string().min(1, "Issue date is required"),
+  expiryDate: z.string().min(1, "Expiry date is required"),
 });
 
 // Which agreement document type codes are mandatory for a given seller type.
@@ -268,9 +281,20 @@ export const step3Schema = (productTypes: string[], sellerTypeName?: string) =>
           ...requiredAgreementCodes(category),
           ...mandatoryExtraDocumentCodes(category),
         ];
-        return requiredCodes.every(code => agreements[code] && agreements[code].file);
+        // A required document's number/dates are enforced alongside its file
+        // - a mandatory document with everything else optional was a logical
+        // gap (satisfying "required" with an unidentifiable/undated file).
+        // Catches a required code the seller never touched at all (agreementSchema's
+        // own required fields only apply to entries already present in the record).
+        return requiredCodes.every(code =>
+          agreements[code]
+          && agreements[code].file
+          && agreements[code].number?.trim()
+          && agreements[code].issueDate
+          && agreements[code].expiryDate
+        );
       },
-      { message: "All required agreement/compliance documents must be provided" }
+      { message: "All required agreement/compliance documents (with number and dates) must be provided" }
     ),
   });
 
