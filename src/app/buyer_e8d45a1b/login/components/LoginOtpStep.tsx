@@ -21,7 +21,7 @@ export default function LoginOtpStep({ username }: LoginOtpStepProps) {
   };
 
   const handleVerified = () => {
-    router.push("/buyer_e8d45a1b");
+    router.push("/");
   };
 
   return (

@@ -1,11 +1,37 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, LogOut } from "lucide-react";
 import Button from "@/src/app/commonComponents/Button";
+import { useCart } from "@/src/context/CartContext";
+import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 
-const LandingHeader = () => {
+interface LandingHeaderProps {
+    searchQuery?: string;
+    onSearchChange?: (value: string) => void;
+}
+
+const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {}) => {
+    const { totalItems } = useCart();
+    const router = useRouter();
+    const [buyerEmail, setBuyerEmail] = useState<string | null>(() =>
+        typeof window !== "undefined" ? buyerAuthService.getCurrentUser()?.username ?? null : null
+    );
+
+    useEffect(() => {
+        const syncBuyerAuth = () => setBuyerEmail(buyerAuthService.getCurrentUser()?.username ?? null);
+        window.addEventListener("buyer-auth-changed", syncBuyerAuth);
+        return () => window.removeEventListener("buyer-auth-changed", syncBuyerAuth);
+    }, []);
+
+    const handleLogout = async () => {
+        await buyerAuthService.logout();
+        router.push("/");
+    };
+
     return (
         <header className="w-full bg-base-white fixed top-0 left-0 z-50">
 
@@ -55,32 +81,54 @@ const LandingHeader = () => {
                             type="text"
                             placeholder="Search by molecule, Brand or therapeutic area"
                             className="w-full h-full pl-12 pr-4 rounded-md bg-neutral-100 text-label-l3 focus:outline-none"
+                            {...(onSearchChange
+                                ? { value: searchQuery ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement>) => onSearchChange(e.target.value) }
+                                : {})}
                         />
                     </div>
 
                     {/* Right Actions */}
                     <div className="h-12 flex items-center gap-2">
 
-                        <Link href="/buyer_e8d45a1b">
-                            <Button
-                                variant="outline"
-                                size="md"
-                                shape="round"
-                                label="Become a Buyer"
-                                className="w-[155px]"
-                            />
-                        </Link>
-                        <Link href="/seller_7a3b9f2c">
-                            <Button
-                                variant="outline"
-                                size="md"
-                                shape="round"
-                                label="Become a Seller"
-                                className="w-[155px]"
-                            />
-                        </Link>
+                        {buyerEmail ? (
+                            <>
+                                <span className="text-p3 font-body text-neutral-700 mr-2">
+                                    Hi, <span className="font-semibold text-primary-800">{buyerEmail}</span>
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="md"
+                                    shape="round"
+                                    label="Logout"
+                                    icon={<LogOut size={16} />}
+                                    onClick={handleLogout}
+                                    className="w-[125px]"
+                                />
+                            </>
+                        ) : (
+                            <>
+                                <Link href="/buyer_e8d45a1b/signup">
+                                    <Button
+                                        variant="outline"
+                                        size="md"
+                                        shape="round"
+                                        label="Become a Buyer"
+                                        className="w-[155px]"
+                                    />
+                                </Link>
+                                <Link href="/seller_7a3b9f2c">
+                                    <Button
+                                        variant="outline"
+                                        size="md"
+                                        shape="round"
+                                        label="Become a Seller"
+                                        className="w-[155px]"
+                                    />
+                                </Link>
+                            </>
+                        )}
 
-                        <Link href="/admin_f6c29e3d">
+                        <Link href="/cart" className="relative">
                             <Button
                                 variant="outline"
                                 size="md"
@@ -95,6 +143,11 @@ const LandingHeader = () => {
                                 iconPosition="left"
                                 className="w-[52px] px-0"
                             />
+                            {totalItems > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold w-5 h-5 rounded-full flex items-center justify-center">
+                                    {totalItems}
+                                </span>
+                            )}
                         </Link>
                     </div>
                 </div>

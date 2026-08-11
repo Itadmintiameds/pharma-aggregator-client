@@ -17,6 +17,9 @@ export interface BuyerProduct {
   productName: string;
   productDescription?: string;
   manufacturerName?: string;
+  categoryId?: number;
+  gstPercentage?: number;
+  hsnCode?: number;
   pricingDetails?: BuyerProductPricing[];
   productImages?: BuyerProductImage[];
   status?: string;

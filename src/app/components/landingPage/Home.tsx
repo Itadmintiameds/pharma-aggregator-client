@@ -6,15 +6,14 @@ import { useSearchParams } from "next/navigation";
 import LandingHeader from "./LandingHeader";
 import HeroSection from "./HeroSection";
 import Footer from "./Footer";
-import TrendingProducts from "./TrendingProducts";
-import TopRated from "./TopRated";
-import Deals from "./Deals";
+import ProductGrid from "./ProductGrid";
 import FeatureBrands from "./FeatureBrands";
 import LoginModal from "../../modals/LoginModals/LoginModals";
 import toast from "react-hot-toast";
 
 const Home = () => {
   const searchParams = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState("");
 
   // ✅ Check if URL contains ?showLogin=true (for login modal)
   const shouldAutoOpen = searchParams.get("showLogin") === "true";
@@ -59,15 +58,13 @@ const Home = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <LandingHeader />
+      <LandingHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
       {/* Main Content */}
       <main className="pt-38">
         <HeroSection />
-        <Deals />
         <FeatureBrands />
-        <TrendingProducts />
-        <TopRated />
+        <ProductGrid searchQuery={searchQuery} />
       </main>
 
       {/* Footer */}
