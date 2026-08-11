@@ -47,33 +47,46 @@ const getAgreementLabel = (code: string): string => documentTypeLabel(code);
 // hand-matched to FormInput.tsx's default ("lg") field instead of drifting
 // per call site. This is the one place that mapping lives - every DatePicker
 // on this page should use it so date fields are indistinguishable from the
-// text fields around them. #737373/#f5f5f5 mirror Tailwind's built-in
-// neutral-500/neutral-100 (the "neutral" palette FormInput's default border
-// uses is never overridden in global.css, so it's Tailwind's stock color,
-// not one of this app's custom --pneutral-* tokens); #ef4444 mirrors
-// Tailwind's stock red-500 (FormInput's `border-red-500` error state). The
-// focus color intentionally *does* use a custom token (var(--secondary-500))
-// since FormInput's focus ring is themed, not a Tailwind default.
+// text fields around them. #737373/#f5f5f5/#d4d4d4 mirror Tailwind's
+// built-in neutral-500/neutral-100/neutral-300 (the "neutral" palette
+// FormInput's default border uses is never overridden in global.css, so
+// it's Tailwind's stock color, not one of this app's custom --pneutral-*
+// tokens); #ef4444 mirrors Tailwind's stock red-500 (FormInput's
+// `border-red-500` error state). The focus color intentionally *does* use a
+// custom token (var(--secondary-500)) since FormInput's focus ring is
+// themed, not a Tailwind default. FormInput's `focus:border-secondary-500
+// focus:ring-2 focus:ring-secondary-200` classes are unconditional - they
+// apply on top of `border-red-500` regardless of `error`, and Tailwind's
+// focus variant wins while focused - so the error border is only visible
+// while blurred; focusing an errored field switches it to the same purple
+// focus treatment as any other field. Mirror that here instead of keeping
+// the red border (and dropping the ring) while focused.
+// NOTE: @mui/x-date-pickers v8's DatePicker renders its outline via
+// PickersOutlinedInput, not @mui/material's OutlinedInput, when the default
+// accessible field DOM structure is in play - so the outline/root/input
+// slots carry the `MuiPickersOutlinedInput-*` classes, not `MuiOutlinedInput-*`.
+// Targeting the latter silently matches nothing; both are targeted below so
+// this keeps working whichever field structure ends up mounted.
 const dateFieldSx = (hasError: boolean, disabled?: boolean) => ({
-  "& .MuiOutlinedInput-root": {
+  "& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root": {
     height: "52px",
     borderRadius: "12px",
     backgroundColor: disabled ? "#f5f5f5" : "#ffffff",
-    "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasError ? "#ef4444" : "#737373",
+    "& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline": {
+      borderColor: disabled ? "#d4d4d4" : hasError ? "#ef4444" : "#737373",
     },
-    "&:hover .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasError ? "#ef4444" : "#737373",
+    "&:hover .MuiOutlinedInput-notchedOutline, &:hover .MuiPickersOutlinedInput-notchedOutline": {
+      borderColor: disabled ? "#d4d4d4" : hasError ? "#ef4444" : "#737373",
     },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasError ? "#ef4444" : "var(--secondary-500)",
-      borderWidth: "2px",
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline, &.Mui-focused .MuiPickersOutlinedInput-notchedOutline": {
+      borderColor: "var(--secondary-500)",
+      borderWidth: "1px",
     },
     "&.Mui-focused": {
-      boxShadow: hasError ? "none" : "0 0 0 2px var(--secondary-200)",
+      boxShadow: "0 0 0 2px var(--secondary-200)",
     },
   },
-  "& .MuiInputBase-input": {
+  "& .MuiInputBase-input, & .MuiPickersOutlinedInput-input": {
     padding: "0 14px",
     fontSize: "16px",
     fontFamily: "var(--font-body)",
