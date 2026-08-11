@@ -94,7 +94,7 @@ export default function RegisterPage() {
             </div>
 
             <Link
-              href="/buyer_e8d45a1b"
+              href="/buyer_e8d45a1b/signup"
               className="inline-block w-full bg-primary-900 hover:bg-primary-800 text-white font-semibold text-p3 py-4 px-6 rounded-lg text-center transition-all duration-200 active:scale-[0.98] shadow-md"
             >
               Register as Buyer →

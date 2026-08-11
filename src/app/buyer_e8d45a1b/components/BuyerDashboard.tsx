@@ -1,17 +1,32 @@
-import React from "react";
-// import Header from "@/src/app/components/Header";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import BuyerDashboardHeader from "./BuyerDashboardHeader";
+import ProductListing from "./ProductListing";
 
 export default function BuyerDashboard() {
+  const router = useRouter();
+  const [email] = useState<string | null>(() =>
+    typeof window !== "undefined" ? buyerAuthService.getCurrentUser()?.username ?? null : null
+  );
+
+  useEffect(() => {
+    if (!buyerAuthService.isAuthenticated()) {
+      router.replace("/buyer_e8d45a1b/login");
+    }
+  }, [router]);
+
+  if (!email) {
+    return null;
+  }
+
   return (
-    <div className="min-h-screen bg-[#F3ECF8]">
-      {/* <Header /> */}
-      <div className="flex flex-col items-center justify-center text-center px-4 mt-32">
-        <h1 className="text-4xl md:text-5xl font-bold text-gray-800">
-          Coming Soon 🚀
-        </h1>
-        {/* <p className="mt-4 text-lg text-gray-600 max-w-xl">
-          We're actively working on buyer features. Stay tuned!
-        </p> */}
+    <div className="min-h-screen bg-neutral-50">
+      <BuyerDashboardHeader email={email} />
+      <div className="pt-24 px-4 pb-16 max-w-7xl mx-auto">
+        <ProductListing />
       </div>
     </div>
   );
