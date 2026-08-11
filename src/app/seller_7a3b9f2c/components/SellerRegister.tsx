@@ -51,6 +51,8 @@ interface DraftDocumentRow {
   documentFileName?: string;
 }
 
+const WIZARD_STEP_STORAGE_KEY = "sellerRegWizardStep"
+
 interface SellerRegistrationProps {
   // Set when rendered inside the dashboard's onboarding gate rather than the
   // standalone marketing page: suppresses this wizard's own 5-step sidebar
@@ -74,7 +76,15 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
   // setFormData call finally lands with the OLDER, pre-edit server value.
   const [resumeChecked, setResumeChecked] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
-  const [step, setStep] = useState(1)
+  // Persisted to sessionStorage so a mid-wizard refresh (e.g. on the
+  // Coordinator step) reopens on the same step instead of restarting at
+  // Company Details - sessionStorage (not localStorage) so it only survives
+  // within the current tab and doesn't leak into a later, unrelated session.
+  const [step, setStep] = useState(() => {
+    if (typeof window === "undefined") return 1
+    const saved = parseInt(sessionStorage.getItem(WIZARD_STEP_STORAGE_KEY) || "", 10)
+    return saved >= 1 && saved <= 5 ? saved : 1
+  })
   const [emailVerified, setEmailVerified] = useState(false)
   const [phoneVerified, setPhoneVerified] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -251,6 +261,10 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
       lastSavedPayloadRef.current = JSON.stringify(buildDraftPayload())
     }
   }, [formData])
+
+  useEffect(() => {
+    sessionStorage.setItem(WIZARD_STEP_STORAGE_KEY, String(step))
+  }, [step])
 
   // Registration now requires a login (created via the signup-first flow) —
   // check once on mount so returning users skip straight to the wizard.
@@ -2009,6 +2023,7 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
 
         // Set application ID and show success modal
         setApplicationId(tempSellerRequestId);
+        sessionStorage.removeItem(WIZARD_STEP_STORAGE_KEY);
         setShowSuccessModal(true);
         toast.success("Application submitted successfully!");
 

@@ -58,7 +58,7 @@ export default function SuccessModal({
 
   if (!open) return null;
 
-  const goHome = () => {
+  const goDashboard = () => {
     router.push("/seller_7a3b9f2c/dashboard");
     onClose();
   };
@@ -202,14 +202,14 @@ export default function SuccessModal({
             </div>
           ) : (
             <button
-              onClick={goHome}
+              onClick={goDashboard}
               className="flex items-center gap-2 rounded-full bg-primary-900 px-5 py-2 text-white"
               style={{
                 animation:
                   "slideFromLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards",
               }}
             >
-              Go to home
+              Go to Dashboard
               <ArrowRight className="h-4 w-4" />
             </button>
           )}
