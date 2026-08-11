@@ -82,8 +82,14 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
 
   return (
     <aside
-      className="fixed left-0 bottom-0 w-64 bg-white z-40 flex flex-col"
-      style={{ top: 74, padding: 24, boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.10)", justifyContent: "space-between" }}
+      className="fixed left-0 bottom-0 w-64 z-40 flex flex-col"
+      style={{
+        top: 74,
+        padding: 24,
+        background: "var(--Colors-Secondary-Secondary-600, #9659FD)",
+        boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.10)",
+        justifyContent: "space-between",
+      }}
     >
       {/* Nav items */}
       <nav className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 8 }}>
@@ -112,19 +118,19 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
                 overflow: "hidden",
               }}
               onMouseEnter={(e) => {
-                if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "#F4F0FF";
+                if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255, 255, 255, 0.12)";
               }}
               onMouseLeave={(e) => {
                 if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
               }}
             >
-              <span style={{ display: "flex", flexShrink: 0, color: disabled ? "var(--Colors-Primary-Neutral-pneutral-500, #9C9C9A)" : active ? "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" : "var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)" }}>
+              <span style={{ display: "flex", flexShrink: 0, color: disabled ? "rgba(255, 255, 255, 0.4)" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" }}>
                 {item.icon}
               </span>
               <span style={{
                 flex: 1,
                 textAlign: "left",
-                color: disabled ? "var(--Colors-Primary-Neutral-pneutral-500, #9C9C9A)" : active ? "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" : "var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)",
+                color: disabled ? "rgba(255, 255, 255, 0.4)" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)",
                 fontSize: 16,
                 fontFamily: "Work Sans, sans-serif",
                 fontWeight: active ? 500 : 400,
@@ -133,7 +139,7 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
                 {item.label}
               </span>
               {disabled && (
-                <Lock size={16} style={{ flexShrink: 0, color: "var(--Colors-Primary-Neutral-pneutral-500, #9C9C9A)" }} />
+                <Lock size={16} style={{ flexShrink: 0, color: "rgba(255, 255, 255, 0.4)" }} />
               )}
             </button>
           );
