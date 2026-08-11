@@ -115,6 +115,27 @@ export default function CoordinatorForm({
   const [sameAsLoginEmail, setSameAsLoginEmail] = useState(false);
   const loginEmail = sellerAuthService.getCurrentUser()?.username || "";
 
+  // Keep the checkbox in sync when the email arrives via a source other than
+  // typing/toggling here - e.g. a saved draft loaded into formData by the
+  // parent - so a coordinator email that already matches the login email
+  // shows as checked instead of requiring the user to retype it.
+  useEffect(() => {
+    const matchesLogin =
+      !!loginEmail &&
+      !!formData.coordinatorEmail &&
+      formData.coordinatorEmail.trim().toLowerCase() === loginEmail.trim().toLowerCase();
+
+    setSameAsLoginEmail(matchesLogin);
+
+    // It's already OTP-verified via signup - carry that verified state over
+    // here too, otherwise the checkbox shows checked but the field still
+    // demands a fresh "Send OTP" (e.g. right after logging back in and the
+    // draft reloads this same email).
+    if (matchesLogin && !emailVerified) {
+      onEmailVerified();
+    }
+  }, [formData.coordinatorEmail, loginEmail, emailVerified, onEmailVerified]);
+
   const handleSameAsLoginToggle = (checked: boolean) => {
     setSameAsLoginEmail(checked);
     setEmailError("");
@@ -548,13 +569,20 @@ export default function CoordinatorForm({
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => setIsPhoneDropdownOpen(!isPhoneDropdownOpen)}
-                    className={`h-13 px-2 pl-5 pr-2 rounded-l-xl border border-r-0 bg-white flex items-center gap-1 focus:outline-none ${
-                      (errors.coordinatorMobile || phoneError || phoneExistsError) ? "border-red-500" : "border-neutral-500"
+                    onClick={() => !phoneVerified && setIsPhoneDropdownOpen(!isPhoneDropdownOpen)}
+                    disabled={phoneVerified}
+                    className={`h-13 px-2 pl-5 pr-2 rounded-l-xl border border-r-0 flex items-center gap-1 focus:outline-none disabled:cursor-not-allowed ${
+                      phoneVerified ? "bg-neutral-100 text-pneutral-500" : "bg-white"
+                    } ${
+                      (errors.coordinatorMobile || phoneError || phoneExistsError)
+                        ? "border-red-500"
+                        : phoneVerified
+                          ? "border-neutral-300"
+                          : "border-neutral-500"
                     }`}
                   >
-                    <span className="text-p4 font-body font-regular text-pneutral-900">{selectedCountryCode}</span>
-                    <ChevronDown className="w-4 h-4 text-pneutral-900" />
+                    <span className={`text-p4 font-body font-regular ${phoneVerified ? "text-pneutral-500" : "text-pneutral-900"}`}>{selectedCountryCode}</span>
+                    <ChevronDown className={`w-4 h-4 ${phoneVerified ? "text-pneutral-500" : "text-pneutral-900"}`} />
                   </button>
 
                   {isPhoneDropdownOpen && (
@@ -862,6 +890,7 @@ export default function CoordinatorForm({
             ? handleResendEmail
             : handleResendPhone
         }
+        autoVerifyOnComplete={verificationType !== "phone"}
       />
     </div>
   );

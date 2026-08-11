@@ -14,6 +14,10 @@ interface Props {
   // registration email/SMS OTP endpoints below. Pass this to reuse the modal
   // for other OTP flows (e.g. signup) without forking the component.
   onVerify?: (otp: string) => Promise<void>;
+  // When false, filling the last box (or pasting a full code) only fills the
+  // inputs — verification still requires pressing "Verify". Defaults to true
+  // (existing auto-verify-on-complete behavior).
+  autoVerifyOnComplete?: boolean;
 }
 
 export default function VerificationModal({
@@ -24,6 +28,7 @@ export default function VerificationModal({
   type,
   onResend,
   onVerify,
+  autoVerifyOnComplete = true,
 }: Props) {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -134,7 +139,7 @@ export default function VerificationModal({
       inputs.current[index + 1]?.focus();
     }
 
-    if (value && index === 5) {
+    if (value && index === 5 && autoVerifyOnComplete) {
       const enteredOtp = newOtp.join("");
 
       if (enteredOtp.length === 6) {
@@ -175,9 +180,11 @@ export default function VerificationModal({
     setOtp(newOtp);
     setError("");
 
-    setTimeout(() => {
-      verifyOtpNow(pasteData);
-    }, 50);
+    if (autoVerifyOnComplete) {
+      setTimeout(() => {
+        verifyOtpNow(pasteData);
+      }, 50);
+    }
 
     setTimeout(() => {
       inputs.current[5]?.focus();

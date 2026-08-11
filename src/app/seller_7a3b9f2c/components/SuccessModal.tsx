@@ -59,7 +59,7 @@ export default function SuccessModal({
   if (!open) return null;
 
   const goHome = () => {
-    router.push("/");
+    router.push("/seller_7a3b9f2c/dashboard");
     onClose();
   };
 
