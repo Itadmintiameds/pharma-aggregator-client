@@ -51,13 +51,19 @@ export default function ProductCard({ product }: ProductCardProps) {
           <p className="text-lg font-semibold truncate">{product.productName}</p>
         </div>
 
-        <button
-          onClick={handleAddToCart}
-          className="flex items-center justify-center gap-2 bg-primary-700 hover:bg-purple-800 text-white rounded-xl transition-all duration-300 w-10 h-10 group-hover:w-auto group-hover:px-4 overflow-hidden shrink-0 z-10"
-        >
-          <FaShoppingCart className="shrink-0" />
-          <span className="opacity-0 group-hover:opacity-100 whitespace-nowrap">Add to Cart</span>
-        </button>
+        <div className="relative w-10 h-10 shrink-0">
+          <button
+            onClick={handleAddToCart}
+            className="absolute right-0 top-0 flex items-center bg-primary-700 hover:bg-purple-800 text-white rounded-full transition-all duration-300 w-10 h-10 group-hover:w-auto overflow-hidden z-20"
+          >
+            <span className="flex items-center justify-center w-10 h-10 shrink-0">
+              <FaShoppingCart size={16} />
+            </span>
+            <span className="max-w-0 opacity-0 group-hover:max-w-35 group-hover:opacity-100 overflow-hidden whitespace-nowrap transition-all duration-300 group-hover:pr-4">
+              Add to Cart
+            </span>
+          </button>
+        </div>
       </div>
 
       {product.productDescription && (
