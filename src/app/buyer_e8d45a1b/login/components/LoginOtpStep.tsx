@@ -33,6 +33,7 @@ export default function LoginOtpStep({ username }: LoginOtpStepProps) {
       onVerified={handleVerified}
       onResend={handleResend}
       onVerify={handleVerify}
+      autoVerifyOnComplete={false}
     />
   );
 }

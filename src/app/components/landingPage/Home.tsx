@@ -57,18 +57,23 @@ const Home = () => {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
+      {/* Header — kept outside the zoomed wrapper below so it stays at normal size */}
       <LandingHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
-      {/* Main Content */}
-      <main className="pt-38">
-        <HeroSection />
-        <FeatureBrands />
-        <ProductGrid searchQuery={searchQuery} />
-      </main>
+      {/* `zoom` gives a mild zoom-in (like Ctrl + in the browser) to everything below the
+          header, without breaking layout/media queries the way `transform: scale()` would.
+          Supported in Chrome/Edge/Safari; adjust the value here to change the zoom amount. */}
+      <div style={{ zoom: 1.18 }}>
+        {/* Main Content */}
+        <main className="pt-38">
+          <HeroSection />
+          <FeatureBrands />
+          <ProductGrid searchQuery={searchQuery} />
+        </main>
 
-      {/* Footer */}
-      <Footer />
+        {/* Footer */}
+        <Footer />
+      </div>
 
       {/* Login Modal - Only opens when ?showLogin=true is present */}
       <LoginModal
