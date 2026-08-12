@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getProductById } from "@/src/services/buyer/buyerProductService";
 import { BuyerProduct } from "@/src/types/buyer/product";
@@ -8,6 +8,75 @@ import { useCart } from "@/src/context/CartContext";
 import Button from "@/src/app/commonComponents/Button";
 
 const PLACEHOLDER_IMAGE = "/icons/Tumbnail.svg";
+const ZOOM_FACTOR = 2.5;
+const LENS_SIZE = 160;
+
+interface ImageZoomProps {
+  src: string;
+  alt: string;
+  onError: () => void;
+}
+
+function ImageZoom({ src, alt, onError }: ImageZoomProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState<{ active: boolean; x: number; y: number; percentX: number; percentY: number }>({
+    active: false,
+    x: 0,
+    y: 0,
+    percentX: 50,
+    percentY: 50,
+  });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
+    const y = Math.min(Math.max(e.clientY - rect.top, 0), rect.height);
+    const percentX = (x / rect.width) * 100;
+    const percentY = (y / rect.height) * 100;
+    setZoom({ active: true, x, y, percentX, percentY });
+  };
+
+  const lensLeft = Math.min(Math.max(zoom.x - LENS_SIZE / 2, 0), (containerRef.current?.clientWidth ?? LENS_SIZE) - LENS_SIZE);
+  const lensTop = Math.min(Math.max(zoom.y - LENS_SIZE / 2, 0), (containerRef.current?.clientHeight ?? LENS_SIZE) - LENS_SIZE);
+
+  return (
+    <div className="relative">
+      <div
+        ref={containerRef}
+        className="relative h-[400px] overflow-hidden rounded-xl bg-neutral-50 cursor-crosshair"
+        onMouseEnter={handleMouseMove}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setZoom((z) => ({ ...z, active: false }))}
+      >
+        <img src={src} alt={alt} className="w-full h-full object-contain" onError={onError} />
+
+        {zoom.active && (
+          <div
+            className="absolute border-2 border-primary-600 bg-white/30 pointer-events-none"
+            style={{
+              width: LENS_SIZE,
+              height: LENS_SIZE,
+              left: lensLeft,
+              top: lensTop,
+            }}
+          />
+        )}
+      </div>
+
+      {zoom.active && (
+        <div
+          className="hidden lg:block absolute top-0 left-[calc(100%+16px)] w-[420px] h-[400px] rounded-xl border border-pneutral-200 shadow-lg bg-white bg-no-repeat z-30"
+          style={{
+            backgroundImage: `url(${src})`,
+            backgroundSize: `${ZOOM_FACTOR * 100}% ${ZOOM_FACTOR * 100}%`,
+            backgroundPosition: `${zoom.percentX}% ${zoom.percentY}%`,
+          }}
+        />
+      )}
+    </div>
+  );
+}
 
 interface FieldRowProps {
   label: string;
@@ -30,6 +99,7 @@ interface ProductDetailProps {
 
 export default function ProductDetail({ productId }: ProductDetailProps) {
   const [product, setProduct] = useState<BuyerProduct | null | undefined>(undefined);
+  const [mainIndex, setMainIndex] = useState(0);
   const { addItem } = useCart();
   const router = useRouter();
 
@@ -75,27 +145,43 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
     <div className="max-w-5xl mx-auto px-6 py-12">
       <div className="bg-white rounded-2xl shadow-md p-8">
         {/* Image gallery */}
-        <div className="grid grid-cols-5 gap-4 mb-8">
-          {displayImages.slice(0, 5).map((src, index) => (
-            <div
-              key={index}
-              className="relative h-40 overflow-hidden rounded-xl bg-neutral-50"
-            >
-              <img
-                src={src}
-                alt={product.productName}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                }}
-              />
-              {index === 0 && (
-                <span className="absolute top-3 left-3 bg-primary-600 text-white text-xs font-semibold px-2 py-0.5 rounded">
-                  Primary
-                </span>
-              )}
+        <div className="flex gap-4 mb-8">
+          {displayImages.length > 1 && (
+            <div className="flex flex-col gap-3 shrink-0">
+              {displayImages.slice(0, 6).map((src, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setMainIndex(index)}
+                  className={`relative w-16 h-16 overflow-hidden rounded-lg bg-neutral-50 border-2 transition-colors ${
+                    index === mainIndex ? "border-primary-600" : "border-transparent hover:border-pneutral-300"
+                  }`}
+                >
+                  <img
+                    src={src}
+                    alt={`${product.productName} thumbnail ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
+                    }}
+                  />
+                </button>
+              ))}
             </div>
-          ))}
+          )}
+
+          <div className="relative flex-1 max-w-105">
+            {mainIndex === 0 && (
+              <span className="absolute top-3 left-3 bg-primary-600 text-white text-xs font-semibold px-2 py-0.5 rounded z-10">
+                Primary
+              </span>
+            )}
+            <ImageZoom
+              src={displayImages[mainIndex] ?? PLACEHOLDER_IMAGE}
+              alt={product.productName}
+              onError={() => setMainIndex(mainIndex)}
+            />
+          </div>
         </div>
 
         <h1 className="text-h4 font-heading font-medium text-pneutral-900 mb-1">
