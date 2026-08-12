@@ -86,7 +86,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         size="sm"
         label="Buy Now"
         onClick={handleBuyNow}
-        className="mt-3 w-full !rounded-2xl border border-transparent hover:border-primary-800"
+        className="mt-3 w-full !rounded-xl border border-transparent hover:border-primary-800 hover:text-white"
       />
     </Link>
   );
