@@ -35,7 +35,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       href={`/product/${product.productId}`}
       className="group relative bg-white rounded-3xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 p-4 overflow-hidden flex flex-col"
     >
-      <div className="h-[200px] flex items-center justify-center mb-3">
+      <div className="h-[200px] flex items-center justify-center mb-3 rounded-xl border border-pneutral-200 overflow-hidden bg-white">
         <img
           src={image || "/icons/Tumbnail.svg"}
           alt={product.productName}
@@ -86,7 +86,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         size="sm"
         label="Buy Now"
         onClick={handleBuyNow}
-        className="mt-3 w-full"
+        className="mt-3 w-full !rounded-2xl border border-transparent hover:border-primary-800"
       />
     </Link>
   );
