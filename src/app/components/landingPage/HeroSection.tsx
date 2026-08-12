@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,9 +11,22 @@ import {
   ChevronDown,
   ShoppingCart,
 } from "lucide-react";
+import { getDrugCategory } from "@/src/services/product/ProductService";
+import { getAllProducts } from "@/src/services/buyer/buyerProductService";
+import { BuyerProduct } from "@/src/types/buyer/product";
+
+interface DrugCategory {
+  categoryId: string;
+  categoryName: string;
+}
+
+const PLACEHOLDER_IMAGE = "/icons/Tumbnail.svg";
 
 const HeroSection = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [categories, setCategories] = useState<DrugCategory[]>([]);
+  const [products, setProducts] = useState<BuyerProduct[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const sliderImages = [
     "/assets/images/medPic.png",
@@ -20,48 +34,18 @@ const HeroSection = () => {
     "/assets/images/med3.png",
   ];
 
-  const categories = [
-    "Tablet",
-    "Capsule",
-    "Syrup",
-    "Injection",
-    "Surgical",
-    "Medical Devices",
-    "OTC",
-    "Ayurvedic",
-    "Surgical",
-    "Medical Devices",
-  ];
+  useEffect(() => {
+    getDrugCategory()
+      .then((result) => setCategories(result ?? []))
+      .catch(() => setCategories([]));
+    getAllProducts()
+      .then((result) => setProducts(result.slice(0, 12)))
+      .catch(() => setProducts([]));
+  }, []);
 
-  const products = [
-    {
-      id: 1,
-      name: "Cetirizine Tablets",
-      brand: "Pharma Brand",
-      description: "10mg, Antihistamine, Pack of 10",
-      image: "/assets/images/MedicineSample.jpg",
-      price: "₹38.00",
-      originalPrice: "₹45.00",
-    },
-    {
-      id: 2,
-      name: "Paracetamol 500mg",
-      brand: "MediCare",
-      description: "Pain Relief, Pack of 15",
-      image: "/assets/images/MedicineSample.jpg",
-      price: "₹28.00",
-      originalPrice: "₹35.00",
-    },
-    {
-      id: 3,
-      name: "Vitamin D3",
-      brand: "HealthPlus",
-      description: "Immunity Booster, Pack of 20",
-      image: "/assets/images/MedicineSample.jpg",
-      price: "₹55.00",
-      originalPrice: "₹70.00",
-    },
-  ];
+  const scrollByCards = (direction: 1 | -1) => {
+    scrollRef.current?.scrollBy({ left: direction * 340, behavior: "smooth" });
+  };
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % sliderImages.length);
@@ -90,13 +74,13 @@ const HeroSection = () => {
           <ChevronDown size={16} className="sm:w-[18px] ml-auto" />
         </div>
 
-        <div className="h-[calc(570px-52px-2px)] flex flex-col">
-          {categories.map((item, index) => (
+        <div className="h-[calc(570px-52px-2px)] flex flex-col overflow-y-auto">
+          {categories.map((item) => (
             <div
-              key={index}
-              className="flex-1 min-h-[44px] flex items-center justify-between px-3 sm:px-4 text-xs sm:text-sm text-neutral-900 hover:bg-primary-800 hover:text-white cursor-pointer border-b last:border-none group"
+              key={item.categoryId}
+              className="min-h-[44px] flex items-center justify-between px-3 sm:px-4 text-xs sm:text-sm text-neutral-900 hover:bg-primary-800 hover:text-white cursor-pointer border-b last:border-none group shrink-0"
             >
-              <span className="truncate pr-2">{item}</span>
+              <span className="truncate pr-2">{item.categoryName}</span>
               <ChevronRight
                 size={12}
                 className="sm:w-[14px] text-neutral-900 group-hover:text-white transition shrink-0"
@@ -175,88 +159,101 @@ const HeroSection = () => {
           </div>
         </div>
 
-        {/* ================= AUTO SLIDING PRODUCT CARDS ================= */}
-        <div className="relative overflow-hidden px-1 w-full">
-          <div className="flex gap-3 sm:gap-4 lg:gap-5 xl:gap-6 product-marquee hover:[animation-play-state:paused]">
-            {[...products, ...products].map((product, index) => (
-              <div
-                key={index}
-                className="w-[300px] sm:w-[380px] md:w-[420px] lg:w-[440px] xl:w-[460px] h-[180px] sm:h-[200px] md:h-[210px] lg:h-[220px] xl:h-[224px] bg-white rounded-2xl shadow-sm border border-neutral-200 p-3 sm:p-4 xl:p-6 flex gap-2 sm:gap-3 shrink-0"
-              >
-                {/* IMAGE */}
-                <div className="relative w-[100px] sm:w-[120px] md:w-[130px] lg:w-[140px] xl:w-[151px] h-[120px] sm:h-[140px] md:h-[150px] lg:h-[160px] xl:h-[176px] shrink-0">
-                  <Image
-                    src={product.image}
-                    alt={product.name}
-                    fill
-                    className="object-contain"
-                    sizes="(max-width: 640px) 100px, (max-width: 768px) 120px, (max-width: 1024px) 130px, (max-width: 1280px) 140px, 151px"
-                  />
-                </div>
-
-                {/* CONTENT */}
-                <div className="flex flex-col justify-between flex-1 w-[calc(100%-120px)] sm:w-[calc(100%-140px)] md:w-[calc(100%-150px)] lg:w-[calc(100%-160px)] xl:w-[calc(100%-171px)]">
-                  <div>
-                    <h3 className="text-right text-sm sm:text-base lg:text-lg font-bold text-neutral-800 truncate">
-                      {product.brand}
-                    </h3>
-
-                    <p className="text-right text-primary-600 font-semibold text-xs sm:text-sm lg:text-base truncate">
-                      {product.name}
-                    </p>
-
-                    <p className="text-right text-xs sm:text-sm text-gray-500 mt-1 truncate">
-                      {product.description}
-                    </p>
-
-                    <p className="text-xs text-yellow-500 mt-2 sm:mt-4">
-                      ● Limited stock
-                    </p>
+        {/* ================= HORIZONTALLY SCROLLABLE PRODUCT CARDS ================= */}
+        <div className="relative w-full group/scroller">
+          <div
+            ref={scrollRef}
+            className="flex gap-3 sm:gap-4 lg:gap-5 xl:gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {products.map((product) => {
+              const pricing = product.pricingDetails?.[0];
+              const image = product.productImages?.[0]?.productImage || PLACEHOLDER_IMAGE;
+              return (
+                <Link
+                  key={product.productId}
+                  href={`/product/${product.productId}`}
+                  className="snap-start w-[300px] sm:w-[380px] md:w-[420px] lg:w-[440px] xl:w-[460px] h-[180px] sm:h-[200px] md:h-[210px] lg:h-[220px] xl:h-[224px] bg-white rounded-2xl shadow-sm border border-neutral-200 p-3 sm:p-4 xl:p-6 flex gap-2 sm:gap-3 shrink-0 hover:shadow-md transition"
+                >
+                  {/* IMAGE */}
+                  <div className="relative w-[100px] sm:w-[120px] md:w-[130px] lg:w-[140px] xl:w-[151px] h-[120px] sm:h-[140px] md:h-[150px] lg:h-[160px] xl:h-[176px] shrink-0">
+                    <Image
+                      src={image}
+                      alt={product.productName}
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 640px) 100px, (max-width: 768px) 120px, (max-width: 1024px) 130px, (max-width: 1280px) 140px, 151px"
+                      unoptimized={image !== PLACEHOLDER_IMAGE}
+                    />
                   </div>
 
-                  <div className="flex items-center justify-between mt-2 sm:mt-3 lg:mt-4 gap-1 sm:gap-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1">
-                      <span className="line-through text-neutral-900 text-xs whitespace-nowrap">
-                        {product.originalPrice}
-                      </span>
-                      <span className="text-sm sm:text-base lg:text-xl xl:text-2xl font-semibold text-neutral-900 whitespace-nowrap">
-                        {product.price}
-                      </span>
+                  {/* CONTENT */}
+                  <div className="flex flex-col justify-between flex-1 w-[calc(100%-120px)] sm:w-[calc(100%-140px)] md:w-[calc(100%-150px)] lg:w-[calc(100%-160px)] xl:w-[calc(100%-171px)]">
+                    <div>
+                      {product.manufacturerName && (
+                        <h3 className="text-right text-sm sm:text-base lg:text-lg font-bold text-neutral-800 truncate">
+                          {product.manufacturerName}
+                        </h3>
+                      )}
+
+                      <p className="text-right text-primary-600 font-semibold text-xs sm:text-sm lg:text-base truncate">
+                        {product.productName}
+                      </p>
+
+                      {product.productDescription && (
+                        <p className="text-right text-xs sm:text-sm text-gray-500 mt-1 truncate">
+                          {product.productDescription}
+                        </p>
+                      )}
+
+                      <p className="text-xs text-yellow-500 mt-2 sm:mt-4">
+                        ● Limited stock
+                      </p>
                     </div>
 
-                    <button className="inline-flex items-center justify-center gap-1 sm:gap-2 bg-primary-600 hover:bg-primary-800 text-white text-xs sm:text-sm px-2 sm:px-3 xl:px-4 py-1.5 sm:py-2 rounded-lg transition whitespace-nowrap">
-                      <ShoppingCart size={14} className="sm:w-[16px] shrink-0" />
-                      <span className="hidden xs:inline">Buy Now</span>
-                    </button>
+                    <div className="flex items-center justify-between mt-2 sm:mt-3 lg:mt-4 gap-1 sm:gap-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1">
+                        {pricing?.mrp != null && pricing.mrp !== pricing?.sellingPrice && (
+                          <span className="line-through text-neutral-900 text-xs whitespace-nowrap">
+                            ₹{pricing.mrp}
+                          </span>
+                        )}
+                        {pricing?.sellingPrice != null && (
+                          <span className="text-sm sm:text-base lg:text-xl xl:text-2xl font-semibold text-neutral-900 whitespace-nowrap">
+                            ₹{pricing.sellingPrice}
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="inline-flex items-center justify-center gap-1 sm:gap-2 bg-primary-600 group-hover:bg-primary-800 text-white text-xs sm:text-sm px-2 sm:px-3 xl:px-4 py-1.5 sm:py-2 rounded-lg transition whitespace-nowrap">
+                        <ShoppingCart size={14} className="sm:w-[16px] shrink-0" />
+                        <span className="hidden xs:inline">Buy Now</span>
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                </Link>
+              );
+            })}
           </div>
+
+          {products.length > 0 && (
+            <>
+              <button
+                onClick={() => scrollByCards(-1)}
+                aria-label="Scroll products left"
+                className="hidden sm:flex absolute -left-3 top-1/2 -translate-y-1/2 items-center justify-center w-9 h-9 rounded-full bg-white shadow-md opacity-0 group-hover/scroller:opacity-100 transition hover:scale-110 z-10"
+              >
+                <ArrowLeft size={16} />
+              </button>
+              <button
+                onClick={() => scrollByCards(1)}
+                aria-label="Scroll products right"
+                className="hidden sm:flex absolute -right-3 top-1/2 -translate-y-1/2 items-center justify-center w-9 h-9 rounded-full bg-white shadow-md opacity-0 group-hover/scroller:opacity-100 transition hover:scale-110 z-10"
+              >
+                <ArrowRight size={16} />
+              </button>
+            </>
+          )}
         </div>
-
-        {/* MARQUEE ANIMATION */}
-        <style jsx>{`
-          .product-marquee {
-            animation: slideProducts 30s linear infinite;
-            width: fit-content;
-          }
-
-          @keyframes slideProducts {
-            0% {
-              transform: translateX(0);
-            }
-            100% {
-              transform: translateX(calc(-50% - 12px));
-            }
-          }
-
-          @media (max-width: 640px) {
-            .product-marquee {
-              animation-duration: 25s;
-            }
-          }
-        `}</style>
       </section>
     </div>
   );
