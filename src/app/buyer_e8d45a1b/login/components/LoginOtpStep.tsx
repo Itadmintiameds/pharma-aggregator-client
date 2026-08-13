@@ -21,7 +21,10 @@ export default function LoginOtpStep({ username }: LoginOtpStepProps) {
   };
 
   const handleVerified = () => {
-    router.push("/");
+    // Land on the dashboard shell and let BuyerOnboardingGate itself decide
+    // whether to bounce an already-approved buyer onward to "/" — avoids an
+    // extra status call here just to make the same routing decision twice.
+    router.push("/buyer_e8d45a1b/dashboard");
   };
 
   return (
