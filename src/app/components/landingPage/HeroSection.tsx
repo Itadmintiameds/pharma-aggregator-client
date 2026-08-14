@@ -10,10 +10,14 @@ import {
   ChevronRight,
   ChevronDown,
   ShoppingCart,
+  Plus,
+  Minus,
 } from "lucide-react";
 import { getDrugCategory } from "@/src/services/product/ProductService";
 import { getAllProducts } from "@/src/services/buyer/buyerProductService";
 import { BuyerProduct } from "@/src/types/buyer/product";
+import { useCart } from "@/src/context/CartContext";
+import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 
 interface DrugCategory {
   categoryId: string;
@@ -26,7 +30,16 @@ const HeroSection = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [categories, setCategories] = useState<DrugCategory[]>([]);
   const [products, setProducts] = useState<BuyerProduct[]>([]);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const { items: cartItems, addItem, updateQuantity } = useCart();
+  const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(() =>
+    buyerAuthService.isAuthenticated()
+  );
+
+  useEffect(() => {
+    const syncBuyerAuth = () => setIsBuyerLoggedIn(buyerAuthService.isAuthenticated());
+    window.addEventListener("buyer-auth-changed", syncBuyerAuth);
+    return () => window.removeEventListener("buyer-auth-changed", syncBuyerAuth);
+  }, []);
 
   const sliderImages = [
     "/assets/images/medPic.png",
@@ -43,10 +56,6 @@ const HeroSection = () => {
       .catch(() => setProducts([]));
   }, []);
 
-  const scrollByCards = (direction: 1 | -1) => {
-    scrollRef.current?.scrollBy({ left: direction * 340, behavior: "smooth" });
-  };
-
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % sliderImages.length);
   };
@@ -62,6 +71,46 @@ const HeroSection = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const MARQUEE_SPEED = 70; // px per second (slower, steady crawl)
+  const MARQUEE_EASING = 4; // higher = quicker ramp up/down on hover
+
+  const marqueeTrackRef = useRef<HTMLDivElement>(null);
+  const marqueePositionRef = useRef(0);
+  const marqueeSpeedRef = useRef(MARQUEE_SPEED);
+  const marqueeHoveredRef = useRef(false);
+
+  useEffect(() => {
+    const track = marqueeTrackRef.current;
+    if (!track || products.length === 0) return;
+
+    let lastTime: number | null = null;
+    let rafId: number;
+
+    const animate = (time: number) => {
+      if (lastTime === null) lastTime = time;
+      const delta = (time - lastTime) / 1000;
+      lastTime = time;
+
+      const targetSpeed = marqueeHoveredRef.current ? 0 : MARQUEE_SPEED;
+      marqueeSpeedRef.current +=
+        (targetSpeed - marqueeSpeedRef.current) *
+        Math.min(1, MARQUEE_EASING * delta);
+
+      marqueePositionRef.current -= marqueeSpeedRef.current * delta;
+
+      const halfWidth = track.scrollWidth / 2;
+      if (halfWidth > 0 && Math.abs(marqueePositionRef.current) >= halfWidth) {
+        marqueePositionRef.current += halfWidth;
+      }
+
+      track.style.transform = `translateX(${marqueePositionRef.current}px)`;
+      rafId = requestAnimationFrame(animate);
+    };
+
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
+  }, [products]);
+
   return (
     <div className="flex flex-col bg-white lg:flex-row gap-3 sm:gap-4 w-full px-3 sm:px-4 mx-auto max-w-[1280px] min-h-[auto] lg:h-[570px]">
       {/* ================= LEFT CATEGORY SIDEBAR ================= */}
@@ -74,11 +123,11 @@ const HeroSection = () => {
           <ChevronDown size={16} className="sm:w-[18px] ml-auto" />
         </div>
 
-        <div className="h-[calc(570px-52px-2px)] flex flex-col overflow-y-auto">
+        <div className="h-[calc(570px-52px-2px)] flex flex-col">
           {categories.map((item) => (
             <div
               key={item.categoryId}
-              className="min-h-[44px] flex items-center justify-between px-3 sm:px-4 text-xs sm:text-sm text-neutral-900 hover:bg-primary-800 hover:text-white cursor-pointer border-b last:border-none group shrink-0"
+              className="flex-1 min-h-[44px] flex items-center justify-between px-3 sm:px-4 text-xs sm:text-sm text-neutral-900 hover:bg-primary-800 hover:text-white cursor-pointer border-b last:border-none group"
             >
               <span className="truncate pr-2">{item.categoryName}</span>
               <ChevronRight
@@ -109,7 +158,7 @@ const HeroSection = () => {
                 Pharma Marketplace
               </h1>
 
-              <p className="text-black text-xs sm:text-sm lg:text-base leading-relaxed max-w-full mt-2">
+              <p className="text-black text-xs sm:text-sm lg:text-base leading-relaxed max-w-full">
                 Connecting verified pharma buyers & sellers. AI-powered
                 matching, instant quotes, guaranteed compliance, and express
                 delivery.
@@ -159,20 +208,45 @@ const HeroSection = () => {
           </div>
         </div>
 
-        {/* ================= HORIZONTALLY SCROLLABLE PRODUCT CARDS ================= */}
-        <div className="relative w-full group/scroller">
+        {/* ================= AUTO SLIDING PRODUCT CARDS ================= */}
+        <div
+          className="relative overflow-hidden px-1 w-full"
+          onMouseEnter={() => (marqueeHoveredRef.current = true)}
+          onMouseLeave={() => (marqueeHoveredRef.current = false)}
+        >
           <div
-            ref={scrollRef}
-            className="flex gap-3 sm:gap-4 lg:gap-5 xl:gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            ref={marqueeTrackRef}
+            className="flex gap-3 sm:gap-4 lg:gap-5 xl:gap-6 w-fit will-change-transform"
           >
-            {products.map((product) => {
+            {[...products, ...products].map((product, index) => {
               const pricing = product.pricingDetails?.[0];
               const image = product.productImages?.[0]?.productImage || PLACEHOLDER_IMAGE;
+              const cartQuantity =
+                cartItems.find((item) => item.productId === product.productId)?.quantity ?? 0;
+
+              const handleAddToCart = (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                addItem(product);
+              };
+
+              const handleIncrement = (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                updateQuantity(product.productId, cartQuantity + 1);
+              };
+
+              const handleDecrement = (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                updateQuantity(product.productId, cartQuantity - 1);
+              };
+
               return (
                 <Link
-                  key={product.productId}
+                  key={`${product.productId}-${index}`}
                   href={`/product/${product.productId}`}
-                  className="snap-start w-[300px] sm:w-[380px] md:w-[420px] lg:w-[440px] xl:w-[460px] h-[180px] sm:h-[200px] md:h-[210px] lg:h-[220px] xl:h-[224px] bg-white rounded-2xl shadow-sm border border-neutral-200 p-3 sm:p-4 xl:p-6 flex gap-2 sm:gap-3 shrink-0 hover:shadow-md transition"
+                  className="w-[300px] sm:w-[380px] md:w-[420px] lg:w-[440px] xl:w-[460px] h-[180px] sm:h-[200px] md:h-[210px] lg:h-[220px] xl:h-[224px] bg-white rounded-2xl shadow-sm border border-neutral-200 p-3 sm:p-4 xl:p-6 flex gap-2 sm:gap-3 shrink-0 hover:shadow-md transition"
                 >
                   {/* IMAGE */}
                   <div className="relative w-[100px] sm:w-[120px] md:w-[130px] lg:w-[140px] xl:w-[151px] h-[120px] sm:h-[140px] md:h-[150px] lg:h-[160px] xl:h-[176px] shrink-0">
@@ -211,7 +285,12 @@ const HeroSection = () => {
                     </div>
 
                     <div className="flex items-center justify-between mt-2 sm:mt-3 lg:mt-4 gap-1 sm:gap-2">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1">
+                      <div
+                        className={`flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1 ${
+                          isBuyerLoggedIn ? "" : "blur-sm select-none pointer-events-none"
+                        }`}
+                        title={isBuyerLoggedIn ? undefined : "Login to view price"}
+                      >
                         {pricing?.mrp != null && pricing.mrp !== pricing?.sellingPrice && (
                           <span className="line-through text-neutral-900 text-xs whitespace-nowrap">
                             ₹{pricing.mrp}
@@ -224,35 +303,42 @@ const HeroSection = () => {
                         )}
                       </div>
 
-                      <span className="inline-flex items-center justify-center gap-1 sm:gap-2 bg-primary-600 group-hover:bg-primary-800 text-white text-xs sm:text-sm px-2 sm:px-3 xl:px-4 py-1.5 sm:py-2 rounded-lg transition whitespace-nowrap">
-                        <ShoppingCart size={14} className="sm:w-[16px] shrink-0" />
-                        <span className="hidden xs:inline">Buy Now</span>
-                      </span>
+                      {cartQuantity > 0 ? (
+                        <div className="inline-flex items-center gap-2 sm:gap-3 bg-primary-600 text-white text-xs sm:text-sm px-2 sm:px-3 xl:px-4 py-1.5 sm:py-2 rounded-lg whitespace-nowrap">
+                          <button
+                            onClick={handleDecrement}
+                            aria-label="Decrease quantity"
+                            className="hover:scale-110 transition"
+                          >
+                            <Minus size={14} className="sm:w-[16px]" />
+                          </button>
+                          <span className="min-w-[14px] text-center font-medium">
+                            {cartQuantity}
+                          </span>
+                          <button
+                            onClick={handleIncrement}
+                            aria-label="Increase quantity"
+                            className="hover:scale-110 transition"
+                          >
+                            <Plus size={14} className="sm:w-[16px]" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={handleAddToCart}
+                          aria-label="Add to cart"
+                          className="inline-flex items-center justify-center gap-1 sm:gap-2 bg-primary-600 hover:bg-primary-800 text-white text-xs sm:text-sm px-2 sm:px-3 xl:px-4 py-1.5 sm:py-2 rounded-lg transition whitespace-nowrap"
+                        >
+                          <ShoppingCart size={14} className="sm:w-[16px] shrink-0" />
+                          <span className="hidden xs:inline">Buy Now</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </Link>
               );
             })}
           </div>
-
-          {products.length > 0 && (
-            <>
-              <button
-                onClick={() => scrollByCards(-1)}
-                aria-label="Scroll products left"
-                className="hidden sm:flex absolute -left-3 top-1/2 -translate-y-1/2 items-center justify-center w-9 h-9 rounded-full bg-white shadow-md opacity-0 group-hover/scroller:opacity-100 transition hover:scale-110 z-10"
-              >
-                <ArrowLeft size={16} />
-              </button>
-              <button
-                onClick={() => scrollByCards(1)}
-                aria-label="Scroll products right"
-                className="hidden sm:flex absolute -right-3 top-1/2 -translate-y-1/2 items-center justify-center w-9 h-9 rounded-full bg-white shadow-md opacity-0 group-hover/scroller:opacity-100 transition hover:scale-110 z-10"
-              >
-                <ArrowRight size={16} />
-              </button>
-            </>
-          )}
         </div>
       </section>
     </div>
@@ -260,271 +346,3 @@ const HeroSection = () => {
 };
 
 export default HeroSection;
-
-
-
-
-
-
-
-
-
-
-
-// "use client";
-
-// import { useState, useEffect } from "react";
-// import Image from "next/image";
-// import {
-//   ArrowLeft,
-//   ArrowRight,
-//   Menu,
-//   ChevronRight,
-//   ChevronDown,
-//   ShoppingCart,
-// } from "lucide-react";
-
-// const HeroSection = () => {
-//   const [currentSlide, setCurrentSlide] = useState(0);
-
-//   const sliderImages = [
-//     "/assets/images/medPic.png",
-//     "/assets/images/med2.png",
-//     "/assets/images/med3.png",
-//   ];
-
-
-//   const categories = [
-//     "Tablet",
-//     "Capsule",
-//     "Syrup",
-//     "Injection",
-//     "Surgical",
-//     "Medical Devices",
-//     "OTC",
-//     "Ayurvedic",
-//     "Surgical",
-//     "Medical Devices",
-//   ];
-
-//   const products = [
-//     {
-//       id: 1,
-//       name: "Cetirizine Tablets",
-//       brand: "Pharma Brand",
-//       description: "10mg, Antihistamine, Pack of 10",
-//       image: "/assets/images/MedicineSample.jpg",
-//       price: "₹38.00",
-//       originalPrice: "₹45.00",
-//     },
-//     {
-//       id: 2,
-//       name: "Paracetamol 500mg",
-//       brand: "MediCare",
-//       description: "Pain Relief, Pack of 15",
-//       image: "/assets/images/MedicineSample.jpg",
-//       price: "₹28.00",
-//       originalPrice: "₹35.00",
-//     },
-//     {
-//       id: 3,
-//       name: "Vitamin D3",
-//       brand: "HealthPlus",
-//       description: "Immunity Booster, Pack of 20",
-//       image: "/assets/images/MedicineSample.jpg",
-//       price: "₹55.00",
-//       originalPrice: "₹70.00",
-//     },
-//   ];
-
-
-//   const nextSlide = () => {
-//     setCurrentSlide((prev) => (prev + 1) % sliderImages.length);
-//   };
-
-//   const prevSlide = () => {
-//     setCurrentSlide((prev) =>
-//       prev === 0 ? sliderImages.length - 1 : prev - 1
-//     );
-//   };
-
-//   useEffect(() => {
-//     const interval = setInterval(nextSlide, 5000);
-//     return () => clearInterval(interval);
-//   }, []);
-
-//   return (
-//     <div className="flex flex-col bg-white lg:flex-row gap-4 xl:gap-6 w-full px-4 lg:px-4 mx-auto max-w-[1280px] h-[570px]">
-
-//       {/* ================= LEFT CATEGORY SIDEBAR ================= */}
-//       <aside className="w-full xl:w-[280px]  bg-neutral-50 rounded-2xl shadow-sm border border-neutral-400 overflow-hidden shrink-0">
-//         <div className="relative flex items-center bg-primary-900 text-white px-4 py-3 xl:h-[52px] ">
-//           <Menu size={18} />
-//           <span className="absolute left-1/2 -translate-x-1/2 font-medium text-sm xl:text-base">
-//     List Categories
-//   </span>
-//           <ChevronDown size={18} className="ml-auto" />
-//         </div>
-
-//         <div className=" xl:h-[518px] flex flex-col">
-//           {categories.map((item, index) => (
-//             <div
-//               key={index}
-//               className="flex-1 flex items-center justify-between px-4 text-xs xl:text-sm text-neutral-900 hover:bg-primary-800 hover:text-white cursor-pointer border-b last:border-none group"
-//             >
-//               <span>{item}</span>
-//               <ChevronRight
-//                 size={14}
-//                 className="text-neutral-900 group-hover:text-white transition"
-//               />
-//             </div>
-//           ))}
-//         </div>
-//       </aside>
-
-//       {/* ================= RIGHT SECTION ================= */}
-//       <section className="flex-1 flex flex-col gap-4 lg:gap-5 xl:gap-6 min-w-0 max-w-[975px]">
-
-//         {/* ================= HERO BANNER ================= */}
-//         <div className="relative h-[310px] bg-secondary-50 rounded-2xl px-12 py-1 overflow-hidden">
-//           <div className="flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-4 xl:gap-8">
-
-//             <div className="max-w-[430px] h-[242px] ">
-//               <h1 className="text-xl text-black font-bold tracking-wider h-[22px] ">
-//                 TiaMeds
-//               </h1>
-
-//               <h1 className=" py-2 sm:text-3xl lg:text-4xl xl:text-4xl  leading-tight text-black">
-//                 India&apos;s First <br />
-//                 <span className="text-primary-600 font-bold">
-//                   Compliance-Controlled
-//                 </span>{" "}
-//                 Pharma Marketplace
-//               </h1>
-
-//               <p className="text-black text-xs sm:text-sm lg:text-base leading-relaxed max-w-auto">
-//                 Connecting verified pharma buyers & sellers. AI-powered
-//                 matching, instant quotes, guaranteed compliance, and express delivery.
-//               </p>
-//             </div>
-
-//             <div className="relative w-full lg:w-[350px] xl:w-[460px] h-[200px] sm:h-[240px] lg:h-[220px] xl:h-[224px]">
-//               {sliderImages.map((src, index) => (
-//                 <div
-//                   key={index}
-//                   className={`absolute inset-0 transition-opacity duration-700 ${
-//                     index === currentSlide ? "opacity-100 z-10" : "opacity-0"
-//                   }`}
-//                 >
-//                   <Image
-//                     src={src}
-//                     alt={`Slide ${index + 1}`}
-//                     fill
-//                     className="object-contain"
-//                     sizes="(max-width: 1024px) 100vw, 350px"
-//                   />
-//                 </div>
-//               ))}
-//             </div>
-//           </div>
-
-//           {/* HERO CONTROLS */}
-//           <div className="absolute bottom-4 lg:bottom-5 xl:bottom-5 right-4 lg:right-5 xl:right-5 flex items-center gap-2 xl:gap-4 bg-white shadow-md px-4 xl:px-5 py-1 xl:py-2 rounded-full">
-//             <button onClick={prevSlide} className="hover:scale-110 transition">
-//               <ArrowLeft size={16} className="xl:w-[20px]" />
-//             </button>
-//             <span className="text-xs lg:text-sm font-medium">
-//               {currentSlide + 1} / {sliderImages.length}
-//             </span>
-//             <button onClick={nextSlide} className="hover:scale-110 transition">
-//               <ArrowRight size={16} className="xl:w-[20px]" />
-//             </button>
-//           </div>
-//         </div>
-
-//         {/* ================= AUTO SLIDING PRODUCT CARDS ================= */}
-//         <div className="relative overflow-hidden">
-//           <div className="flex gap-4 lg:gap-5 xl:gap-6 product-marquee hover:[animation-play-state:paused]">
-
-//             {[...products, ...products].map((product, index) => (
-//               <div
-//                 key={index}
-//                 className="min-w-[460px] xl:min-w-[460px] xl:h-[224px] bg-white rounded-2xl shadow-sm border border-neutral-200 p-4 xl:p-6 flex gap-3"
-//               >
-//                 {/* IMAGE */}
-//                 <div className="relative w-[151px] xl:w-[151px] h-[176px] xl:h-[176px] shrink-0">
-//                   <Image
-//                     src={product.image}
-//                     alt={product.name}
-//                     fill
-//                     className="object-contain"
-//                   />
-//                 </div>
-
-//                 {/* CONTENT */}
-//                 <div className="flex flex-col justify-between flex-1 w-[250px] xl:w-[250px] xl:h-[176px]">
-
-//                   <div>
-//                     <h3 className=" flex justify-end text-base xl:text-lg font-bold text-neutral-800 truncate">
-//                       {product.brand}
-//                     </h3>
-
-//                     <p className=" flex justify-end text-primary-600 font-semibold text-xs lg:text-sm truncate">
-//                       {product.name}
-//                     </p>
-
-//                     <p className=" flex justify-end text-xs xl:text-md text-gray-500 mt-1 truncate">
-//                       {product.description}
-//                     </p>
-
-//                     <p className="text-xs text-yellow-500 mt-4">
-//                       ● Limited stock
-//                     </p>
-//                   </div>
-
-//                   <div className="flex items-center justify-between mt-3 lg:mt-4 gap-2">
-//                     <div className="flex flex-col gap-1 xl:flex-row xl:items-center">
-//                       <span className="line-through text-neutral-900 text-xs xl:text-sm">
-//                         {product.originalPrice}
-//                       </span>
-//                       <span className="text-base xl:text-2xl font-semibold text-neutral-900">
-//                         {product.price}
-//                       </span>
-//                     </div>
-
-//                     <button className=" inline-flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-800 text-white text-xs xl:text-sm px-3 xl:px-2 py-1.5 xl:py-2 rounded-lg transition whitespace-nowrap">
-//                       <ShoppingCart size={16}  className="shrink-0"/>
-//                       <span>Buy Now</span>
-//                     </button>
-//                   </div>
-
-//                 </div>
-//               </div>
-//             ))}
-
-//           </div>
-//         </div>
-
-//         {/* MARQUEE ANIMATION */}
-//         <style jsx>{`
-//           .product-marquee {
-//             animation: slideProducts 30s linear infinite;
-//             width: fit-content;
-//           }
-
-//           @keyframes slideProducts {
-//             0% {
-//               transform: translateX(0);
-//             }
-//             100% {
-//               transform: translateX(calc(-50% - 12px));
-//             }
-//           }
-//         `}</style>
-
-//       </section>
-//     </div>
-//   );
-// };
-
-// export default HeroSection;

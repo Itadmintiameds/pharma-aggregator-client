@@ -6,16 +6,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
+import { TbMailFilled } from "react-icons/tb";
+import { toast } from "react-toastify";
 import { buyerLoginSchema, BuyerLoginFormValues } from "@/src/schema/buyer/authSchema";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 
 interface LoginFormProps {
-  onOtpSent: (username: string) => void;
+  onOtpSent: (username: string, password: string) => void;
+  onForgotPassword: () => void;
 }
 
-export default function LoginForm({ onOtpSent }: LoginFormProps) {
+export default function LoginForm({ onOtpSent, onForgotPassword }: LoginFormProps) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -30,77 +32,82 @@ export default function LoginForm({ onOtpSent }: LoginFormProps) {
   const onSubmit = async (values: BuyerLoginFormValues) => {
     try {
       setLoading(true);
-      setError("");
 
       const response = await buyerAuthService.login({
         username: values.username,
         password: values.password,
       });
 
-      onOtpSent(response.username);
+      toast.success(response.message || "OTP sent to your email!");
+      onOtpSent(response.username, values.password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      toast.error(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="w-full max-w-[28rem] mx-auto bg-white rounded-xl shadow-md p-8">
-      <div className="mb-8 flex justify-center">
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <div className="mb-10 flex justify-center">
         <Image src="/assets/images/tiameds.logo.png" alt="TiaMeds" width={233} height={108} priority />
       </div>
 
       <h2 className="text-h5 text-center font-medium text-pneutral-900 mb-6 font-heading">Buyer Login</h2>
 
-      {error && <p className="text-red-500 text-p3 text-center mb-4">{error}</p>}
-
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="mb-4">
+      <div className="mb-4">
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+            <TbMailFilled className="w-5 h-5" />
+          </div>
           <input
+            {...register("username")}
             type="text"
             placeholder="Registered email"
             autoComplete="off"
-            className="w-full h-12 pl-4 pr-4 leading-none rounded-xl border border-pneutral-300 bg-pneutral-50 text-pneutral-900 outline-none focus:outline-none focus:ring-0 focus:ring-pneutral-300"
+            className="w-full h-12 pl-12 pr-4 leading-none rounded-xl border border-pneutral-300 bg-pneutral-50 text-pneutral-900 outline-none focus:outline-none focus:ring-0 focus:ring-pneutral-300"
             disabled={loading}
-            {...register("username")}
           />
-          {errors.username && (
-            <p className="text-warning-500 text-xs mt-1">{errors.username.message}</p>
-          )}
         </div>
+        {errors.username && (
+          <p className="text-warning-500 text-xs mt-1">{errors.username.message}</p>
+        )}
+      </div>
 
-        <div className="mb-6">
-          <div className="relative">
-            <input
-              type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              autoComplete="off"
-              className="w-full h-12 pl-4 pr-12 leading-none rounded-xl border border-pneutral-300 bg-pneutral-50 text-pneutral-900 focus:outline-none focus:ring-0 focus:ring-pneutral-300"
-              disabled={loading}
-              {...register("password")}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-4 flex items-center text-neutral-500"
-            >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
+      <div className="mb-6">
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+            <Image src="/icons/password.svg" alt="Lock" width={20} height={20} className="text-neutral-500" />
           </div>
-          {errors.password && (
-            <p className="text-warning-500 text-xs mt-1">{errors.password.message}</p>
-          )}
+          <input
+            {...register("password")}
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            autoComplete="off"
+            className="w-full h-12 pl-12 pr-12 leading-none rounded-xl border border-pneutral-300 bg-pneutral-50 text-pneutral-900 focus:outline-none focus:ring-0 focus:ring-pneutral-300"
+            disabled={loading}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute inset-y-0 right-4 flex items-center text-neutral-500"
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
         </div>
+        {errors.password && (
+          <p className="text-warning-500 text-xs mt-1">{errors.password.message}</p>
+        )}
+      </div>
 
-        <button
-          type="submit"
-          disabled={!isValid || loading}
-          className="w-full h-12 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] mb-6 bg-primary-800 text-pneutral-50 disabled:opacity-60"
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
+      <button
+        type="submit"
+        disabled={!isValid || loading}
+        className="w-full h-12 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] mb-6 bg-primary-800 text-pneutral-50 disabled:opacity-60"
+      >
+        {loading ? "Processing..." : "Login"}
+        {!loading && <Image src="/icons/loginIcon.svg" alt="Login" width={20} height={20} />}
+      </button>
 
       <p className="text-sm text-pneutral-900 text-center">
         Don&apos;t have an account?{" "}
@@ -108,6 +115,17 @@ export default function LoginForm({ onOtpSent }: LoginFormProps) {
           Sign up
         </Link>
       </p>
-    </div>
+
+      <p className="text-sm text-center mt-2">
+        <button
+          type="button"
+          onClick={onForgotPassword}
+          className="text-pneutral-900 underline cursor-pointer"
+          disabled={loading}
+        >
+          Forgot your password?
+        </button>
+      </p>
+    </form>
   );
 }

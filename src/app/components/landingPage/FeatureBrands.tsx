@@ -90,24 +90,24 @@ const FeatureBrands = () => {
     const marqueeSellers = [...sellers, ...sellers];
 
     return (
-        <section className="w-full xl:w-[1280px] mx-auto bg-neutral-50 flex flex-col items-center justify-center py-6">
+        <section className="w-full xl:w-[1280px] h-[176px] mx-auto bg-neutral-50 flex flex-col items-center justify-center">
 
             {/* ================= HEADER ================= */}
-            <div className="w-full max-w-[1240px] px-4 flex items-center">
+            <div className="w-[1240px] h-[32px] flex items-center">
                 <h2 className="text-h4 font-semibold text-neutral-900">
                     Featured Sellers
                 </h2>
             </div>
 
             {/* ================= LOGO MARQUEE ================= */}
-            <div className="w-full max-w-[1240px] h-[92px] overflow-hidden mt-6">
+            <div className="w-[1240px] h-[80px] overflow-hidden mt-6 ">
 
-                <div className="gap-8 brand-marquee">
+                <div className=" gap-8 brand-marquee">
 
                     {marqueeSellers.map((seller, index) => (
                         <div
                             key={`${seller.sellerId}-${index}`}
-                            className="group relative w-[100px] h-[80px] shrink-0 flex flex-col items-center justify-center gap-2"
+                            className="group relative w-[100px] h-[80px] shrink-0 flex items-center justify-center"
                         >
                             {seller.sellerImageUrl ? (
                                 <img
@@ -134,7 +134,7 @@ const FeatureBrands = () => {
   .brand-marquee {
     display: flex;
     width: max-content;
-    animation: scrollBrands 20s linear infinite;
+    animation: scrollBrands 15s linear infinite;
   }
 
   .brand-marquee:hover {

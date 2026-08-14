@@ -1,21 +1,17 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "react-toastify";
-import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 
-interface LoginOtpStepProps {
-  username: string;
-  password: string;
+interface ForgotPasswordOtpStepProps {
+  email: string;
+  onVerified: () => void;
   onBack: () => void;
 }
 
-export default function LoginOtpStep({ username, password, onBack }: LoginOtpStepProps) {
-  const router = useRouter();
+export default function ForgotPasswordOtpStep({ email, onVerified, onBack }: ForgotPasswordOtpStepProps) {
   const [otp, setOtp] = useState(Array(6).fill(""));
-  const [isLoading, setIsLoading] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const isOtpValid = otp.join("").length === 6 && /^\d+$/.test(otp.join(""));
@@ -89,40 +85,19 @@ export default function LoginOtpStep({ username, password, onBack }: LoginOtpSte
     }
   };
 
-  const handleVerify = async () => {
+  // No backend to verify against yet — any complete 6-digit code proceeds.
+  const handleVerify = () => {
     if (!isOtpValid) {
       toast.error("Please enter a valid 6-digit OTP");
       return;
     }
-
-    setIsLoading(true);
-    try {
-      await buyerAuthService.verifyOtp({ username, otp: otp.join("") });
-      toast.success("Login successful!");
-      window.dispatchEvent(new Event("buyer-auth-changed"));
-      router.push("/buyer_e8d45a1b/dashboard");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "OTP verification failed");
-      setOtp(Array(6).fill(""));
-      inputRefs.current[0]?.focus();
-    } finally {
-      setIsLoading(false);
-    }
+    onVerified();
   };
 
-  const handleResendOtp = async () => {
-    setIsLoading(true);
-    try {
-      setOtp(Array(6).fill(""));
-      await buyerAuthService.login({ username, password });
-      toast.success("New OTP sent to your email!");
-      setTimeout(() => inputRefs.current[0]?.focus(), 100);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to resend OTP. Please try login again.");
-      onBack();
-    } finally {
-      setIsLoading(false);
-    }
+  const handleResend = () => {
+    setOtp(Array(6).fill(""));
+    toast.success("OTP resent to your email!");
+    inputRefs.current[0]?.focus();
   };
 
   return (
@@ -131,14 +106,14 @@ export default function LoginOtpStep({ username, password, onBack }: LoginOtpSte
         <Image src="/assets/images/tiameds.logo.png" alt="TiaMeds" width={233} height={108} priority />
       </div>
 
-      <h2 className="text-2xl font-semibold text-center text-pneutral-900 mb-2">Verify your email</h2>
+      <h2 className="text-2xl font-semibold text-center text-pneutral-900 mb-2">Verify Your Email</h2>
 
       <p className="text-sm text-pneutral-900 text-center mb-1">We just sent a verification code to</p>
       <div className="text-center mb-3">
-        <p className="text-xs text-pneutral-500">{username}</p>
+        <p className="text-xs text-pneutral-700">{email}</p>
       </div>
 
-      <p className="text-center font-semibold text-pneutral-900 mb-4">Enter your OTP code here</p>
+      <p className="text-center font-semibold text-pneutral-900 mb-4">Enter your OTP here</p>
 
       <div className="flex justify-center gap-3 mb-6">
         {otp.map((digit, index) => (
@@ -153,7 +128,6 @@ export default function LoginOtpStep({ username, password, onBack }: LoginOtpSte
             onChange={(e) => handleOtpChange(e, index)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             className="w-12 h-12 text-center text-lg font-semibold rounded-xl border border-pneutral-300 bg-pneutral-50 focus:outline-none focus:ring-0 focus:ring-pneutral-300"
-            disabled={isLoading}
           />
         ))}
       </div>
@@ -161,26 +135,21 @@ export default function LoginOtpStep({ username, password, onBack }: LoginOtpSte
       <p className="text-center text-m text-pneutral-900">Didn&apos;t receive the OTP?</p>
       <button
         className="text-warning-500 font-medium text-center w-full hover:underline mt-1 disabled:opacity-50"
-        onClick={handleResendOtp}
-        disabled={isLoading}
+        onClick={handleResend}
       >
-        {isLoading ? "Sending..." : "Resend OTP"}
+        Resend OTP
       </button>
 
       <button
         onClick={handleVerify}
-        disabled={!isOtpValid || isLoading}
+        disabled={!isOtpValid}
         className="w-full h-12 rounded-lg transition-all duration-200 active:scale-[0.98] mt-6 bg-primary-800 text-pneutral-50 disabled:cursor-not-allowed"
       >
-        {isLoading ? "Verifying..." : "Verify"}
+        Verify OTP
       </button>
 
-      <button
-        onClick={onBack}
-        className="text-sm text-center mt-3 text-primary-700 hover:underline w-full"
-        disabled={isLoading}
-      >
-        ← Back to Login
+      <button onClick={onBack} className="text-sm text-center mt-3 text-primary-700 hover:underline w-full">
+        ← Back to Forgot Password
       </button>
     </div>
   );
