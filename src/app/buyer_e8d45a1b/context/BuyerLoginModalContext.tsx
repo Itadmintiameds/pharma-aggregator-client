@@ -19,10 +19,7 @@ export function useBuyerLoginModal() {
   return ctx;
 }
 
-// Hosts the buyer login popup at the layout level so it overlays whatever
-// buyer route is currently mounted (dashboard, signup, onboarding gate) with
-// that page still visible/blurred behind it, instead of navigating to a
-// dedicated full-page route.
+
 export default function BuyerLoginModalProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
