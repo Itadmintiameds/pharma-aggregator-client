@@ -11,6 +11,7 @@ interface CartContextValue {
   addItem: (product: BuyerProduct, quantity?: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
+  updatePricing: (productId: string, pricingId: string, mrp?: number, sellingPrice?: number) => void;
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
@@ -50,6 +51,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         ...prev,
         {
           productId: product.productId,
+          pricingId: pricing?.pricingId,
           productName: product.productName,
           image: product.productImages?.[0]?.productImage,
           mrp: pricing?.mrp,
@@ -74,6 +76,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  // Backfills pricingId (and optionally refreshed mrp/sellingPrice) on an
+  // existing cart line — needed for carts persisted in localStorage from
+  // before pricingId was captured on add-to-cart, and doubles as a general
+  // "re-resolve against current product data" hook at checkout time.
+  const updatePricing = (productId: string, pricingId: string, mrp?: number, sellingPrice?: number) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.productId === productId
+          ? {
+              ...item,
+              pricingId,
+              mrp: mrp ?? item.mrp,
+              sellingPrice: sellingPrice ?? item.sellingPrice,
+            }
+          : item
+      )
+    );
+  };
+
   const clearCart = () => setItems([]);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -84,7 +105,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, totalPrice }}
+      value={{ items, addItem, removeItem, updateQuantity, updatePricing, clearCart, totalItems, totalPrice }}
     >
       {children}
     </CartContext.Provider>

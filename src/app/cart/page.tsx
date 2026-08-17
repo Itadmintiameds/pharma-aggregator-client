@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import LandingHeader from "@/src/app/components/landingPage/LandingHeader";
 import Footer from "@/src/app/components/landingPage/Footer";
 import Button from "@/src/app/commonComponents/Button";
@@ -8,6 +9,7 @@ import { useCart } from "@/src/context/CartContext";
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, totalPrice } = useCart();
+  const router = useRouter();
 
   return (
     <>
@@ -84,13 +86,9 @@ export default function CartPage() {
                   variant="filled"
                   size="lg"
                   label="Proceed to Checkout"
-                  disabled
-                  title="Checkout is coming soon"
+                  onClick={() => router.push("/checkout")}
                 />
               </div>
-              <p className="text-p4 font-body text-neutral-500 text-right mt-1">
-                Checkout is coming soon.
-              </p>
             </div>
           )}
         </div>
