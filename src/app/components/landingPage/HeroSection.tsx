@@ -285,22 +285,29 @@ const HeroSection = () => {
                     </div>
 
                     <div className="flex items-center justify-between mt-2 sm:mt-3 lg:mt-4 gap-1 sm:gap-2">
-                      <div
-                        className={`flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1 ${
-                          isBuyerLoggedIn ? "" : "blur-sm select-none pointer-events-none"
-                        }`}
-                        title={isBuyerLoggedIn ? undefined : "Login to view price"}
-                      >
-                        {pricing?.mrp != null && pricing.mrp !== pricing?.sellingPrice && (
-                          <span className="line-through text-neutral-900 text-xs whitespace-nowrap">
-                            ₹{pricing.mrp}
+                      <div className="flex items-center gap-1">
+                        {!isBuyerLoggedIn && (
+                          <span className="text-xs sm:text-sm font-medium text-pneutral-900 whitespace-nowrap">
+                            MRP:
                           </span>
                         )}
-                        {pricing?.sellingPrice != null && (
-                          <span className="text-sm sm:text-base lg:text-xl xl:text-2xl font-semibold text-neutral-900 whitespace-nowrap">
-                            ₹{pricing.sellingPrice}
-                          </span>
-                        )}
+                        <div
+                          className={`flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1 ${
+                            isBuyerLoggedIn ? "" : "blur-[5px] select-none pointer-events-none"
+                          }`}
+                          title={isBuyerLoggedIn ? undefined : "Login to view price"}
+                        >
+                          {pricing?.mrp != null && pricing.mrp !== pricing?.sellingPrice && (
+                            <span className="line-through text-neutral-900 text-xs whitespace-nowrap">
+                              ₹{pricing.mrp}
+                            </span>
+                          )}
+                          {pricing?.sellingPrice != null && (
+                            <span className="text-sm sm:text-base lg:text-xl xl:text-2xl font-semibold text-neutral-900 whitespace-nowrap">
+                              ₹{pricing.sellingPrice}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {cartQuantity > 0 ? (

@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { HiClipboardDocumentList } from "react-icons/hi2";
 import { ShieldCheck, CheckCircle2 } from "lucide-react";
+import toast from "react-hot-toast";
 import { useBuyerOnboardingStatus } from "@/src/hooks/useBuyerOnboardingStatus";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { useBuyerLoginModal } from "../../context/BuyerLoginModalContext";
 import BuyerRegister from "../../components/BuyerRegister";
 import BuyerOnboardingStepper, { BuyerOnboardingStepDef } from "./BuyerOnboardingStepper";
 import BuyerStatusBanner from "./BuyerStatusBanner";
@@ -20,19 +21,21 @@ const STEP_DEFS: BuyerOnboardingStepDef[] = [
   { title: "Approved", description: "Approved & ready to buy", icon: CheckCircle2 },
 ];
 
-function acknowledgedStorageKey() {
+function approvalToastSeenKey() {
   const buyerUserId = buyerAuthService.getCurrentUser()?.buyerUserId;
-  return `buyerRegistrationCompleteSeen_${buyerUserId ?? "anon"}`;
+  return `buyerApprovalToastSeen_${buyerUserId ?? "anon"}`;
 }
 
-// Gates the buyer dashboard: until the buyer has an approved TempBuyer (and
-// has dismissed the one-time completion screen), this renders the
-// registration wizard / status banner behind a centered 3-point stepper
-// instead of the real dashboard content. Mirrors seller's OnboardingGate.tsx.
+// Gates the buyer dashboard: until the buyer has an approved TempBuyer, this
+// renders the registration wizard / status banner behind a centered 3-point
+// stepper instead of the real dashboard content. Mirrors seller's
+// OnboardingGate.tsx. Once approved, drops straight into the dashboard —
+// there's no separate "registration complete" screen to click through, since
+// registration itself already happens inside the dashboard. The buyer still
+// gets told about it, just as a one-time toast instead of a blocking screen.
 export default function BuyerOnboardingGate({ children }: Props) {
-  const router = useRouter();
+  const { openLoginModal } = useBuyerLoginModal();
   const { status, tempBuyer, refresh } = useBuyerOnboardingStatus();
-  const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
   const [manuallyStarted, setManuallyStarted] = useState(false);
   const [forceIntro, setForceIntro] = useState(false);
 
@@ -41,30 +44,27 @@ export default function BuyerOnboardingGate({ children }: Props) {
 
   useEffect(() => {
     if (status === "guest") {
-      router.replace("/buyer_e8d45a1b/login");
+      openLoginModal();
     }
-  }, [status, router]);
+  }, [status, openLoginModal]);
 
   useEffect(() => {
-    // Deferred via microtask so this doesn't read as a same-tick
-    // setState-in-effect call to the set-state-in-effect lint rule — see the
-    // identical comment on the microtask hop in useBuyerOnboardingStatus.ts.
-    if (status === "approved") {
-      queueMicrotask(() => setAcknowledged(localStorage.getItem(acknowledgedStorageKey()) === "true"));
-    }
+    if (status !== "approved") return;
+    const key = approvalToastSeenKey();
+    if (localStorage.getItem(key) === "true") return;
+    localStorage.setItem(key, "true");
+    toast.success(
+      "Congratulations! Your registration has been approved. You now have full access to your buyer dashboard.",
+      { duration: 6000 }
+    );
   }, [status]);
-
-  const handleContinue = () => {
-    localStorage.setItem(acknowledgedStorageKey(), "true");
-    setAcknowledged(true);
-  };
 
   const handleResume = () => {
     setForceIntro(false);
     setManuallyStarted(true);
   };
 
-  if (status === "checking" || status === "guest" || (status === "approved" && acknowledged === null)) {
+  if (status === "checking" || status === "guest") {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="w-10 h-10 rounded-full border-4 border-primary-200 border-t-primary-700 animate-spin" />
@@ -72,11 +72,11 @@ export default function BuyerOnboardingGate({ children }: Props) {
     );
   }
 
-  if (status === "approved" && acknowledged) {
+  if (status === "approved") {
     return <>{children}</>;
   }
 
-  const stepperStep = status === "approved" ? 3 : status === "submitted" || status === "under_review" ? 2 : 1;
+  const stepperStep = status === "submitted" || status === "under_review" ? 2 : 1;
 
   return (
     <div className="flex flex-col items-center px-4">
@@ -93,8 +93,6 @@ export default function BuyerOnboardingGate({ children }: Props) {
       {(status === "submitted" || status === "under_review" || status === "suspended") && (
         <BuyerStatusBanner status={status} onResume={handleResume} />
       )}
-
-      {status === "approved" && !acknowledged && <BuyerStatusBanner status="approved" onResume={handleContinue} />}
     </div>
   );
 }

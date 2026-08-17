@@ -102,18 +102,25 @@ export default function ProductCard({ product }: ProductCardProps) {
         )}
 
         {pricing && (
-          <div
-            className={`flex items-center gap-3 ${
-              isBuyerLoggedIn ? "" : "blur-sm select-none pointer-events-none"
-            }`}
-            title={isBuyerLoggedIn ? undefined : "Login to view price"}
-          >
-            {pricing.sellingPrice != null && (
-              <span className="text-lg font-bold text-gray-900">₹{pricing.sellingPrice}</span>
+          <div className="flex items-center gap-1">
+            {!isBuyerLoggedIn && (
+              <span className="text-sm font-medium text-pneutral-900 whitespace-nowrap">
+                MRP:
+              </span>
             )}
-            {pricing.mrp != null && pricing.mrp !== pricing.sellingPrice && (
-              <span className="text-gray-400 line-through text-sm">₹{pricing.mrp}</span>
-            )}
+            <div
+              className={`flex items-center gap-3 ${
+                isBuyerLoggedIn ? "" : "blur-[5px] select-none pointer-events-none"
+              }`}
+              title={isBuyerLoggedIn ? undefined : "Login to view price"}
+            >
+              {pricing.mrp != null && pricing.mrp !== pricing.sellingPrice && (
+                <span className="text-gray-400 line-through text-sm">₹{pricing.mrp}</span>
+              )}
+              {pricing.sellingPrice != null && (
+                <span className="text-lg font-bold text-gray-900">₹{pricing.sellingPrice}</span>
+              )}
+            </div>
           </div>
         )}
       </div>

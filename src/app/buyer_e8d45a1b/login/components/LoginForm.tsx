@@ -10,6 +10,7 @@ import { TbMailFilled } from "react-icons/tb";
 import { toast } from "react-toastify";
 import { buyerLoginSchema, BuyerLoginFormValues } from "@/src/schema/buyer/authSchema";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 
 interface LoginFormProps {
   onOtpSent: (username: string, password: string) => void;
@@ -19,6 +20,7 @@ interface LoginFormProps {
 export default function LoginForm({ onOtpSent, onForgotPassword }: LoginFormProps) {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const { closeLoginModal } = useBuyerLoginModal();
 
   const {
     register,
@@ -111,7 +113,11 @@ export default function LoginForm({ onOtpSent, onForgotPassword }: LoginFormProp
 
       <p className="text-sm text-pneutral-900 text-center">
         Don&apos;t have an account?{" "}
-        <Link href="/buyer_e8d45a1b/signup" className="text-pneutral-900 font-medium hover:underline">
+        <Link
+          href="/buyer_e8d45a1b/signup"
+          onClick={closeLoginModal}
+          className="text-pneutral-900 font-medium hover:underline"
+        >
           Sign up
         </Link>
       </p>

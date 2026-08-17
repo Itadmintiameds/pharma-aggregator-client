@@ -1,57 +1,100 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
-import BuyerAuthHeader from "../components/BuyerAuthHeader";
-import Footer from "@/src/app/components/landingPage/Footer";
-import BuyerOnboardingGate from "./components/BuyerOnboardingGate";
+import { HiOutlineShoppingBag, HiOutlineClipboardDocumentList } from "react-icons/hi2";
+import { LuWarehouse, LuWallet } from "react-icons/lu";
+import { AiOutlinePieChart } from "react-icons/ai";
+import { useBuyerOnboardingStatus } from "@/src/hooks/useBuyerOnboardingStatus";
+import BuyerKpiCard from "./components/BuyerKpiCard";
+import BuyerSpendChart from "./components/BuyerSpendChart";
+import RecentOrdersCard from "./components/RecentOrdersCard";
+import BuyerSummaryCard from "./components/BuyerSummaryCard";
+import DocumentExpiryCard from "./components/DocumentExpiryCard";
 
-// New buyer dashboard shell entry point (distinct from the legacy
-// src/app/buyer_e8d45a1b/components/BuyerDashboard.tsx, which still just
-// redirects "/" and is left untouched). Guards guests here directly since
-// buyer_e8d45a1b/layout.tsx is a trivial passthrough with no auth check.
+// Overview content — auth guard, sidebar, header, and the onboarding gate
+// all live in ./layout.tsx, shared with the other dashboard routes (profile,
+// catalog, orders, ...). KPI cards/chart/summary cards mirror seller's
+// DashboardOverview.tsx layout with buyer-relevant metrics (orders, spend,
+// RFQs, suppliers instead of seller's orders/revenue/products); the document
+// expiry card has no seller equivalent and reads real TempBuyer data.
 export default function BuyerDashboardPage() {
-  const router = useRouter();
-  // Starts as null (neither true nor false) so server render and the
-  // client's pre-hydration first paint agree on "unknown" — reading
-  // localStorage inside a useState initializer runs during that first
-  // paint too (not just "on mount"), and localStorage doesn't exist on the
-  // server, so seeding this synchronously caused a server/client mismatch
-  // (server always saw "unauthenticated", client's first paint already saw
-  // the real value). The real check only happens inside useEffect, which is
-  // client-only by definition, so it can never disagree with the server.
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    // Microtask hop to avoid a same-tick setState-in-effect call, matching
-    // the identical pattern in useBuyerOnboardingStatus.ts/BuyerOnboardingGate.tsx.
-    queueMicrotask(() => {
-      const authenticated = buyerAuthService.isAuthenticated();
-      setIsAuthenticated(authenticated);
-      if (!authenticated) {
-        router.replace("/buyer_e8d45a1b/login");
-      }
-    });
-  }, [router]);
-
-  if (!isAuthenticated) return null;
+  const { tempBuyer } = useBuyerOnboardingStatus();
 
   return (
-    <>
-      <BuyerAuthHeader />
-
-      <div className="min-h-screen pt-24 pb-16 px-4">
-        <BuyerOnboardingGate>
-          <div className="min-h-[60vh] flex items-center justify-center px-4">
-            <p className="text-p3 font-body text-pneutral-600">
-              Your buyer account is approved. Dashboard content coming soon.
-            </p>
-          </div>
-        </BuyerOnboardingGate>
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-h4 font-heading font-bold text-pneutral-900">Overview</h2>
+        <p className="text-p3 font-body text-pneutral-600 mt-1">
+          A snapshot of your buying activity across the marketplace.
+        </p>
       </div>
 
-      <Footer />
-    </>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <BuyerKpiCard
+          title="Total Orders"
+          value={128}
+          growth="+6.4%"
+          icon={<HiOutlineShoppingBag size={20} />}
+          style={{ backgroundColor: "#DED0FE" }}
+        />
+        <BuyerKpiCard
+          title="Active RFQs"
+          value={18}
+          growth="+3.1%"
+          icon={<HiOutlineClipboardDocumentList size={20} />}
+          className="bg-white"
+        />
+        <BuyerKpiCard
+          title="Total Spend"
+          value="₹4,32,000"
+          growth="+9.8%"
+          icon={<LuWallet size={20} />}
+          className="bg-white"
+        />
+        <BuyerKpiCard
+          title="Saved Suppliers"
+          value={12}
+          growth="+2"
+          icon={<LuWarehouse size={20} />}
+          className="bg-white"
+        />
+      </div>
+
+      {/* Chart + Recent Orders */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="min-h-[324px]">
+          <BuyerSpendChart />
+        </div>
+        <div className="min-h-[324px]">
+          <RecentOrdersCard />
+        </div>
+      </div>
+
+      {/* Summary cards + document expiry */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <BuyerSummaryCard
+          icon={<AiOutlinePieChart size={36} />}
+          titleLeft="Spend"
+          valueLeft="₹4,32,000"
+          growthLeft="+9.80%"
+          titleRight="Orders"
+          valueRight="15"
+          growthRight="+8.10%"
+        />
+
+        <BuyerSummaryCard
+          icon={<LuWarehouse size={36} />}
+          titleLeft="All RFQs"
+          valueLeft="18"
+          titleRight="Quoted"
+          valueRight="13"
+          pendingCount="5"
+          isThreeColumn
+          bgColor="bg-yellow-50"
+        />
+
+        <DocumentExpiryCard documents={tempBuyer?.documents} />
+      </div>
+    </div>
   );
 }

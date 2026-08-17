@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "react-toastify";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 
 interface LoginOtpStepProps {
   username: string;
@@ -14,6 +15,7 @@ interface LoginOtpStepProps {
 
 export default function LoginOtpStep({ username, password, onBack }: LoginOtpStepProps) {
   const router = useRouter();
+  const { closeLoginModal } = useBuyerLoginModal();
   const [otp, setOtp] = useState(Array(6).fill(""));
   const [isLoading, setIsLoading] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -100,6 +102,7 @@ export default function LoginOtpStep({ username, password, onBack }: LoginOtpSte
       await buyerAuthService.verifyOtp({ username, otp: otp.join("") });
       toast.success("Login successful!");
       window.dispatchEvent(new Event("buyer-auth-changed"));
+      closeLoginModal();
       router.push("/buyer_e8d45a1b/dashboard");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "OTP verification failed");
