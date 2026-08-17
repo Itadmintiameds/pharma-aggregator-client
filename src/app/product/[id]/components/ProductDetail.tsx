@@ -6,6 +6,7 @@ import { getProductById } from "@/src/services/buyer/buyerProductService";
 import { BuyerProduct } from "@/src/types/buyer/product";
 import { useCart } from "@/src/context/CartContext";
 import Button from "@/src/app/commonComponents/Button";
+import { Tag, ClipboardList } from "lucide-react";
 
 const PLACEHOLDER_IMAGE = "/icons/Tumbnail.svg";
 const ZOOM_FACTOR = 2.5;
@@ -140,6 +141,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
     addItem(product);
     router.push("/cart");
   };
+  const handleRequestPrice = () => router.push(`/product/${productId}/request-price`);
+  const handleGetQuote = () => router.push(`/product/${productId}/get-quote`);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-12">
@@ -208,9 +211,27 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
           )}
         </div>
 
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex flex-wrap items-center gap-4 mb-4">
           <Button variant="filled" size="lg" label="Add to Cart" onClick={handleAddToCart} />
           <Button variant="outline" size="lg" label="Buy Now" onClick={handleBuyNow} />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 mb-8">
+          <Button
+            variant="tonal"
+            size="md"
+            label="Request Price Option"
+            icon={<Tag size={16} />}
+            onClick={handleRequestPrice}
+          />
+          <Button
+            variant="text"
+            size="md"
+            label="Get a Quote"
+            icon={<ClipboardList size={16} />}
+            onClick={handleGetQuote}
+            className="border border-pneutral-300"
+          />
         </div>
 
         {/* Fields */}

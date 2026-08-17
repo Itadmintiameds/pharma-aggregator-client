@@ -1,8 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 import VerificationModal from "@/src/app/seller_7a3b9f2c/components/OtpModalSixBox";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 
 interface SignupOtpStepProps {
   email: string;
@@ -10,6 +12,7 @@ interface SignupOtpStepProps {
 
 export default function SignupOtpStep({ email }: SignupOtpStepProps) {
   const router = useRouter();
+  const { openLoginModal } = useBuyerLoginModal();
 
   const handleVerify = async (otp: string) => {
     await buyerAuthService.verifySignupOtp({ email, otp });
@@ -22,7 +25,8 @@ export default function SignupOtpStep({ email }: SignupOtpStepProps) {
   };
 
   const handleVerified = () => {
-    router.push("/buyer_e8d45a1b/login?signupSuccess=true");
+    toast.success("Signup successful! Please login to continue.");
+    openLoginModal();
   };
 
   return (

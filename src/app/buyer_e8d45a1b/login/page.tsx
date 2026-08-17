@@ -1,32 +1,8 @@
-"use client";
-
-import { useState } from "react";
-import BuyerAuthHeader from "../components/BuyerAuthHeader";
-import Footer from "@/src/app/components/landingPage/Footer";
-import LoginForm from "./components/LoginForm";
-import LoginOtpStep from "./components/LoginOtpStep";
-
-type LoginStep = "LOGIN" | "OTP";
-
+// This route has no page content of its own — BuyerLoginModalProvider
+// (mounted in ../layout.tsx) auto-opens the login popup for this exact
+// pathname, so a direct/hard navigation here still shows the popup instead
+// of a bare screen. In-app navigation opens the same popup via
+// useBuyerLoginModal() without ever visiting this route.
 export default function BuyerLoginPage() {
-  const [step, setStep] = useState<LoginStep>("LOGIN");
-  const [username, setUsername] = useState("");
-
-  const handleOtpSent = (loggedInUsername: string) => {
-    setUsername(loggedInUsername);
-    setStep("OTP");
-  };
-
-  return (
-    <>
-      <BuyerAuthHeader />
-
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50 pt-24 pb-24 px-4">
-        {step === "LOGIN" && <LoginForm onOtpSent={handleOtpSent} />}
-        {step === "OTP" && <LoginOtpStep username={username} />}
-      </div>
-
-      <Footer />
-    </>
-  );
+  return null;
 }

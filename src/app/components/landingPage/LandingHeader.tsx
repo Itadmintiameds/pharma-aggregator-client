@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, LogOut } from "lucide-react";
+import { Search, LogOut, LayoutDashboard, User, ChevronDown } from "lucide-react";
 import Button from "@/src/app/commonComponents/Button";
 import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
@@ -20,6 +20,8 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
     const [buyerEmail, setBuyerEmail] = useState<string | null>(() =>
         typeof window !== "undefined" ? buyerAuthService.getCurrentUser()?.username ?? null : null
     );
+    const [showAccountMenu, setShowAccountMenu] = useState(false);
+    const accountMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const syncBuyerAuth = () => setBuyerEmail(buyerAuthService.getCurrentUser()?.username ?? null);
@@ -27,7 +29,20 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
         return () => window.removeEventListener("buyer-auth-changed", syncBuyerAuth);
     }, []);
 
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+                setShowAccountMenu(false);
+            }
+        };
+        if (showAccountMenu) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [showAccountMenu]);
+
     const handleLogout = async () => {
+        setShowAccountMenu(false);
         await buyerAuthService.logout();
         router.push("/");
     };
@@ -91,20 +106,47 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
                     <div className="h-12 flex items-center gap-2">
 
                         {buyerEmail ? (
-                            <>
-                                <span className="text-p3 font-body text-neutral-700 mr-2">
-                                    Hi, <span className="font-semibold text-primary-800">{buyerEmail.split("@")[0]}</span>
-                                </span>
-                                <Button
-                                    variant="outline"
-                                    size="md"
-                                    shape="round"
-                                    label="Logout"
-                                    icon={<LogOut size={16} />}
-                                    onClick={handleLogout}
-                                    className="w-[125px]"
-                                />
-                            </>
+                            <div className="relative" ref={accountMenuRef}>
+                                <button
+                                    onClick={() => setShowAccountMenu((open) => !open)}
+                                    className="flex items-center gap-2 rounded-full border border-neutral-200 pl-4 pr-3 h-11 hover:bg-neutral-100 transition-colors"
+                                >
+                                    <span className="text-p3 font-body text-neutral-700">
+                                        Hi, <span className="font-semibold text-primary-800">{buyerEmail.split("@")[0]}</span>
+                                    </span>
+                                    <ChevronDown
+                                        size={16}
+                                        className={`text-neutral-500 transition-transform ${showAccountMenu ? "rotate-180" : ""}`}
+                                    />
+                                </button>
+
+                                {showAccountMenu && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-neutral-100 py-1 z-50">
+                                        <button
+                                            onClick={() => { setShowAccountMenu(false); router.push("/buyer_e8d45a1b/dashboard"); }}
+                                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 hover:bg-primary-05 transition-colors"
+                                        >
+                                            <LayoutDashboard size={16} />
+                                            <span>Dashboard</span>
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowAccountMenu(false); router.push("/buyer_e8d45a1b/dashboard/profile"); }}
+                                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 hover:bg-primary-05 transition-colors"
+                                        >
+                                            <User size={16} />
+                                            <span>Profile</span>
+                                        </button>
+                                        <div className="border-t border-neutral-100 my-1"></div>
+                                        <button
+                                            onClick={handleLogout}
+                                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-warning-600 hover:bg-warning-50 transition-colors"
+                                        >
+                                            <LogOut size={16} />
+                                            <span>Logout</span>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         ) : (
                             <>
                                 <Link href="/buyer_e8d45a1b/signup">

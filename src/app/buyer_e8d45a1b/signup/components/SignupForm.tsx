@@ -4,15 +4,16 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Lock, Phone, Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
 import { buyerSignupSchema, BuyerSignupFormValues } from "@/src/schema/buyer/authSchema";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 
 interface SignupFormProps {
   onOtpSent: (email: string, phone: string) => void;
 }
 
 export default function SignupForm({ onOtpSent }: SignupFormProps) {
+  const { openLoginModal } = useBuyerLoginModal();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -148,9 +149,9 @@ export default function SignupForm({ onOtpSent }: SignupFormProps) {
 
       <p className="text-center text-p3 font-body text-pneutral-600 mt-6">
         Already have an account?{" "}
-        <Link href="/buyer_e8d45a1b/login" className="text-primary-800 font-semibold">
+        <button type="button" onClick={openLoginModal} className="text-primary-800 font-semibold">
           Log in
-        </Link>
+        </button>
       </p>
     </div>
   );

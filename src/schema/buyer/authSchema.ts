@@ -31,3 +31,21 @@ export const buyerOtpSchema = z.object({
 });
 
 export type BuyerOtpFormValues = z.infer<typeof buyerOtpSchema>;
+
+export const buyerResetPasswordSchema = z
+  .object({
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+        "Password must contain at least one uppercase, one lowercase, one number and one special character"
+      ),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+export type BuyerResetPasswordFormValues = z.infer<typeof buyerResetPasswordSchema>;
