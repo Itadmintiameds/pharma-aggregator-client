@@ -89,16 +89,48 @@ export default function BuyerHeader({ tempBuyer }: BuyerHeaderProps) {
               disabled={isLoggingOut}
               style={{ justifyContent: "flex-start", alignItems: "flex-end", display: "flex" }}
             >
-              <div style={{ justifyContent: "flex-start", alignItems: "center", gap: 4, display: "flex" }}>
+              <div style={{ justifyContent: "flex-start", alignItems: "center", gap: 10, display: "flex" }}>
                 <div style={{ flexDirection: "column", justifyContent: "center", alignItems: "flex-end", display: "inline-flex" }}>
-                  <div style={{ textAlign: "center", color: "#4B465C", fontSize: 14, fontFamily: "Work Sans, sans-serif", fontWeight: 500, lineHeight: "20px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>
-                    {displayName}
+                  <div style={{ justifyContent: "flex-end", alignItems: "center", gap: 6, display: "flex" }}>
+                    <div style={{ textAlign: "right", color: "#4B465C", fontSize: 14, fontFamily: "Work Sans, sans-serif", fontWeight: 500, lineHeight: "20px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>
+                      {displayName}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontFamily: "Work Sans, sans-serif",
+                        fontWeight: 600,
+                        letterSpacing: 0.4,
+                        color: "#7C3AED",
+                        background: "#EDE4FF",
+                        borderRadius: 999,
+                        padding: "2px 8px",
+                        textTransform: "uppercase",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Buyer
+                    </span>
                   </div>
                   {subDisplay && (
                     <div style={{ textAlign: "center", color: "#979797", fontSize: 12, fontFamily: "Work Sans, sans-serif", fontWeight: 400, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>
                       {subDisplay}
                     </div>
                   )}
+                </div>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    background: "#EDE4FF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <User size={18} style={{ color: "#7C3AED" }} />
                 </div>
               </div>
               <div style={{ width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>

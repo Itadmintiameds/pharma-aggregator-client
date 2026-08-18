@@ -89,7 +89,7 @@ const SellerHeader = ({ currentView, setCurrentView, approved = true }: SellerHe
   };
 
   const companyDisplay = profile?.sellerName ?? "Official Store";
-  const coordinatorName = profile?.coordinator?.name ?? null;
+  const sellerEmail = profile?.email ?? null;
 
   return (
     <header
@@ -124,14 +124,34 @@ const SellerHeader = ({ currentView, setCurrentView, approved = true }: SellerHe
               disabled={isLoggingOut}
               style={{ justifyContent: "flex-start", alignItems: "flex-end", display: "flex" }}
             >
-              <div style={{ justifyContent: "flex-start", alignItems: "center", gap: 4, display: "flex" }}>
+              <div style={{ justifyContent: "flex-start", alignItems: "center", gap: 10, display: "flex" }}>
                 <div style={{ flexDirection: "column", justifyContent: "center", alignItems: "flex-end", display: "inline-flex" }}>
-                  <div style={{ textAlign: "center", color: "#4B465C", fontSize: 14, fontFamily: "Work Sans, sans-serif", fontWeight: 500, lineHeight: "20px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140 }}>
-                    {isLoadingProfile ? "Loading..." : companyDisplay}
+                  <div style={{ justifyContent: "flex-end", alignItems: "center", gap: 6, display: "flex" }}>
+                    <div style={{ textAlign: "right", color: "#4B465C", fontSize: 14, fontFamily: "Work Sans, sans-serif", fontWeight: 500, lineHeight: "20px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>
+                      {isLoadingProfile ? "Loading..." : companyDisplay}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontFamily: "Work Sans, sans-serif",
+                        fontWeight: 600,
+                        letterSpacing: 0.4,
+                        color: "#7C3AED",
+                        background: "#EDE4FF",
+                        borderRadius: 999,
+                        padding: "2px 8px",
+                        textTransform: "uppercase",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Seller
+                    </span>
                   </div>
-                  <div style={{ textAlign: "center", color: "#979797", fontSize: 12, fontFamily: "Work Sans, sans-serif", fontWeight: 400, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140 }}>
-                    {isLoadingProfile ? "" : (coordinatorName || "Change Seller")}
-                  </div>
+                  {!isLoadingProfile && sellerEmail && (
+                    <div style={{ textAlign: "center", color: "#979797", fontSize: 12, fontFamily: "Work Sans, sans-serif", fontWeight: 400, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>
+                      {sellerEmail}
+                    </div>
+                  )}
                 </div>
                 <div style={{ width: 36, height: 36, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
                   <Image src="/assets/images/sellerprofile.png" alt="User avatar" width={36} height={36} className="object-cover w-full h-full" />

@@ -33,6 +33,7 @@ export const categoryMap: Record<number, string> = {
 };
 
 const LOW_STOCK_THRESHOLD = 10;
+const PAGE_SIZE = 10;
 
 const getBatchCount = (pricingDetails: any[] = []) => pricingDetails.length;
 
@@ -179,6 +180,7 @@ const ProductList = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState<SortOption | null>(null);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -199,6 +201,10 @@ const ProductList = ({
   useEffect(() => {
     fetchProducts();
   }, [refreshKey]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortOption, categoryFilter, stockFilter, statusFilter]);
 
   const filteredData = data.filter((item) => {
     const term = searchTerm.toLowerCase();
@@ -225,6 +231,12 @@ const ProductList = ({
   });
 
   const sortedData = sortData(filteredData, sortOption);
+
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / PAGE_SIZE));
+  const paginatedData = sortedData.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
 
   return (
     <>
@@ -300,7 +312,7 @@ const ProductList = ({
       <div>
         <Table<ProductListData>
           columns={columns}
-          data={sortedData}
+          data={paginatedData}
           loading={loading}
           onRowClick={(row) => {
             if (!row.productId) return;
@@ -336,6 +348,48 @@ const ProductList = ({
           }}
         />
       </div>
+
+      {!loading && sortedData.length > 0 && (
+        <div className="flex items-center justify-between font-open-sans text-p4 text-neutral-600 mt-3">
+          <span>
+            Showing {(currentPage - 1) * PAGE_SIZE + 1}-
+            {Math.min(currentPage * PAGE_SIZE, sortedData.length)} of{" "}
+            {sortedData.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              className={`px-3 py-1.5 rounded-md border text-p4 font-semibold ${
+                currentPage === 1
+                  ? "border-neutral-200 text-neutral-400 cursor-not-allowed"
+                  : "border-primary-900 text-primary-900 cursor-pointer hover:bg-primary-50"
+              }`}
+            >
+              Previous
+            </button>
+            <span className="px-2">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={currentPage === totalPages}
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+              }
+              className={`px-3 py-1.5 rounded-md border text-p4 font-semibold ${
+                currentPage === totalPages
+                  ? "border-neutral-200 text-neutral-400 cursor-not-allowed"
+                  : "border-primary-900 text-primary-900 cursor-pointer hover:bg-primary-50"
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {openDeleteModal && selectedProductIdLocal && (
         <Delete
           isOpen={openDeleteModal}

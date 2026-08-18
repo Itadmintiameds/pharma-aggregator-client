@@ -4,6 +4,7 @@ import { HiOutlineShoppingBag, HiOutlineClipboardDocumentList } from "react-icon
 import { LuWarehouse, LuWallet } from "react-icons/lu";
 import { AiOutlinePieChart } from "react-icons/ai";
 import { useBuyerOnboardingStatus } from "@/src/hooks/useBuyerOnboardingStatus";
+import { useBuyerOrders } from "@/src/hooks/useBuyerOrders";
 import BuyerKpiCard from "./components/BuyerKpiCard";
 import BuyerSpendChart from "./components/BuyerSpendChart";
 import RecentOrdersCard from "./components/RecentOrdersCard";
@@ -18,6 +19,11 @@ import DocumentExpiryCard from "./components/DocumentExpiryCard";
 // expiry card has no seller equivalent and reads real TempBuyer data.
 export default function BuyerDashboardPage() {
   const { tempBuyer } = useBuyerOnboardingStatus();
+  const { orders, error } = useBuyerOrders();
+
+  const totalOrders = orders?.length ?? null;
+  const totalSpend =
+    orders?.reduce((sum, order) => (order.status === "CANCELLED" ? sum : sum + (order.grandTotal ?? 0)), 0) ?? null;
 
   return (
     <div className="space-y-8">
@@ -32,31 +38,29 @@ export default function BuyerDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <BuyerKpiCard
           title="Total Orders"
-          value={128}
-          growth="+6.4%"
+          value={totalOrders ?? "..."}
           icon={<HiOutlineShoppingBag size={20} />}
           style={{ backgroundColor: "#DED0FE" }}
         />
         <BuyerKpiCard
           title="Active RFQs"
-          value={18}
-          growth="+3.1%"
+          value=""
           icon={<HiOutlineClipboardDocumentList size={20} />}
           className="bg-white"
+          comingSoon
         />
         <BuyerKpiCard
           title="Total Spend"
-          value="₹4,32,000"
-          growth="+9.8%"
+          value={totalSpend !== null ? `₹${totalSpend.toFixed(2)}` : "..."}
           icon={<LuWallet size={20} />}
           className="bg-white"
         />
         <BuyerKpiCard
           title="Saved Suppliers"
-          value={12}
-          growth="+2"
+          value=""
           icon={<LuWarehouse size={20} />}
           className="bg-white"
+          comingSoon
         />
       </div>
 
@@ -66,7 +70,7 @@ export default function BuyerDashboardPage() {
           <BuyerSpendChart />
         </div>
         <div className="min-h-[324px]">
-          <RecentOrdersCard />
+          <RecentOrdersCard orders={orders} error={error} />
         </div>
       </div>
 
@@ -75,22 +79,20 @@ export default function BuyerDashboardPage() {
         <BuyerSummaryCard
           icon={<AiOutlinePieChart size={36} />}
           titleLeft="Spend"
-          valueLeft="₹4,32,000"
-          growthLeft="+9.80%"
+          valueLeft={totalSpend !== null ? `₹${totalSpend.toFixed(2)}` : "..."}
           titleRight="Orders"
-          valueRight="15"
-          growthRight="+8.10%"
+          valueRight={totalOrders !== null ? String(totalOrders) : "..."}
         />
 
         <BuyerSummaryCard
           icon={<LuWarehouse size={36} />}
           titleLeft="All RFQs"
-          valueLeft="18"
+          valueLeft=""
           titleRight="Quoted"
-          valueRight="13"
-          pendingCount="5"
+          valueRight=""
           isThreeColumn
           bgColor="bg-yellow-50"
+          comingSoon
         />
 
         <DocumentExpiryCard documents={tempBuyer?.documents} />

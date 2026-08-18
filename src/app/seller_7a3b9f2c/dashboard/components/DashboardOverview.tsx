@@ -5,6 +5,7 @@ import { CircleDashed } from "lucide-react";
 import { HiOutlineCircleStack, HiOutlineUserGroup } from "react-icons/hi2";
 import { BsHandbag } from "react-icons/bs";
 import { AiOutlinePieChart } from "react-icons/ai";
+import { useSellerOrders } from "@/src/hooks/useSellerOrders";
 import DashboardFilters from "./DashboardFilters";
 import KpiCard from "./KpiCard";
 import SalesChart from "./SalesChart";
@@ -41,6 +42,17 @@ const DashboardOverview = ({
   selectedProductId,
 }: DashboardOverviewProps) => {
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const { orders, error: ordersError } = useSellerOrders();
+
+  const totalOrders = orders?.length ?? null;
+  const newOrders = orders?.filter((o) => o.status === "PLACED").length ?? null;
+  const completedOrders = orders?.filter((o) => o.status === "DELIVERED").length ?? null;
+  const pendingOrders =
+    orders?.filter((o) => !["DELIVERED", "CANCELLED"].includes(o.status)).length ?? null;
+  const totalSales =
+    orders
+      ?.filter((o) => o.status !== "CANCELLED")
+      .reduce((sum, o) => sum + (o.grandTotal ?? 0), 0) ?? null;
 
   if (currentView === "editDrug") {
     if (!selectedProductId) {
@@ -96,35 +108,36 @@ const DashboardOverview = ({
       />
 
       {/* KPI Cards */}
+      {ordersError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-p3 font-body text-red-700">{ordersError}</p>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <KpiCard
           title="Total Orders"
-          value={6531}
-          growth="+2.24%"
+          value={totalOrders ?? "..."}
           icon={<HiOutlineCircleStack size={22} />}
           style={{ backgroundColor: "#DED0FE" }}
         />
 
         <KpiCard
           title="New Orders"
-          value={653}
-          growth="+2.24%"
+          value={newOrders ?? "..."}
           icon={<BsHandbag size={20} />}
           className="bg-white"
         />
 
         <KpiCard
           title="Pending Orders"
-          value={53}
-          growth="+2.24%"
+          value={pendingOrders ?? "..."}
           icon={<CircleDashed size={20} />}
           className="bg-white"
         />
 
         <KpiCard
           title="Completed Orders"
-          value={63}
-          growth="+2.24%"
+          value={completedOrders ?? "..."}
           icon={<CircleDashed size={20} />}
           className="bg-white"
         />
@@ -144,10 +157,9 @@ const DashboardOverview = ({
         <WeeklySummaryCard
           icon={<AiOutlinePieChart size={36} />}
           titleLeft="Sales"
-          valueLeft="Rs.4,00,000.00"
+          valueLeft={totalSales !== null ? `Rs.${totalSales.toFixed(2)}` : "..."}
           titleRight="Volume"
-          valueRight="450"
-          growthRight="+20.00%"
+          valueRight={totalOrders !== null ? String(totalOrders) : "..."}
         />
 
         <WeeklySummaryCard
@@ -164,10 +176,10 @@ const DashboardOverview = ({
         <WeeklySummaryCard
           icon={<BsHandbag size={36} />}
           titleLeft="All Orders"
-          valueLeft="450"
+          valueLeft={totalOrders !== null ? String(totalOrders) : "..."}
           titleRight="Completed"
-          valueRight="445"
-          pendingCount="5"
+          valueRight={completedOrders !== null ? String(completedOrders) : "..."}
+          pendingCount={pendingOrders !== null ? String(pendingOrders) : "..."}
           isThreeColumn
           bgColor="bg-yellow-50"
         />

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Construction } from "lucide-react";
 
 // Buyer-owned fork of seller's dashboard/components/WeeklySummaryCard.tsx —
 // same two-column / three-column layout, no buyer-specific changes needed
@@ -16,6 +17,7 @@ interface BuyerSummaryCardProps {
   pendingCount?: string;
   isThreeColumn?: boolean;
   bgColor?: string;
+  comingSoon?: boolean;
 }
 
 export default function BuyerSummaryCard({
@@ -29,18 +31,26 @@ export default function BuyerSummaryCard({
   pendingCount,
   isThreeColumn = false,
   bgColor = "bg-purple-100",
+  comingSoon = false,
 }: BuyerSummaryCardProps) {
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-100">
+    <div className={`bg-white p-6 rounded-2xl shadow-sm border border-neutral-100 ${comingSoon ? "opacity-60" : ""}`}>
       <div className="flex justify-between items-center mb-6">
         <div className={`p-3 rounded-lg ${bgColor}`}>{icon}</div>
-        <select className="text-sm text-neutral-400 rounded-md px-3 py-1">
-          <option>This Week</option>
-          <option>This Month</option>
-        </select>
+        {!comingSoon && (
+          <select className="text-sm text-neutral-400 rounded-md px-3 py-1">
+            <option>This Week</option>
+            <option>This Month</option>
+          </select>
+        )}
       </div>
 
-      {isThreeColumn ? (
+      {comingSoon ? (
+        <div className="flex items-center justify-center gap-2 text-neutral-500 py-2">
+          <Construction size={18} />
+          <span className="text-base font-semibold font-heading">Coming Soon</span>
+        </div>
+      ) : isThreeColumn ? (
         <div className="grid grid-cols-3 gap-6 text-center">
           <div className="space-y-1">
             <p className="text-sm font-body text-neutral-500">{titleLeft}</p>

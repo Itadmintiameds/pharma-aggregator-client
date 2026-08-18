@@ -21,7 +21,7 @@ import { MdOutlineReceiptLong } from "react-icons/md";
 const menuItems = [
   { id: "overview", label: "Overview", icon: <LayoutDashboard size={20} />, path: "/buyer_e8d45a1b/dashboard" },
   { id: "catalog", label: "Browse Catalog", icon: <HiOutlineShoppingBag size={20} />, path: "/buyer_e8d45a1b/dashboard/catalog" },
-  { id: "orders", label: "My Orders", icon: <MdOutlineReceiptLong size={20} />, path: "/buyer_e8d45a1b/dashboard/orders" },
+  { id: "orders", label: "Orders", icon: <MdOutlineReceiptLong size={20} />, path: "/buyer_e8d45a1b/dashboard/orders" },
   { id: "rfq", label: "RFQ & Quotes", icon: <HiOutlineClipboardDocumentList size={20} />, path: "/buyer_e8d45a1b/dashboard/rfq" },
   { id: "suppliers", label: "Saved Suppliers", icon: <LuWarehouse size={20} />, path: "/buyer_e8d45a1b/dashboard/suppliers" },
   { id: "support", label: "Support", icon: <PiHeadphones size={20} />, path: "/buyer_e8d45a1b/dashboard/support" },

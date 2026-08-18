@@ -15,6 +15,20 @@ let failedQueue: Array<{
   reject: (reason?: any) => void;
 }> = [];
 
+// Mirrors sellerAuthService.clearAuth() — remove only auth-specific keys,
+// not localStorage.clear(), so unrelated app state (e.g. the seller's
+// one-time onboarding-complete acknowledgement flag) survives a forced logout.
+const clearAuthKeys = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem('resetEmail');
+  localStorage.removeItem('tokenExpiresAt');
+  localStorage.removeItem('refreshTokenExpiresAt');
+  localStorage.removeItem('lastLogin');
+  localStorage.removeItem('otpUsername');
+};
+
 const processQueue = (error: any = null) => {
   failedQueue.forEach(prom => {
     if (error) {
@@ -91,13 +105,13 @@ api.interceptors.response.use(
       if (!refreshToken) {
         // No refresh token, force logout
         if (typeof window !== "undefined") {
-          localStorage.clear();
+          clearAuthKeys();
           document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
           window.location.href = "/?showLogin=true&session=expired";
         }
         return Promise.reject(error);
       }
-      
+
       try {
         // Call refresh endpoint
         const response = await axios.post(`${API_BASE_URL}/authentication/refresh`, {
@@ -127,12 +141,12 @@ api.interceptors.response.use(
         processQueue(refreshError);
         
         if (typeof window !== "undefined") {
-          localStorage.clear();
+          clearAuthKeys();
           sessionStorage.clear();
           document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
           window.location.href = "/?showLogin=true&session=expired";
         }
-        
+
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -142,7 +156,7 @@ api.interceptors.response.use(
     // Handle other 401 errors
     if (error.response?.status === 401) {
       if (typeof window !== "undefined") {
-        localStorage.clear();
+        clearAuthKeys();
         document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         window.location.href = "/?showLogin=true&session=expired";
       }
