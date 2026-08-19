@@ -180,8 +180,15 @@ function DocRow({
   fileUrl?: string;
 }) {
   const handleView = () => {
-    if (file) window.open(URL.createObjectURL(file), "_blank");
-    else if (fileUrl) window.open(fileUrl, "_blank");
+    if (file) {
+      const objectUrl = URL.createObjectURL(file);
+      window.open(objectUrl, "_blank");
+      // Delayed, not immediate — the new tab still needs to fetch the blob;
+      // revoking right away can race that fetch and break the preview.
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+    } else if (fileUrl) {
+      window.open(fileUrl, "_blank");
+    }
   };
 
   return (

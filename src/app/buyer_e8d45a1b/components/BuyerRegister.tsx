@@ -866,6 +866,7 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
           loadingStates={loadingStates}
           loadingDistricts={loadingDistricts}
           loadingTalukas={loadingTalukas}
+          tempBuyerId={tempBuyerId}
           onChange={handleFieldChange}
           onBuyerTypeChange={handleBuyerTypeChange}
           onStateChange={handleStateChange}

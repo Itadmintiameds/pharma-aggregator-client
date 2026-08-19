@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import { Building2, Hash } from "lucide-react";
 import FormInput from "@/src/app/seller_7a3b9f2c/components/FormInput";
 import { BuyerTypeResponse, StateResponse, DistrictResponse, TalukaResponse } from "@/src/services/buyer/BuyerRegMasterService";
+import { buyerRegistrationService } from "@/src/services/buyer/buyerRegistrationService";
 import { BuyerFormData } from "@/src/app/buyer_e8d45a1b/components/BuyerRegister";
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
   loadingStates: boolean;
   loadingDistricts: boolean;
   loadingTalukas: boolean;
+  tempBuyerId: number | null;
   onChange: (field: string, value: unknown) => void;
   onBuyerTypeChange: (buyerTypeId: number) => void;
   onStateChange: (stateId: number) => void;
@@ -38,6 +40,7 @@ export default function OrgDetailsForm({
   loadingStates,
   loadingDistricts,
   loadingTalukas,
+  tempBuyerId,
   onChange,
   onBuyerTypeChange,
   onStateChange,
@@ -46,6 +49,41 @@ export default function OrgDetailsForm({
   prevStep,
   nextStep,
 }: Props) {
+  const [gstExistsError, setGstExistsError] = useState("");
+  const [panExistsError, setPanExistsError] = useState("");
+
+  const handleGstBlur = async () => {
+    const gst = (formData.gstNumber || "").trim();
+    if (!gst) {
+      setGstExistsError("");
+      return;
+    }
+    try {
+      const exists = await buyerRegistrationService.checkGSTNumber(gst, tempBuyerId);
+      setGstExistsError(exists ? "This GST number is already registered. Please use a different GST number." : "");
+    } catch {
+      setGstExistsError("");
+    }
+  };
+
+  const handlePanBlur = async () => {
+    const pan = (formData.panNumber || "").trim();
+    if (!pan) {
+      setPanExistsError("");
+      return;
+    }
+    try {
+      const exists = await buyerRegistrationService.checkPANNumber(pan, tempBuyerId);
+      setPanExistsError(exists ? "This PAN number is already registered. Please use a different PAN number." : "");
+    } catch {
+      setPanExistsError("");
+    }
+  };
+
+  const handleContinue = () => {
+    if (gstExistsError || panExistsError) return;
+    nextStep();
+  };
   return (
     <div className="flex flex-col gap-5 bg-white">
       <div>
@@ -97,12 +135,16 @@ export default function OrgDetailsForm({
           type="text"
           uppercase
           value={formData.gstNumber}
-          onChange={(e) => onChange("gstNumber", e.target.value.toUpperCase())}
+          onChange={(e) => {
+            onChange("gstNumber", e.target.value.toUpperCase());
+            setGstExistsError("");
+          }}
+          onBlur={handleGstBlur}
           placeholder="Enter GST number"
           maxLength={15}
           leftIcon={<Hash className="w-5 h-5" />}
-          error={errors.gstNumber}
-          hint={!errors.gstNumber ? "Provide either GST or PAN number" : undefined}
+          error={errors.gstNumber || gstExistsError}
+          hint={!errors.gstNumber && !gstExistsError ? "Provide either GST or PAN number" : undefined}
         />
 
         <FormInput
@@ -110,11 +152,15 @@ export default function OrgDetailsForm({
           type="text"
           uppercase
           value={formData.panNumber}
-          onChange={(e) => onChange("panNumber", e.target.value.toUpperCase())}
+          onChange={(e) => {
+            onChange("panNumber", e.target.value.toUpperCase());
+            setPanExistsError("");
+          }}
+          onBlur={handlePanBlur}
           placeholder="Enter PAN number"
           maxLength={10}
           leftIcon={<Hash className="w-5 h-5" />}
-          error={errors.panNumber}
+          error={errors.panNumber || panExistsError}
         />
 
         <FormInput
@@ -246,7 +292,7 @@ export default function OrgDetailsForm({
         </button>
 
         <button
-          onClick={nextStep}
+          onClick={handleContinue}
           className="h-12 px-6 border-2 border-primary-800 text-primary-800 rounded-xl flex items-center gap-2"
         >
           Continue

@@ -40,7 +40,27 @@ export default function BuyerOnboardingGate({ children }: Props) {
   const [forceIntro, setForceIntro] = useState(false);
 
   const isActionableDraftLike = status === "draft" || status === "correction_required" || status === "rejected";
-  const showForm = !forceIntro && isActionableDraftLike && (manuallyStarted || tempBuyer != null);
+  // A tempBuyer record always exists once a buyer has been rejected or sent
+  // back for correction, so "tempBuyer != null" can't be used to decide
+  // whether to auto-open the form for those two statuses the way it can for
+  // "draft" (resuming an in-progress, never-submitted draft) — otherwise a
+  // rejected/correction buyer is dropped straight into the edit wizard and
+  // never sees BuyerStatusBanner's explanation of why.
+  const showForm =
+    !forceIntro && isActionableDraftLike && (manuallyStarted || (status === "draft" && tempBuyer != null));
+
+  // The latest admin comment for the buyer's *current* status (only ever
+  // populated for correction_required/rejected — see TempBuyerReviewHistory).
+  const latestReviewComment = (() => {
+    const history = tempBuyer?.reviewHistories;
+    if (!history?.length) return undefined;
+    const matching = history.filter((h) => h.status?.toUpperCase() === status.toUpperCase());
+    if (!matching.length) return undefined;
+    const latest = matching.reduce((a, b) =>
+      new Date(b.reviewedAt ?? 0).getTime() > new Date(a.reviewedAt ?? 0).getTime() ? b : a
+    );
+    return latest.comments || undefined;
+  })();
 
   useEffect(() => {
     if (status === "guest") {
@@ -82,7 +102,14 @@ export default function BuyerOnboardingGate({ children }: Props) {
     <div className="flex flex-col items-center px-4">
       <BuyerOnboardingStepper step={stepperStep} steps={STEP_DEFS} />
 
-      {isActionableDraftLike && !showForm && <BuyerStatusBanner status={status} onResume={handleResume} />}
+      {isActionableDraftLike && !showForm && (
+        <BuyerStatusBanner
+          status={status}
+          onResume={handleResume}
+          hasDraft={tempBuyer != null}
+          reason={latestReviewComment}
+        />
+      )}
 
       {isActionableDraftLike && showForm && (
         <div className="w-full">
@@ -91,7 +118,7 @@ export default function BuyerOnboardingGate({ children }: Props) {
       )}
 
       {(status === "submitted" || status === "under_review" || status === "suspended") && (
-        <BuyerStatusBanner status={status} onResume={handleResume} />
+        <BuyerStatusBanner status={status} onResume={handleResume} hasDraft={tempBuyer != null} />
       )}
     </div>
   );

@@ -115,6 +115,15 @@ export interface RawTempBuyer {
     phoneVerified?: boolean;
   };
   documents?: RawTempBuyerDocument[];
+  // Admin's CORRECTION_REQUIRED/REJECTED/APPROVED comments, one row per
+  // review action (see TempBuyerReviewHistory) — already present on the raw
+  // entity response, just not read on the frontend until now.
+  reviewHistories?: Array<{
+    status?: string;
+    comments?: string;
+    reviewedBy?: string;
+    reviewedAt?: string;
+  }>;
 }
 
 // Response returned by create/update/finalize (NOT by get-by-id/get-by-user,
@@ -203,16 +212,16 @@ class BuyerRegistrationService {
     return response.data === true;
   }
 
-  async checkGSTNumber(gstNumber: string): Promise<boolean> {
+  async checkGSTNumber(gstNumber: string, tempBuyerId?: number | null): Promise<boolean> {
     const response = await buyerApi.get<boolean>("/temp-buyers/contact/check-gstnumber", {
-      params: { gstnumber: gstNumber },
+      params: { gstnumber: gstNumber, tempBuyerId: tempBuyerId ?? undefined },
     });
     return response.data === true;
   }
 
-  async checkPANNumber(panNumber: string): Promise<boolean> {
+  async checkPANNumber(panNumber: string, tempBuyerId?: number | null): Promise<boolean> {
     const response = await buyerApi.get<boolean>("/temp-buyers/contact/check-pannumber", {
-      params: { pannumber: panNumber },
+      params: { pannumber: panNumber, tempBuyerId: tempBuyerId ?? undefined },
     });
     return response.data === true;
   }

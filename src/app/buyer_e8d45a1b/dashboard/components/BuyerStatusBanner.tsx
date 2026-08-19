@@ -7,6 +7,12 @@ import { BuyerOnboardingStatus } from "@/src/hooks/useBuyerOnboardingStatus";
 interface Props {
   status: BuyerOnboardingStatus;
   onResume: () => void;
+  // Whether a TempBuyer record already exists — distinguishes a brand-new
+  // buyer (no draft started yet) from one resuming an in-progress draft, so
+  // the "draft" card's CTA can say the right thing.
+  hasDraft?: boolean;
+  // Admin's comment for this status, if any (correction_required/rejected).
+  reason?: string;
 }
 
 const CARD_CONTENT: Partial<
@@ -21,6 +27,8 @@ const CARD_CONTENT: Partial<
     iconColor: "text-primary-700",
     title: "Let's get your organization registered",
     body: "Complete your organization, contact, and document details so we can review and approve your buyer account.",
+    // Overridden below based on hasDraft — a brand-new buyer with nothing
+    // saved yet shouldn't be told to "Resume" a draft that doesn't exist.
     cta: "Resume Draft",
   },
   submitted: {
@@ -74,11 +82,12 @@ const CARD_CONTENT: Partial<
 // states. draft/correction_required/rejected get an actionable CTA that
 // resumes the (embedded) wizard; submitted/under_review/suspended are
 // read-only status cards.
-export default function BuyerStatusBanner({ status, onResume }: Props) {
+export default function BuyerStatusBanner({ status, onResume, hasDraft, reason }: Props) {
   const content = CARD_CONTENT[status];
   if (!content) return null;
 
   const Icon = content.icon;
+  const cta = status === "draft" && !hasDraft ? "Start Registration" : content.cta;
 
   return (
     <div className="bg-base-white rounded-2xl shadow-lg max-w-[28rem] w-full p-10 text-center mt-4">
@@ -87,9 +96,15 @@ export default function BuyerStatusBanner({ status, onResume }: Props) {
       </div>
       <h2 className="text-h4 font-heading font-bold text-pneutral-900 mb-3">{content.title}</h2>
       <p className="text-p3 font-body text-pneutral-600 mb-6">{content.body}</p>
-      {content.cta && (
+      {reason && (
+        <p className="text-p3 font-body text-pneutral-800 bg-secondary-50 rounded-lg p-4 mb-6 text-left">
+          <span className="font-semibold">Reviewer&apos;s note: </span>
+          {reason}
+        </p>
+      )}
+      {cta && (
         <button onClick={onResume} className="px-6 py-3 rounded-md bg-primary-800 text-base-white font-bold">
-          {content.cta}
+          {cta}
         </button>
       )}
     </div>

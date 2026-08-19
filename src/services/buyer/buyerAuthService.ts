@@ -212,6 +212,14 @@ class BuyerAuthService {
     window.dispatchEvent(new Event("buyer-auth-changed"));
   }
 
+  // Deliberately presence-based, not expiry-based: an expired access token
+  // with a still-valid refreshToken is a normal, healthy session — buyerApi.ts's
+  // 401 interceptor transparently refreshes it on the next request. Returning
+  // false here just because the access token's exp has passed would bounce a
+  // perfectly recoverable session to the login modal before that refresh ever
+  // gets a chance to run. The session is only actually gone once refreshToken
+  // itself is missing or the refresh call fails — both already handled by
+  // buyerApi.ts's interceptor, which clears storage and redirects at that point.
   isAuthenticated(): boolean {
     if (typeof window === "undefined") return false;
     const accessToken = localStorage.getItem("buyerAccessToken");
