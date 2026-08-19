@@ -8,6 +8,8 @@ import { ChevronDown, LogOut, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { RawTempBuyer } from "@/src/services/buyer/buyerRegistrationService";
+import { BuyerOnboardingStatus, getBuyerProfileCompletion } from "@/src/hooks/useBuyerOnboardingStatus";
+import ProfileProgressRing from "@/src/app/commonComponents/ProfileProgressRing";
 
 interface BuyerHeaderProps {
   // Passed down from the dashboard page's own useBuyerOnboardingStatus()
@@ -16,9 +18,10 @@ interface BuyerHeaderProps {
   // which instead fetches the seller profile directly (no buyer equivalent
   // of sellerProfileService exists yet).
   tempBuyer?: RawTempBuyer | null;
+  status?: BuyerOnboardingStatus;
 }
 
-export default function BuyerHeader({ tempBuyer }: BuyerHeaderProps) {
+export default function BuyerHeader({ tempBuyer, status }: BuyerHeaderProps) {
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -59,6 +62,7 @@ export default function BuyerHeader({ tempBuyer }: BuyerHeaderProps) {
   const currentUser = buyerAuthService.getCurrentUser();
   const displayName = tempBuyer?.organizationName || "Buyer Account";
   const subDisplay = currentUser?.email ?? null;
+  const completion = status ? getBuyerProfileCompletion(status) : null;
 
   return (
     <header
@@ -118,20 +122,39 @@ export default function BuyerHeader({ tempBuyer }: BuyerHeaderProps) {
                     </div>
                   )}
                 </div>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "50%",
-                    background: "#EDE4FF",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <User size={18} style={{ color: "#7C3AED" }} />
-                </div>
+                {completion ? (
+                  <ProfileProgressRing percent={completion.percent} color={completion.color} size={44}>
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        background: "#EDE4FF",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <User size={18} style={{ color: "#7C3AED" }} />
+                    </div>
+                  </ProfileProgressRing>
+                ) : (
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: "50%",
+                      background: "#EDE4FF",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <User size={18} style={{ color: "#7C3AED" }} />
+                  </div>
+                )}
               </div>
               <div style={{ width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <ChevronDown size={12} style={{ color: "var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)", transition: "transform 0.2s", transform: showUserMenu ? "rotate(180deg)" : "rotate(0deg)" }} />

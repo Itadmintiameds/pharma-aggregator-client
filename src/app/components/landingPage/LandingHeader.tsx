@@ -6,8 +6,10 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Search, LogOut, LayoutDashboard, User, ChevronDown } from "lucide-react";
 import Button from "@/src/app/commonComponents/Button";
+import ProfileProgressRing from "@/src/app/commonComponents/ProfileProgressRing";
 import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { useBuyerOnboardingStatus, getBuyerProfileCompletion } from "@/src/hooks/useBuyerOnboardingStatus";
 
 interface LandingHeaderProps {
     searchQuery?: string;
@@ -22,6 +24,8 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
     );
     const [showAccountMenu, setShowAccountMenu] = useState(false);
     const accountMenuRef = useRef<HTMLDivElement>(null);
+    const { status: onboardingStatus } = useBuyerOnboardingStatus();
+    const completion = getBuyerProfileCompletion(onboardingStatus);
 
     useEffect(() => {
         const syncBuyerAuth = () => setBuyerEmail(buyerAuthService.getCurrentUser()?.username ?? null);
@@ -109,8 +113,19 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
                             <div className="relative" ref={accountMenuRef}>
                                 <button
                                     onClick={() => setShowAccountMenu((open) => !open)}
-                                    className="flex items-center gap-2 rounded-full border border-neutral-200 pl-4 pr-3 h-11 hover:bg-neutral-100 transition-colors"
+                                    className="flex items-center gap-2 rounded-full border border-neutral-200 pl-2 pr-3 h-11 hover:bg-neutral-100 transition-colors"
                                 >
+                                    {completion ? (
+                                        <ProfileProgressRing percent={completion.percent} color={completion.color} size={32}>
+                                            <div className="w-6 h-6 rounded-full bg-primary-50 flex items-center justify-center">
+                                                <User size={14} className="text-primary-800" />
+                                            </div>
+                                        </ProfileProgressRing>
+                                    ) : (
+                                        <div className="w-6 h-6 rounded-full bg-primary-50 flex items-center justify-center">
+                                            <User size={14} className="text-primary-800" />
+                                        </div>
+                                    )}
                                     <span className="text-p3 font-body text-neutral-700">
                                         Hi, <span className="font-semibold text-primary-800">{buyerEmail.split("@")[0]}</span>
                                     </span>
