@@ -55,7 +55,7 @@ const Button: React.FC<ButtonProps> = ({
 
   const radiusClasses = {
     round: {
-      sm: "rounded-xsm",
+      sm: "rounded-sm",
       md: "rounded-sm",
       lg: "rounded-md",
       xl: "rounded-lg",
@@ -77,7 +77,7 @@ const Button: React.FC<ButtonProps> = ({
     },
     outline: {
       default: "border-2 border-primary-900 text-primary-900 bg-transparent hover:bg-primary-900 hover:text-white active:border-primary-800 active:text-primary-800 focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2",
-      disabled: "border-neutral-200 text-neutral-700 bg-transparent",
+      disabled: "border-2 border-neutral-200 text-neutral-700 bg-transparent",
     },
     tonal: {
       default: "bg-secondary-500 text-base-white hover:bg-secondary-400 active:bg-secondary-600 focus-visible:outline-2 focus-visible:outline-secondary-500 focus-visible:outline-offset-2",
@@ -119,7 +119,7 @@ const Button: React.FC<ButtonProps> = ({
       `}
     >
       {icon && <span className="shrink-0">{icon}</span>}
-      <span className="btn-label">{label}</span>
+      {label && <span className="btn-label">{label}</span>}
     </button>
   );
 };

@@ -183,7 +183,7 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
                                         </svg>
                                     }
                                     iconPosition="left"
-                                    className="w-[52px] px-0"
+                                    className="w-10 h-10 px-0"
                                 />
                                 {totalItems > 0 && (
                                     <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold w-5 h-5 rounded-full flex items-center justify-center">

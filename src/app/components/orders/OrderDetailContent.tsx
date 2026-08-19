@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import Button from "@/src/app/commonComponents/Button";
 import { useReasonPrompt } from "@/src/app/commonComponents/useReasonPrompt";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
@@ -36,92 +37,108 @@ function SellerOrderCard({
   const isCancelled = sellerOrder.status === "CANCELLED";
   const currentStepIndex = FULFILLMENT_STEPS.indexOf(sellerOrder.status);
   const canCancel = CANCELLABLE_STATUSES.has(sellerOrder.status);
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="bg-white rounded-2xl shadow-md p-6">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-p2 font-heading font-semibold text-pneutral-900">
-          {sellerOrder.sellerOrderId}
-        </p>
-        <p className="text-p2 font-heading font-semibold text-pneutral-900">
+      <button
+        type="button"
+        onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
+        className="w-full flex items-center justify-between mb-4 text-left"
+      >
+        <span className="flex items-center gap-2">
+          <ChevronDown
+            size={18}
+            className={`text-pneutral-500 shrink-0 transition-transform ${expanded ? "rotate-0" : "-rotate-90"}`}
+          />
+          <span className="text-p2 font-heading font-semibold text-pneutral-900">
+            {sellerOrder.sellerOrderId}
+          </span>
+        </span>
+        <span className="text-p2 font-heading font-semibold text-pneutral-900">
           ₹{sellerOrder.grandTotal?.toFixed(2)}
-        </p>
-      </div>
+        </span>
+      </button>
 
-      {!isCancelled ? (
-        <div className="flex items-start mb-8">
-          {FULFILLMENT_STEPS.map((step, index) => {
-            const isDone = index <= currentStepIndex;
-            const isCurrent = index === currentStepIndex;
-            return (
-              <div key={step} className="flex items-start flex-1 last:flex-none">
-                <div className="flex flex-col items-center w-16 shrink-0 -mt-0.5">
-                  <div
-                    className={`rounded-full shrink-0 transition-all ${
-                      isDone ? "bg-primary-800" : "bg-neutral-200"
-                    } ${isCurrent ? "w-4 h-4 ring-4 ring-primary-100" : "w-3 h-3"}`}
-                  />
-                  <p
-                    className={`text-p4 font-body text-center mt-2 leading-tight ${
-                      isCurrent
-                        ? "text-primary-800 font-semibold"
-                        : isDone
-                          ? "text-pneutral-700 font-medium"
-                          : "text-pneutral-400"
-                    }`}
-                  >
-                    {formatStepLabel(step)}
-                  </p>
-                </div>
-                {index < FULFILLMENT_STEPS.length - 1 && (
-                  <div
-                    className={`h-0.5 flex-1 mt-1.5 ${index < currentStepIndex ? "bg-primary-800" : "bg-neutral-200"}`}
-                  />
-                )}
+      {expanded && (
+        <>
+          {!isCancelled ? (
+            <div className="flex items-start mb-8">
+              {FULFILLMENT_STEPS.map((step, index) => {
+                const isDone = index <= currentStepIndex;
+                const isCurrent = index === currentStepIndex;
+                return (
+                  <div key={step} className="flex items-start flex-1 last:flex-none">
+                    <div className="flex flex-col items-center w-16 shrink-0 -mt-0.5">
+                      <div
+                        className={`rounded-full shrink-0 transition-all ${
+                          isDone ? "bg-primary-800" : "bg-neutral-200"
+                        } ${isCurrent ? "w-4 h-4 ring-4 ring-primary-100" : "w-3 h-3"}`}
+                      />
+                      <p
+                        className={`text-p4 font-body text-center mt-2 leading-tight ${
+                          isCurrent
+                            ? "text-primary-800 font-semibold"
+                            : isDone
+                              ? "text-pneutral-700 font-medium"
+                              : "text-pneutral-400"
+                        }`}
+                      >
+                        {formatStepLabel(step)}
+                      </p>
+                    </div>
+                    {index < FULFILLMENT_STEPS.length - 1 && (
+                      <div
+                        className={`h-0.5 flex-1 mt-1.5 ${index < currentStepIndex ? "bg-primary-800" : "bg-neutral-200"}`}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <p className="text-p3 font-body text-red-700">
+                Cancelled{sellerOrder.cancelReason ? `: ${sellerOrder.cancelReason}` : ""}
+              </p>
+            </div>
+          )}
+
+          {sellerOrder.status === "OUT_FOR_DELIVERY" && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-p3 font-body text-blue-700">
+                A verification code was sent to your registered phone number. Please share it with
+                the delivery person to confirm receipt.
+              </p>
+            </div>
+          )}
+
+          {sellerOrder.trackingNumber && (
+            <p className="text-p3 font-body text-pneutral-600 mb-2">
+              Courier: {sellerOrder.courierName ?? "-"} · Tracking: {sellerOrder.trackingNumber}
+            </p>
+          )}
+
+          <div className="space-y-2 mb-4">
+            {sellerOrder.items.map((item) => (
+              <div key={item.orderItemId} className="flex justify-between text-p3 font-body text-pneutral-700">
+                <span>{item.productNameSnapshot} x {item.quantity}</span>
+                <span>₹{item.lineTotal?.toFixed(2)}</span>
               </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-          <p className="text-p3 font-body text-red-700">
-            Cancelled{sellerOrder.cancelReason ? `: ${sellerOrder.cancelReason}` : ""}
-          </p>
-        </div>
-      )}
-
-      {sellerOrder.status === "OUT_FOR_DELIVERY" && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-          <p className="text-p3 font-body text-blue-700">
-            A verification code was sent to your registered phone number. Please share it with
-            the delivery person to confirm receipt.
-          </p>
-        </div>
-      )}
-
-      {sellerOrder.trackingNumber && (
-        <p className="text-p3 font-body text-pneutral-600 mb-2">
-          Courier: {sellerOrder.courierName ?? "-"} · Tracking: {sellerOrder.trackingNumber}
-        </p>
-      )}
-
-      <div className="space-y-2 mb-4">
-        {sellerOrder.items.map((item) => (
-          <div key={item.orderItemId} className="flex justify-between text-p3 font-body text-pneutral-700">
-            <span>{item.productNameSnapshot} x {item.quantity}</span>
-            <span>₹{item.lineTotal?.toFixed(2)}</span>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {canCancel && (
-        <Button
-          variant="outline"
-          size="sm"
-          label={cancelling ? "Cancelling..." : "Cancel this item"}
-          disabled={cancelling}
-          onClick={() => onCancel(sellerOrder.sellerOrderId)}
-        />
+          {canCancel && (
+            <Button
+              variant="outline"
+              size="sm"
+              label={cancelling ? "Cancelling..." : "Cancel this item"}
+              disabled={cancelling}
+              onClick={() => onCancel(sellerOrder.sellerOrderId)}
+            />
+          )}
+        </>
       )}
     </div>
   );
