@@ -301,15 +301,15 @@ const ViewProducts = () => {
       {/* Products Table */}
       <div className="bg-base-white rounded-lg border border-neutral-200 overflow-hidden">
         <table className="w-full">
-          <thead className="bg-neutral-50 border-b border-neutral-200">
+          <thead className="bg-secondary-600 border-b border-neutral-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Product</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Category</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Price</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Stock</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Expiry Date</th>
-              <th className="px-6 py-3 text-right text-xs font-semibold text-neutral-600 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Product</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Category</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Price</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Stock</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Expiry Date</th>
+              <th className="px-6 py-3 text-right text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200">

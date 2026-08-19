@@ -8,6 +8,7 @@ import Input from "@/src/app/commonComponents/Input";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import Button from "@/src/app/commonComponents/Button";
 import SubmissionSuccess from "../../components/SubmissionSuccess";
+import { createQuoteRequest } from "@/src/services/buyer/quoteRequestService";
 
 const UNIT_OPTIONS = [
   { value: "units", label: "Units" },
@@ -62,6 +63,7 @@ export default function GetQuoteForm({ productId, product }: GetQuoteFormProps) 
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [referenceId, setReferenceId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const setField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -75,17 +77,39 @@ export default function GetQuoteForm({ productId, product }: GetQuoteFormProps) 
     if (!form.companyName.trim()) next.companyName = "Company name is required";
     if (!form.contactPerson.trim()) next.contactPerson = "Contact person is required";
     if (!/^\d{10}$/.test(form.phone)) next.phone = "Enter a valid 10-digit phone number";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = "Enter a valid email address";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
-    const id = `RFQ-${Math.floor(100000 + Math.random() * 900000)}`;
-    setReferenceId(id);
-    toast.success("Quote request submitted successfully");
+    setSubmitting(true);
+    try {
+      const created = await createQuoteRequest({
+        productId,
+        requestType: "RFQ",
+        quantity: Number(form.quantity),
+        unit: form.unit,
+        deliveryLocation: form.deliveryLocation,
+        expectedDeliveryDate: form.expectedDeliveryDate || undefined,
+        paymentTerms: form.paymentTerms || undefined,
+        companyName: form.companyName,
+        gstNumber: form.gstNumber || undefined,
+        contactPerson: form.contactPerson,
+        phone: form.phone,
+        email: form.email,
+        message: form.requirements || undefined,
+      });
+      setReferenceId(`RFQ-${created.quoteRequestId}`);
+      toast.success("Quote request submitted successfully");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit quote request");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (referenceId) {
@@ -93,7 +117,7 @@ export default function GetQuoteForm({ productId, product }: GetQuoteFormProps) 
       <SubmissionSuccess
         referenceId={referenceId}
         heading="Quote request raised"
-        message={`Your RFQ for ${product.productName} has been sent to our verified sellers. You'll receive competitive quotes within 24-48 hours — track them anytime from your buyer dashboard.`}
+        message={`Your RFQ for ${product.productName} has been sent to the seller. You'll receive a quote within 24-48 hours — track it anytime from your buyer dashboard.`}
         onSubmitAnother={() => {
           setForm(INITIAL_STATE);
           setReferenceId(null);
@@ -184,10 +208,12 @@ export default function GetQuoteForm({ productId, product }: GetQuoteFormProps) 
           <Input
             label="Email"
             type="email"
+            required
             containerClassName="sm:col-span-2"
             value={form.email}
             onChange={(e) => setField("email", e.target.value)}
-            placeholder="Optional"
+            error={errors.email}
+            placeholder="you@example.com"
           />
         </div>
       </div>
@@ -206,7 +232,13 @@ export default function GetQuoteForm({ productId, product }: GetQuoteFormProps) 
       </div>
 
       <div className="flex justify-end pt-2">
-        <Button type="submit" variant="filled" size="lg" label="Submit RFQ" />
+        <Button
+          type="submit"
+          variant="filled"
+          size="lg"
+          label={submitting ? "Submitting..." : "Submit RFQ"}
+          disabled={submitting}
+        />
       </div>
     </form>
   );

@@ -7,14 +7,17 @@ import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "react-toastify";
 import { buyerResetPasswordSchema, BuyerResetPasswordFormValues } from "@/src/schema/buyer/authSchema";
+import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 
 interface ResetPasswordStepProps {
+  email: string;
   onDone: () => void;
 }
 
-export default function ResetPasswordStep({ onDone }: ResetPasswordStepProps) {
+export default function ResetPasswordStep({ email, onDone }: ResetPasswordStepProps) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const {
     register,
@@ -25,10 +28,17 @@ export default function ResetPasswordStep({ onDone }: ResetPasswordStepProps) {
     mode: "onChange",
   });
 
-  // No reset-password API for buyers yet — this just completes the visual flow.
-  const onSubmit = () => {
-    toast.success("Password reset successful! Please login with your new password.");
-    onDone();
+  const onSubmit = async (values: BuyerResetPasswordFormValues) => {
+    setSubmitting(true);
+    try {
+      await buyerAuthService.resetPassword({ email, newPassword: values.newPassword });
+      toast.success("Password reset successful! Please login with your new password.");
+      onDone();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reset password");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -90,10 +100,10 @@ export default function ResetPasswordStep({ onDone }: ResetPasswordStepProps) {
 
       <button
         type="submit"
-        disabled={!isValid}
+        disabled={!isValid || submitting}
         className="w-full h-12 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] mb-6 bg-primary-800 text-pneutral-50 disabled:opacity-60"
       >
-        Change Password
+        {submitting ? "Changing Password..." : "Change Password"}
       </button>
     </form>
   );

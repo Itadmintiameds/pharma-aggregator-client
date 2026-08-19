@@ -191,7 +191,28 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
           {product.productName}
         </h1>
         {product.manufacturerName && (
-          <p className="text-p3 font-body text-pneutral-600 mb-6">{product.manufacturerName}</p>
+          <p className="text-p3 font-body text-pneutral-600 mb-2">{product.manufacturerName}</p>
+        )}
+
+        {(product.sellerName || product.sellerEmail) && (
+          <p className="text-p4 font-body text-pneutral-500 mb-6">
+            Sold by{" "}
+            <span className="font-medium text-pneutral-700">
+              {product.sellerName ?? "Unknown seller"}
+            </span>
+            {product.sellerEmail && (
+              <>
+                {" "}
+                &middot;{" "}
+                <a
+                  href={`mailto:${product.sellerEmail}`}
+                  className="text-primary-700 hover:underline"
+                >
+                  {product.sellerEmail}
+                </a>
+              </>
+            )}
+          </p>
         )}
 
         {/* Pricing */}

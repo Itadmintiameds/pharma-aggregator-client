@@ -548,13 +548,13 @@ const VariantDetailPanel = ({ variant, onClose }: { variant: Variant; onClose: (
           <div className="mt-4 rounded-xl overflow-hidden border border-neutral-700">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-neutral-800">
-                  <th className="py-2.5 px-3 text-left text-neutral-300 font-semibold text-xs">Min Qt</th>
-                  <th className="py-2.5 px-3 text-left text-neutral-300 font-semibold text-xs">Max Qt</th>
-                  <th className="py-2.5 px-3 text-left text-neutral-300 font-semibold text-xs">Discount %</th>
-                  <th className="py-2.5 px-3 text-left text-neutral-300 font-semibold text-xs">Start date</th>
-                  <th className="py-2.5 px-3 text-left text-neutral-300 font-semibold text-xs">End Date</th>
-                  <th className="py-2.5 px-3 text-left text-neutral-300 font-semibold text-xs">Action</th>
+                <tr className="bg-secondary-600">
+                  <th className="py-2.5 px-3 text-left text-pneutral-50 font-semibold text-xs">Min Qt</th>
+                  <th className="py-2.5 px-3 text-left text-pneutral-50 font-semibold text-xs">Max Qt</th>
+                  <th className="py-2.5 px-3 text-left text-pneutral-50 font-semibold text-xs">Discount %</th>
+                  <th className="py-2.5 px-3 text-left text-pneutral-50 font-semibold text-xs">Start date</th>
+                  <th className="py-2.5 px-3 text-left text-pneutral-50 font-semibold text-xs">End Date</th>
+                  <th className="py-2.5 px-3 text-left text-pneutral-50 font-semibold text-xs">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -653,7 +653,7 @@ const VariantList: React.FC<VariantListProps> = ({ variants, onAdd, onEdit, onDe
         {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full border border-neutral-200 rounded-lg overflow-hidden">
-            <thead className="bg-neutral-50 text-sm text-neutral-700">
+            <thead className="bg-secondary-600 text-sm text-pneutral-50">
               <tr>
                 <th className="p-3 text-left font-semibold">Pack size</th>
                 <th className="p-3 text-left font-semibold">Stock</th>

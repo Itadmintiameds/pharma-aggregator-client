@@ -437,7 +437,7 @@ class SellerAuthService {
   /**
    * STEP 1: Signup - email + password, sends OTP to verify the email
    */
-  async sendSignupOtp(data: { email: string; password: string }): Promise<OtpSentResponse> {
+  async sendSignupOtp(data: { fullName: string; email: string; password: string }): Promise<OtpSentResponse> {
     try {
       const response = await api.post<LoginApiResponse>(this.signupBaseUrl, data);
       const responseData = response.data;

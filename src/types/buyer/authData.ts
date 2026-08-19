@@ -10,10 +10,17 @@ export interface BuyerLoginResponse {
   buyerUserId: number;
   username: string;
   roles: string[];
+  passwordTemporary?: boolean;
   message?: string;
 }
 
+export interface BuyerResetPasswordRequest {
+  email: string;
+  newPassword: string;
+}
+
 export interface BuyerSignupRequest {
+  fullName: string;
   email: string;
   phone: string;
   password: string;

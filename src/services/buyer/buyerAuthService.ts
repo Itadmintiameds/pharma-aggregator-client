@@ -6,6 +6,7 @@ import {
   BuyerOtpVerifyRequest,
   BuyerSignupRequest,
   BuyerOtpSentResponse,
+  BuyerResetPasswordRequest,
   BuyerUser,
   ApiResponse,
 } from "@/src/types/buyer/authData";
@@ -102,6 +103,14 @@ class BuyerAuthService {
       if (responseData.status === "SUCCESS" && responseData.data) {
         const loginData = responseData.data;
 
+        // A temporary password means the account was just auto-provisioned
+        // (guest quote-request submission) or reset by support — the buyer
+        // must set a real password before we hand out a session. No tokens
+        // are stored; the caller routes to the reset-password step instead.
+        if (loginData.passwordTemporary) {
+          return loginData;
+        }
+
         const userData: BuyerUser = {
           buyerUserId: loginData.buyerUserId,
           username: loginData.username,
@@ -158,6 +167,20 @@ class BuyerAuthService {
     }
 
     return response.data;
+  }
+
+  // First-time password reset for a buyer account still holding a temporary
+  // password (see verifyOtp's passwordTemporary branch above). No tokens
+  // exist yet at this point — the buyer logs in again normally afterward.
+  async resetPassword(data: BuyerResetPasswordRequest): Promise<void> {
+    try {
+      const response = await buyerApi.post<ApiResponse<null>>(`${this.authBaseUrl}/reset-password`, data);
+      if (response.data.status !== "SUCCESS") {
+        throw new Error(response.data.message || "Failed to reset password");
+      }
+    } catch (error) {
+      throw new Error(this.extractErrorMessage(error, "Failed to reset password. Please try again."));
+    }
   }
 
   async logout(refreshToken?: string): Promise<void> {

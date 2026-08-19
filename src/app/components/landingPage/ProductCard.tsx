@@ -101,6 +101,12 @@ export default function ProductCard({ product }: ProductCardProps) {
           <p className="text-sm text-gray-500 mt-1 mb-2 line-clamp-2">{product.productDescription}</p>
         )}
 
+        {product.sellerName && (
+          <p className="text-xs text-gray-400 mb-2 truncate">
+            Sold by <span className="text-gray-600 font-medium">{product.sellerName}</span>
+          </p>
+        )}
+
         {pricing && (
           <div className="flex items-center gap-1">
             {!isBuyerLoggedIn && (

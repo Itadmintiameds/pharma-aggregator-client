@@ -41,13 +41,13 @@ const AppliedOffersView: React.FC<AppliedOffersViewProps> = ({
           </h3>
           <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #C0C1BE" }}>
             <table className="w-full border-collapse">
-              <thead>
+              <thead style={{ background: "var(--secondary-600, #9659FD)" }}>
                 <tr>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Min Qty</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Discount (%)</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Start date</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>End Date</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px" }}>Action</th>
+                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px", color: "#F8F8F9" }}>Min Qty</th>
+                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px", color: "#F8F8F9" }}>Discount (%)</th>
+                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px", color: "#F8F8F9" }}>Start date</th>
+                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px", color: "#F8F8F9" }}>End Date</th>
+                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px", color: "#F8F8F9" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -98,13 +98,13 @@ const AppliedOffersView: React.FC<AppliedOffersViewProps> = ({
           </h3>
           <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #C0C1BE" }}>
             <table className="w-full border-collapse">
-              <thead>
+              <thead style={{ background: "var(--secondary-600, #9659FD)" }}>
                 <tr>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150px" }}>Name</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE" }}>Type</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "130px" }}>Start date</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "130px" }}>End Date</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "100px" }}>Action</th>
+                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150px", color: "#F8F8F9" }}>Name</th>
+                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", color: "#F8F8F9" }}>Type</th>
+                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "130px", color: "#F8F8F9" }}>Start date</th>
+                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "130px", color: "#F8F8F9" }}>End Date</th>
+                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "100px", color: "#F8F8F9" }}>Action</th>
                 </tr>
               </thead>
               <tbody>

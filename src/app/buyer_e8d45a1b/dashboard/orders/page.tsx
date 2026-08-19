@@ -52,11 +52,11 @@ export default function BuyerOrdersPage() {
       )}
 
       {!error && orders !== null && orders.length > 0 && (
-        <div className="bg-base-white rounded-2xl border border-neutral-100 shadow-sm p-4">
-          <div className="overflow-x-auto">
+        <div className="bg-base-white rounded-2xl border border-neutral-100 shadow-sm">
+          <div className="overflow-x-auto rounded-2xl">
             <table className="w-full text-left min-w-[640px]">
-              <thead>
-                <tr className="border-b border-neutral-100 text-label-l2 font-heading text-pneutral-500">
+              <thead className="bg-secondary-600 text-label-l2 font-heading text-pneutral-50">
+                <tr>
                   <th className="px-5 py-3 font-medium">Order ID</th>
                   <th className="px-5 py-3 font-medium">Date</th>
                   <th className="px-5 py-3 font-medium">Sellers</th>
@@ -94,7 +94,7 @@ export default function BuyerOrdersPage() {
             </table>
           </div>
 
-          <div className="flex items-center justify-between text-p4 font-body text-neutral-600 mt-3 px-1">
+          <div className="flex items-center justify-between text-p4 font-body text-neutral-600 p-4">
             <span>
               Showing {(safePage - 1) * PAGE_SIZE + 1}-
               {Math.min(safePage * PAGE_SIZE, orders.length)} of {orders.length}

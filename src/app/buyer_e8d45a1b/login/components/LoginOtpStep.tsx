@@ -11,9 +11,10 @@ interface LoginOtpStepProps {
   username: string;
   password: string;
   onBack: () => void;
+  onNeedsPasswordReset: (email: string) => void;
 }
 
-export default function LoginOtpStep({ username, password, onBack }: LoginOtpStepProps) {
+export default function LoginOtpStep({ username, password, onBack, onNeedsPasswordReset }: LoginOtpStepProps) {
   const router = useRouter();
   const { closeLoginModal } = useBuyerLoginModal();
   const [otp, setOtp] = useState(Array(6).fill(""));
@@ -99,7 +100,12 @@ export default function LoginOtpStep({ username, password, onBack }: LoginOtpSte
 
     setIsLoading(true);
     try {
-      await buyerAuthService.verifyOtp({ username, otp: otp.join("") });
+      const response = await buyerAuthService.verifyOtp({ username, otp: otp.join("") });
+      if (response.passwordTemporary) {
+        toast.success("Please set a new password to continue.");
+        onNeedsPasswordReset(username);
+        return;
+      }
       toast.success("Login successful!");
       window.dispatchEvent(new Event("buyer-auth-changed"));
       closeLoginModal();

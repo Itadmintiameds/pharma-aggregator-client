@@ -77,7 +77,7 @@ function FormField({
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, totalPrice, clearCart, updatePricing } = useCart();
+  const { items, totalPrice, clearCart, updatePricing, backfillFromProduct } = useCart();
   const idempotencyKey = useIdempotencyKey();
   const { tempBuyer } = useBuyerOnboardingStatus();
 
@@ -92,13 +92,15 @@ export default function CheckoutPage() {
     }
   }, [router]);
 
-  // Cart items added before pricingId was captured on add-to-cart (or whose
-  // batch has since changed) are missing the pricingId the backend requires
-  // to place an order. Re-resolve it from current product data instead of
-  // making the buyer manually remove and re-add those items.
+  // Cart items added before pricingId was captured are missing what the
+  // backend requires to place an order — re-resolve it instead of making the
+  // buyer manually remove and re-add those items. sellerName/minQuantity/
+  // maxQuantity are always re-synced against current product data (not just
+  // filled in when missing) since order-quantity limits can change after an
+  // item is already in cart, and don't depend on the buyer having visited
+  // /cart first (which runs the same sync) to get there.
   useEffect(() => {
-    const missingPricing = items.some((item) => !item.pricingId);
-    if (!missingPricing) {
+    if (items.length === 0) {
       setResolvingPricing(false);
       return;
     }
@@ -107,18 +109,23 @@ export default function CheckoutPage() {
         const products = await getAllProducts();
         const byId = new Map(products.map((product) => [product.productId, product]));
         items.forEach((item) => {
-          if (item.pricingId) return;
-          const pricing = byId.get(item.productId)?.pricingDetails?.[0];
-          if (pricing?.pricingId) {
-            updatePricing(item.productId, pricing.pricingId, pricing.mrp, pricing.sellingPrice);
+          const product = byId.get(item.productId);
+          if (!product) return;
+
+          if (!item.pricingId) {
+            const pricing = product.pricingDetails?.[0];
+            if (pricing?.pricingId) {
+              updatePricing(item.productId, pricing.pricingId, pricing.mrp, pricing.sellingPrice);
+            }
           }
+          backfillFromProduct(product);
         });
       } finally {
         setResolvingPricing(false);
       }
     })();
-    // Only needs to run once per mount — updatePricing/items would otherwise
-    // retrigger this on every resolved item.
+    // Only needs to run once per mount — updatePricing/backfillFromProduct/
+    // items would otherwise retrigger this on every resolved item.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -182,6 +189,27 @@ export default function CheckoutPage() {
       setSubmitError(
         `These items are no longer available from the seller and couldn't be priced: ${names}. Please remove them from your cart and try again.`
       );
+      return;
+    }
+
+    // Mirrors the backend's own min/max order quantity check (see
+    // OrderPlacementServiceImpl) so a violation surfaces immediately instead
+    // of only after the network round-trip to place the order fails. The
+    // backend re-validates this independently regardless — this is purely a
+    // faster, friendlier front for the same rule.
+    const invalidQuantityLines = items.filter(
+      (item) =>
+        (item.minQuantity != null && item.quantity < item.minQuantity) ||
+        (item.maxQuantity != null && item.quantity > item.maxQuantity)
+    );
+    if (invalidQuantityLines.length > 0) {
+      const messages = invalidQuantityLines.map((item) => {
+        if (item.minQuantity != null && item.quantity < item.minQuantity) {
+          return `${item.productName}: quantity is below the minimum order quantity of ${item.minQuantity}.`;
+        }
+        return `${item.productName}: quantity exceeds the maximum order quantity of ${item.maxQuantity}.`;
+      });
+      setSubmitError(`Please fix the quantities before placing this order: ${messages.join(" ")}`);
       return;
     }
 

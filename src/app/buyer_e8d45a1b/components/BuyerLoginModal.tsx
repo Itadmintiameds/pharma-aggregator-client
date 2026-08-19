@@ -66,6 +66,10 @@ export default function BuyerLoginModal() {
                 username={tempCredentials.username}
                 password={tempCredentials.password}
                 onBack={() => setStep("LOGIN")}
+                onNeedsPasswordReset={(email) => {
+                  setResetEmail(email);
+                  setStep("RESET_PASSWORD");
+                }}
               />
             )}
 
@@ -87,7 +91,9 @@ export default function BuyerLoginModal() {
               />
             )}
 
-            {step === "RESET_PASSWORD" && <ResetPasswordStep onDone={() => setStep("LOGIN")} />}
+            {step === "RESET_PASSWORD" && (
+              <ResetPasswordStep email={resetEmail} onDone={() => setStep("LOGIN")} />
+            )}
           </div>
         </div>
       </div>

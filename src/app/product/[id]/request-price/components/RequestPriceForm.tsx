@@ -8,6 +8,7 @@ import Input from "@/src/app/commonComponents/Input";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import Button from "@/src/app/commonComponents/Button";
 import SubmissionSuccess from "../../components/SubmissionSuccess";
+import { createQuoteRequest } from "@/src/services/buyer/quoteRequestService";
 
 const UNIT_OPTIONS = [
   { value: "units", label: "Units" },
@@ -48,6 +49,7 @@ export default function RequestPriceForm({ productId, product }: RequestPriceFor
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [referenceId, setReferenceId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const setField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -60,17 +62,36 @@ export default function RequestPriceForm({ productId, product }: RequestPriceFor
     if (!/^\d{6}$/.test(form.pincode)) next.pincode = "Enter a valid 6-digit pincode";
     if (!form.fullName.trim()) next.fullName = "Name is required";
     if (!/^\d{10}$/.test(form.phone)) next.phone = "Enter a valid 10-digit phone number";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = "Enter a valid email address";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
-    const id = `RPO-${Math.floor(100000 + Math.random() * 900000)}`;
-    setReferenceId(id);
-    toast.success("Price request submitted successfully");
+    setSubmitting(true);
+    try {
+      const created = await createQuoteRequest({
+        productId,
+        requestType: "PRICE_REQUEST",
+        quantity: Number(form.quantity),
+        unit: form.unit,
+        targetPrice: form.targetPrice ? Number(form.targetPrice) : undefined,
+        pincode: form.pincode,
+        contactPerson: form.fullName,
+        phone: form.phone,
+        email: form.email,
+        message: form.message || undefined,
+      });
+      setReferenceId(`RPO-${created.quoteRequestId}`);
+      toast.success("Price request submitted successfully");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit price request");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (referenceId) {
@@ -150,10 +171,12 @@ export default function RequestPriceForm({ productId, product }: RequestPriceFor
           <Input
             label="Email"
             type="email"
+            required
             containerClassName="sm:col-span-2"
             value={form.email}
             onChange={(e) => setField("email", e.target.value)}
-            placeholder="Optional"
+            error={errors.email}
+            placeholder="you@example.com"
           />
         </div>
       </div>
@@ -172,7 +195,13 @@ export default function RequestPriceForm({ productId, product }: RequestPriceFor
       </div>
 
       <div className="flex justify-end pt-2">
-        <Button type="submit" variant="filled" size="lg" label="Submit Request" />
+        <Button
+          type="submit"
+          variant="filled"
+          size="lg"
+          label={submitting ? "Submitting..." : "Submit Request"}
+          disabled={submitting}
+        />
       </div>
     </form>
   );

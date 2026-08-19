@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "react-toastify";
 import confetti from "canvas-confetti";
 import VerificationModal from "./OtpModalSixBox";
@@ -49,6 +49,7 @@ function celebrate() {
 }
 
 export default function SignupForm({ onOpenLogin }: Props) {
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -60,7 +61,7 @@ export default function SignupForm({ onOpenLogin }: Props) {
   const [signupComplete, setSignupComplete] = useState(false);
 
   const handleGetOtp = async () => {
-    const result = signupSchema.safeParse({ email, password, confirmPassword });
+    const result = signupSchema.safeParse({ fullName, email, password, confirmPassword });
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
       result.error.issues.forEach((issue) => {
@@ -73,7 +74,7 @@ export default function SignupForm({ onOpenLogin }: Props) {
 
     setSubmitting(true);
     try {
-      await sellerAuthService.sendSignupOtp({ email, password });
+      await sellerAuthService.sendSignupOtp({ fullName, email, password });
       setShowOtpModal(true);
       toast.success("OTP sent to your email");
     } catch (error: any) {
@@ -95,7 +96,7 @@ export default function SignupForm({ onOpenLogin }: Props) {
   };
 
   const handleResend = async () => {
-    await sellerAuthService.sendSignupOtp({ email, password });
+    await sellerAuthService.sendSignupOtp({ fullName, email, password });
   };
 
   useEffect(() => {
@@ -131,6 +132,23 @@ export default function SignupForm({ onOpenLogin }: Props) {
       </p>
 
       <div className="space-y-4">
+        <div>
+          <label className="block text-label-l4 font-heading font-medium text-pneutral-900 mb-1">
+            Full Name
+          </label>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Your full name"
+              className="w-full pl-10 pr-3 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-500"
+            />
+          </div>
+          {errors.fullName && <p className="text-red-500 text-p3 mt-1">{errors.fullName}</p>}
+        </div>
+
         <div>
           <label className="block text-label-l4 font-heading font-medium text-pneutral-900 mb-1">
             Email

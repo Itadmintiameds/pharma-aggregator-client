@@ -38,7 +38,7 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
     { id: "overview", label: "Overview", icon: <LayoutDashboard size={20} />, path: "/seller_7a3b9f2c/dashboard" },
     { id: "product", label: "Products", icon: <Package size={20} />, path: "/seller_7a3b9f2c/products" },
     { id: "orders", label: "Orders", icon: <HiOutlineShoppingBag size={20} />, path: "/seller_7a3b9f2c/orders" },
-    { id: "rfqs", label: "Conversions", icon: <AiOutlinePieChart size={20} />, path: "/seller_7a3b9f2c/conversions" },
+    { id: "rfqs", label: "Quote Requests", icon: <AiOutlinePieChart size={20} />, path: "/seller_7a3b9f2c/conversions" },
     { id: "settings", label: "Settings", icon: <IoSettingsOutline size={20} />, path: "/seller_7a3b9f2c/settings" },
     { id: "shipment", label: "Shipment", icon: <MdOutlineLocalShipping size={20} />, path: "/seller_7a3b9f2c/shipment" },
   ];
@@ -106,7 +106,7 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
                 height: 48,
                 minHeight: 48,
                 maxHeight: 52,
-                background: active ? "var(--Colors-Secondary-Secondary-700, #7D32FC)" : "transparent",
+                background: active ? "#FFFFFF" : "transparent",
                 borderRadius: 8,
                 border: "none",
                 cursor: disabled ? "not-allowed" : "pointer",
@@ -124,13 +124,13 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
                 if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
               }}
             >
-              <span style={{ display: "flex", flexShrink: 0, color: disabled ? "rgba(255, 255, 255, 0.4)" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" }}>
+              <span style={{ display: "flex", flexShrink: 0, color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "#000000" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" }}>
                 {item.icon}
               </span>
               <span style={{
                 flex: 1,
                 textAlign: "left",
-                color: disabled ? "rgba(255, 255, 255, 0.4)" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)",
+                color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "#000000" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)",
                 fontSize: 16,
                 fontFamily: "Work Sans, sans-serif",
                 fontWeight: active ? 500 : 400,

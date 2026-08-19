@@ -479,7 +479,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                         {headerGroup.headers.map((header) => (
                           <th
                             key={header.id}
-                            className="px-4 py-3 text-left text-label-l3 text-neutral-900 border border-pneutral-300"
+                            className="px-4 py-3 text-left text-label-l3 text-pneutral-50 bg-secondary-600 border border-pneutral-300"
                           >
                             {flexRender(
                               header.column.columnDef.header,

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const buyerSignupSchema = z
   .object({
+    fullName: z.string().min(1, "Full name is required"),
     email: z.string().email("Please enter a valid email address"),
     phone: z.string().regex(/^[0-9]{10}$/, "Phone must be 10 digits"),
     password: z

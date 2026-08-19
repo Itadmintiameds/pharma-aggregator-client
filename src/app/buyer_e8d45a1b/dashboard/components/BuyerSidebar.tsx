@@ -69,7 +69,7 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
                 height: 48,
                 minHeight: 48,
                 maxHeight: 52,
-                background: active ? "var(--Colors-Secondary-Secondary-700, #7D32FC)" : "transparent",
+                background: active ? "#FFFFFF" : "transparent",
                 borderRadius: 8,
                 border: "none",
                 cursor: disabled ? "not-allowed" : "pointer",
@@ -87,13 +87,13 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
                 if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
               }}
             >
-              <span style={{ display: "flex", flexShrink: 0, color: disabled ? "rgba(255, 255, 255, 0.4)" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" }}>
+              <span style={{ display: "flex", flexShrink: 0, color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "#000000" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" }}>
                 {item.icon}
               </span>
               <span style={{
                 flex: 1,
                 textAlign: "left",
-                color: disabled ? "rgba(255, 255, 255, 0.4)" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)",
+                color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "#000000" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)",
                 fontSize: 16,
                 fontFamily: "Work Sans, sans-serif",
                 fontWeight: active ? 500 : 400,
