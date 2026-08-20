@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { BuyerProduct } from "@/src/types/buyer/product";
@@ -9,6 +9,8 @@ import Dropdown from "@/src/app/commonComponents/Dropdown";
 import Button from "@/src/app/commonComponents/Button";
 import SubmissionSuccess from "../../components/SubmissionSuccess";
 import { createQuoteRequest } from "@/src/services/buyer/quoteRequestService";
+import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { getBuyerProfile } from "@/src/services/buyer/buyerProfileService";
 
 const UNIT_OPTIONS = [
   { value: "units", label: "Units" },
@@ -50,6 +52,31 @@ export default function RequestPriceForm({ productId, product }: RequestPriceFor
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [referenceId, setReferenceId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [contactLocked, setContactLocked] = useState<Partial<Record<"fullName" | "phone" | "email", boolean>>>({});
+
+  useEffect(() => {
+    if (!buyerAuthService.isAuthenticated()) return;
+    const user = buyerAuthService.getCurrentUser();
+    if (!user) return;
+
+    getBuyerProfile(user.buyerUserId)
+      .then((profile) => {
+        setForm((prev) => ({
+          ...prev,
+          fullName: profile.contactName || prev.fullName,
+          phone: profile.contactMobile || prev.phone,
+          email: profile.contactEmail || prev.email,
+        }));
+        setContactLocked({
+          fullName: !!profile.contactName,
+          phone: !!profile.contactMobile,
+          email: !!profile.contactEmail,
+        });
+      })
+      .catch(() => {
+        // No approved buyer profile yet (e.g. registration still pending) — leave the form editable.
+      });
+  }, []);
 
   const setField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -159,6 +186,7 @@ export default function RequestPriceForm({ productId, product }: RequestPriceFor
             onChange={(e) => setField("fullName", e.target.value)}
             error={errors.fullName}
             placeholder="Your name"
+            disabled={contactLocked.fullName}
           />
           <Input
             label="Phone Number"
@@ -167,6 +195,7 @@ export default function RequestPriceForm({ productId, product }: RequestPriceFor
             onChange={(e) => setField("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
             error={errors.phone}
             placeholder="10-digit mobile number"
+            disabled={contactLocked.phone}
           />
           <Input
             label="Email"
@@ -177,6 +206,7 @@ export default function RequestPriceForm({ productId, product }: RequestPriceFor
             onChange={(e) => setField("email", e.target.value)}
             error={errors.email}
             placeholder="you@example.com"
+            disabled={contactLocked.email}
           />
         </div>
       </div>

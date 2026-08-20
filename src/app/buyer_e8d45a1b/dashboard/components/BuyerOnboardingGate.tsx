@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { HiClipboardDocumentList } from "react-icons/hi2";
 import { ShieldCheck, CheckCircle2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -33,9 +34,17 @@ function approvalToastSeenKey() {
 // there's no separate "registration complete" screen to click through, since
 // registration itself already happens inside the dashboard. The buyer still
 // gets told about it, just as a one-time toast instead of a blocking screen.
+// Routes whose backend endpoints don't require an approved Buyer profile
+// (just a valid buyer JWT — see BuyerQuoteRequestController), so they stay
+// reachable while registration is still in progress instead of being
+// replaced by the stepper below.
+const UNGATED_ROUTES = ["/buyer_e8d45a1b/dashboard/rfq"];
+
 export default function BuyerOnboardingGate({ children }: Props) {
+  const pathname = usePathname();
   const { openLoginModal } = useBuyerLoginModal();
   const { status, tempBuyer, refresh } = useBuyerOnboardingStatus();
+  const isUngatedRoute = UNGATED_ROUTES.some((route) => pathname?.startsWith(route));
   const [manuallyStarted, setManuallyStarted] = useState(false);
   const [forceIntro, setForceIntro] = useState(false);
 
@@ -92,7 +101,7 @@ export default function BuyerOnboardingGate({ children }: Props) {
     );
   }
 
-  if (status === "approved") {
+  if (status === "approved" || isUngatedRoute) {
     return <>{children}</>;
   }
 

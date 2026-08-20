@@ -34,6 +34,10 @@ export interface OrderStatusHistoryEntry {
 export interface SellerOrder {
   sellerOrderId: string;
   orderId?: string;
+  // Set when the parent order was placed from an already-ACCEPTED quote
+  // request — null/undefined for an ordinary cart checkout at the seller's
+  // own listed price.
+  quoteRequestId?: number;
   sellerId?: string;
   status: string;
   subtotal?: number;
@@ -66,6 +70,10 @@ export interface Order {
   deliveryState?: string;
   deliveryPinCode?: string;
   status: string;
+  // Set when this order was placed from an already-ACCEPTED quote request
+  // (see the RFQ dashboard's "Place Order" action) — undefined for an
+  // ordinary cart checkout.
+  quoteRequestId?: number;
   itemCount?: number;
   sellerOrderCount?: number;
   subtotal?: number;
@@ -91,6 +99,10 @@ export interface OrderLineRequest {
 
 export interface PlaceOrderRequest {
   buyerId: string;
+  // When present, the backend derives the single order line entirely from
+  // the stored, already-ACCEPTED QuoteRequest (product, quantity, negotiated
+  // price) — `lines` is ignored server-side in that case.
+  quoteRequestId?: number;
   deliveryAddressId?: number;
   deliveryName?: string;
   deliveryPhone?: string;
@@ -101,5 +113,6 @@ export interface PlaceOrderRequest {
   deliveryPinCode?: string;
   paymentMethod?: string;
   idempotencyKey?: string;
+  // Required unless quoteRequestId is set.
   lines: OrderLineRequest[];
 }

@@ -27,9 +27,16 @@ const menuItems = [
   { id: "support", label: "Support", icon: <PiHeadphones size={20} />, path: "/buyer_e8d45a1b/dashboard/support" },
 ];
 
+// Items reachable before full approval — "RFQ & Quotes" needs no approved
+// Buyer profile on the backend (BuyerQuoteRequestController only checks
+// ROLE_BUYER), so a buyer who's mid-registration (or a guest-provisioned
+// account that never registered) can still track requests they've raised.
+const UNGATED_ITEM_IDS = new Set(["overview", "rfq"]);
+
 interface BuyerSidebarProps {
-  // While the buyer isn't yet approved, every item except Overview is
-  // disabled — mirrors SellerSidebar's approval gate (see OnboardingGate).
+  // While the buyer isn't yet approved, every item except the ones in
+  // UNGATED_ITEM_IDS is disabled — mirrors SellerSidebar's approval gate
+  // (see OnboardingGate).
   approved?: boolean;
 }
 
@@ -41,7 +48,7 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
     path === "/buyer_e8d45a1b/dashboard" ? pathname === path : pathname.startsWith(path);
 
   const handleMenuClick = (itemId: string, path: string) => {
-    if (!approved && itemId !== "overview") return;
+    if (!approved && !UNGATED_ITEM_IDS.has(itemId)) return;
     router.push(path);
   };
 
@@ -58,7 +65,7 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
       <nav className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 8 }}>
         {menuItems.map((item) => {
           const active = isActive(item.path);
-          const disabled = !approved && item.id !== "overview";
+          const disabled = !approved && !UNGATED_ITEM_IDS.has(item.id);
           return (
             <button
               key={item.id}

@@ -11,6 +11,10 @@ export interface BuyerProfile {
   buyerId: string;
   organizationName?: string;
   status?: string;
+  gstNumber?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactMobile?: string;
 }
 
 const BUYER_ID_CACHE_KEY = "buyerId";
@@ -36,4 +40,14 @@ export async function getBuyerId(buyerUserId: number): Promise<string> {
   }
 
   return buyerId;
+}
+
+// Full profile (contact name/email/mobile, GST) for prefilling forms like
+// Get Quote / Request Price. Not cached — always reflects the latest
+// approved Buyer record.
+export async function getBuyerProfile(buyerUserId: number): Promise<BuyerProfile> {
+  const response = await buyerApi.get<ApiResponseWrapper<BuyerProfile>>(
+    `/buyer/profile/by-user/${buyerUserId}`
+  );
+  return response.data.data;
 }

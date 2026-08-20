@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MapPin, Package, X } from "lucide-react";
@@ -13,9 +13,11 @@ import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { useBuyerOnboardingStatus } from "@/src/hooks/useBuyerOnboardingStatus";
 import { getBuyerId } from "@/src/services/buyer/buyerProfileService";
 import { getAllProducts } from "@/src/services/buyer/buyerProductService";
+import { getMyQuoteRequests } from "@/src/services/buyer/quoteRequestService";
 import { generateIdempotencyKey, placeOrder } from "@/src/services/buyer/orderService";
 import { checkoutAddressSchema, CheckoutAddressFormData } from "@/src/schema/buyer/checkoutSchema";
 import { Order } from "@/src/types/buyer/order";
+import { QuoteRequest } from "@/src/types/quote/quoteRequest";
 
 // One idempotency key per mount of this page — every submit attempt (including
 // retries of the same click, e.g. after a transient network error) reuses it,
@@ -76,7 +78,17 @@ function FormField({
 }
 
 export default function CheckoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckoutPageInner />
+    </Suspense>
+  );
+}
+
+function CheckoutPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const quoteRequestId = searchParams.get("quoteRequestId");
   const { items, totalPrice, clearCart, updatePricing, backfillFromProduct } = useCart();
   const idempotencyKey = useIdempotencyKey();
   const { tempBuyer } = useBuyerOnboardingStatus();
@@ -86,11 +98,38 @@ export default function CheckoutPage() {
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   const [resolvingPricing, setResolvingPricing] = useState(true);
 
+  // Quote mode: placing an order from an already-ACCEPTED quote (see the RFQ
+  // dashboard page) bypasses the cart entirely — the single line and its
+  // negotiated price come from the quote itself, not live pricing.
+  const [quote, setQuote] = useState<QuoteRequest | null | undefined>(
+    quoteRequestId ? undefined : null
+  );
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!buyerAuthService.isAuthenticated()) {
       router.replace("/buyer_e8d45a1b/login?redirect=/checkout");
     }
   }, [router]);
+
+  useEffect(() => {
+    if (!quoteRequestId) return;
+    getMyQuoteRequests()
+      .then((all) => {
+        const match = all.find((q) => q.quoteRequestId === Number(quoteRequestId)) ?? null;
+        setQuote(match);
+        if (!match) {
+          setQuoteError("This quote request could not be found.");
+        } else if (match.status !== "ACCEPTED") {
+          setQuoteError(
+            match.status === "ORDER_PLACED"
+              ? "This quote has already been placed as an order."
+              : "Only an accepted quote can be placed as an order."
+          );
+        }
+      })
+      .catch(() => setQuoteError("Failed to load this quote request."));
+  }, [quoteRequestId]);
 
   // Cart items added before pricingId was captured are missing what the
   // backend requires to place an order — re-resolve it instead of making the
@@ -172,7 +211,14 @@ export default function CheckoutPage() {
 
   const values = watch();
 
-  const itemCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
+  const isQuoteMode = !!quoteRequestId;
+  const itemCount = useMemo(
+    () => (isQuoteMode ? quote?.quantity ?? 0 : items.reduce((sum, item) => sum + item.quantity, 0)),
+    [isQuoteMode, quote, items]
+  );
+  const displayTotal = isQuoteMode
+    ? (quote?.quotedPrice ?? 0) * (quote?.quantity ?? 0)
+    : totalPrice;
 
   const onSubmit = async (address: CheckoutAddressFormData) => {
     setSubmitError(null);
@@ -183,34 +229,36 @@ export default function CheckoutPage() {
       return;
     }
 
-    const linesMissingPricing = items.filter((item) => !item.pricingId);
-    if (linesMissingPricing.length > 0) {
-      const names = linesMissingPricing.map((item) => item.productName).join(", ");
-      setSubmitError(
-        `These items are no longer available from the seller and couldn't be priced: ${names}. Please remove them from your cart and try again.`
-      );
-      return;
-    }
+    if (!isQuoteMode) {
+      const linesMissingPricing = items.filter((item) => !item.pricingId);
+      if (linesMissingPricing.length > 0) {
+        const names = linesMissingPricing.map((item) => item.productName).join(", ");
+        setSubmitError(
+          `These items are no longer available from the seller and couldn't be priced: ${names}. Please remove them from your cart and try again.`
+        );
+        return;
+      }
 
-    // Mirrors the backend's own min/max order quantity check (see
-    // OrderPlacementServiceImpl) so a violation surfaces immediately instead
-    // of only after the network round-trip to place the order fails. The
-    // backend re-validates this independently regardless — this is purely a
-    // faster, friendlier front for the same rule.
-    const invalidQuantityLines = items.filter(
-      (item) =>
-        (item.minQuantity != null && item.quantity < item.minQuantity) ||
-        (item.maxQuantity != null && item.quantity > item.maxQuantity)
-    );
-    if (invalidQuantityLines.length > 0) {
-      const messages = invalidQuantityLines.map((item) => {
-        if (item.minQuantity != null && item.quantity < item.minQuantity) {
-          return `${item.productName}: quantity is below the minimum order quantity of ${item.minQuantity}.`;
-        }
-        return `${item.productName}: quantity exceeds the maximum order quantity of ${item.maxQuantity}.`;
-      });
-      setSubmitError(`Please fix the quantities before placing this order: ${messages.join(" ")}`);
-      return;
+      // Mirrors the backend's own min/max order quantity check (see
+      // OrderPlacementServiceImpl) so a violation surfaces immediately instead
+      // of only after the network round-trip to place the order fails. The
+      // backend re-validates this independently regardless — this is purely a
+      // faster, friendlier front for the same rule.
+      const invalidQuantityLines = items.filter(
+        (item) =>
+          (item.minQuantity != null && item.quantity < item.minQuantity) ||
+          (item.maxQuantity != null && item.quantity > item.maxQuantity)
+      );
+      if (invalidQuantityLines.length > 0) {
+        const messages = invalidQuantityLines.map((item) => {
+          if (item.minQuantity != null && item.quantity < item.minQuantity) {
+            return `${item.productName}: quantity is below the minimum order quantity of ${item.minQuantity}.`;
+          }
+          return `${item.productName}: quantity exceeds the maximum order quantity of ${item.maxQuantity}.`;
+        });
+        setSubmitError(`Please fix the quantities before placing this order: ${messages.join(" ")}`);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -222,11 +270,15 @@ export default function CheckoutPage() {
         idempotencyKey,
         ...address,
         paymentMethod: "COD",
-        lines: items.map((item) => ({
-          productId: item.productId,
-          pricingId: item.pricingId!,
-          quantity: item.quantity,
-        })),
+        ...(isQuoteMode
+          ? { quoteRequestId: Number(quoteRequestId), lines: [] }
+          : {
+              lines: items.map((item) => ({
+                productId: item.productId,
+                pricingId: item.pricingId!,
+                quantity: item.quantity,
+              })),
+            }),
       });
 
       // Cart is cleared only after a confirmed placement — a failed/partial
@@ -282,7 +334,43 @@ export default function CheckoutPage() {
     );
   }
 
-  if (items.length === 0) {
+  if (isQuoteMode && quote === undefined) {
+    return (
+      <>
+        <LandingHeader />
+        <main className="pt-38 min-h-screen bg-neutral-50 flex justify-center py-24">
+          <div className="w-10 h-10 rounded-full border-4 border-primary-200 border-t-primary-700 animate-spin" />
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  if (isQuoteMode && (quoteError || !quote)) {
+    return (
+      <>
+        <LandingHeader />
+        <main className="pt-38 min-h-screen bg-neutral-50">
+          <div className="max-w-2xl mx-auto px-6 py-12">
+            <div className="bg-white rounded-2xl shadow-md p-12 text-center">
+              <p className="text-p2 font-body text-pneutral-600 mb-4">
+                {quoteError ?? "This quote request could not be found."}
+              </p>
+              <Button
+                variant="filled"
+                size="lg"
+                label="Back to RFQ & Quotes"
+                onClick={() => router.push("/buyer_e8d45a1b/dashboard/rfq")}
+              />
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  if (!isQuoteMode && items.length === 0) {
     return (
       <>
         <LandingHeader />
@@ -397,17 +485,34 @@ export default function CheckoutPage() {
               </div>
 
               <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-                {items.map((item) => (
-                  <div key={item.productId} className="flex justify-between gap-3 text-p3 font-body text-pneutral-700">
+                {isQuoteMode && quote ? (
+                  <div className="flex justify-between gap-3 text-p3 font-body text-pneutral-700">
                     <span className="line-clamp-2">
-                      {item.productName} <span className="text-pneutral-400">x{item.quantity}</span>
+                      {quote.productName} <span className="text-pneutral-400">x{quote.quantity}</span>
                     </span>
                     <span className="whitespace-nowrap font-medium">
-                      ₹{((item.sellingPrice ?? item.mrp ?? 0) * item.quantity).toFixed(2)}
+                      ₹{((quote.quotedPrice ?? 0) * quote.quantity).toFixed(2)}
                     </span>
                   </div>
-                ))}
+                ) : (
+                  items.map((item) => (
+                    <div key={item.productId} className="flex justify-between gap-3 text-p3 font-body text-pneutral-700">
+                      <span className="line-clamp-2">
+                        {item.productName} <span className="text-pneutral-400">x{item.quantity}</span>
+                      </span>
+                      <span className="whitespace-nowrap font-medium">
+                        ₹{((item.sellingPrice ?? item.mrp ?? 0) * item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
+
+              {isQuoteMode && (
+                <p className="text-p4 font-body text-primary-800 bg-primary-05 rounded-lg px-3 py-2 mt-3">
+                  Priced at your accepted quote — not the current listed price.
+                </p>
+              )}
 
               <div className="border-t border-neutral-100 mt-4 pt-4 space-y-1">
                 <div className="flex justify-between text-p4 font-body text-pneutral-500">
@@ -416,11 +521,11 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between items-center mt-2">
                   <p className="text-p3 font-body text-pneutral-600">Total</p>
-                  <p className="text-h5 font-heading font-semibold text-pneutral-900">₹{totalPrice.toFixed(2)}</p>
+                  <p className="text-h5 font-heading font-semibold text-pneutral-900">₹{displayTotal.toFixed(2)}</p>
                 </div>
               </div>
 
-              {resolvingPricing && (
+              {!isQuoteMode && resolvingPricing && (
                 <p className="text-p4 font-body text-neutral-500 mt-3 text-center">Checking latest prices…</p>
               )}
 
@@ -431,7 +536,7 @@ export default function CheckoutPage() {
                 fullWidth
                 className="mt-6"
                 label={submitting ? "Placing Order..." : "Place Order"}
-                disabled={submitting || resolvingPricing}
+                disabled={submitting || (!isQuoteMode && resolvingPricing)}
               />
             </div>
           </form>

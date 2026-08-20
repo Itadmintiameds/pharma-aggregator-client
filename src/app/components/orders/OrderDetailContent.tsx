@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import Button from "@/src/app/commonComponents/Button";
@@ -214,10 +215,25 @@ export default function OrderDetailContent({ orderId, loginRedirectPath }: Order
     <>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-h4 font-heading font-medium text-pneutral-900">{order.orderId}</h1>
+          <h1 className="text-h4 font-heading font-medium text-pneutral-900 flex items-center gap-2">
+            {order.orderId}
+            {order.quoteRequestId != null && (
+              <span className="px-2.5 py-1 rounded-full text-label-l2 font-heading font-medium bg-secondary-100 text-secondary-800">
+                From Quote
+              </span>
+            )}
+          </h1>
           <p className="text-p4 font-body text-pneutral-500">
             {order.placedAt ? new Date(order.placedAt).toLocaleString() : ""}
           </p>
+          {order.quoteRequestId != null && (
+            <Link
+              href="/buyer_e8d45a1b/dashboard/rfq"
+              className="text-p4 font-body text-primary-800 hover:underline"
+            >
+              Placed at your accepted quote price — view in RFQ & Quotes
+            </Link>
+          )}
         </div>
         {anyCancellable && (
           <Button

@@ -84,8 +84,13 @@ export default function OrdersListPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-p2 font-heading font-semibold text-pneutral-900">
+                      <p className="text-p2 font-heading font-semibold text-pneutral-900 flex items-center gap-2">
                         {order.orderId}
+                        {order.quoteRequestId != null && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700">
+                            From Quote
+                          </span>
+                        )}
                       </p>
                       <p className="text-p4 font-body text-pneutral-500">
                         {order.placedAt ? new Date(order.placedAt).toLocaleString() : ""}

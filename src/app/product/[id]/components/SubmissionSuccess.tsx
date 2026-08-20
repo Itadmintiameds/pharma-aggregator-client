@@ -22,7 +22,12 @@ export default function SubmissionSuccess({
         <CheckCircle2 size={32} />
       </div>
       <h2 className="text-h5 font-heading font-semibold text-pneutral-900 mb-2">{heading}</h2>
-      <p className="text-p3 font-body text-pneutral-600 max-w-md w-full">{message}</p>
+      <p
+        className="text-p3 font-body text-pneutral-600"
+        style={{ width: "100%", maxWidth: "28rem" }}
+      >
+        {message}
+      </p>
       <p className="text-label-l2 font-heading text-pneutral-500 mt-4 bg-neutral-50 px-3 py-1.5 rounded-md">
         Reference ID: <span className="font-semibold text-pneutral-800">{referenceId}</span>
       </p>

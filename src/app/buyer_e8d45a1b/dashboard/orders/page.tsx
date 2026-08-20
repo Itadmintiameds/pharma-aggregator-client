@@ -72,7 +72,14 @@ export default function BuyerOrdersPage() {
                     onClick={() => router.push(`/buyer_e8d45a1b/dashboard/orders/${order.orderId}`)}
                     className="border-b border-neutral-100 last:border-0 cursor-pointer hover:bg-neutral-50"
                   >
-                    <td className="px-5 py-3 text-p3 font-body font-semibold text-pneutral-900">{order.orderId}</td>
+                    <td className="px-5 py-3 text-p3 font-body font-semibold text-pneutral-900">
+                      {order.orderId}
+                      {order.quoteRequestId != null && (
+                        <span className="ml-2 inline-block px-2 py-0.5 rounded-full text-label-l1 font-heading font-medium bg-secondary-100 text-secondary-800">
+                          From Quote
+                        </span>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-p3 font-body text-pneutral-600">
                       {order.placedAt ? new Date(order.placedAt).toLocaleDateString() : "—"}
                     </td>

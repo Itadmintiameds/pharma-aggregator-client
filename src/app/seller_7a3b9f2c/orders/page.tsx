@@ -156,7 +156,18 @@ function OrderCard({
   return (
     <div className="bg-white rounded-2xl shadow-md p-6">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-p2 font-heading font-semibold text-pneutral-900">{order.sellerOrderId}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-p2 font-heading font-semibold text-pneutral-900">{order.sellerOrderId}</p>
+          <span
+            className={`text-label-l2 font-heading font-medium px-2.5 py-1 rounded-full ${
+              order.quoteRequestId != null
+                ? "bg-secondary-100 text-secondary-800"
+                : "bg-neutral-100 text-neutral-500"
+            }`}
+          >
+            {order.quoteRequestId != null ? "Quotation Price" : "Original Price"}
+          </span>
+        </div>
         <span className="text-p4 font-body font-semibold px-3 py-1 rounded-full bg-neutral-100 text-neutral-700">
           {order.status}
         </span>
@@ -178,9 +189,14 @@ function OrderCard({
           </div>
         ))}
       </div>
-      <p className="text-p3 font-heading font-semibold text-pneutral-900 mb-3">
+      <p className={`text-p3 font-heading font-semibold text-pneutral-900 ${order.quoteRequestId != null ? "mb-1" : "mb-3"}`}>
         Total: ₹{order.grandTotal?.toFixed(2)}
       </p>
+      {order.quoteRequestId != null && (
+        <p className="text-p4 font-body text-secondary-700 mb-3">
+          Priced at the quote you accepted for this buyer, not your current listed price.
+        </p>
+      )}
 
       {error && <p className="text-p4 text-red-600 mb-2">{error}</p>}
 

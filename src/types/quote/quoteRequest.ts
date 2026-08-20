@@ -1,6 +1,6 @@
 export type QuoteRequestType = "PRICE_REQUEST" | "RFQ";
 
-export type QuoteRequestStatus = "PENDING" | "QUOTED" | "ACCEPTED" | "REJECTED" | "EXPIRED";
+export type QuoteRequestStatus = "PENDING" | "QUOTED" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "ORDER_PLACED";
 
 // Matches backend QuoteRequestCreateDTO. Fields only relevant to one
 // requestType (e.g. targetPrice/pincode for PRICE_REQUEST, or
@@ -55,6 +55,9 @@ export interface QuoteRequest {
   quotedPrice?: number;
   quoteValidUntil?: string;
   sellerNotes?: string;
+
+  // Set once this ACCEPTED quote has been converted into an order.
+  orderId?: string;
 
   createdAt: string;
   updatedAt: string;
