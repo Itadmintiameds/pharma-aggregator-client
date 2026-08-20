@@ -12,7 +12,7 @@ import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { useBuyerOnboardingStatus } from "@/src/hooks/useBuyerOnboardingStatus";
 import { getBuyerId } from "@/src/services/buyer/buyerProfileService";
-import { getAllProducts } from "@/src/services/buyer/buyerProductService";
+import { getAllProducts, getProductById } from "@/src/services/buyer/buyerProductService";
 import { getMyQuoteRequests } from "@/src/services/buyer/quoteRequestService";
 import { generateIdempotencyKey, placeOrder } from "@/src/services/buyer/orderService";
 import { checkoutAddressSchema, CheckoutAddressFormData } from "@/src/schema/buyer/checkoutSchema";
@@ -105,6 +105,10 @@ function CheckoutPageInner() {
     quoteRequestId ? undefined : null
   );
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  // The quote itself only carries the buyer's target price and the seller's
+  // quoted price — the product's current listed price is fetched separately
+  // so both can be shown side by side in the order summary.
+  const [quoteListedUnitPrice, setQuoteListedUnitPrice] = useState<number | null>(null);
 
   useEffect(() => {
     if (!buyerAuthService.isAuthenticated()) {
@@ -130,6 +134,16 @@ function CheckoutPageInner() {
       })
       .catch(() => setQuoteError("Failed to load this quote request."));
   }, [quoteRequestId]);
+
+  useEffect(() => {
+    if (!quote) return;
+    getProductById(quote.productId)
+      .then((product) => {
+        const pricing = product?.pricingDetails?.[0];
+        setQuoteListedUnitPrice(pricing?.sellingPrice ?? pricing?.mrp ?? null);
+      })
+      .catch(() => setQuoteListedUnitPrice(null));
+  }, [quote]);
 
   // Cart items added before pricingId was captured are missing what the
   // backend requires to place an order — re-resolve it instead of making the
@@ -486,25 +500,49 @@ function CheckoutPageInner() {
 
               <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
                 {isQuoteMode && quote ? (
-                  <div className="flex justify-between gap-3 text-p3 font-body text-pneutral-700">
-                    <span className="line-clamp-2">
-                      {quote.productName} <span className="text-pneutral-400">x{quote.quantity}</span>
-                    </span>
-                    <span className="whitespace-nowrap font-medium">
-                      ₹{((quote.quotedPrice ?? 0) * quote.quantity).toFixed(2)}
-                    </span>
-                  </div>
-                ) : (
-                  items.map((item) => (
-                    <div key={item.productId} className="flex justify-between gap-3 text-p3 font-body text-pneutral-700">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between gap-3 text-p3 font-body text-pneutral-700">
                       <span className="line-clamp-2">
-                        {item.productName} <span className="text-pneutral-400">x{item.quantity}</span>
+                        {quote.productName} <span className="text-pneutral-400">x{quote.quantity}</span>
                       </span>
                       <span className="whitespace-nowrap font-medium">
-                        ₹{((item.sellingPrice ?? item.mrp ?? 0) * item.quantity).toFixed(2)}
+                        ₹{((quote.quotedPrice ?? 0) * quote.quantity).toFixed(2)}
                       </span>
                     </div>
-                  ))
+                    <div className="flex justify-between gap-3 text-p4 font-body text-pneutral-500">
+                      <span>
+                        {quoteListedUnitPrice != null && (
+                          <>
+                            Listed price: <span className="line-through">₹{quoteListedUnitPrice.toFixed(2)}</span>{" "}
+                          </>
+                        )}
+                        Accepted price: ₹{(quote.quotedPrice ?? 0).toFixed(2)}/unit
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  items.map((item) => {
+                    const unitPrice = item.sellingPrice ?? item.mrp ?? 0;
+                    const hasDiscount = item.mrp != null && item.sellingPrice != null && item.mrp > item.sellingPrice;
+                    return (
+                      <div key={item.productId} className="flex flex-col gap-0.5">
+                        <div className="flex justify-between gap-3 text-p3 font-body text-pneutral-700">
+                          <span className="line-clamp-2">
+                            {item.productName} <span className="text-pneutral-400">x{item.quantity}</span>
+                          </span>
+                          <span className="whitespace-nowrap font-medium">
+                            ₹{(unitPrice * item.quantity).toFixed(2)}
+                          </span>
+                        </div>
+                        {hasDiscount && (
+                          <div className="flex justify-end gap-2 text-p4 font-body text-pneutral-500">
+                            <span className="line-through">₹{item.mrp!.toFixed(2)}</span>
+                            <span>₹{item.sellingPrice!.toFixed(2)}/unit</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
 

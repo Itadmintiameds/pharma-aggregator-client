@@ -26,6 +26,19 @@ const TYPE_LABELS: Record<string, string> = {
   RFQ: "RFQ",
 };
 
+// quoteValidUntil is a plain "valid through this date" day, not a precise
+// timestamp — comparing by date-only (not new Date() <= new Date(str)) keeps
+// the quote valid for the entirety of its expiry day regardless of the
+// buyer's local time.
+function isQuoteExpired(quoteValidUntil?: string): boolean {
+  if (!quoteValidUntil) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(quoteValidUntil);
+  expiry.setHours(0, 0, 0, 0);
+  return expiry < today;
+}
+
 export default function BuyerRfqPage() {
   const router = useRouter();
   const { status: onboardingStatus } = useBuyerOnboardingStatus();
@@ -210,23 +223,29 @@ export default function BuyerRfqPage() {
                 </div>
               )}
 
-              {request.status === "ACCEPTED" && (
-                <div className="bg-success-50 rounded-xl p-4 mt-3">
-                  <p className="text-p3 font-heading font-semibold text-pneutral-900 mb-1">
-                    You accepted the seller&apos;s quote of ₹{request.quotedPrice}
-                  </p>
-                  <p className="text-p4 font-body text-pneutral-700 mb-3">
-                    Place this order to have it shipped at the agreed price.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => handlePlaceOrder(request.quoteRequestId)}
-                    className="bg-primary-900 text-white rounded-lg px-4 py-2 text-sm font-semibold"
-                  >
-                    Place Order
-                  </button>
-                </div>
-              )}
+              {request.status === "ACCEPTED" && (() => {
+                const expired = isQuoteExpired(request.quoteValidUntil);
+                return (
+                  <div className="bg-success-50 rounded-xl p-4 mt-3">
+                    <p className="text-p3 font-heading font-semibold text-pneutral-900 mb-1">
+                      You accepted the seller&apos;s quote of ₹{request.quotedPrice}
+                    </p>
+                    <p className="text-p4 font-body text-pneutral-700 mb-3">
+                      {expired
+                        ? `This quote expired on ${new Date(request.quoteValidUntil!).toLocaleDateString()}. Ask the seller for a new quote to place this order.`
+                        : "Place this order to have it shipped at the agreed price."}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={expired}
+                      onClick={() => handlePlaceOrder(request.quoteRequestId)}
+                      className="bg-primary-900 text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Place Order
+                    </button>
+                  </div>
+                );
+              })()}
 
               {request.status === "ORDER_PLACED" && (
                 <div className="bg-success-50 rounded-xl p-4 mt-3">

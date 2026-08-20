@@ -172,7 +172,7 @@ export default function DocumentsForm({
               role="button"
               tabIndex={0}
               onClick={() => document.getElementById("org-gst-upload")?.click()}
-              className="flex items-center h-11 border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer max-w-md"
+              className="flex items-center h-11 w-full max-w-[28rem] border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer"
             >
               <div className="w-11 h-full bg-secondary-800 flex items-center justify-center shrink-0">
                 <Image src="/icons/upload.png" alt="Upload" width={16} height={16} className="brightness-0 invert" />
@@ -203,7 +203,7 @@ export default function DocumentsForm({
               role="button"
               tabIndex={0}
               onClick={() => document.getElementById("org-pan-upload")?.click()}
-              className="flex items-center h-11 border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer max-w-md"
+              className="flex items-center h-11 w-full max-w-[28rem] border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer"
             >
               <div className="w-11 h-full bg-secondary-800 flex items-center justify-center shrink-0">
                 <Image src="/icons/upload.png" alt="Upload" width={16} height={16} className="brightness-0 invert" />
@@ -233,7 +233,7 @@ export default function DocumentsForm({
             role="button"
             tabIndex={0}
             onClick={() => document.getElementById("org-logo-upload")?.click()}
-            className="flex items-center h-11 border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer max-w-md"
+            className="flex items-center h-11 w-full max-w-[28rem] border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer"
           >
             <div className="w-11 h-full bg-secondary-800 flex items-center justify-center shrink-0">
               <Image src="/icons/upload.png" alt="Upload" width={16} height={16} className="brightness-0 invert" />

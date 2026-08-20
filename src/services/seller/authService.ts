@@ -307,12 +307,13 @@ class SellerAuthService {
       console.error("Error status:", error.response?.status);
       console.error("=========================================");
 
-      // Backend error body is double-wrapped, e.g.
-      // { message: "Request processed successfully", data: { message: "Invalid username or password" } }
-      // — the outer "message" is a generic envelope string, the real reason is nested under data.message.
-      const nestedMessage = error.response?.data?.data?.message;
-      if (nestedMessage) {
-        throw new Error(nestedMessage);
+      // Error-status responses are no longer double-wrapped (see backend
+      // GlobalResponseHandler), so the message is usually one level up at
+      // data.message now — data.data.message is kept as a fallback for any
+      // response that still goes through the old double-wrap path.
+      const message = error.response?.data?.message || error.response?.data?.data?.message;
+      if (message) {
+        throw new Error(message);
       }
       throw error;
     }

@@ -116,6 +116,7 @@ class BuyerAuthService {
           username: loginData.username,
           roles: loginData.roles,
           email: loginData.username,
+          phone: loginData.phone,
         };
         localStorage.setItem("buyerUser", JSON.stringify(userData));
         localStorage.setItem("buyerLastLogin", Date.now().toString());
@@ -240,6 +241,32 @@ class BuyerAuthService {
       return JSON.parse(userStr);
     } catch {
       return null;
+    }
+  }
+
+  // Refreshes email/phone straight from the DB via GET /buyer/authentication/me
+  // instead of only trusting whatever BuyerLoginResponse was cached in
+  // localStorage at the last login/OTP-verify — a session started before a
+  // profile field (e.g. phone) existed, or before this field was added to
+  // the login response, would otherwise never pick it up until the buyer
+  // logs out and back in. Merges into and re-persists the cached buyerUser.
+  async refreshCurrentUser(): Promise<BuyerUser | null> {
+    const cached = this.getCurrentUser();
+    if (!cached) return null;
+
+    try {
+      const response = await buyerApi.get<{ buyerUserId: number; email?: string; phone?: string }>(
+        `${this.authBaseUrl}/me`
+      );
+      const merged: BuyerUser = {
+        ...cached,
+        email: response.data.email ?? cached.email,
+        phone: response.data.phone ?? cached.phone,
+      };
+      localStorage.setItem("buyerUser", JSON.stringify(merged));
+      return merged;
+    } catch {
+      return cached;
     }
   }
 }

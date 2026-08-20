@@ -9,6 +9,7 @@ export interface BuyerLoginResponse {
   type: string;
   buyerUserId: number;
   username: string;
+  phone?: string;
   roles: string[];
   passwordTemporary?: boolean;
   message?: string;
@@ -42,6 +43,7 @@ export interface BuyerUser {
   username: string;
   roles: string[];
   email?: string;
+  phone?: string;
 }
 
 export interface ApiResponse<T> {

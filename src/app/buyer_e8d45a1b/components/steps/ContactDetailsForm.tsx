@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import axios from "axios";
-import { Briefcase, Mail } from "lucide-react";
+import { Briefcase, Mail, Pencil } from "lucide-react";
 import { HiOutlineUserGroup } from "react-icons/hi2";
 import { toast } from "react-toastify";
 import VerificationModal from "@/src/app/seller_7a3b9f2c/components/OtpModalSixBox";
 import FormInput from "@/src/app/seller_7a3b9f2c/components/FormInput";
 import { buyerRegistrationService } from "@/src/services/buyer/buyerRegistrationService";
+import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { BuyerFormData } from "@/src/app/buyer_e8d45a1b/components/BuyerRegister";
 
 interface Props {
@@ -50,6 +51,127 @@ export default function ContactDetailsForm({
   const [isSendingPhoneOtp, setIsSendingPhoneOtp] = useState(false);
 
   const isClinic = (buyerTypeName ?? "").trim().toLowerCase() === "clinic";
+
+  // "Same as my login email" — the buyer already OTP-verified this email
+  // during signup, so re-verifying it here is redundant.
+  const [sameAsLoginEmail, setSameAsLoginEmail] = useState(false);
+  // Seeded from localStorage for an instant first paint, then refreshed from
+  // GET /buyer/authentication/me — a session that logged in before `phone`
+  // was added to the login response (or before the buyer had a phone on
+  // file at all) would otherwise never see it without logging out/in again.
+  const [loginUser, setLoginUser] = useState(buyerAuthService.getCurrentUser());
+  useEffect(() => {
+    buyerAuthService.refreshCurrentUser().then((fresh) => {
+      if (fresh) setLoginUser(fresh);
+    });
+  }, []);
+  const loginEmail = loginUser?.email || loginUser?.username || "";
+
+  // Still runs the same uniqueness check the manual "Send OTP" path uses
+  // (excluding this draft's own tempBuyerId) — skipping it here would let a
+  // mobile/email already claimed by a DIFFERENT stale/abandoned draft sail
+  // through as "verified" and blow up as a raw duplicate-key error on save.
+  const verifyAndMarkEmailVerified = async () => {
+    setIsCheckingEmail(true);
+    try {
+      const exists = await buyerRegistrationService.checkEmailUnique(loginEmail, tempBuyerId);
+      if (exists) {
+        setEmailExistsError("This email is already registered. Please use a different email address.");
+        onEmailVerifiedChange(false);
+      } else {
+        setEmailExistsError("");
+        onEmailVerifiedChange(true);
+      }
+    } catch {
+      onEmailVerifiedChange(true);
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+
+  // Keep the checkbox in sync when the email arrives via a source other
+  // than toggling here — e.g. a saved draft loaded into formData by the
+  // parent — so a contact email that already matches the login email shows
+  // as checked (and already verified) instead of demanding a fresh OTP.
+  useEffect(() => {
+    const matchesLogin =
+      !!loginEmail &&
+      !!formData.contactEmail &&
+      formData.contactEmail.trim().toLowerCase() === loginEmail.trim().toLowerCase();
+
+    setSameAsLoginEmail(matchesLogin);
+
+    if (matchesLogin && !formData.emailVerified) {
+      verifyAndMarkEmailVerified();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.contactEmail, loginEmail]);
+
+  const handleSameAsLoginToggle = (checked: boolean) => {
+    setSameAsLoginEmail(checked);
+    setEmailExistsError("");
+    if (checked) {
+      onChange("contactEmail", loginEmail);
+      verifyAndMarkEmailVerified();
+    } else {
+      onChange("contactEmail", "");
+      onEmailVerifiedChange(false);
+    }
+  };
+
+  // "Same as my login mobile number" — mirrors the email checkbox above.
+  // Note: unlike email, the signup phone is never actually OTP-verified on
+  // the backend (BuyerUser.isPhoneVerified stays false from signup), so
+  // this is a deliberate UX shortcut, not a reflection of real verification.
+  const [sameAsLoginMobile, setSameAsLoginMobile] = useState(false);
+  const loginMobile = (loginUser?.phone || "").replace(/\D/g, "").slice(-10);
+
+  // Same reasoning as verifyAndMarkEmailVerified above — still checks
+  // uniqueness (excluding this draft) before accepting the login mobile as
+  // "verified", instead of trusting it blindly.
+  const verifyAndMarkPhoneVerified = async () => {
+    setIsCheckingPhone(true);
+    try {
+      const exists = await buyerRegistrationService.checkMobileUnique(loginMobile, tempBuyerId);
+      if (exists) {
+        setPhoneExistsError("This mobile number is already registered. Please use a different number.");
+        onPhoneVerifiedChange(false);
+      } else {
+        setPhoneExistsError("");
+        onPhoneVerifiedChange(true);
+      }
+    } catch {
+      onPhoneVerifiedChange(true);
+    } finally {
+      setIsCheckingPhone(false);
+    }
+  };
+
+  useEffect(() => {
+    const matchesLogin =
+      loginMobile.length === 10 &&
+      !!formData.contactMobile &&
+      formData.contactMobile.replace(/\D/g, "") === loginMobile;
+
+    setSameAsLoginMobile(matchesLogin);
+
+    if (matchesLogin && !formData.phoneVerified) {
+      verifyAndMarkPhoneVerified();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.contactMobile, loginMobile]);
+
+  const handleSameAsLoginMobileToggle = (checked: boolean) => {
+    setSameAsLoginMobile(checked);
+    setPhoneExistsError("");
+    if (checked) {
+      onChange("contactMobile", loginMobile);
+      verifyAndMarkPhoneVerified();
+    } else {
+      onChange("contactMobile", "");
+      onPhoneVerifiedChange(false);
+    }
+  };
 
   const handleEmailBlur = async () => {
     if (!formData.contactEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
@@ -148,6 +270,19 @@ export default function ContactDetailsForm({
     toast.success("OTP resent successfully");
   };
 
+  // Once verified, the field is disabled so it can't be silently changed
+  // without redoing OTP — this re-opens it for editing, which resets the
+  // verified flag (see onChange below) so a new OTP is required.
+  const handleEditEmail = () => {
+    setEmailExistsError("");
+    onEmailVerifiedChange(false);
+  };
+
+  const handleEditPhone = () => {
+    setPhoneExistsError("");
+    onPhoneVerifiedChange(false);
+  };
+
   const handleContinue = () => {
     if (emailExistsError || phoneExistsError) return;
     if (!formData.emailVerified || !formData.phoneVerified) {
@@ -214,6 +349,16 @@ export default function ContactDetailsForm({
               error={errors.email || emailExistsError}
               hideMessage
             />
+            {formData.emailVerified && !sameAsLoginEmail && (
+              <button
+                type="button"
+                onClick={handleEditEmail}
+                title="Change email"
+                className="h-11 w-11 flex items-center justify-center rounded-xl border-2 border-pneutral-900 text-pneutral-900"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={handleSendEmailOtp}
               disabled={!formData.contactEmail || !!emailExistsError || formData.emailVerified || isSendingEmailOtp}
@@ -222,6 +367,23 @@ export default function ContactDetailsForm({
               {formData.emailVerified ? "Verified" : isSendingEmailOtp ? "Sending..." : "Send OTP"}
             </button>
           </div>
+          {loginEmail && (
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="checkbox"
+                id="same-as-login-email"
+                checked={sameAsLoginEmail}
+                onChange={(e) => handleSameAsLoginToggle(e.target.checked)}
+                className="w-4 h-4 rounded border-neutral-400 accent-primary-800"
+              />
+              <label
+                htmlFor="same-as-login-email"
+                className="text-p3 font-body text-pneutral-700 cursor-pointer"
+              >
+                Same as my login email ({loginEmail}) — no verification needed
+              </label>
+            </div>
+          )}
           {(errors.email || emailExistsError) && (
             <p className="text-p2 font-body font-regular text-red-500 mt-1">{errors.email || emailExistsError}</p>
           )}
@@ -248,6 +410,16 @@ export default function ContactDetailsForm({
               error={errors.mobile || phoneExistsError}
               hideMessage
             />
+            {formData.phoneVerified && !sameAsLoginMobile && (
+              <button
+                type="button"
+                onClick={handleEditPhone}
+                title="Change mobile number"
+                className="h-11 w-11 flex items-center justify-center rounded-xl border-2 border-pneutral-900 text-pneutral-900"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={handleSendPhoneOtp}
               disabled={
@@ -261,6 +433,23 @@ export default function ContactDetailsForm({
               {formData.phoneVerified ? "Verified" : isSendingPhoneOtp ? "Sending..." : "Send OTP"}
             </button>
           </div>
+          {loginMobile.length === 10 && (
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="checkbox"
+                id="same-as-login-mobile"
+                checked={sameAsLoginMobile}
+                onChange={(e) => handleSameAsLoginMobileToggle(e.target.checked)}
+                className="w-4 h-4 rounded border-neutral-400 accent-primary-800"
+              />
+              <label
+                htmlFor="same-as-login-mobile"
+                className="text-p3 font-body text-pneutral-700 cursor-pointer"
+              >
+                Same as my login mobile number ({loginMobile}) — no verification needed
+              </label>
+            </div>
+          )}
           {(errors.mobile || phoneExistsError) && (
             <p className="text-p2 font-body font-regular text-red-500 mt-1">{errors.mobile || phoneExistsError}</p>
           )}

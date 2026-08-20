@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import { toast } from "react-toastify";
 import { z } from "zod";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -790,6 +791,24 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
         setTempBuyerId(idToFinalize);
       }
 
+      // Re-check uniqueness right before finalize — the mobile/email field
+      // is disabled (and its onBlur check skipped) once verified, so a
+      // resumed draft or a duplicate created elsewhere in the meantime would
+      // otherwise only surface as a raw duplicate-key 500 from finalize.
+      const [mobileTaken, emailTaken] = await Promise.all([
+        buyerRegistrationService.checkMobileUnique(formData.contactMobile, idToFinalize),
+        buyerRegistrationService.checkEmailUnique(formData.contactEmail, idToFinalize),
+      ]);
+      if (mobileTaken || emailTaken) {
+        toast.error(
+          mobileTaken
+            ? "This mobile number is already registered with another account. Please use a different number."
+            : "This email is already registered with another account. Please use a different email address."
+        );
+        setStep(3);
+        return;
+      }
+
       const response = await buyerRegistrationService.finalizeDraftTempBuyer(idToFinalize, request);
       const createdId = response.tempBuyerId;
 
@@ -832,7 +851,17 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
       }
     } catch (error) {
       console.error("Registration failed:", error);
-      if (error instanceof Error && error.message) {
+      const backendMessage = axios.isAxiosError(error) ? (error.response?.data?.message as string | undefined) : undefined;
+      if (backendMessage?.toLowerCase().includes("duplicate key")) {
+        const friendlyMessage = backendMessage.toLowerCase().includes("mobile")
+          ? "This mobile number is already registered with another account. Please use a different number."
+          : backendMessage.toLowerCase().includes("email")
+          ? "This email is already registered with another account. Please use a different email address."
+          : "Some of the details you entered are already registered with another account.";
+        toast.error(friendlyMessage);
+      } else if (backendMessage) {
+        toast.error(backendMessage);
+      } else if (error instanceof Error && error.message) {
         toast.error(error.message);
       }
     } finally {
