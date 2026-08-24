@@ -25,10 +25,7 @@ export default function BuyerLoginModalProvider({ children }: { children: ReactN
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Hard navigations that land directly on /buyer_e8d45a1b/login (bookmark,
-  // external link, the axios interceptor's window.location.href redirect on
-  // session expiry) have nothing mounted behind them yet — open the popup
-  // over that route's own (blank) page instead of leaving a bare screen.
+ 
   useEffect(() => {
     if (pathname === "/buyer_e8d45a1b/login") {
       setIsOpen(true);

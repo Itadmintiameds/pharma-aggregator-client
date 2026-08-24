@@ -46,7 +46,7 @@ export default function BuyerDashboardLayout({
   return (
     <div className="min-h-screen bg-secondary-50">
       <BuyerSidebar approved={status === "approved"} />
-      <BuyerHeader tempBuyer={tempBuyer} />
+      <BuyerHeader tempBuyer={tempBuyer} status={status} />
 
       <main className="ml-64 p-6" style={{ marginTop: 74 }}>
         <BuyerOnboardingGate>{children}</BuyerOnboardingGate>

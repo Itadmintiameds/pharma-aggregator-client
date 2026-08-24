@@ -30,6 +30,22 @@ const STATUS_MAP: Record<string, BuyerOnboardingStatus> = {
   SUSPENDED: "suspended",
 };
 
+export interface BuyerProfileCompletion {
+  percent: number;
+  color: string;
+}
+
+// Drives the profile-completion ring shown around the buyer's avatar (both
+// the dashboard header and the landing page header): registering with just
+// an email gets a buyer to 50% (warning-400) — everything short of admin
+// approval stays there — and admin approval of the company/KYC details is
+// what moves it to 100% (success-500). "guest"/"checking" render no ring.
+export function getBuyerProfileCompletion(status: BuyerOnboardingStatus): BuyerProfileCompletion | null {
+  if (status === "guest" || status === "checking") return null;
+  if (status === "approved") return { percent: 100, color: "var(--color-success-500)" };
+  return { percent: 50, color: "var(--color-warning-400)" };
+}
+
 export function useBuyerOnboardingStatus() {
   const [status, setStatus] = useState<BuyerOnboardingStatus>("checking");
   const [tempBuyer, setTempBuyer] = useState<RawTempBuyer | null>(null);

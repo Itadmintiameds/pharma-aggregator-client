@@ -88,7 +88,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
           <button
             onClick={handleAddToCart}
-            className="flex items-center justify-center gap-2 bg-primary-700 hover:bg-purple-800 text-white rounded-xl transition-all duration-500 ease-in-out w-10 h-10 group-hover:w-auto group-hover:px-4 overflow-hidden shrink-0 z-10"
+            className="flex items-center justify-start gap-2 bg-primary-700 hover:bg-purple-800 text-white rounded-xl transition-all duration-500 ease-in-out w-10 h-10 pl-3 group-hover:w-auto group-hover:px-4 overflow-hidden shrink-0 z-10"
           >
             <FaShoppingCart className="shrink-0 text-sm" />
             <span className="text-sm whitespace-nowrap font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out">
