@@ -6,6 +6,9 @@ import "./global.css";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
 import { CartProvider } from "@/src/context/CartContext";
+import BuyerLoginModalProvider from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
+import BuyerLoginModal from "@/src/app/buyer_e8d45a1b/components/BuyerLoginModal";
+import BuyerSignupModal from "@/src/app/buyer_e8d45a1b/components/BuyerSignupModal";
 
 const notoSans = Noto_Sans({
   subsets: ["latin"],
@@ -55,7 +58,13 @@ export default function RootLayout({
         // className="antialiased"
         className={`antialiased ${notoSans.variable} ${workSans.variable} ${openSans.variable}`}
       >
-        <CartProvider>{children}</CartProvider>
+        <CartProvider>
+          <BuyerLoginModalProvider>
+            {children}
+            <BuyerLoginModal />
+            <BuyerSignupModal />
+          </BuyerLoginModalProvider>
+        </CartProvider>
         <ToastContainer
           position="top-right"
           autoClose={3000}

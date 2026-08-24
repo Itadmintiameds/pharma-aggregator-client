@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { getProductById } from "@/src/services/buyer/buyerProductService";
 import { BuyerProduct } from "@/src/types/buyer/product";
 import { useCart } from "@/src/context/CartContext";
+import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 import Button from "@/src/app/commonComponents/Button";
 import { Tag, ClipboardList } from "lucide-react";
 
@@ -103,10 +105,20 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
   const [mainIndex, setMainIndex] = useState(0);
   const { addItem } = useCart();
   const router = useRouter();
+  const { openSignupModal } = useBuyerLoginModal();
+  const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(() =>
+    buyerAuthService.isAuthenticated()
+  );
 
   useEffect(() => {
     getProductById(productId).then((result) => setProduct(result ?? null));
   }, [productId]);
+
+  useEffect(() => {
+    const syncBuyerAuth = () => setIsBuyerLoggedIn(buyerAuthService.isAuthenticated());
+    window.addEventListener("buyer-auth-changed", syncBuyerAuth);
+    return () => window.removeEventListener("buyer-auth-changed", syncBuyerAuth);
+  }, []);
 
   if (product === undefined) {
     return (
@@ -136,8 +148,18 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
     0
   );
 
-  const handleAddToCart = () => addItem(product);
+  const handleAddToCart = () => {
+    if (!isBuyerLoggedIn) {
+      openSignupModal();
+      return;
+    }
+    addItem(product);
+  };
   const handleBuyNow = () => {
+    if (!isBuyerLoggedIn) {
+      openSignupModal();
+      return;
+    }
     addItem(product);
     router.push("/cart");
   };
@@ -174,11 +196,6 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
           )}
 
           <div className="relative flex-1 max-w-105">
-            {mainIndex === 0 && (
-              <span className="absolute top-3 left-3 bg-primary-600 text-white text-xs font-semibold px-2 py-0.5 rounded z-10">
-                Primary
-              </span>
-            )}
             <ImageZoom
               src={displayImages[mainIndex] ?? PLACEHOLDER_IMAGE}
               alt={product.productName}
@@ -216,20 +233,30 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
         )}
 
         {/* Pricing */}
-        <div className="flex items-center gap-3 mb-6">
-          {pricing?.sellingPrice != null && (
-            <span className="text-h5 font-heading font-semibold text-primary-800">
-              ₹{pricing.sellingPrice}
-            </span>
+        <div className="flex items-center gap-1 mb-6">
+          {!isBuyerLoggedIn && (
+            <span className="text-p3 font-body text-pneutral-900 whitespace-nowrap">MRP:</span>
           )}
-          {pricing?.mrp != null && pricing.mrp !== pricing?.sellingPrice && (
-            <span className="text-p3 font-body text-neutral-400 line-through">₹{pricing.mrp}</span>
-          )}
-          {pricing?.discountPercentage != null && pricing.discountPercentage > 0 && (
-            <span className="text-p4 font-body text-success-600">
-              {pricing.discountPercentage}% off
-            </span>
-          )}
+          <div
+            className={`flex items-center gap-3 ${
+              isBuyerLoggedIn ? "" : "blur-[5px] select-none pointer-events-none"
+            }`}
+            title={isBuyerLoggedIn ? undefined : "Login to view price"}
+          >
+            {pricing?.sellingPrice != null && (
+              <span className="text-h5 font-heading font-semibold text-primary-800">
+                ₹{pricing.sellingPrice}
+              </span>
+            )}
+            {pricing?.mrp != null && pricing.mrp !== pricing?.sellingPrice && (
+              <span className="text-p3 font-body text-neutral-400 line-through">₹{pricing.mrp}</span>
+            )}
+            {pricing?.discountPercentage != null && pricing.discountPercentage > 0 && (
+              <span className="text-p4 font-body text-success-600">
+                {pricing.discountPercentage}% off
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-4 mb-4">

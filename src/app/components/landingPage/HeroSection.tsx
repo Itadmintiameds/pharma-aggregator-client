@@ -24,6 +24,7 @@ import { getAllProducts } from "@/src/services/buyer/buyerProductService";
 import { BuyerProduct } from "@/src/types/buyer/product";
 import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 
 interface SubCategory {
   id: string | number;
@@ -70,6 +71,7 @@ const HeroSection = () => {
   );
   const [allProducts, setAllProducts] = useState<BuyerProduct[]>([]);
   const { items: cartItems, addItem, updateQuantity } = useCart();
+  const { openSignupModal } = useBuyerLoginModal();
   const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(() =>
     buyerAuthService.isAuthenticated()
   );
@@ -393,12 +395,20 @@ const HeroSection = () => {
               const handleAddToCart = (e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (!isBuyerLoggedIn) {
+                  openSignupModal();
+                  return;
+                }
                 addItem(product);
               };
 
               const handleIncrement = (e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (!isBuyerLoggedIn) {
+                  openSignupModal();
+                  return;
+                }
                 updateQuantity(product.productId, cartQuantity + 1);
               };
 

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { FaShoppingCart, FaMinus, FaPlus } from "react-icons/fa";
 import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 import { BuyerProduct } from "@/src/types/buyer/product";
 
 interface ProductCardProps {
@@ -15,6 +16,7 @@ interface ProductCardProps {
 export default function ProductCard({ product }: ProductCardProps) {
   const { items: cartItems, addItem, updateQuantity } = useCart();
   const router = useRouter();
+  const { openSignupModal } = useBuyerLoginModal();
   const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(() =>
     buyerAuthService.isAuthenticated()
   );
@@ -32,6 +34,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleIncrement = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isBuyerLoggedIn) {
+      openSignupModal();
+      return;
+    }
     if (cartQuantity === 0) {
       addItem(product, 1);
     } else {
@@ -50,12 +56,20 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isBuyerLoggedIn) {
+      openSignupModal();
+      return;
+    }
     addItem(product, 1);
   };
 
   const handleBuyNow = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isBuyerLoggedIn) {
+      openSignupModal();
+      return;
+    }
     if (cartQuantity === 0) {
       addItem(product, 1);
     }

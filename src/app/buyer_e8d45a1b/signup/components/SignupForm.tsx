@@ -48,7 +48,7 @@ export default function SignupForm({ onOtpSent }: SignupFormProps) {
   };
 
   return (
-    <div className="w-full max-w-[28rem] mx-auto bg-white rounded-xl shadow-md p-8">
+    <div className="w-full max-w-[25rem] mx-auto bg-white rounded-xl shadow-md p-6">
       <h2 className="text-h4 font-heading font-medium text-pneutral-900 mb-1">
         Create your buyer account
       </h2>

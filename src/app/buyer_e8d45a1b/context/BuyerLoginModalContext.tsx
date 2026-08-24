@@ -7,6 +7,9 @@ interface BuyerLoginModalContextValue {
   isOpen: boolean;
   openLoginModal: () => void;
   closeLoginModal: () => void;
+  isSignupOpen: boolean;
+  openSignupModal: () => void;
+  closeSignupModal: () => void;
 }
 
 const BuyerLoginModalContext = createContext<BuyerLoginModalContextValue | null>(null);
@@ -24,15 +27,19 @@ export default function BuyerLoginModalProvider({ children }: { children: ReactN
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [isSignupOpen, setIsSignupOpen] = useState(false);
 
- 
+
   useEffect(() => {
     if (pathname === "/buyer_e8d45a1b/login") {
       setIsOpen(true);
     }
   }, [pathname]);
 
-  const openLoginModal = useCallback(() => setIsOpen(true), []);
+  const openLoginModal = useCallback(() => {
+    setIsSignupOpen(false);
+    setIsOpen(true);
+  }, []);
 
   const closeLoginModal = useCallback(() => {
     setIsOpen(false);
@@ -41,8 +48,24 @@ export default function BuyerLoginModalProvider({ children }: { children: ReactN
     }
   }, [pathname, router]);
 
+  const openSignupModal = useCallback(() => {
+    setIsOpen(false);
+    setIsSignupOpen(true);
+  }, []);
+
+  const closeSignupModal = useCallback(() => setIsSignupOpen(false), []);
+
   return (
-    <BuyerLoginModalContext.Provider value={{ isOpen, openLoginModal, closeLoginModal }}>
+    <BuyerLoginModalContext.Provider
+      value={{
+        isOpen,
+        openLoginModal,
+        closeLoginModal,
+        isSignupOpen,
+        openSignupModal,
+        closeSignupModal,
+      }}
+    >
       {children}
     </BuyerLoginModalContext.Provider>
   );

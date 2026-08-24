@@ -9,6 +9,7 @@ import Footer from "@/src/app/components/landingPage/Footer";
 import Button from "@/src/app/commonComponents/Button";
 import { useCart } from "@/src/context/CartContext";
 import { getAllProducts } from "@/src/services/buyer/buyerProductService";
+import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 
 // B2B order quantities can run into the hundreds/thousands, where a ±1
 // stepper alone means dozens of clicks to reach a usable value — this lets
@@ -106,6 +107,15 @@ function QuantityControl({
 export default function CartPage() {
   const { items, removeItem, updateQuantity, totalPrice, backfillFromProduct } = useCart();
   const router = useRouter();
+  const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(() =>
+    buyerAuthService.isAuthenticated()
+  );
+
+  useEffect(() => {
+    const syncBuyerAuth = () => setIsBuyerLoggedIn(buyerAuthService.isAuthenticated());
+    window.addEventListener("buyer-auth-changed", syncBuyerAuth);
+    return () => window.removeEventListener("buyer-auth-changed", syncBuyerAuth);
+  }, []);
 
   // Always re-sync sellerName/minQuantity/maxQuantity against current
   // product data on load — these can change after an item is already in
@@ -166,7 +176,14 @@ export default function CartPage() {
                             Sold by <span className="font-medium text-pneutral-700">{item.sellerName}</span>
                           </p>
                         )}
-                        <p className="text-p3 font-body text-pneutral-600">₹{unitPrice} each</p>
+                        <p
+                          className={`text-p3 font-body text-pneutral-600 ${
+                            isBuyerLoggedIn ? "" : "blur-[5px] select-none pointer-events-none"
+                          }`}
+                          title={isBuyerLoggedIn ? undefined : "Login to view price"}
+                        >
+                          ₹{unitPrice} each
+                        </p>
                       </div>
 
                       <QuantityControl
@@ -176,7 +193,12 @@ export default function CartPage() {
                         onCommit={(quantity) => updateQuantity(item.productId, quantity)}
                       />
 
-                      <p className="w-24 text-right font-semibold text-pneutral-900">
+                      <p
+                        className={`w-24 text-right font-semibold text-pneutral-900 ${
+                          isBuyerLoggedIn ? "" : "blur-[5px] select-none pointer-events-none"
+                        }`}
+                        title={isBuyerLoggedIn ? undefined : "Login to view price"}
+                      >
                         ₹{(unitPrice * item.quantity).toFixed(2)}
                       </p>
 
@@ -195,7 +217,15 @@ export default function CartPage() {
 
               <div className="flex items-center justify-between mt-6 pt-4">
                 <p className="text-h5 font-heading font-semibold text-pneutral-900">
-                  Total: ₹{totalPrice.toFixed(2)}
+                  Total:{" "}
+                  <span
+                    className={
+                      isBuyerLoggedIn ? "" : "blur-[5px] select-none pointer-events-none"
+                    }
+                    title={isBuyerLoggedIn ? undefined : "Login to view price"}
+                  >
+                    ₹{totalPrice.toFixed(2)}
+                  </span>
                 </p>
                 <Button
                   variant="filled"
