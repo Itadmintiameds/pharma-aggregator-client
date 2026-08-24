@@ -1,7 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import DOMPurify from "isomorphic-dompurify";
+import { getLegalContent } from "@/src/services/content/ContentService";
 
 interface Props {
   acceptedTerms: boolean;
@@ -11,7 +13,38 @@ interface Props {
   onExitToIntro?: () => void;
 }
 
+const FALLBACK_TERMS_HTML = `<p>By registering as a buyer on TiaMeds, you agree to provide accurate organization,
+  contact and compliance-document information, to keep your account details up to
+  date, and to comply with all applicable pharmaceutical procurement regulations.
+  TiaMeds reserves the right to verify submitted documents and to approve, reject, or
+  request corrections to your registration at its sole discretion.</p>`;
+
 export default function TermsStep({ acceptedTerms, error, onChange, nextStep, onExitToIntro }: Props) {
+  const [termsHtml, setTermsHtml] = useState<string>(FALLBACK_TERMS_HTML);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getLegalContent("BUYER_TERMS")
+      .then((content) => {
+        if (!cancelled && content?.content) {
+          setTermsHtml(DOMPurify.sanitize(content.content));
+        }
+      })
+      .catch(() => {
+        // Keep the fallback text already in state; registration must not be blocked
+        // by the terms content being unreachable.
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -24,13 +57,14 @@ export default function TermsStep({ acceptedTerms, error, onChange, nextStep, on
       </div>
 
       <div className="border border-neutral-200 rounded-xl p-5 bg-white max-h-[50vh] overflow-y-auto">
-        <p className="text-p3 font-body font-regular text-pneutral-700 leading-[24px]">
-          By registering as a buyer on TiaMeds, you agree to provide accurate organization,
-          contact and compliance-document information, to keep your account details up to
-          date, and to comply with all applicable pharmaceutical procurement regulations.
-          TiaMeds reserves the right to verify submitted documents and to approve, reject, or
-          request corrections to your registration at its sole discretion.
-        </p>
+        {loading ? (
+          <p className="text-p3 font-body font-regular text-pneutral-500 leading-[24px]">Loading terms…</p>
+        ) : (
+          <div
+            className="text-p3 font-body font-regular text-pneutral-700 leading-[24px] [&_h2]:font-heading [&_h2]:font-medium [&_h2]:text-pneutral-900 [&_h2]:mt-4 [&_h2]:mb-2 [&_h2:first-child]:mt-0 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1"
+            dangerouslySetInnerHTML={{ __html: termsHtml }}
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-1">

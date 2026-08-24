@@ -3,8 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaArrowRight, FaTimes } from 'react-icons/fa';
 import Image from 'next/image';
+import DOMPurify from 'isomorphic-dompurify';
 import { useConfirmClose } from '@/src/hooks/useConfirmClose';
 import ConfirmCloseDialog from '@/src/components/common/ConfirmCloseDialog';
+import { getLegalContent } from '@/src/services/content/ContentService';
 
 interface SellerDeclarationProps {
     onAccept: () => void;
@@ -14,6 +16,7 @@ interface SellerDeclarationProps {
 const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose }) => {
     const [isAccepted, setIsAccepted] = useState(false);
     const [hasSeenBottom, setHasSeenBottom] = useState(false);
+    const [declarationsHtml, setDeclarationsHtml] = useState<string | null>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const { isConfirmOpen, requestClose, confirmClose, cancelClose } = useConfirmClose(onClose);
 
@@ -21,6 +24,25 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
         document.body.style.overflow = 'hidden';
         return () => {
             document.body.style.overflow = 'unset';
+        };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        getLegalContent('SELLER_TERMS')
+            .then((content) => {
+                if (!cancelled && content?.content) {
+                    setDeclarationsHtml(DOMPurify.sanitize(content.content));
+                }
+            })
+            .catch(() => {
+                // Keep declarationsHtml null so the hardcoded declarations below render instead;
+                // registration must not be blocked by the terms content being unreachable.
+            });
+
+        return () => {
+            cancelled = true;
         };
     }, []);
 
@@ -327,35 +349,40 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
                     className="flex-1 overflow-y-auto p-1 sm:p-2 custom-scrollbar"
                     onScroll={handleScroll}
                 >
-                    <div className="space-y-4 sm:space-y-6">
-                        {declarations.map((declaration, index) => (
-                            <div key={index} className="border-l-2 border-primary-200 pl-3 sm:pl-4">
-                                <h2 className="text-sm sm:text-base font-bold text-neutral-900 mb-1 sm:mb-2">
-                                    {index + 1}. {declaration.title}
-                                </h2>
-                                <ul className="space-y-1 sm:space-y-2">
-                                    {declaration.items.map((item, itemIndex) => {
-                                        // Check if item starts with bullet (•) for special styling
-                                        if (item.startsWith('•')) {
+                    {declarationsHtml ? (
+                        <div
+                            className="space-y-4 sm:space-y-6 text-xs sm:text-sm text-neutral-900 [&_h2]:text-sm [&_h2]:sm:text-base [&_h2]:font-bold [&_h2]:text-neutral-900 [&_h2]:mb-1 [&_h2]:sm:mb-2 [&_h2]:mt-4 [&_h2]:sm:mt-6 [&_h2:first-child]:mt-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-1 [&_ul]:sm:space-y-2 [&_p]:mb-2"
+                            dangerouslySetInnerHTML={{ __html: declarationsHtml }}
+                        />
+                    ) : (
+                        <div className="space-y-4 sm:space-y-6">
+                            {declarations.map((declaration, index) => (
+                                <div key={index} className="border-l-2 border-primary-200 pl-3 sm:pl-4">
+                                    <h2 className="text-sm sm:text-base font-bold text-neutral-900 mb-1 sm:mb-2">
+                                        {index + 1}. {declaration.title}
+                                    </h2>
+                                    <ul className="space-y-1 sm:space-y-2">
+                                        {declaration.items.map((item, itemIndex) => {
+                                            // Check if item starts with bullet (•) for special styling
+                                            if (item.startsWith('•')) {
+                                                return (
+                                                    <li key={itemIndex} className="text-neutral-700 text-xs sm:text-sm ml-3 sm:ml-4">
+                                                        {item}
+                                                    </li>
+                                                );
+                                            }
                                             return (
-                                                <li key={itemIndex} className="text-neutral-700 text-xs sm:text-sm ml-3 sm:ml-4">
-                                                    {item}
+                                                <li key={itemIndex} className="text-neutral-900 text-xs sm:text-sm flex items-start">
+                                                    <span className="mr-1 sm:mr-2 min-w-0.75 sm:min-w-1">•</span>
+                                                    <span>{item}</span>
                                                 </li>
                                             );
-                                        }
-                                        return (
-                                            <li key={itemIndex} className="text-neutral-900 text-xs sm:text-sm flex items-start">
-                                                <span className="mr-1 sm:mr-2 min-w-0.75 sm:min-w-1">•</span>
-                                                <span>{item}</span>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </div>
-                        ))}
-
-
-                    </div>
+                                        })}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Fixed Footer with Checkbox */}
