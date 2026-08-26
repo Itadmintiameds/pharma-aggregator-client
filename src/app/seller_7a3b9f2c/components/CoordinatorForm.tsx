@@ -890,7 +890,7 @@ export default function CoordinatorForm({
             ? handleResendEmail
             : handleResendPhone
         }
-        autoVerifyOnComplete={verificationType !== "phone"}
+        autoVerifyOnComplete={false}
       />
     </div>
   );

@@ -125,48 +125,6 @@ export default function VerificationModal({
     if (value && index < 5) {
       inputs.current[index + 1]?.focus();
     }
-    
-    // if (value && index === 5) {
-    //   const enteredOtp = newOtp.join("");
-    //   if (enteredOtp.length === 6) {
-    //     setTimeout(async () => {
-    //       setIsVerifying(true);
-    //       try {
-    //         if (type === "email") {
-    //           await sellerRegService.verifyEmailOtp({
-    //             email: label,
-    //             otp: enteredOtp
-    //           });
-    //         } else {
-    //           const phoneWithPrefix = formatPhone(label);
-    //           // await sellerRegService.verifySMSOtp({
-    //           //   phone: phoneWithPrefix,
-    //           //   otp: enteredOtp
-    //           // });
-    //         }
-    //         onVerified();
-    //       } catch (error: any) {
-    //         console.error('❌ Verification failed:', error);
-    //         setError(error.message || "Invalid OTP. Please try again.");
-    //         setOtp(["", "", "", "", "", ""]);
-    //         setTimeout(() => {
-    //           inputs.current[0]?.focus();
-    //         }, 50);
-    //       } finally {
-    //         setIsVerifying(false);
-    //       }
-    //     }, 50);
-    //   }
-    //}
-    if (value && index === 5) {
-  const enteredOtp = newOtp.join("");
-
-  if (enteredOtp.length === 6) {
-    setTimeout(() => {
-      verifyOtpNow(enteredOtp);
-    }, 50);
-  }
-}
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
@@ -196,10 +154,6 @@ export default function VerificationModal({
     setError("");
 
     setTimeout(() => {
-      verifyOtpNow(pasteData);
-    }, 50);
-
-    setTimeout(() => {
       inputs.current[5]?.focus();
     }, 10);
   } else {
@@ -217,43 +171,6 @@ const verify = async () => {
 
   verifyOtpNow(enteredOtp);
 };
-  // const verify = async () => {
-  //   const enteredOtp = otp.join("");
-    
-  //   if (enteredOtp.length !== 6) {
-  //     setError("Please enter all 6 digits");
-  //     return;
-  //   }
-    
-  //   setIsVerifying(true);
-  //   setError("");
-    
-  //   try {
-  //     if (type === "email") {
-  //       await sellerRegService.verifyEmailOtp({
-  //         email: label,
-  //         otp: enteredOtp
-  //       });
-  //     } else {
-  //       const phoneWithPrefix = formatPhone(label);
-  //       // await sellerRegService.verifySMSOtp({
-  //       //   phone: phoneWithPrefix,
-  //       //   otp: enteredOtp
-  //       // });
-  //     }
-      
-  //     onVerified();
-  //   } catch (error: any) {
-  //     console.error('❌ Verification failed:', error);
-  //     setError(error.message || "Invalid OTP. Please try again.");
-  //     setOtp(["", "", "", "", "", ""]);
-  //     setTimeout(() => {
-  //       inputs.current[0]?.focus();
-  //     }, 50);
-  //   } finally {
-  //     setIsVerifying(false);
-  //   }
-  // };
 
   const handleResendCode = async () => {
     if (!canResend) return;
