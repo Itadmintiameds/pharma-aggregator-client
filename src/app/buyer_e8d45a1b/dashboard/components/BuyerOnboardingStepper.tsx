@@ -1,14 +1,11 @@
 "use client";
 
 import React from "react";
+import { Check } from "lucide-react";
 
 export interface BuyerOnboardingStepDef {
   title: string;
   description: string;
-  // Widened beyond lucide-react's LucideIcon so callers can mix in
-  // react-icons components (e.g. HiClipboardDocumentList) without a type
-  // error — both icon families accept size/className props.
-  icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 
 interface Props {
@@ -16,40 +13,42 @@ interface Props {
   steps: BuyerOnboardingStepDef[];
 }
 
-// 3-point visual stepper for the dashboard gate. Unlike seller's
-// OnboardingStepper.tsx (which hardcodes its 3 step labels/icons inline),
-// this accepts `steps` as a prop — there's only one caller today
-// (BuyerOnboardingGate), but hardcoding here would repeat the same
-// inflexibility the seller version already has, with no reason to.
+// 3-point horizontal stepper card for the dashboard gate: a numbered/checked
+// circle beside its label (not stacked above it), joined by dashed
+// connectors — matches the "Buyer Account Activation" reference design.
+// Unlike seller's OnboardingStepper.tsx (hardcoded labels), this accepts
+// `steps` as a prop — there's only one caller today (BuyerOnboardingGate).
 export default function BuyerOnboardingStepper({ step, steps }: Props) {
   return (
-    <div className="flex items-start justify-center w-full max-w-2xl mx-auto py-8">
+    <div className="w-full rounded-2xl border border-neutral-200 bg-white px-6 py-5 flex items-center">
       {steps.map((item, index) => {
         const stepNumber = index + 1;
-        const isActive = step === stepNumber;
         const isCompleted = step > stepNumber;
-        const Icon = item.icon;
 
         return (
-          <div key={item.title} className="flex items-start flex-1 last:flex-none">
-            <div className="flex flex-col items-center text-center w-32 sm:w-40">
+          <React.Fragment key={item.title}>
+            <div className="flex items-center gap-3 shrink-0">
               <div
-                className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-xl shadow-md
-                  ${isActive ? "bg-primary-05" : isCompleted ? "bg-primary-30" : "bg-neutral-50"}`}
+                className={`w-8 h-8 flex items-center justify-center rounded-full text-p3 font-body font-semibold shrink-0 ${
+                  isCompleted ? "bg-success-500 text-white" : "bg-neutral-100 border border-neutral-200 text-pneutral-600"
+                }`}
               >
-                <Icon size={18} className="sm:w-5 sm:h-5" />
+                {isCompleted ? <Check size={16} /> : stepNumber}
               </div>
-              <h3 className="mt-3 text-label-l5 font-heading font-semibold text-pneutral-900">{item.title}</h3>
-              <p className="mt-1 text-label-l2 font-heading font-light text-pneutral-600">{item.description}</p>
+              <div className="max-w-[220px]">
+                <h3 className={`text-p3 font-body font-semibold leading-tight ${isCompleted ? "text-pneutral-900" : "text-pneutral-700"}`}>
+                  {item.title}
+                </h3>
+                <p className="text-p4 font-body font-regular text-pneutral-500 leading-snug mt-0.5">{item.description}</p>
+              </div>
             </div>
 
             {index !== steps.length - 1 && (
               <div
-                className={`h-1 flex-1 mt-5 sm:mt-6 rounded-full opacity-60
-                  ${step > stepNumber ? "bg-secondary-600" : "bg-primary-300"}`}
+                className={`flex-1 border-t-2 border-dashed mx-4 ${isCompleted ? "border-success-400" : "border-secondary-300"}`}
               />
             )}
-          </div>
+          </React.Fragment>
         );
       })}
     </div>

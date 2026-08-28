@@ -25,55 +25,27 @@ export const buyerTermsSchema = z.object({
 });
 
 // ==========================================================================
-// Step 2: Organization Details
+// Step 1: Organization Details
 // ==========================================================================
 const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
-export const orgDetailsSchema = z
-  .object({
-    organizationName: z
-      .string()
-      .min(1, "Organization name is required")
-      .max(150, "Organization name cannot exceed 150 characters")
-      .regex(noConsecutiveSpaces, "Organization name should not contain consecutive spaces"),
-    buyerTypeId: z.number().min(1, "Buyer type is required"),
-    // Exactly one of gstNumber/panNumber must be present — enforced below via
-    // superRefine (mirrors TempBuyerServiceImpl's server-side rule: PAN is
-    // required when GST is blank). Backend skips this rule on saveDraft, so
-    // callers validating an in-progress draft step should catch this via the
-    // Review step's final pass rather than blocking every intermediate save.
-    gstNumber: z.string().trim().toUpperCase().optional().or(z.literal("")),
-    panNumber: z.string().trim().toUpperCase().optional().or(z.literal("")),
-    stateId: z.number().min(1, "State is required"),
-    districtId: z.number().min(1, "District is required"),
-    talukaId: z.number().min(1, "Taluka is required"),
-    city: z.string().min(1, "City is required").regex(noConsecutiveSpaces, "City should not contain consecutive spaces"),
-    street: z.string().min(1, "Street is required").regex(noConsecutiveSpaces, "Street should not contain consecutive spaces"),
-    buildingNo: z.string().min(1, "Building number is required"),
-    landmark: z.string().optional(),
-    pinCode: z.string().regex(/^[0-9]{6}$/, "PIN code must be 6 digits"),
-  })
-  .superRefine((data, ctx) => {
-    const gst = data.gstNumber?.trim() ?? "";
-    const pan = data.panNumber?.trim() ?? "";
-
-    if (!gst && !pan) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["panNumber"],
-        message: "PAN number is required when GST number is not provided",
-      });
-    }
-
-    if (gst && !gstRegex.test(gst)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["gstNumber"], message: "Invalid GST number format" });
-    }
-
-    if (pan && !panRegex.test(pan)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["panNumber"], message: "Invalid PAN number format" });
-    }
-  });
+export const orgDetailsSchema = z.object({
+  organizationName: z
+    .string()
+    .min(1, "Organization name is required")
+    .max(150, "Organization name cannot exceed 150 characters")
+    .regex(noConsecutiveSpaces, "Organization name should not contain consecutive spaces"),
+  buyerTypeId: z.number().min(1, "Buyer type is required"),
+  stateId: z.number().min(1, "State is required"),
+  districtId: z.number().min(1, "District is required"),
+  talukaId: z.number().min(1, "Taluka is required"),
+  city: z.string().min(1, "City is required").regex(noConsecutiveSpaces, "City should not contain consecutive spaces"),
+  street: z.string().min(1, "Street is required").regex(noConsecutiveSpaces, "Street should not contain consecutive spaces"),
+  buildingNo: z.string().min(1, "Building number is required"),
+  landmark: z.string().optional(),
+  pinCode: z.string().regex(/^[0-9]{6}$/, "PIN code must be 6 digits"),
+});
 
 // ==========================================================================
 // Step 3: Contact Details
@@ -104,7 +76,7 @@ export const contactDetailsSchema = z
   });
 
 // ==========================================================================
-// Step 4: Documents — buyer-type-mandatory document mapping
+// Step 3: Compliance Details — buyer-type-mandatory document mapping
 // ==========================================================================
 // Every buyer type maps to exactly ONE mandatory document type via
 // tbl_buyer_type_master.mandatory_document_type_id — a single FK
@@ -169,3 +141,33 @@ export function documentsSchema(mandatoryDocumentTypeId?: number | null) {
     ),
   });
 }
+
+// GST/PAN numbers now live on the Compliance Details step (accordion,
+// alongside the mandatory license and optional org logo) rather than
+// Organization Details — exactly one of the two is required, mirroring
+// TempBuyerServiceImpl's server-side rule (PAN required when GST is blank).
+export const gstOrPanSchema = z
+  .object({
+    gstNumber: z.string().trim().toUpperCase().optional().or(z.literal("")),
+    panNumber: z.string().trim().toUpperCase().optional().or(z.literal("")),
+  })
+  .superRefine((data, ctx) => {
+    const gst = data.gstNumber?.trim() ?? "";
+    const pan = data.panNumber?.trim() ?? "";
+
+    if (!gst && !pan) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["panNumber"],
+        message: "PAN number is required when GST number is not provided",
+      });
+    }
+
+    if (gst && !gstRegex.test(gst)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["gstNumber"], message: "Invalid GST number format" });
+    }
+
+    if (pan && !panRegex.test(pan)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["panNumber"], message: "Invalid PAN number format" });
+    }
+  });

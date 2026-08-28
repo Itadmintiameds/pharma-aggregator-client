@@ -91,6 +91,8 @@ export interface RawTempBuyer {
   tempBuyerId?: number;
   tempBuyerRequestId?: string;
   status?: string;
+  createdAt?: string;
+  updatedAt?: string;
   organizationName?: string;
   buyerType?: { buyerTypeId?: number; buyerTypeName?: string; mandatoryDocumentTypeId?: number };
   gstNumber?: string;

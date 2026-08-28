@@ -9,10 +9,10 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 import BuyerSidebar from "./BuyerSidebar";
-import TermsStep from "./steps/TermsStep";
+import BuyerWizardStepper from "./BuyerWizardStepper";
 import OrgDetailsForm from "./steps/OrgDetailsForm";
 import ContactDetailsForm from "./steps/ContactDetailsForm";
-import DocumentsForm from "./steps/DocumentsForm";
+import ComplianceDetailsForm from "./steps/ComplianceDetailsForm";
 import ReviewForm from "./steps/ReviewForm";
 
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
@@ -32,10 +32,16 @@ import {
   TempBuyerDocumentPayload,
 } from "@/src/services/buyer/buyerRegistrationService";
 import { uploadBuyerRegDocService, LicenseFileItem } from "@/src/services/buyer/UploadBuyerRegDoc";
-import { buyerTermsSchema, orgDetailsSchema, contactDetailsSchema, documentsSchema } from "@/src/schema/buyer/buyerRegSchema";
+import { orgDetailsSchema, contactDetailsSchema, documentsSchema, gstOrPanSchema } from "@/src/schema/buyer/buyerRegSchema";
 import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
 
 const WIZARD_STEP_STORAGE_KEY = "buyerRegWizardStep";
+// 3 real wizard steps + an internal 4th "review" state (see BuyerWizardStepper
+// call sites below, which clamp the displayed step to 3 so the tracker never
+// shows a 4th dot and "Compliance Details" stays highlighted through review —
+// matches Figma's 3-point tracker, where Review isn't a separate numbered step.
+const WIZARD_STEP_COUNT = 4;
+const WIZARD_STEP_TITLES = ["Organization details", "Buyer Contact Details", "Compliance Details"];
 
 export interface DocumentRowState {
   number: string;
@@ -97,20 +103,30 @@ interface BuyerRegistrationProps {
   embedded?: boolean;
   onSubmitted?: () => void;
   onExitToIntro?: () => void;
+  // When set, opens the wizard directly at this step (1-5) instead of
+  // resuming wherever sessionStorage last left off — used by the
+  // onboarding hub's per-section "Edit"/"Continue" rows (see
+  // BuyerOnboardingGate.tsx) so clicking "License Details" jumps straight
+  // to step 3 rather than a stale in-progress step.
+  initialStep?: number;
 }
 
-export default function BuyerRegister({ embedded = false, onSubmitted, onExitToIntro }: BuyerRegistrationProps = {}) {
+export default function BuyerRegister({ embedded = false, onSubmitted, onExitToIntro, initialStep }: BuyerRegistrationProps = {}) {
   const router = useRouter();
 
   const [resumeChecked, setResumeChecked] = useState(false);
   const [step, setStep] = useState(() => {
+    if (initialStep && initialStep >= 1 && initialStep <= WIZARD_STEP_COUNT) return initialStep;
     if (typeof window === "undefined") return 1;
     const saved = parseInt(sessionStorage.getItem(WIZARD_STEP_STORAGE_KEY) || "", 10);
-    return saved >= 1 && saved <= 5 ? saved : 1;
+    return saved >= 1 && saved <= WIZARD_STEP_COUNT ? saved : 1;
   });
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [tempBuyerId, setTempBuyerId] = useState<number | null>(null);
+  // The final Review page's own confirmation checkbox — replaces the old
+  // standalone Terms step; this is what sets formData.acceptedTerms now.
+  const [confirmChecked, setConfirmChecked] = useState(false);
 
   const [buyerTypes, setBuyerTypes] = useState<BuyerTypeResponse[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeResponse[]>([]);
@@ -625,25 +641,12 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
   };
 
   const nextStep = async () => {
+    // Step 1: Organization Details
     if (step === 1) {
-      try {
-        buyerTermsSchema.parse({ acceptedTerms: formData.acceptedTerms });
-        setStepErrors({});
-      } catch (error) {
-        if (error instanceof z.ZodError) {
-          setStepErrors({ acceptedTerms: error.issues[0]?.message ?? "Please accept the terms to continue" });
-        }
-        return;
-      }
-    }
-
-    if (step === 2) {
       try {
         orgDetailsSchema.parse({
           organizationName: formData.organizationName,
           buyerTypeId: formData.buyerTypeId,
-          gstNumber: formData.gstNumber,
-          panNumber: formData.panNumber,
           stateId: formData.stateId,
           districtId: formData.districtId,
           talukaId: formData.talukaId,
@@ -666,7 +669,8 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
       }
     }
 
-    if (step === 3) {
+    // Step 2: Contact Details
+    if (step === 2) {
       try {
         contactDetailsSchema.parse({
           name: formData.contactName,
@@ -692,26 +696,36 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
       }
     }
 
-    if (step === 4) {
-      try {
-        const documentsForValidation = Object.entries(formData.documents).reduce((acc, [code, doc]) => {
-          acc[code] = {
-            ...doc,
-            issueDate: doc.issueDate ? doc.issueDate.toISOString().split("T")[0] : "",
-            expiryDate: doc.expiryDate ? doc.expiryDate.toISOString().split("T")[0] : "",
-            file: doc.file || (isRealFileUrl(doc.fileUrl) ? doc.fileUrl : undefined),
-          };
-          return acc;
-        }, {} as Record<string, unknown>);
+    // Step 3: Compliance Details (mandatory license doc + either GST or PAN)
+    if (step === 3) {
+      const documentsForValidation = Object.entries(formData.documents).reduce((acc, [code, doc]) => {
+        acc[code] = {
+          ...doc,
+          issueDate: doc.issueDate ? doc.issueDate.toISOString().split("T")[0] : "",
+          expiryDate: doc.expiryDate ? doc.expiryDate.toISOString().split("T")[0] : "",
+          file: doc.file || (isRealFileUrl(doc.fileUrl) ? doc.fileUrl : undefined),
+        };
+        return acc;
+      }, {} as Record<string, unknown>);
 
-        documentsSchema(mandatoryDocumentTypeId).parse({ documents: documentsForValidation });
-        setStepErrors({});
-      } catch (error) {
-        if (error instanceof z.ZodError) {
-          toast.error(error.issues[0]?.message ?? "Please provide all required documents");
-        }
+      const docResult = documentsSchema(mandatoryDocumentTypeId).safeParse({ documents: documentsForValidation });
+      const gstResult = gstOrPanSchema.safeParse({ gstNumber: formData.gstNumber, panNumber: formData.panNumber });
+
+      const fieldErrors: Record<string, string> = {};
+      if (!docResult.success) {
+        fieldErrors.mandatoryDocument = docResult.error.issues[0]?.message ?? "Please provide the mandatory license document";
+      }
+      if (!gstResult.success) {
+        gstResult.error.issues.forEach((issue) => {
+          fieldErrors[String(issue.path[0])] = issue.message;
+        });
+      }
+      if (Object.keys(fieldErrors).length) {
+        setStepErrors(fieldErrors);
+        if (fieldErrors.mandatoryDocument) toast.error(fieldErrors.mandatoryDocument);
         return;
       }
+      setStepErrors({});
     }
 
     await handleSaveDraft(true);
@@ -724,22 +738,40 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
 
   const handleEdit = (section: string) => {
     switch (section) {
-      case "terms":
+      case "org":
         setStep(1);
         break;
-      case "org":
+      case "contact":
         setStep(2);
         break;
-      case "contact":
+      case "license":
+      case "gst":
         setStep(3);
-        break;
-      case "documents":
-        setStep(4);
         break;
     }
   };
 
+  const checkGstUnique = async (gst: string) => {
+    try {
+      return await buyerRegistrationService.checkGSTNumber(gst, tempBuyerId);
+    } catch {
+      return false;
+    }
+  };
+
+  const checkPanUnique = async (pan: string) => {
+    try {
+      return await buyerRegistrationService.checkPANNumber(pan, tempBuyerId);
+    } catch {
+      return false;
+    }
+  };
+
   const handleSubmit = async () => {
+    if (!confirmChecked) {
+      toast.error("Please confirm the declaration before submitting");
+      return;
+    }
     setSubmitting(true);
     try {
       const placeholderUrl = "PENDING";
@@ -805,7 +837,7 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
             ? "This mobile number is already registered with another account. Please use a different number."
             : "This email is already registered with another account. Please use a different email address."
         );
-        setStep(3);
+        setStep(2);
         return;
       }
 
@@ -874,16 +906,6 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
   const content = (
     <>
       {step === 1 && (
-        <TermsStep
-          acceptedTerms={formData.acceptedTerms}
-          error={stepErrors.acceptedTerms}
-          onChange={(accepted) => handleFieldChange("acceptedTerms", accepted)}
-          nextStep={nextStep}
-          onExitToIntro={embedded ? onExitToIntro : undefined}
-        />
-      )}
-
-      {step === 2 && (
         <OrgDetailsForm
           formData={formData}
           errors={stepErrors}
@@ -895,18 +917,17 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
           loadingStates={loadingStates}
           loadingDistricts={loadingDistricts}
           loadingTalukas={loadingTalukas}
-          tempBuyerId={tempBuyerId}
           onChange={handleFieldChange}
           onBuyerTypeChange={handleBuyerTypeChange}
           onStateChange={handleStateChange}
           onDistrictChange={handleDistrictChange}
           onTalukaChange={handleTalukaChange}
-          prevStep={prevStep}
           nextStep={nextStep}
+          onExitToIntro={embedded ? onExitToIntro : undefined}
         />
       )}
 
-      {step === 3 && (
+      {step === 2 && (
         <ContactDetailsForm
           formData={formData}
           errors={stepErrors}
@@ -920,11 +941,13 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
         />
       )}
 
-      {step === 4 && (
-        <DocumentsForm
+      {step === 3 && (
+        <ComplianceDetailsForm
           formData={formData}
+          errors={stepErrors}
           mandatoryDocumentTypeId={mandatoryDocumentTypeId}
           mandatoryDocumentTypeName={mandatoryDocumentTypeName}
+          onChange={handleFieldChange}
           onFileChange={handleFileChange}
           onDeleteOrgLogo={handleDeleteOrgLogo}
           onDeleteGstFile={handleDeleteGstFile}
@@ -933,12 +956,14 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
           onDocumentNumberChange={handleDocumentNumberChange}
           onDocumentIssueDateChange={handleDocumentIssueDateChange}
           onDocumentExpiryDateChange={handleDocumentExpiryDateChange}
+          onCheckGstUnique={checkGstUnique}
+          onCheckPanUnique={checkPanUnique}
           prevStep={prevStep}
           nextStep={nextStep}
         />
       )}
 
-      {step === 5 && (
+      {step === 4 && (
         <ReviewForm
           formData={formData}
           buyerTypeName={buyerTypeName}
@@ -948,6 +973,11 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
           onSubmit={handleSubmit}
           submitting={submitting}
           prevStep={prevStep}
+          confirmChecked={confirmChecked}
+          onConfirmChange={(checked) => {
+            setConfirmChecked(checked);
+            handleFieldChange("acceptedTerms", checked);
+          }}
         />
       )}
     </>
@@ -956,14 +986,20 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       {embedded ? (
-        <div className="bg-white overflow-visible">
-          <div className="p-4 sm:p-6 lg:p-10">{content}</div>
+        <div className="flex flex-col gap-6">
+          <BuyerWizardStepper step={Math.min(step, WIZARD_STEP_TITLES.length)} titles={WIZARD_STEP_TITLES} />
+          <div className="bg-white rounded-2xl border border-neutral-200 overflow-visible">
+            <div className="p-4 sm:p-6 lg:p-10">{content}</div>
+          </div>
         </div>
       ) : (
         <div className="flex min-h-screen pt-12">
           <BuyerSidebar step={step} />
           <div className="flex-1 bg-white overflow-visible">
-            <div className="p-4 sm:p-6 lg:p-10">{content}</div>
+            <div className="p-4 sm:p-6 lg:p-10">
+              <BuyerWizardStepper step={Math.min(step, WIZARD_STEP_TITLES.length)} titles={WIZARD_STEP_TITLES} />
+              <div className="mt-6">{content}</div>
+            </div>
           </div>
         </div>
       )}

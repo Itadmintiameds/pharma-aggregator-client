@@ -1,30 +1,34 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { LayoutDashboard, Lock } from "lucide-react";
-import { HiOutlineShoppingBag, HiOutlineClipboardDocumentList } from "react-icons/hi2";
-import { LuWarehouse } from "react-icons/lu";
-import { PiHeadphones } from "react-icons/pi";
-import { MdOutlineReceiptLong } from "react-icons/md";
+import { LayoutDashboard, Package, Lock, ArrowRight, Headset, LogOut } from "lucide-react";
+import { HiOutlineShoppingBag } from "react-icons/hi";
+import { AiOutlinePieChart } from "react-icons/ai";
+import { MdOutlineLocalShipping } from "react-icons/md";
+import { IoSettingsOutline } from "react-icons/io5";
+import toast from "react-hot-toast";
+import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 
-// Dashboard nav rail — visual match for seller's SellerSidebar
-// (dashboard/components/SellerSidebar.tsx). Distinct from
-// ../../components/BuyerSidebar.tsx, which is the 5-step *registration
-// wizard* progress rail, not dashboard navigation.
+// Dashboard nav rail — labels/icons now match seller's SellerSidebar
+// (dashboard/components/SellerSidebar.tsx) exactly (Overview/Products/
+// Orders/Conversions/Shipment/Settings), per the Figma buyer reference.
+// Distinct from ../../components/BuyerSidebar.tsx, the registration
+// wizard's own progress rail, not dashboard navigation.
 //
-// Sections chosen for a B2B pharma marketplace buyer: browsing the seller
-// catalog, tracking orders, raising RFQs/quotes (a B2B-specific flow sellers
-// don't need), a supplier shortlist, and invoices/support. Each currently
-// renders an UnderDevelopment placeholder until its data layer exists — same
-// stub-first approach seller used for Orders/Conversions/Settings/Shipment.
+// Routes still point at buyer's existing real pages (Products -> browse
+// catalog, Conversions -> RFQ & Quotes, Shipment -> saved suppliers,
+// Settings -> support) rather than new stub routes, so nothing already
+// built becomes unreachable — only the label/icon changed, not what each
+// item links to. Flag if dedicated Shipment/Settings pages are wanted
+// instead of this positional relabeling.
 const menuItems = [
   { id: "overview", label: "Overview", icon: <LayoutDashboard size={20} />, path: "/buyer_e8d45a1b/dashboard" },
-  { id: "catalog", label: "Browse Catalog", icon: <HiOutlineShoppingBag size={20} />, path: "/buyer_e8d45a1b/dashboard/catalog" },
-  { id: "orders", label: "Orders", icon: <MdOutlineReceiptLong size={20} />, path: "/buyer_e8d45a1b/dashboard/orders" },
-  { id: "rfq", label: "RFQ & Quotes", icon: <HiOutlineClipboardDocumentList size={20} />, path: "/buyer_e8d45a1b/dashboard/rfq" },
-  { id: "suppliers", label: "Saved Suppliers", icon: <LuWarehouse size={20} />, path: "/buyer_e8d45a1b/dashboard/suppliers" },
-  { id: "support", label: "Support", icon: <PiHeadphones size={20} />, path: "/buyer_e8d45a1b/dashboard/support" },
+  { id: "catalog", label: "Products", icon: <Package size={20} />, path: "/buyer_e8d45a1b/dashboard/catalog" },
+  { id: "orders", label: "Orders", icon: <HiOutlineShoppingBag size={20} />, path: "/buyer_e8d45a1b/dashboard/orders" },
+  { id: "rfq", label: "Conversions", icon: <AiOutlinePieChart size={20} />, path: "/buyer_e8d45a1b/dashboard/rfq" },
+  { id: "suppliers", label: "Shipment", icon: <MdOutlineLocalShipping size={20} />, path: "/buyer_e8d45a1b/dashboard/suppliers" },
+  { id: "support", label: "Settings", icon: <IoSettingsOutline size={20} />, path: "/buyer_e8d45a1b/dashboard/support" },
 ];
 
 // Items reachable before full approval — "RFQ & Quotes" needs no approved
@@ -43,6 +47,7 @@ interface BuyerSidebarProps {
 export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const isActive = (path: string) =>
     path === "/buyer_e8d45a1b/dashboard" ? pathname === path : pathname.startsWith(path);
@@ -50,6 +55,25 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
   const handleMenuClick = (itemId: string, path: string) => {
     if (!approved && !UNGATED_ITEM_IDS.has(itemId)) return;
     router.push(path);
+  };
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      toast.loading("Logging out...", { id: "buyer-logout" });
+      const refreshToken = localStorage.getItem("refreshToken");
+      await buyerAuthService.logout(refreshToken || undefined);
+      toast.success("Logged out successfully", { id: "buyer-logout" });
+      router.push("/?showLogin=true");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Error logging out", { id: "buyer-logout" });
+      buyerAuthService.clearAuth();
+      router.push("/?showLogin=true");
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -60,6 +84,7 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
         padding: 24,
         background: "var(--Colors-Secondary-Secondary-600, #9659FD)",
         boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.10)",
+        justifyContent: "space-between",
       }}
     >
       <nav className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 8 }}>
@@ -115,6 +140,45 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
           );
         })}
       </nav>
+
+      <div className="flex flex-col gap-2">
+        <div className="rounded-2xl bg-white p-4 flex flex-col gap-2">
+          <span className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary-600 text-white shrink-0">
+            <Lock size={18} />
+          </span>
+          <div>
+            <p className="text-p3 font-body font-bold text-pneutral-900">Unlock marketplace features</p>
+            <p className="text-p4 font-body font-regular text-pneutral-600 mt-1">
+              Complete your verification to access 10,000+ products from verified suppliers.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="self-start flex items-center gap-1.5 rounded-xl bg-secondary-600 text-white text-p4 font-body font-semibold px-4 py-2 mt-1"
+          >
+            Learn more
+            <ArrowRight size={14} />
+          </button>
+        </div>
+
+        <button
+          type="button"
+          className="flex items-center gap-3 rounded-2xl bg-neutral-100 text-pneutral-900 text-p3 font-body font-regular px-4 py-3"
+        >
+          <Headset size={20} />
+          Help &amp; Support
+        </button>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="flex items-center gap-3 rounded-2xl bg-warning-50 text-red-500 text-p3 font-body font-semibold px-4 py-3 disabled:opacity-60"
+        >
+          <LogOut size={20} />
+          {isLoggingOut ? "Logging out…" : "Logout"}
+        </button>
+      </div>
     </aside>
   );
 }

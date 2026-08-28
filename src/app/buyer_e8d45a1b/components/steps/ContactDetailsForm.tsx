@@ -467,10 +467,10 @@ export default function ContactDetailsForm({
 
         <button
           onClick={handleContinue}
-          className="h-12 px-6 border-2 border-primary-800 text-primary-800 rounded-xl flex items-center gap-2"
+          className="h-12 px-6 rounded-xl bg-primary-800 text-white flex items-center gap-2 font-semibold"
         >
           Continue
-          <Image src="/icons/continueicon.png" alt="Continue" width={20} height={20} />
+          <Image src="/icons/continueicon.png" alt="Continue" width={20} height={20} className="brightness-0 invert" />
         </button>
       </div>
 

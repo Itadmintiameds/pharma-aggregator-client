@@ -9,8 +9,12 @@ interface Props {
   acceptedTerms: boolean;
   error?: string;
   onChange: (accepted: boolean) => void;
-  nextStep: () => void;
+  nextStep?: () => void;
   onExitToIntro?: () => void;
+  // Renders as a sub-block with no heading/nav buttons of its own — used
+  // when composed inside another step (see OrgDetailsForm.tsx, which now
+  // shares step 1 with this component and owns the Continue/Back row).
+  hideFooter?: boolean;
 }
 
 const FALLBACK_TERMS_HTML = `<p>By registering as a buyer on TiaMeds, you agree to provide accurate organization,
@@ -19,7 +23,7 @@ const FALLBACK_TERMS_HTML = `<p>By registering as a buyer on TiaMeds, you agree 
   TiaMeds reserves the right to verify submitted documents and to approve, reject, or
   request corrections to your registration at its sole discretion.</p>`;
 
-export default function TermsStep({ acceptedTerms, error, onChange, nextStep, onExitToIntro }: Props) {
+export default function TermsStep({ acceptedTerms, error, onChange, nextStep, onExitToIntro, hideFooter = false }: Props) {
   const [termsHtml, setTermsHtml] = useState<string>(FALLBACK_TERMS_HTML);
   const [loading, setLoading] = useState(true);
 
@@ -47,16 +51,22 @@ export default function TermsStep({ acceptedTerms, error, onChange, nextStep, on
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-h3 font-heading font-medium text-pneutral-900 leading-[40px]">
-          Terms &amp; Conditions
-        </h1>
-        <p className="text-label-l4 font-heading font-regular text-pneutral-800 leading-[24px] mt-1">
-          Please review and accept our terms before starting your buyer registration.
-        </p>
-      </div>
+      {!hideFooter && (
+        <div>
+          <h1 className="text-h3 font-heading font-medium text-pneutral-900 leading-[40px]">
+            Terms &amp; Conditions
+          </h1>
+          <p className="text-label-l4 font-heading font-regular text-pneutral-800 leading-[24px] mt-1">
+            Please review and accept our terms before starting your buyer registration.
+          </p>
+        </div>
+      )}
 
-      <div className="border border-neutral-200 rounded-xl p-5 bg-white max-h-[50vh] overflow-y-auto">
+      {hideFooter && (
+        <h3 className="text-label-l5 font-heading font-semibold text-pneutral-900">Terms &amp; Conditions</h3>
+      )}
+
+      <div className="border border-neutral-200 rounded-xl p-5 bg-white max-h-[30vh] overflow-y-auto">
         {loading ? (
           <p className="text-p3 font-body font-regular text-pneutral-500 leading-[24px]">Loading terms…</p>
         ) : (
@@ -82,26 +92,28 @@ export default function TermsStep({ acceptedTerms, error, onChange, nextStep, on
         {error && <p className="text-p2 font-body font-regular text-red-500 mt-1">{error}</p>}
       </div>
 
-      <div className="flex justify-between mt-4">
-        {onExitToIntro ? (
-          <button
-            onClick={onExitToIntro}
-            className="h-12 px-6 border-2 border-pneutral-900 text-pneutral-900 rounded-xl flex items-center gap-2"
-          >
-            Back
-          </button>
-        ) : (
-          <span />
-        )}
+      {!hideFooter && (
+        <div className="flex justify-between mt-4">
+          {onExitToIntro ? (
+            <button
+              onClick={onExitToIntro}
+              className="h-12 px-6 border-2 border-pneutral-900 text-pneutral-900 rounded-xl flex items-center gap-2"
+            >
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
 
-        <button
-          onClick={nextStep}
-          className="h-12 px-6 border-2 border-primary-800 text-primary-800 rounded-xl flex items-center gap-2"
-        >
-          Continue
-          <Image src="/icons/continueicon.png" alt="Continue" width={20} height={20} />
-        </button>
-      </div>
+          <button
+            onClick={nextStep}
+            className="h-12 px-6 rounded-xl bg-primary-800 text-white flex items-center gap-2 font-semibold"
+          >
+            Continue
+            <Image src="/icons/continueicon.png" alt="Continue" width={20} height={20} className="brightness-0 invert" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
