@@ -1,0 +1,68 @@
+flowchart TB
+    subgraph Client["Client Layer"]
+        SellerBrowser["Seller Browser"]
+        BuyerBrowser["Buyer / Guest Browser"]
+    end
+
+    subgraph Frontend["Frontend — Next.js 16 App Router (pharma-aggregator-client)<br/>Client-rendered SPA-style app; no server-side data-fetching layer found"]
+        SellerUI["Seller UI<br/>seller_7a3b9f2c/** + LoginModals.tsx"]
+        BuyerUI["Buyer UI<br/>buyer_e8d45a1b/** + global login/signup modals"]
+        PublicUI["Public product / checkout / orders pages"]
+
+        LibApi["src/lib/api.ts<br/>Seller Axios client<br/>Bearer attach + 401 refresh queue"]
+        BuyerApiClient["src/lib/buyerApi.ts<br/>Buyer Axios client<br/>Bearer attach + 401 refresh queue (isolated token set)"]
+        UtilsApi["src/utils/api.ts<br/>Product/master Axios client<br/>Bearer attach only — NO refresh handling"]
+        IFSCDirect["IFSCService.ts<br/>raw fetch() — bypasses all 3 clients"]
+        ExcelDirect["Bulk Excel/CSV import (DashboardFilters.tsx)<br/>raw fetch() to a HARDCODED external host —<br/>bypasses all 3 clients, ignores NEXT_PUBLIC_API_URL"]
+
+        SellerUI --> LibApi
+        SellerUI --> UtilsApi
+        SellerUI --> IFSCDirect
+        SellerUI --> ExcelDirect
+        BuyerUI --> BuyerApiClient
+        PublicUI --> UtilsApi
+        PublicUI --> BuyerApiClient
+    end
+
+    SellerBrowser --> SellerUI
+    BuyerBrowser --> BuyerUI
+    SellerBrowser --> PublicUI
+    BuyerBrowser --> PublicUI
+
+    subgraph Backend["Backend — pharma-aggregator-server (Spring Boot monolith)<br/>context-path /api/v1 · default port 8080 (no server.port configured in any profile)"]
+        AuthFilter["AuthTokenFilter<br/>validates Bearer JWT, resolves seller-vs-buyer table via a<br/>preferBuyer flag (SecurityConfig: anyRequest().permitAll() —<br/>Spring Security enforces nothing at the URL level)"]
+        ControllerLayer["Controllers<br/>Auth (Seller/Buyer) · Master Data · Product Catalog ·<br/>Stock/Pricing · Order/Payment/Invoice/Return · Quote ·<br/>Temp Seller/Buyer · Admin · Content/Misc"]
+        ServiceLayer["Services<br/>business rules, ID generation (Postgres advisory locks),<br/>state machines, S3/Twilio/SMTP orchestration"]
+        RepoLayer["Spring Data JPA repositories"]
+
+        AuthFilter --> ControllerLayer --> ServiceLayer --> RepoLayer
+    end
+
+    LibApi -->|"HTTPS + Bearer JWT"| AuthFilter
+    BuyerApiClient -->|"HTTPS + Bearer JWT"| AuthFilter
+    UtilsApi -->|"HTTPS + Bearer JWT"| AuthFilter
+    IFSCDirect -.->|"GET {API_URL}ifsc/{code}<br/>missing '/' separator — 404s in practice"| AuthFilter
+
+    subgraph Data["Data & Storage"]
+        Postgres[("PostgreSQL<br/>dev: hardcoded AWS RDS endpoint<br/>test: env-var driven (Secrets Manager)<br/>prod: local docker-compose container")]
+        S3[("AWS S3 (SDK v2)<br/>product images/docs, seller & buyer<br/>onboarding documents, GST tax invoices")]
+    end
+
+    RepoLayer --> Postgres
+    ServiceLayer -->|"S3Service"| S3
+
+    subgraph External["External Third-Party Services"]
+        Twilio["Twilio Verify<br/>SMS OTP send/verify — code never stored server-side"]
+        SMTP["SMTP mail server<br/>Spring JavaMailSender — NOT AWS SES"]
+        Razorpay["Razorpay public IFSC API<br/>(external, no backend involvement)"]
+        Bankify["bankify.in IFSC API<br/>(external fallback, no backend involvement)"]
+        ExtStaging["api-test-aggreator.tiameds.ai<br/>hardcoded external staging backend —<br/>used only by the bulk Excel/CSV import feature"]
+    end
+
+    ServiceLayer --> Twilio
+    ServiceLayer --> SMTP
+    IFSCDirect --> Razorpay
+    IFSCDirect --> Bankify
+    ExcelDirect --> ExtStaging
+
+    Note["NOTE: no API gateway, message queue, cache layer, CDN,<br/>or additional AWS service (SES/SNS/Lambda/DynamoDB) was found<br/>anywhere in the code inspected — none are shown because none are evidenced."]

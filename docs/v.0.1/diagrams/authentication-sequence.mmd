@@ -1,0 +1,240 @@
+sequenceDiagram
+    autonumber
+
+    participant Browser as Browser (localStorage + document.cookie)
+    participant SUI as Seller UI (LoginModals.tsx)
+    participant SAuth as sellerAuthService.ts
+    participant SApi as lib/api.ts (axios, seller)
+    participant SCtrl as AuthenticationController (/authentication)
+    participant SSvc as AuthService (seller, backend)
+    participant Jwt as JwtUtils (shared, HS256)
+    participant Mail as EmailService (SMTP, shared)
+    participant SDB as tbl_user / tbl_login_otp / tbl_refresh_tokens
+    participant AF as AuthTokenFilter (shared, on every request)
+
+    participant BUI as Buyer UI (LoginForm / LoginOtpStep)
+    participant BAuth as buyerAuthService.ts
+    participant BApi as lib/buyerApi.ts (axios, buyer)
+    participant BCtrl as BuyerAuthenticationController (/buyer/authentication)
+    participant BSvc as BuyerAuthService (buyer, backend)
+    participant BDB as tbl_buyer_user / tbl_buyer_login_otp / tbl_buyer_refresh_tokens
+
+    Note over SUI,SDB: SELLER LOGIN — src/app/modals/LoginModals/LoginModals.tsx is the REAL, wired-up seller login UI.<br/>src/app/(auth)/login_fhy26sb/** is a separate, orphaned scaffold (fetch('/api/seller/...') routes that don't exist) — not part of this flow.
+
+    rect rgb(235,245,255)
+    Note over Browser,SDB: STEP 1 — password login, sends OTP
+    Browser->>SUI: submit username + password
+    SUI->>SAuth: sellerAuthService.login(credentials)
+    SAuth->>SApi: POST /authentication/login {username,password}
+    SApi->>SCtrl: forwarded (Bearer attach interceptor: no token yet, so no header)
+    SCtrl->>SSvc: validateCredentialsAndSendOtp(loginRequest)
+    SSvc->>SDB: findByUsername(username)
+    SDB-->>SSvc: User row
+    alt account locked or inactive
+        SSvc-->>SCtrl: AccountLockedException / AccountInactiveException
+        SCtrl-->>SApi: 403 {status,error,message}
+    else credentials checked
+        SSvc->>SSvc: AuthenticationManager.authenticate() — BCrypt check via Spring Security
+        alt bad password
+            SSvc->>SDB: increment failedLoginAttempts (lock account at 5 — MAX_LOGIN_FAILED_ATTEMPTS)
+            SSvc-->>SCtrl: InvalidCredentialsException
+            SCtrl-->>SApi: 401 {status,error,message}
+        else password OK
+            SSvc->>SDB: resetFailedLoginAttempts; invalidateAllOtpsForUser(user)
+            SSvc->>SDB: save new LoginOtp (6-digit, isUsed=false, expiresAt=+5min, OTP_EXPIRY_MINUTES)
+            SSvc->>Mail: sendCoordinatorOtp(user.username, otpCode)
+            SSvc-->>SCtrl: OtpSentResponse{message, username}
+            SCtrl-->>SApi: 200 {status:"SUCCESS", data:{message,username}}
+            SApi-->>SAuth: response (checked for a nested 200-wrapped 401 failure shape)
+            SAuth->>Browser: localStorage.setItem("otpUsername", username)
+            SAuth-->>SUI: OtpSentResponse — show OTP entry screen
+        end
+    end
+    end
+
+    rect rgb(235,255,240)
+    Note over Browser,SDB: STEP 2 — OTP verification, JWT + refresh-token issuance
+    Browser->>SUI: submit 6-digit OTP
+    SUI->>SAuth: sellerAuthService.verifyOtp({username, otp})
+    SAuth->>SApi: POST /authentication/verify-otp {username, otp}
+    SApi->>SCtrl: forwarded
+    SCtrl->>SSvc: verifyOtpAndIssueToken(request)
+    SSvc->>SDB: findActiveOtpByUser(user) — unused AND unexpired AND unlocked
+    alt no active OTP found
+        SSvc-->>SCtrl: OtpExpiredException
+        SCtrl-->>SApi: 410 Gone
+    else OTP row found
+        alt otp.otpCode != request.otp
+            SSvc->>SDB: incrementFailedAttempts; lock OTP row at 3 (MAX_OTP_FAILED_ATTEMPTS)
+            SSvc-->>SCtrl: OtpInvalidException (401) or OtpLockedException (429, must login again)
+            SCtrl-->>SApi: 401 / 429 {status,error,message}
+        else OTP matches
+            SSvc->>SDB: markOtpAsUsed(otpId); updateLastLogin(userId, now)
+            SSvc->>Jwt: generateJwtToken(authentication)
+            Note right of Jwt: HS256, key = HMAC(app.jwt.secret).<br/>Claims: sub=username, iat, exp only — NO roles/userId embedded.<br/>app.jwt.expiration in application-dev.yml = 86400000ms (24h, commented as a "temporary" override of an intended 30 min)
+            Jwt-->>SSvc: accessToken (signed JWT)
+            SSvc->>Jwt: generateRefreshToken()
+            Note right of Jwt: 64 random bytes (SecureRandom), base64url-encoded — an OPAQUE token, not a JWT
+            Jwt-->>SSvc: rawRefreshToken
+            SSvc->>Jwt: hashToken(rawRefreshToken) — SHA-256
+            SSvc->>SDB: save RefreshToken{tokenHash (raw never stored), expiresAt=now+app.jwt.refresh-expiration (7 days)}
+            SSvc-->>SCtrl: LoginResponse{accessToken, refreshToken(raw), userId, username, roles, passwordTemporary, message}
+            SCtrl-->>SApi: 200 {status:"SUCCESS", data:LoginResponse}
+            SApi-->>SAuth: response
+            alt loginData.passwordTemporary === true
+                SAuth->>Browser: do NOT store accessToken/refreshToken; clear any stale ones; deleteCookie("token")
+                SAuth-->>SUI: caller routes to first-time password-reset step (POST /auth/reset-password)
+            else normal login
+                SAuth->>Browser: localStorage.setItem(accessToken, refreshToken, user, lastLogin)
+                SAuth->>Browser: decode JWT payload via atob() to read exp → localStorage.setItem("tokenExpiresAt", exp*1000)
+                SAuth->>Browser: setCookie("token", accessToken, 1 day) — plain document.cookie, NOT httpOnly, SameSite=Lax
+                SAuth-->>SUI: LoginResponse — redirect into /seller_7a3b9f2c/dashboard
+            end
+        end
+    end
+    end
+
+    Note over BUI,BDB: BUYER LOGIN — src/app/buyer_e8d45a1b/login/page.tsx renders null; a global BuyerLoginModalProvider (mounted in root layout.tsx) opens the actual modal built from these same LoginForm/LoginOtpStep components. Structurally mirrors seller login but is fully isolated (own tables, own controller, own axios client, own localStorage key prefix "buyer*").
+
+    rect rgb(255,245,235)
+    Note over Browser,BDB: STEP 1 — password login, sends OTP (buyer)
+    Browser->>BUI: submit email + password
+    BUI->>BAuth: buyerAuthService.login(credentials)
+    BAuth->>BApi: POST /buyer/authentication/login
+    BApi->>BCtrl: forwarded
+    BCtrl->>BSvc: validateCredentialsAndSendOtp(loginRequest)
+    BSvc->>BDB: findByEmail(username)
+    BDB-->>BSvc: BuyerUser row
+    alt locked / inactive
+        BSvc-->>BCtrl: AccountLockedException / AccountInactiveException (403)
+    else
+        BSvc->>BSvc: passwordEncoder.matches(password, buyerUser.passwordHash) — manual BCrypt check, NOT Spring Security's AuthenticationManager
+        alt bad password
+            BSvc->>BDB: increment failedLoginAttempts (lock at 5)
+            BSvc-->>BCtrl: InvalidCredentialsException (401)
+        else password OK
+            BSvc->>BDB: resetFailedLoginAttempts; invalidateAllOtpsForBuyerUser(buyerUser)
+            BSvc->>BDB: save new BuyerLoginOtp (6-digit, +5min expiry)
+            BSvc->>Mail: sendBuyerOtp(email, otpCode)
+            BSvc-->>BCtrl: BuyerOtpSentResponse{message, username}
+            BCtrl-->>BApi: 200 {status:"SUCCESS", data:{...}}
+            BApi-->>BAuth: response
+            BAuth->>Browser: localStorage.setItem("buyerOtpUsername", username)
+            BAuth-->>BUI: show OTP entry screen
+        end
+    end
+    end
+
+    rect rgb(250,240,255)
+    Note over Browser,BDB: STEP 2 — OTP verification, JWT + refresh-token issuance (buyer)
+    Browser->>BUI: submit 6-digit OTP
+    BUI->>BAuth: buyerAuthService.verifyOtp({username, otp})
+    BAuth->>BApi: POST /buyer/authentication/verify-otp
+    BApi->>BCtrl: forwarded
+    BCtrl->>BSvc: verifyOtpAndIssueToken(request)
+    BSvc->>BDB: findActiveOtpByBuyerUser(buyerUser)
+    alt no active OTP
+        BSvc-->>BCtrl: OtpExpiredException (410)
+    else
+        alt otp mismatch
+            BSvc->>BDB: incrementFailedAttempts; lock at 3 attempts
+            BSvc-->>BCtrl: OtpInvalidException (401) / OtpLockedException (429)
+        else OTP matches
+            BSvc->>BDB: markOtpAsUsed; updateLastLogin
+            BSvc->>BSvc: manually build UserDetailsImpl{id=buyerUserId, authorities=[ROLE_BUYER]} — no AuthenticationManager/UserDetailsServiceImpl involved
+            BSvc->>Jwt: generateJwtToken(authentication) — same shared JwtUtils/HS256 key as seller
+            Jwt-->>BSvc: accessToken
+            BSvc->>Jwt: generateRefreshToken() + hashToken()
+            Jwt-->>BSvc: rawRefreshToken
+            BSvc->>BDB: save BuyerRefreshToken{tokenHash, expiresAt=+7 days}
+            BSvc-->>BCtrl: BuyerLoginResponse{accessToken, refreshToken(raw), buyerUserId, username, phone, roles, passwordTemporary}
+            BCtrl-->>BApi: 200 {status:"SUCCESS", data:...}
+            BApi-->>BAuth: response
+            alt passwordTemporary === true
+                BAuth-->>BUI: no tokens stored — route to reset-password (temp password from e.g. a guest quote-request account)
+            else
+                BAuth->>Browser: localStorage.setItem(buyerUser, buyerLastLogin, buyerAccessToken, buyerRefreshToken, buyerTokenExpiresAt)
+                BAuth->>Browser: setCookie("buyerToken", accessToken, 1 day) — separate cookie name from seller's "token"
+                BAuth-->>BUI: redirect — /buyer_e8d45a1b/dashboard (client-side guard in dashboard/layout.tsx checks buyerAccessToken+buyerRefreshToken)
+            end
+        end
+    end
+    end
+
+    Note over Browser,AF: SUBSEQUENT AUTHENTICATED REQUESTS — Authorization header attach (both roles)
+    rect rgb(245,245,245)
+    Browser->>SApi: any seller-domain call (request interceptor)
+    SApi->>SApi: reads localStorage("accessToken") → sets header Authorization: Bearer <token>
+    SApi->>AF: request with Bearer token
+    Note right of AF: AuthTokenFilter parses the Bearer header, jwtUtils.validateJwtToken(), then<br/>userDetailsService.loadUserByUsername(username, preferBuyer) — preferBuyer=true only if the<br/>request URI contains "/buyer/", so an email registered as both buyer and seller resolves correctly.<br/>NOTE: SecurityConfig.filterChain() sets anyRequest().permitAll() — Spring Security enforces<br/>NOTHING at the HTTP layer; this filter only populates SecurityContext for app-code checks to read.
+    AF-->>SApi: 200 (protected data) — normal case
+    Browser->>BApi: any buyer-domain call (request interceptor)
+    BApi->>BApi: reads localStorage("buyerAccessToken") → sets Authorization: Bearer <token>
+    BApi->>AF: request with Bearer token (same shared filter/JwtUtils, different token/table)
+    end
+
+    Note over Browser,SDB: 401 / REFRESH HANDLING — src/lib/api.ts response interceptor (seller)
+    rect rgb(255,235,235)
+    AF-->>SApi: 401 Unauthorized (expired/invalid access token)
+    alt request URL contains "/refresh", or is /authentication/login, /authentication/verify-otp, or /auth/signup
+        SApi-->>Browser: reject as-is (treated as a normal auth failure, NOT session expiry — no refresh attempted)
+    else any other protected call, and not already retried
+        alt a refresh is already in flight (isRefreshing)
+            SApi->>SApi: push {resolve,reject} onto failedQueue and wait
+        else first 401 to arrive
+            SApi->>SApi: set _retry=true, isRefreshing=true
+            alt no refreshToken in localStorage
+                SApi->>Browser: clear all seller auth localStorage keys + cookie "token"; redirect "/?showLogin=true&session=expired"
+            else refreshToken present
+                SApi->>SCtrl: raw axios.post(/authentication/refresh, {refreshToken}) — bypasses the `api` instance itself to avoid interceptor recursion
+                SCtrl->>SSvc: refreshAccessToken(rawRefreshToken)
+                SSvc->>Jwt: hashToken(rawRefreshToken)
+                SSvc->>SDB: findByTokenHash(hash)
+                alt not found, or !isValid() (revoked or past expiresAt)
+                    SSvc-->>SCtrl: RefreshTokenException
+                    SCtrl-->>SApi: 401 {message}
+                    SApi->>Browser: clear auth keys + cookie + sessionStorage.clear(); redirect "/?showLogin=true&session=expired"
+                else valid
+                    SSvc->>SDB: stored.setRevokedAt(now) — ROTATE: old refresh token is now dead
+                    SSvc->>Jwt: generateJwtToken(new auth) + generateRefreshToken() (new raw)
+                    SSvc->>SDB: save new RefreshToken{tokenHash of new raw, +7 days}
+                    SSvc-->>SCtrl: LoginResponse{new accessToken, new refreshToken}
+                    SCtrl-->>SApi: 200 {accessToken, refreshToken}
+                    SApi->>Browser: localStorage.setItem(accessToken, refreshToken); cookie "token" updated
+                    SApi->>SApi: processQueue() — replays every request that had queued during the refresh
+                    SApi->>AF: retry the original failed request with new Bearer token
+                    AF-->>SApi: 200 (success)
+                end
+            end
+        end
+    end
+    end
+
+    Note over Browser,BDB: 401 / REFRESH HANDLING — src/lib/buyerApi.ts response interceptor (buyer, structurally identical, separate token set)
+    rect rgb(255,240,245)
+    AF-->>BApi: 401 Unauthorized
+    alt url is /refresh, /buyer/authentication/login, /buyer/authentication/verify-otp, or /buyer/auth/signup
+        BApi-->>Browser: reject as-is
+    else
+        BApi->>BApi: queue concurrent 401s the same way (isRefreshing/failedQueue)
+        alt no buyerRefreshToken
+            BApi->>Browser: clear buyerAccessToken/buyerRefreshToken/buyerTokenExpiresAt/buyerUser + cookie "buyerToken"; redirect "/buyer_e8d45a1b/login?session=expired"
+        else
+            BApi->>BCtrl: raw axios.post(/buyer/authentication/refresh, {refreshToken})
+            BCtrl->>BSvc: refreshAccessToken(rawRefreshToken)
+            BSvc->>BDB: findByTokenHash(hash); check isValid()
+            alt invalid/expired/revoked
+                BSvc-->>BCtrl: RefreshTokenException (401)
+                BApi->>Browser: clear buyer auth keys + cookie; redirect to buyer login
+            else valid
+                BSvc->>BDB: revoke old row (setRevokedAt)
+                BSvc->>BSvc: issueTokensForUser(buyerUser) — new access+refresh pair, new BuyerRefreshToken row persisted
+                BCtrl-->>BApi: 200 {accessToken, refreshToken}
+                BApi->>Browser: localStorage updated; cookie "buyerToken" updated
+                BApi->>AF: retry original request with new Bearer token
+            end
+        end
+    end
+    end
+
+    Note over SApi,BApi: NOT part of this flow but adjacent: src/utils/api.ts is a THIRD axios client (used by every product/* service, not by login) that attaches the Bearer token but has NO response interceptor at all — a 401 hit through it does not auto-refresh or redirect.
