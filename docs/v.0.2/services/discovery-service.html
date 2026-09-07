@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Discovery Service — the live registry that wires regions together</title>
+<link rel="stylesheet" href="../assets/doc.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">Discovery Service — the live registry that wires regions together</h1>
+    <p class="dek">Who's up, in which region, at which address — the registry every service registers with and queries, and the actual mechanism (not just a principle) behind zero-manual-wiring region rollout.</p>
+    <div class="meta-row">
+      <span><b>Status:</b> Draft</span>
+      <span><b>Owns:</b> Discovery Service (platform layer of HLD)</span>
+      <span><b>Last updated:</b> 2026-09-02</span>
+      <span><a href="../index.html">&larr; back to service index</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#overview">01 Overview</a>
+      <a href="#ownership">02 Data ownership</a>
+      <a href="#communication">03 Communication</a>
+      <a href="#architecture">04 Architecture diagram</a>
+      <a href="#deployment">05 Deployment</a>
+      <a href="#scaling">06 Scaling &amp; region topology</a>
+      <a href="#decisions">07 Decisions</a>
+    </nav>
+  </header>
+
+  <section id="overview">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Overview</h2>
+    </div>
+    <p class="lede">Discovery Service is a live service registry: who's up, in which region, at which address, right now. Every service both registers with it on boot and queries it to resolve peers — there's no other source of truth for "where is Product Management's address in this region" anywhere in the platform.</p>
+    <p>As with Config Service, availability matters more than latency — a resolve query is cheap and infrequent per call, but a Discovery Service that's unreachable breaks every service's ability to find its peers, which cascades immediately. This is what makes "spin up a new region" actually wire itself together: a new region's services register themselves against that region's Discovery instance the moment they boot, and everything that needs to find them can, with nobody hand-editing an endpoint list anywhere.</p>
+  </section>
+
+  <section id="ownership">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Data ownership</h2>
+    </div>
+    <p class="lede">No business tables. Discovery Service owns <b>live service-instance registration state</b> — AWS Cloud Map namespace / service / instance records.</p>
+    <p>This state is <b>ephemeral and health-checked</b>, not a durable database in the traditional sense. An instance that stops sending heartbeats drops out of the registry on its own; there's no row to migrate, back up, or reconcile the way there would be for an orders table. Stating this plainly matters because it's easy to reach for domain-service framing ("what's the schema, what's the retention policy") that simply doesn't apply — the registry's correctness comes from continuous health-checking, not from durability guarantees.</p>
+  </section>
+
+  <section id="communication">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Communication</h2>
+    </div>
+    <p><b>Platform IN, from every service:</b></p>
+    <ul>
+      <li><b>Registration</b> on boot — a service announces itself into the registry before it starts accepting traffic.</li>
+      <li><b>Deregistration</b> on shutdown — a clean exit removes the instance immediately rather than waiting for a health check to time it out.</li>
+      <li><b>Continuous health-check heartbeat</b> (gRPC/HTTP) — not a business call, but present on every service's boot and liveness path for as long as it runs.</li>
+    </ul>
+    <p><b>Every service also queries Discovery</b> to resolve peers for direct service-to-service calls — the canonical example is Order Management resolving Product Management's address to confirm price/stock. This query path is exactly what lets service-to-service calls bypass API Gateway entirely (see <code>api-gateway.html</code>): internal traffic never needs a public-facing router because it resolves its destination directly from the registry.</p>
+  </section>
+
+  <section id="architecture">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Architecture diagram</h2>
+    </div>
+    <p>Same "platform sits underneath" layout as Config Service — Discovery is infrastructure every service depends on continuously, not a stop on the client request path. Edges run both ways: register/heartbeat flowing down, resolve-queries flowing down and answers flowing back up.</p>
+
+    <div class="arch-diagram">
+      <svg viewBox="0 0 680 280" xmlns="http://www.w3.org/2000/svg">
+        <rect class="node-box" x="20" y="30" width="120" height="50" rx="6"/>
+        <text class="node-label" x="80" y="51" text-anchor="middle">Seller /</text>
+        <text class="node-sub" x="80" y="65" text-anchor="middle">Buyer User</text>
+
+        <rect class="node-box" x="180" y="30" width="120" height="50" rx="6"/>
+        <text class="node-label" x="240" y="51" text-anchor="middle">Order /</text>
+        <text class="node-sub" x="240" y="65" text-anchor="middle">Quotation</text>
+
+        <rect class="node-box" x="340" y="30" width="120" height="50" rx="6"/>
+        <text class="node-label" x="400" y="51" text-anchor="middle">Product /</text>
+        <text class="node-sub" x="400" y="65" text-anchor="middle">Search</text>
+
+        <rect class="node-box" x="500" y="30" width="120" height="50" rx="6"/>
+        <text class="node-label" x="560" y="51" text-anchor="middle">Billing /</text>
+        <text class="node-sub" x="560" y="65" text-anchor="middle">API Gateway</text>
+
+        <rect class="node-box self" x="250" y="180" width="180" height="60" rx="6"/>
+        <text class="node-label" x="340" y="206" text-anchor="middle">Discovery Service</text>
+        <text class="node-sub" x="340" y="222" text-anchor="middle">Cloud Map registry</text>
+
+        <path class="edge-sync" d="M90,80 L300,185" marker-end="url(#arrow-sync)"/>
+        <path class="edge-sync" d="M250,80 L320,180" marker-end="url(#arrow-sync)"/>
+        <path class="edge-sync" d="M410,80 L360,180" marker-end="url(#arrow-sync)"/>
+        <path class="edge-sync" d="M560,80 L400,185" marker-end="url(#arrow-sync)"/>
+        <text class="edge-label" x="105" y="140">register / heartbeat</text>
+        <text class="edge-label" x="420" y="140">resolve-query / answer</text>
+
+        <defs>
+          <marker id="arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="arch-legend">
+      <span><span class="swatch sync"></span> sync (blocking) — registration, heartbeat, and resolve-query are all synchronous calls against the registry</span>
+    </div>
+  </section>
+
+  <section id="deployment">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Deployment</h2>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Choice</th><th>Operational cost</th><th>Why / why not</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>A</td>
+            <td><span class="pill pill-managed">managed</span> AWS Cloud Map (or ECS Service Connect if staying on plain ECS)</td>
+            <td>No cluster to run</td>
+            <td><b>Chosen.</b> Integrates directly with ECS service discovery — the backend already deploys via ECS, so this is no new deployment target, per <a href="../adr.html#adr-002">ADR-002</a>.</td>
+          </tr>
+          <tr>
+            <td>B</td>
+            <td><span class="pill pill-self">self-hosted</span> Netflix Eureka or HashiCorp Consul</td>
+            <td>A stateful HA cluster to run and patch, per region</td>
+            <td>Would duplicate what ECS already speaks to natively, and adds a cluster whose own availability now needs to be engineered — the exact operational burden Cloud Map avoids.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <span class="file-tab">modules/discovery-service/main.tf</span>
+    <pre><span class="c">// one private DNS namespace per region; every service registers its instances into it</span>
+resource <span class="s">"aws_service_discovery_private_dns_namespace"</span> <span class="s">"region"</span> {
+  name = <span class="s">"internal.${var.region_short}.pharma-aggregator"</span>
+  vpc  = var.vpc_id
+}
+
+resource <span class="s">"aws_service_discovery_service"</span> <span class="s">"order_management"</span> {
+  name = <span class="s">"order-management"</span>
+
+  dns_config {
+    namespace_id   = aws_service_discovery_private_dns_namespace.region.id
+    routing_policy = <span class="s">"MULTIVALUE"</span>
+    dns_records { type = <span class="s">"A"</span> ttl = <span class="k">10</span> }
+  }
+
+  health_check_custom_config {
+    failure_threshold = <span class="k">1</span> <span class="c">// ECS reports task health directly; drop fast on failure</span>
+  }
+}</pre>
+    <p>One namespace per region, one <code>aws_service_discovery_service</code> per domain service registered into it — the same module runs for every region, just parameterized by <code>region_short</code>.</p>
+  </section>
+
+  <section id="scaling">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>Scaling &amp; region topology</h2>
+    </div>
+    <p>Provisioned per region via the same Terraform module, matching <a href="../adr.html#adr-006">ADR-006</a>. Instances are health-checked continuously, so dead instances drop out of the registry automatically — nobody removes a stale endpoint by hand, and nobody adds a new one by hand either.</p>
+    <p>This <em>is</em> the mechanism that makes region rollout one-click: when a new region's services boot, they register themselves against that region's namespace, and every peer that needs to resolve them can, immediately, with zero manual wiring. Skip the <code>.cost-strip</code> here too — like Config Service, this is a near-free managed service at this traffic level, and a short paragraph saying so is more honest than padding in stat tiles that would all read "negligible."</p>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2>Decisions worth writing down</h2>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — Cloud Map over self-hosted Eureka/Consul</span>
+      <h4>No stateful HA cluster to operate per region</h4>
+      <p>AWS Cloud Map beats a self-hosted Eureka or Consul cluster because it avoids running and patching a stateful, highly-available registry per region just to duplicate what ECS already speaks to natively. See <a href="../adr.html#adr-002">ADR-002</a>.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — no hardcoded endpoints anywhere</span>
+      <h4>Every peer address is resolved via Cloud Map DNS, never configured by hand</h4>
+      <p>This is the actual mechanism, not just a principle, behind zero-manual-wiring region rollout: every service resolves its peers' addresses through Cloud Map DNS names at call time. A new region's services need no endpoint list handed to them — they resolve what exists in their own namespace, and stop resolving instances the moment those instances stop passing health checks.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; Discovery Service</span>
+    <span><a href="../index.html">Service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HLD v0.2 — Service Index</title>
+<link rel="stylesheet" href="assets/doc.css" />
+<style>
+  .group-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.07em;
+    color:var(--muted);
+    margin:36px 0 14px;
+  }
+  .group-label:first-child{ margin-top:0; }
+  .svc-list{ display:flex; flex-direction:column; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .svc-row{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    padding:16px 18px;
+    background:var(--paper-raised);
+    text-decoration:none;
+    color:var(--ink);
+    transition:background .12s;
+  }
+  .svc-row:hover{ background:var(--accent-soft); }
+  .svc-row.disabled{ cursor:default; color:var(--muted); }
+  .svc-row.disabled:hover{ background:var(--paper-raised); }
+  .svc-name{ font-weight:600; min-width:220px; }
+  .svc-desc{ font-size:13.5px; color:var(--muted); flex:1; }
+  .svc-status{ flex:0 0 auto; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator</div>
+    <h1 class="title">HLD v0.2 — service documentation</h1>
+    <p class="dek">Eleven services, one platform layer. Each doc below covers architecture flows, sync/async decisions, and the AWS + Terraform shape for that service — as build-time vs. deployment-time concerns, following the pattern set by the Search Service doc.</p>
+    <div class="meta-row">
+      <span><b>Supersedes:</b> <a href="../v.0.1/HLD.md">docs/v.0.1/HLD.md</a></span>
+      <span><b>Format:</b> one HTML doc per service, shared stylesheet in <code>assets/doc.css</code></span>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">—</span>
+      <h2>Architecture Decision Records</h2>
+    </div>
+    <div class="svc-list">
+      <a class="svc-row" href="adr.html">
+        <span class="svc-name">ADR-001 — ADR-009</span>
+        <span class="svc-desc">Service boundaries, Discovery/Config choice, sync-vs-async default, Billing no-duplication, Search index-not-source, one-click multi-region, region write topology, Gateway as sole entry point, event backbone (EventBridge vs. Kafka/RabbitMQ)</span>
+        <span class="svc-status status status-done">9 decisions</span>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">—</span>
+      <h2>AWS Services Reference</h2>
+    </div>
+    <div class="svc-list">
+      <a class="svc-row" href="aws-services.html">
+        <span class="svc-name">Full AWS service inventory</span>
+        <span class="svc-desc">Every AWS service named across all 11 docs, grouped by category, with which service uses it and why — one page instead of hunting through eleven</span>
+        <span class="svc-status status status-done">20 services</span>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">—</span>
+      <h2>Domain services</h2>
+    </div>
+    <div class="svc-list">
+      <a class="svc-row" href="services/seller-user.html">
+        <span class="svc-name">Seller User</span>
+        <span class="svc-desc">Profile, registration, onboarding docs, bank details</span>
+        <span class="svc-status status status-done">Drafted</span>
+      </a>
+      <a class="svc-row" href="services/buyer-user.html">
+        <span class="svc-name">Buyer User</span>
+        <span class="svc-desc">Buyer profile, registration, onboarding docs</span>
+        <span class="svc-status status status-done">Drafted</span>
+      </a>
+      <a class="svc-row" href="services/order-management.html">
+        <span class="svc-name">Order Management</span>
+        <span class="svc-desc">Orders, order lines, order status, returns/refunds</span>
+        <span class="svc-status status status-done">Drafted</span>
+      </a>
+      <a class="svc-row" href="services/quotation-management.html">
+        <span class="svc-name">Quotation Management</span>
+        <span class="svc-desc">Buyer quote requests, seller responses, negotiation state</span>
+        <span class="svc-status status status-done">Drafted</span>
+      </a>
+      <a class="svc-row" href="services/search-service.html">
+        <span class="svc-name">Search Service</span>
+        <span class="svc-desc">Search index only, rebuilt from Product events — no source data</span>
+        <span class="svc-status status status-done">Drafted</span>
+      </a>
+      <a class="svc-row" href="services/product-management.html">
+        <span class="svc-name">Product Management</span>
+        <span class="svc-desc">Drug / Consumable / Non-consumable / Supplement / Cosmetic / Food-Infant catalog data</span>
+        <span class="svc-status status status-done">Drafted</span>
+      </a>
+      <a class="svc-row" href="services/billing-management.html">
+        <span class="svc-name">Billing Management</span>
+        <span class="svc-desc">Invoices, payment records, ledger — references order_id, no line-item copies</span>
+        <span class="svc-status status status-done">Drafted</span>
+      </a>
+      <a class="svc-row" href="services/notification-service.html">
+        <span class="svc-name">Notification Service</span>
+        <span class="svc-desc">Delivery log only — fully event-driven, never called synchronously</span>
+        <span class="svc-status status status-done">Drafted</span>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">—</span>
+      <h2>Platform layer</h2>
+    </div>
+    <div class="svc-list">
+      <a class="svc-row" href="services/api-gateway.html">
+        <span class="svc-name">API Gateway</span>
+        <span class="svc-desc">Routing, authN/authZ enforcement, rate limiting — sole client entry point</span>
+        <span class="svc-status status status-done">Drafted</span>
+      </a>
+      <a class="svc-row" href="services/config-service.html">
+        <span class="svc-name">Config Service</span>
+        <span class="svc-desc">Externalized config per service, per environment, per region</span>
+        <span class="svc-status status status-done">Drafted</span>
+      </a>
+      <a class="svc-row" href="services/discovery-service.html">
+        <span class="svc-name">Discovery Service</span>
+        <span class="svc-desc">Live service registry — who's up, in which region, at which address</span>
+        <span class="svc-status status status-done">Drafted</span>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">—</span>
+      <h2>Contributing a new doc</h2>
+    </div>
+    <p>Copy <a href="services/_template.html"><code>services/_template.html</code></a> to <code>services/&lt;service-name&gt;.html</code>, fill it in, link the shared stylesheet at <code>../assets/doc.css</code>, and add a row above pointing at it. Every doc ends with a <b>Decisions</b> section — one <code>.decision-card</code> per ADR-style call, stating what was decided, the alternative it beat, and why.</p>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2</span>
+    <span><a href="../v.0.1/HLD.md">v0.1 (superseded)</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

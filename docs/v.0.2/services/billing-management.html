@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Billing Management — extracting invoicing without duplicating Order's data</title>
+<link rel="stylesheet" href="../assets/doc.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">Billing Management — extracting invoicing without duplicating Order's data</h1>
+    <p class="dek">Why Billing is a migration target rather than a greenfield service, why its database has to be physically separate from Order's, and how it renders invoices without ever storing a second copy of an order's line items.</p>
+    <div class="meta-row">
+      <span><b>Status:</b> Draft</span>
+      <span><b>Owns:</b> Billing Management (§5 of HLD)</span>
+      <span><b>Last updated:</b> 2026-09-02</span>
+      <span><a href="../index.html">&larr; back to service index</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#overview">01 Overview</a>
+      <a href="#ownership">02 Data ownership</a>
+      <a href="#communication">03 Communication</a>
+      <a href="#architecture">04 Architecture diagram</a>
+      <a href="#deployment">05 Deployment</a>
+      <a href="#scaling">06 Scaling &amp; region topology</a>
+      <a href="#decisions">07 Decisions</a>
+    </nav>
+  </header>
+
+  <section id="overview">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Overview</h2>
+    </div>
+    <p class="lede">Billing Management owns invoices, payment records, and ledger entries. It references orders by <code>order_id</code> and stores no copy of any order's line items — line-item detail is fetched from Order Management at the moment an invoice is rendered, never persisted a second time.</p>
+    <p>Traffic here is spiky rather than steady: it consumes Order events asynchronously as they arrive through normal order volume, but load concentrates hard around reconciliation and month-end close, when finance workflows pull large batches of invoices and payment records at once. Billing's deployment and scaling posture (§5, §6) is built around that spike, not around average daily order volume.</p>
+  </section>
+
+  <section id="ownership">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Data ownership</h2>
+    </div>
+    <p class="lede">Zero dedicated tables exist for Billing today. <code>Payment</code> (<code>tbl_payment</code>) and <code>Invoice</code> (<code>tbl_invoice</code>) currently live inside Order's <code>entity/order</code> package — there is no <code>entity/billing</code> package in the monolith at all.</p>
+    <p>That makes Billing a <b>migration target</b>, not a greenfield build: standing it up as its own service means extracting two existing tables (with their existing data and existing code paths) out of Order's package, plus adding a <code>ledger_entries</code> table that doesn't exist yet to represent the double-entry-style record of what was invoiced, paid, and refunded. This is explicitly not a simple relabel — a shared schema or a read-only view into Order's tables would technically "work" but would leave the no-duplication rule unenforceable, because nothing would stop a future query from joining across the boundary.</p>
+    <div class="callout"><b>Why the migration has to be physical:</b> the tables must move to Billing's own schema and cluster, separate from Order's, so that no query — not a careless one, not a well-intentioned one — can join Billing data against Order's tables directly. Physical separation is what turns <a href="../adr.html#adr-004">ADR-004</a>'s no-duplication rule from a convention into something enforced at the infrastructure level. See the Order Management doc's data-ownership section for the other side of this same migration.</div>
+  </section>
+
+  <section id="communication">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Communication</h2>
+    </div>
+    <p class="lede">Billing is almost entirely reactive: one async inbound stream from Order, one on-demand sync call back to Order for rendering, and one async outbound stream to Notification.</p>
+
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-build">Async IN</span> Order Management &rarr; Billing</h3>
+        <div class="when"><code>OrderCreated</code> / <code>OrderStatusChanged</code> via EventBridge</div>
+        <ul>
+          <li>Billing reacts to these events to create and update invoice and payment records.</li>
+          <li>Billing can lag behind Order by seconds without the buyer noticing — order confirmation never waits on Billing having processed anything.</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-build">Sync OUT</span> Billing &rarr; Order Management</h3>
+        <div class="when">line-item lookup, on demand, at invoice-render time only</div>
+        <ul>
+          <li>When an invoice needs to be rendered, Billing asks Order for that order's line items on the spot — "give me line items for order_id X."</li>
+          <li>The result is used to render the invoice and then discarded — never written back into a Billing table. There is no persisted copy, ever.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-build">Async OUT</span> Billing &rarr; Notification Service</h3>
+        <div class="when"><code>InvoiceGenerated</code> / <code>PaymentFailed</code> events</div>
+        <ul>
+          <li>Payment-status emails are fire-and-forget from Billing's perspective, consistent with the platform-wide rule that Notification never receives a synchronous call.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Architecture diagram</h2>
+    </div>
+    <p>Billing as a self-node: async in from Order, sync out to Order for on-demand line-item lookups, async out to Notification.</p>
+
+    <div class="arch-diagram">
+      <svg viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
+        <rect class="node-box self" x="270" y="100" width="140" height="60" rx="6"/>
+        <text class="node-label" x="340" y="125" text-anchor="middle">Billing</text>
+        <text class="node-sub" x="340" y="140" text-anchor="middle">Management</text>
+
+        <rect class="node-box" x="30" y="30" width="150" height="55" rx="6"/>
+        <text class="node-label" x="105" y="53" text-anchor="middle">Order</text>
+        <text class="node-sub" x="105" y="67" text-anchor="middle">Management</text>
+
+        <rect class="node-box" x="500" y="30" width="150" height="55" rx="6"/>
+        <text class="node-label" x="575" y="53" text-anchor="middle">Notification</text>
+        <text class="node-sub" x="575" y="67" text-anchor="middle">Service</text>
+
+        <path class="edge-async" d="M180,70 L270,120" marker-end="url(#arrow-async)"/>
+        <text class="edge-label" x="130" y="100">OrderCreated /</text>
+        <text class="edge-label" x="130" y="112">OrderStatusChanged</text>
+
+        <path class="edge-sync" d="M270,140 L180,80" marker-end="url(#arrow-sync)"/>
+        <text class="edge-label" x="185" y="150">line-item lookup,</text>
+        <text class="edge-label" x="185" y="162">on demand</text>
+
+        <path class="edge-async" d="M410,120 L500,70" marker-end="url(#arrow-async)"/>
+        <text class="edge-label" x="420" y="100">InvoiceGenerated /</text>
+        <text class="edge-label" x="420" y="112">PaymentFailed</text>
+
+        <defs>
+          <marker id="arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/>
+          </marker>
+          <marker id="arrow-async" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="var(--async)"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="arch-legend">
+      <span><span class="swatch sync"></span> sync (blocking)</span>
+      <span><span class="swatch async"></span> async (event)</span>
+    </div>
+  </section>
+
+  <section id="deployment">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Deployment</h2>
+    </div>
+    <p class="lede">ECS Fargate with bursty autoscaling for month-end reconciliation spikes, and Aurora PostgreSQL in a schema and cluster physically separate from Order's — the infra-level guarantee that no query can join across the two.</p>
+
+    <span class="file-tab">modules/billing-management/main.tf</span>
+    <pre><span class="c">// deliberately its own cluster resource, never a schema inside</span>
+<span class="c">// order_db — this is what makes the no-duplication rule (ADR-004)</span>
+<span class="c">// enforceable rather than just documented</span>
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"billing_db"</span> {
+  cluster_identifier      = <span class="s">"billing-mgmt-${var.environment}"</span>
+  engine                  = <span class="s">"aurora-postgresql"</span>
+  engine_version          = <span class="s">"15.4"</span>
+  master_username         = var.db_master_username
+  master_password         = var.db_master_password
+  backup_retention_period = <span class="k">14</span> <span class="c">// longer retention: finance/reconciliation needs</span>
+}
+
+resource <span class="s">"aws_rds_cluster_instance"</span> <span class="s">"billing_db_writer"</span> {
+  cluster_identifier = aws_rds_cluster.billing_db.id
+  instance_class     = var.db_instance_class
+  engine             = aws_rds_cluster.billing_db.engine
+}
+
+module <span class="s">"billing_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"billing-management"</span>
+  image         = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  desired_count = var.task_count_floor
+  cpu           = <span class="k">512</span>
+  memory        = <span class="k">1024</span>
+  autoscale_on  = <span class="s">"request_count"</span>
+  <span class="c">// burst ceiling sized for month-end reconciliation, not steady state</span>
+  max_count     = var.task_count_burst_ceiling
+}</pre>
+  </section>
+
+  <section id="scaling">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>Scaling &amp; region topology</h2>
+    </div>
+    <p class="lede">Single-writer with a warm standby, transactional and write-sensitive per <a href="../adr.html#adr-007">ADR-007</a>, with autoscale burst capacity layered on top for month-end volume.</p>
+    <p>The write topology decision is the same reasoning as Order and Quotation: payment and invoice records are the kind of data where an active-active conflict-resolution problem is worse than a controlled standby promotion during a regional outage. What's different for Billing is the compute-scaling axis — it needs to burst hard for reconciliation without changing its write topology, which is why the Terraform in §5 sizes a burst ceiling separately from the baseline task count.</p>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2>Decisions worth writing down</h2>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — physically separate database, never a shared schema</span>
+      <h4>Billing's Aurora cluster is its own resource, distinct from Order's</h4>
+      <p>A shared schema or a view into Order's tables would satisfy the letter of "Billing doesn't duplicate order data" while leaving the door open for any future code to join across the boundary anyway. Provisioning a genuinely separate cluster makes that impossible at the infrastructure level rather than relying on code review to catch it — this is the direct implementation of <a href="../adr.html#adr-004">ADR-004</a>'s no-duplication rule.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — line-item detail is fetched at render time, never persisted</span>
+      <h4>Sync call with a short-TTL cache, not a stored copy</h4>
+      <p>Billing fetches line-item detail from Order Management synchronously, exactly when an invoice is being rendered, and does not write it back into any Billing table. A short-TTL cache is the accepted mitigation for the resulting runtime dependency — it absorbs repeated renders of the same invoice within a short window without reintroducing a persisted copy that could drift from Order's actual state. This trade-off — accept a runtime dependency on Order being reachable, in exchange for zero duplicated data — is the exact reasoning laid out in <a href="../adr.html#adr-004">ADR-004</a>'s Consequences section.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; Billing Management</span>
+    <span><a href="../index.html">Service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Product Management — the catalog of record and the cost of splitting it out</title>
+<link rel="stylesheet" href="../assets/doc.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">Product Management — the catalog of record and the cost of splitting it out</h1>
+    <p class="dek">Product Management owns the largest slice of the monolith's data by a wide margin. This document lays out what it owns today, how it's read by nearly every write path elsewhere in the system, and why extracting it is the single biggest cross-cutting migration risk in the whole decomposition.</p>
+    <div class="meta-row">
+      <span><b>Status:</b> Draft</span>
+      <span><b>Owns:</b> Product Management (§ of HLD)</span>
+      <span><b>Last updated:</b> 2026-09-02</span>
+      <span><a href="../index.html">&larr; back to service index</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#overview">01 Overview</a>
+      <a href="#ownership">02 Data ownership</a>
+      <a href="#communication">03 Communication</a>
+      <a href="#architecture">04 Architecture diagram</a>
+      <a href="#deployment">05 Deployment</a>
+      <a href="#scaling">06 Scaling &amp; region topology</a>
+      <a href="#decisions">07 Decisions</a>
+    </nav>
+  </header>
+
+  <section id="overview">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Overview</h2>
+    </div>
+    <p class="lede">Product Management is the catalog of record for every sellable item on the marketplace — Drug, Consumable, Non-consumable, Supplement, Cosmetic, and Food/Infant categories, plus the shared lookup masters (molecules, dosage forms, categories, GST rates, pack types) that all of them reference.</p>
+    <p>The traffic shape is lopsided in a way that matters for every decision below: reads dominate by a huge margin — every product listing, every quote, every order confirmation touches this data — while writes are comparatively rare and low-throughput, because catalog changes (a new SKU, a price revision, a stock update) happen at the pace of a seller's back office, not at the pace of buyer traffic. That asymmetry is why this service scales reads aggressively (replicas, caching) while writes stay on a single, unremarkable path. It is also, by table count, the single largest domain in the entire system — see §02.</p>
+  </section>
+
+  <section id="ownership">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Data ownership</h2>
+    </div>
+    <p class="lede">A full entity audit of the current monolith counted <b>~62 entities/tables under <code>entity/product/**</code></b> — roughly <b>59% of the system's ~106 tables</b>. No other domain comes close; this is the catalog, and cataloging six distinct product verticals plus their shared lookups is inherently table-heavy.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Group</th><th>Count</th><th>Representative tables</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Core catalog</td>
+            <td class="num">16</td>
+            <td><code>tm_product_details</code>, <code>tm_product_image</code>, <code>tm_product_user_manual</code>, <code>tm_product_certificate_document</code>, <code>tm_pricing_details</code>, <code>tm_packaging_details</code>, <code>tbl_stock_ledger</code>, <code>pm_product_molecule</code> (join), <code>tbl_molecules_master</code>, <code>tm_category</code>, <code>tbl_drug_categories_master</code>, <code>tbl_dosage_form_master</code>, <code>tm_flavour_master</code>, <code>tm_special_schemes</code>, <code>tm_additional_discount</code>, <code>tm_gst_percentage_master</code></td>
+          </tr>
+          <tr>
+            <td>Per-category attribute tables</td>
+            <td class="num">6</td>
+            <td><code>tm_product_attribute_drug</code>, <code>tm_product_attribute_consumable_medical</code>, <code>tm_product_attribute_non_consumable_medical</code>, <code>tm_product_attribute_supplements_or_nutraceuticals</code>, <code>tm_product_attribute_cosmetic_and_personal_use</code>, <code>tm_product_attribute_food_infant</code> — one per catalog vertical</td>
+          </tr>
+          <tr>
+            <td>Shared product-level lookup masters</td>
+            <td class="num">12</td>
+            <td><code>ProductCategoryMaster</code>, <code>ProductSubcategoryMaster</code>, <code>ProductFormMaster</code>, <code>TherapeuticCategoryMaster</code>, <code>TherapeuticSubcategoryMaster</code>, <code>PackType</code>, <code>PackTypeUnitMaster</code>, <code>StrengthUnit</code>, <code>MoleculeStrengthFormat</code>, <code>NetQuantityUnit</code>, <code>ServingSizeUnit</code>, <code>AgeGroupMaster</code></td>
+          </tr>
+          <tr>
+            <td><code>MedicalDeviceProductMaster</code> subpackage</td>
+            <td class="num">14</td>
+            <td><code>DeviceCategory</code>, <code>DeviceSubCategory</code>, <code>MedicalDeviceType</code>, <code>NonConsumableMaterialType</code>, <code>ConsumableMaterialType</code>, <code>PowerSource</code>, <code>DimensionSize</code>, <code>StorageConditionMaster</code>, <code>Certification</code>, <code>CertificateDocument</code>, <code>CountryMaster</code>, <code>DeviceSpecificationUnit</code> (+2 more lookup tables in this subpackage)</td>
+          </tr>
+          <tr>
+            <td><code>CosmeticPersonalCareMasters</code> subpackage</td>
+            <td class="num">4</td>
+            <td><code>SkinType</code>, <code>HairType</code>, <code>IntendedUseArea</code>, <code>ProductsFormMaster</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout"><b>The self-contained part is easy; the referenced-from-outside part isn't:</b> all 62 tables above are internally cohesive — they FK to each other and to nothing outside <code>entity/product/**</code>, which means splitting Product into its own database is, on Product's own terms, straightforward. The problem is that <b>every other domain holds foreign keys into Product</b>: Quotation's <code>tbl_quote_request</code> and Order's <code>tbl_order_item</code> both carry a <code>product_id</code> that today resolves with a plain SQL join inside one database. The moment Product moves to its own database, that join is gone — those services must be rewritten to hold an opaque product-ID reference and resolve product data via a sync API call instead of a foreign key. This is a schema change in every consuming service, not just an infrastructure change in Product.</div>
+  </section>
+
+  <section id="communication">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Communication</h2>
+    </div>
+    <p class="lede">Product Management is called synchronously, in-request, by the two services with the sharpest latency budgets in the system — and it emits one asynchronous event stream outward.</p>
+
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-sync">Sync IN</span> Order &amp; Quotation Management</h3>
+        <div class="when">buyer is waiting in the same request</div>
+        <ul>
+          <li><b>Order Management</b> calls in for price and stock confirmation before an order is placed — the buyer's checkout request blocks on this call.</li>
+          <li><b>Quotation Management</b> calls in for pricing when generating a quote — same shape, different trigger.</li>
+          <li>Both are load-bearing, latency-sensitive reads hit on nearly every write path elsewhere in the system. The right mitigation lives on the <em>caller's</em> side: cache Product responses aggressively in Order and Quotation rather than treating every checkout as a fresh round trip.</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-async">Async OUT</span> Search Service</h3>
+        <div class="when">on every catalog change</div>
+        <ul>
+          <li>Product emits <code>ProductChanged</code> events (or a CDC stream off its own tables) whenever catalog data changes.</li>
+          <li><a href="search-service.html">Search Service</a> rebuilds its OpenSearch index from this stream — eventually consistent by design, per <a href="../adr.html#adr-005">ADR-005</a>.</li>
+          <li>The relationship is strictly one-directional: <b>Search never calls back into Product on the read path.</b> A search query is served entirely from the index; Product is not in that call chain at all.</li>
+          <li>This is the one edge in the system flagged as a Kafka (MSK) candidate rather than staying on EventBridge long-term — ordered, replayable delivery matters here because Search's index-backfill process replays this exact stream. See <a href="../adr.html#adr-009">ADR-009</a> for the specific triggers and why every other async edge stays on EventBridge.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Architecture diagram</h2>
+    </div>
+    <p>Product Management sits between two hard synchronous dependents and one async downstream consumer. No arrow points back into Product from Search.</p>
+
+    <div class="arch-diagram">
+      <svg viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg">
+        <!-- self node: Product Management -->
+        <rect class="node-box self" x="255" y="115" width="190" height="70" rx="6"/>
+        <text class="node-label" x="350" y="145" text-anchor="middle">Product Management</text>
+        <text class="node-sub" x="350" y="163" text-anchor="middle">~62 tables &middot; 59% of system</text>
+
+        <!-- Order Management (top left) -->
+        <rect class="node-box" x="30" y="20" width="170" height="60" rx="6"/>
+        <text class="node-label" x="115" y="46" text-anchor="middle">Order Management</text>
+        <text class="node-sub" x="115" y="63" text-anchor="middle">price / stock confirm</text>
+
+        <!-- Quotation Management (bottom left) -->
+        <rect class="node-box" x="30" y="220" width="170" height="60" rx="6"/>
+        <text class="node-label" x="115" y="246" text-anchor="middle">Quotation Management</text>
+        <text class="node-sub" x="115" y="263" text-anchor="middle">pricing for quotes</text>
+
+        <!-- Search Service (right) -->
+        <rect class="node-box" x="500" y="120" width="170" height="60" rx="6"/>
+        <text class="node-label" x="585" y="146" text-anchor="middle">Search Service</text>
+        <text class="node-sub" x="585" y="163" text-anchor="middle">OpenSearch index</text>
+
+        <!-- edges: sync in from Order -->
+        <path class="edge-sync" d="M200,60 C230,60 230,120 260,140" marker-end="url(#arrow-sync)"/>
+        <text class="edge-label" x="205" y="95">sync (blocking)</text>
+
+        <!-- edges: sync in from Quotation -->
+        <path class="edge-sync" d="M200,250 C230,250 230,190 260,165" marker-end="url(#arrow-sync)"/>
+        <text class="edge-label" x="205" y="220">sync (blocking)</text>
+
+        <!-- edges: async out to Search -->
+        <path class="edge-async" d="M445,150 L498,150" marker-end="url(#arrow-async)"/>
+        <text class="edge-label" x="455" y="140">ProductChanged (async)</text>
+
+        <defs>
+          <marker id="arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/>
+          </marker>
+          <marker id="arrow-async" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="var(--async)"/>
+          </marker>
+        </defs>
+      </svg>
+      <div class="arch-legend">
+        <span><span class="swatch sync"></span> sync, blocking (caller waits)</span>
+        <span><span class="swatch async"></span> async, event-driven</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="deployment">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Deployment</h2>
+    </div>
+    <p class="lede">ECS Fargate, autoscaled specifically <b>on read volume</b> — not CPU. Given the read-heavy traffic shape from §01, CPU utilization is a lagging, noisy proxy for the thing that actually predicts load here (concurrent browse/lookup requests); scaling directly on request count keeps capacity aligned with the metric that's actually driving it.</p>
+    <p>Storage is Aurora PostgreSQL with a <b>Global Database</b> for multi-region reads, fronted by ElastiCache Redis to absorb browse traffic without hitting the writer directly. Redis is there specifically because catalog reads are so much more frequent than catalog writes that caching the hot path is a much bigger win here than it would be for a service with a flatter read/write ratio.</p>
+
+    <span class="file-tab">modules/product-management/main.tf</span>
+    <pre><span class="c">// one global cluster, one primary write region — see §06 for the read topology</span>
+resource <span class="s">"aws_rds_global_cluster"</span> <span class="s">"product"</span> {
+  global_cluster_identifier = <span class="s">"product-global"</span>
+  engine                    = <span class="s">"aurora-postgresql"</span>
+  engine_version            = <span class="s">"15.4"</span>
+  database_name             = <span class="s">"product"</span>
+}
+
+<span class="c">// regional Aurora cluster — primary in the write region, secondary elsewhere</span>
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"product_regional"</span> {
+  cluster_identifier        = <span class="s">"product-${var.region_short}"</span>
+  engine                    = <span class="s">"aurora-postgresql"</span>
+  engine_version            = <span class="s">"15.4"</span>
+  global_cluster_identifier = aws_rds_global_cluster.product.id
+  db_subnet_group_name      = var.db_subnet_group
+  vpc_security_group_ids    = [aws_security_group.product_db_sg.id]
+  is_primary_cluster        = var.is_write_region
+}
+
+<span class="c">// Redis in front of the writer — absorbs browse traffic, not a write cache</span>
+resource <span class="s">"aws_elasticache_replication_group"</span> <span class="s">"product_cache"</span> {
+  replication_group_id = <span class="s">"product-cache-${var.region_short}"</span>
+  description           = <span class="s">"catalog read cache"</span>
+  node_type             = var.cache_node_type
+  num_cache_clusters    = var.cache_node_count
+  engine                = <span class="s">"redis"</span>
+  automatic_failover_enabled = <span class="k">true</span>
+}
+
+module <span class="s">"product_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"product-management"</span>
+  image         = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  desired_count = var.task_count
+  cpu           = <span class="k">1024</span>
+  memory        = <span class="k">2048</span>
+  autoscale_on  = <span class="s">"request_count"</span> <span class="c">// read volume, not CPU</span>
+}</pre>
+  </section>
+
+  <section id="scaling">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>Scaling &amp; region topology</h2>
+    </div>
+    <p class="lede">Product Management runs <b>active-active for reads</b> via Aurora Global Database, per <a href="../adr.html#adr-007">ADR-007</a>. It's one of the services the HLD explicitly names as tolerant of read-replication lag — a buyer browsing a slightly stale catalog for a few hundred milliseconds is a non-event, unlike Order, Billing, Seller, or Buyer, which all stay single-writer, single-region-authoritative because staleness there means money or state moving incorrectly.</p>
+    <p>Writes still funnel through one primary region — catalog changes from a seller are not so frequent or latency-sensitive that they need multi-writer complexity. Reads fan out globally through the secondary Aurora clusters plus per-region ElastiCache, so a buyer in any region gets local read latency without Product ever needing multi-region write conflict resolution.</p>
+
+    <div class="cost-strip">
+      <div class="cost-item">
+        <div class="lbl">Write region</div>
+        <div class="fig">1 primary</div>
+        <div class="note">single Aurora writer cluster, global database replicates out</div>
+      </div>
+      <div class="cost-item">
+        <div class="lbl">Read regions</div>
+        <div class="fig">N secondary</div>
+        <div class="note">one Aurora Global Database secondary cluster + ElastiCache per additional region</div>
+      </div>
+      <div class="cost-item">
+        <div class="lbl">Cache layer</div>
+        <div class="fig">per-region</div>
+        <div class="note">ElastiCache Redis replicas sized to browse volume, not writer capacity</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2>Decisions worth writing down</h2>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — Product's own split is easy; the cross-service FK migration is not</span>
+      <h4>The 62 tables split cleanly; every <code>product_id</code> foreign key elsewhere does not</h4>
+      <p>Product Management's own schema is self-contained and splits into its own database with no internal friction. But Quotation's <code>tbl_quote_request</code>, Order's <code>tbl_order_item</code>, and a presumably-future cart all hold real foreign keys into Product tables today. Extraction forces every one of those services to replace a database-level join with an opaque product-ID reference resolved through a sync API call. This is, by a wide margin, the biggest cross-cutting migration risk anywhere in the decomposition — bigger than any single service's internal rework, because it touches the internals of every consuming service at once, not just Product's.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — ElastiCache in front of Aurora, specifically for this service</span>
+      <h4>Why Product gets a cache layer that Order doesn't</h4>
+      <p>Product's read/write ratio is extreme: browse and lookup traffic vastly outnumbers catalog writes, and that traffic is exactly the kind a cache absorbs well (same SKUs, read repeatedly, invalidated infrequently). Order Management doesn't get this treatment because its reads are mostly one-off, per-order lookups rather than repeated browse traffic — caching there would add invalidation complexity without meaningfully reducing writer load. The decision to cache is driven by traffic shape, not a blanket "cache everything" policy.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; Product Management</span>
+    <span><a href="../index.html">Service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

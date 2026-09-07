@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Search Service — build-time vs. deployment-time infrastructure</title>
+<link rel="stylesheet" href="../assets/doc.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">Search Service — build-time vs. deployment-time infrastructure</h1>
+    <p class="dek">Where OpenSearch gets built, what Terraform provisions once versus per-deploy, and the AWS wiring that keeps the index disposable and the query path cheap.</p>
+    <div class="meta-row">
+      <span><b>Status:</b> Draft</span>
+      <span><b>Owns:</b> Search Service (§2 of HLD)</span>
+      <span><b>Last updated:</b> 2026-09-02</span>
+      <span><a href="../index.html">&larr; back to service index</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#split">01 The split</a>
+      <a href="#buildtime">02 Build-time</a>
+      <a href="#deploytime">03 Deploy-time</a>
+      <a href="#terraform">04 Terraform layout</a>
+      <a href="#services">05 AWS service choices</a>
+      <a href="#region">06 Per-region cost</a>
+      <a href="#decisions">07 Decisions</a>
+    </nav>
+  </header>
+
+  <section id="split">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Why this needs a build/deploy split at all</h2>
+    </div>
+    <p class="lede">Search Service (§2 of the HLD) owns no source data — it's a query layer over an OpenSearch index rebuilt from <code>ProductChanged</code> events. That single fact drives every infra decision below: the <b>index schema and mapping</b> is a build-time artifact (it changes when the code that shapes documents changes), while the <b>index's data</b> is a runtime artifact that gets rebuilt continuously and can be thrown away without data loss — the source of truth is Product Management's DB, not the index.</p>
+    <p>Treat those as two different lifecycles from day one: build-time work happens once per code change, in CI, before anything touches AWS; deployment-time work happens once per release (or once per region), and it provisions or updates infrastructure that then runs continuously and rebuilds its own contents from events.</p>
+  </section>
+
+  <section id="buildtime">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Build-time: what CI produces</h2>
+    </div>
+    <p>Nothing in this phase touches a live OpenSearch domain. It produces artifacts that deployment-time consumes.</p>
+
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-build">Build</span> Query-layer image</h3>
+        <div class="when">on every merge to main</div>
+        <ul>
+          <li>Compile the stateless query service (the thing that translates gateway requests into OpenSearch DSL) into one container image.</li>
+          <li>Tag with commit SHA, push to <b>ECR</b> — same repo pattern already used for the Spring Boot services.</li>
+          <li>No environment- or region-specific values baked in — those come from AppConfig at boot (§5 of the HLD).</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-build">Build</span> Index template &amp; mapping</h3>
+        <div class="when">versioned alongside the consumer code</div>
+        <ul>
+          <li>The event consumer (Lambda or a small Fargate task) that turns <code>ProductChanged</code> into index documents owns a versioned mapping file — analyzers, field types, shard count.</li>
+          <li>A mapping change ships as a <b>new index version</b> (<code>products-v13</code>), never a mutation of the live index — OpenSearch mappings aren't safely mutable in place for field-type changes.</li>
+          <li>CI validates the mapping against a sample document set before it's allowed to merge.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout"><b>Why version the index name, not the domain:</b> reindexing safely means writing to <code>products-v13</code> while <code>products-v12</code> still serves traffic, then flipping an alias — a build-time contract (the mapping) determines a deploy-time action (alias swap) with zero downtime.</div>
+
+    <div class="callout"><b>EventBridge vs. Kafka for this edge, specifically:</b> the backfill in §03 works by replaying <code>ProductChanged</code> events into the new index version — which only produces a correct index if every event for a given product arrives in the order it was published. EventBridge doesn't guarantee that. Today's volume makes this a latent risk rather than an active bug, but it's the one edge in the whole system flagged as a Kafka (MSK) candidate — see <a href="../adr.html#adr-009">ADR-009</a> for the exact triggers and why this edge, and only this edge, is being watched rather than switched preemptively.</div>
+  </section>
+
+  <section id="deploytime">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Deployment-time: what gets provisioned and reconciled</h2>
+    </div>
+    <p>This is where Terraform and the OpenSearch domain itself live. Split further into <b>provision-once-per-region</b> infrastructure and <b>reconcile-every-release</b> application state.</p>
+
+    <div class="pipeline">
+      <div class="pnode">
+        <div class="k">Trigger</div>
+        <div class="v">git tag / workflow_dispatch</div>
+        <div class="sub">region as input param</div>
+      </div>
+      <div class="parrow">&rarr;</div>
+      <div class="pnode">
+        <div class="k">Terraform apply</div>
+        <div class="v">OpenSearch domain</div>
+        <div class="sub">idempotent, per region</div>
+      </div>
+      <div class="parrow">&rarr;</div>
+      <div class="pnode">
+        <div class="k">ECS deploy</div>
+        <div class="v">query-layer + consumer</div>
+        <div class="sub">pulls image from ECR</div>
+      </div>
+      <div class="parrow">&rarr;</div>
+      <div class="pnode">
+        <div class="k">Bootstrap</div>
+        <div class="v">create products-vN, set alias</div>
+        <div class="sub">one-shot job, not Terraform</div>
+      </div>
+      <div class="parrow">&rarr;</div>
+      <div class="pnode">
+        <div class="k">Backfill</div>
+        <div class="v">replay ProductChanged</div>
+        <div class="sub">from EventBridge archive or DB scan</div>
+      </div>
+    </div>
+
+    <p><b>Deliberate boundary:</b> Terraform provisions the OpenSearch <em>domain</em> (compute, storage, network, access policy) — it does not create indices, mappings, or aliases inside that domain. Index lifecycle is an application concern run by a bootstrap job, because index creation depends on the mapping version shipping in that release, not on infrastructure state. Mixing the two makes every mapping change require a Terraform apply, which is the wrong tool for something that should ship at the same cadence as application code.</p>
+  </section>
+
+  <section id="terraform">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Terraform module layout</h2>
+    </div>
+    <p>One module, called once per region, matching the HLD's §6 pattern for the other ten services — region is a variable, not a fork.</p>
+
+    <span class="file-tab">modules/search-service/main.tf</span>
+    <pre><span class="c">// domain: infra only — no index/mapping resources live here</span>
+resource <span class="s">"aws_opensearch_domain"</span> <span class="s">"search"</span> {
+  domain_name    = <span class="s">"search-${var.region_short}-${var.environment}"</span>
+  engine_version = <span class="s">"OpenSearch_2.15"</span>
+
+  cluster_config {
+    instance_type          = var.node_instance_type
+    instance_count         = var.node_count
+    zone_awareness_enabled = <span class="k">true</span>
+    zone_awareness_config { availability_zone_count = <span class="k">3</span> }
+  }
+
+  ebs_options {
+    ebs_enabled = <span class="k">true</span>
+    volume_type = <span class="s">"gp3"</span>
+    volume_size = var.volume_size_gb
+  }
+
+  vpc_options {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.search_sg.id]
+  }
+
+  encrypt_at_rest      { enabled = <span class="k">true</span> }
+  node_to_node_encryption { enabled = <span class="k">true</span> }
+
+  <span class="c">// discovery: register the domain endpoint, not an instance —</span>
+  <span class="c">// the query-layer resolves this via Cloud Map, never a hardcoded URL</span>
+}
+
+resource <span class="s">"aws_service_discovery_service"</span> <span class="s">"search_query_layer"</span> {
+  name = <span class="s">"search"</span>
+  dns_config {
+    namespace_id = var.cloudmap_namespace_id
+    dns_records { type = <span class="s">"A"</span> ttl = <span class="k">10</span> }
+  }
+}
+
+module <span class="s">"search_ecs_service"</span> {
+  source          = <span class="s">"../ecs-fargate-service"</span>
+  service_name    = <span class="s">"search-query-layer"</span>
+  image           = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  desired_count   = var.query_layer_task_count
+  cpu             = <span class="k">512</span>
+  memory          = <span class="k">1024</span>
+  autoscale_on    = <span class="s">"request_count"</span> <span class="c">// query volume, not CPU — see HLD §2</span>
+}</pre>
+
+    <span class="file-tab">envs/ap-southeast-1/search.tfvars</span>
+    <pre>region_short          = <span class="s">"apse1"</span>
+node_instance_type    = <span class="s">"or2.medium.search"</span>
+node_count             = <span class="k">3</span>
+volume_size_gb         = <span class="k">50</span>
+query_layer_task_count = <span class="k">2</span></pre>
+
+    <p>Region rollout is one command, matching §6 of the HLD: <code>terraform apply -var-file=envs/ap-southeast-1/search.tfvars</code>. State is keyed per region (separate backend key), so a bad plan in one region can't touch another's domain.</p>
+  </section>
+
+  <section id="services">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>AWS service choices, and why</h2>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>Choice</th><th>Alternative considered</th><th>Why this one</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Index store</td>
+            <td><span class="pill pill-managed">managed</span> Amazon OpenSearch Service</td>
+            <td>Self-hosted OpenSearch on EC2/ECS</td>
+            <td>Managed snapshots, patching, and zone-aware replica placement remove exactly the operational surface a search cluster otherwise demands — the HLD's own §7 default.</td>
+          </tr>
+          <tr>
+            <td>Query compute</td>
+            <td><span class="pill pill-managed">managed</span> ECS Fargate, stateless</td>
+            <td>Lambda per query</td>
+            <td>Query latency needs a warm connection pool to OpenSearch; Lambda cold starts would show up directly in search-result latency. Fargate autoscales on request count per HLD §2.</td>
+          </tr>
+          <tr>
+            <td>Index-build consumer</td>
+            <td><span class="pill pill-managed">managed</span> AWS Lambda, triggered by EventBridge rule on <code>ProductChanged</code></td>
+            <td>A standing Fargate consumer</td>
+            <td>Indexing is bursty and idle between catalog changes — same reasoning the HLD applies to Notification Service. Pay-per-invocation beats a standing task for an event volume this irregular.</td>
+          </tr>
+          <tr>
+            <td>Reindex/backfill job</td>
+            <td><span class="pill pill-self">self-run</span> one-shot ECS task, run by CI on deploy</td>
+            <td>Terraform provisioner (<code>local-exec</code>)</td>
+            <td>Reindexing is an application action with retries and progress tracking — embedding it in Terraform couples infra state to a long-running data job, which is the same anti-pattern the module layout above avoids for index creation.</td>
+          </tr>
+          <tr>
+            <td>Alias management</td>
+            <td><span class="pill pill-self">self-run</span> bootstrap Lambda invoked post-deploy</td>
+            <td>Manual API call</td>
+            <td>The alias flip (<code>products</code> &rarr; <code>products-v13</code>) is the actual zero-downtime cutover; scripting it makes the one-click region story in HLD §6 hold for Search too.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="region">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>What a new region actually costs to spin up</h2>
+    </div>
+    <p>Per the HLD's one-click multi-region goal (§6), adding a region for Search means these three provisions run under the same <code>./deploy.sh --region</code> call — nothing Search-specific breaks the pattern.</p>
+
+    <div class="cost-strip">
+      <div class="cost-item">
+        <div class="lbl">Domain floor</div>
+        <div class="fig">3 nodes</div>
+        <div class="note">zone-aware across 3 AZs — the minimum for a production OpenSearch domain, not a cost optimization to skip</div>
+      </div>
+      <div class="cost-item">
+        <div class="lbl">Cold-start cost</div>
+        <div class="fig">~0</div>
+        <div class="note">index is empty until the backfill job runs — no data migration between regions, just replay events</div>
+      </div>
+      <div class="cost-item">
+        <div class="lbl">Query layer</div>
+        <div class="fig">2 tasks</div>
+        <div class="note">scales on request volume post-launch; starts at the floor Fargate needs for HA</div>
+      </div>
+    </div>
+
+    <p>Because the index rebuilds from events rather than replicating data, a new region's Search stack needs no cross-region data transfer step at all — it needs the EventBridge bus reachable (or a regional bus with forwarded rules) and enough backfill time to catch up, which is minutes, not a migration project.</p>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2>Decisions worth writing down</h2>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — index lifecycle is not a Terraform resource</span>
+      <h4>Terraform owns the domain, application code owns the index</h4>
+      <p>Creating indices, applying mappings, and flipping aliases happen through a bootstrap job run as part of deployment, not through <code>aws_opensearch_domain</code> resources or provisioners. This keeps a mapping change on the same release cadence as the code that produces documents, and keeps <code>terraform plan</code> free of noise from index churn.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — versioned index names, aliased in production</span>
+      <h4><code>products-vN</code> + alias, never a mutated live index</h4>
+      <p>A breaking mapping change ships as a new index version built alongside the old one, backfilled from the event stream, then cut over via alias swap. The query layer only ever queries the alias, never a version number directly — this is what makes the OpenSearch mapping a build-time artifact instead of a runtime coupling.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — consumer is Lambda, query layer is Fargate</span>
+      <h4>Split compute by traffic shape, not by convenience</h4>
+      <p>The indexing consumer is bursty and tolerant of a few hundred milliseconds of cold start; the query layer is latency-sensitive and benefits from a warm connection pool. Running both on the same compute type would force a compromise neither side needs — matches the HLD's per-service reasoning in §7 rather than defaulting everything to Fargate for consistency's sake.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; Search Service</span>
+    <span><a href="../index.html">Service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

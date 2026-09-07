@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Buyer User Service — schema, deployment, and auth-pattern alignment</title>
+<link rel="stylesheet" href="../assets/doc.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">Buyer User Service — schema, deployment, and auth-pattern alignment</h1>
+    <p class="dek">What Buyer User owns today, how it mirrors Seller User's shape at lower volume, and the auth-table inconsistency between the two domains that needs a single answer before either ships as a service.</p>
+    <div class="meta-row">
+      <span><b>Status:</b> Draft</span>
+      <span><b>Owns:</b> Buyer User Service (§4 of HLD)</span>
+      <span><b>Last updated:</b> 2026-09-02</span>
+      <span><a href="../index.html">&larr; back to service index</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#overview">01 Overview</a>
+      <a href="#data">02 Data ownership</a>
+      <a href="#comms">03 Communication</a>
+      <a href="#arch">04 Architecture diagram</a>
+      <a href="#deploy">05 Deployment</a>
+      <a href="#scaling">06 Scaling &amp; region topology</a>
+      <a href="#decisions">07 Decisions</a>
+    </nav>
+  </header>
+
+  <section id="overview">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Overview</h2>
+    </div>
+    <p class="lede">Buyer User owns the buyer's identity: profile, registration, onboarding documents, and buyer auth. It's the same shape as Seller User — a registration/approval flow feeding a live profile record, with the same document-upload and OTP mechanics — just lighter in volume, since buyer onboarding doesn't carry the GST/bank-details/coordinator surface that seller onboarding does.</p>
+    <p>Because the shape matches Seller User, most of the reasoning in that doc carries over directly: registration traffic is bursty around onboarding pushes rather than steady, and document upload is I/O bound, not CPU bound, so it scales on request queue depth rather than CPU. The difference here is scale, not architecture — Buyer User should be sized down from Seller User's numbers (fewer tasks, smaller instance class), not redesigned.</p>
+  </section>
+
+  <section id="data">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Data ownership</h2>
+    </div>
+    <p>15 tables across two packages — notably simpler than Seller User's three-lifecycle split, because Buyer only has two stages (temp registration, then live) rather than three.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Table</th><th>Package</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>tbl_buyer</code></td><td>entity/buyer</td><td>Live, approved buyer account record.</td></tr>
+          <tr><td><code>tbl_buyer_user</code></td><td>entity/buyer</td><td>Login identity for a buyer, scoped to this domain (see auth callout below).</td></tr>
+          <tr><td><code>tbl_buyer_address</code></td><td>entity/buyer</td><td>Registered address(es) for a live buyer.</td></tr>
+          <tr><td><code>tbl_buyer_delivery_address</code></td><td>entity/buyer</td><td>Delivery-specific address(es), distinct from registered address.</td></tr>
+          <tr><td><code>tbl_buyer_contact</code></td><td>entity/buyer</td><td>Named contact person on the buyer account.</td></tr>
+          <tr><td><code>tbl_buyer_document</code></td><td>entity/buyer</td><td>Approved onboarding documents for a live buyer.</td></tr>
+          <tr><td><code>tbl_buyer_signup_otp</code></td><td>entity/buyer</td><td>Signup OTP, buyer-domain-specific table.</td></tr>
+          <tr><td><code>tbl_buyer_login_otp</code></td><td>entity/buyer</td><td>Login OTP, buyer-domain-specific table.</td></tr>
+          <tr><td><code>tbl_buyer_refresh_tokens</code></td><td>entity/buyer</td><td>Refresh token store, buyer-domain-specific table.</td></tr>
+          <tr><td><code>tbl_temp_buyer</code></td><td>entity/temp/buyer</td><td>In-progress buyer registration, pre-approval.</td></tr>
+          <tr><td><code>tbl_temp_buyer_address</code></td><td>entity/temp/buyer</td><td>Address captured during registration.</td></tr>
+          <tr><td><code>tbl_temp_buyer_contact</code></td><td>entity/temp/buyer</td><td>Contact details captured during registration.</td></tr>
+          <tr><td><code>tbl_temp_buyer_document</code></td><td>entity/temp/buyer</td><td>Documents uploaded mid-registration, not yet reviewed.</td></tr>
+          <tr><td><code>tbl_temp_buyer_review_history</code></td><td>entity/temp/buyer</td><td>Reviewer actions/comments on a temp registration.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout"><b>Inconsistency worth naming:</b> Buyer already has its own dedicated OTP/refresh-token tables (<code>tbl_buyer_signup_otp</code>, <code>tbl_buyer_login_otp</code>, <code>tbl_buyer_refresh_tokens</code>), fully scoped to this domain. Seller, by contrast, reuses a generic shared <code>entity/auth</code> package (<code>tbl_user</code>, <code>tbl_signup_otp</code>, <code>tbl_refresh_tokens</code>, <code>tbl_login_otp</code>) also used by seller-coordinator login. The two domains solved the same problem two different ways. This doc and the Seller User doc both flag it — the recommendation (see Decisions) is for Seller to adopt Buyer's pattern, not the reverse, since Buyer's is already proven and per-domain auth avoids a cross-service dependency once both are split out.</div>
+
+    <p>Buyer User FKs into the same shared master tables as Seller User — <code>tbl_state_master</code>, <code>tbl_district_master</code>, <code>tbl_taluka_master</code>, <code>tbl_buyer_type_master</code>, <code>tbl_document_type_master</code>. These remain a shared read-only reference module, not owned by either service, and get cached at the edge.</p>
+  </section>
+
+  <section id="comms">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Communication</h2>
+    </div>
+    <p class="lede">Same shape as Seller User: Buyer User is mostly called, rarely calls out, and the inbound calls are read-only eligibility/profile lookups that should be cached rather than hit live on every request.</p>
+
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-sync">Sync</span> Inbound eligibility/profile lookups</h3>
+        <div class="when">on order and quotation write paths</div>
+        <ul>
+          <li>Order Management &rarr; Buyer User: is this buyer account active before accepting an order.</li>
+          <li>Quotation Management &rarr; Buyer User: buyer-profile/eligibility check before a quotation can be issued to them.</li>
+          <li>Lower call volume than Seller User's equivalent (fewer buyer-side gating checks than seller-side ones today), but the same caching discipline applies — short-TTL cache, invalidated on status change.</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-async">Platform</span> Boot-time platform calls</h3>
+        <div class="when">on service startup, not business traffic</div>
+        <ul>
+          <li>Registers with Discovery Service so callers can resolve it without hardcoded endpoints.</li>
+          <li>Pulls config from Config Service at boot — DB connection, S3 bucket, feature flags.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="arch">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Architecture diagram</h2>
+    </div>
+    <p>Two inbound callers instead of Seller User's three — Buyer has no Product-side gating check, since product approval is a seller-side concern.</p>
+
+    <div class="arch-diagram">
+      <svg viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
+        <rect class="node-box self" x="270" y="95" width="150" height="70" rx="6"></rect>
+        <text class="node-label" x="345" y="125" text-anchor="middle">Buyer User</text>
+        <text class="node-sub" x="345" y="142" text-anchor="middle">profile · auth · docs</text>
+
+        <rect class="node-box" x="470" y="30" width="170" height="50" rx="6"></rect>
+        <text class="node-label" x="555" y="51" text-anchor="middle">Order Management</text>
+        <text class="node-sub" x="555" y="66" text-anchor="middle">eligibility check</text>
+
+        <rect class="node-box" x="470" y="180" width="170" height="50" rx="6"></rect>
+        <text class="node-label" x="555" y="201" text-anchor="middle">Quotation Management</text>
+        <text class="node-sub" x="555" y="216" text-anchor="middle">eligibility check</text>
+
+        <rect class="node-box" x="30" y="30" width="180" height="50" rx="6"></rect>
+        <text class="node-label" x="120" y="51" text-anchor="middle">Buyer schema</text>
+        <text class="node-sub" x="120" y="66" text-anchor="middle">tbl_buyer, tbl_buyer_*</text>
+
+        <rect class="node-box" x="30" y="105" width="180" height="50" rx="6"></rect>
+        <text class="node-label" x="120" y="126" text-anchor="middle">Onboarding schema</text>
+        <text class="node-sub" x="120" y="141" text-anchor="middle">temp_buyer, review_history</text>
+
+        <rect class="node-box" x="30" y="180" width="180" height="50" rx="6"></rect>
+        <text class="node-label" x="120" y="201" text-anchor="middle">Auth schema</text>
+        <text class="node-sub" x="120" y="216" text-anchor="middle">buyer_user, refresh_tokens</text>
+
+        <path class="edge-sync" d="M270,120 L470,55" marker-end="url(#arrow2)"></path>
+        <path class="edge-sync" d="M270,140 L470,205" marker-end="url(#arrow2)"></path>
+        <text class="edge-label" x="380" y="75">sync</text>
+        <text class="edge-label" x="380" y="185">sync</text>
+
+        <path class="edge-sync" d="M210,55 L270,110"></path>
+        <path class="edge-sync" d="M210,130 L270,130"></path>
+        <path class="edge-sync" d="M210,205 L270,150"></path>
+
+        <defs>
+          <marker id="arrow2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 z" fill="var(--sync)"></path>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="arch-legend">
+      <span><span class="swatch sync"></span>sync request (eligibility/profile check)</span>
+      <span><span class="swatch async"></span>async / platform (not shown — Discovery + Config at boot)</span>
+    </div>
+  </section>
+
+  <section id="deploy">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Deployment</h2>
+    </div>
+    <p>Same module shape as Seller User — ECS Fargate, Aurora PostgreSQL, S3 for documents via the existing <code>S3Service</code> pattern — sized down rather than redesigned. Lower <code>desired_count</code> and a smaller DB instance class reflect the lighter volume noted in §01; the resource graph and autoscaling metric (request queue depth, not CPU) are unchanged from Seller User.</p>
+
+    <span class="file-tab">modules/buyer-user-service/main.tf</span>
+    <pre><span class="c">// near-identical to modules/seller-user-service/main.tf — same reasoning,</span>
+<span class="c">// lower task_count and instance_class because buyer volume is lighter (§01)</span>
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"buyer_user"</span> {
+  cluster_identifier      = <span class="s">"buyer-user-${var.region_short}-${var.environment}"</span>
+  engine                  = <span class="s">"aurora-postgresql"</span>
+  engine_version          = <span class="s">"15.4"</span>
+  master_username         = var.db_master_username
+  master_password         = var.db_master_password
+  db_subnet_group_name    = var.db_subnet_group
+  vpc_security_group_ids  = [aws_security_group.buyer_user_db_sg.id]
+  backup_retention_period = <span class="k">7</span>
+  storage_encrypted       = <span class="k">true</span>
+}
+
+resource <span class="s">"aws_rds_cluster_instance"</span> <span class="s">"writer"</span> {
+  cluster_identifier = aws_rds_cluster.buyer_user.id
+  instance_class     = var.db_instance_class <span class="c">// e.g. db.r6g.medium vs Seller's .large</span>
+  engine             = aws_rds_cluster.buyer_user.engine
+}
+
+resource <span class="s">"aws_s3_bucket"</span> <span class="s">"buyer_documents"</span> {
+  bucket = <span class="s">"pharma-buyer-docs-${var.region_short}-${var.environment}"</span>
+}
+
+module <span class="s">"buyer_user_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"buyer-user"</span>
+  image         = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  desired_count = var.task_count <span class="c">// lower floor than Seller User — see tfvars</span>
+  cpu           = <span class="k">256</span>
+  memory        = <span class="k">512</span>
+  autoscale_on  = <span class="s">"request_queue_depth"</span>
+}</pre>
+
+    <span class="file-tab">envs/ap-southeast-1/buyer-user.tfvars</span>
+    <pre>region_short      = <span class="s">"apse1"</span>
+db_instance_class = <span class="s">"db.r6g.medium"</span>
+task_count        = <span class="k">1</span></pre>
+  </section>
+
+  <section id="scaling">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>Scaling &amp; region topology</h2>
+    </div>
+    <p class="lede">Buyer User is in the same <b>single-writer with warm standby</b> bucket as Seller User, for the same reason: correctness over read scale.</p>
+    <p>Buyer registration and login are transactional and identity-bearing in exactly the way seller registration is — two regions independently writing buyer accounts or issuing refresh tokens against divergent data is a reconciliation problem, not something that resolves itself the way a stale product listing does. There's no argument for treating Buyer differently from Seller here just because its volume is lower; volume affects sizing, not the write-consistency requirement.</p>
+    <p>Failover follows the same pattern as Seller User: a warm standby replica, promoted via a controlled runbook rather than an automatic instant cutover, with Route 53 repointed once the promoted cluster is confirmed healthy.</p>
+
+    <div class="cost-strip">
+      <div class="cost-item">
+        <div class="lbl">Writer region floor</div>
+        <div class="fig">1 task</div>
+        <div class="note">lower than Seller User's 2-task floor, reflecting lighter steady-state volume</div>
+      </div>
+      <div class="cost-item">
+        <div class="lbl">Standby region floor</div>
+        <div class="fig">1 task + replica</div>
+        <div class="note">kept warm for promotion, not sized for production load until promoted</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2>Decisions worth writing down</h2>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — collapse Temp/Live into one schema, same as Seller</span>
+      <h4>Buyer's two-stage lifecycle gets one identity with a status column</h4>
+      <p>Buyer's split is simpler than Seller's (two stages, not three — there's no separate "pending admin approval" table family the way Seller has <code>tbl_pending_seller</code>), but the same principle applies: <code>tbl_temp_buyer</code> and <code>tbl_buyer</code> should become one entity with a <code>lifecycle_status</code> column rather than two tables with independent keys, using <code>tbl_temp_buyer_review_history</code>'s existing history pattern to preserve the audit trail. This keeps Buyer User's schema simpler than Seller's by construction, not by accident — there's no reason to introduce a third stage Buyer doesn't currently have.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — Buyer's per-domain auth pattern is the one to standardize on</span>
+      <h4>Keep Buyer's dedicated OTP/refresh-token tables; Seller adopts this pattern, not the reverse</h4>
+      <p>Buyer already owns <code>tbl_buyer_signup_otp</code>, <code>tbl_buyer_login_otp</code>, and <code>tbl_buyer_refresh_tokens</code> scoped entirely to its own domain — no changes needed here. The call to make (recorded in full in the Seller User doc) is that Seller migrates off the shared <code>entity/auth</code> package onto this same pattern, because a shared auth schema becomes a cross-service coupling the moment Seller and Buyer split into separate services, and Buyer's version is already running in production. Buyer User Service ships its auth tables as-is; it isn't the side that has migration work to do.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — no IFSC or terms-master ownership on the Buyer side</span>
+      <h4><code>tbl_ifsc_overrides</code> stays with Seller; <code>tbl_terms_master</code> goes to shared legal content</h4>
+      <p><code>tbl_ifsc_overrides</code> validates bank details, which Buyer registration doesn't collect — it has no reason to touch Buyer User's schema and stays fully on the Seller side (see Seller User doc). <code>tbl_terms_master</code>, despite sitting under <code>entity/temp/seller</code> today, is legal content Buyer will also need at registration — it shouldn't be duplicated into Buyer's schema either. Both Buyer User and Seller User should read it from a shared legal-content table in the reference module, not own a copy each.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; Buyer User Service</span>
+    <span><a href="../index.html">Service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>
