@@ -101,7 +101,7 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
                 height: 48,
                 minHeight: 48,
                 maxHeight: 52,
-                background: active ? "#FFFFFF" : "transparent",
+                background: active ? "var(--Colors-Secondary-Secondary-50, #F8F5FF)" : "transparent",
                 borderRadius: 8,
                 border: "none",
                 cursor: disabled ? "not-allowed" : "pointer",
@@ -119,16 +119,16 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
                 if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
               }}
             >
-              <span style={{ display: "flex", flexShrink: 0, color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "#000000" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" }}>
+              <span style={{ display: "flex", flexShrink: 0, color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "var(--Colors-Secondary-Secondary-700, #7D32FC)" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" }}>
                 {item.icon}
               </span>
               <span style={{
                 flex: 1,
                 textAlign: "left",
-                color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "#000000" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)",
+                color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "var(--Colors-Secondary-Secondary-700, #7D32FC)" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)",
                 fontSize: 16,
                 fontFamily: "Work Sans, sans-serif",
-                fontWeight: active ? 500 : 400,
+                fontWeight: 500,
                 lineHeight: "24px",
               }}>
                 {item.label}
@@ -142,30 +142,32 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
       </nav>
 
       <div className="flex flex-col gap-2">
-        <div className="rounded-2xl bg-white p-4 flex flex-col gap-2">
-          <span className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary-600 text-white shrink-0">
-            <Lock size={18} />
-          </span>
-          <div>
-            <p className="text-p3 font-body font-bold text-pneutral-900">Unlock marketplace features</p>
-            <p className="text-p4 font-body font-regular text-pneutral-600 mt-1">
-              Complete your verification to access 10,000+ products from verified suppliers.
+        <div className="rounded-lg bg-secondary-100 p-4 flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center justify-center size-12 rounded-full bg-secondary-700 text-white shrink-0">
+              <Lock size={24} />
+            </span>
+            <p className="flex-1 text-label-l3 font-heading font-semibold text-pneutral-800">
+              Unlock marketplace features
             </p>
           </div>
+          <p className="text-p2 font-body font-regular text-pneutral-800 opacity-90">
+            Complete your verification to access 10,000+ products from verified suppliers.
+          </p>
           <button
             type="button"
-            className="self-start flex items-center gap-1.5 rounded-xl bg-secondary-600 text-white text-p4 font-body font-semibold px-4 py-2 mt-1"
+            className="self-start flex items-center gap-2 rounded-sm bg-secondary-700 text-pneutral-50 text-label-l3 font-heading font-medium h-9 px-3"
           >
             Learn more
-            <ArrowRight size={14} />
+            <ArrowRight size={16} />
           </button>
         </div>
 
         <button
           type="button"
-          className="flex items-center gap-3 rounded-2xl bg-neutral-100 text-pneutral-900 text-p3 font-body font-regular px-4 py-3"
+          className="flex items-center gap-3 rounded-sm bg-pneutral-100 text-pneutral-900 text-p3 font-body font-regular px-4 py-3"
         >
-          <Headset size={20} />
+          <Headset size={24} />
           Help &amp; Support
         </button>
 
@@ -173,9 +175,9 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
           type="button"
           onClick={handleLogout}
           disabled={isLoggingOut}
-          className="flex items-center gap-3 rounded-2xl bg-warning-50 text-red-500 text-p3 font-body font-semibold px-4 py-3 disabled:opacity-60"
+          className="flex items-center gap-2 rounded-sm bg-warning-50 text-warning-500 text-p3 font-body font-regular p-3 disabled:opacity-60"
         >
-          <LogOut size={20} />
+          <LogOut size={24} />
           {isLoggingOut ? "Logging out…" : "Logout"}
         </button>
       </div>

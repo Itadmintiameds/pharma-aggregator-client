@@ -10,6 +10,7 @@ import ProfileProgressRing from "@/src/app/commonComponents/ProfileProgressRing"
 import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { useBuyerOnboardingStatus, getBuyerProfileCompletion } from "@/src/hooks/useBuyerOnboardingStatus";
+import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 
 interface LandingHeaderProps {
     searchQuery?: string;
@@ -26,6 +27,7 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
     const accountMenuRef = useRef<HTMLDivElement>(null);
     const { status: onboardingStatus } = useBuyerOnboardingStatus();
     const completion = getBuyerProfileCompletion(onboardingStatus);
+    const { openLoginModal } = useBuyerLoginModal();
 
     useEffect(() => {
         const syncBuyerAuth = () => setBuyerEmail(buyerAuthService.getCurrentUser()?.username ?? null);
@@ -55,7 +57,7 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
         <header className="w-full bg-base-white fixed top-0 left-0 z-50">
 
             {/* ================= ROW 1 ================= */}
-            <div className="w-full h-16 px-[40px] py-[8px] flex items-center gap-4 bg-base-white">
+            <div className="w-full h-16 px-4 sm:px-6 lg:px-[40px] py-[8px] flex items-center gap-4 bg-base-white">
                 <div className="max-w-full w-full h-12 mx-auto flex items-center justify-between">
 
                     {/* Logo */}
@@ -89,17 +91,17 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
             </div>
 
             {/* ================= ROW 2 ================= */}
-            <div className="w-full h-16 px-[40px] py-[8px] flex items-center gap-6 border-b border-neutral-100 bg-base-white">
-                <div className="max-w-full w-full mx-auto flex items-center justify-between">
+            <div className="w-full h-auto sm:h-16 px-4 sm:px-6 lg:px-[40px] py-3 sm:py-[8px] flex items-center gap-6 border-b border-neutral-100 bg-base-white">
+                <div className="max-w-full w-full mx-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
 
                     {/* Search */}
-                    <div className="relative w-[662px] h-12">
+                    <div className="relative w-full sm:w-[320px] lg:w-[662px] h-12 shrink-0">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 w-5 h-5" />
 
                         <input
                             type="text"
                             placeholder="Search by molecule, Brand or therapeutic area"
-                            className="w-full h-full pl-12 pr-4 rounded-md bg-neutral-100 text-label-l3 focus:outline-none"
+                            className="w-full h-full pl-12 pr-4 rounded-full bg-neutral-100 text-label-l3 focus:outline-none"
                             {...(onSearchChange
                                 ? { value: searchQuery ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement>) => onSearchChange(e.target.value) }
                                 : {})}
@@ -107,7 +109,7 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
                     </div>
 
                     {/* Right Actions */}
-                    <div className="h-12 flex items-center gap-2">
+                    <div className="h-auto sm:h-12 flex items-center flex-wrap gap-2 justify-center sm:justify-end">
 
                         {buyerEmail ? (
                             <div className="relative" ref={accountMenuRef}>
@@ -170,7 +172,7 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
                                         size="md"
                                         shape="round"
                                         label="Become a Buyer"
-                                        className="w-[155px]"
+                                        className="w-auto sm:w-[155px]"
                                     />
                                 </Link>
                                 <Link href="/seller_7a3b9f2c">
@@ -179,9 +181,17 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
                                         size="md"
                                         shape="round"
                                         label="Become a Seller"
-                                        className="w-[155px]"
+                                        className="w-auto sm:w-[155px]"
                                     />
                                 </Link>
+                                <Button
+                                    variant="filled"
+                                    size="md"
+                                    shape="round"
+                                    label="Login"
+                                    onClick={openLoginModal}
+                                    className="w-auto sm:w-[110px]"
+                                />
                             </>
                         )}
 

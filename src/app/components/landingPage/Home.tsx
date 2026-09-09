@@ -8,6 +8,8 @@ import HeroSection from "./HeroSection";
 import Footer from "./Footer";
 import ProductGrid from "./ProductGrid";
 import FeatureBrands from "./FeatureBrands";
+import Deals from "./Deals";
+import TrendingProducts from "./TrendingProducts";
 import LoginModal from "../../modals/LoginModals/LoginModals";
 import toast from "react-hot-toast";
 
@@ -67,7 +69,9 @@ const Home = () => {
         {/* Main Content */}
         <main className="pt-38">
           <HeroSection />
+          <Deals />
           <FeatureBrands />
+          <TrendingProducts />
           <ProductGrid searchQuery={searchQuery} />
         </main>
 

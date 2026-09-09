@@ -90,30 +90,28 @@ const FeatureBrands = () => {
     const marqueeSellers = [...sellers, ...sellers];
 
     return (
-        <section className="w-full xl:w-[1280px] h-[176px] mx-auto bg-neutral-50 flex flex-col items-center justify-center">
+        <section className="py-10 w-full">
 
             {/* ================= HEADER ================= */}
-            <div className="w-[1240px] h-[32px] flex items-center">
-                <h2 className="text-h4 font-semibold text-neutral-900">
-                    Featured Sellers
-                </h2>
-            </div>
+            <h2 className="max-w-[1280px] mx-auto px-3 sm:px-4 font-heading font-semibold text-h4 text-pneutral-900 mb-6">
+                Featured Pharma Brands
+            </h2>
 
-            {/* ================= LOGO MARQUEE ================= */}
-            <div className="w-[1240px] h-[80px] overflow-hidden mt-6 ">
+            {/* ================= LOGO MARQUEE (full viewport width) ================= */}
+            <div className="w-full overflow-hidden">
 
-                <div className=" gap-8 brand-marquee">
+                <div className="gap-10 brand-marquee">
 
                     {marqueeSellers.map((seller, index) => (
                         <div
                             key={`${seller.sellerId}-${index}`}
-                            className="group relative w-[100px] h-[80px] shrink-0 flex items-center justify-center"
+                            className="group relative w-[140px] h-[80px] shrink-0 flex items-center justify-center"
                         >
                             {seller.sellerImageUrl ? (
                                 <img
                                     src={seller.sellerImageUrl}
                                     alt={seller.sellerName}
-                                    className="w-14 h-14 rounded-2xl object-cover shadow-md ring-1 ring-pneutral-200"
+                                    className="max-w-[100px] max-h-[56px] object-contain"
                                 />
                             ) : (
                                 <SellerLogoMark name={seller.sellerName} />

@@ -1,17 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
   Menu,
   ChevronRight,
-  ChevronDown,
-  ShoppingCart,
-  Plus,
-  Minus,
 } from "lucide-react";
 import {
   getConsumableDeviceCategories,
@@ -22,9 +17,7 @@ import { getProductCategories as getFoodInfantProductCategories } from "@/src/se
 import { getCosmeticProductTypes } from "@/src/services/product/CosmeticService";
 import { getAllProducts } from "@/src/services/buyer/buyerProductService";
 import { BuyerProduct } from "@/src/types/buyer/product";
-import { useCart } from "@/src/context/CartContext";
-import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
-import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
+import CardSlider from "./CardSlider";
 
 interface SubCategory {
   id: string | number;
@@ -57,8 +50,6 @@ const toSubCategories = (
   });
 };
 
-const PLACEHOLDER_IMAGE = "/icons/Tumbnail.svg";
-
 const HeroSection = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [hoveredParentId, setHoveredParentId] = useState<number | null>(null);
@@ -70,17 +61,6 @@ const HeroSection = () => {
     null
   );
   const [allProducts, setAllProducts] = useState<BuyerProduct[]>([]);
-  const { items: cartItems, addItem, updateQuantity } = useCart();
-  const { openSignupModal } = useBuyerLoginModal();
-  const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(() =>
-    buyerAuthService.isAuthenticated()
-  );
-
-  useEffect(() => {
-    const syncBuyerAuth = () => setIsBuyerLoggedIn(buyerAuthService.isAuthenticated());
-    window.addEventListener("buyer-auth-changed", syncBuyerAuth);
-    return () => window.removeEventListener("buyer-auth-changed", syncBuyerAuth);
-  }, []);
 
   const sliderImages = [
     "/assets/images/medPic.png",
@@ -164,59 +144,20 @@ const HeroSection = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const MARQUEE_SPEED = 70; // px per second (slower, steady crawl)
-  const MARQUEE_EASING = 4; // higher = quicker ramp up/down on hover
-
-  const marqueeTrackRef = useRef<HTMLDivElement>(null);
-  const marqueePositionRef = useRef(0);
-  const marqueeSpeedRef = useRef(MARQUEE_SPEED);
-  const marqueeHoveredRef = useRef(false);
-
-  useEffect(() => {
-    const track = marqueeTrackRef.current;
-    if (!track || displayedProducts.length === 0) return;
-
-    let lastTime: number | null = null;
-    let rafId: number;
-
-    const animate = (time: number) => {
-      if (lastTime === null) lastTime = time;
-      const delta = (time - lastTime) / 1000;
-      lastTime = time;
-
-      const targetSpeed = marqueeHoveredRef.current ? 0 : MARQUEE_SPEED;
-      marqueeSpeedRef.current +=
-        (targetSpeed - marqueeSpeedRef.current) *
-        Math.min(1, MARQUEE_EASING * delta);
-
-      marqueePositionRef.current -= marqueeSpeedRef.current * delta;
-
-      const halfWidth = track.scrollWidth / 2;
-      if (halfWidth > 0 && Math.abs(marqueePositionRef.current) >= halfWidth) {
-        marqueePositionRef.current += halfWidth;
-      }
-
-      track.style.transform = `translateX(${marqueePositionRef.current}px)`;
-      rafId = requestAnimationFrame(animate);
-    };
-
-    rafId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(rafId);
-  }, [displayedProducts]);
-
   return (
-    <div className="flex flex-col bg-white lg:flex-row gap-3 sm:gap-4 w-full px-3 sm:px-4 mx-auto max-w-[1280px] min-h-[auto] lg:h-[570px]">
+    <div className="flex flex-col gap-3 sm:gap-4 w-full px-3 sm:px-4 mx-auto max-w-[1280px]">
+    <div className="flex flex-col bg-white lg:flex-row gap-3 sm:gap-4 w-full min-h-[auto] lg:items-stretch">
       {/* ================= LEFT CATEGORY SIDEBAR ================= */}
-      <aside className="relative w-full lg:w-[240px] xl:w-[280px] bg-neutral-50 rounded-2xl shadow-sm border border-neutral-400 shrink-0 lg:block hidden">
-        <div className="relative flex items-center bg-primary-900 text-white px-3 sm:px-4 py-2.5 sm:py-3 h-[48px] sm:h-[52px] rounded-t-2xl">
+      <aside className="relative w-full lg:w-[240px] xl:w-[280px] bg-base-white rounded-2xl shadow-sm border border-pneutral-200 shrink-0 lg:flex lg:flex-col hidden">
+        <div className="relative flex items-center bg-base-white text-pneutral-900 px-3 sm:px-4 py-2.5 sm:py-3 h-[48px] sm:h-[52px] rounded-t-2xl border-b border-pneutral-200 shrink-0">
           <Menu size={16} className="sm:w-[18px]" />
-          <span className="absolute left-1/2 -translate-x-1/2 font-medium text-xs sm:text-sm xl:text-base whitespace-nowrap">
-            List Categories
+          <span className="absolute left-1/2 -translate-x-1/2 font-heading font-semibold text-xs sm:text-sm xl:text-base whitespace-nowrap">
+            List Category
           </span>
-          <ChevronDown size={16} className="sm:w-[18px] ml-auto" />
+          <ChevronRight size={16} className="sm:w-[18px] ml-auto" />
         </div>
 
-        <div className="h-[calc(570px-52px-2px)] flex flex-col">
+        <div className="flex-1 flex flex-col">
           {PARENT_CATEGORIES.map((item) => {
             const subcategories = subcategoryCache[item.id];
             const isHovered = hoveredParentId === item.id;
@@ -234,7 +175,7 @@ const HeroSection = () => {
               >
                 <div
                   onClick={() => handleSelectCategory(item.id)}
-                  className={`h-full flex items-center justify-between px-3 sm:px-4 text-xs sm:text-sm cursor-pointer border-b last:border-none last:rounded-b-2xl group ${
+                  className={`h-full flex items-center justify-between px-3 sm:px-4 text-xs sm:text-sm cursor-pointer border-b border-pneutral-200 last:border-none last:rounded-b-2xl group ${
                     isSelected
                       ? "bg-primary-800 text-white"
                       : "text-neutral-900 hover:bg-primary-800 hover:text-white"
@@ -288,23 +229,23 @@ const HeroSection = () => {
       {/* ================= RIGHT SECTION ================= */}
       <section className="flex-1 flex flex-col gap-3 sm:gap-4 lg:gap-5 xl:gap-6 min-w-0 w-full lg:w-[calc(100%-240px)] xl:w-[calc(100%-280px)] max-w-full">
         {/* ================= HERO BANNER ================= */}
-        <div className="relative h-auto min-h-[280px] sm:min-h-[300px] lg:h-[310px] bg-secondary-50 rounded-2xl px-4 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 lg:py-1 overflow-hidden w-full">
+        <div className="relative h-auto min-h-[280px] sm:min-h-[300px] lg:h-[310px] bg-secondary-100 rounded-2xl px-4 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 lg:py-1 overflow-hidden w-full">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 lg:gap-4 xl:gap-8 w-full">
             <div className="w-full md:w-[380px] lg:w-[400px] xl:w-[430px] text-center md:text-left">
-              <h1 className="text-lg sm:text-xl text-black font-bold tracking-wider mb-1">
+              <h1 className="font-heading text-lg sm:text-xl text-pneutral-900 font-bold tracking-wide mb-1">
                 TiaMeds
               </h1>
 
-              <h1 className="py-1 sm:py-2 text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-4xl leading-tight text-black">
+              <h1 className="font-heading py-1 sm:py-2 text-xl sm:text-2xl md:text-3xl lg:text-h3 xl:text-h3 leading-tight text-pneutral-900 font-semibold">
                 India&apos;s First <br className="hidden sm:block" />
-                <span className="text-primary-600 font-bold">
+                <span className="text-primary-700 font-bold">
                   Compliance-Controlled
                 </span>{" "}
                 <br className="hidden sm:block" />
                 Pharma Marketplace
               </h1>
 
-              <p className="text-black text-xs sm:text-sm lg:text-base leading-relaxed max-w-full">
+              <p className="font-body text-pneutral-700 text-xs sm:text-sm lg:text-base leading-relaxed max-w-full">
                 Connecting verified pharma buyers & sellers. AI-powered
                 matching, instant quotes, guaranteed compliance, and express
                 delivery.
@@ -354,177 +295,34 @@ const HeroSection = () => {
           </div>
         </div>
 
-        {/* ================= AUTO SLIDING PRODUCT CARDS ================= */}
-        {selectedCategoryId && (
-          <div className="flex items-center gap-2 px-1">
-            <span className="text-xs sm:text-sm text-neutral-600">
-              Showing:{" "}
-              <span className="font-medium text-neutral-900">
-                {selectedCategoryName}
-              </span>
-            </span>
-            <button
-              onClick={() => setSelectedCategoryId(null)}
-              className="text-xs sm:text-sm text-primary-600 hover:text-primary-800 underline"
-            >
-              Clear filter
-            </button>
-          </div>
-        )}
-
-        {selectedCategoryId && displayedProducts.length === 0 ? (
-          <div className="flex items-center justify-center h-[120px] text-sm text-neutral-500">
-            No products found in this category yet.
-          </div>
-        ) : (
-        <div
-          className="relative overflow-hidden px-1 w-full"
-          onMouseEnter={() => (marqueeHoveredRef.current = true)}
-          onMouseLeave={() => (marqueeHoveredRef.current = false)}
-        >
-          <div
-            ref={marqueeTrackRef}
-            className="flex gap-3 sm:gap-4 lg:gap-5 xl:gap-6 w-fit will-change-transform"
-          >
-            {[...displayedProducts, ...displayedProducts].map((product, index) => {
-              const pricing = product.pricingDetails?.[0];
-              const image = product.productImages?.[0]?.productImage || PLACEHOLDER_IMAGE;
-              const cartQuantity =
-                cartItems.find((item) => item.productId === product.productId)?.quantity ?? 0;
-
-              const handleAddToCart = (e: React.MouseEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!isBuyerLoggedIn) {
-                  openSignupModal();
-                  return;
-                }
-                addItem(product);
-              };
-
-              const handleIncrement = (e: React.MouseEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!isBuyerLoggedIn) {
-                  openSignupModal();
-                  return;
-                }
-                updateQuantity(product.productId, cartQuantity + 1);
-              };
-
-              const handleDecrement = (e: React.MouseEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-                updateQuantity(product.productId, cartQuantity - 1);
-              };
-
-              return (
-                <Link
-                  key={`${product.productId}-${index}`}
-                  href={`/product/${product.productId}`}
-                  className="w-[300px] sm:w-[380px] md:w-[420px] lg:w-[440px] xl:w-[460px] h-[180px] sm:h-[200px] md:h-[210px] lg:h-[220px] xl:h-[224px] bg-white rounded-2xl shadow-sm border border-neutral-200 p-3 sm:p-4 xl:p-6 flex gap-2 sm:gap-3 shrink-0 hover:shadow-md transition"
-                >
-                  {/* IMAGE */}
-                  <div className="relative w-[100px] sm:w-[120px] md:w-[130px] lg:w-[140px] xl:w-[151px] h-[120px] sm:h-[140px] md:h-[150px] lg:h-[160px] xl:h-[176px] shrink-0">
-                    <Image
-                      src={image}
-                      alt={product.productName}
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 640px) 100px, (max-width: 768px) 120px, (max-width: 1024px) 130px, (max-width: 1280px) 140px, 151px"
-                      unoptimized={image !== PLACEHOLDER_IMAGE}
-                    />
-                  </div>
-
-                  {/* CONTENT */}
-                  <div className="flex flex-col justify-between flex-1 w-[calc(100%-120px)] sm:w-[calc(100%-140px)] md:w-[calc(100%-150px)] lg:w-[calc(100%-160px)] xl:w-[calc(100%-171px)]">
-                    <div>
-                      {product.manufacturerName && (
-                        <h3 className="text-right text-sm sm:text-base lg:text-lg font-bold text-neutral-800 truncate">
-                          {product.manufacturerName}
-                        </h3>
-                      )}
-
-                      <p className="text-right text-primary-600 font-semibold text-xs sm:text-sm lg:text-base truncate">
-                        {product.productName}
-                      </p>
-
-                      {product.productDescription && (
-                        <p className="text-right text-xs sm:text-sm text-gray-500 mt-1 truncate">
-                          {product.productDescription}
-                        </p>
-                      )}
-
-                      <p className="text-xs text-yellow-500 mt-2 sm:mt-4">
-                        ● Limited stock
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-2 sm:mt-3 lg:mt-4 gap-1 sm:gap-2">
-                      <div className="flex items-center gap-1">
-                        {!isBuyerLoggedIn && (
-                          <span className="text-xs sm:text-sm font-medium text-pneutral-900 whitespace-nowrap">
-                            MRP:
-                          </span>
-                        )}
-                        <div
-                          className={`flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1 ${
-                            isBuyerLoggedIn ? "" : "blur-[5px] select-none pointer-events-none"
-                          }`}
-                          title={isBuyerLoggedIn ? undefined : "Login to view price"}
-                        >
-                          {pricing?.mrp != null && pricing.mrp !== pricing?.sellingPrice && (
-                            <span className="line-through text-neutral-900 text-xs whitespace-nowrap">
-                              ₹{pricing.mrp}
-                            </span>
-                          )}
-                          {pricing?.sellingPrice != null && (
-                            <span className="text-sm sm:text-base lg:text-xl xl:text-2xl font-semibold text-neutral-900 whitespace-nowrap">
-                              ₹{pricing.sellingPrice}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {cartQuantity > 0 ? (
-                        <div className="inline-flex items-center gap-2 sm:gap-3 bg-primary-600 text-white text-xs sm:text-sm px-2 sm:px-3 xl:px-4 py-1.5 sm:py-2 rounded-lg whitespace-nowrap">
-                          <button
-                            onClick={handleDecrement}
-                            aria-label="Decrease quantity"
-                            className="hover:scale-110 transition"
-                          >
-                            <Minus size={14} className="sm:w-[16px]" />
-                          </button>
-                          <span className="min-w-[14px] text-center font-medium">
-                            {cartQuantity}
-                          </span>
-                          <button
-                            onClick={handleIncrement}
-                            aria-label="Increase quantity"
-                            className="hover:scale-110 transition"
-                          >
-                            <Plus size={14} className="sm:w-[16px]" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={handleAddToCart}
-                          aria-label="Add to cart"
-                          className="inline-flex items-center justify-center gap-1 sm:gap-2 bg-primary-600 hover:bg-primary-800 text-white text-xs sm:text-sm px-2 sm:px-3 xl:px-4 py-1.5 sm:py-2 rounded-lg transition whitespace-nowrap"
-                        >
-                          <ShoppingCart size={14} className="sm:w-[16px] shrink-0" />
-                          <span className="hidden xs:inline">Buy Now</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-        )}
       </section>
+    </div>
+
+      {/* ================= PROMOTIONAL PRODUCT ROW ================= */}
+      {selectedCategoryId && (
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-xs sm:text-sm text-neutral-600">
+            Showing:{" "}
+            <span className="font-medium text-neutral-900">
+              {selectedCategoryName}
+            </span>
+          </span>
+          <button
+            onClick={() => setSelectedCategoryId(null)}
+            className="text-xs sm:text-sm text-primary-600 hover:text-primary-800 underline"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
+
+      {selectedCategoryId && displayedProducts.length === 0 ? (
+        <div className="flex items-center justify-center h-[120px] text-sm text-neutral-500">
+          No products found in this category yet.
+        </div>
+      ) : (
+        <CardSlider products={displayedProducts} />
+      )}
     </div>
   );
 };

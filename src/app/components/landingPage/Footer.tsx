@@ -10,26 +10,25 @@ import {
 
 const Footer = () => {
   return (
-    <footer className="relative bg-primary-900 py-1 px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl mt-20">
+    <footer className="relative bg-primary-900 px-6 lg:px-8 py-16">
+      <div className="mx-auto max-w-[1280px]">
         {/* Main Footer Content */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
           {/* Company Info - Takes 4 columns */}
-          <div className="md:col-span-4 space-y-2">
-            <p className="text-neutral-50 text-p4  max-w-xl">
+          <div className="md:col-span-4 space-y-5">
+            <p className="text-neutral-50 text-p4 max-w-xl">
               Transforming pharmaceutical B2B trading with AI-powered technology.
             </p>
-            <Link href="/" className="flex items-center">
+            <Link href="/" className="inline-flex items-center bg-base-white rounded-lg p-3">
               <Image
                 alt="TiaMeds Technologies Logo"
-                src="/assets/images/tiamLogo.jpg"
-                className="h-16 w-auto rounded-lg"
+                src="/assets/images/TiamLogo.jpg"
+                className="h-12 w-auto rounded-md"
                 width={169}
                 height={104}
                 priority
               />
             </Link>
-            
           </div>
 
           {/* Navigation & Contact - Takes 8 columns */}
@@ -37,7 +36,7 @@ const Footer = () => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-12">
               {/* Quick Links */}
               <div>
-                <h3 className="text-white text-xl font-semibold mb-6 pb-2 border-b border-neutral-900">
+                <h3 className="text-white text-label-l4 font-heading font-semibold mb-6">
                   Company
                 </h3>
                 <ul className="space-y-4">
@@ -63,7 +62,7 @@ const Footer = () => {
 
               {/* Solutions */}
               <div>
-                <h3 className="text-white text-xl font-semibold mb-6 pb-2 border-b border-neutral-900">
+                <h3 className="text-white text-label-l4 font-heading font-semibold mb-6">
                   Solutions
                 </h3>
                 <ul className="space-y-4">
@@ -89,7 +88,7 @@ const Footer = () => {
 
               {/* Contact Info */}
               <div>
-                <h3 className="text-white text-xl font-semibold mb-6 pb-2 border-b border-neutral-900">
+                <h3 className="text-white text-label-l4 font-heading font-semibold mb-6">
                   Contact
                 </h3>
                 <address className="not-italic space-y-6">
@@ -142,7 +141,7 @@ const Footer = () => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-2 pt-2 border-t border-neutral-900">
+        <div className="mt-12 pt-6 border-t border-primary-800">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             {/* Copyright */}
             <div className="text-center md:text-left">

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FaShoppingCart, FaMinus, FaPlus } from "react-icons/fa";
+import { ShoppingCart, ShoppingBag, Minus, Plus } from "lucide-react";
+import Button from "@/src/app/commonComponents/Button";
 import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
@@ -11,6 +12,36 @@ import { BuyerProduct } from "@/src/types/buyer/product";
 
 interface ProductCardProps {
   product: BuyerProduct;
+}
+
+interface QuantityStepperProps {
+  quantity: number;
+  onDecrement: (e: React.MouseEvent) => void;
+  onIncrement: (e: React.MouseEvent) => void;
+}
+
+function QuantityStepper({ quantity, onDecrement, onIncrement }: QuantityStepperProps) {
+  return (
+    <div className="flex items-center h-10 rounded-[10px] border border-pneutral-300 overflow-hidden shrink-0">
+      <button
+        onClick={onDecrement}
+        aria-label="Decrease quantity"
+        className="flex items-center justify-center h-full px-2 hover:bg-pneutral-50 transition-colors"
+      >
+        <Minus size={20} className="text-pneutral-900" />
+      </button>
+      <span className="flex items-center justify-center h-full min-w-[36px] px-2 border-l border-r border-pneutral-300 font-body font-medium text-p4 text-pneutral-900 text-center">
+        {quantity}
+      </span>
+      <button
+        onClick={onIncrement}
+        aria-label="Increase quantity"
+        className="flex items-center justify-center h-full px-2 hover:bg-pneutral-50 transition-colors"
+      >
+        <Plus size={20} className="text-pneutral-900" />
+      </button>
+    </div>
+  );
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
@@ -24,6 +55,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const image = product.productImages?.[0]?.productImage;
   const cartQuantity =
     cartItems.find((item) => item.productId === product.productId)?.quantity ?? 0;
+  const inCart = cartQuantity > 0;
 
   useEffect(() => {
     const syncBuyerAuth = () => setIsBuyerLoggedIn(buyerAuthService.isAuthenticated());
@@ -76,104 +108,157 @@ export default function ProductCard({ product }: ProductCardProps) {
     router.push("/cart");
   };
 
+  const priceBlock = pricing && (
+    <div className="flex items-end gap-1">
+      {!isBuyerLoggedIn && (
+        <span className="text-sm font-medium text-pneutral-900 whitespace-nowrap">MRP:</span>
+      )}
+      <div
+        className={`flex items-end gap-2.5 ${
+          isBuyerLoggedIn ? "" : "blur-[5px] select-none pointer-events-none"
+        }`}
+        title={isBuyerLoggedIn ? undefined : "Login to view price"}
+      >
+        {pricing.sellingPrice != null && (
+          <span className="font-heading font-semibold text-label-l5 text-pneutral-800 whitespace-nowrap">
+            ₹{pricing.sellingPrice.toFixed(2)}
+          </span>
+        )}
+        {pricing.mrp != null && pricing.mrp !== pricing.sellingPrice && (
+          <span className="font-heading font-normal text-label-l3 text-pneutral-800 line-through whitespace-nowrap">
+            ₹{pricing.mrp.toFixed(2)}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <Link
       href={`/product/${product.productId}`}
-      className="group relative bg-white rounded-3xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 p-4 overflow-hidden flex flex-col"
+      className="group relative flex flex-col gap-5 bg-white p-6 rounded-[25px] shadow-[0px_4px_10px_0px_rgba(0,0,0,0.1)] hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
     >
-      <div className="transition-transform duration-500 flex-1">
-        <div className="flex justify-center mb-4">
-          <div className="h-[200px] overflow-hidden transition-all duration-500 ease-in-out group-hover:h-[170px]">
-            <img
-              src={image || "/icons/Tumbnail.svg"}
-              alt={product.productName}
-              className="w-full h-full object-contain transition-transform duration-500 ease-in-out group-hover:-translate-y-1"
+      <div className="flex items-center justify-center h-[220px] w-full rounded-[10px] bg-danger-50 overflow-hidden">
+        <img
+          src={image || "/icons/Tumbnail.svg"}
+          alt={product.productName}
+          className="w-full h-full object-contain transition-transform duration-500 ease-in-out group-hover:scale-105"
+        />
+      </div>
+
+      {inCart ? (
+        <div className="flex flex-col gap-2 w-full">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              {product.manufacturerName && (
+                <p className="text-p3 font-body text-pneutral-600 truncate">
+                  {product.manufacturerName}
+                </p>
+              )}
+              <h3 className="font-heading font-bold text-label-l4 text-pneutral-900 truncate">
+                {product.productName}
+              </h3>
+            </div>
+            <QuantityStepper
+              quantity={cartQuantity}
+              onDecrement={handleDecrement}
+              onIncrement={handleIncrement}
             />
           </div>
-        </div>
 
-        <div className="flex items-start justify-between mb-1">
-          <div className="min-w-0">
+          {product.productDescription && (
+            <p className="font-heading font-normal text-label-l3 text-pneutral-600 truncate">
+              {product.productDescription}
+            </p>
+          )}
+
+          <div className="flex items-end justify-between gap-2">
+            {priceBlock}
+            <div className="flex items-center gap-1 pt-1 shrink-0">
+              <span className="size-2 rounded-full bg-danger-600 shrink-0" />
+              <span className="text-p3 font-body font-light text-pneutral-600 whitespace-nowrap">
+                Limited stock
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-col gap-2 min-w-0 flex-1">
             {product.manufacturerName && (
-              <p className="text-sm text-gray-500 mb-1 truncate">{product.manufacturerName}</p>
+              <p className="text-p3 font-body text-pneutral-600 truncate">
+                {product.manufacturerName}
+              </p>
             )}
-            <h3 className="text-lg font-semibold text-gray-800 truncate">{product.productName}</h3>
+            <h3 className="font-heading font-bold text-label-l4 text-pneutral-900 truncate">
+              {product.productName}
+            </h3>
+            {product.productDescription && (
+              <p className="font-heading font-normal text-label-l3 text-pneutral-600 truncate">
+                {product.productDescription}
+              </p>
+            )}
+            {priceBlock}
           </div>
 
           <button
             onClick={handleAddToCart}
-            className="flex items-center justify-start gap-2 bg-primary-700 hover:bg-purple-800 text-white rounded-xl transition-all duration-500 ease-in-out w-10 h-10 pl-3 group-hover:w-auto group-hover:px-4 overflow-hidden shrink-0 z-10"
+            aria-label="Add to cart"
+            className="flex items-center justify-center size-14 rounded-lg bg-primary-900 hover:bg-primary-800 text-white transition-colors shrink-0"
           >
-            <FaShoppingCart className="shrink-0 text-sm" />
-            <span className="text-sm whitespace-nowrap font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out">
-              Add to Cart
-            </span>
+            <ShoppingCart size={24} />
           </button>
         </div>
+      )}
 
-        {product.productDescription && (
-          <p className="text-sm text-gray-500 mt-1 mb-2 line-clamp-2">{product.productDescription}</p>
-        )}
-
-        {product.sellerName && (
-          <p className="text-xs text-gray-400 mb-2 truncate">
-            Sold by <span className="text-gray-600 font-medium">{product.sellerName}</span>
-          </p>
-        )}
-
-        {pricing && (
-          <div className="flex items-center gap-1">
-            {!isBuyerLoggedIn && (
-              <span className="text-sm font-medium text-pneutral-900 whitespace-nowrap">
-                MRP:
-              </span>
-            )}
-            <div
-              className={`flex items-center gap-3 ${
-                isBuyerLoggedIn ? "" : "blur-[5px] select-none pointer-events-none"
-              }`}
-              title={isBuyerLoggedIn ? undefined : "Login to view price"}
-            >
-              {pricing.mrp != null && pricing.mrp !== pricing.sellingPrice && (
-                <span className="text-gray-400 line-through text-sm">₹{pricing.mrp}</span>
-              )}
-              {pricing.sellingPrice != null && (
-                <span className="text-lg font-bold text-gray-900">₹{pricing.sellingPrice}</span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="absolute bottom-0 left-0 w-full px-6 pb-4 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 ease-in-out z-10">
-        <div className="flex items-center justify-between bg-white pt-2 gap-2">
-          <button
+      {inCart ? (
+        <div className="flex items-center justify-between gap-3">
+          <Button
+            variant="filled"
+            size="md"
+            shape="square"
+            label="Buy Now"
+            icon={<ShoppingBag size={16} />}
             onClick={handleBuyNow}
-            className="border border-purple-700 text-purple-700 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-purple-50 transition-colors duration-300 bg-white shadow-sm"
-          >
-            Buy Now
-          </button>
-
-          <div className="flex items-center gap-3 border border-pneutral-200  bg-pneutral-50 px-3 py-1 rounded-full">
-            <button
-              onClick={handleDecrement}
-              disabled={cartQuantity === 0}
-              className="text-purple-700 hover:text-purple-900 transition-colors disabled:opacity-40 disabled:hover:text-purple-700 disabled:cursor-default"
-            >
-              <FaMinus size={10} />
-            </button>
-            <span className="text-sm font-medium text-gray-800 w-4 text-center">{cartQuantity}</span>
-            <button
-              onClick={handleIncrement}
-              className="text-purple-700 hover:text-purple-900 transition-colors"
-            >
-              <FaPlus size={10} />
-            </button>
-          </div>
+            className="flex-1"
+          />
+          <Button
+            variant="outline"
+            size="md"
+            shape="square"
+            label="Add to Cart"
+            icon={<ShoppingCart size={16} />}
+            onClick={handleAddToCart}
+            className="flex-1"
+          />
         </div>
-      </div>
-
-      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out pointer-events-none"></div>
+      ) : (
+        <div
+          className="flex items-center justify-between gap-3 opacity-0 translate-y-1 pointer-events-none
+          group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto
+          group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto
+          transition-all duration-300 ease-out"
+        >
+          <Button
+            variant="outline"
+            size="md"
+            shape="square"
+            label="Add to Cart"
+            icon={<ShoppingCart size={20} />}
+            onClick={handleAddToCart}
+            className="flex-1"
+          />
+          <Button
+            variant="filled"
+            size="md"
+            shape="square"
+            label="Buy Now"
+            icon={<ShoppingBag size={20} />}
+            onClick={handleBuyNow}
+            className="flex-1"
+          />
+        </div>
+      )}
     </Link>
   );
 }
