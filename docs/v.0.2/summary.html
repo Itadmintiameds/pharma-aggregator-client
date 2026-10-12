@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HLD v0.2 — Consolidated Overview</title>
+<link rel="stylesheet" href="assets/doc.css" />
+<style>
+  /* --- diagram --- */
+  .diagram-wrap{ overflow-x:auto; margin:22px 0 10px; border:1px solid var(--line); border-radius:8px; background:var(--paper-raised); box-shadow:var(--shadow); padding:18px; }
+  .diagram-wrap svg{ display:block; min-width:760px; }
+  .dg-box{ fill:var(--paper-raised); stroke:var(--line); stroke-width:1; }
+  .dg-box.accent{ stroke:var(--accent); }
+  .dg-label{ font-family:'Public Sans', sans-serif; font-size:12.5px; fill:var(--ink); font-weight:600; }
+  .dg-sub{ font-family:'IBM Plex Mono', monospace; font-size:9.5px; fill:var(--muted); }
+  .dg-group-label{ font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:.06em; text-transform:uppercase; fill:var(--muted); }
+  .dg-sync{ stroke:var(--sync); fill:none; stroke-width:1.4; }
+  .dg-async{ stroke:var(--async); fill:none; stroke-width:1.4; stroke-dasharray:4 3; }
+  .dg-legend{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; fill:var(--muted); }
+
+  /* --- service grid (compact cards, one object repeated) --- */
+  .svc-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px; margin:20px 0; }
+  .svc-card{ border:1px solid var(--line); border-radius:6px; padding:16px 16px 14px; background:var(--paper-raised); box-shadow:var(--shadow); }
+  .svc-card h4{ font-family:'Newsreader',serif; font-size:1.02rem; font-weight:600; margin:0 0 6px; }
+  .svc-card p{ font-size:12.8px; color:var(--muted); margin:0; max-width:none; }
+  .svc-card .grp{ display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--accent-strong); background:var(--accent-soft); border-radius:99px; padding:1px 8px; margin-bottom:8px; }
+
+  .adr-mini{ display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin:20px 0; font-size:13.5px; }
+  .adr-mini dt{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--accent-strong); white-space:nowrap; padding:8px 0; border-top:1px solid var(--line); }
+  .adr-mini dd{ margin:0; padding:8px 0; border-top:1px solid var(--line); color:var(--ink); }
+  .adr-mini dt:first-of-type, .adr-mini dd:first-of-type{ border-top:none; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">Consolidated overview</h1>
+    <p class="dek">One page for the whole v0.2 topology — eleven services, the platform layer that fronts them, and the nine decisions that shaped the split. Each box below links to its full doc.</p>
+    <div class="meta-row">
+      <span><b>Companion to:</b> <a href="index.html">full service index</a> &middot; <a href="adr.html">all ADRs</a> &middot; <a href="aws-services.html">AWS service inventory</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#diagram">Architecture</a>
+      <a href="#services">Services</a>
+      <a href="#flows">Sync vs. async</a>
+      <a href="#region">Region topology</a>
+      <a href="#decisions">Decisions</a>
+    </nav>
+  </header>
+
+  <section id="diagram">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Architecture</h2></div>
+    <p class="lede">Every client request enters through one gateway. Discovery and Config sit alongside it as the platform layer. Domain services talk to each other directly (sync, solid line) only where a caller needs an answer inside its own request; everything else moves over the event backbone (async, dashed).</p>
+
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 1180 640" role="img" aria-label="pharma-aggregator v0.2 architecture: API Gateway routes client traffic to eleven domain services; Discovery and Config support all of them; sync calls link Order to Product and Quotation to Order; async events fan out through an event backbone to Billing, Notification and Search.">
+        <defs>
+          <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 z" fill="var(--muted)"></path>
+          </marker>
+        </defs>
+
+        <!-- Client -->
+        <rect x="500" y="8" width="180" height="40" rx="5" class="dg-box"></rect>
+        <text x="590" y="32" text-anchor="middle" class="dg-label">Web / Mobile client</text>
+
+        <line x1="590" y1="48" x2="590" y2="76" class="dg-sync" marker-end="url(#ah)"></line>
+
+        <!-- Gateway -->
+        <rect x="470" y="78" width="240" height="46" rx="5" class="dg-box accent"></rect>
+        <text x="590" y="98" text-anchor="middle" class="dg-label">API Gateway</text>
+        <text x="590" y="114" text-anchor="middle" class="dg-sub">sole client entry point &middot; ADR-008</text>
+
+        <!-- Platform layer -->
+        <text x="30" y="150" class="dg-group-label">Platform layer</text>
+        <rect x="30" y="160" width="150" height="44" rx="5" class="dg-box"></rect>
+        <text x="105" y="180" text-anchor="middle" class="dg-label">Discovery</text>
+        <text x="105" y="195" text-anchor="middle" class="dg-sub">Cloud Map</text>
+
+        <rect x="200" y="160" width="150" height="44" rx="5" class="dg-box"></rect>
+        <text x="275" y="180" text-anchor="middle" class="dg-label">Config</text>
+        <text x="275" y="195" text-anchor="middle" class="dg-sub">AppConfig + SSM</text>
+
+        <line x1="470" y1="101" x2="360" y2="182" class="dg-sync" marker-end="url(#ah)"></line>
+        <line x1="360" y1="182" x2="470" y2="101" class="dg-sync"></line>
+
+        <!-- Domain row 1 -->
+        <text x="30" y="250" class="dg-group-label">Domain services</text>
+
+        <g id="svc-seller">
+          <rect x="30" y="262" width="150" height="44" rx="5" class="dg-box"></rect>
+          <text x="105" y="282" text-anchor="middle" class="dg-label">Seller User</text>
+          <text x="105" y="297" text-anchor="middle" class="dg-sub">single-writer</text>
+        </g>
+        <g id="svc-buyer">
+          <rect x="200" y="262" width="150" height="44" rx="5" class="dg-box"></rect>
+          <text x="275" y="282" text-anchor="middle" class="dg-label">Buyer User</text>
+          <text x="275" y="297" text-anchor="middle" class="dg-sub">single-writer</text>
+        </g>
+        <g id="svc-order">
+          <rect x="370" y="262" width="150" height="44" rx="5" class="dg-box"></rect>
+          <text x="445" y="282" text-anchor="middle" class="dg-label">Order Mgmt</text>
+          <text x="445" y="297" text-anchor="middle" class="dg-sub">single-writer</text>
+        </g>
+        <g id="svc-quote">
+          <rect x="540" y="262" width="150" height="44" rx="5" class="dg-box"></rect>
+          <text x="615" y="282" text-anchor="middle" class="dg-label">Quotation</text>
+          <text x="615" y="297" text-anchor="middle" class="dg-sub">single-writer</text>
+        </g>
+        <g id="svc-product">
+          <rect x="710" y="262" width="150" height="44" rx="5" class="dg-box"></rect>
+          <text x="785" y="282" text-anchor="middle" class="dg-label">Product Mgmt</text>
+          <text x="785" y="297" text-anchor="middle" class="dg-sub">active-active</text>
+        </g>
+        <g id="svc-search">
+          <rect x="880" y="262" width="150" height="44" rx="5" class="dg-box"></rect>
+          <text x="955" y="282" text-anchor="middle" class="dg-label">Search Service</text>
+          <text x="955" y="297" text-anchor="middle" class="dg-sub">active-active &middot; OpenSearch</text>
+        </g>
+
+        <!-- gateway to each domain service (thin sync fan-out) -->
+        <path d="M540,124 C540,180 105,180 105,262" class="dg-sync"></path>
+        <path d="M560,124 C560,190 275,190 275,262" class="dg-sync"></path>
+        <path d="M580,124 L445,262" class="dg-sync" marker-end="url(#ah)"></path>
+        <path d="M600,124 L615,262" class="dg-sync" marker-end="url(#ah)"></path>
+        <path d="M620,124 C700,180 785,180 785,262" class="dg-sync" marker-end="url(#ah)"></path>
+        <path d="M640,124 C820,170 955,170 955,262" class="dg-sync" marker-end="url(#ah)"></path>
+
+        <!-- Order -> Product sync (stock/price) -->
+        <path d="M520,284 L710,284" class="dg-sync" marker-end="url(#ah)"></path>
+        <text x="615" y="278" text-anchor="middle" class="dg-sub" style="fill:var(--sync)">stock/price check</text>
+
+        <!-- Quotation -> Order sync (accept) -->
+        <path d="M615,262 C615,240 500,240 445,262" class="dg-sync" marker-end="url(#ah)"></path>
+        <text x="530" y="238" text-anchor="middle" class="dg-sub" style="fill:var(--sync)">accept &rarr; create order</text>
+
+        <!-- Product -> Search async (ProductChanged) -->
+        <path d="M860,284 L880,284" class="dg-async" marker-end="url(#ah)"></path>
+
+        <!-- Event backbone -->
+        <text x="30" y="360" class="dg-group-label">Event backbone &middot; EventBridge + SQS (Kafka for one edge, ADR-009)</text>
+        <rect x="30" y="372" width="1000" height="40" rx="5" class="dg-box" stroke-dasharray="3 3"></rect>
+        <text x="530" y="396" text-anchor="middle" class="dg-sub">OrderConfirmed &middot; ProductChanged &middot; QuotationAccepted &middot; PaymentRecorded</text>
+
+        <path d="M105,306 L105,372" class="dg-async" marker-end="url(#ah)"></path>
+        <path d="M275,306 L275,372" class="dg-async" marker-end="url(#ah)"></path>
+        <path d="M445,306 L445,372" class="dg-async" marker-end="url(#ah)"></path>
+        <path d="M615,306 L615,372" class="dg-async" marker-end="url(#ah)"></path>
+        <path d="M785,306 L785,372" class="dg-async" marker-end="url(#ah)"></path>
+        <path d="M955,306 L955,372" class="dg-async" marker-end="url(#ah)"></path>
+
+        <!-- Downstream async consumers -->
+        <g id="svc-billing">
+          <rect x="380" y="440" width="150" height="44" rx="5" class="dg-box"></rect>
+          <text x="455" y="460" text-anchor="middle" class="dg-label">Billing Mgmt</text>
+          <text x="455" y="475" text-anchor="middle" class="dg-sub">order_id ref only</text>
+        </g>
+        <g id="svc-notify">
+          <rect x="560" y="440" width="150" height="44" rx="5" class="dg-box"></rect>
+          <text x="635" y="460" text-anchor="middle" class="dg-label">Notification</text>
+          <text x="635" y="475" text-anchor="middle" class="dg-sub">delivery log only</text>
+        </g>
+
+        <path d="M455,412 L455,440" class="dg-async" marker-end="url(#ah)"></path>
+        <path d="M635,412 L635,440" class="dg-async" marker-end="url(#ah)"></path>
+
+        <!-- Billing -> Order sync lookup at render time -->
+        <path d="M455,440 C455,420 445,340 445,306" class="dg-sync" marker-end="url(#ah)"></path>
+        <text x="330" y="420" text-anchor="middle" class="dg-sub" style="fill:var(--sync)">line-items, render time</text>
+
+        <!-- Master data -->
+        <g id="svc-master">
+          <rect x="880" y="440" width="150" height="44" rx="5" class="dg-box"></rect>
+          <text x="955" y="460" text-anchor="middle" class="dg-label">Master / Reference</text>
+          <text x="955" y="475" text-anchor="middle" class="dg-sub">shared module &middot; DynamoDB Global Tables</text>
+        </g>
+        <line x1="785" y1="284" x2="880" y2="440" class="dg-sync" stroke-dasharray="2 3" marker-end="url(#ah)"></line>
+
+        <!-- Legend -->
+        <line x1="30" y1="540" x2="70" y2="540" class="dg-sync"></line>
+        <text x="78" y="544" class="dg-legend">synchronous call — caller needs the answer this request</text>
+        <line x1="30" y1="562" x2="70" y2="562" class="dg-async"></line>
+        <text x="78" y="566" class="dg-legend">asynchronous event — via EventBridge/SQS (or MSK for the flagged edge)</text>
+      </svg>
+    </div>
+    <p style="font-size:13px;color:var(--muted);">Full per-edge rationale: <a href="adr.html#adr-003">ADR-003</a> (sync/async default), <a href="adr.html#adr-004">ADR-004</a> (Billing), <a href="adr.html#adr-005">ADR-005</a> (Search), <a href="adr.html#adr-009">ADR-009</a> (event backbone).</p>
+  </section>
+
+  <section id="services">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Services at a glance</h2></div>
+    <div class="svc-grid">
+      <div class="svc-card"><span class="grp">Domain</span><h4><a href="services/seller-user.html">Seller User</a></h4><p>Profile, registration, onboarding docs, bank details.</p></div>
+      <div class="svc-card"><span class="grp">Domain</span><h4><a href="services/buyer-user.html">Buyer User</a></h4><p>Buyer profile, registration, onboarding docs.</p></div>
+      <div class="svc-card"><span class="grp">Domain</span><h4><a href="services/order-management.html">Order Management</a></h4><p>Orders, order lines, status, returns/refunds.</p></div>
+      <div class="svc-card"><span class="grp">Domain</span><h4><a href="services/quotation-management.html">Quotation Management</a></h4><p>Buyer quote requests, seller responses, negotiation state.</p></div>
+      <div class="svc-card"><span class="grp">Domain</span><h4><a href="services/search-service.html">Search Service</a></h4><p>Index only, rebuilt from Product events — no source data.</p></div>
+      <div class="svc-card"><span class="grp">Domain</span><h4><a href="services/product-management.html">Product Management</a></h4><p>Drug / Consumable / Non-consumable / Supplement / Cosmetic / Food-Infant catalog.</p></div>
+      <div class="svc-card"><span class="grp">Domain</span><h4><a href="services/billing-management.html">Billing Management</a></h4><p>Invoices, payments, ledger — references order_id, no line-item copies.</p></div>
+      <div class="svc-card"><span class="grp">Domain</span><h4><a href="services/notification-service.html">Notification Service</a></h4><p>Delivery log only — fully event-driven, never called synchronously.</p></div>
+      <div class="svc-card"><span class="grp">Platform</span><h4><a href="services/api-gateway.html">API Gateway</a></h4><p>Routing, authN/authZ, rate limiting — sole client entry point.</p></div>
+      <div class="svc-card"><span class="grp">Platform</span><h4><a href="services/config-service.html">Config Service</a></h4><p>Externalized config per service, environment, and region.</p></div>
+      <div class="svc-card"><span class="grp">Platform</span><h4><a href="services/discovery-service.html">Discovery Service</a></h4><p>Live registry — who's up, in which region, at which address.</p></div>
+    </div>
+  </section>
+
+  <section id="flows">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Sync vs. async, in one rule</h2></div>
+    <p class="lede">A call is synchronous only when the caller cannot return a correct response without the result in the same request. Everything else runs over the event backbone.</p>
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-sync">Sync</span> Direct, in-request</h3>
+        <div class="when">via Cloud Map resolution, bypasses the gateway</div>
+        <ul>
+          <li><b>Order &rarr; Product</b> — stock/price check before confirming a line item.</li>
+          <li><b>Quotation &rarr; Order</b> — creates the order the instant a quote is accepted.</li>
+          <li><b>Billing &rarr; Order</b> — line-item detail fetched at invoice-render time, never persisted.</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-async">Async</span> Event-driven</h3>
+        <div class="when">EventBridge + SQS per consumer; MSK only where flagged</div>
+        <ul>
+          <li><b>Order &rarr; Billing, Notification</b> — <code>OrderConfirmed</code> fan-out.</li>
+          <li><b>Product &rarr; Search</b> — <code>ProductChanged</code> rebuilds the index; Kafka candidate (ADR-009).</li>
+          <li><b>Quotation, Billing &rarr; Notification</b> — delivery log, no synchronous caller ever waits on it.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="region">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Region topology</h2></div>
+    <p class="lede">One Terraform module per service, region passed as a variable — adding a region is a scripted action, not manual per-service setup (ADR-006). Write topology splits by data sensitivity, not by service tier:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Mode</th><th>Services</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill pill-self">Single-writer + warm standby</span></td><td>Order, Billing, Seller User, Buyer User, Quotation</td><td>Aurora PostgreSQL Global Database — one writer region at a time; transactional correctness over instant failover.</td></tr>
+          <tr><td><span class="pill pill-managed">Active-active</span></td><td>Product Management, Search (OpenSearch), Master/Reference Data</td><td>Read-heavy, lag-tolerant — DynamoDB Global Tables and independent index replicas per region.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Decisions, condensed</h2></div>
+    <p class="lede">Nine ADRs govern this topology; full context, alternatives, and trade-offs live in the <a href="adr.html">ADR doc</a>.</p>
+    <dl class="adr-mini">
+      <dt>ADR-001</dt><dd>11 services, not 5 — finer split for independent scaling; master data stays a shared module.</dd>
+      <dt>ADR-002</dt><dd>Discovery/Config go AWS-native (Cloud Map, AppConfig) over self-hosted Eureka/Consul.</dd>
+      <dt>ADR-003</dt><dd>Async by default; sync only where the caller needs the answer this request.</dd>
+      <dt>ADR-004</dt><dd>Billing stores <code>order_id</code> only, never copies Order's data.</dd>
+      <dt>ADR-005</dt><dd>Search owns an index, not source data — rebuilt from Product events.</dd>
+      <dt>ADR-006</dt><dd>One Terraform module per service, region as a variable — one-click multi-region.</dd>
+      <dt>ADR-007</dt><dd>Single-writer for transactional services, active-active for read-heavy ones.</dd>
+      <dt>ADR-008</dt><dd>API Gateway is the only client-facing entry point; service-to-service calls bypass it.</dd>
+      <dt>ADR-009</dt><dd>EventBridge by default; Kafka (MSK) only for edges needing ordered replay or multiple consumer groups.</dd>
+    </dl>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; Consolidated overview</span>
+    <span><a href="index.html">Full service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>
