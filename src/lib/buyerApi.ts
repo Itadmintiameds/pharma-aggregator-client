@@ -2,6 +2,14 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
+declare module "axios" {
+  interface AxiosRequestConfig {
+    // Set on calls made from public pages (e.g. the landing page): a 401 there
+    // must not clear the session or redirect to the buyer login.
+    skipAuthRedirect?: boolean;
+  }
+}
+
 // Dedicated axios client for the buyer domain — kept fully separate from
 // src/lib/api.ts (the seller-used client) so buyer's token keys, refresh
 // endpoint, and logout redirect never interact with seller's session state.
@@ -65,6 +73,12 @@ buyerApi.interceptors.response.use(
       originalRequest.url?.includes("/buyer/authentication/verify-otp") ||
       originalRequest.url?.includes("/buyer/auth/signup");
     if (isAuthEndpoint) {
+      return Promise.reject(error);
+    }
+
+    // Public-page calls (landing page) opt out of the force-logout redirect: a
+    // visitor with no token getting 401 here is normal, not an expired session.
+    if (originalRequest.skipAuthRedirect) {
       return Promise.reject(error);
     }
 

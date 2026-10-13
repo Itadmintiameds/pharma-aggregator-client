@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Plus, ChevronDown } from "lucide-react";
 import { DashboardView } from "@/src/types/seller/dashboard";
+import { getCurrentSellerId } from "@/src/services/product/sellerContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,7 +44,8 @@ interface UploadResult {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const IMPORT_API_URL = "https://api-test-aggreator.tiameds.ai/api/v1/products/import";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const IMPORT_API_URL = `${API_URL}/products/import`;
 
 const C = {
   primary: "#4C1D95",
@@ -472,7 +474,7 @@ function ExcelUploadView({ onBack, onSuccess }: {
         if (!userId) { setLoadingCategories(false); return; }
 
         const response = await fetch(
-          `https://api-test-aggreator.tiameds.ai/api/v1/sellers/user/${userId}`,
+          `${API_URL}/sellers/user/${userId}`,
           { method: "GET", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" } }
         );
 
@@ -701,9 +703,13 @@ function ExcelUploadView({ onBack, onSuccess }: {
           updateFile(key, { progress: p });
         }
 
+        // product-service's import endpoint takes sellerId as a request param
+        // (no JWT principal lookup like the old monolith).
+        const sellerId = await getCurrentSellerId();
         const fd = new FormData();
         fd.append("file", uf.file);
         fd.append("categoryId", String(categoryId));
+        fd.append("sellerId", sellerId);
 
         const res = await fetch(IMPORT_API_URL, {
           method: "POST",

@@ -1,4 +1,5 @@
 import { api } from "@/src/utils/api";
+import { withSellerId } from "@/src/services/product/sellerContext";
 import { CreateProductRequest } from "@/src/types/product/ProductData";
 import { AxiosError } from "axios";
 
@@ -109,7 +110,7 @@ export const uploadFoodInfantUserManual = async (productAttributeId: string, fil
 
 export const createFoodInfantProduct = async (payload: CreateProductRequest) => {
   try {
-    const response = await api.post('/products/create', payload, {
+    const response = await api.post('/products/create', await withSellerId(payload), {
       headers: { 'Content-Type': 'application/json' },
     });
     

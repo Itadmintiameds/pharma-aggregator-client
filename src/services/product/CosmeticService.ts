@@ -1,4 +1,5 @@
 import { api } from "@/src/utils/api";
+import { withSellerId } from "@/src/services/product/sellerContext";
 
 // ─── MASTERS ──────────────────────────────────────────────────────────────────
 
@@ -272,7 +273,7 @@ export const createCosmeticProduct = async (
   payload: Record<string, unknown>,
 ) => {
   try {
-    const response = await api.post("products/create", payload, {
+    const response = await api.post("products/create", await withSellerId(payload), {
       headers: { "Content-Type": "application/json" },
     });
     return response.data;

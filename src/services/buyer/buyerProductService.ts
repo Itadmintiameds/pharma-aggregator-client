@@ -10,7 +10,9 @@ export interface BuyerSeller {
 // GET /sellers is the same admin-shaped listing used elsewhere (SellerProfileController.findAll) —
 // no buyer-scoped/approved-only filter exists on the backend yet, so this returns every seller row.
 export async function getAllSellers(): Promise<BuyerSeller[]> {
-  const response = await buyerApi.get("/sellers");
+  // Called from the public landing page (FeatureBrands): a visitor without a
+  // token gets 401 here, which must not redirect to the buyer login.
+  const response = await buyerApi.get("/sellers", { skipAuthRedirect: true });
   return response.data?.data ?? response.data ?? [];
 }
 
