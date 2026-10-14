@@ -24,10 +24,13 @@ function extractErrorMessage(error: unknown, fallback: string): string {
 }
 
 export async function getSellerOrders(sellerId: string, status?: string): Promise<SellerOrder[]> {
-  const response = await api.get<ApiResponseWrapper<SellerOrder[]>>(`/seller-orders/seller/${sellerId}`, {
-    params: status ? { status } : undefined,
-  });
-  return response.data.data ?? [];
+  // order-service returns a Spring Page ({ content: [...] }), not a bare array.
+  const response = await api.get<ApiResponseWrapper<SellerOrder[] | { content?: SellerOrder[] }>>(
+    `/seller-orders/seller/${sellerId}`,
+    { params: status ? { status } : undefined }
+  );
+  const data = response.data.data;
+  return Array.isArray(data) ? data : data?.content ?? [];
 }
 
 export async function getSellerOrder(sellerOrderId: string): Promise<SellerOrder> {

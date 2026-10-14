@@ -24,8 +24,12 @@ function extractErrorMessage(error: unknown, fallback: string): string {
 // sellerId is resolved server-side from the JWT — never passed by the caller.
 export async function getSellerQuoteRequests(): Promise<QuoteRequest[]> {
   try {
-    const response = await api.get<ApiResponseWrapper<QuoteRequest[]>>("/seller/quote-requests");
-    return response.data.data ?? [];
+    // quotation-service returns a Spring Page ({ content: [...] }), not a bare array.
+    const response = await api.get<ApiResponseWrapper<QuoteRequest[] | { content?: QuoteRequest[] }>>(
+      "/seller/quote-requests"
+    );
+    const data = response.data.data;
+    return Array.isArray(data) ? data : data?.content ?? [];
   } catch (error) {
     throw new Error(extractErrorMessage(error, "Failed to load quote requests."));
   }

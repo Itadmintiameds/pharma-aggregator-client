@@ -274,7 +274,10 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
         if (!userId) return;
 
         const raw = await buyerRegistrationService.getTempBuyerByUserId(userId);
-        if (!raw || typeof raw.status !== "string" || raw.status.toUpperCase() !== "DRAFT") {
+        // Resume anything still in the buyer's hands or under review; APPROVED/REJECTED
+        // registrations are final and start a fresh form.
+        const resumableStatuses = ["DRAFT", "OPEN", "RESUBMITTED", "CORRECTION_REQUIRED"];
+        if (!raw || typeof raw.status !== "string" || !resumableStatuses.includes(raw.status.toUpperCase())) {
           return;
         }
 
@@ -287,7 +290,13 @@ export default function BuyerRegister({ embedded = false, onSubmitted, onExitToI
           buyerTypeId: raw.buyerType?.buyerTypeId ?? prev.buyerTypeId,
           gstNumber: raw.gstNumber ?? prev.gstNumber,
           panNumber: raw.panNumber ?? prev.panNumber,
+          acceptedTerms: raw.termsAccepted ?? prev.acceptedTerms,
           orgLogoUrl: isRealFileUrl(raw.orgLogoUrl) ? (raw.orgLogoUrl as string) : prev.orgLogoUrl,
+          orgLogoFileName: isRealFileUrl(raw.orgLogoUrl) ? (raw.orgLogoFileName ?? prev.orgLogoFileName) : prev.orgLogoFileName,
+          gstFileUrl: isRealFileUrl(raw.gstFileUrl) ? (raw.gstFileUrl as string) : prev.gstFileUrl,
+          gstFileName: isRealFileUrl(raw.gstFileUrl) ? (raw.gstFileName ?? prev.gstFileName) : prev.gstFileName,
+          panFileUrl: isRealFileUrl(raw.panFileUrl) ? (raw.panFileUrl as string) : prev.panFileUrl,
+          panFileName: isRealFileUrl(raw.panFileUrl) ? (raw.panFileName ?? prev.panFileName) : prev.panFileName,
 
           stateId: raw.address?.state?.stateId ?? prev.stateId,
           districtId: raw.address?.district?.districtId ?? prev.districtId,

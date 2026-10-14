@@ -33,8 +33,12 @@ export async function createQuoteRequest(payload: QuoteRequestCreatePayload): Pr
 
 export async function getMyQuoteRequests(): Promise<QuoteRequest[]> {
   try {
-    const response = await buyerApi.get<ApiResponseWrapper<QuoteRequest[]>>("/buyer/quote-requests");
-    return response.data.data ?? [];
+    // quotation-service returns a Spring Page ({ content: [...] }), not a bare array.
+    const response = await buyerApi.get<ApiResponseWrapper<QuoteRequest[] | { content?: QuoteRequest[] }>>(
+      "/buyer/quote-requests"
+    );
+    const data = response.data.data;
+    return Array.isArray(data) ? data : data?.content ?? [];
   } catch (error) {
     throw new Error(extractErrorMessage(error, "Failed to load your requests."));
   }

@@ -46,8 +46,10 @@ export async function getOrder(orderId: string): Promise<Order> {
 }
 
 export async function getOrdersByBuyer(buyerId: string): Promise<Order[]> {
-  const response = await buyerApi.get<ApiResponseWrapper<Order[]>>(`/orders/buyer/${buyerId}`);
-  return response.data.data ?? [];
+  // order-service returns a Spring Page ({ content: [...] }), not a bare array.
+  const response = await buyerApi.get<ApiResponseWrapper<Order[] | { content?: Order[] }>>(`/orders/buyer/${buyerId}`);
+  const data = response.data.data;
+  return Array.isArray(data) ? data : data?.content ?? [];
 }
 
 export async function cancelOrder(

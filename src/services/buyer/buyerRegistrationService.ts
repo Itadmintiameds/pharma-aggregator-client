@@ -98,6 +98,12 @@ export interface RawTempBuyer {
   gstNumber?: string;
   panNumber?: string;
   orgLogoUrl?: string;
+  orgLogoFileName?: string;
+  gstFileUrl?: string;
+  gstFileName?: string;
+  panFileUrl?: string;
+  panFileName?: string;
+  termsAccepted?: boolean;
   address?: {
     state?: { stateId?: number; stateName?: string };
     district?: { districtId?: number; districtName?: string };
@@ -235,18 +241,15 @@ class BuyerRegistrationService {
   //   - email -> /temp-seller/email-otp/send + /verify (TempSellerEmailOtp
   //     is a generic {email, otp, expiryTime, verified} table with no FK to
   //     any seller row, so despite the package name it isn't seller-scoped)
-  //   - phone -> /otp/send + /verify (Twilio-backed, SMSOtpRequestDTO only
-  //     has a `phone` field — this is the SMS-only endpoint; it does not
-  //     accept `email`, so email must NOT be routed through it)
-  // The two endpoints also respond with different shapes (confirmed against
-  // sellerRegistrationService's own parsing): email-otp/verify returns the
-  // flat OtpResponseDTO {status, message} directly, while /otp/verify's
-  // response is wrapped one level deeper as {data: {status, message}}.
+  //   - phone -> /buyer-otp/send + /verify (buyer-service, Twilio Verify; the
+  //     phone-only SMS endpoint, so email must NOT be routed through it)
+  // Both return the flat {status, message} shape; an invalid/expired code on
+  // /buyer-otp/verify is an HTTP 400, which axios surfaces as an error.
   async sendContactOtp(identifier: string, channel: "email" | "phone"): Promise<void> {
     if (channel === "email") {
       await buyerApi.post("/temp-seller/email-otp/send", { email: identifier });
     } else {
-      await buyerApi.post("/otp/send", { phone: identifier });
+      await buyerApi.post("/buyer-otp/send", { phone: identifier });
     }
   }
 
@@ -262,12 +265,12 @@ class BuyerRegistrationService {
       return;
     }
 
-    const response = await buyerApi.post<ApiResponseWrapper<{ status?: string; message?: string }>>(
-      "/otp/verify",
+    const response = await buyerApi.post<{ status?: string; message?: string }>(
+      "/buyer-otp/verify",
       { phone: identifier, otp }
     );
-    if (response.data?.data?.status === "ERROR") {
-      throw new Error(response.data.data.message || "Invalid OTP");
+    if (response.data?.status === "ERROR") {
+      throw new Error(response.data.message || "Invalid OTP");
     }
   }
 }

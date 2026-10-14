@@ -22,6 +22,10 @@ export type BuyerOnboardingStatus =
 
 const STATUS_MAP: Record<string, BuyerOnboardingStatus> = {
   DRAFT: "draft",
+  // buyer-service sets OPEN when the buyer submits and RESUBMITTED after a correction;
+  // both mean "waiting for admin review". Without these the lookup fell back to "draft".
+  OPEN: "submitted",
+  RESUBMITTED: "submitted",
   SUBMITTED: "submitted",
   UNDER_REVIEW: "under_review",
   APPROVED: "approved",
