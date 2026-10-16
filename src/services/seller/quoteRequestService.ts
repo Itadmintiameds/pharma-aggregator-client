@@ -11,6 +11,12 @@ interface ApiResponseWrapper<T> {
 
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
+    // "Validation failed" responses carry the per-field messages in data.data ({ field: message }).
+    const fieldErrors = error.response?.data?.data;
+    if (fieldErrors && typeof fieldErrors === "object" && !Array.isArray(fieldErrors) && !fieldErrors.message) {
+      const details = Object.values(fieldErrors).filter((v): v is string => typeof v === "string");
+      if (details.length > 0) return details.join(". ");
+    }
     return (
       error.response?.data?.data?.message ||
       error.response?.data?.message ||

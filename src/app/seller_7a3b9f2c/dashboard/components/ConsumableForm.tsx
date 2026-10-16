@@ -9,6 +9,7 @@ import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import AppliedOffersView from "./AppliedOffersView";
 import PopupModal from "../commonComponent/PopupModal";
+import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import CommonModal from "../commonComponent/CommonModal";
 import { AlertCircle } from "lucide-react";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
@@ -171,6 +172,19 @@ const NonEditableSelect = ({ label, value, required }: { label: string; value: s
 
 const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: ConsumableFormProps) => {
   const router = useRouter();
+  // After a draft save: edit mode reloads so ids/images/status are fresh (the server re-creates
+  // attribute rows on every update); add mode jumps to the saved draft's edit page so later saves
+  // update it instead of creating a duplicate product.
+  const savedDraftIdRef = useRef<string | null>(null);
+  const handleDraftModalDone = () => {
+    setShowDraftModal(false);
+    if (draftModalError) return;
+    if (mode === "edit") {
+      window.location.reload();
+    } else if (savedDraftIdRef.current) {
+      router.replace(editUrlFor(savedDraftIdRef.current, "editConsumable"));
+    }
+  };
 
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   const setFieldRef = (name: string) => (el: HTMLElement | null) => { fieldRefs.current[name] = el; };
@@ -254,6 +268,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
+  const [productStatus, setProductStatus] = useState<string>("");
+  // In edit mode most fields are locked, except for DRAFT products which stay fully editable
+  const isLockedEdit = mode === "edit" && productStatus !== "DRAFT";
+  const isDraftEdit = mode === "edit" && productStatus === "DRAFT";
+  const prevCatRef = useRef("");
+  const prevSubCatRef = useRef("");
 
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -355,6 +375,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const data = await getProductById(productId);
       if (!data) throw new Error("Product not found");
 
+      setProductStatus(String(data.status || "").toUpperCase());
       setResolvedProductId(data.productId || productId);
       const attribute = data.productAttributeConsumableMedicals?.[0] || {};
       const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) || {};
@@ -369,8 +390,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const mfgDate = mfgRaw ? new Date(mfgRaw.split("T")[0]) : null;
       const expDate = expRaw ? new Date(expRaw.split("T")[0]) : null;
 
-      const deviceCatIdStr = String(attribute.deviceCatId || "");
-      const deviceSubCatIdStr = String(attribute.deviceSubCatId || "");
+      const deviceCatIdStr = String(attribute.deviceCategoryId || attribute.deviceCatId || "");
+      const deviceSubCatIdStr = String(attribute.deviceSubCategoryId || attribute.deviceSubCatId || "");
       const countryIdStr = String(attribute.countryId || "");
       const storageCondIdStr = String(attribute.storageConditionId || "");
       const packIdStr = String(packaging.packId || "");
@@ -390,8 +411,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const specUnitIdStr = String(attribute.deviceSpecificationUnitId || "");
 
       // Resolve material type labels
-      const materialTypeIds: string[] = Array.isArray(attribute.materialTypeId)
-        ? attribute.materialTypeId.map(String)
+      const rawMaterialTypeIds = Array.isArray(attribute.materialTypeIds)
+        ? attribute.materialTypeIds
+        : attribute.materialTypeId;
+      const materialTypeIds: string[] = Array.isArray(rawMaterialTypeIds)
+        ? rawMaterialTypeIds.map(String)
         : [];
       const materialTypesLabel = materialTypeIds
         .map((id) => currentMaterialTypeOptions.find((o) => o.value === id)?.label || id)
@@ -410,6 +434,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       });
 
       setSelectedMaterialTypes(materialTypeIds);
+      prevCatRef.current = deviceCatIdStr;
+      prevSubCatRef.current = deviceSubCatIdStr;
 
       setForm({
         productName: data.productName || "",
@@ -463,7 +489,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         );
       }
 
-      const isRealUrl = (u: string) => !!u && !["PENDING", "NOT_UPLOADED"].includes(u.toUpperCase());
+      const isRealUrl = (u: string) => isRealFileUrl(u);
       if (isRealUrl(attribute.brochurePath)) {
         setExistingBrochureUrl(attribute.brochurePath);
       }
@@ -480,7 +506,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           isUploaded: isRealUrl(cert.certificateUrl),
           previewUrl: null,
           productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-          existingUrl: cert.certificateUrl || undefined,
+          existingUrl: isRealUrl(cert.certificateUrl) ? cert.certificateUrl : undefined,
         }));
         setSelectedCertifications(mappedCerts);
         setMandatoryCertCount(mappedCerts.length);
@@ -640,6 +666,28 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.deviceSubCategoryId, mode]);
 
+  // DRAFT products opened in edit mode keep category/sub-category editable: refetch dependants on change
+  useEffect(() => {
+    if (!isDraftEdit) return;
+    if (form.deviceCategoryId === prevCatRef.current) return;
+    prevCatRef.current = form.deviceCategoryId;
+    if (form.deviceCategoryId) fetchDeviceSubCategories(form.deviceCategoryId);
+    else setDeviceSubCategoryOptions([]);
+    prevSubCatRef.current = "";
+    setForm((p) => ({ ...p, deviceSubCategoryId: "", deviceSpecificationUnitId: "" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.deviceCategoryId, isDraftEdit]);
+
+  useEffect(() => {
+    if (!isDraftEdit) return;
+    if (form.deviceSubCategoryId === prevSubCatRef.current) return;
+    prevSubCatRef.current = form.deviceSubCategoryId;
+    if (form.deviceSubCategoryId) fetchSpecificationUnits(form.deviceSubCategoryId);
+    else setSpecificationUnitOptions([]);
+    setForm((p) => ({ ...p, deviceSpecificationUnitId: "" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.deviceSubCategoryId, isDraftEdit]);
+
   // Fetch valid GST % values from the master list
   useEffect(() => {
     (async () => {
@@ -793,7 +841,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const handleCertCheckbox = (option: CertificationMasterOption) => {
     const exists = selectedCertifications.some((c) => c.id === option.value);
     if (exists) {
-      const isMandatory = mode === "edit" &&
+      const isMandatory = isLockedEdit &&
         selectedCertifications.findIndex((c) => c.id === option.value) < mandatoryCertCount;
       if (isMandatory) {
         alert(`"${option.label}" is a mandatory certificate and cannot be removed. You may re-upload a new file for it instead.`);
@@ -921,7 +969,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const validate = (): Record<string, string> => {
     const e: Record<string, string> = {};
 
-    if (mode === "create") {
+    if (mode === "create" || isDraftEdit) {
       if (!form.deviceCategoryId) e.deviceCategoryId = "Device category is required";
       if (!form.deviceSubCategoryId) e.deviceSubCategoryId = "Device sub-category is required";
       const pName = form.productName.trim();
@@ -979,7 +1027,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     if (!pDesc) e.productDescription = "Product description is required";
     else if (pDesc.length > 1000) e.productDescription = "Product description must not exceed 1000 characters";
 
-    if (mode === "edit" && Number(form.stockQuantity) === 0) {
+    if (isLockedEdit && Number(form.stockQuantity) === 0) {
       if (!form.storageCondition) e.storageCondition = "Storage condition is required";
     }
 
@@ -992,7 +1040,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         e[`certFile_${cert.id}`] = `Please upload the certificate file for "${cert.label}"`;
       }
     }
-    if (mode === "edit" && selectedCertifications.length < mandatoryCertCount) {
+    if (isLockedEdit && selectedCertifications.length < mandatoryCertCount) {
       e.certifications = `You must keep all ${mandatoryCertCount} original certifications. Please re-add any removed ones.`;
     }
 
@@ -1024,7 +1072,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
-      setTimeout(() => scrollToFirstError(validationErrors), 50);
+      setApiError("Please fix the highlighted fields");
+      setTimeout(() => {
+        scrollToFirstError(validationErrors);
+        alert("Please fix the highlighted fields");
+      }, 50);
       return;
     }
     setErrors({});
@@ -1042,7 +1094,10 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
-        status: "PUBLISHED" as const,
+        // Update keeps the loaded status (never re-publishes UNPUBLISHED); submitting a draft publishes it
+        status: (mode === "edit" && productStatus && productStatus !== "DRAFT"
+          ? productStatus
+          : "PUBLISHED") as "PUBLISHED",
 
         productAttributeConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
@@ -1079,10 +1134,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (mode === "edit" && currentProductId) {
         const updateData = await updateProduct(currentProductId, payload as any) as ApiResponseData;
 
-        // For Excel-uploaded products the attributeId may not be pre-populated
-        if (!currentAttributeId) {
-          currentAttributeId = extractProductAttributeId(updateData) || "";
-        }
+        // The update re-creates the attribute row with a new id: always take it from the response
+        currentAttributeId = extractProductAttributeId(updateData) || currentAttributeId;
+        if (currentAttributeId) setProductAttributeId(currentAttributeId);
 
         // Extract server-assigned productCertificateDocumentId values from the update response
         const certDocMap = extractCertDocumentIdMap(updateData);
@@ -1102,6 +1156,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             if (!r.success) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
           }
         }
+        if (productStatus === "DRAFT") setProductStatus("PUBLISHED");
         if (onSubmitSuccess) onSubmitSuccess();
         else setShowSuccessModal(true);
       } else {
@@ -1141,7 +1196,26 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }
   };
 
+  const numOrUndef = (v: unknown): number | undefined => {
+    if (v === "" || v === null || v === undefined) return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
   const handleSaveDraft = async () => {
+    // Backend rejects products without these (non-null FKs), even as drafts
+    const draftErrors: Record<string, string> = {};
+    if (!form.deviceCategoryId) draftErrors.deviceCategoryId = "Device category is required to save a draft";
+    if (!form.deviceSubCategoryId) draftErrors.deviceSubCategoryId = "Device sub-category is required to save a draft";
+    if (!form.countryOfOrigin) draftErrors.countryOfOrigin = "Country of origin is required to save a draft";
+    if (!form.storageCondition) draftErrors.storageCondition = "Storage condition is required to save a draft";
+    if (Object.keys(draftErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...draftErrors }));
+      setApiError("Cannot save draft. Please fill: " + Object.values(draftErrors).map((m) => m.replace(" is required to save a draft", "")).join(", "));
+      setTimeout(() => scrollToFirstError(draftErrors), 50);
+      return;
+    }
+    setApiError(null);
     setIsSavingDraft(true);
     try {
       const draftPayload = {
@@ -1152,26 +1226,26 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         manufacturerName: form.manufacturerName,
         categoryId: productCategoryId,
 
-        gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : undefined,
-        hsnCode: form.hsnCode ? Number(form.hsnCode) : undefined,
+        gstPercentage: numOrUndef(form.gstPercentage),
+        hsnCode: numOrUndef(form.hsnCode),
         status: "DRAFT" as const,
 
         productAttributeConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
-          deviceCatId: form.deviceCategoryId ? Number(form.deviceCategoryId) : undefined,
-          deviceSubCatId: form.deviceSubCategoryId ? Number(form.deviceSubCategoryId) : undefined,
+          deviceCatId: numOrUndef(form.deviceCategoryId),
+          deviceSubCatId: numOrUndef(form.deviceSubCategoryId),
           brandName: form.brandName,
           materialTypeId: selectedMaterialTypes.map(Number),
           dimensionSize: form.sizeDimension.trim() || null,
-          deviceSpecificationUnitId: form.deviceSpecificationUnitId ? Number(form.deviceSpecificationUnitId) : undefined,
+          deviceSpecificationUnitId: numOrUndef(form.deviceSpecificationUnitId),
           sterileOrNonSterile: form.sterileStatus === "sterile" ? "Sterile" : "Non-Sterile",
           disposalOrReusable: form.disposableType === "disposable" ? "Disposable" : "Reusable",
           purpose: form.intendedUse,
           keyFeaturesSpecifications: form.keyFeatures,
           safetyInstructions: form.safetyInstructions,
-          countryId: form.countryOfOrigin ? Number(form.countryOfOrigin) : undefined,
+          countryId: numOrUndef(form.countryOfOrigin),
           manufacturerName: form.manufacturerName,
-          storageConditionId: form.storageCondition ? Number(form.storageCondition) : undefined,
+          storageConditionId: numOrUndef(form.storageCondition),
           shelfLife: form.shelfLifeMonths,
           brochureType: "PDF",
           brochurePathStatus: existingBrochureUrl || (brochureFile ? "TO_UPLOAD" : "PENDING"),
@@ -1186,8 +1260,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
       let currentProductId = resolvedProductId || productId || "";
 
+      let draftAttributeId = "";
+      let draftResponse: ApiResponseData | undefined;
       if (mode === "edit" && currentProductId) {
-        await updateProduct(currentProductId, draftPayload as any);
+        draftResponse = await updateProduct(currentProductId, draftPayload as any) as ApiResponseData;
+        draftAttributeId = extractProductAttributeId(draftResponse) || productAttributeId;
         if (images.length > 0) await uploadProductImages(currentProductId, images);
       } else {
         const createData: ApiResponseData = await createConsumableProduct(draftPayload as Record<string, unknown>);
@@ -1197,9 +1274,28 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           currentProductId = newProductId;
           setResolvedProductId(newProductId);
         }
+        draftResponse = createData;
+        draftAttributeId = extractProductAttributeId(createData) || "";
         if (currentProductId && images.length > 0) await uploadProductImages(currentProductId, images);
       }
 
+      // Upload any newly picked certificate files / brochure so reopening the draft shows them
+      if (draftAttributeId && draftResponse) {
+        const certDocMap = extractCertDocumentIdMap(draftResponse);
+        for (const cert of selectedCertifications.filter((c) => c.file && !c.existingUrl)) {
+          const serverDocId = certDocMap.get(Number(cert.id)) ?? certDocMap.get(cert.productCertificateDocumentId);
+          const r = await uploadConsumableCertificate(draftAttributeId, serverDocId ?? cert.productCertificateDocumentId, cert.file!);
+          if (!r.success) console.warn(`Draft: certificate "${cert.label}" upload failed: ${r.message}`);
+        }
+        if (brochureFile) {
+          const r = await uploadConsumableBrochure(draftAttributeId, brochureFile);
+          if (!r.success) console.warn(`Draft: brochure upload failed: ${r.message}`);
+        }
+      }
+
+      if (draftAttributeId) setProductAttributeId(draftAttributeId);
+
+      if (currentProductId) savedDraftIdRef.current = currentProductId;
       setDraftModalError(false);
       setShowDraftModal(true);
     } catch (err) {
@@ -1221,7 +1317,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     );
   }
 
-  const isEdit = mode === "edit";
+  const isEdit = isLockedEdit;
   const hasStock = isEdit && Number(form.stockQuantity) > 0;
 
   // Resolved display for material types multi-select in edit mode
@@ -1243,7 +1339,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         secondaryActionText={isEdit ? "Continue Editing" : "Continue Adding"}
         tertiaryActionText="Back to Dashboard"
         onPrimaryAction={handleViewProduct}
-        onSecondaryAction={isEdit ? () => setShowSuccessModal(false) : handleContinueAdding}
+        onSecondaryAction={isEdit ? () => { setShowSuccessModal(false); window.location.reload(); } : handleContinueAdding}
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
       />
@@ -1258,8 +1354,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         }
         primaryActionText="OK"
         celebrate={!draftModalError}
-        onPrimaryAction={() => setShowDraftModal(false)}
-        onClose={() => setShowDraftModal(false)}
+        isError={draftModalError}
+        onPrimaryAction={handleDraftModalDone}
+        onClose={handleDraftModalDone}
       />
 
       {showAdditionalDiscountModal && (
@@ -1642,7 +1739,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         <div ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
           <ProductImageUpload
             title="Product Photos"
-            required={mode === "create"}
+            required={mode === "create" || isDraftEdit}
             images={images}
             setImages={setImages}
             existingImages={existingImages}
@@ -1661,7 +1758,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
               Cancel
             </button>
-            {mode !== "edit" && (
+            {(mode !== "edit" || productStatus === "DRAFT") && (
               <button type="button" onClick={handleSaveDraft} disabled={isSavingDraft}
                 style={{ background: "#9F75FC", borderRadius: "8px" }}
                 className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-60">
@@ -1674,7 +1771,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             style={{ background: "#4B0082", borderRadius: "8px" }}
             className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
             {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
+            {submitting ? "Saving..." : mode === "edit" && productStatus !== "DRAFT" ? "Update" : "Submit"}
           </button>
         </div>
       </form>

@@ -51,6 +51,14 @@ import {
 
 import { validateSection } from "@/src/schema/seller/UpdateProfileSchema";
 import { ifscSchema } from "@/src/schema/seller/IFSCSchema";
+import {
+  getLicenseValidationCategory,
+  validateLicenseNumber,
+  formatLicenseNumber as formatLicenseNumberByCategory,
+  isAllowedLicenseChar,
+  LICENSE_MAX_LENGTH,
+  LICENSE_PLACEHOLDER,
+} from "@/src/utils/licenseValidation";
 
 import OtpVerificationModal from "./OtpVerificationModal";
 import toast from "react-hot-toast";
@@ -1593,13 +1601,14 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
 
   const handleLicenseNumberChangeWithValidation = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
     const value = e.target.value;
-    const cleanedValue = formatLicenseNumber(value);
+    const licenseCategory = getLicenseValidationCategory(productName);
+    const cleanedValue = formatLicenseNumberByCategory(value, licenseCategory);
 
     if (cleanedValue !== value) {
       return;
     }
 
-    if (cleanedValue.length > 30) {
+    if (cleanedValue.length > LICENSE_MAX_LENGTH) {
       return;
     }
 
@@ -1626,14 +1635,14 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
     [productName]: hasChanged
   }));
 
-    const formatError = validateDrugLicenseNumber(cleanedValue);
+    const formatError = validateLicenseNumber(cleanedValue, "License", licenseCategory);
     setLicenseErrors(prev => ({ ...prev, [productName]: formatError || "" }));
 
     if (licenseExistsError[productName]) {
       setLicenseExistsError(prev => ({ ...prev, [productName]: "" }));
     }
 
-    if (!formatError && cleanedValue.length >= 8) {
+    if (!formatError) {
       if (licenseCheckTimeoutRef.current[productName]) {
         clearTimeout(licenseCheckTimeoutRef.current[productName]!);
       }
@@ -1646,7 +1655,7 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
   };
 
   // Replace the handleLicenseKeyDown function with this:
-  const handleLicenseKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleLicenseKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, productName: string) => {
     // Allow all navigation and control keys
     const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
     if (allowedKeys.includes(e.key)) {
@@ -1673,9 +1682,8 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
       return;
     }
 
-    // Block invalid characters - only allow alphanumeric, hyphens, and slashes
-    const allowedChars = /^[A-Za-z0-9\/\-]$/;
-    if (!allowedChars.test(e.key)) {
+    // Block characters the category's license format does not allow
+    if (!isAllowedLicenseChar(e.key, getLicenseValidationCategory(productName))) {
       e.preventDefault();
     }
   };
@@ -1683,10 +1691,10 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
   const handleLicensePaste = async (e: React.ClipboardEvent<HTMLInputElement>, productName: string) => {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
-    let cleanedText = pastedText.toUpperCase();
-    cleanedText = cleanedText.replace(/[^A-Z0-9\/\-]/g, '');
-    if (cleanedText.length > 30) {
-      cleanedText = cleanedText.substring(0, 30);
+    const licenseCategory = getLicenseValidationCategory(productName);
+    let cleanedText = formatLicenseNumberByCategory(pastedText, licenseCategory);
+    if (cleanedText.length > LICENSE_MAX_LENGTH) {
+      cleanedText = cleanedText.substring(0, LICENSE_MAX_LENGTH);
     }
 
     setFormData(prev => ({
@@ -1700,19 +1708,19 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
       },
     }));
 
-    const formatError = validateDrugLicenseNumber(cleanedText);
+    const formatError = validateLicenseNumber(cleanedText, "License", licenseCategory);
     setLicenseErrors(prev => ({ ...prev, [productName]: formatError || "" }));
 
-    if (!formatError && cleanedText.length >= 8) {
+    if (!formatError) {
       await checkLicenseNumberExists(cleanedText, productName);
     }
   };
 
   const handleLicenseNumberBlur = async (value: string, productName: string) => {
-    const formatError = validateDrugLicenseNumber(value);
+    const formatError = validateLicenseNumber(value, "License", getLicenseValidationCategory(productName));
     setLicenseErrors(prev => ({ ...prev, [productName]: formatError || "" }));
 
-    if (!formatError && value.length >= 8) {
+    if (!formatError && value) {
       await checkLicenseNumberExists(value, productName);
     }
   };
@@ -4729,12 +4737,12 @@ if (missingLicenses.length > 0) {
                           type="text"
                           value={licenseData.number}
                           onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
-                          onKeyDown={handleLicenseKeyDown}
+                          onKeyDown={(e) => handleLicenseKeyDown(e, productName)}
                           onPaste={(e) => handleLicensePaste(e, productName)}
                           onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
                           disabled={!editingSection}
-                          placeholder="e.g., TN/CBE/20B-12345"
-                          maxLength={30}
+                          placeholder={LICENSE_PLACEHOLDER[getLicenseValidationCategory(productName)]}
+                          maxLength={LICENSE_MAX_LENGTH}
                           className={`w-full h-[52px] px-4 rounded-md text-p4 font-body font-regular uppercase pr-10
                             ${editingSection
                               ? `bg-base-white border border-pneutral-200 focus:outline-none focus:ring-2 focus:ring-secondary-500 ${licenseErrors[productName] || licenseExistsError[productName] ? 'border-pneutral-200' : ''} ${licenseErrors[productName] || licenseExistsError[productName] ? 'text-pneutral-800' : 'text-pneutral-800'}`

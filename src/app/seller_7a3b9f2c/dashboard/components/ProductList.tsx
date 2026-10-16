@@ -9,10 +9,11 @@ import { ProductListData } from "@/src/types/product/ProductData";
 import { useClickOutside } from "@/src/hooks/useClickOutside";
 import Delete from "./Delete";
 import StockUpdateModal from "./StockUpdateModal";
+import { editKeyForProduct, editUrlFor } from "@/src/utils/productRouting";
 
 export type StockFilter = "all" | "in" | "low" | "out";
 export type CategoryFilter = number | "all";
-export type StatusFilter = "all" | "draft" | "published";
+export type StatusFilter = "all" | "draft" | "published" | "unpublished";
 
 interface ProductListProps {
   setCurrentView: (view: DashboardView) => void;
@@ -35,11 +36,13 @@ export const categoryMap: Record<number, string> = {
 const LOW_STOCK_THRESHOLD = 10;
 const PAGE_SIZE = 10;
 
-const getBatchCount = (pricingDetails: any[] = []) => pricingDetails.length;
+// pricingDetails can be null (e.g. a saved draft with no batches yet); a default
+// parameter only covers undefined, so guard both.
+const getBatchCount = (pricingDetails?: any[] | null) => pricingDetails?.length ?? 0;
 
-const getTotalStock = (pricingDetails: any[] = []) =>
-  pricingDetails.reduce(
-    (sum, batch) => sum + (Number(batch.stockQuantity) || 0),
+const getTotalStock = (pricingDetails?: any[] | null) =>
+  (pricingDetails ?? []).reduce(
+    (sum, batch) => sum + (Number(batch?.stockQuantity) || 0),
     0,
   );
 
@@ -117,6 +120,12 @@ const columns: Column<ProductListData>[] = [
           src={image || "/icons/Tumbnail.svg"}
           alt="product"
           className="w-10 h-10 rounded-md object-cover"
+          onError={(e) => {
+            // stale/unreachable image URL: fall back once to the placeholder
+            const img = e.currentTarget;
+            img.onerror = null;
+            img.src = "/icons/Tumbnail.svg";
+          }}
         />
       );
     },
@@ -146,15 +155,18 @@ const columns: Column<ProductListData>[] = [
     header: "Status",
     accessor: (row) => {
       const isDraft = row.status === "DRAFT";
+      const isUnpublished = row.status === "UNPUBLISHED";
       return (
         <span
           className={`px-3 py-1 rounded-full text-p4 font-medium ${
             isDraft
               ? "bg-warning-50 text-warning-900"
-              : "bg-success-50 text-success-900"
+              : isUnpublished
+                ? "bg-neutral-100 text-neutral-700"
+                : "bg-success-50 text-success-900"
           }`}
         >
-          {isDraft ? "Draft" : "Published"}
+          {isDraft ? "Draft" : isUnpublished ? "Unpublished" : "Published"}
         </span>
       );
     },
@@ -190,7 +202,7 @@ const ProductList = ({
     try {
       setLoading(true);
       const response = await getProductList();
-      setData(response || []);
+      setData(Array.isArray(response) ? response : []);
     } catch (error) {
       console.error("Error fetching Drug Product List:", error);
     } finally {
@@ -225,7 +237,11 @@ const ProductList = ({
 
     const matchesStatus =
       statusFilter === "all" ||
-      (statusFilter === "draft" ? item.status === "DRAFT" : item.status !== "DRAFT");
+      (statusFilter === "draft"
+        ? item.status === "DRAFT"
+        : statusFilter === "unpublished"
+          ? item.status === "UNPUBLISHED"
+          : item.status !== "DRAFT" && item.status !== "UNPUBLISHED");
 
     return matchesSearch && matchesCategory && matchesStock && matchesStatus;
   });
@@ -322,6 +338,22 @@ const ProductList = ({
             const isDraft = row.status === "DRAFT";
             return (
               <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!row.productId) return;
+                    // Unknown/missing category: open the view page, which infers it from the attributes.
+                    const key = editKeyForProduct(row);
+                    router.push(
+                      key
+                        ? editUrlFor(row.productId, key)
+                        : `/seller_7a3b9f2c/products/view/${row.productId}`,
+                    );
+                  }}
+                  className="px-3 py-1.5 rounded-md border border-primary-900 text-primary-900 text-p4 font-semibold whitespace-nowrap cursor-pointer hover:bg-primary-50"
+                >
+                  {isDraft ? "Edit / Submit" : "Edit"}
+                </button>
                 <button
                   type="button"
                   disabled={isDraft}

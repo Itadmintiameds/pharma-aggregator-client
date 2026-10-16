@@ -14,6 +14,8 @@ type PopupModalProps = {
   onTertiaryAction?: () => void;
   onClose?: () => void;
   celebrate?: boolean;
+  /** Shows a red error icon/title instead of the green success check. */
+  isError?: boolean;
 };
 
 // Google brand colors
@@ -64,10 +66,11 @@ export default function PopupModal({
   onTertiaryAction,
   onClose,
   celebrate: shouldCelebrate = true,
+  isError = false,
 }: PopupModalProps) {
   useEffect(() => {
-    if (isOpen && shouldCelebrate) celebrate();
-  }, [isOpen, shouldCelebrate]);
+    if (isOpen && shouldCelebrate && !isError) celebrate();
+  }, [isOpen, shouldCelebrate, isError]);
 
   if (!isOpen) return null;
 
@@ -88,15 +91,15 @@ export default function PopupModal({
 
         {/* Icon */}
         <div className="flex justify-center mb-4">
-          <div className="w-18 h-18 rounded-full bg-[#DCFCE7] flex items-center justify-center">
-            <div className="w-13 h-13 rounded-full bg-[#16A34A] flex items-center justify-center">
-              <Check size={28} color="white" strokeWidth={3} />
+          <div className={`w-18 h-18 rounded-full flex items-center justify-center ${isError ? "bg-[#FEE2E2]" : "bg-[#DCFCE7]"}`}>
+            <div className={`w-13 h-13 rounded-full flex items-center justify-center ${isError ? "bg-[#DC2626]" : "bg-[#16A34A]"}`}>
+              {isError ? (<X size={28} color="white" strokeWidth={3} />) : (<Check size={28} color="white" strokeWidth={3} />)}
             </div>
           </div>
         </div>
 
         {/* Title */}
-        <h2 className="text-h5 font-bold text-center text-[#15803D]">
+        <h2 className={`text-h5 font-bold text-center ${isError ? "text-[#B91C1C]" : "text-[#15803D]"}`}>
           {title}
         </h2>
 

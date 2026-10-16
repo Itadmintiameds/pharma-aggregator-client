@@ -66,6 +66,8 @@ export interface QuoteRequest {
 // Matches backend SellerQuoteResponseDTO.
 export interface SellerQuoteResponsePayload {
   quotedPrice: number;
+  // Optional: the backend uses the product's default batch (earliest expiry with stock) when omitted.
+  pricingId?: string;
   quoteValidUntil?: string;
   sellerNotes?: string;
 }

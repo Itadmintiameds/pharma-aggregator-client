@@ -49,6 +49,17 @@ import CosmeticPersonalCareView from "./CosmeticView";
 import FoodInfantView from "./FoodInfantView";
 import { FileText, Eye, X } from "lucide-react";
 import { downloadProductImage } from "@/src/utils/downloadImage";
+import {
+  editKeyForProduct,
+  resolveProductCategoryId,
+} from "@/src/utils/productRouting";
+import {
+  getSupplementDosageForms,
+  getSupplementFlavours,
+  getSupplementAgeGroups,
+  getNetQuantityUnits as getSupplementNetQuantityUnits,
+  getServingSizeUnits as getSupplementServingSizeUnits,
+} from "@/src/services/product/SupplementService";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -306,7 +317,7 @@ interface ProductApiData {
   gstPercentage?: string | number;
   hsnCode?: string;
   specialOffers?: SpecialOffer[];
-  status?: "DRAFT" | "PUBLISHED";
+  status?: "DRAFT" | "PUBLISHED" | "UNPUBLISHED";
 }
 
 export interface SpecialOffer {
@@ -438,9 +449,19 @@ const formatStrength = (s?: string | number | null): string => {
 const validUrl = (url?: string | null): string | null => {
   if (!url) return null;
   const t = url.trim().toUpperCase();
-  if (["", "PENDING", "NOT_UPLOADED"].includes(t)) return null;
+  if (["", "PENDING", "NOT_UPLOADED", "TO_UPLOAD", "NULL", "UNDEFINED"].includes(t) || t.startsWith("BLOB:")) return null;
   return url.trim();
 };
+
+// product-service names these minQty / discountPercentage; the view components read
+// minimumPurchaseQuantity / additionalDiscountPercentage.
+const normalizeDiscounts = (list: any): any[] =>
+  (Array.isArray(list) ? list : []).map((d: any) => ({
+    ...d,
+    minimumPurchaseQuantity: d?.minimumPurchaseQuantity ?? d?.minQty,
+    additionalDiscountPercentage:
+      d?.additionalDiscountPercentage ?? d?.discountPercentage,
+  }));
 
 const formatDate = (dateStr?: string | null): string => {
   if (!dateStr) return "—";
@@ -540,7 +561,7 @@ const BatchDetailModal = ({
   fallbackPackTypeName?: string | null;
 }) => {
   const status = getBatchStatus(batch.expiryDate);
-  const additionalDiscounts = batch.additionalDiscounts ?? [];
+  const additionalDiscounts = normalizeDiscounts(batch.additionalDiscounts);
   const specialSchemes = batch.specialSchemes ?? [];
   const finalPrice =
     batch.finalPrice ??
@@ -1111,26 +1132,10 @@ const ProductView1 = ({
         const response = (await getDrugProductById(
           productId,
         )) as ProductApiData;
-        const ncArr = response?.productAttributeNonConsumableMedicals ?? [];
-        console.log(
-          "[ProductView] ncAttr array length:",
-          ncArr.length,
-          "entries:",
-          ncArr.map((e: any) => ({
-            productAttributeId: e.productAttributeId,
-            warrantyPeriod: e.warrantyPeriod,
-            dimensionSize: e.dimensionSize,
-            deviceSpecificationUnitId: e.deviceSpecificationUnitId,
-            serviceAvailability: e.serviceAvailability,
-            amcAvailability: e.amcAvailability,
-            createdDate: e.createdDate,
-            modifiedDate: e.modifiedDate,
-            updatedDate: e.updatedDate,
-          })),
-        );
         setProductData(response);
       } catch (err) {
         console.error("[ProductView] Error fetching product:", err);
+        setProductData(null);
       } finally {
         setLoading(false);
       }
@@ -1230,6 +1235,10 @@ const ProductView1 = ({
       (consAttr as any)?.storageconditionid ??
       ncAttr?.storageConditionId ??
       cosAttrRaw?.storageConditionId ??
+      (productData.productAttributeSupplementsOrNutraceuticals?.[0] as any)
+        ?.storageConditionId ??
+      (productData.productAttributeFoodInfants?.[0] as any)
+        ?.storageConditionId ??
       null;
 
     const rawStorageId: number[] = Array.isArray(_rawStorageIdOrArray)
@@ -1573,6 +1582,9 @@ const ProductView1 = ({
         {} as Partial<ResolvedLookups>,
       );
       setLookups((prev) => ({ ...prev, ...merged, loading: false }));
+    }).catch((err) => {
+      console.error("[ProductView] Secondary lookups failed:", err);
+      setLookups((prev) => ({ ...prev, loading: false }));
     });
   }, [productData]);
 
@@ -1581,7 +1593,7 @@ const ProductView1 = ({
     if (!productData) return;
 
     const resolvedCategoryId: number | null =
-      productData?.categoryId ?? categoryIdProp ?? null;
+      resolveProductCategoryId(productData) ?? categoryIdProp ?? null;
     const cosAttrRaw: CosmeticAttributes | null =
       extractCosmeticAttr(productData);
 
@@ -1905,6 +1917,98 @@ const ProductView1 = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productData]);
 
+  /* ── 4. Supplement master label resolution ──
+     product-service returns only ids for supplements (dosageFormId, flavourId, ageGroupIds,
+     netQuantityUnitId, countryId, therapeutic ids); the view components read names. */
+  const [resolvedSuppAttr, setResolvedSuppAttr] = useState<any | null>(null);
+  useEffect(() => {
+    const attr: any =
+      (productData?.productAttributeSupplementsOrNutraceuticals ?? [])[0] ??
+      null;
+    setResolvedSuppAttr(attr);
+    if (!attr) return;
+    let cancelled = false;
+    const safe = async (fn: () => Promise<any>): Promise<any> => {
+      try {
+        return await fn();
+      } catch {
+        return null;
+      }
+    };
+    const list = (v: any): any[] => (Array.isArray(v) ? v : []);
+    const firstName = (d: any, ...keys: string[]): string | null => {
+      const o = Array.isArray(d) ? d[0] : d?.content ?? d;
+      for (const k of keys) {
+        const v = o?.[k];
+        if (v != null && String(v).trim()) return String(v).trim();
+      }
+      return null;
+    };
+    (async () => {
+      const catId = toPositiveInt(productData?.categoryId) ?? 2;
+      const ageIds = list(attr.ageGroupIds).map(String);
+      const [cat, sub, dosages, flavours, ages, netUnits, servUnits, countries] =
+        await Promise.all([
+          attr.therapeuticCategoryId
+            ? safe(() => getTherapeuticCategoryById(String(attr.therapeuticCategoryId)))
+            : null,
+          attr.therapeuticSubCategoryId
+            ? safe(() => getTherapeuticSubcategoryById(String(attr.therapeuticSubCategoryId)))
+            : null,
+          attr.dosageFormId ? safe(() => getSupplementDosageForms(catId)) : null,
+          attr.flavourId ? safe(() => getSupplementFlavours()) : null,
+          ageIds.length ? safe(() => getSupplementAgeGroups()) : null,
+          attr.netQuantityUnitId ? safe(() => getSupplementNetQuantityUnits(catId)) : null,
+          attr.servingSizeUnitId && attr.dosageFormId
+            ? safe(() => getSupplementServingSizeUnits(attr.dosageFormId))
+            : null,
+          attr.countryId ? safe(() => getCountries()) : null,
+        ]);
+      if (cancelled) return;
+      const byId = (arr: any, idKeys: string[], id: unknown) =>
+        list(arr).find((x) => idKeys.some((k) => x?.[k] != null && String(x[k]) === String(id)));
+      setResolvedSuppAttr({
+        ...attr,
+        therapeuticCategoryName:
+          attr.therapeuticCategoryName ??
+          firstName(cat, "therapeuticCategory", "therapeuticCategoryName", "name"),
+        therapeuticSubCategoryName:
+          attr.therapeuticSubCategoryName ??
+          firstName(sub, "therapeuticSubcategory", "therapeuticSubcategoryName", "name"),
+        dosageFormName:
+          attr.dosageFormName ??
+          byId(dosages, ["dosageId"], attr.dosageFormId)?.dosageName ??
+          null,
+        flavourName:
+          attr.flavourName ??
+          byId(flavours, ["flavourId"], attr.flavourId)?.flavourName ??
+          null,
+        ageGroupMastersDto:
+          attr.ageGroupMastersDto ??
+          list(ages)
+            .filter((a) => ageIds.includes(String(a?.ageGroupId)))
+            .map((a) => ({ ageGroupId: a.ageGroupId, ageGroup: a.ageGroup })),
+        netQuantityUnitName:
+          attr.netQuantityUnitName ??
+          byId(netUnits, ["unitId", "id"], attr.netQuantityUnitId)?.unitName ??
+          null,
+        servingSizeUnitName:
+          attr.servingSizeUnitName ??
+          byId(servUnits, ["id", "servingSizeUnitId", "unitId"], attr.servingSizeUnitId)
+            ?.servingSizeUnit ??
+          null,
+        countryName:
+          attr.countryName ??
+          byId(countries, ["countryId", "id"], attr.countryId)?.countryName ??
+          null,
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productData]);
+
   /* ─────────────────────────────────────────────────────
      DERIVED VALUES
   ───────────────────────────────────────────────────── */
@@ -1959,15 +2063,6 @@ const ProductView1 = ({
       };
       return toMs(curr) >= toMs(latest) ? curr : latest;
     });
-    console.log("[ProductView] selected ncAttr:", {
-      productAttributeId: result?.productAttributeId,
-      warrantyPeriod: result?.warrantyPeriod,
-      dimensionSize: result?.dimensionSize,
-      deviceSpecificationUnitId: result?.deviceSpecificationUnitId,
-      serviceAvailability: result?.serviceAvailability,
-      createdDate: result?.createdDate,
-      modifiedDate: result?.modifiedDate,
-    });
     return result;
   })();
 
@@ -2000,7 +2095,7 @@ const ProductView1 = ({
     : null;
 
   const resolvedCategoryId: number | null =
-    productData?.categoryId ?? categoryIdProp ?? null;
+    resolveProductCategoryId(productData) ?? categoryIdProp ?? null;
 
   const isConsumable =
     resolvedCategoryId === 5 ||
@@ -2187,8 +2282,8 @@ const ProductView1 = ({
       : (consAttr?.shelfLife ?? drugEntry?.shelfLife ?? null);
 
   // Extract offers only from the latest batch
-  const additionalDiscounts: AdditionalDiscount[] = (
-    pricing?.additionalDiscounts || []
+  const additionalDiscounts: AdditionalDiscount[] = normalizeDiscounts(
+    pricing?.additionalDiscounts,
   )
     .filter(
       (d: any) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage && d.displayOffer !== false,
@@ -2319,6 +2414,7 @@ const ProductView1 = ({
     validUrl(ncAttr?.brochurePath) ??
     validUrl(cosAttrRaw?.brochurePath) ??
     validUrl(suppAttr?.brochurePath) ??
+    validUrl(foodAttr?.productUserManual) ??
     validUrl(productData?.productMarketingUrl);
 
   const specialOffers: SpecialOffer[] = productData?.specialOffers ?? [];
@@ -2336,10 +2432,15 @@ const ProductView1 = ({
   const handleClose = () => setCurrentView("overview" as DashboardView);
   const handleEdit = () => {
     const editView =
-      resolvedCategoryId != null
+      (editKeyForProduct(productData) as DashboardView | null) ??
+      (resolvedCategoryId != null
         ? CATEGORY_EDIT_VIEW[resolvedCategoryId]
-        : null;
-    setCurrentView(editView ?? ("editDrug" as DashboardView));
+        : null);
+    if (!editView) {
+      toast.error("Could not determine this product's category, so it cannot be edited.");
+      return;
+    }
+    setCurrentView(editView);
   };
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const handleUpdateStock = () => setStockModalOpen(true);
@@ -2540,6 +2641,25 @@ const ProductView1 = ({
           >
             Complete product information
           </p>
+          {productData.status && productData.status !== "PUBLISHED" && (
+            <span
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 4,
+                padding: "2px 12px",
+                borderRadius: 999,
+                fontSize: 14,
+                fontWeight: 600,
+                background:
+                  productData.status === "DRAFT" ? "#FFF4D6" : "#EEEEEE",
+                color: productData.status === "DRAFT" ? "#8A5A00" : "#5A5B58",
+              }}
+            >
+              {productData.status === "DRAFT"
+                ? "Draft - not yet submitted"
+                : "Unpublished"}
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button
@@ -2559,7 +2679,7 @@ const ProductView1 = ({
               lineHeight: "24px",
             }}
           >
-            Edit
+            {isDraftProduct ? "Edit / Submit" : "Edit"}
           </button>
           {/* add Stock existing batch or create new batch  */}
 
@@ -2951,7 +3071,7 @@ const ProductView1 = ({
               <div className="w-full px-5 py-4 border-b border-[#D5D5D4] flex flex-col items-start gap-3">
                 <div className="flex items-center gap-1">
                   <span className="text-pneutral-700 text-base font-normal leading-6">
-                    Warnings & Precautionsī
+                    Warnings & Precautions
                   </span>
 
                   <span className="text-[#FF3B30] text-base">*</span>
@@ -2980,13 +3100,13 @@ const ProductView1 = ({
       )}
 
       {/* Supplement / Nutraceutical (category 2) */}
-      {isSupplement && suppAttr && (
+      {isSupplement && (
         <SupplementDetailsView
           productName={productData.productName}
           productDescription={productDescription}
           warningsPrecautions={warningsPrecautions}
           displayImages={displayImages}
-          suppAttr={suppAttr}
+          suppAttr={resolvedSuppAttr ?? suppAttr ?? {}}
           storageConditionName={storageCondition}
           placeholderImage={PLACEHOLDER_IMAGE}
           manufacturerName={manufacturerName}
@@ -2997,13 +3117,13 @@ const ProductView1 = ({
       )}
 
       {/* Food & Infant (category 3) */}
-      {isFoodInfant && foodAttr && (
+      {isFoodInfant && (
         <FoodInfantView
           productName={productData.productName}
           productDescription={productDescription}
           warningsPrecautions={warningsPrecautions}
           displayImages={displayImages}
-          foodAttr={foodAttr}
+          foodAttr={foodAttr ?? {}}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
           manufacturerName={manufacturerName}
@@ -3011,12 +3131,6 @@ const ProductView1 = ({
           specialSchemes={specialSchemes}
         />
       )}
-      {console.log("FoodAttr from ProductView1:", {
-        nutritionalInformation: foodAttr?.nutritionalInformation,
-        nutritionalInformationImageUrl:
-          foodAttr?.nutritionalInformationImageUrl,
-      })}
-
       {/* ── SPECIAL OFFERS (if any) ── */}
       {specialOffers.length > 0 && (
         <SpecialOffersSection offers={specialOffers} />

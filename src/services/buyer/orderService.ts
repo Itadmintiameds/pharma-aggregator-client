@@ -1,6 +1,6 @@
 import axios from "axios";
 import buyerApi from "@/src/lib/buyerApi";
-import { Order, PlaceOrderRequest } from "@/src/types/buyer/order";
+import { Order, PlaceOrderFromQuoteRequest, PlaceOrderRequest } from "@/src/types/buyer/order";
 
 interface ApiResponseWrapper<T> {
   status: string;
@@ -11,6 +11,12 @@ interface ApiResponseWrapper<T> {
 
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
+    // "Validation failed" responses carry the per-field messages in data.data ({ field: message }).
+    const fieldErrors = error.response?.data?.data;
+    if (fieldErrors && typeof fieldErrors === "object" && !Array.isArray(fieldErrors) && !fieldErrors.message) {
+      const details = Object.values(fieldErrors).filter((v): v is string => typeof v === "string");
+      if (details.length > 0) return details.join(". ");
+    }
     return (
       error.response?.data?.message ||
       error.response?.data?.data?.message ||
@@ -37,6 +43,17 @@ export async function placeOrder(request: PlaceOrderRequest): Promise<Order> {
     return response.data.data;
   } catch (error) {
     throw new Error(extractErrorMessage(error, "Failed to place order. Please try again."));
+  }
+}
+
+// Quote orders use their own endpoint: the order-service cart endpoint (POST /orders) requires cart
+// lines and does not accept a quoteRequestId.
+export async function placeOrderFromQuote(request: PlaceOrderFromQuoteRequest): Promise<Order> {
+  try {
+    const response = await buyerApi.post<ApiResponseWrapper<Order>>("/orders/from-quote", request);
+    return response.data.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, "Failed to place order from your quote. Please try again."));
   }
 }
 

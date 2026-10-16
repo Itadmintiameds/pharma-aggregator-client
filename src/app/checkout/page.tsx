@@ -14,10 +14,11 @@ import { useBuyerOnboardingStatus } from "@/src/hooks/useBuyerOnboardingStatus";
 import { getBuyerId } from "@/src/services/buyer/buyerProfileService";
 import { getAllProducts, getProductById } from "@/src/services/buyer/buyerProductService";
 import { getMyQuoteRequests } from "@/src/services/buyer/quoteRequestService";
-import { generateIdempotencyKey, placeOrder } from "@/src/services/buyer/orderService";
+import { generateIdempotencyKey, placeOrder, placeOrderFromQuote } from "@/src/services/buyer/orderService";
 import { checkoutAddressSchema, CheckoutAddressFormData } from "@/src/schema/buyer/checkoutSchema";
 import { Order } from "@/src/types/buyer/order";
 import { QuoteRequest } from "@/src/types/quote/quoteRequest";
+import { isCartItemUnavailable } from "@/src/utils/cartAvailability";
 
 // One idempotency key per mount of this page — every submit attempt (including
 // retries of the same click, e.g. after a transient network error) reuses it,
@@ -244,6 +245,14 @@ function CheckoutPageInner() {
     }
 
     if (!isQuoteMode) {
+      const outOfStock = items.filter(isCartItemUnavailable);
+      if (outOfStock.length > 0) {
+        setSubmitError(
+          `These items are out of stock: ${outOfStock.map((item) => item.productName).join(", ")}. Please remove them from your cart and try again.`
+        );
+        return;
+      }
+
       const linesMissingPricing = items.filter((item) => !item.pricingId);
       if (linesMissingPricing.length > 0) {
         const names = linesMissingPricing.map((item) => item.productName).join(", ");
@@ -279,21 +288,24 @@ function CheckoutPageInner() {
     try {
       const buyerId = await getBuyerId(currentUser.buyerUserId);
 
-      const order = await placeOrder({
-        buyerId,
-        idempotencyKey,
-        ...address,
-        paymentMethod: "COD",
-        ...(isQuoteMode
-          ? { quoteRequestId: Number(quoteRequestId), lines: [] }
-          : {
-              lines: items.map((item) => ({
-                productId: item.productId,
-                pricingId: item.pricingId!,
-                quantity: item.quantity,
-              })),
-            }),
-      });
+      const order = isQuoteMode
+        ? await placeOrderFromQuote({
+            buyerId,
+            idempotencyKey,
+            quoteRequestId: Number(quoteRequestId),
+            ...address,
+          })
+        : await placeOrder({
+            buyerId,
+            idempotencyKey,
+            ...address,
+            paymentMethod: "COD",
+            lines: items.map((item) => ({
+              productId: item.productId,
+              pricingId: item.pricingId!,
+              quantity: item.quantity,
+            })),
+          });
 
       // Cart is cleared only after a confirmed placement — a failed/partial
       // request (e.g. all lines rejected, which throws before this point)

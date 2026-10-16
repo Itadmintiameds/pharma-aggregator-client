@@ -189,7 +189,7 @@ export interface ProductListData {
   productName: string;
   categoryName?: string;
   categoryId?: number;
-  status?: "DRAFT" | "PUBLISHED";
+  status?: "DRAFT" | "PUBLISHED" | "UNPUBLISHED";
   pricingDetails: PricingData[];
   productImages?: {
     productImage: string;

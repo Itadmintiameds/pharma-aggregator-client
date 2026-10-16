@@ -9,6 +9,7 @@ import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import AppliedOffersView from "./AppliedOffersView";
 import PopupModal from "../commonComponent/PopupModal";
+import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import CommonModal from "../commonComponent/CommonModal";
 import { AlertCircle } from "lucide-react";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
@@ -170,6 +171,19 @@ const NonEditableSelect = ({ label, value, required }: { label: string; value: s
 
 const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonConsumableFormProps) => {
   const router = useRouter();
+  // After a draft save: edit mode reloads so ids/images/status are fresh (the server re-creates
+  // attribute rows on every update); add mode jumps to the saved draft's edit page so later saves
+  // update it instead of creating a duplicate product.
+  const savedDraftIdRef = useRef<string | null>(null);
+  const handleDraftModalDone = () => {
+    setShowDraftModal(false);
+    if (draftModalError) return;
+    if (mode === "edit") {
+      window.location.reload();
+    } else if (savedDraftIdRef.current) {
+      router.replace(editUrlFor(savedDraftIdRef.current, "editNonConsumable"));
+    }
+  };
   const todayStr = new Date().toISOString().split("T")[0];
 
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -217,6 +231,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   });
 
   const [resolvedProductId, setResolvedProductId] = useState("");
+  const [productStatus, setProductStatus] = useState("");
   const [productAttributeId, setProductAttributeId] = useState("");
   const [packagingId, setPackagingId] = useState("");
   const [pricingId, setPricingId] = useState("");
@@ -383,6 +398,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const pricing = data.pricingDetails?.[0] || {};
 
       setResolvedProductId(data.productId || productId);
+      setProductStatus(String(data.status || "").toUpperCase());
       setProductAttributeId(String(attribute.productAttributeId || ""));
       setPackagingId(String(packaging.packagingId || ""));
       setPricingId(String(pricing.pricingId || ""));
@@ -452,7 +468,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (pricing.specialSchemes?.length) setSpecialSchemes(pricing.specialSchemes);
       if (attribute.materialTypeIds?.length) setSelectedMaterialTypes(attribute.materialTypeIds.map(String));
       if (data.productImages?.length) setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
-      const isRealUrl = (u: string) => !!u && !["PENDING", "NOT_UPLOADED"].includes(u.toUpperCase());
+      const isRealUrl = (u: string) => isRealFileUrl(u);
       if (isRealUrl(attribute.brochurePath)) setExistingBrochureUrl(attribute.brochurePath);
 
       if (attribute.certificateDocuments?.length) {
@@ -467,7 +483,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           isUploaded: isRealUrl(cert.certificateUrl),
           previewUrl: null,
           productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-          existingUrl: cert.certificateUrl || undefined,
+          existingUrl: isRealUrl(cert.certificateUrl) ? cert.certificateUrl : undefined,
         }));
         setSelectedCertifications(mappedCerts);
         setMandatoryCertCount(mappedCerts.length);
@@ -935,11 +951,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   // ─── Submit ───────────────────────────────────────────────────────────────
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (publishFromDraft: boolean = false) => {
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       setTimeout(() => scrollToFirstError(errs), 50);
+      alert("Please fix the highlighted fields");
       return;
     }
     setErrors({}); setSubmitting(true); setApiError(null);
@@ -957,7 +974,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
-        status: "PUBLISHED" as const,
+        status: (mode === "edit" && !publishFromDraft ? (productStatus || "PUBLISHED") : "PUBLISHED") as string,
 
         productAttributeNonConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
@@ -975,7 +992,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           manufacturerName: form.manufacturerName,
           warrantyPeriod: form.warrantyPeriod || "",
           dimensionSize: form.dimensionSize.trim() || null,
-          deviceSpecificationUnitId: form.deviceSpecificationUnitId ? Number(form.deviceSpecificationUnitId) : null,
+          deviceSpecificationUnitId: numOrUndef(form.deviceSpecificationUnitId) ?? null,
           udiNumber: form.udiNumber || "",
           deviceClassification: form.deviceClassification,
           safetyInstructions: form.safetyInstructions,
@@ -998,24 +1015,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       let certsToUpload: CertificationTag[] = [...selectedCertifications];
 
       if (mode === "edit" && currentProductId) {
-        // Diagnostic: confirm exact values being sent for the 3 fields
-        const attrPayload = (payload as any).productAttributeNonConsumableMedicals?.[0];
-        console.log("[NonConsumableForm] SENDING UPDATE - productAttributeId:", attrPayload?.productAttributeId, "| warrantyPeriod:", attrPayload?.warrantyPeriod, "| dimensionSize:", attrPayload?.dimensionSize, "| deviceSpecificationUnitId:", attrPayload?.deviceSpecificationUnitId, "| serviceAvailability:", attrPayload?.serviceAvailability);
-
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updateData = await updateProduct(currentProductId, payload as any) as ApiResponseData;
 
-        // Diagnostic: confirm what the backend returned for the 3 fields
-        const returnedAttrs = (updateData as any)?.data?.productAttributeNonConsumableMedicals ?? (updateData as any)?.productAttributeNonConsumableMedicals ?? [];
-        if (returnedAttrs.length > 0) {
-          const r = returnedAttrs[returnedAttrs.length - 1];
-          console.log("[NonConsumableForm] BACKEND RESPONSE - warrantyPeriod:", r?.warrantyPeriod, "| dimensionSize:", r?.dimensionSize, "| serviceAvailability:", r?.serviceAvailability);
-        }
-
-        // For Excel-uploaded products the attributeId may not be pre-populated
-        if (!currentAttributeId) {
-          currentAttributeId = extractProductAttributeId(updateData) || "";
-        }
+        // The update re-creates the attribute row with a new id: always take it from the response
+        currentAttributeId = extractProductAttributeId(updateData) || currentAttributeId;
+        if (currentAttributeId) setProductAttributeId(currentAttributeId);
 
         // Extract server-assigned productCertificateDocumentId values from the update response
         const certDocMap = extractCertDocumentIdMap(updateData);
@@ -1037,6 +1042,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             if (!r.success) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
           }
         }
+        if (productStatus === "DRAFT") setProductStatus("PUBLISHED");
         if (onSubmitSuccess) onSubmitSuccess();
         else setShowSuccessModal(true);
       } else {
@@ -1080,7 +1086,27 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   // ─── Save Draft (skips validation entirely) ────────────────────────────────
 
+  const numOrUndef = (v: string | number | null | undefined): number | undefined => {
+    if (v === null || v === undefined || String(v).trim() === "") return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
   const handleSaveDraft = async () => {
+    const missingDraft: string[] = [];
+    if (!form.deviceCategoryId) missingDraft.push("Device Category");
+    if (!form.deviceSubCategoryId) missingDraft.push("Device Sub-Category");
+    if (!form.countryOfOrigin) missingDraft.push("Country of Origin");
+    if (missingDraft.length > 0) {
+      const draftErrs: Record<string, string> = {};
+      if (!form.deviceCategoryId) draftErrs.deviceCategoryId = "Required to save draft";
+      if (!form.deviceSubCategoryId) draftErrs.deviceSubCategoryId = "Required to save draft";
+      if (!form.countryOfOrigin) draftErrs.countryOfOrigin = "Required to save draft";
+      setErrors((prev) => ({ ...prev, ...draftErrs }));
+      setTimeout(() => scrollToFirstError(draftErrs), 50);
+      alert(`To save a draft, please select: ${missingDraft.join(", ")}`);
+      return;
+    }
     setIsSavingDraft(true);
     setApiError(null);
     try {
@@ -1094,27 +1120,27 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         manufacturerName: form.manufacturerName,
         categoryId: productCategoryId,
 
-        gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : undefined,
-        hsnCode: form.hsnCode ? Number(form.hsnCode) : undefined,
+        gstPercentage: numOrUndef(form.gstPercentage),
+        hsnCode: numOrUndef(form.hsnCode),
         status: "DRAFT" as const,
 
         productAttributeNonConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
           brandName: form.brandName,
-          deviceCategoryId: form.deviceCategoryId ? Number(form.deviceCategoryId) : undefined,
-          deviceSubCategoryId: form.deviceSubCategoryId ? Number(form.deviceSubCategoryId) : undefined,
+          deviceCategoryId: numOrUndef(form.deviceCategoryId),
+          deviceSubCategoryId: numOrUndef(form.deviceSubCategoryId),
           modelName: form.modelName,
           modelNumber: form.modelNumber,
           keyFeaturesSpecifications: form.keyFeatures,
           materialTypeIds: selectedMaterialTypes.map(Number),
           purpose: form.intendedUse,
-          powerSourceId: form.powerSourceId ? Number(form.powerSourceId) : 0,
-          storageConditionId: form.storageCondition ? Number(form.storageCondition) : 0,
-          countryId: form.countryOfOrigin ? Number(form.countryOfOrigin) : undefined,
+          powerSourceId: numOrUndef(form.powerSourceId),
+          storageConditionId: numOrUndef(form.storageCondition),
+          countryId: numOrUndef(form.countryOfOrigin),
           manufacturerName: form.manufacturerName,
           warrantyPeriod: form.warrantyPeriod || "",
           dimensionSize: form.dimensionSize.trim() || null,
-          deviceSpecificationUnitId: form.deviceSpecificationUnitId ? Number(form.deviceSpecificationUnitId) : null,
+          deviceSpecificationUnitId: numOrUndef(form.deviceSpecificationUnitId) ?? null,
           udiNumber: form.udiNumber || "",
           deviceClassification: form.deviceClassification,
           safetyInstructions: form.safetyInstructions,
@@ -1134,8 +1160,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
       let currentProductId = resolvedProductId || productId || "";
 
-      if (mode === "edit" && currentProductId) {
-        await updateProduct(currentProductId, draftPayload as any);
+      // Update the existing product (also after a first draft save in create mode) instead of creating a duplicate
+      if (currentProductId) {
+        const draftUpdateData = await updateProduct(currentProductId, draftPayload as any) as ApiResponseData;
+        const draftAttrId = extractProductAttributeId(draftUpdateData);
+        if (draftAttrId) setProductAttributeId(draftAttrId);
         if (images.length > 0) await uploadProductImages(currentProductId, images);
       } else {
         const createData: ApiResponseData = await createNonConsumableProduct(draftPayload as Record<string, unknown>);
@@ -1150,6 +1179,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         if (currentProductId && images.length > 0) await uploadProductImages(currentProductId, images);
       }
 
+      if (currentProductId) savedDraftIdRef.current = currentProductId;
       setDraftModalError(false);
       setShowDraftModal(true);
     } catch (err) {
@@ -1181,7 +1211,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         secondaryActionText={isEdit ? "Continue Editing" : "Continue Adding"}
         tertiaryActionText="Back to Dashboard"
         onPrimaryAction={handleViewProduct}
-        onSecondaryAction={isEdit ? () => setShowSuccessModal(false) : handleContinueAdding}
+        onSecondaryAction={isEdit ? () => { setShowSuccessModal(false); window.location.reload(); } : handleContinueAdding}
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
       />
@@ -1196,8 +1226,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         }
         primaryActionText="OK"
         celebrate={!draftModalError}
-        onPrimaryAction={() => setShowDraftModal(false)}
-        onClose={() => setShowDraftModal(false)}
+        isError={draftModalError}
+        onPrimaryAction={handleDraftModalDone}
+        onClose={handleDraftModalDone}
       />
 
       {showAdditionalDiscountModal && (
@@ -1745,16 +1776,16 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
           <div className="flex gap-3">
             <button type="button" onClick={() => router.back()} className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">Cancel</button>
-            {mode !== "edit" && (
+            {(mode !== "edit" || productStatus === "DRAFT") && (
               <button type="button" onClick={handleSaveDraft} disabled={isSavingDraft} style={{ background: "#9F75FC", borderRadius: "8px" }} className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-60">
                 <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
                 {isSavingDraft ? "Saving..." : "Save Draft"}
               </button>
             )}
           </div>
-          <button type="button" onClick={handleSubmit} disabled={submitting} style={{ background: "#4B0082", borderRadius: "8px" }} className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
+          <button type="button" onClick={() => handleSubmit(isEdit && productStatus === "DRAFT")} disabled={submitting} style={{ background: "#4B0082", borderRadius: "8px" }} className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
             {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
+            {submitting ? "Saving..." : mode === "edit" && productStatus !== "DRAFT" ? "Update" : "Submit"}
           </button>
         </div>
       </form>

@@ -2,6 +2,8 @@ export interface BuyerProductPricing {
   pricingId?: string;
   packagingId?: string;
   stockQuantity?: number;
+  manufacturingDate?: string;
+  expiryDate?: string;
   sellingPrice?: number;
   mrp?: number;
   discountPercentage?: number;

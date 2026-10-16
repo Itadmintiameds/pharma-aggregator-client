@@ -41,6 +41,7 @@ function RespondForm({
       />
       <input
         type="date"
+        min={new Date().toISOString().slice(0, 10)}
         placeholder="Quote valid until"
         value={quoteValidUntil}
         onChange={(e) => setQuoteValidUntil(e.target.value)}

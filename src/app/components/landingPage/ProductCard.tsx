@@ -1,4 +1,5 @@
 "use client";
+import { resolveProductAvailability } from "@/src/utils/cartAvailability";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -21,6 +22,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     buyerAuthService.isAuthenticated()
   );
   const pricing = product.pricingDetails?.[0];
+  const outOfStock = resolveProductAvailability(product).unavailable;
   const image = product.productImages?.[0]?.productImage;
   const cartQuantity =
     cartItems.find((item) => item.productId === product.productId)?.quantity ?? 0;
@@ -102,7 +104,9 @@ export default function ProductCard({ product }: ProductCardProps) {
 
           <button
             onClick={handleAddToCart}
-            className="flex items-center justify-start gap-2 bg-primary-700 hover:bg-purple-800 text-white rounded-xl transition-all duration-500 ease-in-out w-10 h-10 pl-3 group-hover:w-auto group-hover:px-4 overflow-hidden shrink-0 z-10"
+            disabled={outOfStock}
+            title={outOfStock ? "Out of stock" : undefined}
+            className="disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-start gap-2 bg-primary-700 hover:bg-purple-800 text-white rounded-xl transition-all duration-500 ease-in-out w-10 h-10 pl-3 group-hover:w-auto group-hover:px-4 overflow-hidden shrink-0 z-10"
           >
             <FaShoppingCart className="shrink-0 text-sm" />
             <span className="text-sm whitespace-nowrap font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out">
@@ -149,7 +153,8 @@ export default function ProductCard({ product }: ProductCardProps) {
         <div className="flex items-center justify-between bg-white pt-2 gap-2">
           <button
             onClick={handleBuyNow}
-            className="border border-purple-700 text-purple-700 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-purple-50 transition-colors duration-300 bg-white shadow-sm"
+            disabled={outOfStock}
+            className="disabled:opacity-40 disabled:cursor-not-allowed border border-purple-700 text-purple-700 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-purple-50 transition-colors duration-300 bg-white shadow-sm"
           >
             Buy Now
           </button>

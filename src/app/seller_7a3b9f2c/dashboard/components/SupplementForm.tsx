@@ -21,6 +21,7 @@ import Input from "@/src/app/commonComponents/Input";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
+import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import UploadInput from "../commonComponent/UploadInput";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
@@ -284,11 +285,25 @@ interface SupplementFormProps {
 
 const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) => {
   const router = useRouter();
+  // After a draft save: edit mode reloads so ids/images/status are fresh (the server re-creates
+  // attribute rows on every update); add mode jumps to the saved draft's edit page so later saves
+  // update it instead of creating a duplicate product.
+  const savedDraftIdRef = useRef<string | null>(null);
+  const handleDraftModalDone = () => {
+    setShowDraftModal(false);
+    if (draftModalError) return;
+    if (mode === "edit") {
+      window.location.reload();
+    } else if (savedDraftIdRef.current) {
+      router.replace(editUrlFor(savedDraftIdRef.current, "editSupplement"));
+    }
+  };
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   const setFieldRef =
     (name: string) => (el: HTMLElement | null) => { fieldRefs.current[name] = el; };
 
   const isEditMode = mode === "edit";
+  const [productStatus, setProductStatus] = useState<string>("");
 
   const [form, setForm] = useState({
     // Internal IDs needed for update
@@ -595,6 +610,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
   const handleContinueEditing = () => {
     setShowSuccess(false);
+    // reload so the form picks up the re-created attribute id, new images and the new status
+    if (mode === "edit") window.location.reload();
   };
 
   const handleContinueAdding = () => {
@@ -699,7 +716,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       try {
         const data = await getTherapeuticCategory(effectiveCategoryId);
         const options = data.map((cat: any) => ({
-          value: cat.therapeuticCategoryId,
+          value: String(cat.therapeuticCategoryId),
           label: cat.therapeuticCategory,
         }));
         setTherapeuticCategoryOptions(options);
@@ -722,7 +739,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       try {
         const data = await getTherapeuticSubcategory(form.therapeuticCategory);
         const options = data.map((sub: any) => ({
-          value: sub.therapeuticSubcategoryId,
+          value: String(sub.therapeuticSubcategoryId),
           label: sub.therapeuticSubcategory,
         }));
         setSubCategoryOptions(options);
@@ -929,6 +946,30 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     };
     fetchServingSizeUnits();
   }, [form.dosageForm]);
+
+  // The API returns only unit IDs (no unit names) for saved products. Once the unit master
+  // lists are loaded, resolve the display label so the required unit fields are not blank.
+  useEffect(() => {
+    if (mode !== "edit") return;
+    setForm((prev) => {
+      let next = prev;
+      if (prev.netQuantityUnitId && !prev.netQuantityUnit && netQuantityUnitsList.length) {
+        const m = netQuantityUnitsList.find(
+          (i) => String(i?.unitId ?? i?.id) === String(prev.netQuantityUnitId),
+        );
+        const label = m ? extractUnitString(m) : "";
+        if (label) next = { ...next, netQuantityUnit: label };
+      }
+      if (prev.servingSizeUnitId && !prev.servingSizeUnit && servingSizeUnitsList.length) {
+        const m = servingSizeUnitsList.find(
+          (i) => String(i?.id ?? i?.unitId) === String(prev.servingSizeUnitId),
+        );
+        const label = m ? extractUnitString(m) : "";
+        if (label) next = { ...next, servingSizeUnit: label };
+      }
+      return next;
+    });
+  }, [mode, netQuantityUnitsList, servingSizeUnitsList, form.netQuantityUnitId, form.servingSizeUnitId]);
 
   useEffect(() => {
     const units = parseFloat(form.unitPerPack) || 0;
@@ -1377,6 +1418,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     try {
       const data = await getProductById(id);
       if (!data) throw new Error("Product not found");
+      setProductStatus(String(data.status || "").toUpperCase());
 
       // Get the latest pricing and packaging entries
       const pricing = data.pricingDetails?.length > 0
@@ -1396,8 +1438,15 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
       // Existing files (URLs, not new File objects)
       setExistingImages(data.productImages?.map((img: any) => img.productImage) || []);
-      setExistingBrochureUrl(attr.brochurePath || null);
-      setExistingNutritionalImageUrl(attr.nutritionalInformationImageUrl || null);
+      const isRealFileUrl = (u: unknown): u is string => {
+        if (typeof u !== "string") return false;
+        const t = u.trim().toUpperCase();
+        return !!t && !["PENDING", "NOT_UPLOADED", "TO_UPLOAD", "NULL"].includes(t) && !t.startsWith("BLOB:");
+      };
+      setExistingBrochureUrl(isRealFileUrl(attr.brochurePath) ? attr.brochurePath : null);
+      setExistingNutritionalImageUrl(
+        isRealFileUrl(attr.nutritionalInformationImageUrl) ? attr.nutritionalInformationImageUrl : null,
+      );
 
       // Re-populate certifications from existing data
       if (attr.certificateDocuments?.length > 0) {
@@ -1408,7 +1457,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           file: null,
           fileName: "",
           isUploaded: false,
-          existingUrl: cert.certificateUrl || undefined,
+          existingUrl: isRealFileUrl(cert.certificateUrl) ? cert.certificateUrl : undefined,
           documentId: cert.productCertificateDocumentId,
         }));
         setSelectedCertifications(mappedCerts);
@@ -1432,7 +1481,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         brandName: attr.brandName || "",
         variantName: attr.variantName || "",
         dosageForm: String(attr.dosageFormId || ""),
-        netQuantity: attr.netQuantity || "",
+        netQuantity: attr.netQuantity != null ? String(attr.netQuantity) : "",
         netQuantityValue: attr.netQuantityValue || (
           typeof attr.netQuantity === "number"
             ? String(attr.netQuantity)
@@ -1458,7 +1507,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         strength: attr.strength || "",
         activeIngredients: attr.activeIngredients || "",
         excipients: attr.otherIngredients || "",
-        nutritionalInfoType: attr.nutritionalInformationImageUrl ? "image" : "label",
+        nutritionalInfoType: isRealFileUrl(attr.nutritionalInformationImageUrl) ? "image" : "label",
         intendedUse: attr.intendedUse || "",
         ageGroup: attr.ageGroupIds && attr.ageGroupIds.length > 0
           ? attr.ageGroupIds.map(String).join(",")
@@ -1585,8 +1634,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   const handleSubmit = async () => {
-    if (isEditMode) {
-      await handleUpdate();
+    // Edit mode, or a draft already saved in this session: update the existing product (no duplicate create)
+    if (isEditMode || form.productId) {
+      await handleUpdate((isEditMode && productStatus === "DRAFT") || (!isEditMode && !!form.productId));
       return;
     }
 
@@ -1596,6 +1646,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       const firstKey = Object.keys(errs)[0];
       const el = fieldRefs.current[firstKey] || document.querySelector<HTMLElement>(`[data-field="${firstKey}"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert("Please fix the highlighted fields");
       return;
     }
 
@@ -1724,7 +1775,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   // ── handleUpdate: called when mode === "edit" ────────────────────────────────
-  const handleUpdate = async () => {
+  const handleUpdate = async (publishFromDraft: boolean = false) => {
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       console.warn("⚠️ Validation failed during update:", errs);
@@ -1732,6 +1783,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       const firstKey = Object.keys(errs)[0];
       const el = fieldRefs.current[firstKey] || document.querySelector<HTMLElement>(`[data-field="${firstKey}"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert("Please fix the highlighted fields");
       return;
     }
 
@@ -1746,7 +1798,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
-        status: "PUBLISHED" as const,
+        status: (publishFromDraft ? "PUBLISHED" : (productStatus || "PUBLISHED")) as "PUBLISHED" | "DRAFT",
 
         productAttributeSupplementsOrNutraceuticals: [
           {
@@ -1796,7 +1848,13 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
       console.log("✅ Update successful response:", response);
 
-      const attrId = form.productAttributeId;
+      // The update re-creates the attribute row with a new id: use the id from the response
+      const attrId =
+        response?.data?.productAttributeSupplementsOrNutraceuticals?.[0]?.productAttributeId ||
+        form.productAttributeId;
+      if (attrId && attrId !== form.productAttributeId) {
+        setForm((prev) => ({ ...prev, productAttributeId: attrId }));
+      }
 
       // ─── STEP 2: Upload new product images (if any new ones selected) ─────────
       if (images.length > 0) {
@@ -1851,6 +1909,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         }
       }
 
+      if (publishFromDraft) setProductStatus("PUBLISHED");
       setModalType(isEditMode ? "update" : "create");
       setShowSuccess(true);
     } catch (err) {
@@ -1862,7 +1921,32 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   // ── handleSaveDraft: saves a partial product without full validation ────────
+  const numOrUndef = (v: string | number | null | undefined): number | undefined => {
+    if (v === null || v === undefined || String(v).trim() === "") return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
   const handleSaveDraft = async () => {
+    const draftMissing: string[] = [];
+    const draftErrs: Record<string, string> = {};
+    const req = (ok: boolean, key: string, label: string) => {
+      if (!ok) { draftMissing.push(label); draftErrs[key] = "Required to save draft"; }
+    };
+    req(!!form.therapeuticCategory, "therapeuticCategory", "Therapeutic Category");
+    req(!!form.therapeuticSubcategory, "therapeuticSubcategory", "Therapeutic Sub-Category");
+    req(!!form.dosageForm, "dosageForm", "Dosage Form");
+    req(!!form.flavour, "flavour", "Flavour");
+    req(!!form.storageCondition, "storageCondition", "Storage Condition");
+    req(!!form.countryOfOrigin, "countryOfOrigin", "Country of Origin");
+    if (draftMissing.length > 0) {
+      setErrors((prev) => ({ ...prev, ...draftErrs }));
+      const firstKey = Object.keys(draftErrs)[0];
+      const el = fieldRefs.current[firstKey] || document.querySelector<HTMLElement>(`[data-field="${firstKey}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert(`To save a draft, please select: ${draftMissing.join(", ")}`);
+      return;
+    }
     setIsSavingDraft(true);
     try {
       const draftPayload = {
@@ -1872,41 +1956,41 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         manufacturerName: form.manufacturerName,
         categoryId: effectiveCategoryId ? Number(effectiveCategoryId) : (categoryId ? Number(categoryId) : undefined),
 
-        gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : undefined,
-        hsnCode: form.hsnCode ? Number(form.hsnCode) : undefined,
+        gstPercentage: numOrUndef(form.gstPercentage),
+        hsnCode: numOrUndef(form.hsnCode),
         status: "DRAFT" as const,
 
         productAttributeSupplementsOrNutraceuticals: [
           {
-            therapeuticCategoryId: form.therapeuticCategory,
-            therapeuticSubCategoryId: form.therapeuticSubcategory,
+            therapeuticCategoryId: numOrUndef(form.therapeuticCategory),
+            therapeuticSubCategoryId: numOrUndef(form.therapeuticSubcategory),
             brandName: form.brandName,
             variantName: form.variantName,
-            dosageFormId: form.dosageForm ? Number(form.dosageForm) : undefined,
-            netQuantity: form.netQuantityValue ? Number(form.netQuantityValue) : undefined,
-            netQuantityUnitId: Number(
+            dosageFormId: numOrUndef(form.dosageForm),
+            netQuantity: numOrUndef(form.netQuantityValue),
+            netQuantityUnitId: numOrUndef(
               netQuantityUnitsList.find((item) => extractUnitString(item) === form.netQuantityUnit)?.unitId ||
               netQuantityUnitsList.find((item) => extractUnitString(item) === form.netQuantityUnit)?.id ||
               form.netQuantityUnitId ||
-              0
+              ""
             ),
-            servingSize: form.servingSizeValue ? Number(form.servingSizeValue) : null,
-            servingSizeUnitId: form.servingSizeUnitId ? Number(form.servingSizeUnitId) : null,
+            servingSize: numOrUndef(form.servingSizeValue) ?? null,
+            servingSizeUnitId: numOrUndef(form.servingSizeUnitId) ?? null,
             strength: form.strength,
             activeIngredients: form.activeIngredients,
             otherIngredients: form.excipients,
             nutritionalInformation: form.nutritionalInfoType === "label" ? "As per the label." : "",
-            nutritionalInformationImageUrl: "",
+            nutritionalInformationImageUrl: existingNutritionalImageUrl || "",
             intendedUse: form.intendedUse,
-            ageGroupId: form.ageGroup ? Number(form.ageGroup.split(",")[0]) : 0,
-            ageGroupIds: form.ageGroup ? form.ageGroup.split(",").map(Number) : [],
+            ageGroupId: form.ageGroup ? numOrUndef(form.ageGroup.split(",")[0]) : undefined,
+            ageGroupIds: form.ageGroup ? form.ageGroup.split(",").map(Number).filter((n) => Number.isFinite(n)) : [],
             gender: form.gender,
             vegOrNonVegIndicator: form.vegNonVeg,
             allergenInformation: form.allergenInfo,
-            flavourId: form.flavour ? Number(form.flavour) : undefined,
+            flavourId: numOrUndef(form.flavour),
             productClaims: form.productClaims,
-            storageConditionId: form.storageCondition ? Number(form.storageCondition) : undefined,
-            countryId: form.countryOfOrigin ? Number(form.countryOfOrigin) : undefined,
+            storageConditionId: numOrUndef(form.storageCondition),
+            countryId: numOrUndef(form.countryOfOrigin),
             certificateDocuments: selectedCertifications.map((cert) => ({
               certificationId: Number(cert.id),
               certificateUrl: cert.existingUrl || "PENDING",
@@ -1915,12 +1999,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           },
         ],
 
-        productImages: images.map((img) => ({ productImage: img.name })),
+        // photos are uploaded below; sending their file names would create broken image rows
         retainedImageUrls: existingImages,
       };
 
-      if (isEditMode && form.productId) {
-        await updateProduct(form.productId, draftPayload as any);
+      // Update the existing product (also after a first draft save in add mode) instead of creating a duplicate
+      if (form.productId) {
+        savedDraftIdRef.current = form.productId;
+        const draftUpdateResponse: any = await updateProduct(form.productId, draftPayload as any);
+        const draftAttrId = draftUpdateResponse?.data?.productAttributeSupplementsOrNutraceuticals?.[0]?.productAttributeId;
+        if (draftAttrId) {
+          setForm((prev) => ({ ...prev, productAttributeId: draftAttrId }));
+        }
         if (images.length > 0) {
           await uploadSupplementProductImages(form.productId, images);
         }
@@ -1928,7 +2018,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         const productResponse = await createSupplementProduct(draftPayload);
         const newProductId = productResponse?.data?.productId;
         if (newProductId) {
-          setForm((prev) => ({ ...prev, productId: newProductId }));
+          savedDraftIdRef.current = newProductId;
+          const newAttrId = productResponse?.data?.productAttributeSupplementsOrNutraceuticals?.[0]?.productAttributeId;
+          setForm((prev) => ({ ...prev, productId: newProductId, productAttributeId: newAttrId || prev.productAttributeId }));
           if (images.length > 0) {
             await uploadSupplementProductImages(newProductId, images);
           }
@@ -1975,8 +2067,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         }
         primaryActionText="OK"
         celebrate={!draftModalError}
-        onPrimaryAction={() => setShowDraftModal(false)}
-        onClose={() => setShowDraftModal(false)}
+        isError={draftModalError}
+        onPrimaryAction={handleDraftModalDone}
+        onClose={handleDraftModalDone}
       />
 
       {showAdditionalDiscount && (
@@ -2606,7 +2699,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               Cancel
             </button>
 
-            {mode !== "edit" && (
+            {(mode !== "edit" || productStatus === "DRAFT") && (
               <button
                 type="button"
                 onClick={handleSaveDraft}
@@ -2630,7 +2723,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer flex items-center justify-center gap-2"
             >
               {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {submitting ? "Saving..." : "Submit"}
+              {submitting ? "Saving..." : isEditMode && productStatus !== "DRAFT" ? "Update" : "Submit"}
             </button>
           </div>
         </div>

@@ -25,6 +25,7 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   all: "All Status",
   draft: "Draft",
   published: "Published",
+  unpublished: "Unpublished",
 };
 
 interface ProductsProps {

@@ -20,12 +20,13 @@ import {
   uploadProductUserManual,
 } from "@/src/services/product/ProductService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Select from "react-select";
 import CommonModal from "../commonComponent/CommonModal";
 import AdditionalDiscount from "./AdditionalDiscount";
 import UploadInput from "../commonComponent/UploadInput";
 import PopupModal from "../commonComponent/PopupModal";
+import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import AppliedOffersView from "./AppliedOffersView";
 import AddDiscNew from "./AdditionalDiscountNew";
 import AdditionalDiscountType from "./AdditionalDiscountType";
@@ -229,6 +230,19 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const router = useRouter();
+  // After a draft save: edit mode reloads so ids/images/status are fresh (the server re-creates
+  // attribute rows on every update); add mode jumps to the saved draft's edit page so later saves
+  // update it instead of creating a duplicate product.
+  const savedDraftIdRef = useRef<string | null>(null);
+  const handleDraftModalDone = () => {
+    setShowDraftModal(false);
+    if (draftModalError) return;
+    if (mode === "edit") {
+      window.location.reload();
+    } else if (savedDraftIdRef.current) {
+      router.replace(editUrlFor(savedDraftIdRef.current, "editDrug"));
+    }
+  };
   const [therapeuticCategories, setTherapeuticCategories] = useState<
     SelectOption[]
   >([]);
@@ -236,6 +250,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [productStatus, setProductStatus] = useState<string>("");
   const [subcategoryOptions, setSubcategoryOptions] = useState<SelectOption[]>(
     [],
   );
@@ -244,6 +259,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [dosageOptions, setDosageOptions] = useState<any[]>([]);
   const [loadingDosage, setLoadingDosage] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [moleculeOptions, setMoleculeOptions] = useState<any[]>([]);
   const [loadingMolecules, setLoadingMolecules] = useState(false);
@@ -256,7 +272,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [additionalDiscounts, setAdditionalDiscounts] = useState([]);
   const [openDrawer, setOpenDrawer] = useState(false);
   const [existingImages, setExistingImages] = useState<string[]>([]);
-  const isReadOnly = mode === "edit";
+  const isReadOnly = mode === "edit" && productStatus !== "DRAFT";
   const [dosageFormLabel, setDosageFormLabel] = useState<string>("");
   const [manualFile, setManualFile] = useState<File | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -268,7 +284,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [existingManualFile, setExistingManualFile] = useState<string | null>(
     null,
   );
-  const isEditMode = mode === "edit";
+  const isEditMode = mode === "edit" && productStatus !== "DRAFT";
   const [storageConditionData, setStorageConditionData] = useState<any[]>([]);
   const [loadingStorageConditions, setLoadingStorageConditions] =
     useState(false);
@@ -306,7 +322,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       const data = await getTherapeuticCategory(id);
 
       const options = data.map((cat: any) => ({
-        value: cat.therapeuticCategoryId,
+        value: String(cat.therapeuticCategoryId),
         label: cat.therapeuticCategory,
       }));
 
@@ -525,7 +541,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         const data = await getTherapeuticSubcategory(form.therapeuticCategory);
 
         const options = data.map((sub: any) => ({
-          value: sub.therapeuticSubcategoryId,
+          value: String(sub.therapeuticSubcategoryId),
           label: sub.therapeuticSubcategory,
         }));
 
@@ -714,12 +730,20 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     // });
   };
 
-  const buildMoleculeStrength = (molecule: { strength: string; strengthUnit: string }) => {
+  const buildMoleculeStrength = (molecule: {
+    strength: string;
+    strengthUnit: string;
+    strengthUnitText?: string;
+  }) => {
     const unitLabel = strengthUnitOptions.find(
       (option) => option.value === molecule.strengthUnit,
     )?.label;
 
-    return unitLabel ? `${molecule.strength} ${unitLabel}`.trim() : molecule.strength;
+    if (unitLabel) return `${molecule.strength} ${unitLabel}`.trim();
+    if (!molecule.strengthUnit && molecule.strengthUnitText) {
+      return `${molecule.strength} ${molecule.strengthUnitText}`.trim();
+    }
+    return molecule.strength;
   };
 
   const getFinalDrugSchedule = (molecules: any[]) => {
@@ -746,7 +770,32 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     return combined.toISOString().slice(0, 19);
   };
 
+  const numOrUndef = (v: unknown): number | undefined => {
+    if (v === "" || v === null || v === undefined) return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  const showValidationFeedback = (errs: Record<string, string>) => {
+    setTimeout(() => {
+      let el: HTMLElement | null = null;
+      for (const key of Object.keys(errs)) {
+        el = document.querySelector<HTMLElement>(
+          `[data-field="${key}"], [name="${key}"]`,
+        );
+        if (el) break;
+      }
+      if (!el) el = document.querySelector<HTMLElement>("p.text-red-500");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus?.();
+      }
+      alert("Please fix the highlighted fields");
+    }, 50);
+  };
+
   const handleSubmit = async () => {
+    if (isSubmitting || isSavingDraft) return;
     const validation = drugProductCreateSchema.safeParse({
       ...form,
       images: [...existingImages, ...images],
@@ -763,12 +812,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       });
 
       setErrors(fieldErrors);
+      showValidationFeedback(fieldErrors);
       return;
     }
 
  
 
     setErrors({});
+    setIsSubmitting(true);
     try {
       const payload = {
         productName: form.productName,
@@ -805,9 +856,6 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           },
         ],
 
-        productImages: images.map((img) => ({
-          productImage: img.name,
-        })),
       };
       const productResponse = await createDrugProduct(payload);
       const productId = productResponse?.data?.productId;
@@ -836,7 +884,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       // window.location.reload();
     } catch (err) {
       console.error("❌ Submit Error:", err);
-      alert("❌ Failed to create product");
+      alert(
+        `Failed to create product: ${err instanceof Error ? err.message : "unknown error"}`,
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -862,6 +914,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
   const handleContinueEditing = () => {
     setShowSuccessModal(false);
+    // reload so the form picks up the re-created attribute id, new images and the new status
+    if (mode === "edit") window.location.reload();
   };
 
   const handleContinueAdding = () => {
@@ -883,8 +937,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     try {
       const data = await getProductById(id);
       if (!data) throw new Error("Product not found");
-      await fetchTherapeuticCategories(data.categoryId);
-      const fetchedDosageOptions = await fetchDosage(data.categoryId);
+      setProductStatus(String(data.status || "").toUpperCase());
+      const loadedCategoryId = data.categoryId ?? categoryId ?? 1;
+      await fetchTherapeuticCategories(loadedCategoryId);
+      const fetchedDosageOptions = await fetchDosage(loadedCategoryId);
       const pricing =
         data.pricingDetails?.length > 0
           ? data.pricingDetails.reduce((latest: any, curr: any) =>
@@ -912,7 +968,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       let fetchedStrengthUnitOptions: { label: string; value: string }[] = [];
       try {
         const strengthUnitData = await getStrengthUnitsByCategory(
-          Number(data.categoryId),
+          Number(loadedCategoryId),
         );
 
         fetchedStrengthUnitOptions = strengthUnitData.map((item: any) => ({
@@ -985,8 +1041,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                     String(opt.value.moleculeId) === String(m.moleculeId),
                 )?.value;
 
-              const { value: parsedStrength, unit: parsedUnit } =
-                parseMoleculeStrength(m.strength, fetchedStrengthUnitOptions);
+              const {
+                value: parsedStrength,
+                unit: parsedUnit,
+                unitText: parsedUnitText,
+              } = parseMoleculeStrength(m.strength, fetchedStrengthUnitOptions);
 
               return {
                 moleculeId: m.moleculeId ?? "",
@@ -997,6 +1056,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 primaryUse: full?.primaryUse || "",
                 strength: parsedStrength,
                 strengthUnit: parsedUnit,
+                strengthUnitText: parsedUnitText,
               };
             })
           : [
@@ -1017,13 +1077,15 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       );
 
       setExistingManualFile(
-        data.productAttributeDrugs?.[0]?.userManualUrl || null,
+        isRealFileUrl(data.productAttributeDrugs?.[0]?.userManualUrl)
+          ? data.productAttributeDrugs[0].userManualUrl
+          : null,
       );
 
       setForm((prev) => ({
         ...prev,
         productId: data.productId || "",
-        categoryId: String(data.categoryId || categoryId || ""),
+        categoryId: String(loadedCategoryId),
         productName: data.productName || "",
         productDescription: data.productDescription || "",
         warningsPrecautions: data.warningsPrecautions || "",
@@ -1079,22 +1141,24 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     }
   };
 
-const handleUpdate = async () => {
+const submitEdit = async (status: string) => {
+  if (isSubmitting || isSavingDraft) return;
   const validation = drugProductCreateSchema.safeParse({
     ...form,
     images: [...existingImages, ...images],
   });
 
   if (!validation.success) {
-    console.log("VALIDATION FAILED:", validation.error.issues);
     const fieldErrors: Record<string, string> = {};
     validation.error.issues.forEach((err) => {
       fieldErrors[err.path.join(".")] = err.message;
     });
     setErrors(fieldErrors);
+    showValidationFeedback(fieldErrors);
     return;
   }
     setErrors({});
+    setIsSubmitting(true);
 
     try {
       const payload = {
@@ -1107,7 +1171,7 @@ const handleUpdate = async () => {
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
-        status: "PUBLISHED" as const,
+        status: status as "PUBLISHED",
 
         productAttributeDrugs: [
           {
@@ -1127,41 +1191,62 @@ const handleUpdate = async () => {
               moleculeId: Number(m.moleculeId),
               strength: buildMoleculeStrength(m),
             })),
+            userManualUrl: existingManualFile || undefined,
           },
         ],
         retainedImageUrls: existingImages,
       };
 
-      await updateProduct(form.productId, payload);
+      const updated = await updateProduct(form.productId, payload);
 
-      if (productAttributeId && manualFile) {
-        await uploadProductUserManual(productAttributeId, manualFile);
+      // the update re-creates the attribute row, so use the new id for the brochure
+      const attrId =
+        updated?.data?.productAttributeDrugs?.[0]?.productAttributeId ||
+        productAttributeId;
+      if (attrId && manualFile) {
+        await uploadProductUserManual(attrId, manualFile);
       }
 
       if (images.length > 0) {
         await uploadProductImages(form.productId, images);
       }
 
+      if (status === "PUBLISHED") setProductStatus("PUBLISHED");
       setModalType("update");
       setShowSuccessModal(true);
     } catch (err) {
       console.error(err);
-      alert("❌ Update failed");
+      alert(
+        `Update failed: ${err instanceof Error ? err.message : "unknown error"}`,
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // Update keeps the product's current status (never silently re-publishes UNPUBLISHED products)
+  const handleUpdate = () => submitEdit(productStatus || "PUBLISHED");
+  // Submit on a draft publishes it
+  const handlePublishDraft = () => submitEdit("PUBLISHED");
+
   const handleSaveDraft = async () => {
+    if (isSubmitting || isSavingDraft) return;
+    if (!numOrUndef(form.categoryId)) {
+      alert("Cannot save draft: product category is missing.");
+      return;
+    }
+    const draftProductId = form.productId || productId || "";
     setIsSavingDraft(true);
     try {
       const draftPayload = {
-        productId: form.productId,
+        productId: draftProductId || undefined,
         productName: form.productName,
         productDescription: form.productDescription,
         warningsPrecautions: form.warningsPrecautions,
         manufacturerName: form.manufacturerName,
-        categoryId: form.categoryId ? Number(form.categoryId) : undefined,
-        gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : undefined,
-        hsnCode: form.hsnCode ? Number(form.hsnCode) : undefined,
+        categoryId: numOrUndef(form.categoryId),
+        gstPercentage: numOrUndef(form.gstPercentage),
+        hsnCode: numOrUndef(form.hsnCode),
         status: "DRAFT" as const,
         productAttributeDrugs: [
           {
@@ -1173,32 +1258,50 @@ const handleUpdate = async () => {
                 ?.label || "",
             strength: form.strength,
             storageConditionIds: form.storageConditionIds,
-            molecules: form.molecules.map((m) => ({
-              moleculeId: Number(m.moleculeId),
-              strength: buildMoleculeStrength(m),
-            })),
+            molecules: form.molecules
+              .filter((m) => numOrUndef(m.moleculeId) !== undefined)
+              .map((m) => ({
+                moleculeId: Number(m.moleculeId),
+                strength: buildMoleculeStrength(m),
+              })),
+            // keep the brochure already saved on the product (update replaces the attribute row)
+            userManualUrl: existingManualFile || undefined,
           },
         ],
-        productImages: images.map((img) => ({ productImage: img.name })),
+        // photos are uploaded below; sending their file names would create broken image rows
         retainedImageUrls: existingImages,
       };
 
-      if (mode === "edit" && form.productId) {
-        await updateProduct(form.productId, draftPayload as any);
+      if (draftProductId) {
+        const updated = await updateProduct(draftProductId, draftPayload as any);
+        // the update re-creates the attribute row, so use the new id for the brochure
+        const attrId =
+          updated?.data?.productAttributeDrugs?.[0]?.productAttributeId ||
+          productAttributeId;
+        if (manualFile && attrId) {
+          await uploadProductUserManual(attrId, manualFile);
+        }
         if (images.length > 0) {
-          await uploadProductImages(form.productId, images);
+          await uploadProductImages(draftProductId, images);
         }
       } else {
         const productResponse = await createDrugProduct(draftPayload as any);
         const productId = productResponse?.data?.productId;
+        const newAttributeId =
+          productResponse?.data?.productAttributeDrugs?.[0]?.productAttributeId;
         if (productId) {
+          savedDraftIdRef.current = productId;
           setForm((prev) => ({ ...prev, productId }));
+          if (manualFile && newAttributeId) {
+            await uploadProductUserManual(newAttributeId, manualFile);
+          }
           if (images.length > 0) {
             await uploadProductImages(productId, images);
           }
         }
       }
 
+      if (draftProductId) savedDraftIdRef.current = draftProductId;
       setDraftModalError(false);
       setShowDraftModal(true);
     } catch (err) {
@@ -1376,7 +1479,7 @@ const handleUpdate = async () => {
   ) => {
     const text = String(raw ?? "").trim();
 
-    if (!text) return { value: "", unit: "" };
+    if (!text) return { value: "", unit: "", unitText: "" };
 
     // Split off the leading number regardless of whether the trailing unit
     // text matches a known option — the numeric input can't render "500 mg",
@@ -1384,17 +1487,22 @@ const handleUpdate = async () => {
     // already being loaded (it's fetched async and can lose that race).
     const match = text.match(/^(-?\d+(?:\.\d+)?)\s*(.*)$/);
 
-    if (!match) return { value: text, unit: "" };
+    if (!match) return { value: text, unit: "", unitText: "" };
 
     const [, numericValue, unitText] = match;
 
-    if (!unitText) return { value: numericValue, unit: "" };
+    if (!unitText) return { value: numericValue, unit: "", unitText: "" };
 
     const matchedOption = unitOptions.find(
       (option) => option.label.toLowerCase() === unitText.toLowerCase(),
     );
 
-    return { value: numericValue, unit: matchedOption?.value ?? "" };
+    return {
+      value: numericValue,
+      unit: matchedOption?.value ?? "",
+      // unit text that matched no master option; kept so saving does not strip it
+      unitText: matchedOption ? "" : unitText,
+    };
   };
 
   useEffect(() => {
@@ -1474,8 +1582,9 @@ const handleUpdate = async () => {
         }
         primaryActionText="OK"
         celebrate={!draftModalError}
-        onPrimaryAction={() => setShowDraftModal(false)}
-        onClose={() => setShowDraftModal(false)}
+        isError={draftModalError}
+        onPrimaryAction={handleDraftModalDone}
+        onClose={handleDraftModalDone}
       />
 
       {showAdditionalDiscount && (
@@ -1878,11 +1987,11 @@ const handleUpdate = async () => {
               Cancel
             </button>
 
-            {mode !== "edit" && (
+            {(mode !== "edit" || productStatus === "DRAFT") && (
               <button
                 type="button"
                 onClick={handleSaveDraft}
-                disabled={isSavingDraft}
+                disabled={isSavingDraft || isSubmitting}
                 className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5 disabled:opacity-60"
               >
                 <img
@@ -1898,18 +2007,20 @@ const handleUpdate = async () => {
             {mode === "edit" ? (
               <button
                 type="button"
-                onClick={handleUpdate}
-                className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer"
+                onClick={productStatus === "DRAFT" ? handlePublishDraft : handleUpdate}
+                disabled={isSubmitting || isSavingDraft}
+                className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Update
+                {isSubmitting ? "Saving..." : productStatus === "DRAFT" ? "Submit" : "Update"}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer"
+                disabled={isSubmitting || isSavingDraft}
+                className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Submit
+                {isSubmitting ? "Saving..." : "Submit"}
               </button>
             )}
           </div>

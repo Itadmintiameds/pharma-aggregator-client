@@ -116,3 +116,19 @@ export interface PlaceOrderRequest {
   // Required unless quoteRequestId is set.
   lines: OrderLineRequest[];
 }
+
+// Body of POST /orders/from-quote — converts an already-ACCEPTED quote into an order.
+// The line, quantity and negotiated price come from the stored quote, never from the client.
+export interface PlaceOrderFromQuoteRequest {
+  buyerId: string;
+  quoteRequestId: number;
+  idempotencyKey?: string;
+  deliveryAddressId?: number;
+  deliveryName?: string;
+  deliveryPhone?: string;
+  deliveryAddressLine?: string;
+  deliveryCity?: string;
+  deliveryDistrict?: string;
+  deliveryState?: string;
+  deliveryPinCode?: string;
+}

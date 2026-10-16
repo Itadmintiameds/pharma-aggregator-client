@@ -10,6 +10,7 @@ import Button from "@/src/app/commonComponents/Button";
 import { useCart } from "@/src/context/CartContext";
 import { getAllProducts } from "@/src/services/buyer/buyerProductService";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { isCartItemUnavailable } from "@/src/utils/cartAvailability";
 
 // B2B order quantities can run into the hundreds/thousands, where a ±1
 // stepper alone means dozens of clicks to reach a usable value — this lets
@@ -23,11 +24,13 @@ function QuantityControl({
   minQuantity,
   maxQuantity,
   onCommit,
+  disabled = false,
 }: {
   quantity: number;
   minQuantity: number;
   maxQuantity?: number;
   onCommit: (quantity: number) => void;
+  disabled?: boolean;
 }) {
   const [draft, setDraft] = useState(String(quantity));
 
@@ -57,8 +60,8 @@ function QuantityControl({
     onCommit(next);
   };
 
-  const atMin = quantity <= minQuantity;
-  const atMax = maxQuantity != null && quantity >= maxQuantity;
+  const atMin = disabled || quantity <= minQuantity;
+  const atMax = disabled || (maxQuantity != null && quantity >= maxQuantity);
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -85,6 +88,7 @@ function QuantityControl({
             }
           }}
           aria-label="Quantity"
+          disabled={disabled}
           className="w-16 text-center border border-neutral-300 rounded-md py-1 text-p3 font-body text-pneutral-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
         <button
@@ -96,10 +100,14 @@ function QuantityControl({
           +
         </button>
       </div>
-      <p className="text-label-l1 font-body text-pneutral-400 whitespace-nowrap">
-        Min {minQuantity}
-        {maxQuantity != null && ` · Max ${maxQuantity}`}
-      </p>
+      {disabled ? (
+        <p className="text-label-l1 font-body text-red-500 whitespace-nowrap">Out of stock</p>
+      ) : (
+        <p className="text-label-l1 font-body text-pneutral-400 whitespace-nowrap">
+          Min {minQuantity}
+          {maxQuantity != null && ` · Max ${maxQuantity}`}
+        </p>
+      )}
     </div>
   );
 }
@@ -107,6 +115,7 @@ function QuantityControl({
 export default function CartPage() {
   const { items, removeItem, updateQuantity, totalPrice, backfillFromProduct } = useCart();
   const router = useRouter();
+  const hasUnavailable = items.some(isCartItemUnavailable);
   const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(() =>
     buyerAuthService.isAuthenticated()
   );
@@ -157,6 +166,7 @@ export default function CartPage() {
                 {items.map((item) => {
                   const unitPrice = item.sellingPrice ?? item.mrp ?? 0;
                   const minQuantity = item.minQuantity ?? 1;
+                  const unavailable = isCartItemUnavailable(item);
                   return (
                     <div
                       key={item.productId}
@@ -191,6 +201,7 @@ export default function CartPage() {
                         minQuantity={minQuantity}
                         maxQuantity={item.maxQuantity}
                         onCommit={(quantity) => updateQuantity(item.productId, quantity)}
+                        disabled={unavailable}
                       />
 
                       <p
@@ -199,7 +210,7 @@ export default function CartPage() {
                         }`}
                         title={isBuyerLoggedIn ? undefined : "Login to view price"}
                       >
-                        ₹{(unitPrice * item.quantity).toFixed(2)}
+                        {unavailable ? "—" : `₹${(unitPrice * item.quantity).toFixed(2)}`}
                       </p>
 
                       <button
@@ -214,6 +225,12 @@ export default function CartPage() {
                   );
                 })}
               </div>
+
+              {hasUnavailable && (
+                <p className="text-p4 font-body text-red-600 mt-4">
+                  Some items are out of stock. Remove them to continue to checkout.
+                </p>
+              )}
 
               <div className="flex items-center justify-between mt-6 pt-4">
                 <p className="text-h5 font-heading font-semibold text-pneutral-900">
@@ -231,6 +248,7 @@ export default function CartPage() {
                   variant="filled"
                   size="lg"
                   label="Proceed to Checkout"
+                  disabled={hasUnavailable}
                   onClick={() => router.push("/checkout")}
                 />
               </div>

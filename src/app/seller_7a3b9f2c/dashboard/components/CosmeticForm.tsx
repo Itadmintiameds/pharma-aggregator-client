@@ -36,6 +36,7 @@ import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
+import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import AppliedOffersView from "./AppliedOffersView";
@@ -282,6 +283,19 @@ const NonEditableSelect = ({ label, value, required }: { label: string; value: s
 
 const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticFormProps) => {
   const router = useRouter();
+  // After a draft save: edit mode reloads so ids/images/status are fresh (the server re-creates
+  // attribute rows on every update); add mode jumps to the saved draft's edit page so later saves
+  // update it instead of creating a duplicate product.
+  const savedDraftIdRef = useRef<string | null>(null);
+  const handleDraftModalDone = () => {
+    setShowDraftModal(false);
+    if (draftModalError) return;
+    if (mode === "edit") {
+      window.location.reload();
+    } else if (savedDraftIdRef.current) {
+      router.replace(editUrlFor(savedDraftIdRef.current, "editCosmetic"));
+    }
+  };
   const todayStr = new Date().toISOString().split("T")[0];
 
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -407,6 +421,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [draftModalError, setDraftModalError] = useState(false);
+  const [draftErrorMessage, setDraftErrorMessage] = useState("");
+  const [productStatus, setProductStatus] = useState<string>("");
   const unitDropdownRef = useRef<HTMLDivElement>(null);
 
 
@@ -448,6 +464,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     try {
       const data = await getProductById(productId);
       if (!data) throw new Error("Product not found");
+      setProductStatus(data.status || "");
 
       setResolvedProductId(data.productId || productId);
 
@@ -597,7 +614,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       }
 
       const brochurePath = attribute.brochurePath || attribute.BrochurePath || "";
-      const isRealUrl = (u: string) => !!u && !["PENDING", "NOT_UPLOADED"].includes(u.toUpperCase());
+      const isRealUrl = (u: string) => isRealFileUrl(u);
       if (isRealUrl(brochurePath)) {
         setExistingBrochureUrl(brochurePath);
       }
@@ -615,7 +632,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           isUploaded:                   isRealUrl(cert.certificateUrl),
           previewUrl:                   null,
           productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-          existingUrl:                  cert.certificateUrl || undefined,
+          existingUrl:                  isRealUrl(cert.certificateUrl) ? cert.certificateUrl : undefined,
         }));
         setSelectedCertifications(mappedCerts);
         setMandatoryCertCount(mappedCerts.length);
@@ -1150,7 +1167,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     else if (pName.length < 3) e.productName = "Product name must be at least 3 characters";
     else if (pName.length > 150) e.productName = "Product name must not exceed 150 characters";
 
-    if (mode === "create") {
+    const fullValidation = mode === "create" || productStatus === "DRAFT";
+    if (fullValidation) {
       if (!form.productTypeId) e.productTypeId = "Product type is required";
       if (!form.productSubTypeId) e.productSubTypeId = "Product sub-type is required";
     }
@@ -1161,7 +1179,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
     // Fields below are non-editable in edit mode — validate only on create so
     // Excel-uploaded products (which may lack this data) are not blocked on edit.
-    if (mode === "create") {
+    // Drafts, however, must be complete before they can be submitted/published.
+    if (fullValidation) {
       if (!form.gender) e.gender = "Gender is required";
       if (skinHairRule.skinType === "mandatory" && selectedSkinTypes.length === 0)
         e.skinTypes = "Skin type is required for this product type";
@@ -1247,6 +1266,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      setApiError("Please fix the highlighted fields before submitting: " + Object.values(validationErrors)[0]);
       setTimeout(() => scrollToFirstError(validationErrors), 50);
       return;
     }
@@ -1260,7 +1280,6 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     
     setSubmitting(true);
     
-    console.log("test");
     const payload = {
       productName:          form.productName,
       warningsPrecautions:  form.warningsPrecautions,
@@ -1270,7 +1289,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
       gstPercentage:        Number(form.gstPercentage),
       hsnCode:              Number(form.hsnCode),
-      status:               "PUBLISHED" as const,
+      // Never silently re-publish an UNPUBLISHED product; DRAFT -> PUBLISHED on submit.
+      status:               (mode === "edit" && productStatus && productStatus !== "DRAFT" ? productStatus : "PUBLISHED") as "PUBLISHED",
 
       productAttributeCosmeticAndPersonalUse: [{
         ...(productAttributeId ? { productAttributeId } : {}),
@@ -1297,7 +1317,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         manufacturerName:     form.manufacturerName,
         brochureType:         "PDF",
         brochurePath:         existingBrochureUrl || "PENDING",
-        brochurePathStatus:   existingBrochureUrl || brochureFile ? "TO_UPLOAD" : "PENDING",
+        brochurePathStatus:   existingBrochureUrl || (brochureFile ? "TO_UPLOAD" : "PENDING"),
         certificateDocuments: selectedCertifications.map((c) => ({
           certificationId: Number(c.id),
           certificateUrl:  c.existingUrl || "PENDING",
@@ -1316,10 +1336,10 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
       try {
         const updateData = await updateProduct(currentProductId, payload as never) as ApiResponseData;
 
-        // For Excel-uploaded products the attributeId may not be pre-populated
-        if (!currentAttributeId) {
-          currentAttributeId = extractProductAttributeId(updateData) || extractAttributeIdFromProduct(updateData) || "";
-        }
+        // The server re-creates the attribute row on every update (new id), so the id held
+        // in state is stale: always prefer the one in the response.
+        currentAttributeId = extractProductAttributeId(updateData) || extractAttributeIdFromProduct(updateData) || currentAttributeId;
+        if (currentAttributeId) setProductAttributeId(currentAttributeId);
 
         // Extract server-assigned productCertificateDocumentId values from the update response
         let certDocMap = extractCertDocumentIdMap(updateData);
@@ -1352,6 +1372,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         }
 
         setSubmitting(false);
+        if (productStatus === "DRAFT") setProductStatus("PUBLISHED");
         if (onSubmitSuccess) onSubmitSuccess();
         else setShowSuccessModal(true);
       } catch (err) {
@@ -1457,7 +1478,50 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
 
   // ─── Save Draft ───────────────────────────────────────────────────────────────
+  // Uploads certificate/brochure files picked before the draft was saved, and records the
+  // (re-created) attribute id so later saves and uploads target the right row.
+  const uploadDraftFiles = async (draftProductId: string, responseData: ApiResponseData) => {
+    let attributeId = extractProductAttributeId(responseData) || extractAttributeIdFromProduct(responseData) || "";
+    let certDocMap = extractCertDocumentIdMap(responseData);
+    if ((!attributeId || certDocMap.size === 0) && draftProductId) {
+      try {
+        const fetched = await getProductById(draftProductId) as ApiResponseData;
+        attributeId = attributeId || extractAttributeIdFromProduct(fetched);
+        if (certDocMap.size === 0) certDocMap = extractCertDocumentIdMapFromProduct(fetched);
+      } catch (fetchErr) {
+        console.warn("[CosmeticForm] Could not re-fetch draft:", fetchErr);
+      }
+    }
+    if (!attributeId) return;
+    setProductAttributeId(attributeId);
+
+    const pendingCerts = selectedCertifications.filter((c) => c.file && !c.existingUrl);
+    for (const cert of pendingCerts) {
+      const docId = certDocMap.get(Number(cert.id));
+      if (!docId) continue;
+      const result = await uploadCosmeticCertificate(attributeId, docId, cert.file!);
+      if (!result.success) throw new Error(`Failed to upload certificate "${cert.label}": ${result.message}`);
+    }
+    if (brochureFile) {
+      const result = await uploadCosmeticBrochure(attributeId, brochureFile);
+      if (!result.success) throw new Error(`Failed to upload brochure: ${result.message}`);
+    }
+  };
+
   const handleSaveDraft = async () => {
+    // The backend requires product type and sub-type even for drafts.
+    const missingDraft: string[] = [];
+    if (!form.productTypeId) missingDraft.push("Product Type");
+    if (!form.productSubTypeId) missingDraft.push("Product Sub-type");
+    if (!form.countryOfOriginId) missingDraft.push("Country of Origin");
+    if (!form.storageConditionId) missingDraft.push("Storage Condition");
+    if (missingDraft.length > 0) {
+      setDraftErrorMessage(`Please select the following before saving a draft: ${missingDraft.join(", ")}.`);
+      setDraftModalError(true);
+      setShowDraftModal(true);
+      return;
+    }
+    setDraftErrorMessage("");
     setIsSavingDraft(true);
     try {
       const draftPayload = {
@@ -1496,7 +1560,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           manufacturerName:     form.manufacturerName,
           brochureType:         "PDF",
           brochurePath:         existingBrochureUrl || "PENDING",
-          brochurePathStatus:   existingBrochureUrl || brochureFile ? "TO_UPLOAD" : "PENDING",
+          brochurePathStatus:   existingBrochureUrl || (brochureFile ? "TO_UPLOAD" : "PENDING"),
           certificateDocuments: selectedCertifications.map((c) => ({
             certificationId: Number(c.id),
             certificateUrl:  c.existingUrl || "PENDING",
@@ -1509,9 +1573,11 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
       let currentProductId = resolvedProductId || productId || "";
 
-      if (mode === "edit" && currentProductId) {
-        await updateProduct(currentProductId, draftPayload as never);
+      // Update the existing product (edit mode, or a draft already created in this session) instead of duplicating.
+      if (currentProductId) {
+        const draftUpdateData = await updateProduct(currentProductId, draftPayload as never) as ApiResponseData;
         if (images.length > 0) await uploadProductImages(currentProductId, images);
+        await uploadDraftFiles(currentProductId, draftUpdateData);
       } else {
         const draftData: ApiResponseData = await createCosmeticProduct(draftPayload as Record<string, unknown>);
         const dataInner = (draftData?.data ?? draftData) as ApiResponseData;
@@ -1521,12 +1587,15 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
           setResolvedProductId(newProductId);
         }
         if (currentProductId && images.length > 0) await uploadProductImages(currentProductId, images);
+        if (currentProductId) await uploadDraftFiles(currentProductId, draftData);
       }
 
+      if (currentProductId) savedDraftIdRef.current = currentProductId;
       setDraftModalError(false);
       setShowDraftModal(true);
     } catch (err) {
       console.error("❌ Save Draft Error:", err);
+      setDraftErrorMessage(err instanceof Error ? err.message : "");
       setDraftModalError(true);
       setShowDraftModal(true);
     } finally {
@@ -1543,7 +1612,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
     );
   }
 
-  const isEdit = mode === "edit";
+  const isEdit = mode === "edit" && productStatus !== "DRAFT";
   const hasStock = isEdit && Number(form.stockQuantity) > 0;
   const currentGenderLabel = isEdit
     ? (displayLabels.genderLabel || genderOptions.find((o) => o.value === form.gender)?.label || form.gender)
@@ -1561,7 +1630,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         secondaryActionText={isEdit ? "Continue Editing" : "Continue Adding"}
         tertiaryActionText="Back to Dashboard"
         onPrimaryAction={() => { router.push(`/seller_7a3b9f2c/products/view/${resolvedProductId}`); }}
-        onSecondaryAction={isEdit ? () => setShowSuccessModal(false) : () => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); }}
+        onSecondaryAction={isEdit ? () => { setShowSuccessModal(false); window.location.reload(); } : () => { setShowSuccessModal(false); router.push("/seller_7a3b9f2c/products/add"); }}
         onTertiaryAction={() => { router.push("/seller_7a3b9f2c/dashboard"); }}
         onClose={() => setShowSuccessModal(false)}
       />
@@ -1571,13 +1640,14 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         title={draftModalError ? "Failed to Save Draft" : "Draft Saved!"}
         description={
           draftModalError
-            ? "Something went wrong while saving your draft. Please try again."
+            ? draftErrorMessage || "Something went wrong while saving your draft. Please try again."
             : "Your product has been saved as a draft."
         }
         primaryActionText="OK"
         celebrate={!draftModalError}
-        onPrimaryAction={() => setShowDraftModal(false)}
-        onClose={() => setShowDraftModal(false)}
+        isError={draftModalError}
+        onPrimaryAction={handleDraftModalDone}
+        onClose={handleDraftModalDone}
       />
 
       {showAdditionalDiscount && (
@@ -2128,7 +2198,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
               className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
               Cancel
             </button>
-            {mode !== "edit" && (
+            {(mode !== "edit" || productStatus === "DRAFT") && (
               <button type="button" onClick={handleSaveDraft} disabled={isSavingDraft}
                 style={{ background: "#9F75FC", borderRadius: "8px" }}
                 className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-60">
@@ -2141,7 +2211,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
             style={{ background: "#4B0082", borderRadius: "8px" }}
             className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
             {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
+            {submitting ? "Saving..." : mode === "edit" && productStatus !== "DRAFT" ? "Update" : "Submit"}
           </button>
         </div>
       </form>

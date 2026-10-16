@@ -1,4 +1,5 @@
 import { api } from "@/src/utils/api";
+import { getCurrentSellerId } from "@/src/services/product/sellerContext";
 
 export interface PackagingDetailsPayload {
   packId: number;
@@ -75,10 +76,38 @@ export interface BatchAvailability {
   dateOfStockEntry?: string | null;
 }
 
+// product-service's StockInRequestDto / PackagingDetailsDto / AdditionalDiscountDto use
+// different field names from the ones the seller screens work with (it has no aliases for
+// them), so values would silently be dropped: packId -> packTypeId, minimum/maximumOrderQuantity
+// -> minOrderQty/maxOrderQty, minimumPurchaseQuantity/additionalDiscountPercentage ->
+// minQty/discountPercentage. The original names are kept alongside (unknown fields are ignored).
+const toBackendStockPayload = (payload: StockAddRequest) => {
+  const out: Record<string, unknown> = { ...payload };
+  if (payload.packagingDetails) {
+    const p = payload.packagingDetails;
+    out.packagingDetails = {
+      ...p,
+      packTypeId: p.packId,
+      minOrderQty: p.minimumOrderQuantity,
+      maxOrderQty: p.maximumOrderQuantity,
+    };
+  }
+  if (payload.specialDiscounts) {
+    out.specialDiscounts = payload.specialDiscounts.map((d) => ({
+      ...d,
+      minQty: d.minimumPurchaseQuantity,
+      discountPercentage: d.additionalDiscountPercentage,
+    }));
+  }
+  return out;
+};
+
 export const addStock = async (
   payload: StockAddRequest
 ): Promise<StockLedgerResponse> => {
-  const response = await api.post("/stock/add", payload);
+  // product-service takes sellerId as a required query param (it does not read it from the JWT)
+  const sellerId = await getCurrentSellerId();
+  const response = await api.post("/stock/add", toBackendStockPayload(payload), { params: { sellerId } });
   return response.data?.data ?? response.data;
 };
 
@@ -107,6 +136,9 @@ export const deleteBatch = async (
   productId: string,
   pricingId: string
 ): Promise<BatchDeleteResponse> => {
-  const response = await api.delete(`/stock/${productId}/batches/${pricingId}`);
+  const sellerId = await getCurrentSellerId();
+  const response = await api.delete(`/stock/${productId}/batches/${pricingId}`, {
+    params: { sellerId },
+  });
   return response.data?.data ?? response.data;
 };

@@ -1,4 +1,5 @@
 "use client";
+import { resolveProductAvailability } from "@/src/utils/cartAvailability";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -148,6 +149,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
     0
   );
 
+  const outOfStock = resolveProductAvailability(product).unavailable;
+
   const handleAddToCart = () => {
     if (!isBuyerLoggedIn) {
       openSignupModal();
@@ -260,8 +263,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-4 mb-4">
-          <Button variant="filled" size="lg" label="Add to Cart" onClick={handleAddToCart} />
-          <Button variant="outline" size="lg" label="Buy Now" onClick={handleBuyNow} />
+          <Button variant="filled" size="lg" label="Add to Cart" onClick={handleAddToCart} disabled={outOfStock} />
+          <Button variant="outline" size="lg" label="Buy Now" onClick={handleBuyNow} disabled={outOfStock} />
         </div>
 
         <div className="flex flex-wrap items-center gap-3 mb-8">

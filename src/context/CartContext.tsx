@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { CartItem } from "@/src/types/buyer/cart";
 import { BuyerProduct } from "@/src/types/buyer/product";
+import { isCartItemUnavailable, resolveProductAvailability } from "@/src/utils/cartAvailability";
 
 const CART_STORAGE_KEY = "buyerCart";
 
@@ -40,20 +41,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // The batch's own packaging record carries the seller-set order limits —
   // matched by packagingId rather than just taking packagingDetails[0], so
   // this lines up with whichever batch `pricing` actually came from.
-  const resolveOrderLimits = (product: BuyerProduct) => {
-    const pricing = product.pricingDetails?.[0];
-    const packaging = product.packagingDetails?.find(
-      (pkg) => pkg.packagingId != null && pkg.packagingId === pricing?.packagingId
-    );
-    return {
-      pricing,
-      minQuantity: packaging?.minimumOrderQuantity ?? 1,
-      maxQuantity: packaging?.maximumOrderQuantity ?? pricing?.stockQuantity,
-    };
-  };
+  const resolveOrderLimits = (product: BuyerProduct) => resolveProductAvailability(product);
 
   const addItem = (product: BuyerProduct, quantity: number = 1) => {
-    const { pricing, minQuantity, maxQuantity } = resolveOrderLimits(product);
+    const { pricing, minQuantity, maxQuantity, unavailable } = resolveOrderLimits(product);
+    // Out of stock: adding would create a zero-quantity line that cannot be ordered.
+    if (unavailable) return;
     const clamp = (value: number) => {
       let next = Math.max(value, minQuantity);
       if (maxQuantity != null) next = Math.min(next, maxQuantity);
@@ -145,14 +138,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
       prev.map((item) => {
         if (item.productId !== product.productId) return item;
 
-        const { minQuantity, maxQuantity } = resolveOrderLimits(product);
+        const { pricing, minQuantity, maxQuantity, unavailable } = resolveOrderLimits(product);
         let quantity = item.quantity;
-        if (quantity < minQuantity) quantity = minQuantity;
-        if (maxQuantity != null && quantity > maxQuantity) quantity = maxQuantity;
+        // Out of stock: keep the buyer's quantity (the line is flagged unavailable instead of being
+        // squashed to 0) so it is still right if stock comes back.
+        if (!unavailable) {
+          if (quantity < minQuantity) quantity = minQuantity;
+          if (maxQuantity != null && quantity > maxQuantity) quantity = maxQuantity;
+        }
 
         return {
           ...item,
           sellerName: product.sellerName ?? item.sellerName,
+          // follow the batch that is actually sellable now, with its current price
+          pricingId: pricing?.pricingId ?? item.pricingId,
+          mrp: pricing?.mrp ?? item.mrp,
+          sellingPrice: pricing?.sellingPrice ?? item.sellingPrice,
           minQuantity,
           maxQuantity,
           quantity,
@@ -169,7 +170,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // than "1 product, 120 units."
   const totalItems = items.length;
   const totalPrice = items.reduce(
-    (sum, item) => sum + (item.sellingPrice ?? item.mrp ?? 0) * item.quantity,
+    (sum, item) => (isCartItemUnavailable(item) ? sum : sum + (item.sellingPrice ?? item.mrp ?? 0) * item.quantity),
     0
   );
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Input from "@/src/app/commonComponents/Input";
 import UploadInput from "../commonComponent/UploadInput";
 import PopupModal from "../commonComponent/PopupModal";
+import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import { foodInfantSchema } from "@/src/schema/product/FoodandInfantSchema";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
@@ -250,10 +251,24 @@ const ServingSizeDisabled: React.FC<{ label: string; required?: boolean }> = ({ 
 
 const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", productId }) => {
   const router = useRouter();
+  // After a draft save: edit mode reloads so ids/images/status are fresh (the server re-creates
+  // attribute rows on every update); add mode jumps to the saved draft's edit page so later saves
+  // update it instead of creating a duplicate product.
+  const savedDraftIdRef = useRef<string | null>(null);
+  const handleDraftModalDone = () => {
+    setShowDraftModal(false);
+    if (draftModalError) return;
+    if (mode === "edit") {
+      window.location.reload();
+    } else if (savedDraftIdRef.current) {
+      router.replace(editUrlFor(savedDraftIdRef.current, "editFoodInfant"));
+    }
+  };
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   const setFieldRef = (name: string) => (el: HTMLElement | null) => { fieldRefs.current[name] = el; };
 
-  const isEditMode = mode === "edit";
+  // true for any edit route (load/update); isEditMode additionally excludes DRAFTs, which stay fully editable
+  const isEditRoute = mode === "edit";
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
 
   const categoryId = 3;
@@ -365,6 +380,11 @@ const [certificateDocumentIds, setCertificateDocumentIds] = useState<Map<number,
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [draftModalError, setDraftModalError] = useState(false);
+  const [draftErrorMessage, setDraftErrorMessage] = useState("");
+  const [productStatus, setProductStatus] = useState<string>("");
+  const isEditMode = isEditRoute && productStatus !== "DRAFT";
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mastersLoaded, setMastersLoaded] = useState(false);
   const [ageGroupOptionsMap, setAgeGroupOptionsMap] = useState<Map<string, string>>(new Map());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1133,16 +1153,19 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       } finally {
         setLoadingNetQuantityUnits(false);
       }
+      setMastersLoaded(true);
     };
     fetchMasterData();
   }, []);
 
   // ---------- Edit mode ----------
   useEffect(() => {
-    if (isEditMode && productId && netQuantityUnitsList.length > 0) {
+    // wait for the master lists to finish (even if one is empty or failed) so labels can be resolved
+    if (isEditRoute && productId && mastersLoaded) {
       const fetchProduct = async () => {
         try {
           const prod = await getProductById(productId);
+          setProductStatus(String(prod?.status || "").toUpperCase());
           let attr = {};
 
           if (prod.productAttributeFoodInfants && Array.isArray(prod.productAttributeFoodInfants) && prod.productAttributeFoodInfants.length > 0) {
@@ -1170,8 +1193,9 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
 
           let netQuantityUnitValue = "";
           let netQuantityUnitIdValue = 0;
-          if ((attr as any).unitId) {
-            netQuantityUnitIdValue = (attr as any).unitId;
+          const attrNetQtyUnitId = (attr as any).netQuantityUnitId ?? (attr as any).unitId;
+          if (attrNetQtyUnitId) {
+            netQuantityUnitIdValue = Number(attrNetQtyUnitId);
           }
           if ((attr as any).unitName) {
             netQuantityUnitValue = (attr as any).unitName;
@@ -1207,9 +1231,16 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
           } else if ((attr as any).servingSizeUnitName) {
             servingSizeUnitValue = (attr as any).servingSizeUnitName;
             servingSizeUnitIdValue = (attr as any).servingSizeUnitId || 0;
+          } else if ((attr as any).servingSizeUnitId) {
+            // backend returns only the id: resolve the label from the loaded serving size units (best effort)
+            servingSizeUnitIdValue = Number((attr as any).servingSizeUnitId) || 0;
+            const matchedServingUnit = servingSizeUnitsList.find((item: any) =>
+              Number(item.servingSizeUnitId ?? item.unitId ?? item.id) === servingSizeUnitIdValue
+            );
+            if (matchedServingUnit) servingSizeUnitValue = extractUnitString(matchedServingUnit);
           }
 
-          if ((attr as any).nutritionalInformationImageUrl) {
+          if (isRealFileUrl((attr as any).nutritionalInformationImageUrl)) {
             setExistingNutritionalImageUrl((attr as any).nutritionalInformationImageUrl);
           }
 
@@ -1280,7 +1311,7 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
           }));
 
           setExistingImages(prod.productImages?.map((img: any) => img.productImage) || []);
-          setExistingManualFile((attr as any).productUserManual || null);
+          setExistingManualFile(isRealFileUrl((attr as any).productUserManual) ? (attr as any).productUserManual : null);
           setAdditionalDiscounts(pricing.additionalDiscounts || []);
           setSpecialSchemes(pricing.specialSchemes || []);
           setProductAttributeId((attr as any).productAttributeId || null);
@@ -1301,10 +1332,7 @@ if ((attr as any).certificateDocuments?.length) {
       const url = certDoc?.certificateUrl;
       
       // Check if it's a valid S3 URL (not blob, not pending)
-      const isValidUrl = url && 
-        url !== "NOT_UPLOADED" && 
-        url !== "PENDING" &&
-        !url.startsWith('blob:');  // ← Skip blob URLs from Excel imports
+      const isValidUrl = isRealFileUrl(url);
       
       return {
         id,
@@ -1347,11 +1375,12 @@ if ((attr as any).certificateDocuments?.length) {
           
         } catch (err) {
           console.error("Failed to load product for edit", err);
+          alert("Failed to load product data. Please refresh and try again.");
         }
       };
       fetchProduct();
     }
-  }, [isEditMode, productId, netQuantityUnitsList]);
+  }, [isEditRoute, productId, mastersLoaded]);
 
   useEffect(() => {
     setForm((prev) => ({ ...prev, packSize: String(calculatePackSize()) }));
@@ -1424,14 +1453,17 @@ if ((attr as any).certificateDocuments?.length) {
       productFormId: Number(form.productForm),
       netQuantity: Number(form.netQuantityValue) || 0,
       unitId: form.netQuantityUnitId,
+      servingSize: form.servingSizeValue ? Number(form.servingSizeValue) : null,
+      servingSizeUnitId: form.servingSizeUnitId ? Number(form.servingSizeUnitId) : null,
       ageGroupId: firstAgeGroupId,
+      ageGroupIds: form.ageGroup.map(Number),
       ageGroupMastersDto: ageGroupMastersDto,
       vegNonvegIndicator: form.dietaryClassification as "veg" | "non-veg",
       allergenInformation: form.allergenInformation,
       nutritionalInformation: form.nutritionalInfoType,
       // nutritionalInformationImageUrl: "",
-        nutritionalInformationImageUrl: isEditMode && existingNutritionalImageUrl 
-    ? existingNutritionalImageUrl 
+        nutritionalInformationImageUrl: isEditRoute && existingNutritionalImageUrl
+    ? existingNutritionalImageUrl
     : "",
       activeIngredients: form.activeIngredients,
       additivesPreservatives: form.additivesPreservatives,
@@ -1453,7 +1485,7 @@ if ((attr as any).certificateDocuments?.length) {
             c.existingUrl !== "PENDING" &&
       !c.existingUrl.startsWith('blob:')
               ? c.existingUrl 
-              : (c.file ? URL.createObjectURL(c.file) : ""),
+              : "PENDING",
         })),
       productUserManual: existingManualFile || "PENDING",
     };
@@ -1468,7 +1500,7 @@ if ((attr as any).certificateDocuments?.length) {
       hsnCode: Number(form.hsnCode) || 0,
       status: "PUBLISHED" as const,
       productAttributeFoodInfants: [foodInfantAttr],
-      retainedImageUrls: isEditMode ? existingImages : undefined,
+      retainedImageUrls: isEditRoute ? existingImages : undefined,
     };
 
     return payload;
@@ -1549,13 +1581,13 @@ if ((attr as any).certificateDocuments?.length) {
   };
 
   const handleSubmit = async () => {
-    console.log("🔍 isEditMode value:", isEditMode);
-  console.log("🔍 mode prop:", mode);
+    if (isSubmitting || isSavingDraft) return;
     const certError = validateCertifications();
     if (certError) {
       setErrors((prev) => ({ ...prev, certifications: certError }));
       const el = document.querySelector<HTMLElement>(`[data-field="certifications"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert(certError);
       return;
     }
 
@@ -1565,6 +1597,7 @@ if ((attr as any).certificateDocuments?.length) {
       const firstKey = Object.keys(fieldErrors)[0];
       const el = fieldRefs.current[firstKey] || document.querySelector<HTMLElement>(`[data-field="${firstKey}"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert("Please fix the highlighted fields before submitting: " + Object.values(fieldErrors)[0]);
       return;
     }
 
@@ -1572,6 +1605,7 @@ if ((attr as any).certificateDocuments?.length) {
       const firstErrorKey = Object.keys(errors)[0];
       const el = fieldRefs.current[firstErrorKey] || document.querySelector<HTMLElement>(`[data-field="${firstErrorKey}"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert("Please fix the highlighted fields before submitting.");
       return;
     }
 
@@ -1589,19 +1623,23 @@ if ((attr as any).certificateDocuments?.length) {
     // collected on create; they're added later from the product view page.
 
     const payload = buildPayload();
+    // Submit/Update: never silently re-publish an UNPUBLISHED product; DRAFT -> PUBLISHED.
+    (payload as any).status =
+      isEditRoute && productStatus && productStatus !== "DRAFT" ? productStatus : "PUBLISHED";
 
+    setIsSubmitting(true);
     try {
       let response;
       let newProductAttributeId = productAttributeId;
       let newProductId = productId;
 
-      if (isEditMode && productId) {
+      if (isEditRoute && productId) {
         response = await updateProduct(productId, payload);
-        setModalType("update");
-        setShowUpdateSuccessModal(true);
 
         const updatedData = response?.data || response;
-        newProductAttributeId = updatedData?.productAttributeFoodInfants?.productAttributeId
+        // the update re-creates the attribute row with a new id: prefer the id from the response
+        newProductAttributeId = updatedData?.productAttributeFoodInfants?.[0]?.productAttributeId
+          || updatedData?.productAttributeFoodInfants?.productAttributeId
           || updatedData?.productAttributeFoodInfant?.productAttributeId
           || productAttributeId;
 
@@ -1663,6 +1701,9 @@ if ((attr as any).certificateDocuments?.length) {
       }
     }
   }
+        if (productStatus === "DRAFT") setProductStatus("PUBLISHED");
+        setModalType("update");
+        setShowUpdateSuccessModal(true);
       } else {
         response = await createFoodInfantProduct(payload);
 
@@ -1743,11 +1784,67 @@ if ((attr as any).certificateDocuments?.length) {
     } catch (err: any) {
       console.error("Submit failed", err);
       setErrors({ submit: err.message || "Submission failed" });
-      alert(`Failed to ${isEditMode ? "update" : "create"} product: ${err.message}`);
+      alert(`Failed to ${isEditRoute ? "update" : "create"} product: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Uploads files picked before the draft was saved so reopening the draft shows them.
+  const uploadDraftFiles = async (attrId: string | null | undefined, data: any) => {
+    if (!attrId) return;
+    if (form.manualFile) {
+      try {
+        await uploadFoodInfantUserManual(attrId, form.manualFile);
+      } catch (err) {
+        console.warn("Draft: user manual upload failed:", err);
+      }
+    }
+    if (form.nutritionalInfoImage) {
+      try {
+        await uploadNutritionalInformationImage(attrId, 3, form.nutritionalInfoImage);
+      } catch (err) {
+        console.warn("Draft: nutritional image upload failed:", err);
+      }
+    }
+    const docs: any[] = data?.productAttributeFoodInfants?.[0]?.certificateDocuments ?? [];
+    const docIdMap = new Map<number, number>();
+    docs.forEach((d: any) => docIdMap.set(Number(d.certificationId), Number(d.productCertificateDocumentId)));
+    const newCerts = certificationsDetails.filter((c) => c.file && !c.existingUrl);
+    const files: File[] = [];
+    const documentIds: number[] = [];
+    newCerts.forEach((c) => {
+      const docId = docIdMap.get(Number(c.id));
+      if (docId) {
+        files.push(c.file as File);
+        documentIds.push(docId);
+      }
+    });
+    if (files.length > 0) {
+      try {
+        await uploadFoodInfantCertificates(attrId, files, documentIds);
+      } catch (err) {
+        console.warn("Draft: certificate upload failed:", err);
+      }
     }
   };
 
   const handleSaveDraft = async () => {
+    if (isSubmitting || isSavingDraft) return;
+    const missing: string[] = [];
+    if (!form.productCategory) missing.push("Product Category");
+    if (!form.productSubcategory) missing.push("Product Subcategory");
+    if (!form.productForm) missing.push("Product Form");
+    if (!form.netQuantityUnitId) missing.push("Net Quantity Unit");
+    if (!form.storageConditionId) missing.push("Storage Condition");
+    if (!form.countryOfOrigin) missing.push("Country of Origin");
+    if (missing.length > 0) {
+      setDraftErrorMessage(`Please select the following before saving a draft: ${missing.join(", ")}.`);
+      setDraftModalError(true);
+      setShowDraftModal(true);
+      return;
+    }
+    setDraftErrorMessage("");
     setIsSavingDraft(true);
     try {
       const ageGroupMastersDto = form.ageGroup.map((id) => ({ ageGroupId: Number(id) }));
@@ -1761,39 +1858,27 @@ if ((attr as any).certificateDocuments?.length) {
         productFormId: form.productForm ? Number(form.productForm) : undefined,
         netQuantity: form.netQuantityValue ? Number(form.netQuantityValue) : undefined,
         unitId: form.netQuantityUnitId || undefined,
+        servingSize: form.servingSizeValue ? Number(form.servingSizeValue) : null,
+        servingSizeUnitId: form.servingSizeUnitId ? Number(form.servingSizeUnitId) : null,
         ageGroupId: firstAgeGroupId,
+        ageGroupIds: form.ageGroup.map(Number).filter((n) => Number.isFinite(n)),
         ageGroupMastersDto,
         vegNonvegIndicator: form.dietaryClassification || undefined,
         allergenInformation: form.allergenInformation,
         nutritionalInformation: form.nutritionalInfoType,
         nutritionalInformationImageUrl:
-          isEditMode && existingNutritionalImageUrl ? existingNutritionalImageUrl : "",
+          isEditRoute && existingNutritionalImageUrl ? existingNutritionalImageUrl : "",
         activeIngredients: form.activeIngredients,
         additivesPreservatives: form.additivesPreservatives,
         productClaims: form.productClaims,
         storageConditionId: form.storageConditionId ? Number(form.storageConditionId) : undefined,
         countryId: form.countryOfOrigin ? Number(form.countryOfOrigin) : undefined,
-        certificateDocuments: certificationsDetails
-          .filter((c) => {
-            const hasValidExistingUrl =
-              c.existingUrl &&
-              c.existingUrl !== "NOT_UPLOADED" &&
-              c.existingUrl !== "PENDING" &&
-              !c.existingUrl.startsWith("blob:");
-            return c.isUploaded || hasValidExistingUrl;
-          })
-          .map((c) => ({
-            certificationId: Number(c.id),
-            certificateUrl:
-              c.existingUrl &&
-              c.existingUrl !== "NOT_UPLOADED" &&
-              c.existingUrl !== "PENDING" &&
-              !c.existingUrl.startsWith("blob:")
-                ? c.existingUrl
-                : c.file
-                ? URL.createObjectURL(c.file)
-                : "",
-          })),
+        // every selected certification is kept; real stored URLs are preserved and anything else is
+        // sent as PENDING (the file is uploaded right after the draft is saved)
+        certificateDocuments: certificationsDetails.map((c) => ({
+          certificationId: Number(c.id),
+          certificateUrl: isRealFileUrl(c.existingUrl) ? c.existingUrl : "PENDING",
+        })),
         productUserManual: existingManualFile || "PENDING",
       };
 
@@ -1807,24 +1892,32 @@ if ((attr as any).certificateDocuments?.length) {
         hsnCode: form.hsnCode ? Number(form.hsnCode) : undefined,
         status: "DRAFT" as const,
         productAttributeFoodInfants: [foodInfantAttr as any],
-        retainedImageUrls: isEditMode ? existingImages : undefined,
+        retainedImageUrls: isEditRoute ? existingImages : undefined,
       };
 
-      const targetProductId = isEditMode && productId ? productId : createdProductId;
+      const targetProductId = isEditRoute && productId ? productId : createdProductId;
 
       if (targetProductId) {
-        await updateProduct(targetProductId, draftPayload);
+        const draftUpdateResponse: any = await updateProduct(targetProductId, draftPayload);
+        const draftAttrId = (draftUpdateResponse?.data || draftUpdateResponse)?.productAttributeFoodInfants?.[0]?.productAttributeId;
+        if (draftAttrId) setProductAttributeId(draftAttrId);
         if (images.length > 0) {
           await uploadProductImages(targetProductId, images);
         }
+        await uploadDraftFiles(draftAttrId || productAttributeId, draftUpdateResponse?.data || draftUpdateResponse);
+        savedDraftIdRef.current = targetProductId;
       } else {
         const response = await createFoodInfantProduct(draftPayload);
         const newProductId = response?.data?.productId;
         if (newProductId) {
           setCreatedProductId(newProductId);
+          savedDraftIdRef.current = newProductId;
           if (images.length > 0) {
             await uploadProductImages(newProductId, images);
           }
+          const newAttrId = response?.data?.productAttributeFoodInfants?.[0]?.productAttributeId;
+          if (newAttrId) setProductAttributeId(newAttrId);
+          await uploadDraftFiles(newAttrId, response?.data);
         }
       }
 
@@ -1832,6 +1925,7 @@ if ((attr as any).certificateDocuments?.length) {
       setShowDraftModal(true);
     } catch (err) {
       console.error("❌ Save Draft Error:", err);
+      setDraftErrorMessage("");
       setDraftModalError(true);
       setShowDraftModal(true);
     } finally {
@@ -1879,6 +1973,8 @@ if ((attr as any).certificateDocuments?.length) {
   const handleContinueEditing = () => {
     setShowSuccessModal(false);
     setShowUpdateSuccessModal(false);
+    // reload so the form picks up the re-created attribute id, new images and the new status
+    if (mode === "edit") window.location.reload();
   };
 
   const handleContinueAdding = () => {
@@ -1923,13 +2019,14 @@ if ((attr as any).certificateDocuments?.length) {
         title={draftModalError ? "Failed to Save Draft" : "Draft Saved!"}
         description={
           draftModalError
-            ? "Something went wrong while saving your draft. Please try again."
+            ? draftErrorMessage || "Something went wrong while saving your draft. Please try again."
             : "Your product has been saved as a draft."
         }
         primaryActionText="OK"
         celebrate={!draftModalError}
-        onPrimaryAction={() => setShowDraftModal(false)}
-        onClose={() => setShowDraftModal(false)}
+        isError={draftModalError}
+        onPrimaryAction={handleDraftModalDone}
+        onClose={handleDraftModalDone}
       />
 
       {showAdditionalDiscount && (
@@ -2445,11 +2542,11 @@ if ((attr as any).certificateDocuments?.length) {
         <div className="flex justify-between mt-6 pb-8">
           <div className="flex gap-4">
             <button type="button" onClick={() => router.back()} className="px-6 py-2 border-2 border-warning-500 rounded-lg text-warning-500 font-semibold">Cancel</button>
-            {mode !== "edit" && (
+            {(mode !== "edit" || productStatus === "DRAFT") && (
               <button
                 type="button"
                 onClick={handleSaveDraft}
-                disabled={isSavingDraft}
+                disabled={isSavingDraft || isSubmitting}
                 className="px-6 py-2 bg-secondary-700 text-white rounded-lg flex items-center gap-2 font-semibold disabled:opacity-60"
               >
                 <img src="/icons/SaveDraftIcon.svg" alt="save" className="w-5 h-5" />
@@ -2460,9 +2557,10 @@ if ((attr as any).certificateDocuments?.length) {
           <button
             type="button"
             onClick={handleSubmit}
-            className="px-8 py-2 bg-primary-800 text-white rounded-lg font-semibold hover:bg-primary-900"
+            disabled={isSubmitting || isSavingDraft}
+            className="px-8 py-2 bg-primary-800 text-white rounded-lg font-semibold hover:bg-primary-900 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isEditMode ? "Update" : "Submit"}
+            {isSubmitting ? "Saving..." : isEditMode ? "Update" : "Submit"}
           </button>
         </div>
       </form>

@@ -93,7 +93,7 @@ const isValidUrl = (url?: string | null) => {
   if (t.startsWith('HTTP://') || t.startsWith('HTTPS://')) {
     return true;
   }
-  return !["", "PENDING", "NOT_UPLOADED"].includes(t);
+  return !["", "PENDING", "NOT_UPLOADED", "TO_UPLOAD", "NULL", "UNDEFINED"].includes(t) && !t.startsWith("BLOB:");
 };
 
 const isImageUrl = (url: string) =>
@@ -822,7 +822,7 @@ export default FoodInfantView;
 //   if (t.startsWith('HTTP://') || t.startsWith('HTTPS://')) {
 //     return true;
 //   }
-//   return !["", "PENDING", "NOT_UPLOADED"].includes(t);
+//   return !["", "PENDING", "NOT_UPLOADED", "TO_UPLOAD", "NULL", "UNDEFINED"].includes(t) && !t.startsWith("BLOB:");
 // };
 
 // const isImageUrl = (url: string) =>

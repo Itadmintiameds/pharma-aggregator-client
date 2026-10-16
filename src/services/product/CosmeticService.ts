@@ -31,24 +31,19 @@ export const getCosmeticProductTypes = async () => {
 };
 
 /**
- * Product Sub-Types filtered by parent product type ID
- * Reuses the same /productCategory/getProductCategory/4 endpoint and filters
- * by productCategoryId to find the matching category's subcategories.
+ * Product Sub-Types for a given product type (product category) ID
+ * GET /productCategory/getProductSubcategory/{productCategoryId}
  */
 export const getCosmeticProductSubTypes = async (
   productTypeId: string | number,
 ) => {
   try {
-    const response = await api.get("productCategory/getProductCategory/4");
-    const categories: any[] = response.data?.data ?? response.data ?? [];
-
-    const category = categories.find(
-      (cat: any) => String(cat.productCategoryId) === String(productTypeId),
+    const response = await api.get(
+      `productCategory/getProductSubcategory/${productTypeId}`,
     );
+    const subs: any[] = response.data?.data ?? response.data ?? [];
 
-    if (!category?.productSubcategoryMasters) return [];
-
-    return category.productSubcategoryMasters.map((sub: any) => ({
+    return subs.map((sub: any) => ({
       productSubTypeId:   sub.productSubcategoryId,
       productSubTypeName: sub.productSubcategory,
       subcategoryId:      sub.productSubcategoryId,
@@ -78,9 +73,10 @@ export const getCosmeticSkinTypes = async () => {
     return rawData.map((item: any) => ({
       ...item,
       // Support whatever key shape the API returns
-      skinTypeId:   item.skinTypeId   ?? item.typeId   ?? item.id,
+      // product-service returns the id as "skintypeId" (lower-case t)
+      skinTypeId:   item.skinTypeId   ?? item.skintypeId ?? item.typeId   ?? item.id,
       skinTypeName: item.skinTypeName ?? item.typeName  ?? item.name,
-      id:           item.skinTypeId   ?? item.typeId   ?? item.id,
+      id:           item.skinTypeId   ?? item.skintypeId ?? item.typeId   ?? item.id,
       name:         item.skinTypeName ?? item.typeName  ?? item.name,
     }));
   } catch (error: unknown) {

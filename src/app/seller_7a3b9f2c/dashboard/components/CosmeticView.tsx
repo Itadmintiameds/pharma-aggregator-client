@@ -223,7 +223,7 @@ const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url);
 const isValidUrl = (url?: string | null) => {
   if (!url) return false;
   const t = url.trim().toUpperCase();
-  return !["", "PENDING", "NOT_UPLOADED"].includes(t);
+  return !["", "PENDING", "NOT_UPLOADED", "TO_UPLOAD", "NULL", "UNDEFINED"].includes(t) && !t.startsWith("BLOB:");
 };
 
 

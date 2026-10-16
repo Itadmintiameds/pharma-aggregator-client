@@ -1,19 +1,28 @@
 import { api } from "@/src/utils/api";
+import { getCurrentSellerId } from "@/src/services/product/sellerContext";
 
 
+/**
+ * product-service GET /pricing/validateBatchNumber?batchNumber&sellerId&categoryId
+ * answers `true` when the batch number is still FREE for this seller + category.
+ * Callers expect `{ exists: boolean }`, so invert it here.
+ */
 export const validateBatchNumber = async (
   batchLotNumber: string,
   categoryId: number,
-) => {
+): Promise<{ exists: boolean }> => {
   try {
+    const sellerId = await getCurrentSellerId();
     const response = await api.get(`/pricing/validateBatchNumber`, {
       params: {
-        batchLotNumber,
+        batchNumber: batchLotNumber,
+        sellerId,
         categoryId,
       },
     });
 
-    return response.data?.data || response.data || {};
+    const available = response.data?.data ?? response.data;
+    return { exists: available === false };
   } catch (error: unknown) {
     console.error("Error validating batch number:", error);
 
