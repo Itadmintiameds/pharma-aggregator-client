@@ -12,8 +12,9 @@ import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { useBuyerOnboardingStatus } from "@/src/hooks/useBuyerOnboardingStatus";
 import { getBuyerId } from "@/src/services/buyer/buyerProfileService";
-import { getAllProducts, getProductById } from "@/src/services/buyer/buyerProductService";
+import { getProductById, getProductsByIds } from "@/src/services/buyer/buyerProductService";
 import { getMyQuoteRequests } from "@/src/services/buyer/quoteRequestService";
+import { trackFromRememberedSearch } from "@/src/services/buyer/searchEvents";
 import { generateIdempotencyKey, placeOrder, placeOrderFromQuote } from "@/src/services/buyer/orderService";
 import { checkoutAddressSchema, CheckoutAddressFormData } from "@/src/schema/buyer/checkoutSchema";
 import { Order } from "@/src/types/buyer/order";
@@ -160,7 +161,7 @@ function CheckoutPageInner() {
     }
     (async () => {
       try {
-        const products = await getAllProducts();
+        const products = await getProductsByIds(items.map((item) => item.productId));
         const byId = new Map(products.map((product) => [product.productId, product]));
         items.forEach((item) => {
           const product = byId.get(item.productId);
@@ -310,6 +311,12 @@ function CheckoutPageInner() {
       // Cart is cleared only after a confirmed placement — a failed/partial
       // request (e.g. all lines rejected, which throws before this point)
       // leaves the cart untouched so the buyer can retry.
+      // Search analytics: tie each ordered product to the search that found it (no-op if it was not found via
+      // search). Lines the order rejected are not counted.
+      const rejected = new Set((order.rejectedLines ?? []).map((line) => line.productId));
+      const orderedProductIds = isQuoteMode && quote ? [quote.productId] : items.map((item) => item.productId);
+      orderedProductIds.filter((id) => !rejected.has(id)).forEach((id) => trackFromRememberedSearch("ORDER", id));
+
       clearCart();
       setPlacedOrder(order);
     } catch (error) {

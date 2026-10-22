@@ -9,12 +9,15 @@ import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 import { BuyerProduct } from "@/src/types/buyer/product";
+import { rememberSearchContext, SearchContext, trackSearchEvent } from "@/src/services/buyer/searchEvents";
 
 interface ProductCardProps {
   product: BuyerProduct;
+  /** Set when the card is shown in a search/browse result list: which search showed it and at what rank. */
+  searchContext?: SearchContext;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, searchContext }: ProductCardProps) {
   const { items: cartItems, addItem, updateQuantity } = useCart();
   const router = useRouter();
   const { openSignupModal } = useBuyerLoginModal();
@@ -33,6 +36,19 @@ export default function ProductCard({ product }: ProductCardProps) {
     return () => window.removeEventListener("buyer-auth-changed", syncBuyerAuth);
   }, []);
 
+  // Analytics: the buyer opened the product / put it in the cart from a search result. Remembering the context lets
+  // a quote request or order made a few pages later still be tied to the search that found the product.
+  const trackClick = () => {
+    if (!searchContext) return;
+    rememberSearchContext(product.productId, searchContext);
+    trackSearchEvent("SEARCH_CLICK", product.productId, searchContext);
+  };
+  const trackAddedToCart = () => {
+    if (!searchContext || outOfStock) return;
+    rememberSearchContext(product.productId, searchContext);
+    trackSearchEvent("ADD_TO_CART", product.productId, searchContext);
+  };
+
   const handleIncrement = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -42,6 +58,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
     if (cartQuantity === 0) {
       addItem(product, 1);
+      trackAddedToCart();
     } else {
       updateQuantity(product.productId, cartQuantity + 1);
     }
@@ -63,6 +80,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       return;
     }
     addItem(product, 1);
+    trackAddedToCart();
   };
 
   const handleBuyNow = (e: React.MouseEvent) => {
@@ -74,6 +92,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
     if (cartQuantity === 0) {
       addItem(product, 1);
+      trackAddedToCart();
     }
     router.push("/cart");
   };
@@ -81,6 +100,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/product/${product.productId}`}
+      onClick={trackClick}
       className="group relative bg-white rounded-3xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 p-4 overflow-hidden flex flex-col"
     >
       <div className="transition-transform duration-500 flex-1">

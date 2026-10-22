@@ -4,19 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, LogOut, LayoutDashboard, User, ChevronDown } from "lucide-react";
+import { LogOut, LayoutDashboard, User, ChevronDown } from "lucide-react";
 import Button from "@/src/app/commonComponents/Button";
+import SearchBox from "./SearchBox";
 import ProfileProgressRing from "@/src/app/commonComponents/ProfileProgressRing";
 import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { useBuyerOnboardingStatus, getBuyerProfileCompletion } from "@/src/hooks/useBuyerOnboardingStatus";
 
 interface LandingHeaderProps {
+    /** Pre-fills the search box (the results page passes its current ?q=). */
     searchQuery?: string;
-    onSearchChange?: (value: string) => void;
 }
 
-const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {}) => {
+const LandingHeader = ({ searchQuery }: LandingHeaderProps = {}) => {
     const { totalItems } = useCart();
     const router = useRouter();
     const [buyerEmail, setBuyerEmail] = useState<string | null>(() =>
@@ -92,19 +93,8 @@ const LandingHeader = ({ searchQuery, onSearchChange }: LandingHeaderProps = {})
             <div className="w-full h-16 px-[40px] py-[8px] flex items-center gap-6 border-b border-neutral-100 bg-base-white">
                 <div className="max-w-full w-full mx-auto flex items-center justify-between">
 
-                    {/* Search */}
-                    <div className="relative w-[662px] h-12">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 w-5 h-5" />
-
-                        <input
-                            type="text"
-                            placeholder="Search by molecule, Brand or therapeutic area"
-                            className="w-full h-full pl-12 pr-4 rounded-md bg-neutral-100 text-label-l3 focus:outline-none"
-                            {...(onSearchChange
-                                ? { value: searchQuery ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement>) => onSearchChange(e.target.value) }
-                                : {})}
-                        />
-                    </div>
+                    {/* Search: suggestions as you type, Enter opens the /search results page */}
+                    <SearchBox initialQuery={searchQuery} />
 
                     {/* Right Actions */}
                     <div className="h-12 flex items-center gap-2">

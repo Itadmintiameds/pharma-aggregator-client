@@ -9,6 +9,7 @@ import Dropdown from "@/src/app/commonComponents/Dropdown";
 import Button from "@/src/app/commonComponents/Button";
 import SubmissionSuccess from "../../components/SubmissionSuccess";
 import { createQuoteRequest } from "@/src/services/buyer/quoteRequestService";
+import { trackFromRememberedSearch } from "@/src/services/buyer/searchEvents";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { getBuyerProfile } from "@/src/services/buyer/buyerProfileService";
 
@@ -133,6 +134,7 @@ export default function GetQuoteForm({ productId, product }: GetQuoteFormProps) 
         message: form.requirements || undefined,
       });
       setReferenceId(`RFQ-${created.quoteRequestId}`);
+      trackFromRememberedSearch("QUOTE_REQUEST", productId); // search analytics: no-op if the buyer did not come from search
       toast.success("Quote request submitted successfully");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to submit quote request");

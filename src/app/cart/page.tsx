@@ -8,7 +8,7 @@ import LandingHeader from "@/src/app/components/landingPage/LandingHeader";
 import Footer from "@/src/app/components/landingPage/Footer";
 import Button from "@/src/app/commonComponents/Button";
 import { useCart } from "@/src/context/CartContext";
-import { getAllProducts } from "@/src/services/buyer/buyerProductService";
+import { getProductsByIds } from "@/src/services/buyer/buyerProductService";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { isCartItemUnavailable } from "@/src/utils/cartAvailability";
 
@@ -134,7 +134,7 @@ export default function CartPage() {
   useEffect(() => {
     if (items.length === 0) return;
     (async () => {
-      const products = await getAllProducts();
+      const products = await getProductsByIds(items.map((item) => item.productId));
       const byId = new Map(products.map((product) => [product.productId, product]));
       items.forEach((item) => {
         const product = byId.get(item.productId);

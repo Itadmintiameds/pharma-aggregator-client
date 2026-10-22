@@ -7,29 +7,39 @@ export interface BuyerSeller {
   sellerImageUrl?: string | null;
 }
 
-// GET /sellers is the same admin-shaped listing used elsewhere (SellerProfileController.findAll) —
-// no buyer-scoped/approved-only filter exists on the backend yet, so this returns every seller row.
+// Public, buyer-safe list for the landing page's "featured sellers" strip: approved sellers' name and logo only
+// (seller-service GET /sellers/public/brands). It needs no login, so a visitor sees it too. (The old call,
+// GET /sellers, is an admin-shaped listing that needs a token and returned 401 for visitors.)
 export async function getAllSellers(): Promise<BuyerSeller[]> {
-  // Called from the public landing page (FeatureBrands): a visitor without a
-  // token gets 401 here, which must not redirect to the buyer login.
-  const response = await buyerApi.get("/sellers", { skipAuthRedirect: true });
+  const response = await buyerApi.get("/sellers/public/brands", { skipAuthRedirect: true });
   return response.data?.data ?? response.data ?? [];
 }
 
-// GET /products/all is the cross-seller listing endpoint (unlike
-// /products/getAll, which is scoped to the calling seller's own inventory
-// via their JWT and would 500 for a buyer token — see backend
-// ProductDetailsController). No buyer-specific backend work exists yet
-// beyond this: it's currently open to any caller, not just buyers.
-export async function getAllProducts(): Promise<BuyerProduct[]> {
-  const response = await buyerApi.get("/products/all");
-  return response.data?.data ?? response.data ?? [];
-}
+// Browsing and searching the catalog goes through the search service (see searchService.ts); there is
+// deliberately no "load every product" call here any more. GET /products/all returned the entire catalog
+// (with pricing, packaging and images) and was downloaded by the landing page, the cart and every product page.
 
-// No dedicated public single-product endpoint exists yet — reuses the full
-// list and filters client-side. Fine at today's product volume; revisit
-// with a real GET /products/{id}-style public endpoint if that changes.
+// Single buyer-facing product read: only PUBLISHED products are served (anything else is a 404, so drafts
+// never leak) and the seller's display name is included. Public, so a visitor without a token can open it.
+// Resolves to undefined when the product does not exist (or is no longer published).
 export async function getProductById(productId: string): Promise<BuyerProduct | undefined> {
-  const products = await getAllProducts();
-  return products.find((product) => product.productId === productId);
+  try {
+    const response = await buyerApi.get(`/products/public/${encodeURIComponent(productId)}`, {
+      skipAuthRedirect: true,
+    });
+    return (response.data?.data ?? response.data) as BuyerProduct;
+  } catch (error) {
+    if ((error as { response?: { status?: number } })?.response?.status === 404) return undefined;
+    throw error;
+  }
+}
+
+// Fresh data for the products in the cart: one request per distinct product, in parallel. Products that are
+// gone (404) or temporarily unreadable are simply left out, so the caller keeps whatever it already has for them.
+export async function getProductsByIds(productIds: string[]): Promise<BuyerProduct[]> {
+  const distinct = [...new Set(productIds)];
+  const settled = await Promise.allSettled(distinct.map((id) => getProductById(id)));
+  return settled.flatMap((result) =>
+    result.status === "fulfilled" && result.value ? [result.value] : []
+  );
 }

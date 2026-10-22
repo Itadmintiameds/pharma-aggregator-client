@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -20,8 +20,13 @@ import {
 import { getTherapeuticCategory } from "@/src/services/product/TherapeuticCategoryService";
 import { getProductCategories as getFoodInfantProductCategories } from "@/src/services/product/FoodInfantService";
 import { getCosmeticProductTypes } from "@/src/services/product/CosmeticService";
-import { getAllProducts } from "@/src/services/buyer/buyerProductService";
+import {
+  isRequestCancelled,
+  searchProducts,
+  searchResultToBuyerProduct,
+} from "@/src/services/buyer/searchService";
 import { BuyerProduct } from "@/src/types/buyer/product";
+import { STOREFRONT_CATEGORIES } from "@/src/utils/storefrontCategories";
 import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
@@ -31,16 +36,7 @@ interface SubCategory {
   name: string;
 }
 
-// Matches the 6 top-level product categories (`tm_category`) used across the app —
-// see categoryMap in seller_7a3b9f2c/dashboard/components/ProductList.tsx.
-const PARENT_CATEGORIES = [
-  { id: 1, name: "Drugs" },
-  { id: 2, name: "Supplements / Nutraceuticals" },
-  { id: 3, name: "Food & Infant Nutrition" },
-  { id: 4, name: "Cosmetic & Personal Care" },
-  { id: 5, name: "Consumable Medical Devices & Equipment" },
-  { id: 6, name: "Non-Consumable Medical Devices & Equipment" },
-];
+const PARENT_CATEGORIES = STOREFRONT_CATEGORIES;
 
 const toSubCategories = (
   raw: unknown,
@@ -69,7 +65,7 @@ const HeroSection = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
     null
   );
-  const [allProducts, setAllProducts] = useState<BuyerProduct[]>([]);
+  const [displayedProducts, setDisplayedProducts] = useState<BuyerProduct[]>([]);
   const { items: cartItems, addItem, updateQuantity } = useCart();
   const { openSignupModal } = useBuyerLoginModal();
   const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(() =>
@@ -88,22 +84,24 @@ const HeroSection = () => {
     "/assets/images/med3.png",
   ];
 
+  // The carousel shows the 12 newest buyable products, or the 12 newest of the selected category: one small
+  // search request per selection instead of downloading the whole catalog and filtering it here.
   useEffect(() => {
-    getAllProducts()
-      .then((result) => setAllProducts(result))
-      .catch(() => setAllProducts([]));
-  }, []);
+    const controller = new AbortController();
+    searchProducts(
+      { categoryId: selectedCategoryId ?? undefined, sort: "newest", size: 12 },
+      controller.signal
+    )
+      .then((result) => setDisplayedProducts(result.results.map(searchResultToBuyerProduct)))
+      .catch((error) => {
+        if (!isRequestCancelled(error)) setDisplayedProducts([]);
+      });
+    return () => controller.abort();
+  }, [selectedCategoryId]);
 
   const selectedCategoryName = PARENT_CATEGORIES.find(
     (c) => c.id === selectedCategoryId
   )?.name;
-
-  const displayedProducts = useMemo(() => {
-    const filtered = selectedCategoryId
-      ? allProducts.filter((p) => p.categoryId === selectedCategoryId)
-      : allProducts;
-    return filtered.slice(0, 12);
-  }, [allProducts, selectedCategoryId]);
 
   const handleSelectCategory = (categoryId: number) => {
     setSelectedCategoryId((prev) => (prev === categoryId ? null : categoryId));

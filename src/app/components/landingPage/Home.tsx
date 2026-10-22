@@ -13,7 +13,6 @@ import toast from "react-hot-toast";
 
 const Home = () => {
   const searchParams = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState("");
 
   // ✅ Check if URL contains ?showLogin=true (for login modal)
   const shouldAutoOpen = searchParams.get("showLogin") === "true";
@@ -58,7 +57,7 @@ const Home = () => {
   return (
     <div className="min-h-screen">
       {/* Header — kept outside the zoomed wrapper below so it stays at normal size */}
-      <LandingHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+      <LandingHeader />
 
       {/* `zoom` gives a mild zoom-in (like Ctrl + in the browser) to everything below the
           header, without breaking layout/media queries the way `transform: scale()` would.
@@ -68,7 +67,7 @@ const Home = () => {
         <main className="pt-38">
           <HeroSection />
           <FeatureBrands />
-          <ProductGrid searchQuery={searchQuery} />
+          <ProductGrid />
         </main>
 
         {/* Footer */}
