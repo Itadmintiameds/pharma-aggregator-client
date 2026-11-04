@@ -94,14 +94,10 @@ class SellerProfileService {
         userId: userId
       });
 
-      // Handle specific error cases
+      // Handle specific error cases. A 401 here must not log the seller out —
+      // the api client already refreshed the token; session expiry is handled there.
       if (axiosError.response?.status === 401) {
-        console.log('🔒 Unauthorized - clearing auth and redirecting');
-        sellerAuthService.clearAuth();
-        if (typeof window !== 'undefined') {
-          window.location.href = '/?showLogin=true&sessionExpired=true';
-        }
-        throw new Error('Session expired. Please login again.');
+        throw new Error('Unauthorized to view this profile');
       }
 
       if (axiosError.response?.status === 403) {
@@ -196,16 +192,12 @@ class SellerProfileService {
         status: axiosError.response?.status
       });
       
-      // Handle specific error cases
+      // Handle specific error cases. A 401 here must not log the seller out —
+      // the api client already refreshed the token; session expiry is handled there.
       if (axiosError.response?.status === 401) {
-        console.log('🔒 Unauthorized - clearing auth and redirecting');
-        sellerAuthService.clearAuth();
-        if (typeof window !== 'undefined') {
-          window.location.href = '/?showLogin=true&sessionExpired=true';
-        }
-        throw new Error('Session expired. Please login again.');
+        throw new Error('Unauthorized to update this profile');
       }
-      
+
       if (axiosError.response?.status === 403) {
         throw new Error('You do not have permission to update this profile');
       }

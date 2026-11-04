@@ -250,9 +250,13 @@ class SellerAuthService {
         data: error.response?.data
       });
       
-      // If refresh fails, clear everything and force logout
-      this.clearAuth();
-      
+      // Only clear the session when the backend rejects the refresh token —
+      // a network error or 5xx shouldn't log the seller out.
+      const refreshStatus = error.response?.status;
+      if (refreshStatus === 401 || refreshStatus === 403) {
+        this.clearAuth();
+      }
+
       // Reject waiting promises
       const resolvers = [...this.refreshPromiseResolvers];
       this.refreshPromiseResolvers = [];

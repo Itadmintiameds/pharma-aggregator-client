@@ -1,5 +1,11 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
+declare module "axios" {
+  interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean;
+  }
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 declare module "axios" {
@@ -65,6 +71,13 @@ buyerApi.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Public/optional calls (e.g. landing-page widgets) can fail with 401 for
+    // signed-out visitors or sellers — let the caller handle it instead of
+    // force-logging-out to the buyer login page.
+    if (originalRequest.skipAuthRedirect) {
+      return Promise.reject(error);
+    }
+
     // Auth endpoints (login/signup/OTP) return 401 for invalid credentials —
     // that's a normal login failure, not an expired session, so skip the
     // force-logout redirect and let the caller's catch block show the error.
@@ -91,22 +104,17 @@ buyerApi.interceptors.response.use(
           .catch((err) => Promise.reject(err));
       }
 
-      originalRequest._retry = true;
-      isRefreshing = true;
-
       const refreshToken = localStorage.getItem("buyerRefreshToken");
 
+      // No buyer refresh token means no buyer session (e.g. a signed-out
+      // visitor or a logged-in seller) — nothing to log out of, so just let
+      // the caller handle the 401.
       if (!refreshToken) {
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("buyerAccessToken");
-          localStorage.removeItem("buyerRefreshToken");
-          localStorage.removeItem("buyerTokenExpiresAt");
-          localStorage.removeItem("buyerUser");
-          document.cookie = "buyerToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-          window.location.href = "/buyer_e8d45a1b/login?session=expired";
-        }
         return Promise.reject(error);
       }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
 
       try {
         const response = await axios.post(`${API_BASE_URL}/buyer/authentication/refresh`, {
@@ -127,7 +135,9 @@ buyerApi.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError);
 
-        if (typeof window !== "undefined") {
+        // Only end the buyer session when the refresh token itself is rejected.
+        const refreshStatus = (refreshError as AxiosError)?.response?.status;
+        if (typeof window !== "undefined" && (refreshStatus === 401 || refreshStatus === 403)) {
           localStorage.removeItem("buyerAccessToken");
           localStorage.removeItem("buyerRefreshToken");
           localStorage.removeItem("buyerTokenExpiresAt");

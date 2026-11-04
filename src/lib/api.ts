@@ -97,20 +97,16 @@ api.interceptors.response.use(
         });
       }
       
-      originalRequest._retry = true;
-      isRefreshing = true;
-      
       const refreshToken = localStorage.getItem("refreshToken");
-      
+
+      // No refresh token means there's no session to log out of — just let
+      // the caller handle the 401. Route guards decide whether to show login.
       if (!refreshToken) {
-        // No refresh token, force logout
-        if (typeof window !== "undefined") {
-          clearAuthKeys();
-          document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-          window.location.href = "/?showLogin=true&session=expired";
-        }
         return Promise.reject(error);
       }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
 
       try {
         // Call refresh endpoint
@@ -137,10 +133,14 @@ api.interceptors.response.use(
         return api(originalRequest);
         
       } catch (refreshError) {
-        // Refresh failed - clear everything and redirect to login
         processQueue(refreshError);
-        
-        if (typeof window !== "undefined") {
+
+        // Only end the session when the refresh endpoint itself rejects the
+        // refresh token. Network errors / 5xx on refresh, and any failing
+        // API call, just reject to the caller — a logged-in seller stays
+        // logged in.
+        const refreshStatus = (refreshError as AxiosError)?.response?.status;
+        if (typeof window !== "undefined" && (refreshStatus === 401 || refreshStatus === 403)) {
           clearAuthKeys();
           sessionStorage.clear();
           document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
@@ -152,16 +152,9 @@ api.interceptors.response.use(
         isRefreshing = false;
       }
     }
-    
-    // Handle other 401 errors
-    if (error.response?.status === 401) {
-      if (typeof window !== "undefined") {
-        clearAuthKeys();
-        document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-        window.location.href = "/?showLogin=true&session=expired";
-      }
-    }
-    
+
+    // A 401 that persists after a successful refresh is an endpoint-level
+    // rejection (role/permission), not an expired session — don't log out.
     return Promise.reject(error);
   }
 );

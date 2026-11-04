@@ -7,11 +7,12 @@ export interface BuyerSeller {
   sellerImageUrl?: string | null;
 }
 
-// Public, buyer-safe list for the landing page's "featured sellers" strip: approved sellers' name and logo only
-// (seller-service GET /sellers/public/brands). It needs no login, so a visitor sees it too. (The old call,
-// GET /sellers, is an admin-shaped listing that needs a token and returned 401 for visitors.)
+// GET /sellers is the same admin-shaped listing used elsewhere (SellerProfileController.findAll) —
+// no buyer-scoped/approved-only filter exists on the backend yet, so this returns every seller row.
+// It requires auth (401 for anonymous/seller callers), and it's only used by the public landing
+// page, so skip buyerApi's force-logout redirect and let the caller fall back to an empty list.
 export async function getAllSellers(): Promise<BuyerSeller[]> {
-  const response = await buyerApi.get("/sellers/public/brands", { skipAuthRedirect: true });
+  const response = await buyerApi.get("/sellers", { skipAuthRedirect: true });
   return response.data?.data ?? response.data ?? [];
 }
 
