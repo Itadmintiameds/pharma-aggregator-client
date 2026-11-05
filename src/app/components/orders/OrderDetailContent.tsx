@@ -9,6 +9,7 @@ import { useReasonPrompt } from "@/src/app/commonComponents/useReasonPrompt";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { cancelOrder, cancelSellerOrder, getOrder } from "@/src/services/buyer/orderService";
 import { Order, SellerOrder } from "@/src/types/buyer/order";
+import OrderItemOffer from "./OrderItemOffer";
 
 // Shared order-detail body used by both the standalone marketing-site route
 // (src/app/orders/[orderId], wrapped in LandingHeader/Footer) and the
@@ -123,9 +124,12 @@ function SellerOrderCard({
 
           <div className="space-y-2 mb-4">
             {sellerOrder.items.map((item) => (
-              <div key={item.orderItemId} className="flex justify-between text-p3 font-body text-pneutral-700">
-                <span>{item.productNameSnapshot} x {item.quantity}</span>
-                <span>₹{item.lineTotal?.toFixed(2)}</span>
+              <div key={item.orderItemId}>
+                <div className="flex justify-between text-p3 font-body text-pneutral-700">
+                  <span>{item.productNameSnapshot} x {item.quantity}</span>
+                  <span>₹{item.lineTotal?.toFixed(2)}</span>
+                </div>
+                <OrderItemOffer item={item} />
               </div>
             ))}
           </div>

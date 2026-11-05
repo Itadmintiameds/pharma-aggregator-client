@@ -34,17 +34,112 @@ interface SelectOption {
 
 // One row of the repeatable "special discount" list on a new batch — each row becomes its
 // own AdditionalDiscount record server-side (see StockService.SpecialDiscountPayload).
-interface SpecialDiscountRow {
+export interface SpecialDiscountRow {
   minimumPurchaseQuantity: string;
   percentage: string;
   displayOffer: boolean;
+  // Validity window. Dates are yyyy-MM-dd and times HH:mm, both in India Standard Time (IST),
+  // which is the zone the server evaluates offers in. alwaysActive = no time limit.
+  alwaysActive: boolean;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  // True for a row loaded from the server. An already-ended offer is allowed to stay on the list
+  // (the seller can still remove it); only a NEW or edited window must end in the future.
+  fromServer?: boolean;
 }
 
-const emptySpecialDiscountRow = (): SpecialDiscountRow => ({
+export const emptySpecialDiscountRow = (): SpecialDiscountRow => ({
   minimumPurchaseQuantity: "",
   percentage: "",
   displayOffer: true,
+  alwaysActive: true,
+  startDate: "",
+  startTime: "",
+  endDate: "",
+  endTime: "",
 });
+
+const IST_OFFSET = "+05:30";
+const istMillis = (date: string, time: string) =>
+  new Date(`${date}T${time}:00${IST_OFFSET}`).getTime();
+
+// Why the row's validity window cannot be saved, or null when it is fine.
+export function offerWindowError(
+  row: SpecialDiscountRow,
+  now: number = Date.now()
+): string | null {
+  if (row.alwaysActive) return null;
+  if (!row.startDate || !row.startTime || !row.endDate || !row.endTime) {
+    return "Enter the start and end date and time, or tick \u201cAlways active\u201d.";
+  }
+  const start = istMillis(row.startDate, row.startTime);
+  const end = istMillis(row.endDate, row.endTime);
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    return "Enter a valid date and time.";
+  }
+  if (end <= start) return "The end must be after the start.";
+  if (!row.fromServer && end <= now) return "The end is already in the past.";
+  return null;
+}
+
+// What an offer must be measured against: the batch it sits on. The server enforces the same two rules.
+export interface OfferRules {
+  baseDiscountPercentage?: number;
+  minimumOrderQuantity?: number;
+}
+
+// Why the offer could never take effect on this batch, or null. The discount that applies is the better of
+// the batch's regular discount and the offer, so an offer that is not higher would be advertised to buyers
+// but never applied; and an offer threshold at or below the minimum order quantity is reached by every order.
+export function offerRuleError(row: SpecialDiscountRow, rules?: OfferRules): string | null {
+  if (!rules) return null;
+  if (
+    row.percentage.trim() !== "" &&
+    rules.baseDiscountPercentage != null &&
+    Number(row.percentage) <= rules.baseDiscountPercentage
+  ) {
+    return `The offer must be higher than the regular discount (${rules.baseDiscountPercentage}%), otherwise it never applies.`;
+  }
+  if (
+    row.minimumPurchaseQuantity.trim() !== "" &&
+    rules.minimumOrderQuantity != null &&
+    Number(row.minimumPurchaseQuantity) <= rules.minimumOrderQuantity
+  ) {
+    return `The minimum quantity must be above the minimum order quantity (${rules.minimumOrderQuantity}).`;
+  }
+  return null;
+}
+
+export const isOfferRowValid = (row: SpecialDiscountRow, rules?: OfferRules): boolean =>
+  row.percentage.trim() !== "" &&
+  Number(row.percentage) > 0 &&
+  Number(row.percentage) <= 100 &&
+  Number(row.minimumPurchaseQuantity) > 0 &&
+  offerRuleError(row, rules) === null &&
+  offerWindowError(row) === null;
+
+// The /stock payload for a list of rows (validity fields only when the offer is time-limited).
+export const offerRowsToPayload = (rows: SpecialDiscountRow[]): SpecialDiscountPayload[] =>
+  rows.map((row) => ({
+    minimumPurchaseQuantity: Number(row.minimumPurchaseQuantity),
+    additionalDiscountPercentage: Number(row.percentage),
+    displayOffer: row.displayOffer,
+    ...(row.alwaysActive
+      ? {}
+      : {
+          effectiveStartDate: row.startDate,
+          effectiveStartTime: row.startTime,
+          effectiveEndDate: row.endDate,
+          effectiveEndTime: row.endTime,
+        }),
+  }));
+
+export const describeOfferWindow = (row: SpecialDiscountRow): string =>
+  row.alwaysActive
+    ? "always active"
+    : `${row.startDate} ${row.startTime} to ${row.endDate} ${row.endTime} IST`;
 
 interface StockUpdateModalProps {
   open: boolean;
@@ -429,20 +524,18 @@ export default function StockUpdateModal({
       rows.map((row, i) => (i === index ? { ...row, ...patch } : row))
     );
 
-  const isDraftSpecialDiscountsValid = draftSpecialDiscounts.every(
-    (row) =>
-      row.percentage.trim() !== "" &&
-      Number(row.percentage) >= 0 &&
-      Number(row.percentage) <= 100 &&
-      Number(row.minimumPurchaseQuantity) > 0
+  // Rules for a NEW batch come from the form being filled in (the server re-checks against the stored batch).
+  const newBatchOfferRules: OfferRules = {
+    baseDiscountPercentage: newBatch.discountPercentage.trim() ? Number(newBatch.discountPercentage) : undefined,
+    minimumOrderQuantity: newBatch.minimumOrderQuantity.trim() ? Number(newBatch.minimumOrderQuantity) : undefined,
+  };
+
+  const isDraftSpecialDiscountsValid = draftSpecialDiscounts.every((row) =>
+    isOfferRowValid(row, newBatchOfferRules)
   );
 
-  const isSpecialDiscountsValid = specialDiscounts.every(
-    (row) =>
-      row.percentage.trim() !== "" &&
-      Number(row.percentage) >= 0 &&
-      Number(row.percentage) <= 100 &&
-      Number(row.minimumPurchaseQuantity) > 0
+  const isSpecialDiscountsValid = specialDiscounts.every((row) =>
+    isOfferRowValid(row, newBatchOfferRules)
   );
 
   const isStep2Valid =
@@ -552,15 +645,7 @@ export default function StockUpdateModal({
               : undefined,
             specialDiscounts:
               specialDiscounts.length > 0
-                ? specialDiscounts.map(
-                    (row): SpecialDiscountPayload => ({
-                      minimumPurchaseQuantity: Number(
-                        row.minimumPurchaseQuantity
-                      ),
-                      additionalDiscountPercentage: Number(row.percentage),
-                      displayOffer: row.displayOffer,
-                    })
-                  )
+                ? offerRowsToPayload(specialDiscounts)
                 : undefined,
             shelfLifeMonths: newBatch.shelfLifeMonths.trim()
               ? Number(newBatch.shelfLifeMonths)
@@ -1756,7 +1841,7 @@ export default function StockUpdateModal({
                                 (row) =>
                                   `${row.percentage || "0"}% (min qty: ${
                                     row.minimumPurchaseQuantity || "—"
-                                  }, ${row.displayOffer ? "shown" : "hidden"})`
+                                  }, ${row.displayOffer ? "shown" : "hidden"}, ${describeOfferWindow(row)})`
                               )
                               .join("; ")
                           : "—"
@@ -1971,6 +2056,7 @@ export default function StockUpdateModal({
           onUpdateRow={updateDraftSpecialDiscountRow}
           onCancel={cancelSpecialOffers}
           onSave={saveSpecialOffers}
+          rules={newBatchOfferRules}
         />
       )}
     </div>
@@ -2029,7 +2115,7 @@ function Field({
   );
 }
 
-function SpecialOffersDrawer({
+export function SpecialOffersDrawer({
   rows,
   isValid,
   onAddRow,
@@ -2037,7 +2123,9 @@ function SpecialOffersDrawer({
   onUpdateRow,
   onCancel,
   onSave,
+  rules,
 }: {
+  rules?: OfferRules;
   rows: SpecialDiscountRow[];
   isValid: boolean;
   onAddRow: () => void;
@@ -2219,6 +2307,104 @@ function SpecialOffersDrawer({
                   />
                 </Field>
               </div>
+              {offerRuleError(row, rules) && (
+                <p role="alert" style={{ margin: "10px 0 0", fontSize: 12.5, color: "#DC2626" }}>
+                  {offerRuleError(row, rules)}
+                </p>
+              )}
+              {rules &&
+                (rules.baseDiscountPercentage != null || rules.minimumOrderQuantity != null) &&
+                index === 0 && (
+                  <p style={{ margin: "10px 0 0", fontSize: 12, color: TEXT_GRAY }}>
+                    {rules.baseDiscountPercentage != null && <>Regular discount: {rules.baseDiscountPercentage}%. </>}
+                    {rules.minimumOrderQuantity != null && <>Minimum order: {rules.minimumOrderQuantity} units.</>}
+                  </p>
+                )}
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginTop: 12,
+                  fontSize: 13,
+                  color: TEXT_DARK,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={row.alwaysActive}
+                  onChange={(e) =>
+                    onUpdateRow(index, { alwaysActive: e.target.checked })
+                  }
+                />
+                Always active (no time limit)
+              </label>
+              {!row.alwaysActive && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                    marginTop: 12,
+                  }}
+                >
+                  <Field label="Offer starts (IST)">
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input
+                        type="date"
+                        value={row.startDate}
+                        onChange={(e) =>
+                          onUpdateRow(index, { startDate: e.target.value })
+                        }
+                        style={inputStyle}
+                      />
+                      <input
+                        type="time"
+                        value={row.startTime}
+                        onChange={(e) =>
+                          onUpdateRow(index, { startTime: e.target.value })
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+                  </Field>
+                  <Field label="Offer ends (IST)">
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input
+                        type="date"
+                        value={row.endDate}
+                        min={row.startDate || undefined}
+                        onChange={(e) =>
+                          onUpdateRow(index, { endDate: e.target.value })
+                        }
+                        style={inputStyle}
+                      />
+                      <input
+                        type="time"
+                        value={row.endTime}
+                        onChange={(e) =>
+                          onUpdateRow(index, { endTime: e.target.value })
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+                  </Field>
+                  {(row.startDate || row.startTime || row.endDate || row.endTime) &&
+                    offerWindowError(row) && (
+                      <p
+                        role="alert"
+                        style={{ margin: 0, fontSize: 12.5, color: "#DC2626" }}
+                      >
+                        {offerWindowError(row)}
+                      </p>
+                    )}
+                  <p style={{ margin: 0, fontSize: 12, color: TEXT_GRAY }}>
+                    Times are India Standard Time. Buyers see this offer only
+                    between these two moments, with a countdown to the end.
+                  </p>
+                </div>
+              )}
               <label
                 style={{
                   display: "flex",

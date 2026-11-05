@@ -10,6 +10,9 @@ import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 import Button from "@/src/app/commonComponents/Button";
 import { Tag, ClipboardList } from "lucide-react";
+import OfferCountdown from "@/src/app/components/OfferCountdown";
+import { clockOffsetMs, isOfferLive } from "@/src/utils/offers";
+import { useServerNow } from "@/src/hooks/useServerNow";
 
 const PLACEHOLDER_IMAGE = "/icons/Tumbnail.svg";
 const ZOOM_FACTOR = 2.5;
@@ -111,9 +114,22 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
     buyerAuthService.isAuthenticated()
   );
 
+  // Server clock minus browser clock, measured ONCE when the product arrives. It must not be recomputed
+  // on every render: `serverTime - Date.now()` changes with every call, so adding it back to Date.now()
+  // always yields the same instant and the countdown would never move.
+  const [serverClockOffset, setServerClockOffset] = useState(0);
+
   useEffect(() => {
-    getProductById(productId).then((result) => setProduct(result ?? null));
+    getProductById(productId).then((result) => {
+      setServerClockOffset(clockOffsetMs(result ? resolveProductAvailability(result).pricing?.serverTime : undefined));
+      setProduct(result ?? null);
+    });
   }, [productId]);
+
+  // Offers are time-limited: keep a server-time clock ticking while the product has any, so a countdown
+  // runs and an offer disappears the second it ends (the browser's own clock is not trusted).
+  const hasOffers = (product ? resolveProductAvailability(product).pricing?.additionalDiscounts?.length ?? 0 : 0) > 0;
+  const serverNowMs = useServerNow(serverClockOffset, hasOffers);
 
   useEffect(() => {
     const syncBuyerAuth = () => setIsBuyerLoggedIn(buyerAuthService.isAuthenticated());
@@ -143,7 +159,10 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
 
   const images = product.productImages?.map((img) => img.productImage).filter(Boolean) as string[];
   const displayImages = images && images.length > 0 ? images : [PLACEHOLDER_IMAGE];
-  const pricing = product.pricingDetails?.[0];
+  // The batch the order will actually be charged from: orders drain stock oldest-first, so this is the oldest
+  // batch that is in stock and unexpired (same rule as the cart and search) - not just whichever batch the API
+  // happened to list first. Its price and offers are the ones that apply.
+  const pricing = resolveProductAvailability(product).pricing;
   const totalStock = product.pricingDetails?.reduce(
     (sum, p) => sum + (p.stockQuantity ?? 0),
     0
@@ -261,6 +280,38 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
             )}
           </div>
         </div>
+
+        {/* Special offers: live quantity discounts, with a countdown when time-limited */}
+        {(() => {
+          const liveOffers = [...(pricing?.additionalDiscounts ?? [])]
+            .filter((offer) => isOfferLive(offer, serverNowMs))
+            .sort((a, b) => a.minimumPurchaseQuantity - b.minimumPurchaseQuantity);
+          if (liveOffers.length === 0) return null;
+          return (
+            <div className="mb-6 rounded-xl border border-primary-200 bg-primary-05 p-4" aria-live="polite">
+              <div className="flex items-center gap-2 mb-2">
+                <Tag size={16} className="text-primary-800" />
+                <span className="text-p3 font-heading font-semibold text-primary-800">Special Offer</span>
+              </div>
+              <ul className="space-y-1.5">
+                {liveOffers.map((offer) => (
+                  <li
+                    key={`${offer.minimumPurchaseQuantity}-${offer.additionalDiscountPercentage}`}
+                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-0.5 text-p3 font-body text-pneutral-800"
+                  >
+                    <span>
+                      <span className="font-semibold text-success-600">{offer.additionalDiscountPercentage}% off</span>{" "}
+                      on orders of {offer.minimumPurchaseQuantity}+ units
+                    </span>
+                    {offer.endsAt && (
+                      <OfferCountdown endsAt={offer.endsAt} serverNowMs={serverNowMs} className="text-p4 text-pneutral-600" />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
 
         <div className="flex flex-wrap items-center gap-4 mb-4">
           <Button variant="filled" size="lg" label="Add to Cart" onClick={handleAddToCart} disabled={outOfStock} />

@@ -1,5 +1,6 @@
 "use client";
 
+import OfferValidity from "./OfferValidity";
 import React, { useState } from "react";
 import { FileText, ExternalLink, Edit2, X, Gift, ShoppingBag, Tag, BadgePercent } from "lucide-react";
 import { PiSealCheckLight } from "react-icons/pi";
@@ -859,7 +860,7 @@ const CosmeticPersonalCareView = ({
               );
             })}
             {additionalDiscounts.length > 0 && (
-              <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] bg-[#F8EDFF] border-[#6C12A9] h-[142px]">
+              <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] bg-[#F8EDFF] border-[#6C12A9] min-h-[142px]">
                 <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md bg-[#6C12A9]">
                   <BadgePercent className="w-6 h-6 text-white" />
                 </div>
@@ -875,7 +876,7 @@ const CosmeticPersonalCareView = ({
                       </span>
                     ))}
                   </p>
-                  <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">Valid: Ongoing</span>
+                  <OfferValidity offers={additionalDiscounts} />
                 </div>
               </div>
             )}

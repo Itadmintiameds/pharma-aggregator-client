@@ -36,6 +36,8 @@ import Table, { Column } from "@/src/app/commonComponents/Table";
 import { toast } from "react-toastify";
 import StockUpdateModal from "./StockUpdateModal";
 import BatchStockUpdateModal from "./BatchStockUpdateModal";
+import BatchOffersDrawer from "./BatchOffersDrawer";
+import { offerStatus } from "@/src/utils/offers";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import {
   getAvailableBatches,
@@ -114,13 +116,25 @@ interface PricingDetails {
   deletedAt?: string | null;
 }
 
+// "Active" / "Ended" / "Scheduled" for an offer with a time window (see utils/offers).
+const offerStatusText = (d: { startsAt?: string | null; endsAt?: string | null; active?: boolean }): string => {
+  const status = offerStatus(d, Date.now());
+  return status === "active" ? "Active" : status === "scheduled" ? "Scheduled" : status === "ended" ? "Ended" : "";
+};
+
 interface AdditionalDiscount {
   additionalDiscountId?: string;
   minimumPurchaseQuantity?: number;
   maximumPurchaseQuantity?: number;
   additionalDiscountPercentage?: number;
+  displayOffer?: boolean | null;
   effectiveStartDate?: string;
+  effectiveStartTime?: string | null;
   effectiveEndDate?: string;
+  effectiveEndTime?: string | null;
+  active?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
   startDate?: string;
   endDate?: string;
 }
@@ -2448,6 +2462,8 @@ const ProductView1 = ({
   const [batchStockUpdate, setBatchStockUpdate] =
     useState<BatchAvailability | null>(null);
   const [viewBatch, setViewBatch] = useState<PricingDetails | null>(null);
+  // The batch whose special-offers drawer is open (add / time-limit / remove quantity offers).
+  const [offersBatch, setOffersBatch] = useState<PricingDetails | null>(null);
   const [batchStockLoadingLot, setBatchStockLoadingLot] = useState<
     string | null
   >(null);
@@ -3287,6 +3303,33 @@ const ProductView1 = ({
                   </button>
 
                   <button
+                    onClick={() => setOffersBatch(row)}
+                    disabled={disabled || !row.pricingId}
+                    title={
+                      isDraftProduct
+                        ? "Publish this product before adding offers"
+                        : "Add or edit special offers (quantity discounts, optionally time-limited)"
+                    }
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      border: "1px solid var(--Colors-Brand-Primary-800, #6C12A9)",
+                      background: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                      color: "white",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      cursor: disabled || !row.pricingId ? "not-allowed" : "pointer",
+                      opacity: disabled || !row.pricingId ? 0.55 : 1,
+                      whiteSpace: "nowrap",
+                      fontFamily: "'Work Sans', sans-serif",
+                    }}
+                  >
+                    {row.additionalDiscounts && row.additionalDiscounts.length > 0
+                      ? `Offers (${row.additionalDiscounts.length})`
+                      : "Add Offer"}
+                  </button>
+
+                  <button
                     onClick={() => handleDeleteBatch(row)}
                     disabled={disabled}
                     style={{
@@ -3389,7 +3432,7 @@ const ProductView1 = ({
                         } units)${startDate && endDate
                           ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
                           : ""
-                        }`}
+                        }${d.startsAt || d.endsAt ? ` · ${offerStatusText(d)}` : ""}`}
                     </p>
                   </div>
                   <span
@@ -3447,6 +3490,22 @@ const ProductView1 = ({
         categoryId={resolvedCategoryId}
         onSuccess={refetchProduct}
       />
+
+      {offersBatch?.pricingId && productData?.productId && (
+        <BatchOffersDrawer
+          // re-mount when the product reloads so the rows reflect what was saved
+          key={`${offersBatch.pricingId}-${offersBatch.additionalDiscounts?.length ?? 0}`}
+          productId={productData.productId}
+          pricingId={offersBatch.pricingId}
+          offers={offersBatch.additionalDiscounts ?? []}
+          rules={{
+            baseDiscountPercentage: offersBatch.discountPercentage ?? undefined,
+            minimumOrderQuantity: findVariantForBatch(offersBatch)?.minimumOrderQuantity ?? undefined,
+          }}
+          onClose={() => setOffersBatch(null)}
+          onSaved={refetchProduct}
+        />
+      )}
 
       {batchStockUpdate && (
         <BatchStockUpdateModal

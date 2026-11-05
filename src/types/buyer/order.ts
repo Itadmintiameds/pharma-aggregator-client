@@ -16,6 +16,12 @@ export interface OrderItem {
   quantity: number;
   unitPriceSnapshot?: number;
   discountAmount?: number;
+  // The discount percentage that produced discountAmount.
+  discountPercentageSnapshot?: number;
+  // Set only when a time-limited special offer is what applied (its threshold and percentage as they were
+  // when the order was placed); absent when the line just got the regular discount.
+  offerMinQuantity?: number;
+  offerDiscountPercentage?: number;
   taxAmount?: number;
   lineTotal?: number;
   itemStatus?: string;

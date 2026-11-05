@@ -17,6 +17,26 @@ export interface SpecialDiscountPayload {
   minimumPurchaseQuantity?: number;
   additionalDiscountPercentage?: number;
   displayOffer?: boolean;
+  // Optional validity window in India Standard Time (IST): dates yyyy-MM-dd, times HH:mm. Leave all four
+  // out for an offer with no time limit.
+  effectiveStartDate?: string;
+  effectiveStartTime?: string;
+  effectiveEndDate?: string;
+  effectiveEndTime?: string;
+}
+
+// A quantity offer as the server returns it. active/startsAt/endsAt are computed server-side in IST.
+export interface BatchOffer {
+  minimumPurchaseQuantity: number;
+  additionalDiscountPercentage: number;
+  displayOffer?: boolean | null;
+  effectiveStartDate?: string | null;
+  effectiveStartTime?: string | null;
+  effectiveEndDate?: string | null;
+  effectiveEndTime?: string | null;
+  active?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
 }
 
 export interface StockAddRequest {
@@ -140,5 +160,21 @@ export const deleteBatch = async (
   const response = await api.delete(`/stock/${productId}/batches/${pricingId}`, {
     params: { sellerId },
   });
+  return response.data?.data ?? response.data;
+};
+
+// Replaces ALL quantity offers on one batch with the given list (an empty list removes them).
+// The server validates the offers and that the batch belongs to this seller.
+export const replaceBatchOffers = async (
+  productId: string,
+  pricingId: string,
+  offers: SpecialDiscountPayload[]
+): Promise<BatchOffer[]> => {
+  const sellerId = await getCurrentSellerId();
+  const response = await api.put(
+    `/stock/${encodeURIComponent(productId)}/batches/${encodeURIComponent(pricingId)}/offers`,
+    { additionalDiscounts: offers },
+    { params: { sellerId } }
+  );
   return response.data?.data ?? response.data;
 };

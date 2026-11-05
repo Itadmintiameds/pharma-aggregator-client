@@ -15,6 +15,7 @@ import {
   shipSellerOrder,
 } from "@/src/services/seller/sellerOrderService";
 import { SellerOrder } from "@/src/types/buyer/order";
+import OrderItemOffer from "@/src/app/components/orders/OrderItemOffer";
 
 const STATUS_FILTERS = [
   "ALL",
@@ -158,15 +159,20 @@ function OrderCard({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <p className="text-p2 font-heading font-semibold text-pneutral-900">{order.sellerOrderId}</p>
-          <span
-            className={`text-label-l2 font-heading font-medium px-2.5 py-1 rounded-full ${
+          {(() => {
+            // A line records the special offer that applied when the order was placed (null otherwise).
+            const hasOffer = order.items.some((item) => item.offerDiscountPercentage != null);
+            const label = order.quoteRequestId != null ? "Quotation Price" : hasOffer ? "Special Offer" : "Original Price";
+            const tone =
               order.quoteRequestId != null
                 ? "bg-secondary-100 text-secondary-800"
-                : "bg-neutral-100 text-neutral-500"
-            }`}
-          >
-            {order.quoteRequestId != null ? "Quotation Price" : "Original Price"}
-          </span>
+                : hasOffer
+                  ? "bg-success-50 text-success-600"
+                  : "bg-neutral-100 text-neutral-500";
+            return (
+              <span className={`text-label-l2 font-heading font-medium px-2.5 py-1 rounded-full ${tone}`}>{label}</span>
+            );
+          })()}
         </div>
         <span className="text-p4 font-body font-semibold px-3 py-1 rounded-full bg-neutral-100 text-neutral-700">
           {order.status}
@@ -183,9 +189,12 @@ function OrderCard({
 
       <div className="space-y-1 mb-3">
         {order.items.map((item) => (
-          <div key={item.orderItemId} className="flex justify-between text-p4 font-body text-pneutral-600">
-            <span>{item.productNameSnapshot} x {item.quantity}</span>
-            <span>₹{item.lineTotal?.toFixed(2)}</span>
+          <div key={item.orderItemId}>
+            <div className="flex justify-between text-p4 font-body text-pneutral-600">
+              <span>{item.productNameSnapshot} x {item.quantity}</span>
+              <span>₹{item.lineTotal?.toFixed(2)}</span>
+            </div>
+            <OrderItemOffer item={item} />
           </div>
         ))}
       </div>

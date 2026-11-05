@@ -1,3 +1,5 @@
+import type { BuyerQuantityOffer } from "@/src/utils/offers";
+
 export interface BuyerProductPricing {
   pricingId?: string;
   packagingId?: string;
@@ -8,6 +10,10 @@ export interface BuyerProductPricing {
   mrp?: number;
   discountPercentage?: number;
   finalPrice?: number;
+  // Quantity offers that were live when the product was fetched (expired / future / hidden ones are
+  // already dropped server-side), and the server's clock at that moment for countdowns.
+  additionalDiscounts?: BuyerQuantityOffer[];
+  serverTime?: string;
 }
 
 export interface BuyerProductPackaging {
