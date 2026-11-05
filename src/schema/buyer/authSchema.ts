@@ -38,9 +38,12 @@ export const buyerResetPasswordSchema = z
     newPassword: z
       .string()
       .min(8, "Password must be at least 8 characters")
+      // Must stay identical to the backend rule (buyer-service ResetPasswordWithTokenRequest /
+      // ResetPasswordRequest): the special set is @#$%^&+=! and whitespace is not allowed. The old
+      // client rule accepted ?/* as the only special, which the server then rejected with a 400.
       .regex(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-        "Password must contain at least one uppercase, one lowercase, one number and one special character"
+        /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\S+$).{8,}$/,
+        "Password must contain an uppercase letter, a lowercase letter, a number and one of @ # $ % ^ & + = !, with no spaces"
       ),
     confirmPassword: z.string().min(1, "Please confirm your password"),
   })

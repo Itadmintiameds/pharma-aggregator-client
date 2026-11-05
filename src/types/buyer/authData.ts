@@ -15,8 +15,11 @@ export interface BuyerLoginResponse {
   message?: string;
 }
 
+// First-login reset: matches buyer-service POST /auth/reset-password (ResetPasswordRequest).
+// currentPassword is the temporary password the buyer just logged in with.
 export interface BuyerResetPasswordRequest {
-  email: string;
+  username: string;
+  currentPassword: string;
   newPassword: string;
 }
 

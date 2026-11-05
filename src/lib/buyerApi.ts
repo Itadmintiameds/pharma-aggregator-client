@@ -71,7 +71,9 @@ buyerApi.interceptors.response.use(
     const isAuthEndpoint =
       originalRequest.url?.includes("/buyer/authentication/login") ||
       originalRequest.url?.includes("/buyer/authentication/verify-otp") ||
-      originalRequest.url?.includes("/buyer/auth/signup");
+      // every /buyer/auth/* call is pre-login (signup, forgot-password, verify-otp, reset-with-token):
+      // a 4xx there is a form error, never an expired session
+      originalRequest.url?.includes("/buyer/auth/");
     if (isAuthEndpoint) {
       return Promise.reject(error);
     }
