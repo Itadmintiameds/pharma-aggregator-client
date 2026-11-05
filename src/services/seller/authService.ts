@@ -968,7 +968,7 @@ class SellerAuthService {
       console.log("✅ OTP verified successfully");
       
       // Extract reset token from response
-      const resetToken = response.data?.data?.data?.resetToken;
+      const resetToken = response.data?.data?.resetToken;
       
       if (!resetToken) {
         console.error("❌ No reset token received in response");
