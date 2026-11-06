@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { CartItem } from "@/src/types/buyer/cart";
 import { BuyerProduct } from "@/src/types/buyer/product";
 import { isCartItemUnavailable, resolveProductAvailability } from "@/src/utils/cartAvailability";
+import { batchPricingFields, priceCartItem } from "@/src/utils/pricing";
 
 const CART_STORAGE_KEY = "buyerCart";
 
@@ -16,6 +17,10 @@ interface CartContextValue {
   backfillFromProduct: (product: BuyerProduct) => void;
   clearCart: () => void;
   totalItems: number;
+  // Same breakdown the order-service charges: subtotal - discount + GST = totalPrice (shipping is not charged yet).
+  subtotal: number;
+  discountTotal: number;
+  taxTotal: number;
   totalPrice: number;
 }
 
@@ -72,6 +77,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           sellerName: product.sellerName,
           mrp: pricing?.mrp,
           sellingPrice: pricing?.sellingPrice,
+          ...batchPricingFields(product, pricing),
           quantity: clamp(quantity),
           minQuantity,
           maxQuantity,
@@ -154,6 +160,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           pricingId: pricing?.pricingId ?? item.pricingId,
           mrp: pricing?.mrp ?? item.mrp,
           sellingPrice: pricing?.sellingPrice ?? item.sellingPrice,
+          // re-read with the price so carts saved before these were captured (or before an offer changed) are right
+          ...(pricing ? batchPricingFields(product, pricing) : {}),
           minQuantity,
           maxQuantity,
           quantity,
@@ -169,14 +177,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // running into the hundreds, "120" for one product read as a bug rather
   // than "1 product, 120 units."
   const totalItems = items.length;
-  const totalPrice = items.reduce(
-    (sum, item) => (isCartItemUnavailable(item) ? sum : sum + (item.sellingPrice ?? item.mrp ?? 0) * item.quantity),
-    0
+  const totals = items.reduce(
+    (acc, item) => {
+      if (isCartItemUnavailable(item)) return acc;
+      const line = priceCartItem(item);
+      return {
+        subtotal: acc.subtotal + line.gross,
+        discountTotal: acc.discountTotal + line.discount,
+        taxTotal: acc.taxTotal + line.tax,
+        totalPrice: acc.totalPrice + line.total,
+      };
+    },
+    { subtotal: 0, discountTotal: 0, taxTotal: 0, totalPrice: 0 }
   );
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, updatePricing, backfillFromProduct, clearCart, totalItems, totalPrice }}
+      value={{ items, addItem, removeItem, updateQuantity, updatePricing, backfillFromProduct, clearCart, totalItems, ...totals }}
     >
       {children}
     </CartContext.Provider>

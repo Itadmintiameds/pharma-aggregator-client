@@ -135,6 +135,8 @@ export interface PricingData {
   expiryDate: string | null;
   dateOfStockEntry: string | null;
   stockQuantity: number;
+  // Units returned damaged by buyers — read-only, kept out of stockQuantity.
+  damagedQuantity?: number | null;
   sellingPrice: number;
   mrp: number;
   gstPercentage: number;

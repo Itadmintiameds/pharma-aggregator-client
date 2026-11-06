@@ -14,7 +14,7 @@ import toast from "react-hot-toast";
 import { HiOutlineShoppingBag } from "react-icons/hi";
 import { AiOutlinePieChart } from "react-icons/ai";
 import { IoSettingsOutline } from "react-icons/io5";
-import { MdOutlineLocalShipping } from "react-icons/md";
+import { MdOutlineAssignmentReturn, MdOutlineLocalShipping } from "react-icons/md";
 import { PiHeadphones } from "react-icons/pi";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { sellerAuthService } from "@/src/services/seller/authService";
@@ -38,6 +38,7 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
     { id: "overview", label: "Overview", icon: <LayoutDashboard size={20} />, path: "/seller_7a3b9f2c/dashboard" },
     { id: "product", label: "Products", icon: <Package size={20} />, path: "/seller_7a3b9f2c/products" },
     { id: "orders", label: "Orders", icon: <HiOutlineShoppingBag size={20} />, path: "/seller_7a3b9f2c/orders" },
+    { id: "returns", label: "Returns", icon: <MdOutlineAssignmentReturn size={20} />, path: "/seller_7a3b9f2c/returns" },
     { id: "rfqs", label: "Quote Requests", icon: <AiOutlinePieChart size={20} />, path: "/seller_7a3b9f2c/conversions" },
     { id: "settings", label: "Settings", icon: <IoSettingsOutline size={20} />, path: "/seller_7a3b9f2c/settings" },
     { id: "shipment", label: "Shipment", icon: <MdOutlineLocalShipping size={20} />, path: "/seller_7a3b9f2c/shipment" },

@@ -8,7 +8,15 @@ import Button from "@/src/app/commonComponents/Button";
 import { useReasonPrompt } from "@/src/app/commonComponents/useReasonPrompt";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { cancelOrder, cancelSellerOrder, getOrder } from "@/src/services/buyer/orderService";
+import { getReturnsByBuyer } from "@/src/services/buyer/returnService";
 import { Order, SellerOrder } from "@/src/types/buyer/order";
+import { ReturnRequest, consumedUnits } from "@/src/types/buyer/returns";
+import ReturnPanel from "./ReturnPanel";
+import ReturnRequestForm from "./ReturnRequestForm";
+import { proRate } from "@/src/utils/pricing";
+
+// Same as order-service's RETURN_WINDOW_DAYS; only used to hide the return controls once it has passed.
+const RETURN_WINDOW_DAYS = 7;
 
 // Shared order-detail body used by both the standalone marketing-site route
 // (src/app/orders/[orderId], wrapped in LandingHeader/Footer) and the
@@ -18,6 +26,15 @@ import { Order, SellerOrder } from "@/src/types/buyer/order";
 const CANCELLABLE_STATUSES = new Set(["PLACED", "CONFIRMED", "PACKED"]);
 
 const FULFILLMENT_STEPS = ["PLACED", "CONFIRMED", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"];
+
+// Return-phase seller-order statuses all come after a completed delivery.
+const POST_DELIVERY_STATUSES = new Set([
+  "RETURN_REQUESTED",
+  "RETURN_APPROVED",
+  "RETURN_REJECTED",
+  "RETURNED",
+  "REFUNDED",
+]);
 
 function formatStepLabel(step: string): string {
   return step
@@ -30,15 +47,63 @@ function SellerOrderCard({
   sellerOrder,
   onCancel,
   cancelling,
+  returns,
+  buyerId,
+  onReturnsChanged,
 }: {
   sellerOrder: SellerOrder;
   onCancel: (sellerOrderId: string) => void;
   cancelling: boolean;
+  // This seller order's returns, oldest first.
+  returns: ReturnRequest[];
+  buyerId: string;
+  onReturnsChanged: () => void;
 }) {
   const isCancelled = sellerOrder.status === "CANCELLED";
-  const currentStepIndex = FULFILLMENT_STEPS.indexOf(sellerOrder.status);
+  const currentStepIndex = POST_DELIVERY_STATUSES.has(sellerOrder.status)
+    ? FULFILLMENT_STEPS.indexOf("DELIVERED")
+    : FULFILLMENT_STEPS.indexOf(sellerOrder.status);
+  // Returns can be started (again) any time within the window after delivery; the backend enforces it too.
+  // Time is read once on mount — render must stay pure.
+  const [now] = useState(() => Date.now());
+  const windowOpen =
+    !sellerOrder.deliveredAt ||
+    now < new Date(sellerOrder.deliveredAt).getTime() + RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const canRequestReturn =
+    (sellerOrder.status === "DELIVERED" || POST_DELIVERY_STATUSES.has(sellerOrder.status)) && windowOpen;
   const canCancel = CANCELLABLE_STATUSES.has(sellerOrder.status);
   const [expanded, setExpanded] = useState(false);
+  const [showReturnForm, setShowReturnForm] = useState(false);
+  // Units of an item still returnable: its quantity minus what earlier (not rejected or cancelled) returns hold.
+  const remainingUnits = (orderItemId: number, quantity: number) =>
+    quantity -
+    returns.reduce(
+      (sum, r) =>
+        sum + r.lines.filter((l) => l.orderItemId === orderItemId).reduce((s, l) => s + consumedUnits(r, l), 0),
+      0
+    );
+  // orderItemId -> units to return; ticking an item starts at all its remaining units.
+  const [returnQuantities, setReturnQuantities] = useState<Map<number, number>>(new Map());
+  const toggleReturnSelection = (orderItemId: number, units: number) =>
+    setReturnQuantities((prev) => {
+      const next = new Map(prev);
+      if (next.has(orderItemId)) next.delete(orderItemId);
+      else next.set(orderItemId, units);
+      return next;
+    });
+  const setReturnQuantity = (orderItemId: number, quantity: number) =>
+    setReturnQuantities((prev) => new Map(prev).set(orderItemId, quantity));
+  const selectedReturns = [...returnQuantities].map(([orderItemId, quantity]) => ({ orderItemId, quantity }));
+  const maxUnits = (orderItemId: number) => {
+    const item = sellerOrder.items.find((i) => i.orderItemId === orderItemId);
+    return item ? remainingUnits(orderItemId, item.quantity) : 0;
+  };
+  const allQuantitiesValid = selectedReturns.every(
+    (r) => Number.isInteger(r.quantity) && r.quantity >= 1 && r.quantity <= maxUnits(r.orderItemId)
+  );
+  const anyReturnable =
+    canRequestReturn &&
+    sellerOrder.items.some((i) => i.orderItemId != null && remainingUnits(i.orderItemId, i.quantity) > 0);
 
   return (
     <div className="bg-white rounded-2xl shadow-md p-6">
@@ -118,17 +183,131 @@ function SellerOrderCard({
           {sellerOrder.trackingNumber && (
             <p className="text-p3 font-body text-pneutral-600 mb-2">
               Courier: {sellerOrder.courierName ?? "-"} · Tracking: {sellerOrder.trackingNumber}
+              {/* Seller-entered, so only link real http(s) URLs. */}
+              {sellerOrder.trackingUrl && /^https?:\/\//i.test(sellerOrder.trackingUrl) && (
+                <>
+                  {" · "}
+                  <a
+                    href={sellerOrder.trackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-700 font-semibold underline"
+                  >
+                    Track shipment
+                  </a>
+                </>
+              )}
             </p>
           )}
 
           <div className="space-y-2 mb-4">
-            {sellerOrder.items.map((item) => (
-              <div key={item.orderItemId} className="flex justify-between text-p3 font-body text-pneutral-700">
-                <span>{item.productNameSnapshot} x {item.quantity}</span>
-                <span>₹{item.lineTotal?.toFixed(2)}</span>
-              </div>
-            ))}
+            {sellerOrder.items.map((item) => {
+              const remaining = item.orderItemId != null ? remainingUnits(item.orderItemId, item.quantity) : 0;
+              const returnedSome = remaining < item.quantity;
+              return (
+                <div key={item.orderItemId}>
+                  <div className="flex justify-between items-center text-p3 font-body text-pneutral-700">
+                    {canRequestReturn && remaining > 0 && item.orderItemId != null ? (
+                      <span className="flex flex-wrap items-center gap-3">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={returnQuantities.has(item.orderItemId)}
+                            disabled={showReturnForm}
+                            onChange={() => toggleReturnSelection(item.orderItemId!, remaining)}
+                            className="w-4 h-4 accent-primary-800"
+                          />
+                          <span>
+                            {item.productNameSnapshot} x {item.quantity}
+                            {returnedSome && (
+                              <span className="text-p4 text-pneutral-500"> ({remaining} returnable)</span>
+                            )}
+                          </span>
+                        </label>
+                        {returnQuantities.has(item.orderItemId) && remaining > 1 && (
+                          <label className="flex items-center gap-2 text-p4 text-pneutral-600">
+                            Return
+                            <input
+                              type="number"
+                              min={1}
+                              max={remaining}
+                              step={1}
+                              value={returnQuantities.get(item.orderItemId) || ""}
+                              disabled={showReturnForm}
+                              onChange={(e) => setReturnQuantity(item.orderItemId!, Number(e.target.value))}
+                              className="w-16 px-2 py-1 border border-neutral-300 rounded-lg text-sm"
+                            />
+                            of {remaining}
+                          </label>
+                        )}
+                      </span>
+                    ) : (
+                      <span>{item.productNameSnapshot} x {item.quantity}</span>
+                    )}
+                    {item.orderItemId != null &&
+                    returnQuantities.has(item.orderItemId) &&
+                    item.lineTotal != null &&
+                    allQuantitiesValid ? (
+                      // Same pro-rating the order-service uses for the refund.
+                      <span className="text-right">
+                        <span className="block font-semibold text-primary-800">
+                          Refund ₹
+                          {proRate(item.lineTotal, returnQuantities.get(item.orderItemId)!, item.quantity).toFixed(2)}
+                        </span>
+                        <span className="block text-p4 text-pneutral-500">of ₹{item.lineTotal.toFixed(2)}</span>
+                      </span>
+                    ) : (
+                      <span>₹{item.lineTotal?.toFixed(2)}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
+
+          {returns.length > 0 && (
+            <div className="mb-4">
+              <p className="text-p3 font-heading font-semibold text-pneutral-900">Returns</p>
+              {returns.map((r) => (
+                <ReturnPanel key={r.returnId} returnRequest={r} buyerId={buyerId} onChanged={onReturnsChanged} />
+              ))}
+            </div>
+          )}
+
+          {anyReturnable && !showReturnForm && (
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <button
+                type="button"
+                disabled={selectedReturns.length === 0 || !allQuantitiesValid}
+                onClick={() => setShowReturnForm(true)}
+                className="bg-primary-900 text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40"
+              >
+                {`Return selected${selectedReturns.length > 0 ? ` (${selectedReturns.length})` : ""}`}
+              </button>
+              {!allQuantitiesValid && (
+                <p className="text-p4 font-body text-red-600">
+                  Enter a whole number between 1 and the units you can still return.
+                </p>
+              )}
+              <p className="text-p4 font-body text-pneutral-500">
+                Returns are accepted within {RETURN_WINDOW_DAYS} days of delivery. You&apos;re refunded once the
+                seller receives and checks the goods.
+              </p>
+            </div>
+          )}
+
+          {showReturnForm && (
+            <ReturnRequestForm
+              items={selectedReturns}
+              buyerId={buyerId}
+              onCancel={() => setShowReturnForm(false)}
+              onDone={() => {
+                setShowReturnForm(false);
+                setReturnQuantities(new Map());
+                onReturnsChanged();
+              }}
+            />
+          )}
 
           {canCancel && (
             <Button
@@ -155,12 +334,25 @@ export default function OrderDetailContent({ orderId, loginRedirectPath }: Order
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const { promptReason, modal: reasonModal } = useReasonPrompt();
+
+  const loadReturns = async (buyerId?: string) => {
+    if (!buyerId) return;
+    try {
+      const all = await getReturnsByBuyer(buyerId);
+      // An order can have several returns; oldest first.
+      setReturns(all.filter((r) => r.orderId === orderId).sort((a, b) => a.returnId - b.returnId));
+    } catch {
+      // Returns are supplementary — the order itself still renders if this fails.
+    }
+  };
 
   const loadOrder = async () => {
     try {
       const data = await getOrder(orderId);
       setOrder(data);
+      await loadReturns(data.buyerId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load order.");
     }
@@ -224,7 +416,16 @@ export default function OrderDetailContent({ orderId, loginRedirectPath }: Order
             )}
           </h1>
           <p className="text-p4 font-body text-pneutral-500">
-            {order.placedAt ? new Date(order.placedAt).toLocaleString() : ""}
+            {order.placedAt
+              ? new Date(order.placedAt).toLocaleString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })
+              : ""}
           </p>
           {order.quoteRequestId != null && (
             <Link
@@ -264,6 +465,9 @@ export default function OrderDetailContent({ orderId, loginRedirectPath }: Order
             key={sellerOrder.sellerOrderId}
             sellerOrder={sellerOrder}
             cancelling={cancellingId === sellerOrder.sellerOrderId}
+            returns={returns.filter((r) => r.sellerOrderId === sellerOrder.sellerOrderId)}
+            buyerId={order.buyerId ?? ""}
+            onReturnsChanged={loadOrder}
             onCancel={async (sellerOrderId) => {
               const reason = (await promptReason("Reason for cancellation")) ?? "";
               setCancellingId(sellerOrderId);

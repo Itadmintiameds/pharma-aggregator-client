@@ -40,6 +40,7 @@ export default function SellerLayout({
       "/seller_7a3b9f2c/profile",
       "/seller_7a3b9f2c/reports",
       "/seller_7a3b9f2c/orders",
+      "/seller_7a3b9f2c/returns",
       "/seller_7a3b9f2c/conversions",
       "/seller_7a3b9f2c/settings",
       "/seller_7a3b9f2c/shipment",

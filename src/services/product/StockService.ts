@@ -142,3 +142,20 @@ export const deleteBatch = async (
   });
   return response.data?.data ?? response.data;
 };
+// DISPOSE writes damaged (returned) units off; RESTOCK moves them back to sellable stock.
+export type DamagedStockAction = "DISPOSE" | "RESTOCK";
+
+export const adjustDamagedStock = async (
+  productId: string,
+  pricingId: string,
+  action: DamagedStockAction,
+  quantity: number
+): Promise<StockLedgerResponse> => {
+  const sellerId = await getCurrentSellerId();
+  const response = await api.post(
+    `/stock/${productId}/batches/${pricingId}/damaged/adjust`,
+    { action, quantity },
+    { params: { sellerId } }
+  );
+  return response.data?.data ?? response.data;
+};

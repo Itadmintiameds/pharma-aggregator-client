@@ -243,6 +243,7 @@ export default function CartPage() {
                   >
                     ₹{totalPrice.toFixed(2)}
                   </span>
+                  <span className="block text-p4 font-body font-normal text-pneutral-500">incl. GST</span>
                 </p>
                 <Button
                   variant="filled"

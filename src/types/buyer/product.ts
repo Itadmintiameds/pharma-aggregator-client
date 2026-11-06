@@ -8,6 +8,16 @@ export interface BuyerProductPricing {
   mrp?: number;
   discountPercentage?: number;
   finalPrice?: number;
+  gstPercentage?: number;
+  additionalDiscounts?: BuyerProductOffer[];
+}
+
+// A time-limited quantity slab on a batch (backend AdditionalDiscountDto). `active` is computed by the server.
+export interface BuyerProductOffer {
+  minQty?: number;
+  discountPercentage?: number;
+  displayOffer?: boolean;
+  active?: boolean;
 }
 
 export interface BuyerProductPackaging {

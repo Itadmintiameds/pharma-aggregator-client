@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Table, { Column } from "@/src/app/commonComponents/Table";
 import { getProductList } from "@/src/services/product/ProductService";
 import { DashboardView } from "@/src/types/seller/dashboard";
-import { ProductListData } from "@/src/types/product/ProductData";
+import { PricingData, ProductListData } from "@/src/types/product/ProductData";
 import { useClickOutside } from "@/src/hooks/useClickOutside";
 import Delete from "./Delete";
 import StockUpdateModal from "./StockUpdateModal";
@@ -43,6 +43,13 @@ const getBatchCount = (pricingDetails?: any[] | null) => pricingDetails?.length 
 const getTotalStock = (pricingDetails?: any[] | null) =>
   (pricingDetails ?? []).reduce(
     (sum, batch) => sum + (Number(batch?.stockQuantity) || 0),
+    0,
+  );
+
+// Units returned damaged (kept out of stockQuantity, so not counted in Total Stock).
+const getTotalDamaged = (pricingDetails?: Pick<PricingData, "damagedQuantity">[] | null) =>
+  (pricingDetails ?? []).reduce(
+    (sum, batch) => sum + (Number(batch?.damagedQuantity) || 0),
     0,
   );
 
@@ -150,6 +157,13 @@ const columns: Column<ProductListData>[] = [
   {
     header: "Total Stock",
     accessor: (row) => getTotalStock(row.pricingDetails),
+  },
+  {
+    header: "Damaged",
+    accessor: (row) => {
+      const damaged = getTotalDamaged(row.pricingDetails);
+      return damaged > 0 ? <span className="text-red-600 font-semibold">{damaged}</span> : 0;
+    },
   },
   {
     header: "Status",

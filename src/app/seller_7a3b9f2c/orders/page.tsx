@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { sellerAuthService } from "@/src/services/seller/authService";
 import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
 import { useReasonPrompt } from "@/src/app/commonComponents/useReasonPrompt";
@@ -25,7 +26,17 @@ const STATUS_FILTERS = [
   "OUT_FOR_DELIVERY",
   "DELIVERED",
   "CANCELLED",
+  "RETURN_REQUESTED",
+  "RETURN_APPROVED",
+  "RETURN_REJECTED",
+  "RETURNED",
 ];
+
+// Return actions (accept/reject, receive) live on the Returns page — these statuses just point there.
+const RETURN_NOTICES: Record<string, string> = {
+  RETURN_REQUESTED: "The buyer has requested a return. Accept or reject it on the Returns page.",
+  RETURN_APPROVED: "Return accepted. Confirm receipt and record damaged units on the Returns page when it arrives.",
+};
 
 // An order sitting in PLACED longer than this is flagged as needing
 // attention — sellers have no other signal today that an order is going
@@ -137,7 +148,8 @@ function OrderCard({
   };
 
   const placedHistory = order.statusHistory.find((h) => h.toStatus === "PLACED");
-  const ageHours = order.status === "PLACED" ? hoursSince(placedHistory?.changedAt ?? order.createdAt) : null;
+  const placedAt = placedHistory?.changedAt ?? order.createdAt;
+  const ageHours = order.status === "PLACED" ? hoursSince(placedAt) : null;
   const isStale = ageHours !== null && ageHours > PLACED_SLA_HOURS;
 
   const run = async (action: () => Promise<unknown>) => {
@@ -173,6 +185,20 @@ function OrderCard({
         </span>
       </div>
 
+      {placedAt && (
+        <p className="text-p4 font-body text-neutral-500 mb-3">
+          Placed on{" "}
+          {new Date(placedAt).toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          })}
+        </p>
+      )}
+
       {isStale && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-3">
           <p className="text-p4 font-body text-red-700">
@@ -196,6 +222,18 @@ function OrderCard({
         <p className="text-p4 font-body text-secondary-700 mb-3">
           Priced at the quote you accepted for this buyer, not your current listed price.
         </p>
+      )}
+
+      {RETURN_NOTICES[order.status] && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 flex items-center justify-between gap-3">
+          <p className="text-p4 font-body text-amber-800">{RETURN_NOTICES[order.status]}</p>
+          <Link
+            href="/seller_7a3b9f2c/returns"
+            className="shrink-0 bg-primary-900 text-white rounded-lg px-4 py-2 text-sm font-semibold"
+          >
+            Go to Returns
+          </Link>
+        </div>
       )}
 
       {error && <p className="text-p4 text-red-600 mb-2">{error}</p>}

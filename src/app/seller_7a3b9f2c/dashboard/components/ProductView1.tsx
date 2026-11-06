@@ -36,6 +36,7 @@ import Table, { Column } from "@/src/app/commonComponents/Table";
 import { toast } from "react-toastify";
 import StockUpdateModal from "./StockUpdateModal";
 import BatchStockUpdateModal from "./BatchStockUpdateModal";
+import DamagedStockModal from "./DamagedStockModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import {
   getAvailableBatches,
@@ -104,6 +105,8 @@ interface PricingDetails {
   manufacturingDate?: string;
   expiryDate?: string | null;
   stockQuantity?: number;
+  // Units that came back damaged on buyer returns — not part of stockQuantity, never sold.
+  damagedQuantity?: number | null;
   additionalDiscounts?: AdditionalDiscount[];
   specialSchemes?: any[];
   gstPercentage?: string | number;
@@ -687,6 +690,10 @@ const BatchDetailModal = ({
                   ? batch.stockQuantity.toLocaleString()
                   : "—"
               }
+            />
+            <DetailRow
+              label="Damaged Stock (Returns)"
+              value={(batch.damagedQuantity ?? 0).toLocaleString()}
             />
             <DetailRow
               label="Status"
@@ -2313,6 +2320,9 @@ const ProductView1 = ({
   const showExpiryColumn =
     !isNonConsumable || pricingArr.some((b) => b.expiryDate);
 
+  // Batch whose damaged (returned) stock the seller is disposing of or moving back to stock.
+  const [damagedStockBatch, setDamagedStockBatch] = useState<PricingDetails | null>(null);
+
   const batchColumns: Column<PricingDetails>[] = [
     ...(showBatchNumberColumn
       ? [
@@ -2338,6 +2348,36 @@ const ProductView1 = ({
       header: "Available Stock",
       accessor: (row) =>
         row.stockQuantity != null ? row.stockQuantity.toLocaleString() : "-",
+    },
+    {
+      header: "Damaged Stock",
+      accessor: (row) => {
+        const damaged = row.damagedQuantity ?? 0;
+        if (damaged <= 0) return "0";
+        return (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: "#B42318", fontWeight: 600 }}>{damaged.toLocaleString()}</span>
+            {row.pricingId && (
+              <button
+                onClick={() => setDamagedStockBatch(row)}
+                title="Dispose or move damaged units back to stock"
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 6,
+                  border: "1px solid #D5D5D4",
+                  background: "white",
+                  color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Manage
+              </button>
+            )}
+          </span>
+        );
+      },
     },
     {
       header: "Discount %",
@@ -2380,6 +2420,7 @@ const ProductView1 = ({
         formatDate(b.manufacturingDate),
         formatDate(b.expiryDate),
         b.stockQuantity != null ? String(b.stockQuantity) : "",
+        String(b.damagedQuantity ?? 0),
         `${b.discountPercentage ?? 0}%`,
         formatDate(b.dateOfStockEntry),
         status,
@@ -3457,6 +3498,18 @@ const ProductView1 = ({
           onSuccess={() => {
             refetchProduct();
           }}
+        />
+      )}
+
+      {damagedStockBatch?.pricingId && productData.productId && (
+        <DamagedStockModal
+          productId={productData.productId}
+          pricingId={damagedStockBatch.pricingId}
+          batchLotNumber={damagedStockBatch.batchLotNumber}
+          stockQuantity={damagedStockBatch.stockQuantity ?? 0}
+          damagedQuantity={damagedStockBatch.damagedQuantity ?? 0}
+          onClose={() => setDamagedStockBatch(null)}
+          onSuccess={refetchProduct}
         />
       )}
 

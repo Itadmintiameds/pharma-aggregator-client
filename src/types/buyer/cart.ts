@@ -1,3 +1,5 @@
+import { BuyerProductOffer } from "@/src/types/buyer/product";
+
 export interface CartItem {
   productId: string;
   pricingId?: string;
@@ -6,6 +8,10 @@ export interface CartItem {
   sellerName?: string;
   mrp?: number;
   sellingPrice?: number;
+  // Priced the way the order-service will charge: discount (batch, or a better live quantity offer), then GST on top.
+  discountPercentage?: number;
+  gstPercentage?: number;
+  offers?: BuyerProductOffer[];
   quantity: number;
   // From the batch's packaging record (minimum_order_quantity /
   // maximum_order_quantity, set by the seller when creating the batch) —
