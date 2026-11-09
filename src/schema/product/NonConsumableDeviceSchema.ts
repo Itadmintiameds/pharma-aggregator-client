@@ -19,7 +19,14 @@ export const nonconsumableDeviceSchema = z.object({
   ce: z.boolean().default(false),
   bis: z.boolean().default(false),
   countryOfOrigin: z.string().min(1, "Country of Origin is required"),
-  manufacturerName: z.string().min(1, "Manufacturer Name is required"),
+  manufacturerName: z
+    .string()
+    .trim()
+    .min(1, "Manufacturer Name is required")
+    .max(100, "Manufacturer Name must not exceed 100 characters")
+    .regex(/^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/,
+      "Manufacturer Name can contain alphanumeric and special characters"
+    ),
   productDescription: z.string().min(1, "Product Description is required"),
   storageCondition: z.string().min(1, "Storage Condition is required"),
   productBrochureUrl: z.string().optional(),
@@ -107,9 +114,8 @@ export const nonconsumableDeviceSchema = z.object({
   effectiveEndTime: z.string().optional(),
   gstPercentage: z
     .string()
-    .min(1, "GST % is required")
-    .refine((val) => !isNaN(Number(val)), {
-      message: "Must be a number",
+    .refine((val) => ["0", "5", "8", "10", "12"].includes(val), {
+      message: "Select a valid GST %",
     }),
   finalPrice: z.string().optional(),
   hsnCode: z
@@ -118,4 +124,33 @@ export const nonconsumableDeviceSchema = z.object({
     .refine((val) => !isNaN(Number(val)), {
       message: "Must be a number",
     }),
+});
+
+// Used when adding a product without its packaging (variant) and pricing (batch/stock)
+// details — those are attached afterwards from the product view page.
+export const nonconsumableDeviceCreateSchema = nonconsumableDeviceSchema.omit({
+  packType: true,
+  unitsPerPack: true,
+  numberOfPacks: true,
+  packSize: true,
+  minimumOrderQuantity: true,
+  maximumOrderQuantity: true,
+  batchLotNumber: true,
+  manufacturingDate: true,
+  expiryDate: true,
+  stockQuantity: true,
+  dateOfStockEntry: true,
+  sellingPricePerPack: true,
+  mrp: true,
+  discountPercentage: true,
+  additionalDiscount: true,
+  minimumPurchaseQuantity: true,
+  additionalDiscountPercentage: true,
+  effectiveStartDate: true,
+  effectiveStartTime: true,
+  effectiveEndDate: true,
+  effectiveEndTime: true,
+  gstPercentage: true,
+  finalPrice: true,
+  hsnCode: true,
 });

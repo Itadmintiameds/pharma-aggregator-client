@@ -9,12 +9,14 @@ import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import AppliedOffersView from "./AppliedOffersView";
 import PopupModal from "../commonComponent/PopupModal";
+import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import CommonModal from "../commonComponent/CommonModal";
 import { AlertCircle } from "lucide-react";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
+import { getGstPercentages } from "@/src/services/product/GstPercentageService";
 import {
   getNonConsumableDeviceCategories,
   getNonConsumableDeviceSubCategories,
@@ -169,6 +171,19 @@ const NonEditableSelect = ({ label, value, required }: { label: string; value: s
 
 const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonConsumableFormProps) => {
   const router = useRouter();
+  // After a draft save: edit mode reloads so ids/images/status are fresh (the server re-creates
+  // attribute rows on every update); add mode jumps to the saved draft's edit page so later saves
+  // update it instead of creating a duplicate product.
+  const savedDraftIdRef = useRef<string | null>(null);
+  const handleDraftModalDone = () => {
+    setShowDraftModal(false);
+    if (draftModalError) return;
+    if (mode === "edit") {
+      window.location.reload();
+    } else if (savedDraftIdRef.current) {
+      router.replace(editUrlFor(savedDraftIdRef.current, "editNonConsumable"));
+    }
+  };
   const todayStr = new Date().toISOString().split("T")[0];
 
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -216,6 +231,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   });
 
   const [resolvedProductId, setResolvedProductId] = useState("");
+  const [productStatus, setProductStatus] = useState("");
   const [productAttributeId, setProductAttributeId] = useState("");
   const [packagingId, setPackagingId] = useState("");
   const [pricingId, setPricingId] = useState("");
@@ -241,6 +257,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [storageConditionOptions, setStorageConditionOptions] = useState<SelectOption[]>([]);
   const [powerSourceOptions, setPowerSourceOptions] = useState<SelectOption[]>([]);
   const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
+  const [gstOptions, setGstOptions] = useState<SelectOption[]>([]);
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
   const [specificationUnitOptions, setSpecificationUnitOptions] = useState<SelectOption[]>([]);
 
@@ -250,6 +267,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [loadingCertifications, setLoadingCertifications] = useState(false);
   const [loadingSpecificationUnits, setLoadingSpecificationUnits] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
@@ -271,18 +289,14 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
   const [specialSchemes, setSpecialSchemes] = useState<any[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftModalError, setDraftModalError] = useState(false);
 
   const deviceClassOptions: SelectOption[] = [
     { value: "Class A", label: "Class A" },
     { value: "Class B", label: "Class B" },
     { value: "Class C", label: "Class C" },
     { value: "Class D", label: "Class D" },
-  ];
-  const gstOptions: SelectOption[] = [
-    { value: "0", label: "0%" },
-    { value: "5", label: "5%" },
-    { value: "12", label: "12%" },
-    { value: "18", label: "18%" },
   ];
   const amcOptions: SelectOption[] = [
     { value: "true", label: "Yes" },
@@ -384,6 +398,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const pricing = data.pricingDetails?.[0] || {};
 
       setResolvedProductId(data.productId || productId);
+      setProductStatus(String(data.status || "").toUpperCase());
       setProductAttributeId(String(attribute.productAttributeId || ""));
       setPackagingId(String(packaging.packagingId || ""));
       setPricingId(String(pricing.pricingId || ""));
@@ -442,10 +457,10 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         stockQuantity: String(pricing.stockQuantity || ""),
         sellingPrice: pricing.sellingPrice != null ? String(pricing.sellingPrice) : "",
         mrp: pricing.mrp != null ? String(pricing.mrp) : "",
-        gstPercentage: String(pricing.gstPercentage ?? ""),
+        gstPercentage: String(pricing.gstPercentage ?? attribute.gstPercentage ?? data.gstPercentage ?? ""),
         discountPercentage: String(pricing.discountPercentage || ""),
         finalPrice: String(pricing.finalPrice || ""),
-        hsnCode: String(pricing.hsnCode || ""),
+        hsnCode: String(pricing.hsnCode || attribute.hsnCode || data.hsnCode || ""),
         batchLotNumber: pricing.batchLotNumber || "",
       });
 
@@ -453,7 +468,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       if (pricing.specialSchemes?.length) setSpecialSchemes(pricing.specialSchemes);
       if (attribute.materialTypeIds?.length) setSelectedMaterialTypes(attribute.materialTypeIds.map(String));
       if (data.productImages?.length) setExistingImages(data.productImages.map((img: { productImage: string }) => img.productImage));
-      const isRealUrl = (u: string) => !!u && !["PENDING", "NOT_UPLOADED"].includes(u.toUpperCase());
+      const isRealUrl = (u: string) => isRealFileUrl(u);
       if (isRealUrl(attribute.brochurePath)) setExistingBrochureUrl(attribute.brochurePath);
 
       if (attribute.certificateDocuments?.length) {
@@ -468,7 +483,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           isUploaded: isRealUrl(cert.certificateUrl),
           previewUrl: null,
           productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-          existingUrl: cert.certificateUrl || undefined,
+          existingUrl: isRealUrl(cert.certificateUrl) ? cert.certificateUrl : undefined,
         }));
         setSelectedCertifications(mappedCerts);
         setMandatoryCertCount(mappedCerts.length);
@@ -490,18 +505,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   useEffect(() => {
     fetchDeviceCategories();
-
-    // if (mode === "create") {
-    //   getNonConsumableProductCategories()
-    //     .then((items: MasterItem[]) => {
-    //       const nonConsumable = items.find((i) => {
-    //         const name = getMasterStr(i, "categoryName", "name").toLowerCase();
-    //         return name.includes("non-consumable") || name.includes("nonconsumable");
-    //       });
-    //       setProductCategoryId(nonConsumable ? Number(getMasterStr(nonConsumable, "categoryId", "id") || "6") : 6);
-    //     })
-    //     .catch(() => setProductCategoryId(6));
-    // }
 
     getNonConsumableCountries()
       .then((items: MasterItem[]) =>
@@ -619,6 +622,24 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       setSpecificationUnitOptions([]);
     }
   }, [form.deviceSubCategoryId, fetchSpecificationUnits, mode]);
+
+  // Fetch valid GST % values from the master list
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await getGstPercentages();
+        const options = response
+          .map((item: any) => ({
+            label: `${item.gstPercentageValue}%`,
+            value: String(item.gstPercentageValue),
+          }))
+          .sort((a: any, b: any) => Number(a.value) - Number(b.value));
+        setGstOptions(options);
+      } catch (error) {
+        console.error("Error fetching GST percentages:", error);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const u = parseFloat(form.unitPerPack), p = parseFloat(form.numberOfPacks);
@@ -751,10 +772,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (errors[field]) setErrors((p) => { const n = { ...p }; delete n[field]; return n; });
   };
 
-  const handleMaterialCheckbox = (option: SelectOption) => {
-    setSelectedMaterialTypes((prev) => prev.includes(option.value) ? prev.filter((v) => v !== option.value) : [...prev, option.value]);
-    if (errors.materialType) setErrors((p) => { const n = { ...p }; delete n.materialType; return n; });
-  };
 
   const handleCertCheckbox = (option: CertificationMasterOption) => {
     const exists = selectedCertifications.some((c) => c.id === option.value);
@@ -808,18 +825,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     setExistingBrochureUrl("");
   };
 
-  const handleManufacturingMonthSelect = (month: number, year: number) => {
-    const selectedDate = new Date(year, month, 1);
-    const today = new Date();
-    const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    if (selectedDate > currentMonth) {
-      setErrors((prev) => ({ ...prev, manufacturingDate: "Manufacturing date cannot be in the future month" }));
-      return;
-    }
-    setErrors((prev) => ({ ...prev, manufacturingDate: "" }));
-    setForm((p) => ({ ...p, manufacturingDate: selectedDate }));
-    setShowManufacturingMonthPicker(false);
-  };
 
   const handleViewProduct = () => {
     // Full page navigation ensures ProductView1 mounts fresh and fetches
@@ -857,24 +862,6 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       const manName = form.manufacturerName.trim();
       if (!manName) e.manufacturerName = "Manufacturer name is required";
       else if (manName.length > 100) e.manufacturerName = "Manufacturer name must not exceed 100 characters";
-      if (!form.packType) e.packType = "Pack type is required";
-      const bNum = form.batchLotNumber.trim();
-      if (!bNum) e.batchLotNumber = "Batch / lot number is required";
-      else if (!/^[a-zA-Z0-9]+$/.test(bNum)) e.batchLotNumber = "Batch number must be alphanumeric only";
-      else if (bNum.length < 3) e.batchLotNumber = "Batch number must be at least 3 characters";
-      else if (bNum.length > 20) e.batchLotNumber = "Batch number must not exceed 20 characters";
-      if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
-      if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
-      else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
-      if (!form.manufacturingDate) {
-        e.manufacturingDate = "Manufacturing date is required";
-      } else {
-        const mfg = form.manufacturingDate;
-        const today = new Date();
-        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const mfgMonth = new Date(mfg.getFullYear(), mfg.getMonth(), 1);
-        if (mfgMonth > currentMonth) e.manufacturingDate = "Manufacturing date cannot be in the future month";
-      }
 
       const dimSize = form.dimensionSize.trim();
       if (!dimSize) {
@@ -887,6 +874,17 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         e.dimensionSize = "Only letters, numbers, spaces, and dimension separators (x, ×) are allowed";
       }
       if (!form.deviceSpecificationUnitId) e.deviceSpecificationUnitId = "Unit is required";
+
+      const gstVal = form.gstPercentage.trim();
+      if (!gstVal) e.gstPercentage = "GST % is required";
+      else if (!["0", "5", "8", "10", "12"].includes(gstVal)) e.gstPercentage = "Select a valid GST %";
+
+      const hsnVal = form.hsnCode.trim();
+      if (!hsnVal) e.hsnCode = "HSN Code is required";
+      else {
+        const hsnError = validateHSNCode(hsnVal);
+        if (hsnError) e.hsnCode = hsnError;
+      }
     }
 
     // Warranty Period and AMC are editable in both create and edit modes
@@ -914,42 +912,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (!pDesc) e.productDescription = "Product description is required";
     else if (pDesc.length > 1000) e.productDescription = "Product description must not exceed 1000 characters";
 
-    const uPack = Number(form.unitPerPack);
-    if (!form.unitPerPack.trim()) e.unitPerPack = "Number of units per pack is required";
-    else if (!Number.isInteger(uPack) || uPack <= 0) e.unitPerPack = "Units per pack must be a positive integer";
-
-    const nPacks = Number(form.numberOfPacks);
-    if (!form.numberOfPacks.trim()) e.numberOfPacks = "Number of packs is required";
-    else if (!Number.isInteger(nPacks) || nPacks <= 0) e.numberOfPacks = "Number of packs must be a positive integer";
-
-    const minQ = Number(form.minimumOrderQuantity);
-    const maxQ = Number(form.maximumOrderQuantity);
-    if (!form.minimumOrderQuantity.trim()) e.minimumOrderQuantity = "Minimum order quantity is required";
-    else if (!Number.isInteger(minQ) || minQ <= 0) e.minimumOrderQuantity = "Minimum order quantity must be a positive integer";
-    if (!form.maximumOrderQuantity.trim()) e.maximumOrderQuantity = "Maximum order quantity is required";
-    else if (!Number.isInteger(maxQ) || maxQ <= 0) e.maximumOrderQuantity = "Maximum order quantity must be a positive integer";
-    else if (!isNaN(minQ) && maxQ < minQ) e.maximumOrderQuantity = "Maximum order quantity must be ≥ minimum order quantity";
-
-    const selling = parseFloat(form.sellingPrice);
-    if (!form.sellingPrice.trim()) e.sellingPrice = "Selling price is required";
-    else if (isNaN(selling) || selling <= 0) e.sellingPrice = "Selling price must be greater than 0";
-
-    const mrp = parseFloat(form.mrp);
-    if (!form.mrp.trim()) e.mrp = "MRP is required";
-    else if (isNaN(mrp) || mrp <= 0) e.mrp = "MRP must be greater than 0";
-    else if (!isNaN(selling) && mrp < selling) e.mrp = "MRP must be ≥ selling price";
-
-    if (form.discountPercentage.trim() !== "") {
-      const disc = parseFloat(form.discountPercentage);
-      if (isNaN(disc) || disc < 0 || disc > 100) e.discountPercentage = "Discount percentage must be between 0 and 100";
-    }
-
-    if (mode === "create") {
-      const stock = parseFloat(form.stockQuantity);
-      if (!form.stockQuantity.trim()) e.stockQuantity = "Stock quantity is required";
-      else if (isNaN(stock) || stock <= 0) e.stockQuantity = "Stock quantity must be a positive value greater than 0";
-      else if (!isNaN(minQ) && minQ > 0 && stock <= minQ) e.stockQuantity = "Stock quantity must be greater than minimum order quantity";
-    }
+   
 
     if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
     if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
@@ -961,6 +924,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     }
     if (mode === "edit" && selectedCertifications.length < mandatoryCertCount) {
       e.certifications = `You must keep all ${mandatoryCertCount} original certifications. Please re-add any removed ones.`;
+    } else if (mode !== "edit" && selectedCertifications.length === 0) {
+      e.certifications = "At least one certification is required";
     }
 
     return e;
@@ -986,27 +951,15 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
   // ─── Submit ───────────────────────────────────────────────────────────────
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (publishFromDraft: boolean = false) => {
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       setTimeout(() => scrollToFirstError(errs), 50);
+      alert("Please fix the highlighted fields");
       return;
     }
     setErrors({}); setSubmitting(true); setApiError(null);
-
-    if (mode === "create" && form.batchLotNumber.trim()) {
-      try {
-        const batchValidation = await validateBatchNumber(form.batchLotNumber, productCategoryId);
-        if (batchValidation.exists) {
-          setErrors((prev) => ({ ...prev, batchLotNumber: "Batch number already exists" }));
-          setSubmitting(false);
-          return;
-        }
-      } catch {
-        // non-fatal — proceed
-      }
-    }
 
     try {
       const amcValue = form.amcAvailability === "true";
@@ -1018,43 +971,11 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         productMarketingUrl: form.productMarketingUrl || "",
         manufacturerName: form.manufacturerName,
         categoryId: productCategoryId,
-        packagingDetails: [{
-          ...(packagingId ? { packagingId } : {}),
-          packId: Number(form.packType),
-          unitPerPack: Number(form.unitPerPack) || 0,
-          numberOfPacks: Number(form.numberOfPacks) || 0,
-          packSize: Number(form.unitPerPack) * Number(form.numberOfPacks) || 0,
-          minimumOrderQuantity: Number(form.minimumOrderQuantity) || 0,
-          maximumOrderQuantity: Number(form.maximumOrderQuantity) || 0,
-        }],
-        pricingDetails: [{
-          ...(pricingId ? { pricingId } : {}),
-          manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-          stockQuantity: Number(form.stockQuantity) || 0,
-          dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-          sellingPrice: Number(form.sellingPrice) || 0,
-          mrp: Number(form.mrp) || 0,
-          discountPercentage: Number(form.discountPercentage) || 0,
-          gstPercentage: Number(form.gstPercentage) || 0,
-          finalPrice: Number(form.finalPrice) || 0,
-          hsnCode: Number(form.hsnCode) || 0,
-          batchLotNumber: form.batchLotNumber,
-          expiryDate: "",
-          additionalDiscounts: additionalDiscountSlabs.map((slab: any) => ({
-            minimumPurchaseQuantity: slab.minimumPurchaseQuantity,
-            additionalDiscountPercentage: slab.additionalDiscountPercentage,
-            effectiveStartDate: slab.effectiveStartDate || null,
-            effectiveStartTime: slab.effectiveStartTime || null,
-            effectiveEndDate: slab.effectiveEndDate || null,
-            effectiveEndTime: slab.effectiveEndTime || null,
-            displayOffer: slab.displayOffer !== false,
-          })),
-          specialSchemes: specialSchemes.map((s: any) => ({
-            ...s,
-            ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
-            displayOfferScheme: s.displayOfferScheme !== false,
-          })),
-        }],
+
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
+        status: (mode === "edit" && !publishFromDraft ? (productStatus || "PUBLISHED") : "PUBLISHED") as string,
+
         productAttributeNonConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
           brandName: form.brandName,
@@ -1071,7 +992,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           manufacturerName: form.manufacturerName,
           warrantyPeriod: form.warrantyPeriod || "",
           dimensionSize: form.dimensionSize.trim() || null,
-          deviceSpecificationUnitId: form.deviceSpecificationUnitId ? Number(form.deviceSpecificationUnitId) : null,
+          deviceSpecificationUnitId: numOrUndef(form.deviceSpecificationUnitId) ?? null,
           udiNumber: form.udiNumber || "",
           deviceClassification: form.deviceClassification,
           safetyInstructions: form.safetyInstructions,
@@ -1094,24 +1015,12 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
       let certsToUpload: CertificationTag[] = [...selectedCertifications];
 
       if (mode === "edit" && currentProductId) {
-        // Diagnostic: confirm exact values being sent for the 3 fields
-        const attrPayload = (payload as any).productAttributeNonConsumableMedicals?.[0];
-        console.log("[NonConsumableForm] SENDING UPDATE - productAttributeId:", attrPayload?.productAttributeId, "| warrantyPeriod:", attrPayload?.warrantyPeriod, "| dimensionSize:", attrPayload?.dimensionSize, "| deviceSpecificationUnitId:", attrPayload?.deviceSpecificationUnitId, "| serviceAvailability:", attrPayload?.serviceAvailability);
-
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updateData = await updateProduct(currentProductId, payload as any) as ApiResponseData;
 
-        // Diagnostic: confirm what the backend returned for the 3 fields
-        const returnedAttrs = (updateData as any)?.data?.productAttributeNonConsumableMedicals ?? (updateData as any)?.productAttributeNonConsumableMedicals ?? [];
-        if (returnedAttrs.length > 0) {
-          const r = returnedAttrs[returnedAttrs.length - 1];
-          console.log("[NonConsumableForm] BACKEND RESPONSE - warrantyPeriod:", r?.warrantyPeriod, "| dimensionSize:", r?.dimensionSize, "| serviceAvailability:", r?.serviceAvailability);
-        }
-
-        // For Excel-uploaded products the attributeId may not be pre-populated
-        if (!currentAttributeId) {
-          currentAttributeId = extractProductAttributeId(updateData) || "";
-        }
+        // The update re-creates the attribute row with a new id: always take it from the response
+        currentAttributeId = extractProductAttributeId(updateData) || currentAttributeId;
+        if (currentAttributeId) setProductAttributeId(currentAttributeId);
 
         // Extract server-assigned productCertificateDocumentId values from the update response
         const certDocMap = extractCertDocumentIdMap(updateData);
@@ -1133,6 +1042,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
             if (!r.success) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
           }
         }
+        if (productStatus === "DRAFT") setProductStatus("PUBLISHED");
         if (onSubmitSuccess) onSubmitSuccess();
         else setShowSuccessModal(true);
       } else {
@@ -1174,6 +1084,113 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     }
   };
 
+  // ─── Save Draft (skips validation entirely) ────────────────────────────────
+
+  const numOrUndef = (v: string | number | null | undefined): number | undefined => {
+    if (v === null || v === undefined || String(v).trim() === "") return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  const handleSaveDraft = async () => {
+    const missingDraft: string[] = [];
+    if (!form.deviceCategoryId) missingDraft.push("Device Category");
+    if (!form.deviceSubCategoryId) missingDraft.push("Device Sub-Category");
+    if (!form.countryOfOrigin) missingDraft.push("Country of Origin");
+    if (missingDraft.length > 0) {
+      const draftErrs: Record<string, string> = {};
+      if (!form.deviceCategoryId) draftErrs.deviceCategoryId = "Required to save draft";
+      if (!form.deviceSubCategoryId) draftErrs.deviceSubCategoryId = "Required to save draft";
+      if (!form.countryOfOrigin) draftErrs.countryOfOrigin = "Required to save draft";
+      setErrors((prev) => ({ ...prev, ...draftErrs }));
+      setTimeout(() => scrollToFirstError(draftErrs), 50);
+      alert(`To save a draft, please select: ${missingDraft.join(", ")}`);
+      return;
+    }
+    setIsSavingDraft(true);
+    setApiError(null);
+    try {
+      const amcValue = form.amcAvailability === "true";
+
+      const draftPayload = {
+        productName: form.productName,
+        warningsPrecautions: form.safetyInstructions,
+        productDescription: form.productDescription,
+        productMarketingUrl: form.productMarketingUrl || "",
+        manufacturerName: form.manufacturerName,
+        categoryId: productCategoryId,
+
+        gstPercentage: numOrUndef(form.gstPercentage),
+        hsnCode: numOrUndef(form.hsnCode),
+        status: "DRAFT" as const,
+
+        productAttributeNonConsumableMedicals: [{
+          ...(productAttributeId ? { productAttributeId } : {}),
+          brandName: form.brandName,
+          deviceCategoryId: numOrUndef(form.deviceCategoryId),
+          deviceSubCategoryId: numOrUndef(form.deviceSubCategoryId),
+          modelName: form.modelName,
+          modelNumber: form.modelNumber,
+          keyFeaturesSpecifications: form.keyFeatures,
+          materialTypeIds: selectedMaterialTypes.map(Number),
+          purpose: form.intendedUse,
+          powerSourceId: numOrUndef(form.powerSourceId),
+          storageConditionId: numOrUndef(form.storageCondition),
+          countryId: numOrUndef(form.countryOfOrigin),
+          manufacturerName: form.manufacturerName,
+          warrantyPeriod: form.warrantyPeriod || "",
+          dimensionSize: form.dimensionSize.trim() || null,
+          deviceSpecificationUnitId: numOrUndef(form.deviceSpecificationUnitId) ?? null,
+          udiNumber: form.udiNumber || "",
+          deviceClassification: form.deviceClassification,
+          safetyInstructions: form.safetyInstructions,
+          amcServiceAvailability: amcValue ? "Yes" : "No",
+          serviceAvailability: amcValue,
+          amcAvailability: amcValue,
+          brochureType: "PDF",
+          brochurePathStatus: existingBrochureUrl || (brochureFile ? "TO_UPLOAD" : "PENDING"),
+          certificateDocuments: selectedCertifications.map((c) => ({
+            certificationId: Number(c.id),
+            certificateUrl: c.existingUrl || "PENDING",
+          })),
+        }],
+        productImages: images.map(() => ({ productImage: "PENDING" })),
+        retainedImageUrls: existingImages,
+      };
+
+      let currentProductId = resolvedProductId || productId || "";
+
+      // Update the existing product (also after a first draft save in create mode) instead of creating a duplicate
+      if (currentProductId) {
+        const draftUpdateData = await updateProduct(currentProductId, draftPayload as any) as ApiResponseData;
+        const draftAttrId = extractProductAttributeId(draftUpdateData);
+        if (draftAttrId) setProductAttributeId(draftAttrId);
+        if (images.length > 0) await uploadProductImages(currentProductId, images);
+      } else {
+        const createData: ApiResponseData = await createNonConsumableProduct(draftPayload as Record<string, unknown>);
+        const dataInner = createData?.data as ApiResponseData | undefined;
+        const newProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
+        if (newProductId && newProductId !== "undefined") {
+          currentProductId = newProductId;
+          setResolvedProductId(newProductId);
+        }
+        const newAttributeId = extractProductAttributeId(createData);
+        if (newAttributeId) setProductAttributeId(newAttributeId);
+        if (currentProductId && images.length > 0) await uploadProductImages(currentProductId, images);
+      }
+
+      if (currentProductId) savedDraftIdRef.current = currentProductId;
+      setDraftModalError(false);
+      setShowDraftModal(true);
+    } catch (err) {
+      console.error("❌ Save Draft Error:", err);
+      setDraftModalError(true);
+      setShowDraftModal(true);
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
   if (loadingProduct) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -1194,9 +1211,24 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         secondaryActionText={isEdit ? "Continue Editing" : "Continue Adding"}
         tertiaryActionText="Back to Dashboard"
         onPrimaryAction={handleViewProduct}
-        onSecondaryAction={isEdit ? () => setShowSuccessModal(false) : handleContinueAdding}
+        onSecondaryAction={isEdit ? () => { setShowSuccessModal(false); window.location.reload(); } : handleContinueAdding}
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
+      />
+
+      <PopupModal
+        isOpen={showDraftModal}
+        title={draftModalError ? "Failed to Save Draft" : "Draft Saved!"}
+        description={
+          draftModalError
+            ? "Something went wrong while saving your draft. Please try again."
+            : "Your product has been saved as a draft."
+        }
+        primaryActionText="OK"
+        celebrate={!draftModalError}
+        isError={draftModalError}
+        onPrimaryAction={handleDraftModalDone}
+        onClose={handleDraftModalDone}
       />
 
       {showAdditionalDiscountModal && (
@@ -1642,6 +1674,40 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
               </div>
             )}
 
+            {/* GST % */}
+            {isEdit ? (
+              <NonEditableField label="GST %" value={form.gstPercentage} required />
+            ) : (
+              <div ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
+                <Dropdown
+                  label="GST %"
+                  options={gstOptions}
+                  value={form.gstPercentage || ""}
+                  onChange={(value) => setForm((prev) => ({ ...prev, gstPercentage: value }))}
+                  placeholder="Select GST %"
+                  required
+                  error={errors.gstPercentage}
+                />
+              </div>
+            )}
+
+            {/* HSN Code */}
+            {isEdit ? (
+              <NonEditableField label="HSN Code" value={form.hsnCode} required />
+            ) : (
+              <div ref={setFieldRef("hsnCode") as React.RefCallback<HTMLDivElement>}>
+                <Input
+                  label="HSN Code"
+                  name="hsnCode"
+                  value={form.hsnCode}
+                  onChange={handleChange}
+                  placeholder="e.g. 9018"
+                  required
+                  error={errors.hsnCode}
+                />
+              </div>
+            )}
+
             {/* Storage Condition — editable only when stock is 0 */}
             {isEdit && Number(form.stockQuantity) > 0 ? (
               <NonEditableSelect label="Storage Condition (If applicable)" value={displayLabels.storageConditionLabel || "—"} />
@@ -1688,303 +1754,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           </div>
         </div>
 
-        {/* ── Section 2: Packaging & Order Details ──────────────────────────────── */}
-        <div className={sectionCard}>
-          <h2 className={sectionTitle}>Packaging &amp; Order Details</h2>
-          <div className="border-b border-neutral-200 mt-3"></div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
-
-            {/* Pack Type */}
-            {isEdit ? (
-              <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("packType") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Pack Type {requiredStar}</label>
-                <Dropdown
-                  options={packTypeApiOptions}
-                  value={form.packType}
-                  onChange={(val, label) => handleSelectChange("packType", { value: val, label })}
-                  placeholder="Select pack type"
-                  error={errors.packType ? " " : ""}
-                />
-                {errors.packType && <p className={errorMsg}>{errors.packType}</p>}
-              </div>
-            )}
-
-            {/* Units per Pack — locked after stock entry */}
-            {isEdit && Number(form.stockQuantity) > 0 ? (
-              <NonEditableField label="Number of Units per Pack Type" value={form.unitPerPack} required />
-            ) : (
-              <div ref={setFieldRef("unitPerPack") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Number of Units per Pack Type"
-                  name="unitPerPack"
-                  value={form.unitPerPack}
-                  onChange={handleChange}
-                  placeholder="e.g., 100"
-                  required
-                  error={errors.unitPerPack}
-                />
-              </div>
-            )}
-
-            {/* Number of Packs — locked after stock entry */}
-            {isEdit && Number(form.stockQuantity) > 0 ? (
-              <NonEditableField label="Number of Packs" value={form.numberOfPacks} required />
-            ) : (
-              <div ref={setFieldRef("numberOfPacks") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Number of Packs"
-                  name="numberOfPacks"
-                  value={form.numberOfPacks}
-                  onChange={handleChange}
-                  placeholder="e.g., 10"
-                  required
-                  error={errors.numberOfPacks}
-                />
-              </div>
-            )}
-
-            {/* Pack Size — read-only, auto-computed */}
-            <div>
-              <Input
-                label="Pack Size (No. of Units per Pack Type X No. of Packs)"
-                name="packSize"
-                value={form.packSize}
-                readOnly
-                className="!h-12 !rounded-xl bg-gray-50 [color:#969793] cursor-not-allowed border-gray-300 [font-family:'Open_Sans',sans-serif] text-base"
-                labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-          </div>
-
-          <p className={subSectionTitle}>Order Details</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-            <div ref={setFieldRef("minimumOrderQuantity") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Min Order Qty"
-                name="minimumOrderQuantity"
-                value={form.minimumOrderQuantity}
-                onChange={handleChange}
-                placeholder="e.g., 1"
-                required
-                error={errors.minimumOrderQuantity}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-            <div ref={setFieldRef("maximumOrderQuantity") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Max Order Qty"
-                name="maximumOrderQuantity"
-                value={form.maximumOrderQuantity}
-                onChange={handleChange}
-                placeholder="e.g., 100"
-                required
-                error={errors.maximumOrderQuantity}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-          </div>
-
-          <p className={subSectionTitle}>Batch Management</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-
-            {/* Batch Number */}
-            <div ref={setFieldRef("batchLotNumber") as React.RefCallback<HTMLDivElement>}>
-              {isEdit ? (
-                <NonEditableField label="Batch Number" value={form.batchLotNumber} required />
-              ) : (
-                <Input label="Batch Number" name="batchLotNumber" placeholder="Alphanumeric only"
-                  value={form.batchLotNumber} onChange={handleChange} error={errors.batchLotNumber} required maxLength={20} />
-              )}
-            </div>
-
-            {/* Manufacturing Date */}
-            <div ref={setFieldRef("manufacturingDate") as React.RefCallback<HTMLDivElement>} className="relative">
-              <Input
-                label="Manufacturing Month"
-                type="text"
-                name="manufacturingDate"
-                required={!isEdit}
-                readOnly={isEdit}
-                value={
-                  form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
-                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
-                    : ""
-                }
-                placeholder="MM/YYYY"
-                onChange={() => {}}
-                onClick={() => { if (!isEdit) setShowManufacturingMonthPicker(true); }}
-                onKeyDown={(e) => e.preventDefault()}
-                onPaste={(e) => e.preventDefault()}
-                error={errors.manufacturingDate}
-              />
-              {showManufacturingMonthPicker && !isEdit && (
-                <MonthPicker
-                  selectedMonth={form.manufacturingDate ? form.manufacturingDate.getMonth() : new Date().getMonth()}
-                  selectedYear={form.manufacturingDate ? form.manufacturingDate.getFullYear() : new Date().getFullYear()}
-                  maxDate={new Date()}
-                  onSelect={handleManufacturingMonthSelect}
-                  onClose={() => setShowManufacturingMonthPicker(false)}
-                />
-              )}
-            </div>
-
-            {/* Stock Quantity */}
-            {isEdit ? (
-              <NonEditableField label="Stock Quantity (in units)" value={form.stockQuantity} required />
-            ) : (
-              <div ref={setFieldRef("stockQuantity") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Stock Quantity (in units)"
-                  name="stockQuantity"
-                  value={form.stockQuantity}
-                  onChange={handleChange}
-                  placeholder="e.g., 10"
-                  required
-                  error={errors.stockQuantity}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
-
-            {/* Date of Stock Entry — always read-only */}
-            <div>
-              <Input
-                label="Date of Stock Entry"
-                name="dateOfStockEntry"
-                value={todayStr}
-                readOnly
-                required
-                className="!h-12 !rounded-xl bg-gray-50 [color:#969793] cursor-not-allowed border-gray-300 [font-family:'Open_Sans',sans-serif] text-base"
-                labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-          </div>
-
-          <p className={subSectionTitle}>Pricing</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-
-            <div ref={setFieldRef("sellingPrice") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="Selling Price (per Pack Size)"
-                name="sellingPrice"
-                value={form.sellingPrice}
-                onChange={handleChange}
-                placeholder="e.g., 4500"
-                required
-                error={errors.sellingPrice}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-
-            <div ref={setFieldRef("mrp") as React.RefCallback<HTMLDivElement>}>
-              <Input
-                label="MRP (per Pack Size)"
-                name="mrp"
-                value={form.mrp}
-                onChange={handleChange}
-                placeholder="e.g., 5000"
-                required
-                error={errors.mrp}
-                // className={inputClass}
-                // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-              />
-            </div>
-
-            <div className="col-span-1 md:col-span-2 flex items-end gap-4">
-              <div className="w-1/2" ref={setFieldRef("discountPercentage") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="Discount Percentage (%)"
-                  name="discountPercentage"
-                  value={form.discountPercentage}
-                  onChange={handleChange}
-                  placeholder="0–100"
-                  error={errors.discountPercentage}
-                />
-              </div>
-              <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAdditionalDiscountModal(true)}
-                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
-                >
-                  <img src="/icons/PlusIcon.svg" alt="add" className="w-6 h-6" />
-                  Add Special Offers
-                </button>
-              </div>
-            </div>
-
-            <AppliedOffersView
-              additionalDiscounts={convertToDiscountData(additionalDiscountSlabs)}
-              specialSchemes={specialSchemes}
-              productName={form.productName}
-              onEditDiscount={(index) => { setEditTab("additional_discount"); setEditIndex(index); setShowAdditionalDiscountModal(true); }}
-              onDeleteDiscount={(index) =>
-                setAdditionalDiscountSlabs((prev) =>
-                  prev.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } as any : d)
-                )
-              }
-              onEditScheme={(index) => { setEditTab("special_schemes"); setEditIndex(index); setShowAdditionalDiscountModal(true); }}
-              onDeleteScheme={(index) =>
-                setSpecialSchemes((prev) =>
-                  prev.map((s: any, i: number) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)
-                )
-              }
-              isEditMode={isEdit}
-            />
-          </div>
-
-          <p className={subSectionTitle}>TAX &amp; BILLING</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-
-            {/* GST % */}
-            {isEdit ? (
-              <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>GST % {requiredStar}</label>
-                <Dropdown
-                  options={gstOptions}
-                  value={form.gstPercentage}
-                  onChange={(val, label) => handleSelectChange("gstPercentage", { value: val, label })}
-                  placeholder="Select GST"
-                  error={errors.gstPercentage ? " " : ""}
-                />
-                {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
-              </div>
-            )}
-
-            {/* HSN Code */}
-            {isEdit ? (
-              <NonEditableField label="HSN Code" value={form.hsnCode} required />
-            ) : (
-              <div ref={setFieldRef("hsnCode") as React.RefCallback<HTMLDivElement>}>
-                <Input
-                  label="HSN Code"
-                  name="hsnCode"
-                  value={form.hsnCode}
-                  onChange={handleChange}
-                  placeholder="4, 6, or 8 digit numeric code"
-                  required
-                  error={errors.hsnCode}
-                  maxLength={8}
-                  // className={inputClass}
-                  // labelClassName="font-semibold text-base leading-[22px] [color:#5A5B58] [font-family:'Open_Sans',sans-serif]"
-                />
-              </div>
-            )}
-          </div>
-        </div>
+      
 
         {/* ── Section 3: Product Photos ──────────────────────────────────────────── */}
         <div ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
@@ -2006,14 +1776,16 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
         <div className="flex flex-col sm:flex-row justify-between gap-4 mt-2 pb-8">
           <div className="flex gap-3">
             <button type="button" onClick={() => router.back()} className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">Cancel</button>
-            <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }} className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
-              <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
-              Save Draft
-            </button>
+            {(mode !== "edit" || productStatus === "DRAFT") && (
+              <button type="button" onClick={handleSaveDraft} disabled={isSavingDraft} style={{ background: "#9F75FC", borderRadius: "8px" }} className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-60">
+                <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
+                {isSavingDraft ? "Saving..." : "Save Draft"}
+              </button>
+            )}
           </div>
-          <button type="button" onClick={handleSubmit} disabled={submitting} style={{ background: "#4B0082", borderRadius: "8px" }} className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
+          <button type="button" onClick={() => handleSubmit(isEdit && productStatus === "DRAFT")} disabled={submitting} style={{ background: "#4B0082", borderRadius: "8px" }} className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
             {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
+            {submitting ? "Saving..." : mode === "edit" && productStatus !== "DRAFT" ? "Update" : "Submit"}
           </button>
         </div>
       </form>

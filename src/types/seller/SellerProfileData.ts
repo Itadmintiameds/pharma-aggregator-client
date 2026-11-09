@@ -191,6 +191,7 @@ export interface SellerProfile {
 
    companyRegistrationCertificateUrl?: string;
   companyRegistrationCertificateVerified?: boolean;
+  sellerImageUrl?: string;
   
   // Nested objects
   address: Address;

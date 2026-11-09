@@ -23,7 +23,7 @@ const numericPositive = z
 
 // ─── Supplement Product Schema ────────────────────────────────────────────────
 
-export const supplementProductSchema = z
+const supplementProductBaseSchema = z
   .object({
     // ── Product Details ──────────────────────────────────────────────────────
 
@@ -145,7 +145,10 @@ export const supplementProductSchema = z
       .string()
       .trim()
       .min(1, "Manufacturer Name is required")
-      .max(100, "Manufacturer Name must not exceed 100 characters"),
+      .max(100, "Manufacturer Name must not exceed 100 characters")
+      .regex(/^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/,
+        "Manufacturer Name can contain alphanumeric and special characters"
+      ),
 
     countryOfOrigin: z.string().min(1, "Country of Origin is required"),
 
@@ -202,9 +205,9 @@ export const supplementProductSchema = z
 
     gstPercentage: z
       .string()
-      .trim()
-      .min(1, "GST % is required")
-      .regex(/^\d+(\.\d+)?$/, "Must be a valid number"),
+      .refine((val) => ["0", "5", "8", "10", "12"].includes(val), {
+        message: "Select a valid GST %",
+      }),
 
     hsnCode: z
       .string()
@@ -217,7 +220,9 @@ export const supplementProductSchema = z
 
     // ── Images ───────────────────────────────────────────────────────────────
     // (validated separately as File[] state, but typed here for safeParse)
-  })
+  });
+
+export const supplementProductSchema = supplementProductBaseSchema
   .superRefine((data, ctx) => {
     // Cross-field: maximumOrderQuantity >= minimumOrderQuantity
     const minQty = Number(data.minimumOrderQuantity) || 0;
@@ -264,5 +269,22 @@ export const supplementProductSchema = z
     //   }
     // }
   });
+
+// Used when adding a product without its packaging (variant) and pricing (batch/stock)
+// details — those are attached afterwards from the product view page.
+export const supplementProductCreateSchema = supplementProductBaseSchema.omit({
+  packId: true,
+  unitPerPack: true,
+  numberOfPacks: true,
+  minimumOrderQuantity: true,
+  maximumOrderQuantity: true,
+  batchLotNumber: true,
+  manufacturingDate: true,
+  expiryDate: true,
+  stockQuantity: true,
+  mrp: true,
+  sellingPrice: true,
+  discountPercentage: true,
+});
 
 export type SupplementProductFormData = z.infer<typeof supplementProductSchema>;

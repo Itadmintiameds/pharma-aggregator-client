@@ -21,6 +21,7 @@ import Input from "@/src/app/commonComponents/Input";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import CommonModal from "../commonComponent/CommonModal";
 import PopupModal from "../commonComponent/PopupModal";
+import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import UploadInput from "../commonComponent/UploadInput";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
@@ -30,9 +31,10 @@ import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours
 import { getPackTypeUnits } from "@/src/services/product/PackTypeService";
 import { getProductById, updateProduct } from "@/src/services/product/ProductService";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
+import { getGstPercentages } from "@/src/services/product/GstPercentageService";
 
 import { getTherapeuticCategory, getTherapeuticSubcategory } from "@/src/services/product/TherapeuticCategoryService";
-import { supplementProductSchema } from "@/src/schema/product/SupplementProductSchema";
+import { supplementProductSchema, supplementProductCreateSchema } from "@/src/schema/product/SupplementProductSchema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -85,28 +87,6 @@ const genderOptions: SelectOption[] = [
 ];
 
 
-
-
-
-const countryOptions: SelectOption[] = [
-  { value: "1", label: "India" },
-  { value: "2", label: "United States" },
-  { value: "3", label: "United Kingdom" },
-  { value: "4", label: "Germany" },
-  { value: "5", label: "Australia" },
-];
-
-
-
-// Removed static packTypeOptions
-
-const gstOptions: SelectOption[] = [
-  { value: "0", label: "0%" },
-  { value: "5", label: "5%" },
-  { value: "12", label: "12%" },
-  { value: "18", label: "18%" },
-];
-
 const extractUnitString = (item: any): string => {
   if (typeof item === "string") return item;
   if (!item || typeof item !== "object") return "";
@@ -155,7 +135,6 @@ const extractUnitString = (item: any): string => {
   return "";
 };
 
-// ─── Custom Numeric Input with Unit Dropdown ───────────────────────────────────
 
 interface NumericInputWithUnitProps {
   label: string;
@@ -298,8 +277,6 @@ const NumericInputWithUnit: React.FC<NumericInputWithUnitProps> = ({
   );
 };
 
-// ─── Component ─────────────────────────────────────────────────────────────────
-
 interface SupplementFormProps {
   categoryId?: number | string;
   productId?: string;
@@ -308,11 +285,25 @@ interface SupplementFormProps {
 
 const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) => {
   const router = useRouter();
+  // After a draft save: edit mode reloads so ids/images/status are fresh (the server re-creates
+  // attribute rows on every update); add mode jumps to the saved draft's edit page so later saves
+  // update it instead of creating a duplicate product.
+  const savedDraftIdRef = useRef<string | null>(null);
+  const handleDraftModalDone = () => {
+    setShowDraftModal(false);
+    if (draftModalError) return;
+    if (mode === "edit") {
+      window.location.reload();
+    } else if (savedDraftIdRef.current) {
+      router.replace(editUrlFor(savedDraftIdRef.current, "editSupplement"));
+    }
+  };
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   const setFieldRef =
     (name: string) => (el: HTMLElement | null) => { fieldRefs.current[name] = el; };
 
   const isEditMode = mode === "edit";
+  const [productStatus, setProductStatus] = useState<string>("");
 
   const [form, setForm] = useState({
     // Internal IDs needed for update
@@ -388,7 +379,11 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [showCertDropdown, setShowCertDropdown] = useState(false);
   const [showAgeGroupDropdown, setShowAgeGroupDropdown] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftModalError, setDraftModalError] = useState(false);
+  const [createdProductId, setCreatedProductId] = useState<string | null>(null);
   const [modalType, setModalType] = useState<"create" | "update">("create");
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
   const [editTab, setEditTab] = useState<"additional_discount" | "special_schemes" | null>(null);
@@ -605,11 +600,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   const handleViewProduct = () => {
-    router.push("/seller_7a3b9f2c/products");
+    const id = form.productId || createdProductId;
+    router.push(
+      id
+        ? `/seller_7a3b9f2c/products/view/${id}`
+        : "/seller_7a3b9f2c/products",
+    );
   };
 
   const handleContinueEditing = () => {
     setShowSuccess(false);
+    // reload so the form picks up the re-created attribute id, new images and the new status
+    if (mode === "edit") window.location.reload();
   };
 
   const handleContinueAdding = () => {
@@ -638,6 +640,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [storageOptions, setStorageOptions] = useState<SelectOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
   const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
+  const [gstOptions, setGstOptions] = useState<SelectOption[]>([]);
   const [certificationOptions, setCertificationOptions] = useState<any[]>([]);
   const [netQuantityUnitOptions, setNetQuantityUnitOptions] = useState<string[]>([]);
   const [netQuantityUnitsList, setNetQuantityUnitsList] = useState<any[]>([]);
@@ -657,6 +660,23 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   const [loadingPackTypes, setLoadingPackTypes] = useState(false);
   const [packTypeUnitsList, setPackTypeUnitsList] = useState<any[]>([]);
   const [loadingPackTypeUnits, setLoadingPackTypeUnits] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await getGstPercentages();
+        const options = response
+          .map((item: any) => ({
+            label: `${item.gstPercentageValue}%`,
+            value: String(item.gstPercentageValue),
+          }))
+          .sort((a: any, b: any) => Number(a.value) - Number(b.value));
+        setGstOptions(options);
+      } catch (error) {
+        console.error("Error fetching GST percentages:", error);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const fetchPackTypeUnits = async () => {
@@ -696,7 +716,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       try {
         const data = await getTherapeuticCategory(effectiveCategoryId);
         const options = data.map((cat: any) => ({
-          value: cat.therapeuticCategoryId,
+          value: String(cat.therapeuticCategoryId),
           label: cat.therapeuticCategory,
         }));
         setTherapeuticCategoryOptions(options);
@@ -719,7 +739,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       try {
         const data = await getTherapeuticSubcategory(form.therapeuticCategory);
         const options = data.map((sub: any) => ({
-          value: sub.therapeuticSubcategoryId,
+          value: String(sub.therapeuticSubcategoryId),
           label: sub.therapeuticSubcategory,
         }));
         setSubCategoryOptions(options);
@@ -926,6 +946,30 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     };
     fetchServingSizeUnits();
   }, [form.dosageForm]);
+
+  // The API returns only unit IDs (no unit names) for saved products. Once the unit master
+  // lists are loaded, resolve the display label so the required unit fields are not blank.
+  useEffect(() => {
+    if (mode !== "edit") return;
+    setForm((prev) => {
+      let next = prev;
+      if (prev.netQuantityUnitId && !prev.netQuantityUnit && netQuantityUnitsList.length) {
+        const m = netQuantityUnitsList.find(
+          (i) => String(i?.unitId ?? i?.id) === String(prev.netQuantityUnitId),
+        );
+        const label = m ? extractUnitString(m) : "";
+        if (label) next = { ...next, netQuantityUnit: label };
+      }
+      if (prev.servingSizeUnitId && !prev.servingSizeUnit && servingSizeUnitsList.length) {
+        const m = servingSizeUnitsList.find(
+          (i) => String(i?.id ?? i?.unitId) === String(prev.servingSizeUnitId),
+        );
+        const label = m ? extractUnitString(m) : "";
+        if (label) next = { ...next, servingSizeUnit: label };
+      }
+      return next;
+    });
+  }, [mode, netQuantityUnitsList, servingSizeUnitsList, form.netQuantityUnitId, form.servingSizeUnitId]);
 
   useEffect(() => {
     const units = parseFloat(form.unitPerPack) || 0;
@@ -1374,6 +1418,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     try {
       const data = await getProductById(id);
       if (!data) throw new Error("Product not found");
+      setProductStatus(String(data.status || "").toUpperCase());
 
       // Get the latest pricing and packaging entries
       const pricing = data.pricingDetails?.length > 0
@@ -1393,8 +1438,15 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
       // Existing files (URLs, not new File objects)
       setExistingImages(data.productImages?.map((img: any) => img.productImage) || []);
-      setExistingBrochureUrl(attr.brochurePath || null);
-      setExistingNutritionalImageUrl(attr.nutritionalInformationImageUrl || null);
+      const isRealFileUrl = (u: unknown): u is string => {
+        if (typeof u !== "string") return false;
+        const t = u.trim().toUpperCase();
+        return !!t && !["PENDING", "NOT_UPLOADED", "TO_UPLOAD", "NULL"].includes(t) && !t.startsWith("BLOB:");
+      };
+      setExistingBrochureUrl(isRealFileUrl(attr.brochurePath) ? attr.brochurePath : null);
+      setExistingNutritionalImageUrl(
+        isRealFileUrl(attr.nutritionalInformationImageUrl) ? attr.nutritionalInformationImageUrl : null,
+      );
 
       // Re-populate certifications from existing data
       if (attr.certificateDocuments?.length > 0) {
@@ -1405,7 +1457,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           file: null,
           fileName: "",
           isUploaded: false,
-          existingUrl: cert.certificateUrl || undefined,
+          existingUrl: isRealFileUrl(cert.certificateUrl) ? cert.certificateUrl : undefined,
           documentId: cert.productCertificateDocumentId,
         }));
         setSelectedCertifications(mappedCerts);
@@ -1429,7 +1481,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         brandName: attr.brandName || "",
         variantName: attr.variantName || "",
         dosageForm: String(attr.dosageFormId || ""),
-        netQuantity: attr.netQuantity || "",
+        netQuantity: attr.netQuantity != null ? String(attr.netQuantity) : "",
         netQuantityValue: attr.netQuantityValue || (
           typeof attr.netQuantity === "number"
             ? String(attr.netQuantity)
@@ -1455,7 +1507,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         strength: attr.strength || "",
         activeIngredients: attr.activeIngredients || "",
         excipients: attr.otherIngredients || "",
-        nutritionalInfoType: attr.nutritionalInformationImageUrl ? "image" : "label",
+        nutritionalInfoType: isRealFileUrl(attr.nutritionalInformationImageUrl) ? "image" : "label",
         intendedUse: attr.intendedUse || "",
         ageGroup: attr.ageGroupIds && attr.ageGroupIds.length > 0
           ? attr.ageGroupIds.map(String).join(",")
@@ -1486,10 +1538,13 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         stockQuantity: String(pricing.stockQuantity ?? ""),
         sellingPrice: String(pricing.sellingPrice ?? ""),
         mrp: String(pricing.mrp ?? ""),
-        gstPercentage: pricing.gstPercentage != null ? String(pricing.gstPercentage) : "",
+        gstPercentage: (() => {
+          const resolvedGst = pricing.gstPercentage ?? attr.gstPercentage ?? data.gstPercentage;
+          return resolvedGst !== null && resolvedGst !== undefined ? String(resolvedGst) : "";
+        })(),
         discountPercentage: String(pricing.discountPercentage ?? ""),
         finalPrice: String(pricing.finalPrice ?? ""),
-        hsnCode: String(pricing.hsnCode ?? ""),
+        hsnCode: String(pricing.hsnCode ?? attr.hsnCode ?? data.hsnCode ?? ""),
         shelfLifeMonths: String(pricing.shelfLifeMonths ?? ""),
         additionalDiscount: pricing.additionalDiscounts || [],
         specialSchemes: pricing.specialSchemes || [],
@@ -1514,7 +1569,10 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     const compiledNetQty = `${form.netQuantityValue} ${form.netQuantityUnit}`.trim();
 
     // ── Zod schema validation ─────────────────────────────────────────────────
-    const result = supplementProductSchema.safeParse({
+    // Packaging/batch/pricing are added later from the product view page, so
+    // the create-only schema omits those fields; edit mode keeps full validation.
+    const schema = supplementProductCreateSchema;
+    const result = schema.safeParse({
       ...form,
       netQuantity: compiledNetQty || form.netQuantity,
       // manufacturingDate/expiryDate must be Date objects; guard against null
@@ -1576,8 +1634,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   const handleSubmit = async () => {
-    if (isEditMode) {
-      await handleUpdate();
+    // Edit mode, or a draft already saved in this session: update the existing product (no duplicate create)
+    if (isEditMode || form.productId) {
+      await handleUpdate((isEditMode && productStatus === "DRAFT") || (!isEditMode && !!form.productId));
       return;
     }
 
@@ -1587,21 +1646,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       const firstKey = Object.keys(errs)[0];
       const el = fieldRefs.current[firstKey] || document.querySelector<HTMLElement>(`[data-field="${firstKey}"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-
-    // const batchValidation = await validateBatchNumber(form.batchLotNumber);
-    const batchValidation = await validateBatchNumber(
-      form.batchLotNumber,
-      Number(categoryId),
-    );
-    if (batchValidation.exists) {
-      setErrors((prev) => ({
-        ...prev,
-        batchLotNumber: "Batch number already exists",
-      }));
-      const el = fieldRefs.current["batchLotNumber"] || document.querySelector<HTMLElement>(`[data-field="batchLotNumber"]`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert("Please fix the highlighted fields");
       return;
     }
 
@@ -1615,65 +1660,14 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         manufacturerName: form.manufacturerName,
         categoryId: Number(categoryId),
 
-        packagingDetails: [
-          {
-            packId: Number(form.packId),
-            unitPerPack: Number(form.unitPerPack),
-            packTypeUnitId: Number(form.unitPerPackUnitId) || 0,
-            numberOfPacks: Number(form.numberOfPacks),
-            packSize: Number(form.packSize),
-            minimumOrderQuantity: Number(form.minimumOrderQuantity),
-            maximumOrderQuantity: Number(form.maximumOrderQuantity),
-          },
-        ],
-
-        pricingDetails: [
-          {
-            batchLotNumber: form.batchLotNumber,
-            manufacturingDate: form.manufacturingDate instanceof Date
-              ? form.manufacturingDate.toISOString().split("T")[0] + "T00:00:00"
-              : null,
-            expiryDate: form.expiryDate instanceof Date
-              ? form.expiryDate.toISOString().split("T")[0] + "T00:00:00"
-              : null,
-            shelfLifeMonths: Number(form.shelfLifeMonths),
-            stockQuantity: Number(form.stockQuantity),
-            dateOfStockEntry: form.dateOfStockEntry instanceof Date
-              ? form.dateOfStockEntry.toISOString().split("T")[0] + "T00:00:00"
-              : null,
-            discountPercentage: Number(form.discountPercentage),
-            sellingPrice: Number(form.sellingPrice),
-            mrp: Number(form.mrp),
-            gstPercentage: Number(form.gstPercentage),
-            finalPrice: Number(form.finalPrice),
-            hsnCode: Number(form.hsnCode),
-            additionalDiscounts: form.additionalDiscount.map((d: any) => ({
-              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-              additionalDiscountPercentage: d.additionalDiscountPercentage,
-              effectiveStartDate: d.effectiveStartDate,
-              effectiveStartTime: d.effectiveStartTime,
-              effectiveEndDate: d.effectiveEndDate,
-              effectiveEndTime: d.effectiveEndTime,
-              displayOffer: d.displayOffer !== false,
-            })),
-            specialSchemes: (form.specialSchemes || []).map((s: any) => ({
-              schemeName: s.schemeName || "",
-              schemeType: s.schemeType || "",
-              buyQuantity: s.buyQuantity !== undefined ? s.buyQuantity : (s.purchaseQuantity || 0),
-              freeQuantity: s.freeQuantity,
-              effectiveStartDate: s.effectiveStartDate,
-              effectiveStartTime: s.effectiveStartTime,
-              effectiveEndDate: s.effectiveEndDate,
-              effectiveEndTime: s.effectiveEndTime,
-              displayOfferScheme: s.displayOfferScheme !== false,
-            })),
-          },
-        ],
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
+        status: "PUBLISHED" as const,
 
         productAttributeSupplementsOrNutraceuticals: [
           {
-            therapeuticCategoryId: Number(form.therapeuticCategory),
-            therapeuticSubCategoryId: Number(form.therapeuticSubcategory),
+            therapeuticCategoryId: form.therapeuticCategory,
+            therapeuticSubCategoryId: form.therapeuticSubcategory,
             brandName: form.brandName,
             variantName: form.variantName,
             dosageFormId: Number(form.dosageForm),
@@ -1722,6 +1716,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       const productAttributeId = response?.data?.productAttributeSupplementsOrNutraceuticals?.[0]?.productAttributeId;
 
       if (!productId) throw new Error("Product ID not returned from backend");
+      setCreatedProductId(productId);
 
       // ─── STEP 2: Upload Product Images ────────────────────────────────────────
       if (images.length > 0) {
@@ -1780,7 +1775,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   };
 
   // ── handleUpdate: called when mode === "edit" ────────────────────────────────
-  const handleUpdate = async () => {
+  const handleUpdate = async (publishFromDraft: boolean = false) => {
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       console.warn("⚠️ Validation failed during update:", errs);
@@ -1788,6 +1783,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       const firstKey = Object.keys(errs)[0];
       const el = fieldRefs.current[firstKey] || document.querySelector<HTMLElement>(`[data-field="${firstKey}"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert("Please fix the highlighted fields");
       return;
     }
 
@@ -1800,57 +1796,9 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         manufacturerName: form.manufacturerName,
         categoryId: Number(effectiveCategoryId),
 
-        packagingDetails: [
-          {
-            packId: Number(form.packId),
-            unitPerPack: Number(form.unitPerPack),
-            packTypeUnitId: Number(form.unitPerPackUnitId) || 0,
-            numberOfPacks: Number(form.numberOfPacks),
-            packSize: Number(form.packSize),
-            minimumOrderQuantity: Number(form.minimumOrderQuantity),
-            maximumOrderQuantity: Number(form.maximumOrderQuantity),
-          },
-        ],
-
-        pricingDetails: [
-          {
-            batchLotNumber: form.batchLotNumber,
-            manufacturingDate: form.manufacturingDate instanceof Date
-              ? form.manufacturingDate.toISOString().split("T")[0] + "T00:00:00" : null,
-            expiryDate: form.expiryDate instanceof Date
-              ? form.expiryDate.toISOString().split("T")[0] + "T00:00:00" : null,
-            shelfLifeMonths: Number(form.shelfLifeMonths),
-            stockQuantity: Number(form.stockQuantity),
-            dateOfStockEntry: form.dateOfStockEntry instanceof Date
-              ? form.dateOfStockEntry.toISOString().split("T")[0] + "T00:00:00" : null,
-            discountPercentage: Number(form.discountPercentage),
-            sellingPrice: Number(form.sellingPrice),
-            mrp: Number(form.mrp),
-            gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : 0,
-            finalPrice: Number(form.finalPrice),
-            hsnCode: Number(form.hsnCode),
-            additionalDiscounts: form.additionalDiscount.map((d: any) => ({
-              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-              additionalDiscountPercentage: d.additionalDiscountPercentage,
-              effectiveStartDate: d.effectiveStartDate,
-              effectiveStartTime: d.effectiveStartTime,
-              effectiveEndDate: d.effectiveEndDate,
-              effectiveEndTime: d.effectiveEndTime,
-              displayOffer: d.displayOffer !== false,
-            })),
-            specialSchemes: (form.specialSchemes || []).map((s: any) => ({
-              schemeName: s.schemeName || "",
-              schemeType: s.schemeType || "",
-              buyQuantity: s.buyQuantity !== undefined ? s.buyQuantity : (s.purchaseQuantity || 0),
-              freeQuantity: s.freeQuantity,
-              effectiveStartDate: s.effectiveStartDate,
-              effectiveStartTime: s.effectiveStartTime,
-              effectiveEndDate: s.effectiveEndDate,
-              effectiveEndTime: s.effectiveEndTime,
-              displayOfferScheme: s.displayOfferScheme !== false,
-            })),
-          },
-        ],
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
+        status: (publishFromDraft ? "PUBLISHED" : (productStatus || "PUBLISHED")) as "PUBLISHED" | "DRAFT",
 
         productAttributeSupplementsOrNutraceuticals: [
           {
@@ -1900,7 +1848,13 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
       console.log("✅ Update successful response:", response);
 
-      const attrId = form.productAttributeId;
+      // The update re-creates the attribute row with a new id: use the id from the response
+      const attrId =
+        response?.data?.productAttributeSupplementsOrNutraceuticals?.[0]?.productAttributeId ||
+        form.productAttributeId;
+      if (attrId && attrId !== form.productAttributeId) {
+        setForm((prev) => ({ ...prev, productAttributeId: attrId }));
+      }
 
       // ─── STEP 2: Upload new product images (if any new ones selected) ─────────
       if (images.length > 0) {
@@ -1955,6 +1909,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         }
       }
 
+      if (publishFromDraft) setProductStatus("PUBLISHED");
       setModalType(isEditMode ? "update" : "create");
       setShowSuccess(true);
     } catch (err) {
@@ -1962,6 +1917,124 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       alert("❌ Failed to update supplement product");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // ── handleSaveDraft: saves a partial product without full validation ────────
+  const numOrUndef = (v: string | number | null | undefined): number | undefined => {
+    if (v === null || v === undefined || String(v).trim() === "") return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  const handleSaveDraft = async () => {
+    const draftMissing: string[] = [];
+    const draftErrs: Record<string, string> = {};
+    const req = (ok: boolean, key: string, label: string) => {
+      if (!ok) { draftMissing.push(label); draftErrs[key] = "Required to save draft"; }
+    };
+    req(!!form.therapeuticCategory, "therapeuticCategory", "Therapeutic Category");
+    req(!!form.therapeuticSubcategory, "therapeuticSubcategory", "Therapeutic Sub-Category");
+    req(!!form.dosageForm, "dosageForm", "Dosage Form");
+    req(!!form.flavour, "flavour", "Flavour");
+    req(!!form.storageCondition, "storageCondition", "Storage Condition");
+    req(!!form.countryOfOrigin, "countryOfOrigin", "Country of Origin");
+    if (draftMissing.length > 0) {
+      setErrors((prev) => ({ ...prev, ...draftErrs }));
+      const firstKey = Object.keys(draftErrs)[0];
+      const el = fieldRefs.current[firstKey] || document.querySelector<HTMLElement>(`[data-field="${firstKey}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert(`To save a draft, please select: ${draftMissing.join(", ")}`);
+      return;
+    }
+    setIsSavingDraft(true);
+    try {
+      const draftPayload = {
+        productName: form.productName,
+        warningsPrecautions: form.warningsPrecautions,
+        productDescription: form.productDescription,
+        manufacturerName: form.manufacturerName,
+        categoryId: effectiveCategoryId ? Number(effectiveCategoryId) : (categoryId ? Number(categoryId) : undefined),
+
+        gstPercentage: numOrUndef(form.gstPercentage),
+        hsnCode: numOrUndef(form.hsnCode),
+        status: "DRAFT" as const,
+
+        productAttributeSupplementsOrNutraceuticals: [
+          {
+            therapeuticCategoryId: numOrUndef(form.therapeuticCategory),
+            therapeuticSubCategoryId: numOrUndef(form.therapeuticSubcategory),
+            brandName: form.brandName,
+            variantName: form.variantName,
+            dosageFormId: numOrUndef(form.dosageForm),
+            netQuantity: numOrUndef(form.netQuantityValue),
+            netQuantityUnitId: numOrUndef(
+              netQuantityUnitsList.find((item) => extractUnitString(item) === form.netQuantityUnit)?.unitId ||
+              netQuantityUnitsList.find((item) => extractUnitString(item) === form.netQuantityUnit)?.id ||
+              form.netQuantityUnitId ||
+              ""
+            ),
+            servingSize: numOrUndef(form.servingSizeValue) ?? null,
+            servingSizeUnitId: numOrUndef(form.servingSizeUnitId) ?? null,
+            strength: form.strength,
+            activeIngredients: form.activeIngredients,
+            otherIngredients: form.excipients,
+            nutritionalInformation: form.nutritionalInfoType === "label" ? "As per the label." : "",
+            nutritionalInformationImageUrl: existingNutritionalImageUrl || "",
+            intendedUse: form.intendedUse,
+            ageGroupId: form.ageGroup ? numOrUndef(form.ageGroup.split(",")[0]) : undefined,
+            ageGroupIds: form.ageGroup ? form.ageGroup.split(",").map(Number).filter((n) => Number.isFinite(n)) : [],
+            gender: form.gender,
+            vegOrNonVegIndicator: form.vegNonVeg,
+            allergenInformation: form.allergenInfo,
+            flavourId: numOrUndef(form.flavour),
+            productClaims: form.productClaims,
+            storageConditionId: numOrUndef(form.storageCondition),
+            countryId: numOrUndef(form.countryOfOrigin),
+            certificateDocuments: selectedCertifications.map((cert) => ({
+              certificationId: Number(cert.id),
+              certificateUrl: cert.existingUrl || "PENDING",
+            })),
+            brochurePath: existingBrochureUrl || "PENDING",
+          },
+        ],
+
+        // photos are uploaded below; sending their file names would create broken image rows
+        retainedImageUrls: existingImages,
+      };
+
+      // Update the existing product (also after a first draft save in add mode) instead of creating a duplicate
+      if (form.productId) {
+        savedDraftIdRef.current = form.productId;
+        const draftUpdateResponse: any = await updateProduct(form.productId, draftPayload as any);
+        const draftAttrId = draftUpdateResponse?.data?.productAttributeSupplementsOrNutraceuticals?.[0]?.productAttributeId;
+        if (draftAttrId) {
+          setForm((prev) => ({ ...prev, productAttributeId: draftAttrId }));
+        }
+        if (images.length > 0) {
+          await uploadSupplementProductImages(form.productId, images);
+        }
+      } else {
+        const productResponse = await createSupplementProduct(draftPayload);
+        const newProductId = productResponse?.data?.productId;
+        if (newProductId) {
+          savedDraftIdRef.current = newProductId;
+          const newAttrId = productResponse?.data?.productAttributeSupplementsOrNutraceuticals?.[0]?.productAttributeId;
+          setForm((prev) => ({ ...prev, productId: newProductId, productAttributeId: newAttrId || prev.productAttributeId }));
+          if (images.length > 0) {
+            await uploadSupplementProductImages(newProductId, images);
+          }
+        }
+      }
+
+      setDraftModalError(false);
+      setShowDraftModal(true);
+    } catch (err) {
+      console.error("❌ Save Draft Error:", err);
+      setDraftModalError(true);
+      setShowDraftModal(true);
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -1982,6 +2055,21 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
         onSecondaryAction={isEditMode ? handleContinueEditing : handleContinueAdding}
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccess(false)}
+      />
+
+      <PopupModal
+        isOpen={showDraftModal}
+        title={draftModalError ? "Failed to Save Draft" : "Draft Saved!"}
+        description={
+          draftModalError
+            ? "Something went wrong while saving your draft. Please try again."
+            : "Your product has been saved as a draft."
+        }
+        primaryActionText="OK"
+        celebrate={!draftModalError}
+        isError={draftModalError}
+        onPrimaryAction={handleDraftModalDone}
+        onClose={handleDraftModalDone}
       />
 
       {showAdditionalDiscount && (
@@ -2416,6 +2504,35 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               />
             </div>
 
+            {/* GST % */}
+            <div data-field="gstPercentage">
+              <Dropdown
+                label="GST %"
+                options={gstOptions}
+                value={form.gstPercentage || ""}
+                onChange={(value) =>
+                  setForm((prev) => ({ ...prev, gstPercentage: value }))
+                }
+                placeholder="Select GST %"
+                error={errors.gstPercentage}
+                required
+              />
+            </div>
+
+            {/* HSN Code */}
+            <div data-field="hsnCode">
+              <Input
+                label="HSN Code"
+                name="hsnCode"
+                id="hsnCode"
+                placeholder="e.g. 2106"
+                onChange={handleChange}
+                value={form.hsnCode}
+                error={errors.hsnCode}
+                required
+              />
+            </div>
+
             {/* ROW 11 */}
             {/* Country of Origin */}
             <div className="flex flex-col gap-0" data-field="countryOfOrigin">
@@ -2557,441 +2674,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
           </div>
         </div>
 
-        {/* Packaging & Order Details */}
-        <div className="relative border border-neutral-200 rounded-xl p-6 bg-white">
-          <div className="text-h4 font-semibold">Packaging & Order Details (per Unit Box)</div>
-
-          <div className="border-b border-neutral-200 mt-3"></div>
-
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-            <div className="flex flex-col gap-0">
-              <label className="text-label-l4 text-neutral-700 font-medium">
-                Pack Type
-                <span className="text-warning-500 font-semibold ml-1">*</span>
-              </label>
-
-              <Dropdown
-                options={packTypeApiOptions}
-                value={form.packId}
-                onChange={(val, label) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    packId: val,
-                    packType: label,
-                  }))
-                }
-                placeholder={loadingPackTypes ? "Loading..." : "Select Pack Type"}
-                readOnly={isEditMode || loadingPackTypes}
-                error={errors.packId ? " " : ""}
-              />
-              {errors.packId && <p className={errorMsg}>{errors.packId}</p>}
-            </div>
-
-            <NumericInputWithUnit
-              label={form.packType ? `Number of Units per ${form.packType}` : "Number of Units per Pack Type"}
-              name="unitPerPack"
-              placeholder=""
-              value={form.unitPerPack}
-              unit={form.unitPerPackUnit}
-              onValueChange={handleUnitPerPackValueChange}
-              onUnitChange={handleUnitPerPackUnitChange}
-              error={errors.unitPerPack}
-              options={packTypeUnitsList.map(item => item.packTypeUnitName)}
-              required
-              readOnly={hasStock || isEditMode}
-            />
-
-            <Input
-              type="number"
-              label="Number of Packs"
-              name="numberOfPacks"
-              id="numberOfPacks"
-              placeholder=""
-              value={form.numberOfPacks}
-              onChange={handleChange}
-              error={errors.numberOfPacks}
-              required
-              min={1}
-              step={1}
-              readOnly={hasStock}
-            />
-
-            <Input
-              type="number"
-              label={form.packType ? `Pack Size (No. of packs X No. of Units per ${form.packType})` : "Pack Size (No. of packs X No. of Units per Pack Type)"}
-              name="packSize"
-              id="packSize"
-              placeholder=""
-              value={form.packSize}
-              onChange={handleChange}
-              readOnly
-              required
-            />
-
-            <div className="font-open-sans text-[21px] leading-[24px] tracking-[-0.02em] font-normal align-middle col-span-2 mt-3">
-              Order Details
-            </div>
-
-            <div className="border-b border-neutral-200 col-span-2"></div>
-
-            <Input
-              type="number"
-              label="Min Order Qty"
-              name="minimumOrderQuantity"
-              id="minimumOrderQuantity"
-              placeholder=""
-              value={form.minimumOrderQuantity}
-              onChange={handleChange}
-              min={1}
-              step={1}
-              error={errors.minimumOrderQuantity}
-              required
-            />
-            <Input
-              type="number"
-              label="Max Order Qty"
-              name="maximumOrderQuantity"
-              id="maximumOrderQuantity"
-              placeholder=""
-              value={form.maximumOrderQuantity}
-              onChange={handleChange}
-              min={1}
-              step={1}
-              error={errors.maximumOrderQuantity}
-              required
-            />
-
-            <div className="font-open-sans text-[21px] leading-[24px] tracking-[-0.02em] font-normal align-middle col-span-2 mt-3">
-              Batch Management
-            </div>
-
-            <div className="border-b border-neutral-200 col-span-2"></div>
-
-            <Input
-              label="Batch/Lot Number"
-              name="batchLotNumber"
-              id="batchLotNumber"
-              placeholder=""
-              value={form.batchLotNumber}
-              onChange={handleChange}
-              readOnly={isEditMode}
-              error={errors.batchLotNumber}
-              required
-              maxLength={20}
-            />
-
-
-            {/* ── NEW MANUFACTURING DATE WITH MONTHPICKER ─────────────────────────── */}
-            <div className="relative">
-              <Input
-                label="Manufacturing Month"
-                type="text"
-                name="manufacturingDate"
-                id="manufacturingDate"
-                placeholder="MM/YYYY"
-                value={
-                  form.manufacturingDate instanceof Date &&
-                    !isNaN(form.manufacturingDate.getTime())
-                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
-                    : ""
-                }
-                readOnly={isEditMode}
-                required
-                onChange={() => { }}
-                onClick={() => {
-                  if (!isEditMode) {
-                    setShowManufacturingMonthPicker(true);
-                  }
-                }}
-                onKeyDown={(e) => e.preventDefault()}
-                error={errors.manufacturingDate}
-              />
-
-              {showManufacturingMonthPicker && !isEditMode && (
-                <MonthPicker
-                  selectedMonth={
-                    form.manufacturingDate
-                      ? form.manufacturingDate.getMonth()
-                      : new Date().getMonth()
-                  }
-                  selectedYear={
-                    form.manufacturingDate
-                      ? form.manufacturingDate.getFullYear()
-                      : new Date().getFullYear()
-                  }
-                  maxDate={new Date()}
-                  onSelect={(month, year) =>
-                    handleMonthSelect("manufacturingDate", month, year)
-                  }
-                  onClose={() => setShowManufacturingMonthPicker(false)}
-                />
-              )}
-            </div>
-
-
-            {/* ── NEW EXPIRY DATE WITH MONTHPICKER ────────────────────────────────── */}
-            <div className="relative">
-              <Input
-                label="Expiry Month"
-                name="expiryDate"
-                type="text"
-                required
-                readOnly={isEditMode}
-                value={
-                  form.expiryDate instanceof Date &&
-                    !isNaN(form.expiryDate.getTime())
-                    ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
-                    : ""
-                }
-                placeholder="MM/YYYY"
-                onChange={() => { }}
-                onClick={() => {
-                  if (!isEditMode) {
-                    setShowExpiryMonthPicker(true);
-                  }
-                }}
-                onFocus={() => {
-                  if (!isEditMode) {
-                    setShowExpiryMonthPicker(true);
-                  }
-                }}
-                onKeyDown={(e) => e.preventDefault()}
-                error={errors.expiryDate}
-              />
-
-              {showExpiryMonthPicker && !isEditMode && (
-                <MonthPicker
-                  selectedMonth={
-                    form.expiryDate
-                      ? form.expiryDate.getMonth()
-                      : new Date().getMonth()
-                  }
-                  selectedYear={
-                    form.expiryDate
-                      ? form.expiryDate.getFullYear()
-                      : new Date().getFullYear()
-                  }
-                  minDate={
-                    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-                  }
-                  onSelect={(month, year) =>
-                    handleMonthSelect("expiryDate", month, year)
-                  }
-                  onClose={() => setShowExpiryMonthPicker(false)}
-                />
-              )}
-            </div>
-
-            <Input
-              type="number"
-              label="Shelf Life (In Months)"
-              name="shelfLifeMonths"
-              id="shelfLifeMonths"
-              value={form.shelfLifeMonths}
-              readOnly
-              error={errors.shelfLifeMonths}
-              required
-            />
-
-            <Input
-              type="number"
-              label="Stock Quantity"
-              name="stockQuantity"
-              id="stockQuantity"
-              placeholder=""
-              value={form.stockQuantity}
-              onChange={handleChange}
-              readOnly={isEditMode}
-              min={0}
-              step={1}
-              error={errors.stockQuantity}
-              required
-            />
-
-            <Input
-              label="Date of Entry"
-              type="date"
-              name="dateOfStockEntry"
-              id="dateOfStockEntry"
-              placeholder=""
-              onChange={(e) =>
-                setForm({ ...form, dateOfStockEntry: new Date(e.target.value) })
-              }
-              value={
-                form.dateOfStockEntry
-                  ? form.dateOfStockEntry.toISOString().split("T")[0]
-                  : ""
-              }
-              readOnly
-              error={errors.dateOfStockEntry}
-              required
-            />
-
-            <div className="font-open-sans text-[21px] leading-[24px] tracking-[-0.02em] font-normal align-middle col-span-2 mt-3">Pricing</div>
-
-            <div className="border-b border-neutral-200 col-span-2"></div>
-
-            <Input
-              type="text"
-              inputMode="decimal"
-              label="Discount(%)"
-              name="discountPercentage"
-              value={form.discountPercentage}
-              onChange={handleChange}
-              min={0}
-              max={100}
-              step={0.01}
-              error={errors.discountPercentage}
-              required={false}
-            />
-
-            <Input
-              type="text"
-              inputMode="decimal"
-              label="MRP (per Pack Size)"
-              name="mrp"
-              id="mrp"
-              placeholder=""
-              value={form.mrp}
-              onChange={handleChange}
-              onKeyDown={(e) => {
-                if (e.key === "0" && form.mrp === "") {
-                  e.preventDefault();
-                }
-              }}
-              min={1}
-              step={0.01}
-              error={errors.mrp}
-              required
-            />
-
-            <Input
-              type="text"
-              inputMode="decimal"
-              label="Selling Price (per Pack Size)"
-              name="sellingPrice"
-              id="sellingPrice"
-              placeholder=""
-              value={form.sellingPrice}
-              onChange={handleChange}
-              min={1}
-              step={0.01}
-              error={errors.sellingPrice}
-              required
-            />
-
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={() => setShowAdditionalDiscount(true)}
-                className="w-[237px] h-[52px] bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[18px] leading-[28px] rounded-lg flex items-center justify-center gap-[12px] cursor-pointer hover:bg-purple-50 transition-all duration-200"
-              >
-                <svg
-                  width="14.24"
-                  height="14.24"
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="flex-shrink-0"
-                >
-                  <path
-                    d="M7 1v12M1 7h12"
-                    stroke="#9659FD"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span>Add Special Discount</span>
-              </button>
-            </div>
-
-
-            <AppliedOffersView
-              additionalDiscounts={form.additionalDiscount}
-              specialSchemes={form.specialSchemes}
-              productName={form.productName}
-              onEditDiscount={(index) => {
-                setEditTab("additional_discount");
-                setEditIndex(index);
-                setShowAdditionalDiscount(true);
-              }}
-              onDeleteDiscount={(index) => {
-                setForm(prev => ({
-                  ...prev,
-                  additionalDiscount: prev.additionalDiscount.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } : d)
-                }));
-              }}
-              onEditScheme={(index) => {
-                setEditTab("special_schemes");
-                setEditIndex(index);
-                setShowAdditionalDiscount(true);
-              }}
-              onDeleteScheme={(index) => {
-                setForm(prev => ({
-                  ...prev,
-                  specialSchemes: prev.specialSchemes.map((s: any, i: number) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)
-                }));
-              }}
-              isEditMode={isEditMode}
-            />
-
-            <div className="text-h6 font-normal col-span-2 mt-3">
-              TAX & BILLING
-            </div>
-
-            <div className="border-b border-neutral-200 col-span-2"></div>
-
-            <Input
-              type="number"
-              label="HSN Code"
-              name="hsnCode"
-              id="hsnCode"
-              placeholder=""
-              value={form.hsnCode}
-              onChange={handleChange}
-              min={1}
-              step={1}
-              maxLength={8}
-              readOnly={isEditMode}
-              error={errors.hsnCode}
-              required
-            />
-
-            <div className="flex flex-col gap-0">
-              <label className="text-label-l4 text-neutral-700 font-medium">
-                GST %
-                <span className="text-warning-500 font-semibold ml-1">*</span>
-              </label>
-
-              <Dropdown
-                options={gstOptions}
-                value={form.gstPercentage}
-                onChange={(val) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    gstPercentage: val,
-                  }))
-                }
-                placeholder="Select GST %"
-                readOnly={isEditMode}
-                error={errors.gstPercentage ? " " : ""}
-              />
-              {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
-            </div>
-          </div>
-
-          {/* FUTURE FEATURE: Save Button
-          <div className="flex justify-end mt-6">
-            <button
-              type="button"
-              className="w-[108px] h-[48px] bg-[#7D32FC] rounded-[4px] text-white font-[family:var(--font-heading)] font-medium text-lg leading-normal flex items-center justify-center"
-            >
-              Save
-            </button>
-          </div>
-          */}
-        </div>
-
+    
 
         <ProductImageUpload
           title="Product Photos"
@@ -3016,14 +2699,21 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               Cancel
             </button>
 
-            <button className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5">
-              <img
-                src="/icons/SaveDraftIcon.svg"
-                alt="drug"
-                className="w-5 h-5 rounded-md object-cover"
-              />
-              Save Draft
-            </button>
+            {(mode !== "edit" || productStatus === "DRAFT") && (
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft}
+                className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5 disabled:opacity-60"
+              >
+                <img
+                  src="/icons/SaveDraftIcon.svg"
+                  alt="drug"
+                  className="w-5 h-5 rounded-md object-cover"
+                />
+                {isSavingDraft ? "Saving..." : "Save Draft"}
+              </button>
+            )}
           </div>
           <div>
             <button
@@ -3033,7 +2723,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
               className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer flex items-center justify-center gap-2"
             >
               {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {submitting ? "Saving..." : "Submit"}
+              {submitting ? "Saving..." : isEditMode && productStatus !== "DRAFT" ? "Update" : "Submit"}
             </button>
           </div>
         </div>

@@ -1,57 +1,209 @@
 "use client";
 
 import React, { useState } from "react";
-import { Hash, Building2, MapPin } from "lucide-react";
+import { Hash, Building2, MapPin, ChevronDown, AlertCircle } from "lucide-react";
 import { HiOutlineUser } from "react-icons/hi2";
 import { IoLockClosedOutline } from "react-icons/io5";
 import { RiBankLine } from "react-icons/ri";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
+import {
+  StateResponse,
+  DistrictResponse,
+  TalukaResponse,
+} from "@/src/types/seller/SellerRegMasterData";
+import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
+import UploadedFileChip from "./UploadedFileChip";
+import FormInput from "./FormInput";
+
+interface BankFormData {
+  accountHolderName: string;
+  ifscCode: string;
+  accountNumber: string;
+  confirmAccountNumber: string;
+  bankName: string;
+  branch: string;
+  bankStateId: number;
+  bankDistrictId: number;
+  bankTalukaId: number;
+  cancelledChequeFile: File | null;
+  cancelledChequeUrl?: string;
+  cancelledChequeFileName?: string;
+}
+
+interface LoadingStates {
+  states?: boolean;
+  bankDistricts?: boolean;
+  bankTalukas?: boolean;
+  [key: string]: boolean | undefined;
+}
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
 
 interface Props {
-  formData: any;
+  formData: BankFormData;
+  errors: Record<string, string>;
   ifscError: string;
+  states: StateResponse[];
+  bankDistricts: DistrictResponse[];
+  bankTalukas: TalukaResponse[];
+  loadingStates: LoadingStates;
   onIfscChange: (value: string) => void;
+  onIfscBlur?: () => void;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>, field: string) => void;
+  onDeleteBankDocument: () => void;
   onAlphabetInput: (e: React.ChangeEvent<HTMLInputElement>, field: string) => void;
   onNumericInput: (e: React.ChangeEvent<HTMLInputElement>, field: string, maxLength?: number) => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onCheckAccountMatch: () => boolean;
-   onUpdateFormData?: (field: string, value: any) => void; 
+  onUpdateFormData?: (field: string, value: string) => void;
+  onBankStateChange: (selected: SelectOption) => void;
+  onBankDistrictChange: (selected: SelectOption) => void;
+  onBankTalukaChange: (selected: SelectOption) => void;
   prevStep: () => void;
   nextStep: () => void;
 }
 
 export default function BankForm({
   formData,
+  errors,
   ifscError,
+  states,
+  bankDistricts,
+  bankTalukas,
+  loadingStates,
   onIfscChange,
+  onIfscBlur,
   onFileChange,
+  onDeleteBankDocument,
   onAlphabetInput,
   onNumericInput,
   onChange,
   onCheckAccountMatch,
   onUpdateFormData,
+  onBankStateChange,
+  onBankDistrictChange,
+  onBankTalukaChange,
   prevStep,
-  nextStep
+  nextStep,
 }: Props) {
 
-  const router = useRouter();
   const [uploading, setUploading] = useState(false);
-  
+  const [confirmAccountError, setConfirmAccountError] = useState("");
+  // Inline feedback for a rejected keystroke - shown until the next valid
+  // keystroke or blur, same convention as the other transient format errors
+  // on this step.
+  const [accountHolderNameFormatError, setAccountHolderNameFormatError] = useState<string>("");
+  const [accountNumberFormatError, setAccountNumberFormatError] = useState<string>("");
+
+  // Custom dropdown open state, mirroring CompanyForm's address dropdown pattern.
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const bankStateDropdownRef = React.useRef<HTMLDivElement>(null);
+  const bankDistrictDropdownRef = React.useRef<HTMLDivElement>(null);
+  const bankTalukaDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (bankStateDropdownRef.current && !bankStateDropdownRef.current.contains(event.target as Node)) {
+        if (openDropdown === 'bankState') setOpenDropdown(null);
+      }
+      if (bankDistrictDropdownRef.current && !bankDistrictDropdownRef.current.contains(event.target as Node)) {
+        if (openDropdown === 'bankDistrict') setOpenDropdown(null);
+      }
+      if (bankTalukaDropdownRef.current && !bankTalukaDropdownRef.current.contains(event.target as Node)) {
+        if (openDropdown === 'bankTaluka') setOpenDropdown(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openDropdown]);
+
+  // Custom dropdown divs have no native keyboard behavior. Enter/Space opens
+  // them like a real select; the closing setTimeout (not an immediate close)
+  // lets an option's onClick fire before the option list unmounts on blur,
+  // since Tab/mouse-click-away both blur the div before the option's click
+  // event would otherwise land on a removed node.
+  const handleDropdownKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, name: string, enabled = true) => {
+    if (!enabled) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpenDropdown(openDropdown === name ? null : name);
+    } else if (e.key === "Escape") {
+      setOpenDropdown(null);
+    }
+  };
+
+  const handleDropdownBlur = (name: string) => {
+    setTimeout(() => {
+      setOpenDropdown((current) => (current === name ? null : current));
+    }, 150);
+  };
+
+  const getSelectedBankStateLabel = () => {
+    const selected = states.find(s => s.stateId === formData.bankStateId);
+    return selected?.stateName || "";
+  };
+
+  const getSelectedBankDistrictLabel = () => {
+    const selected = bankDistricts.find(d => d.districtId === formData.bankDistrictId);
+    return selected?.districtName || "";
+  };
+
+  const getSelectedBankTalukaLabel = () => {
+    const selected = bankTalukas.find(t => t.talukaId === formData.bankTalukaId);
+    return selected?.talukaName || "";
+  };
+
   const selectedFileName = formData.cancelledChequeFile?.name || "";
 
   const handleIfscInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     onIfscChange(e.target.value);
   };
 
+  // Blocks a wrong digit at the point of entry instead of validating after the
+  // fact, so the confirm field can never end up holding a mismatched value.
+  const handleConfirmAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digitsOnly = e.target.value.replace(/\D/g, "");
+
+    if (!formData.accountNumber) {
+      setConfirmAccountError("Enter Bank Account Number first");
+      return;
+    }
+
+    const truncated = digitsOnly.slice(0, formData.accountNumber.length);
+    let matched = "";
+    for (let i = 0; i < truncated.length; i++) {
+      if (truncated[i] === formData.accountNumber[i]) {
+        matched += truncated[i];
+      } else {
+        break;
+      }
+    }
+
+    setConfirmAccountError(
+      matched.length < truncated.length ? "Account number does not match" : ""
+    );
+
+    if (onUpdateFormData) {
+      onUpdateFormData("confirmAccountNumber", matched);
+    } else {
+      const syntheticEvent = {
+        ...e,
+        target: { ...e.target, name: "confirmAccountNumber", value: matched },
+      };
+      onChange(syntheticEvent);
+    }
+  };
+
 const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   let value = e.target.value;
-  
+
   // First, decode any HTML entities
   value = value.replace(/&amp;/g, '&');
-  
+
   // Allow: letters, spaces, hyphens, dots, ampersands
   let cleaned = '';
   for (let i = 0; i < value.length; i++) {
@@ -60,12 +212,18 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
       cleaned += char;
     }
   }
-  
+
+  if (cleaned.length !== value.length) {
+    setAccountHolderNameFormatError("Account holder name can only contain letters, spaces, hyphens, dots, and ampersands");
+  } else {
+    setAccountHolderNameFormatError("");
+  }
+
   // Prevent consecutive spaces
   cleaned = cleaned.replace(/\s{2,}/g, ' ');
   // cleaned = cleaned.trim();
 
-  
+
   // Directly update form data without going through onAlphabetInput
   if (onUpdateFormData) {
     onUpdateFormData("accountHolderName", cleaned);
@@ -78,6 +236,19 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
     onAlphabetInput(syntheticEvent, "accountHolderName");
   }
 };
+
+  // The shared onNumericInput prop strips non-digits with no feedback back to
+  // this specific field, so detect the rejected keystroke here locally before
+  // delegating to it for the actual stripping/update.
+  const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digitsOnly = e.target.value.replace(/\D/g, '');
+    if (digitsOnly !== e.target.value) {
+      setAccountNumberFormatError("Account number can only contain digits");
+    } else {
+      setAccountNumberFormatError("");
+    }
+    onNumericInput(e, "accountNumber", 18);
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -109,7 +280,12 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
       toast.error("Account number and confirm account number do not match");
       return;
     }
-    
+
+    if (!formData.bankStateId || !formData.bankDistrictId || !formData.bankTalukaId) {
+      toast.error("Please select Bank State, District, and Taluka");
+      return;
+    }
+
     nextStep();
   };
 
@@ -149,173 +325,265 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
       <div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-2">
           {/* Account Holder Name */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              Account Holder Name
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <HiOutlineUser className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="accountHolderName"
-                autoComplete="off"
-                value={formData.accountHolderName}
-                // onChange={(e) => onAlphabetInput(e, "accountHolderName")}
-                onChange={handleAccountHolderNameChange}
-                placeholder="As per bank records"
-                maxLength={100}
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="Account Holder Name"
+            required
+            type="text"
+            name="accountHolderName"
+            autoComplete="off"
+            value={formData.accountHolderName}
+            onChange={handleAccountHolderNameChange}
+            onBlur={() => setAccountHolderNameFormatError("")}
+            placeholder="As per bank records"
+            maxLength={100}
+            leftIcon={<HiOutlineUser className="w-5 h-5" />}
+            error={errors.accountHolderName || accountHolderNameFormatError}
+          />
 
           {/* IFSC Code */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              IFSC Code
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <IoLockClosedOutline className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="ifscCode"
-                autoComplete="off"
-                value={formData.ifscCode}
-                onChange={handleIfscInput}
-                placeholder="e.g., SBIN0001234"
-                maxLength={11}
-                className={`w-full h-13 pl-10 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 uppercase ${
-                  ifscError ? 'border-red-500' : 'border-neutral-500'
-                }`}
-              />
-            </div>
-            {ifscError && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                <span className="mr-1">⚠️</span>
-                <span>{ifscError}</span>
-              </p>
-            )}
-          </div>
+          <FormInput
+            label="IFSC Code"
+            required
+            type="text"
+            name="ifscCode"
+            autoComplete="off"
+            value={formData.ifscCode}
+            onChange={handleIfscInput}
+            onBlur={onIfscBlur}
+            placeholder="e.g., SBIN0001234"
+            maxLength={11}
+            uppercase
+            leftIcon={<IoLockClosedOutline className="w-5 h-5" />}
+            error={errors.ifscCode || ifscError}
+          />
 
           {/* Account Number */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              Bank Account Number
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                name="accountNumber"
-                autoComplete="off"
-                value={formData.accountNumber}
-                onChange={(e) => onNumericInput(e, "accountNumber", 18)}
-                placeholder="Enter Account number"
-                maxLength={18}
-                className="w-full h-13 pl-4 pr-10 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-              <Hash className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-            </div>
-          </div>
+          <FormInput
+            label="Bank Account Number"
+            required
+            type="text"
+            name="accountNumber"
+            autoComplete="off"
+            value={formData.accountNumber}
+            onChange={handleAccountNumberChange}
+            onBlur={() => setAccountNumberFormatError("")}
+            placeholder="Enter Account number"
+            maxLength={18}
+            rightSlot={<Hash className="w-5 h-5 text-pneutral-900" />}
+            error={errors.accountNumber || accountNumberFormatError}
+          />
 
           {/* Confirm Account Number - No copy-paste allowed */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              Confirm Account Number
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                name="confirmAccountNumber"
-                autoComplete="off"
-                value={formData.confirmAccountNumber}
-                onChange={onChange}
-                placeholder="Re-enter account number"
-                maxLength={18}
-                onPaste={handleConfirmAccountPaste}
-                onCopy={handleConfirmAccountCopy}
-                onCut={handleConfirmAccountCut}
-                onDragStart={handleConfirmAccountDrag}
-                onDrop={handleConfirmAccountDrag}
-                className="w-full h-13 pl-4 pr-10 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-              <Hash className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-            </div>
-          </div>
+          <FormInput
+            label="Confirm Account Number"
+            required
+            type="text"
+            name="confirmAccountNumber"
+            autoComplete="off"
+            value={formData.confirmAccountNumber}
+            onChange={handleConfirmAccountNumberChange}
+            placeholder="Re-enter account number"
+            maxLength={18}
+            onPaste={handleConfirmAccountPaste}
+            onCopy={handleConfirmAccountCopy}
+            onCut={handleConfirmAccountCut}
+            onDragStart={handleConfirmAccountDrag}
+            onDrop={handleConfirmAccountDrag}
+            rightSlot={<Hash className="w-5 h-5 text-pneutral-900" />}
+            error={confirmAccountError}
+          />
 
           {/* Bank Name (Auto-filled) */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              Bank Name
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <RiBankLine className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-500" />
-              <input
-                type="text"
-                name="bankName"
-                value={formData.bankName}
-                readOnly
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 bg-gray-50 text-p4 font-body font-regular text-pneutral-900"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="Bank Name"
+            required
+            type="text"
+            name="bankName"
+            value={formData.bankName}
+            readOnly
+            leftIcon={<RiBankLine className="w-5 h-5 text-pneutral-500" />}
+            inputClassName="bg-neutral-100 border-neutral-300"
+          />
 
           {/* Branch (Auto-filled) */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-              Branch
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-500" />
-              <input
-                type="text"
-                name="branch"
-                value={formData.branch}
-                readOnly
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 bg-gray-50 text-p4 font-body font-regular text-pneutral-900"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="Branch"
+            required
+            type="text"
+            name="branch"
+            value={formData.branch}
+            readOnly
+            leftIcon={<Building2 className="w-5 h-5 text-pneutral-500" />}
+            inputClassName="bg-neutral-100 border-neutral-300"
+          />
 
-          {/* Bank State (Auto-filled) */}
+          {/* Bank State */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
               Bank State
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-500" />
-              <input
-                type="text"
-                name="bankState"
-                value={formData.bankState}
-                readOnly
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 bg-gray-50 text-p4 font-body font-regular text-pneutral-900"
-              />
+            <div className="relative" ref={bankStateDropdownRef}>
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
+              <div
+                tabIndex={0}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'bankState'}
+                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
+                onClick={() => setOpenDropdown(openDropdown === 'bankState' ? null : 'bankState')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'bankState')}
+                onBlur={() => handleDropdownBlur('bankState')}
+              >
+                <span className={!getSelectedBankStateLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                  {loadingStates?.states
+                    ? "Loading..."
+                    : getSelectedBankStateLabel() || "Select State"}
+                </span>
+                <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'bankState' ? 'rotate-180' : ''}`} />
+              </div>
+
+              {openDropdown === 'bankState' && !loadingStates?.states && (
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <div className="max-h-60 overflow-y-auto">
+                    {states.map((state) => (
+                      <div
+                        key={state.stateId}
+                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        onClick={() => {
+                          onBankStateChange({ value: state.stateId.toString(), label: state.stateName });
+                          setOpenDropdown(null);
+                        }}
+                      >
+                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                          {state.stateName}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+            {errors.bankStateId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                <span>{errors.bankStateId}</span>
+              </p>
+            )}
           </div>
 
-          {/* Bank District (Auto-filled) */}
+          {/* Bank District */}
           <div className="flex flex-col gap-1">
             <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
               Bank District
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-500" />
-              <input
-                type="text"
-                name="bankDistrict"
-                value={formData.bankDistrict}
-                readOnly
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 bg-gray-50 text-p4 font-body font-regular text-pneutral-900"
-              />
+            <div className="relative" ref={bankDistrictDropdownRef}>
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
+              <div
+                tabIndex={formData.bankStateId ? 0 : -1}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'bankDistrict'}
+                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${formData.bankStateId ? 'cursor-pointer' : 'cursor-not-allowed bg-neutral-100'}`}
+                onClick={() => formData.bankStateId && setOpenDropdown(openDropdown === 'bankDistrict' ? null : 'bankDistrict')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'bankDistrict', !!formData.bankStateId)}
+                onBlur={() => handleDropdownBlur('bankDistrict')}
+              >
+                <span className={!getSelectedBankDistrictLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                  {loadingStates?.bankDistricts
+                    ? "Loading..."
+                    : getSelectedBankDistrictLabel() || "Select District"}
+                </span>
+                {formData.bankStateId && (
+                  <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'bankDistrict' ? 'rotate-180' : ''}`} />
+                )}
+              </div>
+
+              {openDropdown === 'bankDistrict' && !loadingStates?.bankDistricts && formData.bankStateId && (
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <div className="max-h-60 overflow-y-auto">
+                    {bankDistricts.map((district) => (
+                      <div
+                        key={district.districtId}
+                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        onClick={() => {
+                          onBankDistrictChange({ value: district.districtId.toString(), label: district.districtName });
+                          setOpenDropdown(null);
+                        }}
+                      >
+                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                          {district.districtName}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+            {errors.bankDistrictId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                <span>{errors.bankDistrictId}</span>
+              </p>
+            )}
+          </div>
+
+          {/* Bank Taluka */}
+          <div className="flex flex-col gap-1">
+            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+              Bank Taluka
+              <span className="text-warning-500 font-semibold ml-1">*</span>
+            </label>
+            <div className="relative" ref={bankTalukaDropdownRef}>
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
+              <div
+                tabIndex={formData.bankDistrictId ? 0 : -1}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'bankTaluka'}
+                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${formData.bankDistrictId ? 'cursor-pointer' : 'cursor-not-allowed bg-neutral-100'}`}
+                onClick={() => formData.bankDistrictId && setOpenDropdown(openDropdown === 'bankTaluka' ? null : 'bankTaluka')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'bankTaluka', !!formData.bankDistrictId)}
+                onBlur={() => handleDropdownBlur('bankTaluka')}
+              >
+                <span className={!getSelectedBankTalukaLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                  {loadingStates?.bankTalukas
+                    ? "Loading..."
+                    : getSelectedBankTalukaLabel() || "Select Taluka"}
+                </span>
+                {formData.bankDistrictId && (
+                  <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'bankTaluka' ? 'rotate-180' : ''}`} />
+                )}
+              </div>
+
+              {openDropdown === 'bankTaluka' && !loadingStates?.bankTalukas && formData.bankDistrictId && (
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <div className="max-h-60 overflow-y-auto">
+                    {bankTalukas.map((taluka) => (
+                      <div
+                        key={taluka.talukaId}
+                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        onClick={() => {
+                          onBankTalukaChange({ value: taluka.talukaId.toString(), label: taluka.talukaName });
+                          setOpenDropdown(null);
+                        }}
+                      >
+                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                          {taluka.talukaName}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {errors.bankTalukaId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                <span>{errors.bankTalukaId}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -328,20 +596,37 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             <span className="text-warning-500 font-semibold ml-1">*</span>
           </label>
 
+          <input
+            id="cheque-upload"
+            type="file"
+            name="cancelledChequeFile"
+            className="hidden"
+            accept=".pdf,.jpg,.jpeg,.png"
+            onChange={handleFileUpload}
+            disabled={uploading}
+          />
+
+          {!formData.cancelledChequeFile && isRealFileUrl(formData.cancelledChequeUrl) ? (
+            <UploadedFileChip
+              url={formData.cancelledChequeUrl ?? ""}
+              fileName={formData.cancelledChequeFileName}
+              inputId="cheque-upload"
+              onDelete={onDeleteBankDocument}
+            />
+          ) : (
           <div
-            className="border-2 border-dashed border-primary-300 rounded-xl p-8 text-center bg-neutral-50 cursor-pointer transition-none"
+            tabIndex={uploading ? -1 : 0}
+            role="button"
+            aria-label="Upload cancelled Cheque / Passbook front page copy"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                document.getElementById('cheque-upload')?.click();
+              }
+            }}
+            className="border-2 border-dashed border-primary-300 rounded-xl p-8 text-center bg-neutral-50 cursor-pointer transition-none focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
             onClick={() => document.getElementById('cheque-upload')?.click()}
           >
-            <input
-              id="cheque-upload"
-              type="file"
-              name="cancelledChequeFile"
-              className="hidden"
-              accept=".pdf,.jpg,.jpeg,.png"
-              onChange={handleFileUpload}
-              disabled={uploading}
-            />
-
             <div className="flex flex-col items-center gap-2">
               <Image
                 src="/icons/folder.png"
@@ -362,7 +647,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                       e.stopPropagation();
                       const syntheticEvent = {
                         target: { files: null }
-                      } as any;
+                      } as unknown as React.ChangeEvent<HTMLInputElement>;
                       onFileChange(syntheticEvent, 'cancelledChequeFile');
                       const fileInput = document.getElementById('cheque-upload') as HTMLInputElement;
                       if (fileInput) fileInput.value = "";
@@ -398,47 +683,43 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
               )}
             </div>
           </div>
+          )}
+          {errors.cancelledChequeFile && (
+            <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+              <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+              <span>{errors.cancelledChequeFile}</span>
+            </p>
+          )}
         </div>
       </div>
 
       {/* Buttons */}
       <div className="flex justify-between mt-10">
-        <div className="flex gap-4">
-          <button 
-            onClick={() => router.push("/")}
-            className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold"
-          >
-            Cancel
-          </button>
-        </div>
+        <button
+          onClick={prevStep}
+          className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
+        >
+          <Image
+            src="/icons/backbuttonicon.png"
+            alt="Back"
+            width={18}
+            height={18}
+          />
+          Back
+        </button>
 
-        <div className="flex gap-4">
-          <button
-            onClick={prevStep}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
-          >
-            <Image
-              src="/icons/backbuttonicon.png"
-              alt="Back"
-              width={18}
-              height={18}
-            />
-            Back
-          </button>
-
-          <button
-            onClick={handleContinue}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"
-          >
-            Continue
-            <Image
-              src="/icons/continueicon.png"
-              alt="Continue"
-              width={20}
-              height={20}
-            />
-          </button>
-        </div>
+        <button
+          onClick={handleContinue}
+          className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"
+        >
+          Continue
+          <Image
+            src="/icons/continueicon.png"
+            alt="Continue"
+            width={20}
+            height={20}
+          />
+        </button>
       </div>
     </div>
   );

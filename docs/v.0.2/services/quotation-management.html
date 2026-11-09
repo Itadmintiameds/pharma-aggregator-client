@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quotation Management — negotiation state and the single-table problem</title>
+<link rel="stylesheet" href="../assets/doc.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">Quotation Management — negotiation state and the single-table problem</h1>
+    <p class="dek">Why one table backing two flows and three cross-domain foreign keys is a bigger problem than it looks, and how the negotiation trail should actually be modeled once this becomes its own service.</p>
+    <div class="meta-row">
+      <span><b>Status:</b> Draft</span>
+      <span><b>Owns:</b> Quotation Management (§4 of HLD)</span>
+      <span><b>Last updated:</b> 2026-09-02</span>
+      <span><a href="../index.html">&larr; back to service index</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#overview">01 Overview</a>
+      <a href="#ownership">02 Data ownership</a>
+      <a href="#communication">03 Communication</a>
+      <a href="#architecture">04 Architecture diagram</a>
+      <a href="#deployment">05 Deployment</a>
+      <a href="#scaling">06 Scaling &amp; region topology</a>
+      <a href="#decisions">07 Decisions</a>
+    </nav>
+  </header>
+
+  <section id="overview">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Overview</h2>
+    </div>
+    <p class="lede">Quotation Management owns buyer quote requests, seller quote responses, and the negotiation state that sits between them — the pre-sale conversation that either dies quietly or converts into an Order.</p>
+    <p>Traffic here is bursty in a way that tracks B2B negotiation cycles rather than steady retail browsing: quiet stretches interrupted by clusters of activity when a buyer organization is actively sourcing, a seller is responding to a batch of RFQs, or a negotiation round is closing out before a purchasing deadline. That shape matters for how this service should scale — see §6.</p>
+  </section>
+
+  <section id="ownership">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Data ownership</h2>
+    </div>
+    <p class="lede">The entity audit shows exactly one table in <code>entity/quote</code> today: <code>tbl_quote_request</code>. There is no separate seller-response table and no separate negotiation-state table — everything lives as status fields on this single row.</p>
+    <p>That one table backs <b>both</b> quoting flows in the product: "Request Price Option" (a buyer asking a seller for a price on a specific product) and RFQ "Get a Quote" (a more open-ended sourcing request), discriminated by a <code>requestType</code> enum column rather than by separate tables or separate services.</p>
+    <div class="callout"><b>Open architecture question, answered as a decision:</b> does the target Quotation Management service need a dedicated response/negotiation-history table, or does the single-row-with-status-transitions model carry forward as-is? A single mutable row that gets overwritten on every back-and-forth loses the negotiation trail — there's no record of what the buyer's counter-offer was, what the seller's first response said, or how many rounds it took to close. The recommendation, treated as a decision in §7, is a companion <code>tbl_quote_negotiation_history</code> table that appends one row per exchange rather than mutating the parent request.</div>
+    <p><b>Second flag — three-way cross-domain foreign keys:</b> today's <code>QuoteRequest</code> entity directly foreign-keys <code>BuyerUser</code>, <code>Seller</code>, and <code>ProductDetails</code> in the same row. That's fine in a monolith with one shared database; it breaks the moment Buyer, Seller, and Product become separate service databases, because a foreign key can't reach across a database boundary. The target service has to store these as opaque IDs and resolve them via API calls at read time — never as FKs. This is a direct consequence of the service-boundary split (see §7).</p>
+  </section>
+
+  <section id="communication">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Communication</h2>
+    </div>
+    <p class="lede">Quotation makes two outbound synchronous calls and receives none — it has no async edges in the source HLD.</p>
+
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-build">Sync OUT</span> Quotation &rarr; Product Management</h3>
+        <div class="when">pricing lookup during quote generation</div>
+        <ul>
+          <li>Generating a quote requires current pricing from Product Management in the same request — the buyer needs to see an actual number, not a stale one from whenever the product was last indexed.</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-build">Sync OUT</span> Quotation &rarr; Order Management</h3>
+        <div class="when">create-order-on-accept</div>
+        <ul>
+          <li>When a buyer accepts a quote, Quotation calls Order to create the order before returning "accepted" — the order must exist before the acceptance response goes back to the buyer.</li>
+          <li>This is the one place quotation data crosses into Order, and it crosses as a create call carrying a reference, never as a shared table or a copy of the quote row.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Architecture diagram</h2>
+    </div>
+    <p>Quotation as a self-node with two synchronous outbound edges. No async edges — this service doesn't publish or consume events in the source HLD.</p>
+
+    <div class="arch-diagram">
+      <svg viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
+        <rect class="node-box self" x="270" y="100" width="140" height="60" rx="6"/>
+        <text class="node-label" x="340" y="125" text-anchor="middle">Quotation</text>
+        <text class="node-sub" x="340" y="140" text-anchor="middle">Management</text>
+
+        <rect class="node-box" x="30" y="30" width="150" height="55" rx="6"/>
+        <text class="node-label" x="105" y="53" text-anchor="middle">Product</text>
+        <text class="node-sub" x="105" y="67" text-anchor="middle">Management</text>
+
+        <rect class="node-box" x="500" y="30" width="150" height="55" rx="6"/>
+        <text class="node-label" x="575" y="53" text-anchor="middle">Order</text>
+        <text class="node-sub" x="575" y="67" text-anchor="middle">Management</text>
+
+        <path class="edge-sync" d="M270,120 L180,70" marker-end="url(#arrow-sync)"/>
+        <text class="edge-label" x="180" y="100">pricing lookup</text>
+
+        <path class="edge-sync" d="M410,120 L500,70" marker-end="url(#arrow-sync)"/>
+        <text class="edge-label" x="415" y="100">create-order-on-accept</text>
+
+        <defs>
+          <marker id="arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="arch-legend">
+      <span><span class="swatch sync"></span> sync (blocking)</span>
+    </div>
+  </section>
+
+  <section id="deployment">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Deployment</h2>
+    </div>
+    <p class="lede">ECS Fargate, Aurora PostgreSQL — moderate volume, transactional, same engine as Order since a quote acceptance hands off to Order synchronously and both need to reason about consistency the same way.</p>
+
+    <span class="file-tab">modules/quotation-management/main.tf</span>
+    <pre><span class="c">// same single-writer-plus-standby shape as Order — see ADR-007</span>
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"quote_db"</span> {
+  cluster_identifier      = <span class="s">"quotation-mgmt-${var.environment}"</span>
+  engine                  = <span class="s">"aurora-postgresql"</span>
+  engine_version          = <span class="s">"15.4"</span>
+  master_username         = var.db_master_username
+  master_password         = var.db_master_password
+  backup_retention_period = <span class="k">7</span>
+}
+
+resource <span class="s">"aws_rds_cluster_instance"</span> <span class="s">"quote_db_writer"</span> {
+  cluster_identifier = aws_rds_cluster.quote_db.id
+  instance_class     = var.db_instance_class
+  engine             = aws_rds_cluster.quote_db.engine
+}
+
+module <span class="s">"quotation_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"quotation-management"</span>
+  image         = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  desired_count = var.task_count
+  cpu           = <span class="k">512</span>
+  memory        = <span class="k">1024</span>
+  autoscale_on  = <span class="s">"request_count"</span> <span class="c">// bursty around negotiation cycles, not steady load</span>
+}</pre>
+  </section>
+
+  <section id="scaling">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>Scaling &amp; region topology</h2>
+    </div>
+    <p class="lede">Quotation runs single-writer with a warm standby, the same bucket as Order Management, per <a href="../adr.html#adr-007">ADR-007</a>.</p>
+    <p>It lands in that bucket for the same reason as Order: it's transactional state that feeds directly into a synchronous order-creation call, and an active-active write topology would introduce the same conflict-resolution problem for negotiation state that it would for order state — which counter-offer is the current one if two regions accept writes independently. Autoscaling on request count handles the bursty traffic shape without changing the write topology.</p>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2>Decisions worth writing down</h2>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — add a negotiation-history companion table</span>
+      <h4><code>tbl_quote_negotiation_history</code> instead of overloading one mutable row</h4>
+      <p>The current model stores negotiation state as status fields on <code>tbl_quote_request</code>, which means every round of back-and-forth overwrites the last one — there's no record of the buyer's original ask, the seller's counter, or how the price moved between them. A companion history table that appends one row per exchange fixes this without changing what the parent request row means: the request stays the current state, the history table becomes the audit trail. This is worth doing before Quotation splits into its own service, not after, because retrofitting history onto live negotiation data is much harder than starting with it.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — opaque IDs instead of foreign keys across service boundaries</span>
+      <h4>Buyer, Seller, and Product references become resolved-via-API, not FKs</h4>
+      <p>Today's <code>QuoteRequest</code> foreign-keys BuyerUser, Seller, and ProductDetails directly because they all live in one database. Once Buyer, Seller, and Product become separate service databases under the service-boundary split, those foreign keys have nothing to point at — the target Quotation Management service stores each as an opaque ID and resolves it via a synchronous API call when it needs the actual buyer, seller, or product data. This is a direct, mechanical consequence of the boundary split, not a separate design choice.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; Quotation Management</span>
+    <span><a href="../index.html">Service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -17,6 +17,9 @@ import {
   Printer
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 // Mock data for reports
 const mockReports = {
@@ -78,8 +81,8 @@ const Reports = () => {
   const [selectedReport, setSelectedReport] = useState<ReportType>("sales");
   const [dateRange, setDateRange] = useState<DateRange>("month");
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
 
   const handleExport = (format: "pdf" | "excel" | "csv") => {
     toast.success(`Exporting report as ${format.toUpperCase()}`);
@@ -162,20 +165,62 @@ const Reports = () => {
                   </button>
                   <div className="border-t border-neutral-200 my-2"></div>
                   <div className="space-y-2">
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full h-9 px-3 text-sm rounded border border-neutral-200"
-                      placeholder="Start Date"
-                    />
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full h-9 px-3 text-sm rounded border border-neutral-200"
-                      placeholder="End Date"
-                    />
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={startDate}
+                        onChange={(newValue) => setStartDate(newValue)}
+                        format="dd/MM/yyyy"
+                        slotProps={{
+                          field: {
+                            clearable: true,
+                          },
+                          actionBar: {
+                            actions: ["clear"],
+                          },
+                          textField: {
+                            placeholder: "Start Date",
+                            size: "small",
+                            fullWidth: true,
+                            sx: {
+                              "& .MuiOutlinedInput-root": {
+                                height: "36px",
+                                fontSize: "0.875rem",
+                              },
+                              "& .clearButton": {
+                                opacity: "1 !important",
+                              },
+                            },
+                          },
+                        }}
+                      />
+                      <DatePicker
+                        value={endDate}
+                        onChange={(newValue) => setEndDate(newValue)}
+                        format="dd/MM/yyyy"
+                        slotProps={{
+                          field: {
+                            clearable: true,
+                          },
+                          actionBar: {
+                            actions: ["clear"],
+                          },
+                          textField: {
+                            placeholder: "End Date",
+                            size: "small",
+                            fullWidth: true,
+                            sx: {
+                              "& .MuiOutlinedInput-root": {
+                                height: "36px",
+                                fontSize: "0.875rem",
+                              },
+                              "& .clearButton": {
+                                opacity: "1 !important",
+                              },
+                            },
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
                     <button
                       onClick={() => { setDateRange("custom"); setShowDatePicker(false); }}
                       className="w-full px-3 py-2 bg-primary-900 text-white text-sm rounded hover:bg-primary-800"
@@ -398,7 +443,7 @@ const Reports = () => {
                 <div key={trx.id} className="flex items-center justify-between p-3 hover:bg-neutral-50 rounded-lg">
                   <div>
                     <p className="text-sm font-medium text-neutral-900">{trx.customer}</p>
-                    <p className="text-xs text-neutral-500">{trx.id} • {new Date(trx.date).toLocaleDateString()}</p>
+                    <p className="text-xs text-neutral-500">{trx.id} • {new Date(trx.date).toLocaleDateString('en-GB')}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-neutral-900">{trx.amount}</p>

@@ -1,0 +1,157 @@
+sequenceDiagram
+    autonumber
+    actor Seller
+    participant SignupUI as SignupForm.tsx<br/>(seller_7a3b9f2c/components)
+    participant RegisterUI as SellerRegister.tsx<br/>(seller_7a3b9f2c/components)
+    participant CoordUI as CoordinatorForm.tsx
+    participant AuthSvc as sellerAuthService<br/>(src/services/seller/authService.ts, uses lib/api.ts)
+    participant RegSvc as sellerRegService<br/>(sellerRegistrationService.ts)
+    participant SignupCtrl as SignupController<br/>(/auth/signup)
+    participant AuthCtrl as AuthenticationController<br/>(/authentication)
+    participant EmailOtpCtrl as TempSellerEmailOtpController<br/>(/temp-seller/email-otp)
+    participant SmsOtpCtrl as SMSOTPController<br/>(/otp) + Twilio Verify
+    participant TempCtrl as TempSellerController<br/>(/temp-sellers)
+    participant TempSvc as TempSellerServiceImpl
+    participant DB as tbl_temp_seller (+ address/<br/>coordinator/bankDetails/documents)
+    participant S3 as AWS S3<br/>(tempsellers/{REQ_ID}/...)
+    actor Admin
+    participant AdminCtrl as AdminSellerController<br/>(/admin/sellers/review)
+    participant ApprovalSvc as SellerApprovalServiceImpl
+    participant SellerDB as tbl_seller (+ child tables)
+
+    rect rgb(235,245,255)
+    note over Seller,SignupCtrl: Phase 1 — Signup-first identity (must precede any TempSeller)
+    Seller->>SignupUI: Enter fullName/email/password
+    SignupUI->>AuthSvc: sendSignupOtp()
+    AuthSvc->>SignupCtrl: POST /auth/signup
+    SignupCtrl-->>AuthSvc: OTP emailed
+    Seller->>SignupUI: Enter signup OTP
+    SignupUI->>AuthSvc: verifySignupOtp()
+    AuthSvc->>SignupCtrl: POST /auth/signup/verify-otp
+    SignupCtrl-->>AuthSvc: User created in tbl_user (no tokens issued)
+    note over Seller,AuthCtrl: Seller must now log in separately (2-step OTP login)
+    Seller->>AuthSvc: login(username,password)
+    AuthSvc->>AuthCtrl: POST /authentication/login
+    AuthCtrl-->>AuthSvc: password OK, login OTP emailed (tbl_login_otp)
+    Seller->>AuthSvc: verifyOtp(code)
+    AuthSvc->>AuthCtrl: POST /authentication/verify-otp
+    AuthCtrl-->>AuthSvc: accessToken + refreshToken (JWT, subject-only claims)
+    AuthSvc-->>AuthSvc: store accessToken/refreshToken/user in localStorage<br/>+ mirror "token" into document.cookie
+    end
+
+    rect rgb(255,248,235)
+    note over Seller,DB: Phase 2 — TempSeller registration wizard (SellerRegister.tsx, 5 steps)
+    Seller->>RegisterUI: Open wizard (embedded in OnboardingGate or standalone)
+    RegisterUI->>RegSvc: getTempSellerByUserId(userId)
+    RegSvc->>TempCtrl: GET /temp-sellers/user/{userId}
+    alt no prior draft (404)
+        TempCtrl-->>RegSvc: 404 Not Found (swallowed as "nothing to resume")
+    else DRAFT row exists
+        TempCtrl-->>RegSvc: TempSeller row (status=DRAFT)
+        RegSvc-->>RegisterUI: resume formData + tempSellerId
+    end
+
+    Seller->>CoordUI: Enter coordinator email/mobile
+    CoordUI->>RegSvc: sendEmailOtp({email})
+    RegSvc->>EmailOtpCtrl: POST /temp-seller/email-otp/send
+    EmailOtpCtrl-->>RegSvc: 6-digit code emailed (tbl_temp_seller_email_otp, 5 min expiry)
+    Seller->>CoordUI: Enter emailed OTP
+    CoordUI->>RegSvc: verify email OTP
+    RegSvc->>EmailOtpCtrl: POST /temp-seller/email-otp/verify
+    EmailOtpCtrl-->>CoordUI: verified=true (self-hosted check, no attempt-lock)
+
+    CoordUI->>RegSvc: sendSMSOtp({phone})
+    RegSvc->>SmsOtpCtrl: POST /otp/send
+    SmsOtpCtrl->>SmsOtpCtrl: Twilio Verify sends SMS (PhoneOTP audit row, 5 min)
+    Seller->>CoordUI: Enter SMS OTP
+    CoordUI->>RegSvc: verify SMS OTP
+    RegSvc->>SmsOtpCtrl: POST /otp/verify
+    SmsOtpCtrl->>SmsOtpCtrl: Twilio VerificationCheck.setCode() (server stores no code)
+    SmsOtpCtrl-->>CoordUI: verified=true
+
+    opt Seller clicks "Save Draft" at any step
+        RegisterUI->>RegSvc: createDraftTempSeller() / updateDraftTempSeller()
+        RegSvc->>TempCtrl: POST /temp-sellers/draft  or  PUT /temp-sellers/draft/{id}
+        TempCtrl->>TempSvc: saveDraft(tempSellerId, dto)  [no @Valid, no SellerTypeFieldValidator]
+        TempSvc->>DB: INSERT/UPDATE status=DRAFT (bad master-data ids logged & skipped, not thrown)
+        DB-->>TempSvc: tempSellerId
+        TempSvc-->>RegisterUI: TempSellerResponseDTO
+    end
+
+    Seller->>RegisterUI: Complete all 5 steps, click Submit
+    RegisterUI->>RegSvc: createTempSeller(request)  OR  finalizeDraftTempSeller(tempSellerId, request)
+    alt no existing draft
+        RegSvc->>TempCtrl: POST /temp-sellers  (@Valid full TempSellerRequestDTO)
+        TempCtrl->>TempSvc: createTempSeller(dto)
+        TempSvc->>TempSvc: resolveAuthenticatedUser() — reads SecurityContext<br/>(AuthTokenFilter-populated); throws 401 if no valid Bearer JWT
+        TempSvc->>TempSvc: sellerTypeFieldValidator.validate() (hard-throws on bad master refs)
+    else existing DRAFT row
+        RegSvc->>TempCtrl: POST /temp-sellers/draft/{tempSellerId}/finalize (@Valid)
+        TempCtrl->>TempSvc: finalizeDraft(tempSellerId, dto)
+        TempSvc->>TempSvc: guard: current status must be DRAFT, else throw
+        TempSvc->>TempSvc: sellerTypeFieldValidator.validate() (same full validation as create)
+    end
+    TempSvc->>DB: persist TempSeller + address + coordinator + bankDetails<br/>+ documents (status = OPEN)
+    TempSvc-->>TempSvc: sendConfirmationEmail() via IndependentEmailService (SMTP)
+    TempSvc-->>RegisterUI: TempSellerResponseDTO {tempSellerId, sellerRequestId, status:"OPEN"}
+
+    RegisterUI->>RegSvc: getTempSellerById(tempSellerId)
+    RegSvc->>TempCtrl: GET /temp-sellers/{id}
+    TempCtrl-->>RegisterUI: full row incl. per-document ids (for file-upload targeting)
+
+    RegisterUI->>RegSvc: uploadDocuments(tempSellerId, multipart)
+    RegSvc->>TempCtrl: POST /temp-sellers/{tempSellerId}/documents/upload<br/>(sellerImage, gstFile, bankFile, companyRegistrationCertificate,<br/>authorizationLetter, licenseFiles[]+licenseNames[]+documentIds[])
+    TempCtrl->>S3: store each file under tempsellers/{REQ_ID}/{gst|bankdocument|<br/>companyregistrationcertificate|authorizationletter|licenses|sellerimage}/...
+    S3-->>TempCtrl: S3 URLs
+    TempCtrl-->>DB: replace "PENDING" placeholder URLs with real S3 URLs
+    TempCtrl-->>RegisterUI: upload success
+    RegisterUI-->>Seller: Success modal — "Application submitted" (status still OPEN)
+    note over RegisterUI,TempCtrl: If document upload fails, RegisterUI calls<br/>DELETE /temp-sellers/{id} to roll back the just-created row
+    end
+
+    rect rgb(255,238,238)
+    note over Admin,SellerDB: Phase 3 — Admin review (AdminSellerController / SellerApprovalServiceImpl)
+    Admin->>AdminCtrl: POST /admin/sellers/review<br/>{id, status: ACCEPT | REJECT | CORRECTION, comments}
+    AdminCtrl->>ApprovalSvc: processReview(request)
+    alt status = CORRECTION
+        ApprovalSvc->>DB: tempSeller.status = CORRECTION_REQUIRED
+        ApprovalSvc->>ApprovalSvc: saveReviewHistory(CORRECTION_REQUIRED) [tbl_temp_seller_review_history]
+        ApprovalSvc-->>Seller: HTML email with correction link (ADMIN_FRONTEND_URL/SellerCorrection/...)
+        note over Seller,TempCtrl: Seller edits via PUT /temp-sellers/{id} (updateTempSeller)<br/>— only allowed from CORRECTION_REQUIRED (throws for APPROVED/<br/>REJECTED/RESUBMITTED/OPEN) — sets status = RESUBMITTED,<br/>looping back to Admin review
+    else status = REJECT
+        ApprovalSvc->>DB: tempSeller.status = REJECTED
+        ApprovalSvc->>ApprovalSvc: saveReviewHistory(REJECTED)
+        ApprovalSvc-->>Seller: HTML rejection email with reasons
+    else status = ACCEPT
+        ApprovalSvc->>ApprovalSvc: handleApproval(tempSeller, comments)
+        ApprovalSvc->>ApprovalSvc: signupUser = tempSeller.getUser();<br/>throw ApplicationException if null (no orphaned-row auto-fix)
+        ApprovalSvc->>ApprovalSvc: generateSellerId(): [2 chars sellerName][3 chars<br/>sellerTypeAbbreviation][4-digit global seq]<br/>via pg_advisory_xact_lock(12345) + MAX(sequence)+1
+        ApprovalSvc->>SellerDB: PHASE 1 — INSERT Seller + SellerAddress + SellerCoordinator<br/>+ SellerBankDetails + SellerGST + SellerDocument rows,<br/>still pointing at OLD tempsellers/{REQ_ID}/... S3 URLs;<br/>seller.status="APPROVED", approvedAt=now, user=signupUser
+        ApprovalSvc->>DB: tempSeller.status = APPROVED (flipped immediately after<br/>Phase 1, BEFORE any email/PDF I/O — non-atomic by design)
+        ApprovalSvc->>ApprovalSvc: saveReviewHistory(APPROVED)
+        ApprovalSvc->>S3: PHASE 2 — copy each file tempsellers/{REQ_ID}/... →<br/>sellers/{SELLER_ID}/{sellerimage|gst|bankdocument|<br/>licenses|companyregistrationcertificate}/..., then delete old object<br/>(best-effort: failures logged, never roll back the approval)
+        S3-->>SellerDB: update SellerDocument/SellerGST/SellerBankDetails<br/>URLs to new sellers/{SELLER_ID}/... paths
+        ApprovalSvc->>ApprovalSvc: sendApprovalAgreementEmail() — fetch SellerTerms PDF,<br/>email seller ID + login link (try/catch: failure never<br/>undoes the already-committed approval)
+        ApprovalSvc-->>Seller: Approval email with Seller ID + PDF agreement attached<br/>("log in using the email/password you created during signup" —<br/>no new credentials are issued at approval time)
+    end
+    ApprovalSvc-->>AdminCtrl: SellerApprovalResultDTO {tempSellerId, userId, sellerId, status}
+    end
+
+    rect rgb(235,255,238)
+    note over Seller,SellerDB: Phase 4 — First dashboard access post-approval
+    Seller->>AuthSvc: login(username,password) [/authentication/login]
+    AuthSvc->>AuthSvc: verifyOtp(code) [/authentication/verify-otp] → accessToken/refreshToken stored
+    Seller->>RegisterUI: Navigate to /seller_7a3b9f2c/dashboard
+    note over RegisterUI: seller_7a3b9f2c/layout.tsx guard: checks localStorage<br/>accessToken + refreshToken + sellerAuthService.isAuthenticated();<br/>redirects to /?showLogin=true if any are missing
+    RegisterUI->>RegSvc: useSellerOnboardingStatus() → sellerProfileService.getCurrentSellerProfile()
+    RegSvc->>SellerDB: GET /sellers/user/{userId}
+    alt Seller row exists (approved)
+        SellerDB-->>RegSvc: 200 SellerProfile
+        RegSvc-->>RegisterUI: status = "approved"
+        RegisterUI-->>Seller: OnboardingGate shows one-time "Registration Complete" screen<br/>(dismiss sets localStorage sellerRegistrationCompleteSeen_{userId})<br/>then renders the real dashboard Overview
+    else no Seller row yet
+        SellerDB-->>RegSvc: 404 (falls back to GET /temp-sellers/user/{userId})
+        RegSvc-->>RegisterUI: status = "pending" (or "draft" if TempSeller.status=DRAFT)
+        RegisterUI-->>Seller: OnboardingGate shows "Application Under Review" (blocks dashboard)
+    end
+    end

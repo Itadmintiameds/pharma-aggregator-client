@@ -6,6 +6,7 @@ import {
   TempSellerRequest,
   TempSellerResponse,
   TempSellerAdminResponse,
+  TempSellerDraftRequest,
   ApiResponse,
   EmailOtpSendRequest,
   EmailOtpVerifyRequest,
@@ -51,6 +52,74 @@ class SellerRegService {
     }
   }
 
+  // ==================== SELLER REGISTRATION DRAFTS ====================
+
+  async createDraftTempSeller(data: TempSellerDraftRequest): Promise<{ tempSellerId: number; [key: string]: unknown }> {
+    try {
+      console.log("📡 Creating draft temp seller with data:", data);
+
+      const response = await api.post<ApiResponseWrapper<{ tempSellerId: number; [key: string]: unknown }>>('/temp-sellers/draft', data);
+
+      console.log("✅ Raw draft response:", response);
+      const draftData = response.data?.data;
+
+      if (!draftData) {
+        throw new Error("No data received from server");
+      }
+
+      console.log("✅ Extracted draft data:", draftData);
+
+      return draftData;
+    } catch (error) {
+      console.error('❌ Error creating draft temp seller:', error);
+      throw error;
+    }
+  }
+
+  async updateDraftTempSeller(id: number, data: TempSellerDraftRequest): Promise<{ tempSellerId: number; [key: string]: unknown }> {
+    try {
+      console.log(`📡 Updating draft temp seller ${id} with data:`, data);
+
+      const response = await api.put<ApiResponseWrapper<{ tempSellerId: number; [key: string]: unknown }>>(`/temp-sellers/draft/${id}`, data);
+
+      console.log("✅ Raw draft update response:", response);
+      const draftData = response.data?.data;
+
+      if (!draftData) {
+        throw new Error("No data received from server");
+      }
+
+      console.log("✅ Extracted draft data:", draftData);
+
+      return draftData;
+    } catch (error) {
+      console.error(`❌ Error updating draft temp seller ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async finalizeDraftTempSeller(id: number, data: TempSellerRequest): Promise<TempSellerResponse> {
+    try {
+      console.log(`📡 Finalizing draft temp seller ${id} with data:`, data);
+
+      const response = await api.post<ApiResponseWrapper<TempSellerResponse>>(`/temp-sellers/draft/${id}/finalize`, data);
+
+      console.log("✅ Raw finalize response:", response);
+      const sellerData = response.data?.data;
+
+      if (!sellerData) {
+        throw new Error("No data received from server");
+      }
+
+      console.log("✅ Extracted finalized seller data:", sellerData);
+
+      return sellerData;
+    } catch (error) {
+      console.error(`❌ Error finalizing draft temp seller ${id}:`, error);
+      throw error;
+    }
+  }
+
   async getAllTempSellers(): Promise<ApiResponse<TempSellerAdminResponse[]>> {
     try {
       const response = await api.get<ApiResponseWrapper<TempSellerAdminResponse[]>>('/temp-sellers');
@@ -73,6 +142,24 @@ class SellerRegService {
       return response.data.data; // Return the unwrapped data
     } catch (error) {
       console.error(`Error fetching temp seller ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async getTempSellerByUserId(userId: number): Promise<any> {
+    try {
+      const response = await api.get<ApiResponseWrapper<any>>(`/temp-sellers/user/${userId}`);
+      return response.data.data;
+    } catch (error) {
+      // A 404 here just means this user never submitted a TempSeller
+      // registration — an expected state (checked by routeAuthenticatedSeller
+      // to decide between "pending" and "register"), not an error worth
+      // surfacing as one.
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        console.log(`ℹ️ No temp seller yet for user ${userId}`);
+      } else {
+        console.error(`Error fetching temp seller for user ${userId}:`, error);
+      }
       throw error;
     }
   }
@@ -121,12 +208,15 @@ async verifyEmailOtp(
 /**
  * Check if coordinator email already exists in the system
  */
-async checkCoordinatorEmail(email: string): Promise<boolean> {
+async checkCoordinatorEmail(email: string, excludeTempSellerId?: number | null): Promise<boolean> {
   try {
     console.log(`📡 Checking if coordinator email exists: ${email}`);
-    
+
     const response = await api.get<any>('/temp-sellers/coordinator/check-email', {
-      params: { email }
+      // excludeTempSellerId keeps this from flagging the email the seller
+      // already saved on their OWN in-progress draft as a duplicate when
+      // they re-visit this step (see backend TempSellerCoordinatorService).
+      params: { email, tempSellerId: excludeTempSellerId ?? undefined }
     });
     
     console.log("✅ Email check response:", response.data);
@@ -196,13 +286,13 @@ async verifySMSOtp(data: SMSVerifyOtpRequest): Promise<SMSOtpResponse> {
     return Promise.reject({ message });
   }
 }
-async checkCoordinatorPhone(phone: string): Promise<boolean> {
+async checkCoordinatorPhone(phone: string, excludeTempSellerId?: number | null): Promise<boolean> {
   try {
     const cleanPhone = phone.replace(/\D/g, '');
-    
+
     console.log(`📡 Checking if coordinator phone exists: ${cleanPhone}`);
     const response = await api.get<any>('/temp-sellers/coordinator/check-phone', {
-      params: { mobile: cleanPhone }
+      params: { mobile: cleanPhone, tempSellerId: excludeTempSellerId ?? undefined }
     });
     
     console.log("✅ Phone check response:", response.data);

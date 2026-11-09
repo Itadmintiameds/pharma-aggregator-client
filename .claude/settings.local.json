@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"d:/Tiameds_MarketPlace/Backend/pharma-aggregator-server/src/main/java\" -iname \"PackagingDetails*.java\" -o -iname \"*PackagingDto*.java\" 2>/dev/null)",
+      "Read(//d/Tiameds_MarketPlace/Backend/pharma-aggregator-server/src/main/java/**)",
+      "Bash(ls \"d:/Tiameds_MarketPlace/Backend/pharma-aggregator-server\" 2>&1 | head -20)",
+      "Read(//d/Tiameds_MarketPlace/Backend/pharma-aggregator-server/**)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git stash *)",
+      "Bash(echo \"TSC_EXIT:$?\")"
+    ]
+  }
+}

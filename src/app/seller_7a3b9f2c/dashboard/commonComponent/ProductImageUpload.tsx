@@ -31,10 +31,26 @@ export default function ProductImageUpload({
   maxFiles = 5,
   inputId = "fileInput",
 }: ProductImageUploadProps) {
+  const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
 
-    const newFiles = Array.from(e.target.files);
+    const selectedFiles = Array.from(e.target.files);
+    const oversizedFiles = selectedFiles.filter((f) => f.size > MAX_FILE_SIZE);
+    const newFiles = selectedFiles.filter((f) => f.size <= MAX_FILE_SIZE);
+
+    if (oversizedFiles.length > 0) {
+      setErrors?.((prev: any) => ({
+        ...prev,
+        images: `${oversizedFiles.map((f) => f.name).join(", ")} exceed${oversizedFiles.length === 1 ? "s" : ""} the 2 MB size limit`,
+      }));
+    }
+
+    if (newFiles.length === 0) {
+      e.target.value = "";
+      return;
+    }
 
     const totalFiles = images.length + existingImages.length + newFiles.length;
 
@@ -55,12 +71,15 @@ export default function ProductImageUpload({
       return;
     }
 
-    setErrors?.((prev: any) => ({
-      ...prev,
-      images: "",
-    }));
+    if (oversizedFiles.length === 0) {
+      setErrors?.((prev: any) => ({
+        ...prev,
+        images: "",
+      }));
+    }
 
     setImages((prev) => [...prev, ...newFiles]);
+    e.target.value = "";
   };
 
   return (

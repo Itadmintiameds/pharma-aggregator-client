@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   FaUserPlus,
   FaBox,
@@ -15,26 +16,44 @@ import {
   FaArrowRight,
 } from "react-icons/fa";
 
-import SellerRegister from "./SellerRegister";
 import ProductOnboarding from "./ProductOnboarding";
 import SellerDeclaration from "./SellerDeclaration";
+import SellerRegister from "./SellerRegister";
 import DrugProductList from "./DrugProductList";
+import LoginModals from "@/src/app/modals/LoginModals/LoginModals";
+import { useSellerOnboardingStatus } from "@/src/hooks/useSellerOnboardingStatus";
 
 const SellerJourney = () => {
-  const [showRegister, setShowRegister] = useState(false);
+  const router = useRouter();
+  const { status } = useSellerOnboardingStatus();
   const [showProductOnboarding, setShowProductOnboarding] = useState(false);
   const [showDeclaration, setShowDeclaration] = useState(false);
   const [showProductList, setShowProductList] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  // Only for a brand-new visitor starting signup from this marketing page —
+  // SellerRegister's own SignupForm step handles account creation before any
+  // session exists, so it has to render here rather than behind the
+  // dashboard's auth guard. The moment that signup makes them authenticated,
+  // the redirect effect below takes over and sends them to the dashboard to
+  // continue the same wizard (resumed from their now-existing TempSeller draft).
+  const [showRegisterFlow, setShowRegisterFlow] = useState(false);
+
+  // Any authenticated seller — regardless of registration/approval status —
+  // now lands on the dashboard, which owns the onboarding wizard/pending
+  // gate itself. This marketing page only ever renders for guests.
+  useEffect(() => {
+    if (status !== "guest" && status !== "checking") {
+      router.replace("/seller_7a3b9f2c/dashboard");
+    }
+  }, [status, router]);
 
   const handleSellerLogin = () => {
-    alert(
-      "Seller login is currently under maintenance. Please try again later.",
-    );
+    setShowLoginModal(true);
   };
 
   const handleAcceptDeclaration = () => {
     setShowDeclaration(false);
-    setShowRegister(true);
+    setShowRegisterFlow(true);
   };
 
   const handleCloseDeclaration = () => {
@@ -117,10 +136,31 @@ const SellerJourney = () => {
     { value: "10K+", label: "Active Sellers" },
   ];
 
-  if (showRegister) {
+  // Brief spinner while we resolve which of the two seller tables (if any)
+  // has this user's data — never the marketing/login page, so a returning
+  // seller can't accidentally hit "Register" or "Login" mid-check.
+  if (status === "checking") {
     return (
-      <div className="min-h-screen bg-primary-100 pt-4">
+      <div className="min-h-screen bg-primary-100 pt-20 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-primary-200 border-t-primary-700 animate-spin" />
+      </div>
+    );
+  }
+
+  if (showRegisterFlow && status === "guest") {
+    return (
+      <div className="min-h-screen bg-primary-100 pt-20">
         <SellerRegister />
+      </div>
+    );
+  }
+
+  // Any other non-guest status is mid-redirect (see effect above) — keep
+  // showing the spinner rather than flashing the marketing page.
+  if (status !== "guest") {
+    return (
+      <div className="min-h-screen bg-primary-100 pt-20 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-primary-200 border-t-primary-700 animate-spin" />
       </div>
     );
   }
@@ -134,6 +174,12 @@ const SellerJourney = () => {
           onClose={handleCloseDeclaration}
         />
       )}
+
+      {/* Login Modal */}
+      <LoginModals
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+      />
 
       <div className="relative py-12 lg:py-14 mt-16">
         {/* Why Choose TiaMeds with CTA Buttons */}

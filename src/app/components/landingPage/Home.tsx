@@ -6,9 +6,7 @@ import { useSearchParams } from "next/navigation";
 import LandingHeader from "./LandingHeader";
 import HeroSection from "./HeroSection";
 import Footer from "./Footer";
-import TrendingProducts from "./TrendingProducts";
-import TopRated from "./TopRated";
-import Deals from "./Deals";
+import ProductGrid from "./ProductGrid";
 import FeatureBrands from "./FeatureBrands";
 import LoginModal from "../../modals/LoginModals/LoginModals";
 import toast from "react-hot-toast";
@@ -58,20 +56,23 @@ const Home = () => {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <LandingHeader onLoginClick={() => setIsLoginOpen(true)} />
+      {/* Header — kept outside the zoomed wrapper below so it stays at normal size */}
+      <LandingHeader />
 
-      {/* Main Content */}
-      <main className="pt-38">
-        <HeroSection />
-        <Deals />
-        <FeatureBrands />
-        <TrendingProducts />
-        <TopRated />
-      </main>
+      {/* `zoom` gives a mild zoom-in (like Ctrl + in the browser) to everything below the
+          header, without breaking layout/media queries the way `transform: scale()` would.
+          Supported in Chrome/Edge/Safari; adjust the value here to change the zoom amount. */}
+      <div style={{ zoom: 1.18 }}>
+        {/* Main Content */}
+        <main className="pt-38">
+          <HeroSection />
+          <FeatureBrands />
+          <ProductGrid />
+        </main>
 
-      {/* Footer */}
-      <Footer />
+        {/* Footer */}
+        <Footer />
+      </div>
 
       {/* Login Modal - Only opens when ?showLogin=true is present */}
       <LoginModal

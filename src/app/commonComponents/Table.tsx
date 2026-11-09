@@ -10,6 +10,7 @@ interface TableProps<T> {
   data: T[];
   loading?: boolean;
   actions?: (row: T) => React.ReactNode;
+  onRowClick?: (row: T) => void;
 }
 
 function Table<T extends object>({
@@ -17,13 +18,14 @@ function Table<T extends object>({
   data,
   loading = false,
   actions,
+  onRowClick,
 }: TableProps<T>) {
   return (
     <div className="w-full overflow-x-auto border border-pneutral-200 rounded-xl font-open-sans">
       <table className="min-w-full text-sm bg-white">
         
         {/* Table Head */}
-        <thead className="text-label-l4 text-black bg-pneutral-50 h-13.5">
+        <thead className="text-label-l4 text-pneutral-50 bg-secondary-600 h-13.5 sticky top-0 z-10">
           <tr>
             {columns.map((col, index) => (
               <th
@@ -64,7 +66,10 @@ function Table<T extends object>({
             data.map((row, rowIndex) => (
               <tr
                 key={rowIndex}
-                className="border-t border-neutral-200 hover:bg-neutral-50"
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={`border-t border-neutral-200 hover:bg-neutral-50 ${
+                  onRowClick ? "cursor-pointer" : ""
+                }`}
               >
                 {columns.map((col, colIndex) => (
                   <td key={colIndex} className="px-4 py-3 whitespace-nowrap text-label-l4 font-normal h-14">
@@ -75,7 +80,12 @@ function Table<T extends object>({
                 ))}
 
                 {actions && (
-                  <td className="px-4 py-3">{actions(row)}</td>
+                  <td
+                    className="px-4 py-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {actions(row)}
+                  </td>
                 )}
               </tr>
             ))

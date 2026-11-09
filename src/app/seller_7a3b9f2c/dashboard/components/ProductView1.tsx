@@ -32,12 +32,35 @@ import {
   getCosmeticNetQuantityUnits,
   getCosmeticProductForms,
 } from "@/src/services/product/CosmeticService";
+import Table, { Column } from "@/src/app/commonComponents/Table";
+import { toast } from "react-toastify";
+import StockUpdateModal from "./StockUpdateModal";
+import BatchStockUpdateModal from "./BatchStockUpdateModal";
+import DamagedStockModal from "./DamagedStockModal";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
+import {
+  getAvailableBatches,
+  deleteBatch,
+  type BatchAvailability,
+} from "@/src/services/product/StockService";
 import SupplementDetailsView from "./SupplementDetailsView";
 import ConsumableView from "./ConsumableView";
 import NonConsumableView from "./NonConsumableView";
 import CosmeticPersonalCareView from "./CosmeticView";
 import FoodInfantView from "./FoodInfantView";
-import { FileText } from "lucide-react";
+import { FileText, Eye, X } from "lucide-react";
+import { downloadProductImage } from "@/src/utils/downloadImage";
+import {
+  editKeyForProduct,
+  resolveProductCategoryId,
+} from "@/src/utils/productRouting";
+import {
+  getSupplementDosageForms,
+  getSupplementFlavours,
+  getSupplementAgeGroups,
+  getNetQuantityUnits as getSupplementNetQuantityUnits,
+  getServingSizeUnits as getSupplementServingSizeUnits,
+} from "@/src/services/product/SupplementService";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -57,6 +80,7 @@ interface ProductImage {
 }
 
 interface PackagingDetails {
+  packagingId?: string;
   packSize?: number;
   packId?: number;
   packType?: string;
@@ -70,6 +94,8 @@ interface PackagingDetails {
 }
 
 interface PricingDetails {
+  pricingId?: string;
+  packagingId?: string;
   finalPrice?: number | null;
   sellingPrice?: number;
   mrp?: number;
@@ -79,12 +105,16 @@ interface PricingDetails {
   manufacturingDate?: string;
   expiryDate?: string | null;
   stockQuantity?: number;
+  // Units that came back damaged on buyer returns — not part of stockQuantity, never sold.
+  damagedQuantity?: number | null;
   additionalDiscounts?: AdditionalDiscount[];
   specialSchemes?: any[];
   gstPercentage?: string | number;
   hsnCode?: string | number;
   shelfLifeMonths?: number | null;
   dateOfStockEntry?: string;
+  deletedBy?: string | null;
+  deletedAt?: string | null;
 }
 
 interface AdditionalDiscount {
@@ -290,6 +320,7 @@ interface ProductApiData {
   gstPercentage?: string | number;
   hsnCode?: string;
   specialOffers?: SpecialOffer[];
+  status?: "DRAFT" | "PUBLISHED" | "UNPUBLISHED";
 }
 
 export interface SpecialOffer {
@@ -421,20 +452,390 @@ const formatStrength = (s?: string | number | null): string => {
 const validUrl = (url?: string | null): string | null => {
   if (!url) return null;
   const t = url.trim().toUpperCase();
-  if (["", "PENDING", "NOT_UPLOADED"].includes(t)) return null;
+  if (["", "PENDING", "NOT_UPLOADED", "TO_UPLOAD", "NULL", "UNDEFINED"].includes(t) || t.startsWith("BLOB:")) return null;
   return url.trim();
 };
+
+// product-service names these minQty / discountPercentage; the view components read
+// minimumPurchaseQuantity / additionalDiscountPercentage.
+const normalizeDiscounts = (list: any): any[] =>
+  (Array.isArray(list) ? list : []).map((d: any) => ({
+    ...d,
+    minimumPurchaseQuantity: d?.minimumPurchaseQuantity ?? d?.minQty,
+    additionalDiscountPercentage:
+      d?.additionalDiscountPercentage ?? d?.discountPercentage,
+  }));
 
 const formatDate = (dateStr?: string | null): string => {
   if (!dateStr) return "—";
   try {
-    return new Date(dateStr).toLocaleDateString("en-IN", {
+    return new Date(dateStr).toLocaleDateString("en-GB", {
+      day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
   } catch {
     return dateStr;
   }
+};
+
+const getBatchStatus = (expiryDate?: string | null) => {
+  if (!expiryDate) return { label: "Active", bg: "#DCFCE7", color: "#15803D" };
+  const expiry = new Date(expiryDate);
+  if (isNaN(expiry.getTime()))
+    return { label: "Active", bg: "#DCFCE7", color: "#15803D" };
+  const monthsLeft =
+    (expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30);
+  if (monthsLeft < 0) return { label: "Expired", bg: "#FEE2E2", color: "#B91C1C" };
+  if (monthsLeft <= 6)
+    return { label: "Near Expiry", bg: "#FEF3C7", color: "#92400E" };
+  return { label: "Active", bg: "#DCFCE7", color: "#15803D" };
+};
+
+const DetailRow = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) => (
+  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+    <span style={{ fontSize: 13, color: "#5A5B58" }}>{label}</span>
+    <span
+      style={{
+        fontSize: 13,
+        fontWeight: 600,
+        color: "#1E1E1D",
+        textAlign: "right",
+      }}
+    >
+      {value ?? "—"}
+    </span>
+  </div>
+);
+
+const DetailCard = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
+  <div
+    style={{
+      border: "1px solid #D5D5D4",
+      borderRadius: 12,
+      padding: 16,
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+    }}
+  >
+    <p
+      style={{
+        margin: "0 0 4px",
+        fontSize: 14,
+        fontWeight: 600,
+        color: "#1E1E1D",
+        fontFamily: "'Work Sans', sans-serif",
+      }}
+    >
+      {title}
+    </p>
+    {children}
+  </div>
+);
+
+const BatchDetailModal = ({
+  batch,
+  variant,
+  onClose,
+  fallbackGstPercentage,
+  fallbackHsnCode,
+  fallbackShelfLifeMonths,
+  fallbackPackTypeName,
+}: {
+  batch: PricingDetails;
+  variant?: PackagingDetails;
+  onClose: () => void;
+  fallbackGstPercentage?: string | number | null;
+  fallbackHsnCode?: string | number | null;
+  fallbackShelfLifeMonths?: number | null;
+  fallbackPackTypeName?: string | null;
+}) => {
+  const status = getBatchStatus(batch.expiryDate);
+  const additionalDiscounts = normalizeDiscounts(batch.additionalDiscounts);
+  const specialSchemes = batch.specialSchemes ?? [];
+  const finalPrice =
+    batch.finalPrice ??
+    (batch.sellingPrice != null && batch.discountPercentage != null
+      ? batch.sellingPrice - (batch.sellingPrice * batch.discountPercentage) / 100
+      : (batch.sellingPrice ?? batch.mrp ?? null));
+  const gstPercentage = batch.gstPercentage ?? fallbackGstPercentage ?? null;
+  const hsnCode = batch.hsnCode ?? fallbackHsnCode ?? null;
+  const shelfLifeMonths = (() => {
+    if (batch.manufacturingDate && batch.expiryDate) {
+      const mfg = new Date(batch.manufacturingDate);
+      const exp = new Date(batch.expiryDate);
+      if (!isNaN(mfg.getTime()) && !isNaN(exp.getTime()) && exp > mfg) {
+        const months =
+          (exp.getFullYear() - mfg.getFullYear()) * 12 +
+          (exp.getMonth() - mfg.getMonth()) +
+          (exp.getDate() >= mfg.getDate() ? 0 : -1);
+        return Math.max(months, 0);
+      }
+    }
+    return batch.shelfLifeMonths ?? fallbackShelfLifeMonths ?? null;
+  })();
+
+  return (
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        background: "rgba(28, 25, 23, 0.45)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 640,
+          maxHeight: "90vh",
+          overflowY: "auto",
+          background: "white",
+          borderRadius: 16,
+          boxShadow:
+            "0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
+          fontFamily: "'Noto Sans', sans-serif",
+        }}
+      >
+        <div
+          style={{
+            padding: "24px 24px 16px",
+            borderBottom: "1px solid #D5D5D4",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 20,
+                fontWeight: 600,
+                color: "#1E1E1D",
+                fontFamily: "'Work Sans', sans-serif",
+              }}
+            >
+              Batch &amp; Variant Details
+            </h2>
+            <p style={{ margin: 0, fontSize: 13, color: "#5A5B58" }}>
+              Batch: {batch.batchLotNumber || "—"}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "#5A5B58",
+              padding: 4,
+              borderRadius: 6,
+            }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div
+          style={{
+            padding: 24,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
+          <DetailCard title="Batch Information">
+            <DetailRow label="Pricing ID" value={batch.pricingId} />
+            <DetailRow label="Batch / Lot Number" value={batch.batchLotNumber} />
+            <DetailRow
+              label="Manufacturing Date"
+              value={formatDate(batch.manufacturingDate)}
+            />
+            <DetailRow
+              label="Expiry Date"
+              value={formatDate(batch.expiryDate)}
+            />
+            <DetailRow
+              label="Date of Stock Entry"
+              value={formatDate(batch.dateOfStockEntry)}
+            />
+            <DetailRow
+              label="Available Stock"
+              value={
+                batch.stockQuantity != null
+                  ? batch.stockQuantity.toLocaleString()
+                  : "—"
+              }
+            />
+            <DetailRow
+              label="Damaged Stock (Returns)"
+              value={(batch.damagedQuantity ?? 0).toLocaleString()}
+            />
+            <DetailRow
+              label="Status"
+              value={
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "2px 10px",
+                    borderRadius: 999,
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    background: status.bg,
+                    color: status.color,
+                  }}
+                >
+                  {status.label}
+                </span>
+              }
+            />
+          </DetailCard>
+
+          <DetailCard title="Pricing & Discounts">
+            <DetailRow
+              label="MRP"
+              value={batch.mrp != null ? `₹${batch.mrp}` : "—"}
+            />
+            <DetailRow
+              label="Selling Price"
+              value={batch.sellingPrice != null ? `₹${batch.sellingPrice}` : "—"}
+            />
+            <DetailRow
+              label="Final Price"
+              value={finalPrice != null ? `₹${finalPrice}` : "—"}
+            />
+            <DetailRow
+              label="Discount %"
+              value={`${batch.discountPercentage ?? 0}%`}
+            />
+            <DetailRow label="GST %" value={gstPercentage != null ? `${gstPercentage}%` : "—"} />
+            <DetailRow label="HSN Code" value={hsnCode ?? "—"} />
+            <DetailRow
+              label="Shelf Life"
+              value={
+                shelfLifeMonths != null
+                  ? `${shelfLifeMonths} months`
+                  : "—"
+              }
+            />
+          </DetailCard>
+
+          {additionalDiscounts.length > 0 && (
+            <DetailCard title="Special Discounts">
+              {additionalDiscounts.map((d, i) => (
+                <div
+                  key={d.additionalDiscountId ?? i}
+                  style={{
+                    borderTop: i > 0 ? "1px solid #EFEFEE" : "none",
+                    paddingTop: i > 0 ? 10 : 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  <DetailRow
+                    label="Minimum Purchase Quantity"
+                    value={d.minimumPurchaseQuantity}
+                  />
+                  <DetailRow
+                    label="Discount %"
+                    value={
+                      d.additionalDiscountPercentage != null
+                        ? `${d.additionalDiscountPercentage}%`
+                        : "—"
+                    }
+                  />
+                </div>
+              ))}
+            </DetailCard>
+          )}
+
+          {specialSchemes.length > 0 && (
+            <DetailCard title="Special Schemes">
+              {specialSchemes.map((s, i) => (
+                <div
+                  key={s.specialSchemesId ?? i}
+                  style={{
+                    borderTop: i > 0 ? "1px solid #EFEFEE" : "none",
+                    paddingTop: i > 0 ? 10 : 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  <DetailRow label="Scheme Name" value={s.schemeName} />
+                  <DetailRow label="Buy Quantity" value={s.buyQuantity} />
+                  <DetailRow label="Free Quantity" value={s.freeQuantity} />
+                </div>
+              ))}
+            </DetailCard>
+          )}
+
+          <DetailCard title="Variant / Packaging Information">
+            {variant ? (
+              <>
+                <DetailRow label="Packaging ID" value={variant.packagingId} />
+                <DetailRow
+                  label="Pack Type"
+                  value={
+                    variant.packType ||
+                    variant.packTypeName ||
+                    fallbackPackTypeName ||
+                    (variant.packId != null ? `Pack #${variant.packId}` : null)
+                  }
+                />
+                <DetailRow
+                  label="Unit Per Pack"
+                  value={variant.unitPerPack ?? variant.unitsPerPack}
+                />
+                <DetailRow
+                  label="Number of Packs"
+                  value={variant.numberOfPacks ?? variant.numberOfUnits}
+                />
+                <DetailRow label="Pack Size" value={variant.packSize} />
+                <DetailRow
+                  label="Minimum Order Quantity"
+                  value={variant.minimumOrderQuantity}
+                />
+                <DetailRow
+                  label="Maximum Order Quantity"
+                  value={variant.maximumOrderQuantity}
+                />
+              </>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, color: "#5A5B58" }}>
+                No variant/packaging information linked to this batch.
+              </p>
+            )}
+          </DetailCard>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const toPositiveInt = (val: unknown): number | null => {
@@ -738,26 +1139,10 @@ const ProductView1 = ({
         const response = (await getDrugProductById(
           productId,
         )) as ProductApiData;
-        const ncArr = response?.productAttributeNonConsumableMedicals ?? [];
-        console.log(
-          "[ProductView] ncAttr array length:",
-          ncArr.length,
-          "entries:",
-          ncArr.map((e: any) => ({
-            productAttributeId: e.productAttributeId,
-            warrantyPeriod: e.warrantyPeriod,
-            dimensionSize: e.dimensionSize,
-            deviceSpecificationUnitId: e.deviceSpecificationUnitId,
-            serviceAvailability: e.serviceAvailability,
-            amcAvailability: e.amcAvailability,
-            createdDate: e.createdDate,
-            modifiedDate: e.modifiedDate,
-            updatedDate: e.updatedDate,
-          })),
-        );
         setProductData(response);
       } catch (err) {
         console.error("[ProductView] Error fetching product:", err);
+        setProductData(null);
       } finally {
         setLoading(false);
       }
@@ -783,24 +1168,24 @@ const ProductView1 = ({
     const consAttr: ConsumableAttributes | null =
       consAttrArr.length > 0
         ? (consAttrArr as any[]).reduce((latest: any, curr: any) =>
-            new Date(curr.createdDate) > new Date(latest.createdDate)
-              ? curr
-              : latest,
-          )
+          new Date(curr.createdDate) > new Date(latest.createdDate)
+            ? curr
+            : latest,
+        )
         : null;
 
     const ncAttrArr = productData.productAttributeNonConsumableMedicals ?? [];
     const ncAttr: NonConsumableAttributes | null =
       ncAttrArr.length > 0
         ? (ncAttrArr as any[]).reduce((latest: any, curr: any) => {
-            const toMs = (e: any) => {
-              const d = e.updatedDate ?? e.modifiedDate ?? e.createdDate;
-              if (!d) return Infinity;
-              const t = new Date(d).getTime();
-              return isNaN(t) ? Infinity : t;
-            };
-            return toMs(curr) >= toMs(latest) ? curr : latest;
-          })
+          const toMs = (e: any) => {
+            const d = e.updatedDate ?? e.modifiedDate ?? e.createdDate;
+            if (!d) return Infinity;
+            const t = new Date(d).getTime();
+            return isNaN(t) ? Infinity : t;
+          };
+          return toMs(curr) >= toMs(latest) ? curr : latest;
+        })
         : (productData.nonConsumableAttributes ?? null);
 
     const cosAttrRaw: CosmeticAttributes | null =
@@ -857,6 +1242,10 @@ const ProductView1 = ({
       (consAttr as any)?.storageconditionid ??
       ncAttr?.storageConditionId ??
       cosAttrRaw?.storageConditionId ??
+      (productData.productAttributeSupplementsOrNutraceuticals?.[0] as any)
+        ?.storageConditionId ??
+      (productData.productAttributeFoodInfants?.[0] as any)
+        ?.storageConditionId ??
       null;
 
     const rawStorageId: number[] = Array.isArray(_rawStorageIdOrArray)
@@ -1127,9 +1516,9 @@ const ProductView1 = ({
             deviceSubCategoryName =
               String(
                 found.deviceSubCatName ??
-                  found.subCategoryName ??
-                  found.name ??
-                  "",
+                found.subCategoryName ??
+                found.name ??
+                "",
               ).trim() || null;
         } catch {
           /* ignore */
@@ -1200,6 +1589,9 @@ const ProductView1 = ({
         {} as Partial<ResolvedLookups>,
       );
       setLookups((prev) => ({ ...prev, ...merged, loading: false }));
+    }).catch((err) => {
+      console.error("[ProductView] Secondary lookups failed:", err);
+      setLookups((prev) => ({ ...prev, loading: false }));
     });
   }, [productData]);
 
@@ -1208,7 +1600,7 @@ const ProductView1 = ({
     if (!productData) return;
 
     const resolvedCategoryId: number | null =
-      productData?.categoryId ?? categoryIdProp ?? null;
+      resolveProductCategoryId(productData) ?? categoryIdProp ?? null;
     const cosAttrRaw: CosmeticAttributes | null =
       extractCosmeticAttr(productData);
 
@@ -1229,13 +1621,13 @@ const ProductView1 = ({
         // ── Extract raw IDs from the attribute object (handle every casing variant) ──
         const productTypeIdStr = String(
           (cosAttrRaw as any).productCategoryId ??
-            (cosAttrRaw as any).productTypeId ??
-            "",
+          (cosAttrRaw as any).productTypeId ??
+          "",
         );
         const productSubTypeIdStr = String(
           (cosAttrRaw as any).productSubcategoryId ??
-            (cosAttrRaw as any).productSubTypeId ??
-            "",
+          (cosAttrRaw as any).productSubTypeId ??
+          "",
         );
         const ageGroupIdStr = String((cosAttrRaw as any).ageGroupId ?? "");
         // ageGroupIds is an array of IDs (may include 0 as sentinel); filter those out
@@ -1243,15 +1635,15 @@ const ProductView1 = ({
           (cosAttrRaw as any).ageGroupIds,
         )
           ? (cosAttrRaw as any).ageGroupIds
-              .filter((v: unknown) => Number(v) > 0)
-              .map(String)
+            .filter((v: unknown) => Number(v) > 0)
+            .map(String)
           : ageGroupIdStr && ageGroupIdStr !== "0"
             ? [ageGroupIdStr]
             : [];
         const countryIdStr = String(
           (cosAttrRaw as any).countryId ??
-            (cosAttrRaw as any).countryOfOriginId ??
-            "",
+          (cosAttrRaw as any).countryOfOriginId ??
+          "",
         );
 
         // Raw array IDs for multi-select fields
@@ -1306,8 +1698,8 @@ const ProductView1 = ({
         // ── Extract net quantity unit ID ──
         const netQtyUnitIdStr = String(
           (cosAttrRaw as any).unitId ??
-            (cosAttrRaw as any).netQuantityUnitId ??
-            "",
+          (cosAttrRaw as any).netQuantityUnitId ??
+          "",
         );
 
         // ── Extract product form ID ──
@@ -1407,25 +1799,25 @@ const ProductView1 = ({
         const intendedUseArea =
           rawIntendedIds.length > 0
             ? rawIntendedIds
-                .map((id) => intendedOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => intendedOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const skinPart =
           rawSkinIds.length > 0
             ? rawSkinIds
-                .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => skinTypeOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const hairPart =
           rawHairIds.length > 0
             ? rawHairIds
-                .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
-                .filter(Boolean)
-                .join(", ")
+              .map((id) => hairTypeOpts.find((o) => o.value === id)?.label)
+              .filter(Boolean)
+              .join(", ")
             : null;
 
         const skinHairType =
@@ -1496,9 +1888,9 @@ const ProductView1 = ({
           ageGroup:
             (rawAgeGroupIds.length > 0
               ? rawAgeGroupIds
-                  .map((id) => ageGroupOpts.find((o) => o.value === id)?.label)
-                  .filter(Boolean)
-                  .join(", ") || null
+                .map((id) => ageGroupOpts.find((o) => o.value === id)?.label)
+                .filter(Boolean)
+                .join(", ") || null
               : null) ?? cosAttrRaw.ageGroup,
           intendedUseArea: intendedUseArea || cosAttrRaw.intendedUseArea || undefined,
           skinHairType: skinHairType ?? cosAttrRaw.skinHairType,
@@ -1532,6 +1924,98 @@ const ProductView1 = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productData]);
 
+  /* ── 4. Supplement master label resolution ──
+     product-service returns only ids for supplements (dosageFormId, flavourId, ageGroupIds,
+     netQuantityUnitId, countryId, therapeutic ids); the view components read names. */
+  const [resolvedSuppAttr, setResolvedSuppAttr] = useState<any | null>(null);
+  useEffect(() => {
+    const attr: any =
+      (productData?.productAttributeSupplementsOrNutraceuticals ?? [])[0] ??
+      null;
+    setResolvedSuppAttr(attr);
+    if (!attr) return;
+    let cancelled = false;
+    const safe = async (fn: () => Promise<any>): Promise<any> => {
+      try {
+        return await fn();
+      } catch {
+        return null;
+      }
+    };
+    const list = (v: any): any[] => (Array.isArray(v) ? v : []);
+    const firstName = (d: any, ...keys: string[]): string | null => {
+      const o = Array.isArray(d) ? d[0] : d?.content ?? d;
+      for (const k of keys) {
+        const v = o?.[k];
+        if (v != null && String(v).trim()) return String(v).trim();
+      }
+      return null;
+    };
+    (async () => {
+      const catId = toPositiveInt(productData?.categoryId) ?? 2;
+      const ageIds = list(attr.ageGroupIds).map(String);
+      const [cat, sub, dosages, flavours, ages, netUnits, servUnits, countries] =
+        await Promise.all([
+          attr.therapeuticCategoryId
+            ? safe(() => getTherapeuticCategoryById(String(attr.therapeuticCategoryId)))
+            : null,
+          attr.therapeuticSubCategoryId
+            ? safe(() => getTherapeuticSubcategoryById(String(attr.therapeuticSubCategoryId)))
+            : null,
+          attr.dosageFormId ? safe(() => getSupplementDosageForms(catId)) : null,
+          attr.flavourId ? safe(() => getSupplementFlavours()) : null,
+          ageIds.length ? safe(() => getSupplementAgeGroups()) : null,
+          attr.netQuantityUnitId ? safe(() => getSupplementNetQuantityUnits(catId)) : null,
+          attr.servingSizeUnitId && attr.dosageFormId
+            ? safe(() => getSupplementServingSizeUnits(attr.dosageFormId))
+            : null,
+          attr.countryId ? safe(() => getCountries()) : null,
+        ]);
+      if (cancelled) return;
+      const byId = (arr: any, idKeys: string[], id: unknown) =>
+        list(arr).find((x) => idKeys.some((k) => x?.[k] != null && String(x[k]) === String(id)));
+      setResolvedSuppAttr({
+        ...attr,
+        therapeuticCategoryName:
+          attr.therapeuticCategoryName ??
+          firstName(cat, "therapeuticCategory", "therapeuticCategoryName", "name"),
+        therapeuticSubCategoryName:
+          attr.therapeuticSubCategoryName ??
+          firstName(sub, "therapeuticSubcategory", "therapeuticSubcategoryName", "name"),
+        dosageFormName:
+          attr.dosageFormName ??
+          byId(dosages, ["dosageId"], attr.dosageFormId)?.dosageName ??
+          null,
+        flavourName:
+          attr.flavourName ??
+          byId(flavours, ["flavourId"], attr.flavourId)?.flavourName ??
+          null,
+        ageGroupMastersDto:
+          attr.ageGroupMastersDto ??
+          list(ages)
+            .filter((a) => ageIds.includes(String(a?.ageGroupId)))
+            .map((a) => ({ ageGroupId: a.ageGroupId, ageGroup: a.ageGroup })),
+        netQuantityUnitName:
+          attr.netQuantityUnitName ??
+          byId(netUnits, ["unitId", "id"], attr.netQuantityUnitId)?.unitName ??
+          null,
+        servingSizeUnitName:
+          attr.servingSizeUnitName ??
+          byId(servUnits, ["id", "servingSizeUnitId", "unitId"], attr.servingSizeUnitId)
+            ?.servingSizeUnit ??
+          null,
+        countryName:
+          attr.countryName ??
+          byId(countries, ["countryId", "id"], attr.countryId)?.countryName ??
+          null,
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productData]);
+
   /* ─────────────────────────────────────────────────────
      DERIVED VALUES
   ───────────────────────────────────────────────────── */
@@ -1544,20 +2028,34 @@ const ProductView1 = ({
   const packaging: PackagingDetails | undefined =
     packagingArr.length > 0
       ? (packagingArr as any[]).reduce((latest: any, curr: any) =>
-          new Date(curr.createdDate) > new Date(latest.createdDate)
-            ? curr
-            : latest,
-        )
+        new Date(curr.createdDate) > new Date(latest.createdDate)
+          ? curr
+          : latest,
+      )
       : undefined;
+
+  // Resolves the variant/packaging a given batch belongs to — falls back to the only
+  // variant on the product when there's just one and the batch predates variant tracking.
+  const findVariantForBatch = (
+    batch: PricingDetails
+  ): PackagingDetails | undefined => {
+    if (batch.packagingId) {
+      const matched = (packagingArr as PackagingDetails[]).find(
+        (p) => p.packagingId === batch.packagingId
+      );
+      if (matched) return matched;
+    }
+    return packagingArr.length === 1 ? packagingArr[0] : undefined;
+  };
 
   const pricingArr = productData?.pricingDetails ?? [];
   const pricing: PricingDetails | undefined =
     pricingArr.length > 0
       ? (pricingArr as any[]).reduce((latest: any, curr: any) =>
-          new Date(curr.createdDate) > new Date(latest.createdDate)
-            ? curr
-            : latest,
-        )
+        new Date(curr.createdDate) > new Date(latest.createdDate)
+          ? curr
+          : latest,
+      )
       : undefined;
 
   const ncAttr: NonConsumableAttributes | null = (() => {
@@ -1571,15 +2069,6 @@ const ProductView1 = ({
         return isNaN(t) ? Infinity : t;
       };
       return toMs(curr) >= toMs(latest) ? curr : latest;
-    });
-    console.log("[ProductView] selected ncAttr:", {
-      productAttributeId: result?.productAttributeId,
-      warrantyPeriod: result?.warrantyPeriod,
-      dimensionSize: result?.dimensionSize,
-      deviceSpecificationUnitId: result?.deviceSpecificationUnitId,
-      serviceAvailability: result?.serviceAvailability,
-      createdDate: result?.createdDate,
-      modifiedDate: result?.modifiedDate,
     });
     return result;
   })();
@@ -1613,7 +2102,7 @@ const ProductView1 = ({
     : null;
 
   const resolvedCategoryId: number | null =
-    productData?.categoryId ?? categoryIdProp ?? null;
+    resolveProductCategoryId(productData) ?? categoryIdProp ?? null;
 
   const isConsumable =
     resolvedCategoryId === 5 ||
@@ -1680,22 +2169,22 @@ const ProductView1 = ({
     molecules.length > 0
       ? molecules
       : ([
-          drugEntry?.molecule1Name || drugEntry?.molecule1Strength
-            ? {
-                resolvedName: drugEntry?.molecule1Name ?? "—",
-                resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
-              }
-            : null,
-          drugEntry?.molecule2Name || drugEntry?.molecule2Strength
-            ? {
-                resolvedName: drugEntry?.molecule2Name ?? "—",
-                resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
-              }
-            : null,
-        ].filter(Boolean) as {
-          resolvedName: string;
-          resolvedStrength: string;
-        }[]);
+        drugEntry?.molecule1Name || drugEntry?.molecule1Strength
+          ? {
+            resolvedName: drugEntry?.molecule1Name ?? "—",
+            resolvedStrength: formatStrength(drugEntry?.molecule1Strength),
+          }
+          : null,
+        drugEntry?.molecule2Name || drugEntry?.molecule2Strength
+          ? {
+            resolvedName: drugEntry?.molecule2Name ?? "—",
+            resolvedStrength: formatStrength(drugEntry?.molecule2Strength),
+          }
+          : null,
+      ].filter(Boolean) as {
+        resolvedName: string;
+        resolvedStrength: string;
+      }[]);
 
   const drugSchedule =
     drugEntry?.drugSchedule ??
@@ -1800,8 +2289,8 @@ const ProductView1 = ({
       : (consAttr?.shelfLife ?? drugEntry?.shelfLife ?? null);
 
   // Extract offers only from the latest batch
-  const additionalDiscounts: AdditionalDiscount[] = (
-    pricing?.additionalDiscounts || []
+  const additionalDiscounts: AdditionalDiscount[] = normalizeDiscounts(
+    pricing?.additionalDiscounts,
   )
     .filter(
       (d: any) => d.minimumPurchaseQuantity && d.additionalDiscountPercentage && d.displayOffer !== false,
@@ -1819,17 +2308,142 @@ const ProductView1 = ({
   const specialSchemes: any[] = (pricing?.specialSchemes || [])
     .filter((s: any) => s.schemeName && s.displayOfferScheme !== false && s.displayOffer !== false);
 
-  const unitsPerPack =
-    packaging?.unitPerPack ??
-    packaging?.unitsPerPack ??
-    packaging?.numberOfUnits;
+  const [batchSearch, setBatchSearch] = useState("");
+  const [batchStatusFilter, setBatchStatusFilter] = useState<
+    "all" | "Active" | "Near Expiry" | "Expired"
+  >("all");
 
-  const packSizeDisplay =
-    packaging?.numberOfPacks != null && unitsPerPack != null
-      ? `${packaging.numberOfPacks} ${resolvedPackType ?? "packs"} × ${unitsPerPack} units = ${(
-          packaging.numberOfPacks * unitsPerPack
-        ).toLocaleString()} units`
-      : null;
+  // Non-consumables don't use batch numbers/expiry — only show those columns
+  // if at least one batch actually has a value for them.
+  const showBatchNumberColumn =
+    !isNonConsumable || pricingArr.some((b) => b.batchLotNumber);
+  const showExpiryColumn =
+    !isNonConsumable || pricingArr.some((b) => b.expiryDate);
+
+  // Batch whose damaged (returned) stock the seller is disposing of or moving back to stock.
+  const [damagedStockBatch, setDamagedStockBatch] = useState<PricingDetails | null>(null);
+
+  const batchColumns: Column<PricingDetails>[] = [
+    ...(showBatchNumberColumn
+      ? [
+        {
+          header: "Batch Number",
+          accessor: (row: PricingDetails) => row.batchLotNumber || "-",
+        },
+      ]
+      : []),
+    {
+      header: "Mfg. Date",
+      accessor: (row) => formatDate(row.manufacturingDate),
+    },
+    ...(showExpiryColumn
+      ? [
+        {
+          header: "Expiry Date",
+          accessor: (row: PricingDetails) => formatDate(row.expiryDate),
+        },
+      ]
+      : []),
+    {
+      header: "Available Stock",
+      accessor: (row) =>
+        row.stockQuantity != null ? row.stockQuantity.toLocaleString() : "-",
+    },
+    {
+      header: "Damaged Stock",
+      accessor: (row) => {
+        const damaged = row.damagedQuantity ?? 0;
+        if (damaged <= 0) return "0";
+        return (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: "#B42318", fontWeight: 600 }}>{damaged.toLocaleString()}</span>
+            {row.pricingId && (
+              <button
+                onClick={() => setDamagedStockBatch(row)}
+                title="Dispose or move damaged units back to stock"
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 6,
+                  border: "1px solid #D5D5D4",
+                  background: "white",
+                  color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Manage
+              </button>
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      header: "Discount %",
+      accessor: (row) => `${row.discountPercentage ?? 0}%`,
+    },
+    {
+      header: "Entry Date",
+      accessor: (row) => formatDate(row.dateOfStockEntry),
+    },
+    {
+      header: "Status",
+      accessor: (row) => {
+        const status = getBatchStatus(row.expiryDate);
+        return (
+          <span
+            style={{
+              display: "inline-block",
+              padding: "2px 10px",
+              borderRadius: 999,
+              fontSize: 11.5,
+              fontWeight: 600,
+              background: status.bg,
+              color: status.color,
+            }}
+          >
+            {status.label}
+          </span>
+        );
+      },
+    },
+  ];
+
+  const filteredBatches = pricingArr.filter((b) => {
+    const status = getBatchStatus(b.expiryDate).label;
+
+    const term = batchSearch.trim().toLowerCase();
+    if (term) {
+      const haystack = [
+        b.batchLotNumber,
+        formatDate(b.manufacturingDate),
+        formatDate(b.expiryDate),
+        b.stockQuantity != null ? String(b.stockQuantity) : "",
+        String(b.damagedQuantity ?? 0),
+        `${b.discountPercentage ?? 0}%`,
+        formatDate(b.dateOfStockEntry),
+        status,
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(term)) return false;
+    }
+
+    if (batchStatusFilter !== "all" && status !== batchStatusFilter) {
+      return false;
+    }
+
+    return true;
+  });
+
+  const hasActiveBatchFilters =
+    batchSearch !== "" || batchStatusFilter !== "all";
+
+  const clearBatchFilters = () => {
+    setBatchSearch("");
+    setBatchStatusFilter("all");
+  };
 
   const productImages = resolveProductImages(productData);
   const displayImages = productImages;
@@ -1841,6 +2455,7 @@ const ProductView1 = ({
     validUrl(ncAttr?.brochurePath) ??
     validUrl(cosAttrRaw?.brochurePath) ??
     validUrl(suppAttr?.brochurePath) ??
+    validUrl(foodAttr?.productUserManual) ??
     validUrl(productData?.productMarketingUrl);
 
   const specialOffers: SpecialOffer[] = productData?.specialOffers ?? [];
@@ -1858,11 +2473,97 @@ const ProductView1 = ({
   const handleClose = () => setCurrentView("overview" as DashboardView);
   const handleEdit = () => {
     const editView =
-      resolvedCategoryId != null
+      (editKeyForProduct(productData) as DashboardView | null) ??
+      (resolvedCategoryId != null
         ? CATEGORY_EDIT_VIEW[resolvedCategoryId]
-        : null;
-    setCurrentView(editView ?? ("editDrug" as DashboardView));
+        : null);
+    if (!editView) {
+      toast.error("Could not determine this product's category, so it cannot be edited.");
+      return;
+    }
+    setCurrentView(editView);
   };
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  const handleUpdateStock = () => setStockModalOpen(true);
+
+  const [batchStockUpdate, setBatchStockUpdate] =
+    useState<BatchAvailability | null>(null);
+  const [viewBatch, setViewBatch] = useState<PricingDetails | null>(null);
+  const [batchStockLoadingLot, setBatchStockLoadingLot] = useState<
+    string | null
+  >(null);
+  const handleUpdateStockForBatch = async (row: PricingDetails) => {
+    if (!productData?.productId || !row.batchLotNumber) return;
+    setBatchStockLoadingLot(row.batchLotNumber);
+    try {
+      const list = await getAvailableBatches(productData.productId);
+      const match = list.find((b) => b.batchLotNumber === row.batchLotNumber);
+      if (match) {
+        setBatchStockUpdate(match);
+      } else {
+        toast.error("Could not load batch details. Please try again.");
+      }
+    } catch (err) {
+      console.error("[ProductView] Error loading batch for stock update:", err);
+      toast.error("Could not load batch details. Please try again.");
+    } finally {
+      setBatchStockLoadingLot(null);
+    }
+  };
+
+  const refetchProduct = async () => {
+    if (!productId) return;
+    try {
+      const response = (await getDrugProductById(productId)) as ProductApiData;
+      setProductData(response);
+    } catch (err) {
+      console.error("[ProductView] Error refetching product after stock update:", err);
+    }
+  };
+
+  const [batchDeletingLot, setBatchDeletingLot] = useState<string | null>(null);
+  const [batchPendingDelete, setBatchPendingDelete] =
+    useState<PricingDetails | null>(null);
+
+  const handleDeleteBatch = (row: PricingDetails) => {
+    if (!productData?.productId || !row.batchLotNumber) return;
+
+    if (!row.pricingId) {
+      toast.error("Could not find this batch. Please refresh and try again.");
+      return;
+    }
+
+    setBatchPendingDelete(row);
+  };
+
+  const confirmDeleteBatch = async () => {
+    const row = batchPendingDelete;
+    if (!productData?.productId || !row?.batchLotNumber || !row.pricingId) {
+      setBatchPendingDelete(null);
+      return;
+    }
+
+    setBatchDeletingLot(row.batchLotNumber);
+    try {
+      const result = await deleteBatch(productData.productId, row.pricingId);
+      const deletedAtLabel = result?.deletedAt
+        ? new Date(result.deletedAt).toLocaleString('en-GB')
+        : null;
+      toast.success(
+        deletedAtLabel
+          ? `Batch deleted on ${deletedAtLabel}.`
+          : "Batch deleted successfully.",
+      );
+      await refetchProduct();
+    } catch (err) {
+      console.error("[ProductView] Error deleting batch:", err);
+      toast.error("Could not delete batch. Please try again.");
+    } finally {
+      setBatchDeletingLot(null);
+      setBatchPendingDelete(null);
+    }
+  };
+
 
   /* ─────────────────────────────────────────────────────
      LOADING / EMPTY STATES
@@ -1919,6 +2620,8 @@ const ProductView1 = ({
   /* ─────────────────────────────────────────────────────
      RENDER
   ───────────────────────────────────────────────────── */
+
+  const isDraftProduct = productData.status === "DRAFT";
 
   return (
     <div
@@ -1979,8 +2682,27 @@ const ProductView1 = ({
           >
             Complete product information
           </p>
+          {productData.status && productData.status !== "PUBLISHED" && (
+            <span
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 4,
+                padding: "2px 12px",
+                borderRadius: 999,
+                fontSize: 14,
+                fontWeight: 600,
+                background:
+                  productData.status === "DRAFT" ? "#FFF4D6" : "#EEEEEE",
+                color: productData.status === "DRAFT" ? "#8A5A00" : "#5A5B58",
+              }}
+            >
+              {productData.status === "DRAFT"
+                ? "Draft - not yet submitted"
+                : "Unpublished"}
+            </span>
+          )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 48 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button
             onClick={handleEdit}
             style={{
@@ -1998,7 +2720,37 @@ const ProductView1 = ({
               lineHeight: "24px",
             }}
           >
-            Edit
+            {isDraftProduct ? "Edit / Submit" : "Edit"}
+          </button>
+          {/* add Stock existing batch or create new batch  */}
+
+          <button
+            onClick={handleUpdateStock}
+            disabled={isDraftProduct}
+            title={isDraftProduct ? "Publish this product before updating stock" : undefined}
+            style={{
+              height: 48,
+              minWidth: 152,
+              padding: "12px 16px",
+              background: isDraftProduct
+                ? "#B5B5B4"
+                : "var(--Colors-Brand-Primary-800, #6C12A9)",
+              borderRadius: 8,
+              border: "none",
+              cursor: isDraftProduct ? "not-allowed" : "pointer",
+              opacity: isDraftProduct ? 0.7 : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontSize: 16,
+              fontFamily: "'Work Sans', sans-serif",
+              fontWeight: 500,
+              lineHeight: "24px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Update Stock
           </button>
           <button
             onClick={handleClose}
@@ -2059,12 +2811,12 @@ const ProductView1 = ({
           nonConsAttr={
             ncAttr
               ? {
-                  ...ncAttr,
-                  safetyInstructions:
-                    ncAttr.safetyInstructions ??
-                    productData.warningsPrecautions ??
-                    undefined,
-                }
+                ...ncAttr,
+                safetyInstructions:
+                  ncAttr.safetyInstructions ??
+                  productData.warningsPrecautions ??
+                  undefined,
+              }
               : null
           }
           storageConditionName={storageCondition}
@@ -2115,18 +2867,18 @@ const ProductView1 = ({
             pricingDetails={
               pricing
                 ? {
-                    ...(pricing as any),
-                    shelfLife: shelfLifeDisplay ?? (pricing as any)?.shelfLife,
-                  }
+                  ...(pricing as any),
+                  shelfLife: shelfLifeDisplay ?? (pricing as any)?.shelfLife,
+                }
                 : null
             }
             packagingDetails={
               packaging
                 ? {
-                    ...(packaging as any),
-                    packTypeName:
-                      resolvedPackType ?? (packaging as any)?.packTypeName,
-                  }
+                  ...(packaging as any),
+                  packTypeName:
+                    resolvedPackType ?? (packaging as any)?.packTypeName,
+                }
                 : null
             }
             additionalDiscounts={additionalDiscounts}
@@ -2165,61 +2917,77 @@ const ProductView1 = ({
             </h2>
 
             <div className="w-full rounded-xl border border-primary-600 p-4 bg-white mt-4 space-y-3">
-  <div className="text-label-l4 font-medium text-pneutral-900">
-    Product Images
-  </div>
+              <div className="text-label-l4 font-medium text-pneutral-900">
+                Product Images
+              </div>
 
-  <div className="grid grid-cols-5 gap-4">
-    {displayImages.slice(0, 5).map((img, idx) => {
-      const count = displayImages.length;
+              <div className="grid grid-cols-5 gap-4">
+                {displayImages.slice(0, 5).map((img, idx) => {
+                  const count = displayImages.length;
 
-      let colStart = "";
+                  let colStart = "";
 
-      if (count === 1) {
-        colStart = "col-start-3";
-      } else if (count === 2) {
-        colStart = idx === 0 ? "col-start-2" : "";
-      } else if (count === 3) {
-        colStart = idx === 0 ? "col-start-2" : "";
-      }
+                  if (count === 1) {
+                    colStart = "col-start-3";
+                  } else if (count === 2) {
+                    colStart = idx === 0 ? "col-start-2" : "";
+                  } else if (count === 3) {
+                    colStart = idx === 0 ? "col-start-2" : "";
+                  }
 
-      return (
-        <div
-          key={idx}
-          className={`relative h-67.5 overflow-hidden rounded-xl bg-[#F5F5F5] ${colStart}`}
-        >
-          <img
-            src={img}
-            alt={`Product image ${idx + 1}`}
-            className="w-full h-full object-cover rounded-xl"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src =
-                PLACEHOLDER_IMAGE;
-            }}
-          />
+                  return (
+                    <div
+                      key={idx}
+                      className={`relative h-67.5 overflow-hidden rounded-xl bg-[#F5F5F5] ${colStart}`}
+                    >
+                      <img
+                        src={img}
+                        alt={`Product image ${idx + 1}`}
+                        className="w-full h-full object-cover rounded-xl"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src =
+                            PLACEHOLDER_IMAGE;
+                        }}
+                      />
 
-          {idx === 0 && (
-            <div className="absolute top-3 left-3 w-15 h-6.5 bg-primary-600 text-center rounded-md">
-              <span className="text-white text-xs font-normal">
-                Primary
-              </span>
+                      {idx === 0 && (
+                        <div className="absolute top-3 left-3 w-15 h-6.5 bg-primary-600 text-center rounded-md">
+                          <span className="text-white text-xs font-normal">
+                            Primary
+                          </span>
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadProductImage(img, `product-image-${idx + 1}.jpg`);
+                        }}
+                        aria-label="Download image"
+                        className="absolute right-2.5 bottom-2.5 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 hover:bg-white shadow-md"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E1E1D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 3v12" />
+                          <path d="m7 10 5 5 5-5" />
+                          <path d="M5 21h14" />
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                })}
+
+                {displayImages.length > 3 &&
+                  Array.from({
+                    length: Math.max(0, 5 - displayImages.length),
+                  }).map((_, i) => (
+                    <div
+                      key={`empty-${i}`}
+                      className="h-67.5 rounded-xl bg-[#F5F5F5]"
+                    />
+                  ))}
+              </div>
             </div>
-          )}
-        </div>
-      );
-    })}
-
-    {displayImages.length > 3 &&
-      Array.from({
-        length: Math.max(0, 5 - displayImages.length),
-      }).map((_, i) => (
-        <div
-          key={`empty-${i}`}
-          className="h-67.5 rounded-xl bg-[#F5F5F5]"
-        />
-      ))}
-  </div>
-</div>
 
           </div>
           <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
@@ -2326,7 +3094,7 @@ const ProductView1 = ({
                     <span className="text-pneutral-800 text-base font-normal leading-[22px] break-all">
                       {decodeURIComponent(
                         brochureUrl.split("/").pop()?.split("?")[0] ||
-                          "user-manual.pdf",
+                        "user-manual.pdf",
                       )}
                     </span>
                   </a>
@@ -2373,13 +3141,13 @@ const ProductView1 = ({
       )}
 
       {/* Supplement / Nutraceutical (category 2) */}
-      {isSupplement && suppAttr && (
+      {isSupplement && (
         <SupplementDetailsView
           productName={productData.productName}
           productDescription={productDescription}
           warningsPrecautions={warningsPrecautions}
           displayImages={displayImages}
-          suppAttr={suppAttr}
+          suppAttr={resolvedSuppAttr ?? suppAttr ?? {}}
           storageConditionName={storageCondition}
           placeholderImage={PLACEHOLDER_IMAGE}
           manufacturerName={manufacturerName}
@@ -2390,13 +3158,13 @@ const ProductView1 = ({
       )}
 
       {/* Food & Infant (category 3) */}
-      {isFoodInfant && foodAttr && (
+      {isFoodInfant && (
         <FoodInfantView
           productName={productData.productName}
           productDescription={productDescription}
           warningsPrecautions={warningsPrecautions}
           displayImages={displayImages}
-          foodAttr={foodAttr}
+          foodAttr={foodAttr ?? {}}
           brochureUrl={brochureUrl}
           placeholderImage={PLACEHOLDER_IMAGE}
           manufacturerName={manufacturerName}
@@ -2404,18 +3172,12 @@ const ProductView1 = ({
           specialSchemes={specialSchemes}
         />
       )}
-      {console.log("FoodAttr from ProductView1:", {
-        nutritionalInformation: foodAttr?.nutritionalInformation,
-        nutritionalInformationImageUrl:
-          foodAttr?.nutritionalInformationImageUrl,
-      })}
-
       {/* ── SPECIAL OFFERS (if any) ── */}
       {specialOffers.length > 0 && (
         <SpecialOffersSection offers={specialOffers} />
       )}
 
-      {/* ── PACKAGING & ORDER DETAILS ── */}
+      {/* ── BATCH MANAGEMENT ── */}
       <div
         style={{
           alignSelf: "stretch",
@@ -2424,281 +3186,272 @@ const ProductView1 = ({
           gap: 16,
         }}
       >
-        <SectionTitle>Packaging &amp; Order Details</SectionTitle>
-        <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
+        <SectionTitle>Stock Management</SectionTitle>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            right: 0,
+            gap: 12,
+          }}
+        >
+
+
           <div
-            style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 12,
+            }}
           >
-            <FieldRow label="Pack Type" value={resolvedPackType} />
-            <FieldRow
-              label="Number of Units per Pack Type"
-              value={
-                packaging?.numberOfUnits ??
-                packaging?.unitPerPack ??
-                packaging?.unitsPerPack
+            <select
+              value={batchStatusFilter}
+              onChange={(e) =>
+                setBatchStatusFilter(e.target.value as typeof batchStatusFilter)
               }
-            />
-            <FieldRow
-              label="Number of Packs"
-              value={
-                packaging?.numberOfPacks != null
-                  ? `${packaging.numberOfPacks} ${resolvedPackType ?? "packs"}`
-                  : null
-              }
-            />
-            <FieldRow
-              label="Pack Size (No. of packs × No. of Units per pack type)"
-              value={packSizeDisplay}
-              multiline
-            />
-          </div>
-          <div
-            style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}
-          >
-            <div style={{ padding: "8px", borderBottom: "1px #D5D5D4 solid" }}>
-              <span
+              style={{
+                height: 40,
+                borderRadius: 8,
+                border: "1px solid #D5D5D4",
+                padding: "0 10px",
+                fontSize: 13,
+                color: "#1E1E1D",
+                fontFamily: "'Noto Sans', sans-serif",
+              }}
+            >
+              <option value="all">All statuses</option>
+              <option value="Active">Active</option>
+              <option value="Near Expiry">Near Expiry</option>
+              <option value="Expired">Expired</option>
+            </select>
+
+
+            <div style={{ position: "relative", width: 220, flex: "0 0 auto" }}>
+              <input
+                type="text"
+                value={batchSearch}
+                onChange={(e) => setBatchSearch(e.target.value)}
+                placeholder="Search batches…"
                 style={{
+                  width: "100%",
+                  height: 40,
+                  borderRadius: 8,
+                  border: "1px solid #D5D5D4",
+                  padding: "0 12px",
+                  fontSize: 13,
                   color: "#1E1E1D",
-                  fontSize: 20,
-                  fontFamily: "'Work Sans', sans-serif",
-                  fontWeight: 500,
-                  lineHeight: "28px",
+                  boxSizing: "border-box",
+                  fontFamily: "'Noto Sans', sans-serif",
                 }}
-              >
-                Order Details
-              </span>
-            </div>
-            <FieldRow
-              label="Min Order Qty"
-              value={packaging?.minimumOrderQuantity}
-            />
-            <FieldRow
-              label="Max Order Qty"
-              value={packaging?.maximumOrderQuantity}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── BATCH MANAGEMENT + PRICING ── */}
-      <div
-        style={{
-          display: "flex",
-          gap: 36,
-          alignItems: "flex-start",
-          alignSelf: "stretch",
-        }}
-      >
-        {/* Batch Management */}
-        <div
-          style={{
-            flex: "1 1 0",
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-          }}
-        >
-          <SectionTitle>Batch Management</SectionTitle>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {/* Non-consumables don't use batch numbers — only show if value exists */}
-            {(!isNonConsumable || pricing?.batchLotNumber) && (
-              <FieldRow label="Batch Number" value={pricing?.batchLotNumber} />
-            )}
-            <FieldRow
-              label="Manufacturing Date"
-              value={formatDate(pricing?.manufacturingDate)}
-            />
-            {(!isNonConsumable || pricing?.expiryDate) && (
-              <FieldRow
-                label="Expiry Date"
-                value={formatDate(pricing?.expiryDate)}
               />
-            )}
-            <FieldRow
-              label="Stock Quantity (in terms of Pack Size)"
-              value={
-                pricing?.stockQuantity != null
-                  ? `${pricing.stockQuantity.toLocaleString()} units`
-                  : null
-              }
-            />
-            <FieldRow
-              label="Date of Stock Entry"
-              value={formatDate(pricing?.dateOfStockEntry)}
-            />
-            {/* Non-consumables don't expire — only show shelf life if value exists */}
-            {(!isNonConsumable || shelfLifeDisplay) && (
-              <FieldRow label="Shelf Life" value={shelfLifeDisplay} />
+            </div>
+
+
+
+            {hasActiveBatchFilters && (
+              <button
+                onClick={clearBatchFilters}
+                style={{
+                  height: 40,
+                  padding: "0 14px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'Work Sans', sans-serif",
+                }}
+              >
+                Clear filters
+              </button>
             )}
           </div>
         </div>
 
-        {/* Pricing */}
-        <div
-          style={{
-            flex: "1 1 0",
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-          }}
-        >
-          <SectionTitle>Pricing</SectionTitle>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <FieldRow
-              label="MRP (per Pack Size)"
-              value={
-                pricing?.mrp != null ? `₹${pricing.mrp.toLocaleString()}` : null
-              }
-            />
-            <FieldRow
-              label="Selling Price (per Pack Size)"
-              value={
-                pricing?.sellingPrice != null
-                  ? `₹${pricing.sellingPrice.toLocaleString()}`
-                  : null
-              }
-            />
-            <FieldRow
-              label="Discount Percentage"
-              value={
-                pricing?.discountPercentage != null
-                  ? `${pricing.discountPercentage}%`
-                  : null
-              }
-            />
+        <div style={{ maxHeight: 420, overflowY: "auto" }}>
+          <Table<PricingDetails>
+            columns={batchColumns}
+            data={filteredBatches}
+            actions={(row) => {
+              const isUpdating =
+                !!row.batchLotNumber && batchStockLoadingLot === row.batchLotNumber;
+              const isDeleting =
+                !!row.batchLotNumber && batchDeletingLot === row.batchLotNumber;
+              const disabled = isUpdating || isDeleting || !row.batchLotNumber || isDraftProduct;
 
-            {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
-              <div
-                style={{
-                  marginTop: 8,
-                  borderBottom: "1px solid #D5D5D4",
-                  paddingBottom: 12,
-                }}
-              >
-                <div style={{ padding: "12px 8px 8px" }}>
-                  <span
+              return (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => setViewBatch(row)}
+                    title="View all batch & variant details"
                     style={{
-                      color: "#5A5B58",
-                      fontSize: 18,
-                      fontFamily: "'Work Sans', sans-serif",
-                      fontWeight: 500,
-                      lineHeight: "24px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 32,
+                      height: 32,
+                      padding: 0,
+                      borderRadius: 6,
+                      border: "1px solid #D5D5D4",
+                      background: "white",
+                      color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                      cursor: "pointer",
                     }}
                   >
-                    Additional Scheme Applied
+                    <Eye size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleUpdateStockForBatch(row)}
+                    disabled={disabled}
+                    title={isDraftProduct ? "Publish this product before updating stock" : undefined}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      border: "1px solid var(--Colors-Brand-Primary-800, #6C12A9)",
+                      background: "white",
+                      color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      opacity: disabled ? 0.55 : 1,
+                      whiteSpace: "nowrap",
+                      fontFamily: "'Work Sans', sans-serif",
+                    }}
+                  >
+                    {isUpdating ? "Loading…" : "Update Stock"}
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteBatch(row)}
+                    disabled={disabled}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      border: "1px solid var(--Colors-Warning-warning-500, #FF3B3B)",
+                      background: "white",
+                      color: "var(--Colors-Warning-warning-500, #FF3B3B)",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      opacity: disabled ? 0.55 : 1,
+                      whiteSpace: "nowrap",
+                      fontFamily: "'Work Sans', sans-serif",
+                    }}
+                  >
+                    {isDeleting ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
+              );
+            }}
+          />
+        </div>
+
+        <DeleteConfirmationModal
+          isOpen={!!batchPendingDelete}
+          title="Delete Batch"
+          message={`Delete batch "${batchPendingDelete?.batchLotNumber ?? ""}"?`}
+          subMessage="This action cannot be undone."
+          confirmLabel="Yes, Delete Batch"
+          isProcessing={
+            !!batchPendingDelete &&
+            batchDeletingLot === batchPendingDelete.batchLotNumber
+          }
+          onClose={() => setBatchPendingDelete(null)}
+          onConfirm={confirmDeleteBatch}
+        />
+
+        {viewBatch && (
+          <BatchDetailModal
+            batch={viewBatch}
+            variant={findVariantForBatch(viewBatch)}
+            onClose={() => setViewBatch(null)}
+            fallbackGstPercentage={gstPercentage}
+            fallbackHsnCode={hsnCode}
+            fallbackShelfLifeMonths={pricing?.shelfLifeMonths ?? null}
+            fallbackPackTypeName={
+              typeof resolvedPackType === "string" ? resolvedPackType : null
+            }
+          />
+        )}
+
+        {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
+          <div
+            style={{
+              borderBottom: "1px solid #D5D5D4",
+              paddingBottom: 12,
+            }}
+          >
+            <div style={{ padding: "12px 8px 8px" }}>
+              <span
+                style={{
+                  color: "#5A5B58",
+                  fontSize: 18,
+                  fontFamily: "'Work Sans', sans-serif",
+                  fontWeight: 500,
+                  lineHeight: "24px",
+                }}
+              >
+                Additional Scheme Applied
+              </span>
+            </div>
+            {additionalDiscounts.map((d, i) => {
+              const startDate = d.effectiveStartDate ?? d.startDate;
+              const endDate = d.effectiveEndDate ?? d.endDate;
+              return (
+                <div
+                  key={`discount-${d.additionalDiscountId ?? i}`}
+                  style={{
+                    padding: 12,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-end",
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <p
+                      style={{
+                        color: "#5A5B58",
+                        fontSize: 14,
+                        fontFamily: "'Work Sans', sans-serif",
+                        fontWeight: 400,
+                        lineHeight: "20px",
+                        margin: 0,
+                      }}
+                    >
+                      {`Bulk order discount (${d.minimumPurchaseQuantity}${d.maximumPurchaseQuantity
+                          ? `-${d.maximumPurchaseQuantity}`
+                          : "+"
+                        } units)${startDate && endDate
+                          ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
+                          : ""
+                        }`}
+                    </p>
+                  </div>
+                  <span
+                    style={{
+                      color: "#3C3D3A",
+                      fontSize: 16,
+                      fontFamily: "'Noto Sans', sans-serif",
+                      fontWeight: 600,
+                      lineHeight: "24px",
+                      textAlign: "right",
+                      flexShrink: 0,
+                      paddingLeft: 16,
+                    }}
+                  >
+                    {d.additionalDiscountPercentage}%
                   </span>
                 </div>
-                {additionalDiscounts.map((d, i) => {
-                  const startDate = d.effectiveStartDate ?? d.startDate;
-                  const endDate = d.effectiveEndDate ?? d.endDate;
-                  return (
-                    <div
-                      key={`discount-${d.additionalDiscountId ?? i}`}
-                      style={{
-                        padding: 12,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-end",
-                      }}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <p
-                          style={{
-                            color: "#5A5B58",
-                            fontSize: 14,
-                            fontFamily: "'Work Sans', sans-serif",
-                            fontWeight: 400,
-                            lineHeight: "20px",
-                            margin: 0,
-                          }}
-                        >
-                          {`Bulk order discount (${d.minimumPurchaseQuantity}${
-                            d.maximumPurchaseQuantity
-                              ? `-${d.maximumPurchaseQuantity}`
-                              : "+"
-                          } units)${
-                            startDate && endDate
-                              ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
-                              : ""
-                          }`}
-                        </p>
-                      </div>
-                      <span
-                        style={{
-                          color: "#3C3D3A",
-                          fontSize: 16,
-                          fontFamily: "'Noto Sans', sans-serif",
-                          fontWeight: 600,
-                          lineHeight: "24px",
-                          textAlign: "right",
-                          flexShrink: 0,
-                          paddingLeft: 16,
-                        }}
-                      >
-                        {d.additionalDiscountPercentage}%
-                      </span>
-                    </div>
-                  );
-                })}
-
-                {/* --- Old Special Schemes rendering (Removed to avoid duplication, now handled in category views) --- */}
-                {/* 
-                {specialSchemes.map((s, i) => {
-                  const startDate = s.effectiveStartDate;
-                  const endDate = s.effectiveEndDate;
-                  return (
-                    <div
-                      key={`scheme-${s.id ?? i}`}
-                      style={{
-                        padding: 12,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-end",
-                      }}
-                    >
-                      <div
-                        style={{
-                          flex: 1,
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "4px",
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: "#3C3D3A",
-                            fontSize: 14,
-                            fontFamily: "'Work Sans', sans-serif",
-                            fontWeight: 400,
-                            lineHeight: "20px",
-                          }}
-                        >
-                          Purchase {s.buyQuantity || 1}{" "}
-                          {productData.productName || "this product"} and get{" "}
-                          {s.freeQuantity || 1} absolutely free. Limited stock
-                          available!
-                        </span>
-                        <span
-                          style={{
-                            color: "#5A5B58",
-                            fontSize: 12,
-                            fontFamily: "'Work Sans', sans-serif",
-                            fontWeight: 400,
-                          }}
-                        >
-                          {startDate && endDate
-                            ? `${formatDate(startDate)} - ${formatDate(endDate)}`
-                            : "Ongoing"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-                */}
-              </div>
-            )}
+              );
+            })}
           </div>
-        </div>
+        )}
       </div>
 
       {/* ── TAX & BILLING ── */}
@@ -2726,6 +3479,41 @@ const ProductView1 = ({
           </div>
         </div>
       </div>
+
+      <StockUpdateModal
+        open={stockModalOpen}
+        onClose={() => setStockModalOpen(false)}
+        productName={productData.productName}
+        productId={productData.productId}
+        categoryId={resolvedCategoryId}
+        onSuccess={refetchProduct}
+      />
+
+      {batchStockUpdate && (
+        <BatchStockUpdateModal
+          productName={productData.productName}
+          productId={productData.productId}
+          batch={batchStockUpdate}
+          onClose={() => setBatchStockUpdate(null)}
+          onSuccess={() => {
+            refetchProduct();
+          }}
+        />
+      )}
+
+      {damagedStockBatch?.pricingId && productData.productId && (
+        <DamagedStockModal
+          productId={productData.productId}
+          pricingId={damagedStockBatch.pricingId}
+          batchLotNumber={damagedStockBatch.batchLotNumber}
+          stockQuantity={damagedStockBatch.stockQuantity ?? 0}
+          damagedQuantity={damagedStockBatch.damagedQuantity ?? 0}
+          onClose={() => setDamagedStockBatch(null)}
+          onSuccess={refetchProduct}
+        />
+      )}
+
+
     </div>
   );
 };

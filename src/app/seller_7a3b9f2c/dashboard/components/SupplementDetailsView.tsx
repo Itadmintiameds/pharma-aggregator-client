@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { PiSealCheckLight } from "react-icons/pi";
 import { FileText, ExternalLink, Edit2, X, Gift, BadgePercent, ShoppingBag, Tag } from "lucide-react";
 import Image from "next/image";
+import { downloadProductImage } from "@/src/utils/downloadImage";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -43,7 +46,7 @@ const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url);
 const isValidUrl = (url?: string | null) => {
   if (!url) return false;
   const t = url.trim().toUpperCase();
-  return !["", "PENDING", "NOT_UPLOADED"].includes(t);
+  return !["", "PENDING", "NOT_UPLOADED", "TO_UPLOAD", "NULL", "UNDEFINED"].includes(t) && !t.startsWith("BLOB:");
 };
 
 /* ─────────────────────────────────────────────────────────
@@ -132,6 +135,16 @@ export default function SupplementDetailsView({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCertModal, setShowCertModal] = useState(false);
   const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
+  const closeCertModal = () => {
+    setShowCertModal(false);
+    setActiveCertDoc(null);
+  };
+  const {
+    isConfirmOpen: isCertCloseConfirmOpen,
+    requestClose: requestCertModalClose,
+    confirmClose: confirmCertModalClose,
+    cancelClose: cancelCertModalClose,
+  } = useConfirmClose(closeCertModal);
 
   if (!suppAttr) return null;
 
@@ -219,6 +232,22 @@ export default function SupplementDetailsView({
                     <span className="text-white text-xs font-body font-semibold leading-[18px]">Primary</span>
                   </div>
                 )}
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    downloadProductImage(img, `product-image-${idx + 1}.jpg`);
+                  }}
+                  aria-label="Download image"
+                  className="absolute right-2.5 bottom-2.5 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 hover:bg-white shadow-md"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E1E1D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 3v12" />
+                    <path d="m7 10 5 5 5-5" />
+                    <path d="M5 21h14" />
+                  </svg>
+                </button>
               </div>
             ))}
 
@@ -404,8 +433,13 @@ export default function SupplementDetailsView({
       {showCertModal && activeCertDoc !== null && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.5)]"
-          onClick={() => { setShowCertModal(false); setActiveCertDoc(null); }}
+          onClick={requestCertModalClose}
         >
+          <ConfirmCloseDialog
+            isOpen={isCertCloseConfirmOpen}
+            onConfirm={confirmCertModalClose}
+            onCancel={cancelCertModalClose}
+          />
           <div
             className="bg-base-white rounded-2xl shadow-2xl w-full max-w-[672px] mx-4 overflow-hidden flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}

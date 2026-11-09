@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Order Management — the strict-consistency core of the order lifecycle</title>
+<link rel="stylesheet" href="../assets/doc.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">Order Management — the strict-consistency core of the order lifecycle</h1>
+    <p class="dek">Why Order stays single-writer while everything around it scales out, what has to physically move out of its package before Billing can be its own service, and how quote acceptance, price checks, and event fan-out fit together in one request.</p>
+    <div class="meta-row">
+      <span><b>Status:</b> Draft</span>
+      <span><b>Owns:</b> Order Management (§3 of HLD)</span>
+      <span><b>Last updated:</b> 2026-09-02</span>
+      <span><a href="../index.html">&larr; back to service index</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#overview">01 Overview</a>
+      <a href="#ownership">02 Data ownership</a>
+      <a href="#communication">03 Communication</a>
+      <a href="#architecture">04 Architecture diagram</a>
+      <a href="#deployment">05 Deployment</a>
+      <a href="#scaling">06 Scaling &amp; region topology</a>
+      <a href="#decisions">07 Decisions</a>
+    </nav>
+  </header>
+
+  <section id="overview">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Overview</h2>
+    </div>
+    <p class="lede">Order Management owns orders, order lines, order status transitions, and returns/refunds — the record of what a buyer actually committed to buy and what happened to it afterward. This is the one service in the platform where correctness has to win over horizontal write scaling.</p>
+    <p>Every other write-heavy service in the HLD (Product, Search) is built to scale writes out across regions because a stale read or a duplicated write is recoverable — you re-index, you re-sync, the buyer barely notices. An order is different: double-charging a buyer, losing a status transition, or accepting an order against stock that no longer exists is not a data-quality problem, it's a financial and regulatory one. So Order Management is deliberately built as a single-writer, strongly-consistent service even though that costs it the active-active write scaling other services get — see §6 and §7 below for how that trade-off is drawn.</p>
+  </section>
+
+  <section id="ownership">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Data ownership</h2>
+    </div>
+    <p class="lede">The entity audit of the current monolith's <code>entity/order</code> package shows 8 tables: <code>tbl_order</code>, <code>tbl_seller_order</code>, <code>tbl_order_item</code>, <code>tbl_order_status_history</code>, <code>tbl_return_request</code>, <code>tbl_refund</code>, <code>tbl_payment</code>, and <code>tbl_invoice</code>.</p>
+    <p>The first six are squarely Order's: an order splits per seller (<code>tbl_seller_order</code>) since a single buyer cart can span multiple sellers, line items live under <code>tbl_order_item</code>, every status change is journaled in <code>tbl_order_status_history</code> rather than overwritten in place, and returns/refunds get their own request and settlement tables.</p>
+    <div class="callout"><b>Flag — <code>tbl_payment</code> and <code>tbl_invoice</code> are misplaced today:</b> both currently live inside Order's <code>entity/order</code> package, not a separate Billing package. This is not a labeling accident to fix with a rename — it's a <b>required physical migration</b>: the tables, their JPA entities, and the code paths that write them have to move into Billing's own schema and cluster before Billing can be extracted as an independent service. See the Billing Management doc's data-ownership section and <a href="../adr.html#adr-004">ADR-004</a> for the no-duplication rule this migration exists to make enforceable.</div>
+  </section>
+
+  <section id="communication">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Communication</h2>
+    </div>
+    <p class="lede">Order sits at the center of the lifecycle: one synchronous call comes in from Quotation, one synchronous call goes out to Product, and two async event streams fan out to Billing and Notification.</p>
+
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-build">Sync IN</span> Quotation Management &rarr; Order</h3>
+        <div class="when">create-order-on-accept</div>
+        <ul>
+          <li>When a buyer accepts a quote, Quotation calls Order to create the order <b>before</b> it returns "accepted" to the buyer.</li>
+          <li>This is a blocking dependency by design — the buyer must never see "accepted" for a quote that has no corresponding order.</li>
+          <li>The order references the quote by ID; nothing from the quote row is copied into Order's tables.</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-build">Sync OUT</span> Order &rarr; Product Management</h3>
+        <div class="when">price/stock confirmation on order creation</div>
+        <ul>
+          <li>Before accepting an order, Order confirms current price and stock with Product Management in the same request the buyer is waiting on.</li>
+          <li>Catalog data can drift between quote and purchase; this call is what stops an order from being confirmed against a price or stock level that's no longer true.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-build">Async OUT</span> Order &rarr; Billing Management</h3>
+        <div class="when"><code>OrderCreated</code> / <code>OrderStatusChanged</code> via EventBridge</div>
+        <ul>
+          <li>Billing reacts to these events to generate invoices and track payment state — invoicing never blocks order confirmation.</li>
+          <li>Order has no knowledge of whether or when Billing finishes processing the event.</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-build">Async OUT</span> Order &rarr; Notification Service</h3>
+        <div class="when">order-confirmation emails/SMS</div>
+        <ul>
+          <li>Notification must never receive a synchronous call from any service, Order included — this is a platform-wide rule, not an Order-specific optimization.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Architecture diagram</h2>
+    </div>
+    <p>Order Management as the hub: synchronous edges to Quotation (inbound create) and Product (outbound confirm), asynchronous edges out to Billing and Notification.</p>
+
+    <div class="arch-diagram">
+      <svg viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg">
+        <rect class="node-box self" x="270" y="120" width="140" height="60" rx="6"/>
+        <text class="node-label" x="340" y="145" text-anchor="middle">Order</text>
+        <text class="node-sub" x="340" y="160" text-anchor="middle">Management</text>
+
+        <rect class="node-box" x="30" y="30" width="150" height="55" rx="6"/>
+        <text class="node-label" x="105" y="53" text-anchor="middle">Quotation</text>
+        <text class="node-sub" x="105" y="67" text-anchor="middle">Management</text>
+
+        <rect class="node-box" x="500" y="30" width="150" height="55" rx="6"/>
+        <text class="node-label" x="575" y="53" text-anchor="middle">Product</text>
+        <text class="node-sub" x="575" y="67" text-anchor="middle">Management</text>
+
+        <rect class="node-box" x="30" y="215" width="150" height="55" rx="6"/>
+        <text class="node-label" x="105" y="238" text-anchor="middle">Billing</text>
+        <text class="node-sub" x="105" y="252" text-anchor="middle">Management</text>
+
+        <rect class="node-box" x="500" y="215" width="150" height="55" rx="6"/>
+        <text class="node-label" x="575" y="238" text-anchor="middle">Notification</text>
+        <text class="node-sub" x="575" y="252" text-anchor="middle">Service</text>
+
+        <path class="edge-sync" d="M180,70 L270,140" marker-end="url(#arrow-sync)"/>
+        <text class="edge-label" x="200" y="95">create-order-on-accept</text>
+
+        <path class="edge-sync" d="M410,140 L500,70" marker-end="url(#arrow-sync)"/>
+        <text class="edge-label" x="415" y="95">confirm price/stock</text>
+
+        <path class="edge-async" d="M270,165 L180,230" marker-end="url(#arrow-async)"/>
+        <text class="edge-label" x="185" y="205">OrderCreated /</text>
+        <text class="edge-label" x="185" y="217">OrderStatusChanged</text>
+
+        <path class="edge-async" d="M410,165 L500,230" marker-end="url(#arrow-async)"/>
+        <text class="edge-label" x="450" y="205">order-confirmation</text>
+        <text class="edge-label" x="450" y="217">email/SMS</text>
+
+        <defs>
+          <marker id="arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/>
+          </marker>
+          <marker id="arrow-async" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="var(--async)"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="arch-legend">
+      <span><span class="swatch sync"></span> sync (blocking)</span>
+      <span><span class="swatch async"></span> async (event)</span>
+    </div>
+  </section>
+
+  <section id="deployment">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Deployment</h2>
+    </div>
+    <p class="lede">ECS Fargate for compute, Aurora PostgreSQL as a single-writer cluster — no multi-writer pattern, because strict consistency on order state is the whole point of this service.</p>
+
+    <span class="file-tab">modules/order-management/main.tf</span>
+    <pre><span class="c">// single-writer Aurora — no aurora_replication_source_identifier fan-out,</span>
+<span class="c">// standby region is provisioned but not a second writer</span>
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"order_db"</span> {
+  cluster_identifier      = <span class="s">"order-mgmt-${var.environment}"</span>
+  engine                  = <span class="s">"aurora-postgresql"</span>
+  engine_version          = <span class="s">"15.4"</span>
+  master_username         = var.db_master_username
+  master_password         = var.db_master_password
+  backup_retention_period = <span class="k">7</span>
+  <span class="c">// var.standby_region provisions a warm-standby cluster via cross-region</span>
+  <span class="c">// snapshot replication, not a second write endpoint — see §6</span>
+}
+
+resource <span class="s">"aws_rds_cluster_instance"</span> <span class="s">"order_db_writer"</span> {
+  cluster_identifier = aws_rds_cluster.order_db.id
+  instance_class     = var.db_instance_class
+  engine             = aws_rds_cluster.order_db.engine
+}
+
+module <span class="s">"order_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"order-management"</span>
+  image         = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  desired_count = var.task_count
+  cpu           = <span class="k">1024</span>
+  memory        = <span class="k">2048</span>
+  autoscale_on  = <span class="s">"request_count"</span>
+}
+
+variable <span class="s">"standby_region"</span> {
+  description = <span class="s">"region for warm-standby Aurora cluster; promoted manually on regional failover"</span>
+  type        = string
+}</pre>
+  </section>
+
+  <section id="scaling">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>Scaling &amp; region topology</h2>
+    </div>
+    <p class="lede">Order runs single-writer with a warm standby per the region-topology rules in <a href="../adr.html#adr-007">ADR-007</a> — explicitly <b>not</b> active-active.</p>
+    <p>A regional outage means a controlled Aurora promotion of the standby to writer, with an RTO measured in seconds to minutes rather than zero. That's an accepted cost: the alternative, an active-active writer topology, would mean resolving write conflicts on order and payment state across regions, and there's no conflict-resolution strategy for "which region's version of this order's status is correct" that doesn't risk the exact correctness failures this service exists to prevent.</p>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2>Decisions worth writing down</h2>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — Payment and Invoice must be physically extracted</span>
+      <h4><code>tbl_payment</code> / <code>tbl_invoice</code> move to Billing's own schema/cluster, not a shared table or a view</h4>
+      <p>These tables sit in Order's package today purely as an artifact of the monolith's history, not because Order needs to own payment or invoice data. Extraction has to be physical — new schema, new cluster, code moved to Billing's service boundary — because a shared table or a read-only view would leave the door open for a cross-service join, which is exactly what <a href="../adr.html#adr-004">ADR-004</a>'s no-duplication rule is designed to prevent. See the Billing Management doc for the migration plan.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — Order stays single-writer while Product goes active-active</span>
+      <h4>Order correctness outranks read/write scale here</h4>
+      <p>Product Management can afford active-active because a stale product read is cheap to tolerate and easy to reconcile. Order cannot: two regions independently accepting writes against the same order would create exactly the double-charge and lost-status-transition failures this service is built to avoid. Per <a href="../adr.html#adr-007">ADR-007</a>, Order is bucketed with the single-writer-plus-standby services rather than the active-active ones, and that bucketing is a direct consequence of what "correct" means for an order versus a product listing.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; Order Management</span>
+    <span><a href="../index.html">Service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

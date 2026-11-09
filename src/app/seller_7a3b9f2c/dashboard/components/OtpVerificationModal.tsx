@@ -169,14 +169,6 @@ export default function OtpVerificationModal({
     if (value && index < 5) {
       emailInputs.current[index + 1]?.focus();
     }
-    
-    // Auto-verify when all digits entered
-    if (value && index === 5) {
-      const enteredOtp = newOtp.join("");
-      if (enteredOtp.length === 6) {
-        verifyEmailOtp(enteredOtp);
-      }
-    }
   };
 
   const handlePhoneOtpChange = (value: string, index: number) => {
@@ -189,14 +181,6 @@ export default function OtpVerificationModal({
     
     if (value && index < 5) {
       phoneInputs.current[index + 1]?.focus();
-    }
-    
-    // Auto-verify when all digits entered
-    if (value && index === 5) {
-      const enteredOtp = newOtp.join("");
-      if (enteredOtp.length === 6) {
-        verifyPhoneOtp(enteredOtp);
-      }
     }
   };
 
@@ -229,10 +213,8 @@ export default function OtpVerificationModal({
     if (/^\d{6}$/.test(pasteData)) {
       if (type === 'email') {
         setEmailOtp(pasteData.split('') as string[]);
-        verifyEmailOtp(pasteData);
       } else {
         setPhoneOtp(pasteData.split('') as string[]);
-        verifyPhoneOtp(pasteData);
       }
     } else {
       toast.error("Please paste a valid 6-digit code");
@@ -455,6 +437,15 @@ export default function OtpVerificationModal({
               </p>
             )}
 
+            {/* Verify */}
+            <button
+              onClick={() => verifyEmailOtp(emailOtp.join(""))}
+              disabled={isVerifying || emailOtp.join("").length !== 6}
+              className="mb-4 px-6 py-2 bg-primary-900 text-white rounded-lg font-medium hover:bg-primary-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isVerifying ? "Verifying..." : "Verify"}
+            </button>
+
             {/* Resend */}
             <div className="mb-4">
               <button
@@ -496,6 +487,15 @@ export default function OtpVerificationModal({
                 {phoneError}
               </p>
             )}
+
+            {/* Verify */}
+            <button
+              onClick={() => verifyPhoneOtp(phoneOtp.join(""))}
+              disabled={isVerifying || phoneOtp.join("").length !== 6}
+              className="mb-4 px-6 py-2 bg-primary-900 text-white rounded-lg font-medium hover:bg-primary-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isVerifying ? "Verifying..." : "Verify"}
+            </button>
 
             {/* Resend */}
             <div className="mb-4">

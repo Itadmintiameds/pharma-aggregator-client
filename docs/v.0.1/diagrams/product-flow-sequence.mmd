@@ -1,0 +1,119 @@
+sequenceDiagram
+    autonumber
+    actor Seller
+    participant AddProduct as AddProduct.tsx<br/>(products/add/page.tsx)
+    participant MedForm as MedicalDevicesForm.tsx<br/>(consumable/non-consumable radio)
+    participant CatForm as Category Form<br/>(DrugForm / ConsumableForm / NonConsumableForm /<br/>SupplementForm / CosmeticForm / FoodInfantForm)
+    participant Svc as utils/api.ts client<br/>(ProductService.ts / ConsumbaleService.ts / etc.)
+    participant PDC as ProductDetailsController<br/>(/products/create)
+    participant PDS as ProductDetailsServiceImpl
+    participant DB as tm_product_details +<br/>per-category attribute tables
+    participant PIC as ProductImageController<br/>(/product-images/{productId})
+    participant PImgSvc as ProductImageService (+S3Service)
+    participant DocCtl as ProductUserManualController /<br/>ProductDocumentController /<br/>NutritionalInformationImageController
+    participant DocSvc as ProductUserManualServiceImpl /<br/>ProductDocumentService (+S3Service)
+
+    rect rgb(235,245,255)
+    Note over Seller,CatForm: Manual entry path
+    Seller->>AddProduct: Click "Add Product" -> pick category
+    AddProduct->>CatForm: render (Drugs/Supplements/FoodInfant/Cosmetic directly;<br/>Medical Devices via MedForm radio -> Consumable/NonConsumable)
+    Seller->>CatForm: Fill product/category-attribute/packaging fields,<br/>select images, certificate files, brochure/user-manual
+    CatForm->>CatForm: Client-side validate (zod schema for Drug/Supplement;<br/>hand-rolled validate() for Consumable/NonConsumable/Cosmetic)
+    end
+
+    CatForm->>Svc: createDrugProduct / createConsumableProduct / ... (payload)
+    Note right of CatForm: payload omits packaging/pricing at create time —<br/>attached later from the product view page.<br/>Certificate entries sent as {certificationId, certificateUrl:"PENDING"}
+    Svc->>PDC: POST /products/create (Bearer token, JSON)
+    PDC->>PDS: createProduct(dto, userId, allowMergeIntoExisting=false)
+    PDS->>PDS: look up Seller by userId, Category by categoryId
+    PDS->>PDS: generateProductId() = 2-letter seller prefix +<br/>3-letter product-name fragment + 5-digit global sequence
+    PDS->>PDS: setChildRelationships(): per-category attribute checks<br/>(NonConsumable/Supplement/FoodInfant require certifications<br/>non-empty + category FK non-null; Consumable/Cosmetic check<br/>certifications != null only — empty list passes, dead check)
+    PDS->>DB: save ProductDetails (status defaults PUBLISHED)<br/>+ cascaded attribute + placeholder ProductCertificateDocument rows
+    DB-->>PDS: saved entity (productId, productAttributeId per category)
+    PDS-->>PDC: ProductDetailsDto
+    PDC-->>Svc: 200 OK { productId, productAttribute*[0].productAttributeId,<br/>certificateDocuments[] }
+    Svc-->>CatForm: response.data
+
+    CatForm->>CatForm: extract productId + productAttributeId from response
+
+    opt images selected
+        CatForm->>Svc: uploadProductImages(productId, files) /<br/>uploadSupplementProductImages(...)
+        Svc->>PIC: POST /product-images/{productId} (multipart "images")
+        PIC->>PImgSvc: uploadImages(productId, files)
+        PImgSvc->>PImgSvc: validate each file non-empty + contentType startsWith "image/"
+        PImgSvc->>DB: S3Service.uploadFile() per file, then save ProductImage rows
+        PImgSvc-->>PIC: list of image URLs
+        PIC-->>Svc: 200 OK
+    end
+
+    alt Drug category
+        opt user manual file selected
+            CatForm->>Svc: uploadProductUserManual(productAttributeId, file)
+            Svc->>DocCtl: POST /userManual/{productAttributeId} (multipart "file")
+            DocCtl->>DocSvc: uploadManual() — upsert 1:1 ProductUserManual
+            DocSvc->>DB: S3 upload + save ProductUserManual row
+        end
+    else Food & Infant category
+        opt user manual file selected
+            CatForm->>Svc: uploadFoodInfantUserManual(productAttributeId, file)
+            Svc->>DocCtl: POST /userManual/new/{productAttributeId}
+            DocCtl->>DocSvc: uploadUserManual() — sets product_user_manual<br/>column directly on ProductAttributeFoodInfant
+        end
+        CatForm->>Svc: uploadNutritionalInformationImage(attributeId, categoryId, image)
+        Svc->>DocCtl: POST /nutritionalInformationImage/{productAttributeId}
+    else Supplement category
+        opt nutritional image / brochure selected
+            CatForm->>Svc: uploadNutritionalInformationImage(...) /<br/>uploadSupplementBrochure(attributeId, file)
+            Svc->>DocCtl: POST /nutritionalInformationImage/{id} /<br/>POST /product-documents/supplements/{id}/brochure
+        end
+    else Consumable / Non-Consumable / Cosmetic category
+        opt brochure file selected
+            CatForm->>Svc: uploadConsumableBrochure / uploadNonConsumableBrochure /<br/>uploadCosmeticBrochure(attributeId, file)
+            Svc->>DocCtl: POST /product-documents/{category}/{attributeId}/brochure
+            DocCtl->>DocSvc: uploadXxxBrochure() — deleteIfRealUrl(existing),<br/>S3 upload, overwrite brochurePath column in place
+        end
+    end
+
+    opt certificate files selected (Consumable/NonConsumable/Supplements/Cosmetic/Food)
+        loop for each certificate with a new file
+            CatForm->>Svc: uploadConsumableCertificate(attributeId, productCertificateDocumentId, file)<br/>(analogous uploadXxxCertificate/uploadFoodInfantCertificates for other categories)
+            Svc->>DocCtl: POST /product-documents/{category}/{attributeId}/certificates<br/>(multipart: documentIds[] + certificateFiles[], same order)
+            DocCtl->>DocSvc: uploadXxxCertificates()
+            DocSvc->>DB: look up existing ProductCertificateDocument by documentId,<br/>verify it belongs to this productAttributeId (else 400),<br/>deleteIfRealUrl(old S3 object), S3 upload,<br/>overwrite certificateUrl in place (no new row)
+        end
+    end
+
+    CatForm-->>Seller: show success modal / navigate to product view
+
+    rect rgb(255,245,230)
+    Note over Seller,DB: Bulk Excel/CSV import path (separate entry point)
+    participant DF as DashboardFilters.tsx<br/>("Add Product" dropdown -> Excel/CSV)
+    participant Ext as fetch() direct call<br/>(bypasses lib/api.ts AND utils/api.ts)
+    participant PIC2 as ProductImportController<br/>(/products/import)
+    participant UES as UniversalExcelImportService
+    participant Fac as ProductImportStrategyFactory
+    participant Strat as *ImportStrategy<br/>(Drug/Consumable/NonConsumable/<br/>Cosmetics/FoodInfant/Supplements)
+
+    Seller->>DF: pick category + choose "Excel/CSV" method,<br/>upload .xlsx/.xls/.csv file
+    DF->>Ext: POST hardcoded https://api-test-aggreator.tiameds.ai/api/v1/products/import<br/>(FormData: file, categoryId; Authorization: Bearer accessToken from localStorage)
+    Note right of DF: BUG: IMPORT_API_URL is a hardcoded external<br/>staging host, NOT built from NEXT_PUBLIC_API_URL —<br/>unlike every other product service in this app
+    Ext->>PIC2: POST /products/import (multipart file + categoryId)
+    PIC2->>UES: importFile(file, userId, categoryId)
+    UES->>UES: resolveStrategyKey(categoryId) via Category.categoryName<br/>(e.g. "CONSUMABLE MEDICAL DEVICES & EQUIPMENT" -> "CONSUMABLE")
+    UES->>Fac: getStrategy(strategyKey)
+    Fac-->>UES: matching @Component bean (case-insensitive key match)
+    UES->>UES: open workbook/CSV; skip sheets named "Master"/"Masters";<br/>data rows start at index 2 (rows 0/1 are headers)
+    loop for each data row with a non-blank Product Name
+        UES->>Strat: mapRow(row, categoryId, userId) / mapCsv(record, categoryId, userId)
+        Strat->>Strat: validateMandatoryExcel/Csv() — collects ALL violations,<br/>then throws ValidationException (not fail-fast).<br/>Placeholder ProductCertificateDocument rows built with<br/>certificateUrl="NOT_UPLOADED" / brochurePath="NOT_UPLOADED"
+        Strat-->>UES: ProductDetailsDto (or ValidationException caught per-row)
+        UES->>PDS: createProduct(dto, userId, allowMergeIntoExisting=true)
+        Note right of PDS: true: same seller+productName+manufacturerName+categoryId<br/>merges as a new packaging/pricing variant via<br/>addVariantToExistingProduct() instead of a new row
+        PDS->>DB: save (new product OR merged packaging/pricing variant)
+        UES->>UES: record success, or capture row error (rowNumber, productName, message)
+    end
+    UES-->>PIC2: ExcelImportResultDto (totalRows, successCount, failureCount, errors[])
+    PIC2-->>Ext: 200 OK
+    Ext-->>DF: parse response, show per-row validation errors if any
+    Note over Seller: Certificate/brochure/user-manual/image files still need<br/>the same per-category upload endpoints above —<br/>the Excel path does not upload any binary files itself
+    end

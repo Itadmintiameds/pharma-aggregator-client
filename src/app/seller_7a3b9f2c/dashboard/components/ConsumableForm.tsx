@@ -9,12 +9,14 @@ import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import AppliedOffersView from "./AppliedOffersView";
 import PopupModal from "../commonComponent/PopupModal";
+import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import CommonModal from "../commonComponent/CommonModal";
 import { AlertCircle } from "lucide-react";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import { getProductById, uploadProductImages, updateProduct } from "@/src/services/product/ProductService";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
+import { getGstPercentages } from "@/src/services/product/GstPercentageService";
 import {
   getConsumableDeviceCategories,
   getConsumableDeviceSubCategories,
@@ -170,7 +172,19 @@ const NonEditableSelect = ({ label, value, required }: { label: string; value: s
 
 const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: ConsumableFormProps) => {
   const router = useRouter();
-  const todayStr = new Date().toISOString().split("T")[0];
+  // After a draft save: edit mode reloads so ids/images/status are fresh (the server re-creates
+  // attribute rows on every update); add mode jumps to the saved draft's edit page so later saves
+  // update it instead of creating a duplicate product.
+  const savedDraftIdRef = useRef<string | null>(null);
+  const handleDraftModalDone = () => {
+    setShowDraftModal(false);
+    if (draftModalError) return;
+    if (mode === "edit") {
+      window.location.reload();
+    } else if (savedDraftIdRef.current) {
+      router.replace(editUrlFor(savedDraftIdRef.current, "editConsumable"));
+    }
+  };
 
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   const setFieldRef = (name: string) => (el: HTMLElement | null) => { fieldRefs.current[name] = el; };
@@ -235,6 +249,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
   const [storageConditionOptions, setStorageConditionOptions] = useState<SelectOption[]>([]);
   const [packTypeApiOptions, setPackTypeApiOptions] = useState<SelectOption[]>([]);
+  const [gstOptions, setGstOptions] = useState<SelectOption[]>([]);
   const [certificationMasterOptions, setCertificationMasterOptions] = useState<CertificationMasterOption[]>([]);
   const [materialTypeOptions, setMaterialTypeOptions] = useState<SelectOption[]>([]);
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
@@ -250,8 +265,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [loadingMaterialTypes, setLoadingMaterialTypes] = useState(false);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
+  const [productStatus, setProductStatus] = useState<string>("");
+  // In edit mode most fields are locked, except for DRAFT products which stay fully editable
+  const isLockedEdit = mode === "edit" && productStatus !== "DRAFT";
+  const isDraftEdit = mode === "edit" && productStatus === "DRAFT";
+  const prevCatRef = useRef("");
+  const prevSubCatRef = useRef("");
 
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -268,6 +290,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [additionalDiscountSlabs, setAdditionalDiscountSlabs] = useState<AdditionalDiscountSlab[]>([]);
   const [specialSchemes, setSpecialSchemes] = useState<any[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftModalError, setDraftModalError] = useState(false);
 
   const sterileOptions: SelectOption[] = [
     { value: "sterile", label: "Sterile" },
@@ -276,12 +300,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const disposableOptions: SelectOption[] = [
     { value: "disposable", label: "Disposable" },
     { value: "reusable", label: "Reusable" },
-  ];
-  const gstOptions: SelectOption[] = [
-    { value: "0", label: "0%" },
-    { value: "5", label: "5%" },
-    { value: "12", label: "12%" },
-    { value: "18", label: "18%" },
   ];
 
   const convertToDiscountSlab = (data: AdditionalDiscountData[]): AdditionalDiscountSlab[] =>
@@ -357,6 +375,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const data = await getProductById(productId);
       if (!data) throw new Error("Product not found");
 
+      setProductStatus(String(data.status || "").toUpperCase());
       setResolvedProductId(data.productId || productId);
       const attribute = data.productAttributeConsumableMedicals?.[0] || {};
       const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) || {};
@@ -371,12 +390,12 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const mfgDate = mfgRaw ? new Date(mfgRaw.split("T")[0]) : null;
       const expDate = expRaw ? new Date(expRaw.split("T")[0]) : null;
 
-      const deviceCatIdStr = String(attribute.deviceCatId || "");
-      const deviceSubCatIdStr = String(attribute.deviceSubCatId || "");
+      const deviceCatIdStr = String(attribute.deviceCategoryId || attribute.deviceCatId || "");
+      const deviceSubCatIdStr = String(attribute.deviceSubCategoryId || attribute.deviceSubCatId || "");
       const countryIdStr = String(attribute.countryId || "");
       const storageCondIdStr = String(attribute.storageConditionId || "");
       const packIdStr = String(packaging.packId || "");
-      const gstVal = String(pricing.gstPercentage ?? "");
+      const gstVal = String(pricing.gstPercentage ?? attribute.gstPercentage ?? data.gstPercentage ?? "");
 
       // Fetch sub-categories for this category so we can resolve the label
       let resolvedSubCats = currentSubCategoryOptions;
@@ -392,8 +411,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const specUnitIdStr = String(attribute.deviceSpecificationUnitId || "");
 
       // Resolve material type labels
-      const materialTypeIds: string[] = Array.isArray(attribute.materialTypeId)
-        ? attribute.materialTypeId.map(String)
+      const rawMaterialTypeIds = Array.isArray(attribute.materialTypeIds)
+        ? attribute.materialTypeIds
+        : attribute.materialTypeId;
+      const materialTypeIds: string[] = Array.isArray(rawMaterialTypeIds)
+        ? rawMaterialTypeIds.map(String)
         : [];
       const materialTypesLabel = materialTypeIds
         .map((id) => currentMaterialTypeOptions.find((o) => o.value === id)?.label || id)
@@ -412,6 +434,8 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       });
 
       setSelectedMaterialTypes(materialTypeIds);
+      prevCatRef.current = deviceCatIdStr;
+      prevSubCatRef.current = deviceSubCatIdStr;
 
       setForm({
         productName: data.productName || "",
@@ -445,7 +469,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         sellingPricePerPack: pricing.sellingPrice != null ? String(pricing.sellingPrice) : "",
         discountPercentage: String(pricing.discountPercentage || ""),
         gstPercentage: gstVal,
-        hsnCode: String(pricing.hsnCode || ""),
+        hsnCode: String(pricing.hsnCode || attribute.hsnCode || data.hsnCode || ""),
         finalPrice: String(pricing.finalPrice || ""),
         shelfLifeMonths: String(computeShelfLife(mfgDate, expDate) ?? ""),
       });
@@ -465,7 +489,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         );
       }
 
-      const isRealUrl = (u: string) => !!u && !["PENDING", "NOT_UPLOADED"].includes(u.toUpperCase());
+      const isRealUrl = (u: string) => isRealFileUrl(u);
       if (isRealUrl(attribute.brochurePath)) {
         setExistingBrochureUrl(attribute.brochurePath);
       }
@@ -482,7 +506,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           isUploaded: isRealUrl(cert.certificateUrl),
           previewUrl: null,
           productCertificateDocumentId: Number(cert.productCertificateDocumentId),
-          existingUrl: cert.certificateUrl || undefined,
+          existingUrl: isRealUrl(cert.certificateUrl) ? cert.certificateUrl : undefined,
         }));
         setSelectedCertifications(mappedCerts);
         setMandatoryCertCount(mappedCerts.length);
@@ -642,6 +666,46 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.deviceSubCategoryId, mode]);
 
+  // DRAFT products opened in edit mode keep category/sub-category editable: refetch dependants on change
+  useEffect(() => {
+    if (!isDraftEdit) return;
+    if (form.deviceCategoryId === prevCatRef.current) return;
+    prevCatRef.current = form.deviceCategoryId;
+    if (form.deviceCategoryId) fetchDeviceSubCategories(form.deviceCategoryId);
+    else setDeviceSubCategoryOptions([]);
+    prevSubCatRef.current = "";
+    setForm((p) => ({ ...p, deviceSubCategoryId: "", deviceSpecificationUnitId: "" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.deviceCategoryId, isDraftEdit]);
+
+  useEffect(() => {
+    if (!isDraftEdit) return;
+    if (form.deviceSubCategoryId === prevSubCatRef.current) return;
+    prevSubCatRef.current = form.deviceSubCategoryId;
+    if (form.deviceSubCategoryId) fetchSpecificationUnits(form.deviceSubCategoryId);
+    else setSpecificationUnitOptions([]);
+    setForm((p) => ({ ...p, deviceSpecificationUnitId: "" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.deviceSubCategoryId, isDraftEdit]);
+
+  // Fetch valid GST % values from the master list
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await getGstPercentages();
+        const options = response
+          .map((item: any) => ({
+            label: `${item.gstPercentageValue}%`,
+            value: String(item.gstPercentageValue),
+          }))
+          .sort((a: any, b: any) => Number(a.value) - Number(b.value));
+        setGstOptions(options);
+      } catch (error) {
+        console.error("Error fetching GST percentages:", error);
+      }
+    })();
+  }, []);
+
   // Auto-compute pack size
   useEffect(() => {
     const u = parseFloat(form.unitsPerPack), p = parseFloat(form.numberOfPacks);
@@ -777,7 +841,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const handleCertCheckbox = (option: CertificationMasterOption) => {
     const exists = selectedCertifications.some((c) => c.id === option.value);
     if (exists) {
-      const isMandatory = mode === "edit" &&
+      const isMandatory = isLockedEdit &&
         selectedCertifications.findIndex((c) => c.id === option.value) < mandatoryCertCount;
       if (isMandatory) {
         alert(`"${option.label}" is a mandatory certificate and cannot be removed. You may re-upload a new file for it instead.`);
@@ -905,7 +969,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const validate = (): Record<string, string> => {
     const e: Record<string, string> = {};
 
-    if (mode === "create") {
+    if (mode === "create" || isDraftEdit) {
       if (!form.deviceCategoryId) e.deviceCategoryId = "Device category is required";
       if (!form.deviceSubCategoryId) e.deviceSubCategoryId = "Device sub-category is required";
       const pName = form.productName.trim();
@@ -933,28 +997,18 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       const mName = form.manufacturerName.trim();
       if (!mName) e.manufacturerName = "Manufacturer name is required";
       else if (mName.length > 100) e.manufacturerName = "Manufacturer name must not exceed 100 characters";
-      if (!form.packType) e.packType = "Pack type is required";
-      const bNum = form.batchLotNumber.trim();
-      if (!bNum) e.batchLotNumber = "Batch / lot number is required";
-      else if (!/^[a-zA-Z0-9]+$/.test(bNum)) e.batchLotNumber = "Batch number must be alphanumeric only";
-      else if (bNum.length < 3) e.batchLotNumber = "Batch number must be at least 3 characters";
-      else if (bNum.length > 20) e.batchLotNumber = "Batch number must not exceed 20 characters";
-      if (!form.manufacturingDate) e.manufacturingDate = "Manufacturing date is required";
-      else {
-        const today = new Date();
-        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        if (form.manufacturingDate > currentMonth) e.manufacturingDate = "Manufacturing date cannot be in the future month";
-      }
-      if (!form.expiryDate) e.expiryDate = "Expiry date is required";
-      else if (form.manufacturingDate) {
-        const maxDate = new Date(form.manufacturingDate.getFullYear() + 5, form.manufacturingDate.getMonth(), 1);
-        if (form.expiryDate > maxDate)
-          e.expiryDate = "Expiry cannot be more than 5 years from Manufacturing Date";
-      }
-      if (!form.gstPercentage) e.gstPercentage = "GST percentage is required";
-      if (!form.hsnCode.trim()) e.hsnCode = "HSN code is required";
-      else { const hsnErr = validateHSNCode(form.hsnCode); if (hsnErr) e.hsnCode = hsnErr; }
       if (!form.storageCondition) e.storageCondition = "Storage condition is required";
+
+      const gstVal = form.gstPercentage.trim();
+      if (!gstVal) e.gstPercentage = "GST % is required";
+      else if (!["0", "5", "8", "10", "12"].includes(gstVal)) e.gstPercentage = "Select a valid GST %";
+
+      const hsnVal = form.hsnCode.trim();
+      if (!hsnVal) e.hsnCode = "HSN Code is required";
+      else {
+        const hsnError = validateHSNCode(hsnVal);
+        if (hsnError) e.hsnCode = hsnError;
+      }
     }
 
     const iUse = form.intendedUse.trim();
@@ -973,47 +1027,11 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     if (!pDesc) e.productDescription = "Product description is required";
     else if (pDesc.length > 1000) e.productDescription = "Product description must not exceed 1000 characters";
 
-    if (mode === "edit" && Number(form.stockQuantity) === 0) {
+    if (isLockedEdit && Number(form.stockQuantity) === 0) {
       if (!form.storageCondition) e.storageCondition = "Storage condition is required";
     }
 
-    const uPack = Number(form.unitsPerPack);
-    if (!form.unitsPerPack.trim()) e.unitsPerPack = "Number of units per pack is required";
-    else if (!Number.isInteger(uPack) || uPack <= 0) e.unitsPerPack = "Units per pack must be a positive integer";
-
-    const nPacks = Number(form.numberOfPacks);
-    if (!form.numberOfPacks.trim()) e.numberOfPacks = "Number of packs is required";
-    else if (!Number.isInteger(nPacks) || nPacks <= 0) e.numberOfPacks = "Number of packs must be a positive integer";
-
-    const minQ = Number(form.minimumOrderQuantity);
-    const maxQ = Number(form.maximumOrderQuantity);
-    if (!form.minimumOrderQuantity.trim()) e.minimumOrderQuantity = "Minimum order quantity is required";
-    else if (!Number.isInteger(minQ) || minQ <= 0) e.minimumOrderQuantity = "Minimum order quantity must be a positive integer";
-    if (!form.maximumOrderQuantity.trim()) e.maximumOrderQuantity = "Maximum order quantity is required";
-    else if (!Number.isInteger(maxQ) || maxQ <= 0) e.maximumOrderQuantity = "Maximum order quantity must be a positive integer";
-    else if (!isNaN(minQ) && maxQ < minQ) e.maximumOrderQuantity = "Maximum order quantity must be ≥ minimum order quantity";
-
-    const selling = parseFloat(form.sellingPricePerPack);
-    if (!form.sellingPricePerPack.trim()) e.sellingPricePerPack = "Selling price is required";
-    else if (isNaN(selling) || selling <= 0) e.sellingPricePerPack = "Selling price must be greater than 0";
-
-    const mrp = parseFloat(form.mrp);
-    if (!form.mrp.trim()) e.mrp = "MRP is required";
-    else if (isNaN(mrp) || mrp <= 0) e.mrp = "MRP must be greater than 0";
-    else if (!isNaN(selling) && mrp < selling) e.mrp = "MRP must be ≥ selling price";
-
-    if (form.discountPercentage.trim() !== "") {
-      const disc = parseFloat(form.discountPercentage);
-      if (isNaN(disc) || disc < 0 || disc > 100) e.discountPercentage = "Discount percentage must be between 0 and 100";
-    }
-
-    if (mode === "create") {
-      const stock = parseFloat(form.stockQuantity);
-      if (!form.stockQuantity.trim()) e.stockQuantity = "Stock quantity is required";
-      else if (isNaN(stock) || stock <= 0) e.stockQuantity = "Stock quantity must be a positive value greater than 0";
-      else if (!isNaN(minQ) && minQ > 0 && stock <= minQ) e.stockQuantity = "Stock quantity must be greater than minimum order quantity";
-    }
-
+ 
     if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
     if (images.length + existingImages.length > 5) e.images = "Maximum 5 images allowed";
 
@@ -1022,7 +1040,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         e[`certFile_${cert.id}`] = `Please upload the certificate file for "${cert.label}"`;
       }
     }
-    if (mode === "edit" && selectedCertifications.length < mandatoryCertCount) {
+    if (isLockedEdit && selectedCertifications.length < mandatoryCertCount) {
       e.certifications = `You must keep all ${mandatoryCertCount} original certifications. Please re-add any removed ones.`;
     }
 
@@ -1050,10 +1068,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   // ─── Submit ───────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
+    console.log("Submitting form:", form, "Images:", images, "Brochure:", brochureFile, "Certs:", selectedCertifications);
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
-      setTimeout(() => scrollToFirstError(validationErrors), 50);
+      setApiError("Please fix the highlighted fields");
+      setTimeout(() => {
+        scrollToFirstError(validationErrors);
+        alert("Please fix the highlighted fields");
+      }, 50);
       return;
     }
     setErrors({});
@@ -1061,15 +1084,6 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     setApiError(null);
 
     try {
-      if (mode === "create" && form.batchLotNumber.trim()) {
-        const batchValidation = await validateBatchNumber(form.batchLotNumber, productCategoryId);
-        if (batchValidation.exists) {
-          setErrors((prev) => ({ ...prev, batchLotNumber: "Batch number already exists" }));
-          setSubmitting(false);
-          return;
-        }
-      }
-
       const payload = {
         productName: form.productName,
         warningsPrecautions: form.safetyInstructions,
@@ -1077,38 +1091,14 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         productMarketingUrl: form.brochureUrl || "",
         manufacturerName: form.manufacturerName,
         categoryId: productCategoryId,
-        packagingDetails: [{
-          ...(packagingId ? { packagingId } : {}),
-          packId: Number(form.packType),
-          unitPerPack: Number(form.unitsPerPack),
-          numberOfPacks: Number(form.numberOfPacks),
-          packSize: Number(form.unitsPerPack) * Number(form.numberOfPacks),
-          minimumOrderQuantity: Number(form.minimumOrderQuantity),
-          maximumOrderQuantity: Number(form.maximumOrderQuantity),
-        }],
-        pricingDetails: [{
-          ...(pricingId ? { pricingId } : {}),
-          batchLotNumber: form.batchLotNumber,
-          manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-          expiryDate: toLocalDateTimeString(form.expiryDate),
-          stockQuantity: Number(form.stockQuantity),
-          dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-          sellingPrice: Number(form.sellingPricePerPack),
-          mrp: Number(form.mrp),
-          discountPercentage: form.discountPercentage ? Number(form.discountPercentage) : 0,
-          gstPercentage: Number(form.gstPercentage),
-          finalPrice: Number(form.finalPrice),
-          hsnCode: Number(form.hsnCode),
-          additionalDiscounts: additionalDiscountSlabs.map((d: any) => ({
-            ...d,
-            displayOffer: d.displayOffer !== false,
-          })),
-          specialSchemes: specialSchemes.map((s: any) => ({
-            ...s,
-            ...(s.specialSchemesId ? { specialSchemesId: s.specialSchemesId } : {}),
-            displayOfferScheme: s.displayOfferScheme !== false,
-          })),
-        }],
+
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
+        // Update keeps the loaded status (never re-publishes UNPUBLISHED); submitting a draft publishes it
+        status: (mode === "edit" && productStatus && productStatus !== "DRAFT"
+          ? productStatus
+          : "PUBLISHED") as "PUBLISHED",
+
         productAttributeConsumableMedicals: [{
           ...(productAttributeId ? { productAttributeId } : {}),
           deviceCatId: Number(form.deviceCategoryId),
@@ -1144,10 +1134,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       if (mode === "edit" && currentProductId) {
         const updateData = await updateProduct(currentProductId, payload as any) as ApiResponseData;
 
-        // For Excel-uploaded products the attributeId may not be pre-populated
-        if (!currentAttributeId) {
-          currentAttributeId = extractProductAttributeId(updateData) || "";
-        }
+        // The update re-creates the attribute row with a new id: always take it from the response
+        currentAttributeId = extractProductAttributeId(updateData) || currentAttributeId;
+        if (currentAttributeId) setProductAttributeId(currentAttributeId);
 
         // Extract server-assigned productCertificateDocumentId values from the update response
         const certDocMap = extractCertDocumentIdMap(updateData);
@@ -1167,6 +1156,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
             if (!r.success) setApiError(`Warning: Brochure could not be uploaded — ${r.message}`);
           }
         }
+        if (productStatus === "DRAFT") setProductStatus("PUBLISHED");
         if (onSubmitSuccess) onSubmitSuccess();
         else setShowSuccessModal(true);
       } else {
@@ -1206,6 +1196,117 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     }
   };
 
+  const numOrUndef = (v: unknown): number | undefined => {
+    if (v === "" || v === null || v === undefined) return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  const handleSaveDraft = async () => {
+    // Backend rejects products without these (non-null FKs), even as drafts
+    const draftErrors: Record<string, string> = {};
+    if (!form.deviceCategoryId) draftErrors.deviceCategoryId = "Device category is required to save a draft";
+    if (!form.deviceSubCategoryId) draftErrors.deviceSubCategoryId = "Device sub-category is required to save a draft";
+    if (!form.countryOfOrigin) draftErrors.countryOfOrigin = "Country of origin is required to save a draft";
+    if (!form.storageCondition) draftErrors.storageCondition = "Storage condition is required to save a draft";
+    if (Object.keys(draftErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...draftErrors }));
+      setApiError("Cannot save draft. Please fill: " + Object.values(draftErrors).map((m) => m.replace(" is required to save a draft", "")).join(", "));
+      setTimeout(() => scrollToFirstError(draftErrors), 50);
+      return;
+    }
+    setApiError(null);
+    setIsSavingDraft(true);
+    try {
+      const draftPayload = {
+        productName: form.productName,
+        warningsPrecautions: form.safetyInstructions,
+        productDescription: form.productDescription,
+        productMarketingUrl: form.brochureUrl || "",
+        manufacturerName: form.manufacturerName,
+        categoryId: productCategoryId,
+
+        gstPercentage: numOrUndef(form.gstPercentage),
+        hsnCode: numOrUndef(form.hsnCode),
+        status: "DRAFT" as const,
+
+        productAttributeConsumableMedicals: [{
+          ...(productAttributeId ? { productAttributeId } : {}),
+          deviceCatId: numOrUndef(form.deviceCategoryId),
+          deviceSubCatId: numOrUndef(form.deviceSubCategoryId),
+          brandName: form.brandName,
+          materialTypeId: selectedMaterialTypes.map(Number),
+          dimensionSize: form.sizeDimension.trim() || null,
+          deviceSpecificationUnitId: numOrUndef(form.deviceSpecificationUnitId),
+          sterileOrNonSterile: form.sterileStatus === "sterile" ? "Sterile" : "Non-Sterile",
+          disposalOrReusable: form.disposableType === "disposable" ? "Disposable" : "Reusable",
+          purpose: form.intendedUse,
+          keyFeaturesSpecifications: form.keyFeatures,
+          safetyInstructions: form.safetyInstructions,
+          countryId: numOrUndef(form.countryOfOrigin),
+          manufacturerName: form.manufacturerName,
+          storageConditionId: numOrUndef(form.storageCondition),
+          shelfLife: form.shelfLifeMonths,
+          brochureType: "PDF",
+          brochurePathStatus: existingBrochureUrl || (brochureFile ? "TO_UPLOAD" : "PENDING"),
+          certificateDocuments: selectedCertifications.map((c) => ({
+            certificationId: Number(c.id),
+            certificateUrl: c.existingUrl || "PENDING",
+          })),
+        }],
+        productImages: images.map(() => ({ productImage: "PENDING" })),
+        retainedImageUrls: existingImages,
+      };
+
+      let currentProductId = resolvedProductId || productId || "";
+
+      let draftAttributeId = "";
+      let draftResponse: ApiResponseData | undefined;
+      if (mode === "edit" && currentProductId) {
+        draftResponse = await updateProduct(currentProductId, draftPayload as any) as ApiResponseData;
+        draftAttributeId = extractProductAttributeId(draftResponse) || productAttributeId;
+        if (images.length > 0) await uploadProductImages(currentProductId, images);
+      } else {
+        const createData: ApiResponseData = await createConsumableProduct(draftPayload as Record<string, unknown>);
+        const dataInner = createData?.data as ApiResponseData | undefined;
+        const newProductId = String(dataInner?.productId ?? createData?.productId ?? "").trim();
+        if (newProductId && newProductId !== "undefined") {
+          currentProductId = newProductId;
+          setResolvedProductId(newProductId);
+        }
+        draftResponse = createData;
+        draftAttributeId = extractProductAttributeId(createData) || "";
+        if (currentProductId && images.length > 0) await uploadProductImages(currentProductId, images);
+      }
+
+      // Upload any newly picked certificate files / brochure so reopening the draft shows them
+      if (draftAttributeId && draftResponse) {
+        const certDocMap = extractCertDocumentIdMap(draftResponse);
+        for (const cert of selectedCertifications.filter((c) => c.file && !c.existingUrl)) {
+          const serverDocId = certDocMap.get(Number(cert.id)) ?? certDocMap.get(cert.productCertificateDocumentId);
+          const r = await uploadConsumableCertificate(draftAttributeId, serverDocId ?? cert.productCertificateDocumentId, cert.file!);
+          if (!r.success) console.warn(`Draft: certificate "${cert.label}" upload failed: ${r.message}`);
+        }
+        if (brochureFile) {
+          const r = await uploadConsumableBrochure(draftAttributeId, brochureFile);
+          if (!r.success) console.warn(`Draft: brochure upload failed: ${r.message}`);
+        }
+      }
+
+      if (draftAttributeId) setProductAttributeId(draftAttributeId);
+
+      if (currentProductId) savedDraftIdRef.current = currentProductId;
+      setDraftModalError(false);
+      setShowDraftModal(true);
+    } catch (err) {
+      console.error("❌ Save Draft Error:", err);
+      setDraftModalError(true);
+      setShowDraftModal(true);
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
   // ─── Loading guard ────────────────────────────────────────────────────────
 
   if (loadingProduct) {
@@ -1216,7 +1317,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
     );
   }
 
-  const isEdit = mode === "edit";
+  const isEdit = isLockedEdit;
   const hasStock = isEdit && Number(form.stockQuantity) > 0;
 
   // Resolved display for material types multi-select in edit mode
@@ -1238,9 +1339,24 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
         secondaryActionText={isEdit ? "Continue Editing" : "Continue Adding"}
         tertiaryActionText="Back to Dashboard"
         onPrimaryAction={handleViewProduct}
-        onSecondaryAction={isEdit ? () => setShowSuccessModal(false) : handleContinueAdding}
+        onSecondaryAction={isEdit ? () => { setShowSuccessModal(false); window.location.reload(); } : handleContinueAdding}
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
+      />
+
+      <PopupModal
+        isOpen={showDraftModal}
+        title={draftModalError ? "Failed to Save Draft" : "Draft Saved!"}
+        description={
+          draftModalError
+            ? "Something went wrong while saving your draft. Please try again."
+            : "Your product has been saved as a draft."
+        }
+        primaryActionText="OK"
+        celebrate={!draftModalError}
+        isError={draftModalError}
+        onPrimaryAction={handleDraftModalDone}
+        onClose={handleDraftModalDone}
       />
 
       {showAdditionalDiscountModal && (
@@ -1547,6 +1663,22 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
                 value={form.manufacturerName} onChange={handleChange} error={errors.manufacturerName} required />
             )}
 
+            {isEdit ? (
+              <NonEditableField label="GST %" value={form.gstPercentage} required />
+            ) : (
+              <Dropdown label="GST %" options={gstOptions}
+                value={form.gstPercentage || ""}
+                onChange={(value) => setForm((prev) => ({ ...prev, gstPercentage: value }))}
+                placeholder="Select GST %" error={errors.gstPercentage} required />
+            )}
+
+            {isEdit ? (
+              <NonEditableField label="HSN Code" value={form.hsnCode} required />
+            ) : (
+              <Input label="HSN Code" name="hsnCode" placeholder="e.g. 3926"
+                value={form.hsnCode} onChange={handleChange} error={errors.hsnCode} required />
+            )}
+
             {/* Storage Condition — locked after stock entry */}
             {hasStock ? (
               <NonEditableSelect label="Storage Condition" value={displayLabels.storageConditionLabel} required />
@@ -1601,236 +1733,13 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
           </div>
         </div>
 
-        {/* ── Section 2: Packaging & Order Details ─────────────────────────────── */}
-        <div className={sectionCard}>
-          <h2 className={sectionTitle}>Packaging &amp; Order Details</h2>
-          <div className="border-b border-neutral-200 mt-3"></div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pt-6">
-
-            {/* Pack Type — locked after stock entry */}
-            {hasStock ? (
-              <NonEditableSelect label="Pack Type" value={displayLabels.packTypeLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("packType") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>Pack Type {requiredStar}</label>
-                <Dropdown
-                  options={packTypeApiOptions}
-                  value={form.packType}
-                  onChange={(val, label) => handleSelectChange("packType", { value: val, label })}
-                  placeholder="Select pack type"
-                  error={errors.packType ? " " : ""}
-                />
-                {errors.packType && <p className={errorMsg}>{errors.packType}</p>}
-              </div>
-            )}
-
-            {/* Units per Pack — locked after stock entry */}
-            {hasStock ? (
-              <NonEditableField label="Number of Units per Pack Type" value={form.unitsPerPack} required />
-            ) : (
-              <Input label="Number of Units per Pack Type" name="unitsPerPack" placeholder="e.g., 100"
-                value={form.unitsPerPack} onChange={handleChange} error={errors.unitsPerPack} required />
-            )}
-
-            {/* Number of Packs — locked after stock entry */}
-            {hasStock ? (
-              <NonEditableField label="Number of Packs" value={form.numberOfPacks} required />
-            ) : (
-              <Input label="Number of Packs" name="numberOfPacks" placeholder="e.g., 10"
-                value={form.numberOfPacks} onChange={handleChange} error={errors.numberOfPacks} required />
-            )}
-
-            <Input label="Pack Size (No. of Units per Pack Type X No. of Packs)" name="packSize"
-              value={form.packSize} readOnly />
-          </div>
-
-          <p className={subSectionTitle}>Order Details</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-            <Input label="Min Order Qty" name="minimumOrderQuantity" placeholder="e.g., 1"
-              value={form.minimumOrderQuantity} onChange={handleChange} error={errors.minimumOrderQuantity} required />
-            <Input label="Max Order Qty" name="maximumOrderQuantity" placeholder="e.g., 100"
-              value={form.maximumOrderQuantity} onChange={handleChange} error={errors.maximumOrderQuantity} required />
-          </div>
-
-          <p className={subSectionTitle}>Batch Management</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-
-            {isEdit ? (
-              <NonEditableField label="Batch Number" value={form.batchLotNumber} required />
-            ) : (
-              <Input label="Batch Number" name="batchLotNumber" placeholder="Alphanumeric only"
-                value={form.batchLotNumber} onChange={handleChange} error={errors.batchLotNumber} required />
-            )}
-
-            <div className="relative">
-              <Input
-                label="Manufacturing Month"
-                type="text"
-                name="manufacturingDate"
-                id="manufacturingDate"
-                required
-                readOnly={isEdit}
-                value={
-                  form.manufacturingDate instanceof Date && !isNaN(form.manufacturingDate.getTime())
-                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
-                    : ""
-                }
-                placeholder="MM/YYYY"
-                onChange={() => {}}
-                onClick={() => { if (!isEdit) setShowManufacturingMonthPicker(true); }}
-                onKeyDown={(e) => e.preventDefault()}
-                onPaste={(e) => e.preventDefault()}
-                error={errors.manufacturingDate}
-              />
-              {showManufacturingMonthPicker && !isEdit && (
-                <MonthPicker
-                  selectedMonth={form.manufacturingDate ? form.manufacturingDate.getMonth() : new Date().getMonth()}
-                  selectedYear={form.manufacturingDate ? form.manufacturingDate.getFullYear() : new Date().getFullYear()}
-                  maxDate={new Date()}
-                  onSelect={(month, year) => handleMonthSelect("manufacturingDate", month, year)}
-                  onClose={() => setShowManufacturingMonthPicker(false)}
-                />
-              )}
-            </div>
-
-            <div className="relative">
-              <Input
-                label="Expiry Month"
-                name="expiryDate"
-                type="text"
-                required
-                readOnly={isEdit}
-                value={
-                  form.expiryDate instanceof Date && !isNaN(form.expiryDate.getTime())
-                    ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
-                    : ""
-                }
-                placeholder="MM/YYYY"
-                onChange={() => {}}
-                onClick={() => { if (!isEdit) setShowExpiryMonthPicker(true); }}
-                onFocus={() => { if (!isEdit) setShowExpiryMonthPicker(true); }}
-                onKeyDown={(e) => e.preventDefault()}
-                onPaste={(e) => e.preventDefault()}
-                error={errors.expiryDate}
-              />
-              {showExpiryMonthPicker && !isEdit && (
-                <MonthPicker
-                  selectedMonth={form.expiryDate ? form.expiryDate.getMonth() : new Date().getMonth()}
-                  selectedYear={form.expiryDate ? form.expiryDate.getFullYear() : new Date().getFullYear()}
-                  minDate={new Date(new Date().getFullYear(), new Date().getMonth() + 4, 1)}
-                  maxDate={
-                    form.manufacturingDate
-                      ? new Date(form.manufacturingDate.getFullYear() + 5, form.manufacturingDate.getMonth(), 1)
-                      : undefined
-                  }
-                  onSelect={(month, year) => handleMonthSelect("expiryDate", month, year)}
-                  onClose={() => setShowExpiryMonthPicker(false)}
-                />
-              )}
-            </div>
-
-            <Input
-              type="number"
-              label="Shelf Life (In Months)"
-              name="shelfLifeMonths"
-              value={form.shelfLifeMonths}
-              readOnly
-            />
-
-            {isEdit ? (
-              <NonEditableField label="Stock Quantity (in units)" value={form.stockQuantity} required />
-            ) : (
-              <Input label="Stock Quantity (in units)" name="stockQuantity" placeholder="e.g., 10"
-                value={form.stockQuantity} onChange={handleChange} error={errors.stockQuantity} required />
-            )}
-
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabel}>Date of Stock Entry {requiredStar}</label>
-              <input type="date" name="dateOfStockEntry" value={todayStr} readOnly
-                className="w-full h-12 px-4 border border-gray-200 rounded-xl text-base [font-family:'Open_Sans',sans-serif] bg-gray-50 [color:#969793] cursor-not-allowed" />
-            </div>
-          </div>
-
-          <p className={subSectionTitle}>Pricing</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-            <Input label="MRP (per Pack Size)" name="mrp" placeholder="e.g., 500"
-              value={form.mrp} onChange={handleChange} error={errors.mrp} required />
-            <Input label="Selling Price (per Pack Size)" name="sellingPricePerPack" placeholder="e.g., 450"
-              value={form.sellingPricePerPack} onChange={handleChange} error={errors.sellingPricePerPack} required />
-            <div className="col-span-1 md:col-span-2 flex items-end gap-4">
-              <div className="w-1/2">
-                <Input label="Discount Percentage (%)" name="discountPercentage" placeholder="0–100"
-                  value={form.discountPercentage} onChange={handleChange} error={errors.discountPercentage} />
-              </div>
-              <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAdditionalDiscountModal(true)}
-                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
-                >
-                  <img src="/icons/PlusIcon.svg" alt="add" className="w-6 h-6" />
-                  Add Special Offers
-                </button>
-              </div>
-            </div>
-
-            <AppliedOffersView
-              additionalDiscounts={convertToDiscountData(additionalDiscountSlabs)}
-              specialSchemes={specialSchemes}
-              productName={form.productName}
-              onEditDiscount={(index) => { setEditTab("additional_discount"); setEditIndex(index); setShowAdditionalDiscountModal(true); }}
-              onDeleteDiscount={(index) =>
-                setAdditionalDiscountSlabs((prev) =>
-                  prev.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } as any : d)
-                )
-              }
-              onEditScheme={(index) => { setEditTab("special_schemes"); setEditIndex(index); setShowAdditionalDiscountModal(true); }}
-              onDeleteScheme={(index) =>
-                setSpecialSchemes((prev) =>
-                  prev.map((s: any, i: number) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)
-                )
-              }
-              isEditMode={isEdit}
-            />
-          </div>
-
-          <p className={subSectionTitle}>TAX &amp; BILLING</p>
-          <div className="border-b border-neutral-200 mt-2 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-            {isEdit ? (
-              <NonEditableSelect label="GST %" value={displayLabels.gstLabel} required />
-            ) : (
-              <div className="flex flex-col gap-1" ref={setFieldRef("gstPercentage") as React.RefCallback<HTMLDivElement>}>
-                <label className={fieldLabel}>GST % {requiredStar}</label>
-                <Dropdown
-                  options={gstOptions}
-                  value={form.gstPercentage}
-                  onChange={(val, label) => handleSelectChange("gstPercentage", { value: val, label })}
-                  placeholder="Select GST"
-                  error={errors.gstPercentage ? " " : ""}
-                />
-                {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
-              </div>
-            )}
-
-            {isEdit ? (
-              <NonEditableField label="HSN Code" value={form.hsnCode} required />
-            ) : (
-              <Input label="HSN Code" name="hsnCode" placeholder="4, 6, or 8 digit numeric code"
-                value={form.hsnCode} onChange={handleChange} maxLength={8} error={errors.hsnCode} required />
-            )}
-          </div>
-        </div>
+   
 
         {/* ── Section 3: Product Photos ─────────────────────────────────────────── */}
         <div ref={setFieldRef("images") as React.RefCallback<HTMLDivElement>} data-field="images">
           <ProductImageUpload
             title="Product Photos"
-            required={mode === "create"}
+            required={mode === "create" || isDraftEdit}
             images={images}
             setImages={setImages}
             existingImages={existingImages}
@@ -1849,17 +1758,20 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               className="px-5 py-2.5 border-2 border-red-400 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
               Cancel
             </button>
-            <button type="button" style={{ background: "#9F75FC", borderRadius: "8px" }}
-              className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity">
-              <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
-              Save Draft
-            </button>
+            {(mode !== "edit" || productStatus === "DRAFT") && (
+              <button type="button" onClick={handleSaveDraft} disabled={isSavingDraft}
+                style={{ background: "#9F75FC", borderRadius: "8px" }}
+                className="px-5 py-3 text-white text-base [font-family:'Open_Sans',sans-serif] font-semibold leading-[22px] flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-60">
+                <img src="/icons/SaveDraftIcon.svg" alt="save draft" className="w-5 h-5 object-contain" />
+                {isSavingDraft ? "Saving..." : "Save Draft"}
+              </button>
+            )}
           </div>
           <button type="button" onClick={handleSubmit} disabled={submitting}
             style={{ background: "#4B0082", borderRadius: "8px" }}
             className="px-8 py-3 text-white font-semibold text-base [font-family:'Open_Sans',sans-serif] leading-[22px] hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
             {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            {submitting ? "Saving..." : mode === "edit" ? "Update" : "Submit"}
+            {submitting ? "Saving..." : mode === "edit" && productStatus !== "DRAFT" ? "Update" : "Submit"}
           </button>
         </div>
       </form>

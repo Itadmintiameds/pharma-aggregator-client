@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { FileText, ExternalLink, Edit2, X, Gift, ShoppingBag, Tag, BadgePercent } from "lucide-react";
 import { PiSealCheckLight } from "react-icons/pi";
 import Image from "next/image";
+import { downloadProductImage } from "@/src/utils/downloadImage";
 
 
 /* ─────────────────────────────────────────────────────────
@@ -222,7 +223,7 @@ const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url);
 const isValidUrl = (url?: string | null) => {
   if (!url) return false;
   const t = url.trim().toUpperCase();
-  return !["", "PENDING", "NOT_UPLOADED"].includes(t);
+  return !["", "PENDING", "NOT_UPLOADED", "TO_UPLOAD", "NULL", "UNDEFINED"].includes(t) && !t.startsWith("BLOB:");
 };
 
 
@@ -280,7 +281,8 @@ const formatVal = (val?: number | string | null): string => {
 const formatDate = (val?: string | null): string => {
   if (!val) return "—";
   try {
-    return new Date(val).toLocaleDateString("en-IN", {
+    return new Date(val).toLocaleDateString("en-GB", {
+      day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
@@ -624,6 +626,22 @@ const CosmeticPersonalCareView = ({
                     <span className="text-white text-xs font-body font-semibold leading-[18px]">Primary</span>
                   </div>
                 )}
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    downloadProductImage(img, `product-image-${idx + 1}.jpg`);
+                  }}
+                  aria-label="Download image"
+                  className="absolute right-2.5 bottom-2.5 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 hover:bg-white shadow-md"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E1E1D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 3v12" />
+                    <path d="m7 10 5 5 5-5" />
+                    <path d="M5 21h14" />
+                  </svg>
+                </button>
               </div>
             ))}
           </div>

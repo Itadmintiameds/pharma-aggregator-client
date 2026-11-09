@@ -1,15 +1,47 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import Button from "@/src/app/commonComponents/Button";
-import { FiMenu, FiX } from "react-icons/fi";
+import { useRouter, usePathname } from "next/navigation";
+import { FiMenu, FiX, FiLogOut } from "react-icons/fi";
+import { sellerAuthService } from "@/src/services/seller/authService";
 
 
 
 const Header = () => {
+  const router = useRouter();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(sellerAuthService.isAuthenticated());
+  }, []);
+
+  useEffect(() => {
+    // Login/logout can happen without a page navigation (e.g. logging in
+    // from within the registration wizard), so listen for the auth-changed
+    // event instead of only checking once on mount.
+    const handleAuthChanged = () => setIsLoggedIn(sellerAuthService.isAuthenticated());
+    window.addEventListener('auth-changed', handleAuthChanged);
+    return () => window.removeEventListener('auth-changed', handleAuthChanged);
+  }, []);
+
+  const handleLogout = async () => {
+    // The registration wizard has its own in-progress form data worth saving
+    // before logging out - it owns that state, this component doesn't, so
+    // hand off to it via an event instead of logging out directly here.
+    if (pathname === "/seller_7a3b9f2c") {
+      setMenuOpen(false);
+      window.dispatchEvent(new CustomEvent("seller-wizard-logout-request"));
+      return;
+    }
+
+    await sellerAuthService.logout();
+    setMenuOpen(false);
+    router.push("/");
+  };
 
   return (
     <>
@@ -35,27 +67,31 @@ const Header = () => {
             </Link>
 
             {/* ================= DESKTOP NAVIGATION ================= */}
-            <div className="hidden lg:flex items-center gap-4">
+            <div className="hidden lg:flex items-center gap-6">
 
-              {[1, 2, 3, 4].map((item) => (
-                <Button
-                  key={item}
-                  variant="text"
-                  size="sm"
-                  shape="round"
-                  label="Home"
-                  icon={
-                    <Image
-                      src="/icons/home.svg"
-                      alt="Home"
-                      width={16}
-                      height={16}
-                    />
-                  }
-                  iconPosition="left"
-                  className="w-23.75"
-                />
+              {[
+                { label: "Home", href: "/" },
+                { label: "About", href: "/about" },
+                { label: "Contact", href: "/contact" },
+              ].map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="text-p3 font-body font-semibold text-neutral-700 hover:text-primary-800 transition-colors"
+                >
+                  {item.label}
+                </Link>
               ))}
+
+              {isLoggedIn && (
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full text-p3 font-body font-semibold text-primary-800 hover:bg-primary-50 transition-colors"
+                >
+                  <FiLogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              )}
 
             </div>
 
@@ -115,25 +151,30 @@ const Header = () => {
         {/* Mobile Navigation */}
         <div className="p-4 space-y-3">
 
-          {[1, 2, 3, 4].map((item) => (
-            <Button
-              key={item}
-              variant="text"
-              size="md"
-              shape="round"
-              label="Home"
-              icon={
-                <Image
-                  src="/icons/home.svg"
-                  alt="Home"
-                  width={18}
-                  height={18}
-                />
-              }
-              iconPosition="left"
-              className="w-full justify-start"
-            />
+          {[
+            { label: "Home", href: "/" },
+            { label: "About", href: "/about" },
+            { label: "Contact", href: "/contact" },
+          ].map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              onClick={() => setMenuOpen(false)}
+              className="block px-4 py-2 rounded-full text-p3 font-body font-semibold text-neutral-700 hover:bg-primary-50 hover:text-primary-800 transition-colors"
+            >
+              {item.label}
+            </Link>
           ))}
+
+          {isLoggedIn && (
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-2 px-4 py-2 rounded-full text-p3 font-body font-semibold text-primary-800 hover:bg-primary-50 transition-colors"
+            >
+              <FiLogOut className="w-4 h-4" />
+              Logout
+            </button>
+          )}
 
         </div>
       </div>

@@ -16,8 +16,7 @@ import {
 
   Globe,
   Mail,
-  MapPin as MapPinIcon,
-  X
+  MapPin as MapPinIcon
 } from "lucide-react";
 import { GoCheckCircle } from "react-icons/go";
 import { PiInfo } from "react-icons/pi";
@@ -52,6 +51,14 @@ import {
 
 import { validateSection } from "@/src/schema/seller/UpdateProfileSchema";
 import { ifscSchema } from "@/src/schema/seller/IFSCSchema";
+import {
+  getLicenseValidationCategory,
+  validateLicenseNumber,
+  formatLicenseNumber as formatLicenseNumberByCategory,
+  isAllowedLicenseChar,
+  LICENSE_MAX_LENGTH,
+  LICENSE_PLACEHOLDER,
+} from "@/src/utils/licenseValidation";
 
 import OtpVerificationModal from "./OtpVerificationModal";
 import toast from "react-hot-toast";
@@ -494,6 +501,9 @@ const [licenseNumbersChanged, setLicenseNumbersChanged] = useState<Record<string
 
   const [hasDocumentChanges, setHasDocumentChanges] = useState(false);
 
+  const [sellerImagePreviewUrl, setSellerImagePreviewUrl] = useState<string | null>(null);
+  const sellerImageInputRef = useRef<HTMLInputElement>(null);
+
   const [loadingStates, setLoadingStates] = useState({
     companyTypes: true,
     sellerTypes: true,
@@ -569,6 +579,8 @@ const [licenseNumbersChanged, setLicenseNumbersChanged] = useState<Record<string
     gstFileUrl: "",
     companyRegistrationCertificateFile: null as File | null,
     companyRegistrationCertificateUrl: "",
+    sellerImageFile: null as File | null,
+    sellerImageUrl: "",
     licenses: {} as Record<string, {
       number: string;
       file: File | null;
@@ -591,6 +603,16 @@ const [licenseNumbersChanged, setLicenseNumbersChanged] = useState<Record<string
     cancelledChequeFile: null as File | null,
     cancelledChequeFileUrl: "",
   });
+
+  useEffect(() => {
+    if (!formData.sellerImageFile) {
+      setSellerImagePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(formData.sellerImageFile);
+    setSellerImagePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [formData.sellerImageFile]);
 
   // Helper function to scroll to specific error element
   const scrollToError = (errorType: string, productName?: string) => {
@@ -808,6 +830,8 @@ const [licenseNumbersChanged, setLicenseNumbersChanged] = useState<Record<string
         gstFileUrl: profileData.sellerGST?.gstFileUrl || '',
         companyRegistrationCertificateFile: null,
         companyRegistrationCertificateUrl: profileData.companyRegistrationCertificateUrl || "",
+        sellerImageFile: null,
+        sellerImageUrl: profileData.sellerImageUrl || "",
         licenses,
         bankState: '',
         bankDistrict: '',
@@ -1198,6 +1222,8 @@ setLicenseNumbersChanged({});
             gstFileUrl: data.sellerGST?.gstFileUrl || '',
             companyRegistrationCertificateFile: null,
             companyRegistrationCertificateUrl: data.companyRegistrationCertificateUrl || "",
+            sellerImageFile: null,
+            sellerImageUrl: data.sellerImageUrl || "",
             licenses,
             bankState: '',
             bankDistrict: '',
@@ -1327,6 +1353,25 @@ const checkIfLicenseNumberChanged = (productName: string): boolean => {
     if (gstCertError) {
     setGSTCertError(false);
   }
+  };
+
+  const handleSellerImageFileChange = (file: File) => {
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG, JPEG, and PNG files are allowed for the logo");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo size should be less than 5MB");
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      sellerImageFile: file,
+      sellerImageUrl: "PENDING"
+    }));
+    setHasDocumentChanges(true);
   };
 
   const handleCompanyCertFileChange = (file: File) => {
@@ -1556,13 +1601,14 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
 
   const handleLicenseNumberChangeWithValidation = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
     const value = e.target.value;
-    const cleanedValue = formatLicenseNumber(value);
+    const licenseCategory = getLicenseValidationCategory(productName);
+    const cleanedValue = formatLicenseNumberByCategory(value, licenseCategory);
 
     if (cleanedValue !== value) {
       return;
     }
 
-    if (cleanedValue.length > 30) {
+    if (cleanedValue.length > LICENSE_MAX_LENGTH) {
       return;
     }
 
@@ -1589,14 +1635,14 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
     [productName]: hasChanged
   }));
 
-    const formatError = validateDrugLicenseNumber(cleanedValue);
+    const formatError = validateLicenseNumber(cleanedValue, "License", licenseCategory);
     setLicenseErrors(prev => ({ ...prev, [productName]: formatError || "" }));
 
     if (licenseExistsError[productName]) {
       setLicenseExistsError(prev => ({ ...prev, [productName]: "" }));
     }
 
-    if (!formatError && cleanedValue.length >= 8) {
+    if (!formatError) {
       if (licenseCheckTimeoutRef.current[productName]) {
         clearTimeout(licenseCheckTimeoutRef.current[productName]!);
       }
@@ -1609,7 +1655,7 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
   };
 
   // Replace the handleLicenseKeyDown function with this:
-  const handleLicenseKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleLicenseKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, productName: string) => {
     // Allow all navigation and control keys
     const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
     if (allowedKeys.includes(e.key)) {
@@ -1636,9 +1682,8 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
       return;
     }
 
-    // Block invalid characters - only allow alphanumeric, hyphens, and slashes
-    const allowedChars = /^[A-Za-z0-9\/\-]$/;
-    if (!allowedChars.test(e.key)) {
+    // Block characters the category's license format does not allow
+    if (!isAllowedLicenseChar(e.key, getLicenseValidationCategory(productName))) {
       e.preventDefault();
     }
   };
@@ -1646,10 +1691,10 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
   const handleLicensePaste = async (e: React.ClipboardEvent<HTMLInputElement>, productName: string) => {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
-    let cleanedText = pastedText.toUpperCase();
-    cleanedText = cleanedText.replace(/[^A-Z0-9\/\-]/g, '');
-    if (cleanedText.length > 30) {
-      cleanedText = cleanedText.substring(0, 30);
+    const licenseCategory = getLicenseValidationCategory(productName);
+    let cleanedText = formatLicenseNumberByCategory(pastedText, licenseCategory);
+    if (cleanedText.length > LICENSE_MAX_LENGTH) {
+      cleanedText = cleanedText.substring(0, LICENSE_MAX_LENGTH);
     }
 
     setFormData(prev => ({
@@ -1663,19 +1708,19 @@ const handleLicenseFileChange = (file: File, productName: string, productTypeId:
       },
     }));
 
-    const formatError = validateDrugLicenseNumber(cleanedText);
+    const formatError = validateLicenseNumber(cleanedText, "License", licenseCategory);
     setLicenseErrors(prev => ({ ...prev, [productName]: formatError || "" }));
 
-    if (!formatError && cleanedText.length >= 8) {
+    if (!formatError) {
       await checkLicenseNumberExists(cleanedText, productName);
     }
   };
 
   const handleLicenseNumberBlur = async (value: string, productName: string) => {
-    const formatError = validateDrugLicenseNumber(value);
+    const formatError = validateLicenseNumber(value, "License", getLicenseValidationCategory(productName));
     setLicenseErrors(prev => ({ ...prev, [productName]: formatError || "" }));
 
-    if (!formatError && value.length >= 8) {
+    if (!formatError && value) {
       await checkLicenseNumberExists(value, productName);
     }
   };
@@ -2618,7 +2663,7 @@ const handleIfscChange = async (value: string) => {
             }
 
             const filesToUpload = pendingSectionData.filesToUpload;
-            const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.licenses.length > 0;
+            const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.sellerImageFile || filesToUpload.licenses.length > 0;
 
             if (hasFilesToUpload) {
               console.log('📤 OTP Flow - Step 2: Uploading documents...');
@@ -2639,6 +2684,7 @@ const handleIfscChange = async (value: string) => {
                 gstFile: filesToUpload.gstFile || undefined,
                 bankFile: filesToUpload.bankFile || undefined,
                 companyRegistrationCertificate: filesToUpload.companyCertFile || undefined,
+                sellerImage: filesToUpload.sellerImageFile || undefined,
                 licenses: licensesWithIds
               });
 
@@ -2672,6 +2718,7 @@ const handleIfscChange = async (value: string) => {
               gstFile: null,
               companyRegistrationCertificateFile: null,
               cancelledChequeFile: null,
+              sellerImageFile: null,
               licenses: Object.fromEntries(
                 Object.entries(prev.licenses).map(([key, value]: [string, any]) => [key, { ...value, file: null }])
               )
@@ -3408,6 +3455,7 @@ if (missingLicenses.length > 0) {
       gstFile: null as File | null,
       bankFile: null as File | null,
       companyCertFile: null as File | null,
+      sellerImageFile: null as File | null,
       licenses: [] as Array<{
         productName: string;
         productTypeId: number;
@@ -3425,6 +3473,10 @@ if (missingLicenses.length > 0) {
 
     if (formData.cancelledChequeFile) {
       filesToUpload.bankFile = formData.cancelledChequeFile;
+    }
+
+    if (formData.sellerImageFile) {
+      filesToUpload.sellerImageFile = formData.sellerImageFile;
     }
 
     const currentDocs = profileData?.documents || [];
@@ -3697,6 +3749,7 @@ if (missingLicenses.length > 0) {
           gstNumber: updatedProfile.sellerGST?.gstNumber || '',
           gstFileUrl: updatedProfile.sellerGST?.gstFileUrl || '',
           companyRegistrationCertificateUrl: updatedProfile.companyRegistrationCertificateUrl || '',
+          sellerImageUrl: updatedProfile.sellerImageUrl || '',
           bankName: updatedProfile.bankDetails?.bankName || '',
           branch: updatedProfile.bankDetails?.branch || '',
           ifscCode: updatedProfile.bankDetails?.ifscCode || '',
@@ -3749,7 +3802,7 @@ if (missingLicenses.length > 0) {
         });
       }
 
-      const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.licenses.length > 0;
+      const hasFilesToUpload = filesToUpload.gstFile || filesToUpload.bankFile || filesToUpload.companyCertFile || filesToUpload.sellerImageFile || filesToUpload.licenses.length > 0;
 
       if (hasFilesToUpload) {
         try {
@@ -3776,6 +3829,7 @@ if (missingLicenses.length > 0) {
             gstFile: filesToUpload.gstFile || undefined,
             bankFile: filesToUpload.bankFile || undefined,
             companyRegistrationCertificate: filesToUpload.companyCertFile || undefined,
+            sellerImage: filesToUpload.sellerImageFile || undefined,
             licenses: licensesWithIds
           });
           toast.success('Changes submitted for admin review.');
@@ -3829,6 +3883,7 @@ if (missingLicenses.length > 0) {
         gstFile: null,
         companyRegistrationCertificateFile: null,
         cancelledChequeFile: null,
+        sellerImageFile: null,
         licenses: Object.fromEntries(
           Object.entries(prev.licenses).map(([key, value]: [string, any]) => [key, { ...value, file: null }])
         )
@@ -4116,14 +4171,44 @@ if (missingLicenses.length > 0) {
           <div className="p-6">
             <div className="space-y-6">
               <div className="flex flex-col items-center gap-2">
-                <Image
-                  src="/icons/companylogo.png"
-                  alt="Company Logo"
-                  width={160}
-                  height={160}
-                  className="rounded-md shadow object-cover"
-                />
+                <div className="relative w-40 h-40">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={
+                      sellerImagePreviewUrl ||
+                      (formData.sellerImageUrl && formData.sellerImageUrl !== "PENDING"
+                        ? formData.sellerImageUrl
+                        : "/icons/companylogo.png")
+                    }
+                    alt="Company Logo"
+                    className="w-40 h-40 rounded-md shadow object-cover"
+                  />
+                  {editingSection && (
+                    <button
+                      type="button"
+                      onClick={() => sellerImageInputRef.current?.click()}
+                      className="absolute bottom-1 right-1 bg-primary-900 text-base-white p-2 rounded-full shadow hover:bg-primary-800 transition-colors"
+                      title="Change Logo"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
+                  <input
+                    ref={sellerImageInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleSellerImageFileChange(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
                 <p className="text-p3 text-pneutral-600">Company Logo</p>
+                {formData.sellerImageUrl === "PENDING" && (
+                  <p className="text-p2 text-warning-600">New logo selected — will be submitted for admin review</p>
+                )}
               </div>
 
               <hr className="border-pneutral-200" />
@@ -4652,12 +4737,12 @@ if (missingLicenses.length > 0) {
                           type="text"
                           value={licenseData.number}
                           onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
-                          onKeyDown={handleLicenseKeyDown}
+                          onKeyDown={(e) => handleLicenseKeyDown(e, productName)}
                           onPaste={(e) => handleLicensePaste(e, productName)}
                           onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
                           disabled={!editingSection}
-                          placeholder="e.g., TN/CBE/20B-12345"
-                          maxLength={30}
+                          placeholder={LICENSE_PLACEHOLDER[getLicenseValidationCategory(productName)]}
+                          maxLength={LICENSE_MAX_LENGTH}
                           className={`w-full h-[52px] px-4 rounded-md text-p4 font-body font-regular uppercase pr-10
                             ${editingSection
                               ? `bg-base-white border border-pneutral-200 focus:outline-none focus:ring-2 focus:ring-secondary-500 ${licenseErrors[productName] || licenseExistsError[productName] ? 'border-pneutral-200' : ''} ${licenseErrors[productName] || licenseExistsError[productName] ? 'text-pneutral-800' : 'text-pneutral-800'}`
@@ -4711,6 +4796,12 @@ if (missingLicenses.length > 0) {
       maxDate={new Date()}
       format="dd/MM/yyyy"
       slotProps={{
+        field: {
+          clearable: true,
+        },
+        actionBar: {
+          actions: ["clear"],
+        },
         textField: {
           fullWidth: true,
           size: "small",
@@ -4739,6 +4830,9 @@ if (missingLicenses.length > 0) {
               fontWeight: 400,
               color: '#5A5B58',
             },
+            '& .clearButton': {
+              opacity: '1 !important',
+            },
           },
         },
       }}
@@ -4764,6 +4858,12 @@ if (missingLicenses.length > 0) {
       minDate={licenseData.issueDate || undefined}
       format="dd/MM/yyyy"
       slotProps={{
+        field: {
+          clearable: true,
+        },
+        actionBar: {
+          actions: ["clear"],
+        },
         textField: {
           fullWidth: true,
           size: "small",
@@ -4792,6 +4892,9 @@ if (missingLicenses.length > 0) {
               fontFamily: 'Noto Sans',
               fontWeight: 400,
               color: '#5A5B58',
+            },
+            '& .clearButton': {
+              opacity: '1 !important',
             },
           },
         },
@@ -5398,9 +5501,9 @@ function FileField({
                 type="button"
                 onClick={handleReplaceClick}
                 className="text-secondary-900 hover:opacity-80"
-                title="Remove file"
+                title="Replace file"
               >
-                <X size={20} />
+                <Pencil size={18} />
               </button>
 
               <button

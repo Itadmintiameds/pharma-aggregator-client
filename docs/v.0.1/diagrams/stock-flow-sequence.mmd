@@ -1,0 +1,109 @@
+sequenceDiagram
+    autonumber
+    actor Seller
+    participant PV as ProductView1.tsx<br/>(Stock Management section)
+    participant SUM as StockUpdateModal.tsx<br/>(wizard: restock existing / create new batch)
+    participant BSUM as BatchStockUpdateModal.tsx<br/>(quick per-batch +/- update)
+    participant Svc as StockService.ts<br/>(addStock / getAvailableBatches / deleteBatch)
+    participant Api as utils/api.ts<br/>(axios, Bearer token, NO 401 refresh)
+    participant SC as StockController<br/>(/stock/**)
+    participant SS as StockServiceImpl
+    participant PDS as PricingDetailsServiceImpl<br/>(resolveOrCreateBatch)
+    participant PD as PricingDetails<br/>(tm_pricing_details = the batch/lot)
+    participant SL as StockLedger<br/>(tbl_stock_ledger, append-only)
+
+    Note over PV: AddBatchModal.tsx is dead code on this branch —<br/>its main modal component was removed (commit "remove AddBatchModal<br/>integration"); only orphaned unused helper JSX remains, imported nowhere.
+
+    Seller->>PV: Open product, view "Stock Management" batch list
+    PV->>Svc: getAvailableBatches(productId)
+    Svc->>Api: GET /stock/{productId}/batches
+    Api->>SC: GET /stock/{productId}/batches
+    SC->>SS: getAvailableBatchesFifo(productId, packagingId?)
+    SS->>PD: findBy...StockQuantityGreaterThanOrderByManufacturingDateAsc
+    PD-->>SS: batches (FIFO by manufacturingDate, deleted_at IS NULL)
+    SS-->>SC: List<BatchAvailabilityDto>
+    SC-->>PV: 200 batches
+
+    alt Row-level "Update Stock" (quick +/- on one known batch)
+        Seller->>PV: Click "Update Stock" on a batch row
+        PV->>BSUM: open with batch (pricingId already known client-side)
+        Seller->>BSUM: Enter +/- quantity, confirm
+        BSUM->>Svc: addStock({productId, packagingId, batchLotNumber,<br/>manufacturingDate, expiryDate, quantity,<br/>referenceType:"MANUAL_STOCK_UPDATE"})
+    else Wizard "Update Stock" — restock an existing batch
+        Seller->>PV: Click top-level "Update Stock"
+        PV->>SUM: open (step 1: choose update type)
+        Seller->>SUM: Pick "Existing batch", select from list, enter quantity
+        SUM->>Svc: addStock({productId, packagingId, batchLotNumber,<br/>manufacturingDate, expiryDate, quantity,<br/>referenceType:"MANUAL_STOCK_UPDATE"})
+    else Wizard "Update Stock" — create a brand-new batch
+        Seller->>PV: Click top-level "Update Stock"
+        PV->>SUM: open (step 1: choose update type)
+        Seller->>SUM: Pick "New batch": lot number, mfg/expiry dates, qty,<br/>MRP, selling price, discount%, special discounts,<br/>shelf life, new packagingDetails
+        SUM->>Svc: validateBatchNumber (GET /pricing/validateBatchNumber) [pre-check]
+        SUM->>Svc: addStock({productId, packagingDetails{...},<br/>batchLotNumber, manufacturingDate, expiryDate, quantity,<br/>mrp, sellingPrice, discountPercentage, specialDiscounts[],<br/>shelfLifeMonths/Days, dateOfStockEntry,<br/>referenceType:"MANUAL_STOCK_UPDATE"})
+    end
+
+    Svc->>Api: POST /stock/add  (Bearer token attached; no refresh-on-401)
+    Api->>SC: POST /stock/add
+    SC->>SS: addStock(StockInRequestDto, userId)
+    SS->>SS: load Seller by userId, load ProductDetails by productId
+    SS->>SS: verify product.seller == calling seller (else 401 Unauthorized)
+
+    alt packagingId given
+        SS->>SS: resolvePackaging() — must belong to this product
+    else packagingDetails given (new-batch flow)
+        SS->>PD: PackagingDetailsService.resolveOrCreatePackaging(...)
+    end
+
+    SS->>PDS: resolveOrCreateBatch(product, packaging, candidatePricingDetails,<br/>sellerName, sellerId)
+    PDS->>PD: lookup by (productId[, packagingId], batchLotNumber)
+
+    alt Batch lot number already exists in scope
+        alt existing.expiryDate != candidate.expiryDate
+            PDS-->>SS: throw BadRequestException("...different expiry date")
+            SS-->>SC: 400 error
+            SC-->>Api: 400
+            Api-->>Svc: reject
+            Svc-->>SUM: extractErrorMessage(err) shown inline
+        else expiry matches — RESTOCK
+            PDS->>PD: existing.stockQuantity += candidate.stockQuantity
+            Note over PDS,PD: mrp/sellingPrice/discountPercentage/gstPercentage/finalPrice<br/>are NOT touched on restock — no pricing recalculation happens here.
+            PDS-->>SS: existing PricingDetails (updated qty)
+        end
+    else No such batch yet — CREATE
+        PDS->>PD: generatePricingId() = <2-letter seller prefix>BTCH<5-digit seq><br/>(synchronized, mirrors ProductDetails' own generator)
+        PDS->>PD: set productDetails, packagingDetails, dateOfStockEntry (default=today),<br/>createdBy, createdDate; mrp/sellingPrice/discountPercentage/gstPercentage<br/>are taken as-is from the request — still no computed/derived pricing
+        PDS-->>SS: new PricingDetails (unsaved)
+    end
+
+    SS->>PD: pricingDetailsRepository.save(batch)
+    SS->>SL: buildLedgerRow(batch, product, seller, userId,<br/>STOCK_IN, quantity, batch.stockQuantity, referenceId, referenceType)
+    SS->>SL: stockLedgerRepository.save(ledger)  — append-only audit row
+    SS-->>SC: StockLedgerResponseDto{ledgerId, pricingId, batchLotNumber,<br/>transactionType=STOCK_IN, quantity, balanceAfter, ...}
+    SC-->>Api: 200 OK
+    Api-->>Svc: response.data
+    Svc-->>SUM: StockLedgerResponse
+    Svc-->>BSUM: StockLedgerResponse
+
+    SUM->>SUM: setResult({batchNumber, previousStock = balanceAfter-quantity,<br/>addedStock = quantity, updatedStock = balanceAfter}) → SuccessView
+    BSUM->>BSUM: same derived-preview success view
+    SUM->>PV: onSuccess() -> refetchProduct()
+    BSUM->>PV: onSuccess() -> refetchProduct()
+    PV->>Svc: getDrugProductById(productId) — re-render Stock Management table
+
+    Note over SC,SL: No pricing recalculation is triggered anywhere in this flow.<br/>PricingDetails.finalPrice is never computed/set by any live code path<br/>(only commented-out Excel-import setters exist). GST/discount math for a<br/>batch's sellingPrice/discountPercentage/gstPercentage only happens later,<br/>at order time, in OrderPlacementServiceImpl — not on stock add/restock.
+
+    opt Delete a batch (soft delete)
+        Seller->>PV: Click "Delete" on a batch row
+        PV->>Svc: deleteBatch(productId, pricingId)
+        Svc->>Api: DELETE /stock/{productId}/batches/{pricingId}
+        Api->>SC: DELETE /stock/{productId}/batches/{pricingId}
+        SC->>SS: deleteBatch(productId, pricingId, userId)
+        SS->>SS: verify ownership; load batch; verify batch belongs to product
+        alt batch.stockQuantity > 0
+            SS->>SL: write STOCK_OUT ledger row (quantity=previousQty,<br/>balanceAfter=0, referenceType="BATCH_DELETED")
+        end
+        SS->>PD: set deletedBy, deletedAt (stockQuantity left untouched —<br/>@SQLRestriction("deleted_at IS NULL") excludes it from all totals/availability)
+        SS-->>SC: BatchDeleteResponseDto
+        SC-->>PV: 200 OK
+        PV->>Svc: refetchProduct()
+    end

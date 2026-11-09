@@ -10,6 +10,13 @@ interface Props {
   onClose: () => void;
   onVerified: () => void;
   onResend: () => Promise<void>;
+  // Optional override for the verify call — defaults to the temp-seller
+  // registration email/SMS OTP endpoints below. Pass this to reuse the modal
+  // for other OTP flows (e.g. signup) without forking the component.
+  onVerify?: (otp: string) => Promise<void>;
+  // When true, filling the last box (or pasting a full code) auto-submits.
+  // Defaults to false — verification always requires pressing "Verify".
+  autoVerifyOnComplete?: boolean;
 }
 
 export default function VerificationModal({
@@ -19,6 +26,8 @@ export default function VerificationModal({
   onVerified,
   type,
   onResend,
+  onVerify,
+  autoVerifyOnComplete = false,
 }: Props) {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -41,39 +50,6 @@ export default function VerificationModal({
     }
   }, [show]);
 
-  // click outside handler
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        show &&
-        modalRef.current &&
-        !modalRef.current.contains(event.target as Node)
-      ) {
-        onClose();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [show, onClose]);
-
-  // escape key handler
-  useEffect(() => {
-    const handleEscKey = (event: KeyboardEvent) => {
-      if (show && event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleEscKey);
-
-    return () => {
-      document.removeEventListener("keydown", handleEscKey);
-    };
-  }, [show, onClose]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -108,17 +84,17 @@ export default function VerificationModal({
     setError("");
 
     try {
-      let response: any;
-
-      if (type === "email") {
-        response = await sellerRegService.verifyEmailOtp({
+      if (onVerify) {
+        await onVerify(enteredOtp);
+      } else if (type === "email") {
+        await sellerRegService.verifyEmailOtp({
           email: label,
           otp: enteredOtp,
         });
       } else {
         const phoneWithPrefix = formatPhone(label);
 
-        response = await sellerRegService.verifySMSOtp({
+        await sellerRegService.verifySMSOtp({
           phone: phoneWithPrefix,
           otp: enteredOtp,
         });
@@ -162,7 +138,7 @@ export default function VerificationModal({
       inputs.current[index + 1]?.focus();
     }
 
-    if (value && index === 5) {
+    if (value && index === 5 && autoVerifyOnComplete) {
       const enteredOtp = newOtp.join("");
 
       if (enteredOtp.length === 6) {
@@ -203,9 +179,11 @@ export default function VerificationModal({
     setOtp(newOtp);
     setError("");
 
-    setTimeout(() => {
-      verifyOtpNow(pasteData);
-    }, 50);
+    if (autoVerifyOnComplete) {
+      setTimeout(() => {
+        verifyOtpNow(pasteData);
+      }, 50);
+    }
 
     setTimeout(() => {
       inputs.current[5]?.focus();
@@ -249,15 +227,34 @@ export default function VerificationModal({
   if (!show) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div
         ref={modalRef}
-        className="w-[400px] bg-white rounded-xl shadow-lg p-6 text-center"
-        onClick={(e) => e.stopPropagation()}
+        className="relative w-100 bg-white rounded-xl shadow-lg p-6 text-center"
       >
+        {/* Close */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-4 right-4 text-pneutral-500 hover:text-pneutral-900"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+
         {/* Icon */}
         <div className="flex justify-center mb-4">
           <div

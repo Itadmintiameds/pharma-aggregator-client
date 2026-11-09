@@ -1,7 +1,7 @@
 
 const RAZORPAY_API = "https://ifsc.razorpay.com";
 const FALLBACK_API = "https://api.bankify.in/ifsc";
-const BACKEND_API = `${process.env.NEXT_PUBLIC_API_URL}ifsc`;
+const BACKEND_API = `${process.env.NEXT_PUBLIC_API_URL}/ifsc`;
 
 export interface IFSCDetails {
   BANK: string;

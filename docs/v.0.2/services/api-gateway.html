@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>API Gateway — the platform's sole client entry point</title>
+<link rel="stylesheet" href="../assets/doc.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">API Gateway — the platform's sole client entry point</h1>
+    <p class="dek">Why every client request, and only client requests, pass through one component — routing, authN/authZ, and rate limiting live here so no domain service has to reimplement them or be reachable from the internet directly.</p>
+    <div class="meta-row">
+      <span><b>Status:</b> Draft</span>
+      <span><b>Owns:</b> API Gateway (platform layer of HLD)</span>
+      <span><b>Last updated:</b> 2026-09-02</span>
+      <span><a href="../index.html">&larr; back to service index</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#overview">01 Overview</a>
+      <a href="#ownership">02 Data ownership</a>
+      <a href="#communication">03 Communication</a>
+      <a href="#architecture">04 Architecture diagram</a>
+      <a href="#deployment">05 Deployment</a>
+      <a href="#scaling">06 Scaling &amp; region topology</a>
+      <a href="#decisions">07 Decisions</a>
+    </nav>
+  </header>
+
+  <section id="overview">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Overview</h2>
+    </div>
+    <p class="lede">API Gateway is the platform edge: routing, authN/authZ enforcement, and rate limiting all live here, in front of every domain service. Every client request — browser or mobile, read or write — passes through it before it reaches Seller User, Buyer User, Order Management, Quotation Management, Product Management, Search, or Billing.</p>
+    <p>That single fact fixes its scaling shape: the Gateway scales <b>1:1 with total client traffic</b> across the whole platform, not with the load of any one domain service. A spike in Order Management's request volume is a Gateway concern exactly as much as a spike in Search's, because both arrive through the same front door. The corollary is the security posture it buys: no domain service is directly reachable from the internet. Every one of them sits behind the Gateway, on a private network path, and the Gateway is the only thing with a public listener.</p>
+  </section>
+
+  <section id="ownership">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Data ownership</h2>
+    </div>
+    <p class="lede">None. API Gateway holds no persistent business data and no config store of its own.</p>
+    <p>Routing rules and auth policy are <b>configuration it reads</b> — sourced from Config Service and the identity provider (Cognito/JWT issuer) — not state it owns or is a system of record for. There's no table to list here, and forcing one would misrepresent what this service is: a stateless routing and policy-enforcement layer, not a data owner. This is the structural difference between a platform service and a domain service — the "data ownership" section is real for Order Management or Product Management; for the Gateway it's a deliberate blank.</p>
+  </section>
+
+  <section id="communication">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Communication</h2>
+    </div>
+    <p><b>Sync IN</b> — from every client (browser, mobile app) for all reads and writes across the platform. This is synchronous by nature: the UI is sitting there waiting on a response, there's no async variant of "load the seller dashboard" or "submit a quotation."</p>
+    <p><b>Sync OUT</b> — to whichever domain service the matched route maps to. The Gateway itself does no business logic; it terminates TLS, validates the JWT, checks rate limits, and forwards.</p>
+    <p><b>Explicitly out of scope: service-to-service calls.</b> When Order Management calls Product Management to confirm price/stock, or Quotation Management calls Order Management to create an order on accept, those calls <b>bypass the Gateway entirely</b> and resolve directly via Cloud Map / Discovery Service (see <code>discovery-service.html</code>). The Gateway is client-facing only — it is not an internal service mesh, and routing internal traffic through it would double its load for no security benefit, since internal traffic is already inside the private network the Gateway exists to protect the boundary of.</p>
+  </section>
+
+  <section id="architecture">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Architecture diagram</h2>
+    </div>
+    <p>Client traffic fans in from the left, terminates at the Gateway, and fans out (sync) to whichever domain service owns the route. Domain services are grouped into one box for legibility — the Gateway's fan-out is identical in shape to all seven, so drawing seven boxes would add clutter, not information.</p>
+
+    <div class="arch-diagram">
+      <svg viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg">
+        <rect class="node-box" x="20" y="120" width="130" height="60" rx="6"/>
+        <text class="node-label" x="85" y="146" text-anchor="middle">Client</text>
+        <text class="node-sub" x="85" y="161" text-anchor="middle">browser / mobile</text>
+
+        <rect class="node-box self" x="270" y="120" width="150" height="60" rx="6"/>
+        <text class="node-label" x="345" y="146" text-anchor="middle">API Gateway</text>
+        <text class="node-sub" x="345" y="161" text-anchor="middle">routing / authN / rate limit</text>
+
+        <rect class="node-box" x="550" y="20" width="140" height="50" rx="6"/>
+        <text class="node-label" x="620" y="41" text-anchor="middle">Seller / Buyer</text>
+        <text class="node-sub" x="620" y="55" text-anchor="middle">User</text>
+
+        <rect class="node-box" x="550" y="90" width="140" height="50" rx="6"/>
+        <text class="node-label" x="620" y="111" text-anchor="middle">Order /</text>
+        <text class="node-sub" x="620" y="125" text-anchor="middle">Quotation Mgmt</text>
+
+        <rect class="node-box" x="550" y="160" width="140" height="50" rx="6"/>
+        <text class="node-label" x="620" y="181" text-anchor="middle">Product Mgmt</text>
+        <text class="node-sub" x="620" y="195" text-anchor="middle">/ Search</text>
+
+        <rect class="node-box" x="550" y="230" width="140" height="50" rx="6"/>
+        <text class="node-label" x="620" y="251" text-anchor="middle">Billing</text>
+        <text class="node-sub" x="620" y="265" text-anchor="middle">Management</text>
+
+        <path class="edge-sync" d="M150,150 L270,150" marker-end="url(#arrow-sync)"/>
+        <text class="edge-label" x="165" y="140">HTTPS request</text>
+
+        <path class="edge-sync" d="M420,135 L550,50" marker-end="url(#arrow-sync)"/>
+        <path class="edge-sync" d="M420,148 L550,115" marker-end="url(#arrow-sync)"/>
+        <path class="edge-sync" d="M420,158 L550,185" marker-end="url(#arrow-sync)"/>
+        <path class="edge-sync" d="M420,168 L550,250" marker-end="url(#arrow-sync)"/>
+        <text class="edge-label" x="430" y="100">route-matched</text>
+        <text class="edge-label" x="430" y="220">forward</text>
+
+        <defs>
+          <marker id="arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="arch-legend">
+      <span><span class="swatch sync"></span> sync (blocking) — the only edge type here; nothing about the Gateway's client path is async</span>
+    </div>
+    <p>What the diagram deliberately leaves out: any edge between domain service boxes. Those calls exist (Order&rarr;Product, Quotation&rarr;Order) but they resolve peer-to-peer via Discovery Service, never back through this box — see <code>discovery-service.html</code> for that path.</p>
+  </section>
+
+  <section id="deployment">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Deployment</h2>
+    </div>
+    <p><b>Amazon API Gateway (managed)</b> is the primary choice. It handles routing, request/response transformation for the common cases, throttling, and a Cognito/JWT authorizer with no cluster to run or patch. This is the managed-first default: reach for the self-hosted alternative only when a concrete need outgrows it, not preemptively.</p>
+    <p><b>Fallback:</b> self-hosted <b>Spring Cloud Gateway on ECS Fargate</b> — kept as an explicit escape hatch for the day routing or request-transformation requirements exceed what the managed service exposes (custom filter chains, non-standard protocol translation, request bodies too large or too irregular for AppGW's transformation templates). Standing it up before that day arrives would mean operating a cluster, patching it, and scaling it — all to duplicate a decision AWS has already made well.</p>
+
+    <span class="file-tab">modules/api-gateway/main.tf</span>
+    <pre><span class="c">// managed HTTP API — routes fan out to domain services over private integrations</span>
+resource <span class="s">"aws_apigatewayv2_api"</span> <span class="s">"platform"</span> {
+  name          = <span class="s">"platform-${var.region_short}-${var.environment}"</span>
+  protocol_type = <span class="s">"HTTP"</span>
+}
+
+resource <span class="s">"aws_apigatewayv2_authorizer"</span> <span class="s">"jwt"</span> {
+  api_id           = aws_apigatewayv2_api.platform.id
+  authorizer_type  = <span class="s">"JWT"</span>
+  identity_sources = [<span class="s">"$request.header.Authorization"</span>]
+  jwt_configuration {
+    audience = [var.cognito_app_client_id]
+    issuer   = <span class="s">"https://cognito-idp.${var.aws_region}.amazonaws.com/${var.cognito_user_pool_id}"</span>
+  }
+}
+
+resource <span class="s">"aws_apigatewayv2_integration"</span> <span class="s">"order_mgmt"</span> {
+  api_id             = aws_apigatewayv2_api.platform.id
+  integration_type   = <span class="s">"HTTP_PROXY"</span>
+  integration_uri    = var.order_mgmt_cloudmap_arn
+  integration_method = <span class="s">"ANY"</span>
+  connection_type    = <span class="s">"VPC_LINK"</span>
+  connection_id      = aws_apigatewayv2_vpc_link.private.id
+}
+
+resource <span class="s">"aws_apigatewayv2_route"</span> <span class="s">"orders"</span> {
+  api_id             = aws_apigatewayv2_api.platform.id
+  route_key          = <span class="s">"ANY /orders/{proxy+}"</span>
+  target             = <span class="s">"integrations/${aws_apigatewayv2_integration.order_mgmt.id}"</span>
+  authorization_type = <span class="s">"JWT"</span>
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+resource <span class="s">"aws_apigatewayv2_stage"</span> <span class="s">"live"</span> {
+  api_id      = aws_apigatewayv2_api.platform.id
+  name        = var.environment
+  auto_deploy = <span class="k">true</span>
+
+  default_route_settings {
+    throttling_burst_limit = var.throttle_burst
+    throttling_rate_limit  = var.throttle_rate
+  }
+}</pre>
+    <p>One route block per domain service, all sharing the same authorizer and VPC Link into the private network the domain services live on — nothing behind the Gateway needs a public IP.</p>
+  </section>
+
+  <section id="scaling">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>Scaling &amp; region topology</h2>
+    </div>
+    <p>With managed API Gateway, scaling is automatic — effectively unlimited horizontal scale within account service limits, no capacity planning on this side. The interesting question isn't "does it scale," it's <b>topology</b>: one global gateway with regional backends, or one gateway per region?</p>
+    <p><b>Recommendation: one gateway per region</b>, with Route 53 latency-based routing in front directing each client to its nearest regional gateway. This matches the platform's one-click-per-region rollout goal in <a href="../adr.html#adr-006">ADR-006</a> — standing up a new region means deploying a new, independent gateway from the same Terraform module, not editing a shared global resource that every other region also depends on. A single global gateway would turn "add a region" into "carefully modify a resource in production that every existing region's traffic also flows through" — exactly the kind of shared-blast-radius change the per-region pattern elsewhere in the platform is built to avoid.</p>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2>Decisions worth writing down</h2>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — all client traffic through the Gateway, zero direct exposure</span>
+      <h4>No domain service is directly reachable from the internet</h4>
+      <p>Every client request, without exception, enters through API Gateway. Domain services live entirely on the private network and are only reachable via the Gateway's VPC Link integrations — see <a href="../adr.html#adr-008">ADR-008</a>. This centralizes authN/authZ enforcement and rate limiting in one place instead of asking eleven services to each implement (and each potentially get wrong) the same concerns.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — managed by default, self-hosted only on concrete need</span>
+      <h4>Amazon API Gateway first; Spring Cloud Gateway on Fargate is an escape hatch, not a plan</h4>
+      <p>The managed service is the default for every environment and region. Self-hosted Spring Cloud Gateway stays on the shelf until a specific routing or transformation requirement is identified that the managed offering can't express — it is not built preemptively "in case we need it," because that would mean carrying cluster-operations cost for a capability nothing currently uses.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; API Gateway</span>
+    <span><a href="../index.html">Service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

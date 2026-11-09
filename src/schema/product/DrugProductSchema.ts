@@ -52,7 +52,10 @@ export const drugProductSchema = z.object({
     .string()
     .trim()
     .min(1, "Manufacturer Name is required")
-    .regex(/^[A-Za-z\s]+$/, "Only alphabets and spaces are allowed"),
+    .max(100, "Manufacturer Name must not exceed 100 characters")
+    .regex(/^[a-zA-Z0-9\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]*$/,
+      "Manufacturer Name can contain alphanumeric and special characters"
+    ),
 
   warningsPrecautions: z
     .string()
@@ -195,9 +198,9 @@ export const drugProductSchema = z.object({
 
   gstPercentage: z
     .string()
-    .trim()
-    .min(1, "GST % is required") // Mandatory
-    .regex(/^\d+(\.\d+)?$/, "Must be a valid number"),
+    .refine((val) => ["0", "5", "8", "10", "12"].includes(val), {
+      message: "Select a valid GST %",
+    }),
 
   hsnCode: z
     .string()
@@ -234,5 +237,23 @@ export const drugProductSchema = z.object({
       }
     ),
 
+});
+
+// Used when adding a product without its packaging (variant) and pricing (batch/stock)
+// details — those are attached afterwards from the product view page.
+export const drugProductCreateSchema = drugProductSchema.omit({
+  packId: true,
+  unitPerPack: true,
+  packTypeUnitId: true,
+  numberOfPacks: true,
+  minimumOrderQuantity: true,
+  maximumOrderQuantity: true,
+  batchLotNumber: true,
+  manufacturingDate: true,
+  expiryDate: true,
+  stockQuantity: true,
+  sellingPrice: true,
+  mrp: true,
+  discountPercentage: true,
 });
 

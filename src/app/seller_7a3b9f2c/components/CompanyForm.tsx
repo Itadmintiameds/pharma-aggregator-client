@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { MapPin, Phone, Mail, Globe, ChevronDown } from "lucide-react";
+import { MapPin, Phone, Mail, Globe, ChevronDown, AlertCircle } from "lucide-react";
 import { HiOutlineUserGroup } from "react-icons/hi2";
 import {
   CompanyTypeResponse,
@@ -14,9 +14,14 @@ import {
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
+import { classifySellerType } from "@/src/schema/seller/sellerRegSchema";
+import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
+import UploadedFileChip from "./UploadedFileChip";
+import FormInput from "./FormInput";
 
 interface Props {
   formData: any;
+  errors: Record<string, string>;
   companyTypes: CompanyTypeResponse[];
   sellerTypes: SellerTypeResponse[];
   productTypes: ProductTypeResponse[];
@@ -37,9 +42,15 @@ interface Props {
   onNumericInput: (e: React.ChangeEvent<HTMLInputElement>, field: string, maxLength?: number) => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onCompanyRegFileChange: (file: File | null) => void;
+  onDeleteCompanyRegistrationCertificate: () => void;
   setIsProductDropdownOpen: (open: boolean) => void;
   prevStep: () => void;
   nextStep: () => void;
+  // When rendered inside the dashboard's onboarding gate, "Back" on this
+  // first step has nowhere earlier in the wizard to go to, so it returns to
+  // the gate's "Fill Company Details" intro card instead of navigating to
+  // the marketing homepage.
+  onExitToIntro?: () => void;
 }
 
 // Country codes data for company phone with validation rules
@@ -62,8 +73,34 @@ const companyCountryCodes = [
   { code: "+20", country: "Egypt", flag: "🇪🇬", validate: (value: string) => null },
 ];
 
+function DropdownSearchInput({
+  value,
+  onChange,
+  placeholder = "Search...",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="p-2 border-b border-neutral-200 sticky top-0 bg-white">
+      <input
+        type="text"
+        autoFocus
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        placeholder={placeholder}
+        className="w-full h-9 px-3 rounded-lg border border-neutral-300 text-p4 font-body font-regular text-pneutral-900 focus:outline-none focus:border-secondary-500 focus:ring-1 focus:ring-secondary-200"
+      />
+    </div>
+  );
+}
+
 export default function CompanyForm({
   formData,
+  errors,
   companyTypes,
   sellerTypes,
   productTypes,
@@ -84,9 +121,11 @@ export default function CompanyForm({
   onNumericInput,
   onChange,
   onCompanyRegFileChange,
+  onDeleteCompanyRegistrationCertificate,
   setIsProductDropdownOpen,
   prevStep,
   nextStep,
+  onExitToIntro,
 }: Props) {
 
   const router = useRouter();
@@ -94,6 +133,10 @@ export default function CompanyForm({
   const [selectedCompanyCountryCode, setSelectedCompanyCountryCode] = useState("+91");
   const [isCompanyPhoneDropdownOpen, setIsCompanyPhoneDropdownOpen] = useState(false);
   const [companyPhoneError, setCompanyPhoneError] = useState("");
+  // Inline feedback for a rejected keystroke on the landmark field - shown
+  // until the next valid keystroke or blur, same convention as the other
+  // transient format errors on this step.
+  const [landmarkFormatError, setLandmarkFormatError] = useState<string>("");
 
   // State for custom dropdowns
   const [openDropdown, setOpenDropdown] = React.useState<string | null>(null);
@@ -103,6 +146,81 @@ export default function CompanyForm({
   const districtDropdownRef = React.useRef<HTMLDivElement>(null);
   const talukaDropdownRef = React.useRef<HTMLDivElement>(null);
   const companyPhoneDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Search terms for dropdown filtering. `dropdownSearch` is shared by the
+  // single-select dropdowns since only one of them (openDropdown) can be open
+  // at a time; the product multi-select and phone country picker have their
+  // own state since they can be open independently of `openDropdown`.
+  const [dropdownSearch, setDropdownSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [phoneCountrySearch, setPhoneCountrySearch] = useState("");
+
+  React.useEffect(() => {
+    setDropdownSearch("");
+  }, [openDropdown]);
+
+  React.useEffect(() => {
+    if (!isProductDropdownOpen) setProductSearch("");
+  }, [isProductDropdownOpen]);
+
+  React.useEffect(() => {
+    if (!isCompanyPhoneDropdownOpen) setPhoneCountrySearch("");
+  }, [isCompanyPhoneDropdownOpen]);
+
+  const filteredCompanyTypes = companyTypes
+    .filter((type) =>
+      type.companyTypeName.toLowerCase().includes(dropdownSearch.toLowerCase())
+    )
+    .sort((a, b) => a.companyTypeName.localeCompare(b.companyTypeName));
+  const filteredSellerTypes = sellerTypes
+    .filter((type) => type.isActive)
+    .filter((type) => type.sellerTypeName.toLowerCase().includes(dropdownSearch.toLowerCase()))
+    .sort((a, b) => a.sellerTypeName.localeCompare(b.sellerTypeName));
+  const filteredStates = states
+    .filter((state) =>
+      state.stateName.toLowerCase().includes(dropdownSearch.toLowerCase())
+    )
+    .sort((a, b) => a.stateName.localeCompare(b.stateName));
+  const filteredDistricts = districts
+    .filter((district) =>
+      district.districtName.toLowerCase().includes(dropdownSearch.toLowerCase())
+    )
+    .sort((a, b) => a.districtName.localeCompare(b.districtName));
+  const filteredTalukas = talukas
+    .filter((taluka) =>
+      taluka.talukaName.toLowerCase().includes(dropdownSearch.toLowerCase())
+    )
+    .sort((a, b) => a.talukaName.localeCompare(b.talukaName));
+  const filteredProductTypes = productTypes
+    .filter((product) =>
+      product.productTypeName.toLowerCase().includes(productSearch.toLowerCase())
+    )
+    .sort((a, b) => a.productTypeName.localeCompare(b.productTypeName));
+  const filteredCompanyCountryCodes = companyCountryCodes
+    .filter(
+      (country) =>
+        country.country.toLowerCase().includes(phoneCountrySearch.toLowerCase()) ||
+        country.code.includes(phoneCountrySearch)
+    )
+    .sort((a, b) => a.country.localeCompare(b.country));
+
+  // Skip auto-closing a dropdown when focus is moving to an element still
+  // inside its container (e.g. the search input) — the click-outside
+  // listener above is what actually closes it on a real outside click.
+  const handleDropdownBlur = (
+    e: React.FocusEvent<HTMLDivElement>,
+    name: string,
+    containerRef: React.RefObject<HTMLDivElement | null>
+  ) => {
+    const nextFocus = e.relatedTarget as Node | null;
+    if (containerRef.current && nextFocus && containerRef.current.contains(nextFocus)) {
+      return;
+    }
+    setTimeout(() => {
+      setOpenDropdown((current) => (current === name ? null : current));
+    }, 150);
+  };
+
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -164,6 +282,11 @@ export default function CompanyForm({
     const selected = sellerTypes.find(s => s.sellerTypeId === formData.sellerTypeId);
     return selected?.sellerTypeName || "";
   };
+
+  // Drives the conditional Parent Manufacturer Name / Brand Owner Name fields
+  // below. Reuses formData.sellerType (already tracked seller type display
+  // name) rather than threading a new prop.
+  const sellerTypeCategory = classifySellerType(formData.sellerType);
 
   const getSelectedStateLabel = () => {
     const selected = states.find(s => s.stateId === formData.stateId);
@@ -269,6 +392,21 @@ export default function CompanyForm({
     return 15;
   };
 
+  // Custom dropdown divs have no native keyboard behavior. Enter/Space opens
+  // them like a real select; the closing setTimeout (not an immediate close)
+  // lets an option's onClick fire before the option list unmounts on blur,
+  // since Tab/mouse-click-away both blur the div before the option's click
+  // event would otherwise land on a removed node.
+  const handleDropdownKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, name: string, enabled = true) => {
+    if (!enabled) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpenDropdown(openDropdown === name ? null : name);
+    } else if (e.key === "Escape") {
+      setOpenDropdown(null);
+    }
+  };
+
   const getPlaceholder = () => {
     if (selectedCompanyCountryCode === "+91") return "Enter 10-digit mobile number";
     return "Enter phone number";
@@ -290,35 +428,29 @@ export default function CompanyForm({
       <div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-2">
           {/* Row 1: Company Name | Company Type */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Seller Name / Company Name:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <HiOutlineUserGroup className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="sellerName"
-                autoComplete="off"
-                value={formData.sellerName}
-                onChange={(e) => {
-                  let value = e.target.value;
-                  value = value.replace(/\s{2,}/g, ' ');
-                  if (value.length <= 60) {
-                    const syntheticEvent = {
-                      ...e,
-                      target: { ...e.target, name: "sellerName", value }
-                    };
-                    onChange(syntheticEvent);
-                  }
-                }}
-                maxLength={60}
-                placeholder="Enter Your Name/Company Name"
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="Seller Name / Company Name:"
+            required
+            type="text"
+            name="sellerName"
+            autoComplete="off"
+            value={formData.sellerName}
+            onChange={(e) => {
+              let value = e.target.value;
+              value = value.replace(/\s{2,}/g, ' ');
+              if (value.length <= 60) {
+                const syntheticEvent = {
+                  ...e,
+                  target: { ...e.target, name: "sellerName", value }
+                };
+                onChange(syntheticEvent);
+              }
+            }}
+            maxLength={60}
+            placeholder="Enter Your Name/Company Name"
+            leftIcon={<HiOutlineUserGroup className="w-5 h-5" />}
+            error={errors.sellerName}
+          />
 
           <div className="flex flex-col gap-1">
             <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
@@ -334,8 +466,14 @@ export default function CompanyForm({
                 className="absolute left-3 top-1/2 -translate-y-1/2 z-10"
               />
               <div
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center"
+                tabIndex={0}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'company'}
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.companyTypeId ? "border-red-500" : "border-neutral-500"}`}
                 onClick={() => setOpenDropdown(openDropdown === 'company' ? null : 'company')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'company')}
+                onBlur={(e) => handleDropdownBlur(e, 'company', companyDropdownRef)}
               >
                 <span className={!getSelectedCompanyLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.companyTypes
@@ -347,8 +485,12 @@ export default function CompanyForm({
 
               {openDropdown === 'company' && !loadingStates.companyTypes && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search company type..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {companyTypes.map((type) => (
+                    {filteredCompanyTypes.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+                    {filteredCompanyTypes.map((type) => (
                       <div
                         key={type.companyTypeId}
                         className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -366,6 +508,12 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.companyTypeId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                <span>{errors.companyTypeId}</span>
+              </p>
+            )}
           </div>
 
           {/* Row 2: Company Registration Certificate Upload | Seller Type */}
@@ -375,7 +523,9 @@ export default function CompanyForm({
     <span className="text-warning-500 font-semibold ml-1">*</span>
   </label>
 
-  {/* Hidden File Input - placed above the icon div */}
+  {/* Hidden File Input - placed above the icon div. Stays mounted even in the
+      "already uploaded" state below so the chip's Edit button can trigger it
+      to pick a replacement. */}
   <input
     id="company-reg-upload"
     type="file"
@@ -385,11 +535,32 @@ export default function CompanyForm({
     disabled={uploading}
   />
 
-  <div className="flex items-center h-[52px] border border-neutral-500 rounded-xl overflow-hidden bg-white">
+  {!formData.companyRegistrationCertificateFile && isRealFileUrl(formData.companyRegistrationCertificateUrl) ? (
+    <UploadedFileChip
+      url={formData.companyRegistrationCertificateUrl}
+      fileName={formData.companyRegistrationCertificateFileName}
+      inputId="company-reg-upload"
+      onDelete={onDeleteCompanyRegistrationCertificate}
+    />
+  ) : (
+  <div
+    tabIndex={uploading ? -1 : 0}
+    role="button"
+    aria-label="Upload Company Type Certificate"
+    onKeyDown={(e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        document.getElementById("company-reg-upload")?.click();
+      }
+    }}
+    className={`flex items-center h-13 border rounded-xl overflow-hidden bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
+      errors.companyRegistrationCertificateFile ? "border-red-500" : "border-neutral-500"
+    }`}
+    onClick={() => document.getElementById("company-reg-upload")?.click()}
+  >
     {/* Upload Icon Box - with border on all sides */}
-    <div 
+    <div
       className="w-13 h-full bg-secondary-800 flex items-center justify-center shrink-0"
-      onClick={() => document.getElementById("company-reg-upload")?.click()}
     >
       <Image
         src="/icons/upload.png"
@@ -402,8 +573,7 @@ export default function CompanyForm({
 
     {/* Content Area - with border on top, right, bottom (no left border to avoid double border) */}
     <div
-      className="flex-1 h-full bg-white flex items-center cursor-pointer px-3"
-      onClick={() => document.getElementById("company-reg-upload")?.click()}
+      className="flex-1 h-full bg-white flex items-center px-3"
     >
       <div className="flex-1 flex items-center min-w-0">
         {uploading ? (
@@ -456,6 +626,13 @@ export default function CompanyForm({
       </div>
     </div>
   </div>
+  )}
+  {errors.companyRegistrationCertificateFile && (
+    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+      <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+      <span>{errors.companyRegistrationCertificateFile}</span>
+    </p>
+  )}
 </div>
 
           <div className="flex flex-col gap-1">
@@ -472,8 +649,14 @@ export default function CompanyForm({
                 className="absolute left-3 top-1/2 -translate-y-1/2 z-10"
               />
               <div
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center"
+                tabIndex={0}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'seller'}
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.sellerTypeId ? "border-red-500" : "border-neutral-500"}`}
                 onClick={() => setOpenDropdown(openDropdown === 'seller' ? null : 'seller')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'seller')}
+                onBlur={(e) => handleDropdownBlur(e, 'seller', sellerDropdownRef)}
               >
                 <span className={!getSelectedSellerLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.sellerTypes
@@ -485,8 +668,12 @@ export default function CompanyForm({
 
               {openDropdown === 'seller' && !loadingStates.sellerTypes && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search seller type..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {sellerTypes.map((type) => (
+                    {filteredSellerTypes.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+                    {filteredSellerTypes.map((type) => (
                       <div
                         key={type.sellerTypeId}
                         className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -504,7 +691,87 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.sellerTypeId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                <span>{errors.sellerTypeId}</span>
+              </p>
+            )}
           </div>
+
+          {/* Row 2.5: Parent Manufacturer Name | Brand Owner Name - shown based on seller type */}
+          {sellerTypeCategory === "PCD" && (
+            <FormInput
+              label="Parent Manufacturer Name:"
+              required
+              type="text"
+              name="parentManufacturerName"
+              autoComplete="off"
+              value={formData.parentManufacturerName || ""}
+              onChange={(e) => {
+                let value = e.target.value;
+                value = value.replace(/\s{2,}/g, ' ');
+                if (value.length <= 100) {
+                  const syntheticEvent = {
+                    ...e,
+                    target: { ...e.target, name: "parentManufacturerName", value }
+                  };
+                  onChange(syntheticEvent);
+                }
+              }}
+              maxLength={100}
+              placeholder="Enter Parent Manufacturer Name"
+              error={errors.parentManufacturerName}
+            />
+          )}
+
+          {sellerTypeCategory === "WHITE_LABELING" && (
+            <>
+              <FormInput
+                label="Parent Manufacturer Name (optional):"
+                type="text"
+                name="parentManufacturerName"
+                autoComplete="off"
+                value={formData.parentManufacturerName || ""}
+                onChange={(e) => {
+                  let value = e.target.value;
+                  value = value.replace(/\s{2,}/g, ' ');
+                  if (value.length <= 100) {
+                    const syntheticEvent = {
+                      ...e,
+                      target: { ...e.target, name: "parentManufacturerName", value }
+                    };
+                    onChange(syntheticEvent);
+                  }
+                }}
+                maxLength={100}
+                placeholder="Enter Parent Manufacturer Name"
+                error={errors.parentManufacturerName}
+              />
+
+              <FormInput
+                label="Brand Owner Name (optional):"
+                type="text"
+                name="brandOwnerName"
+                autoComplete="off"
+                value={formData.brandOwnerName || ""}
+                onChange={(e) => {
+                  let value = e.target.value;
+                  value = value.replace(/\s{2,}/g, ' ');
+                  if (value.length <= 100) {
+                    const syntheticEvent = {
+                      ...e,
+                      target: { ...e.target, name: "brandOwnerName", value }
+                    };
+                    onChange(syntheticEvent);
+                  }
+                }}
+                maxLength={100}
+                placeholder="Enter Brand Owner Name"
+                error={errors.brandOwnerName}
+              />
+            </>
+          )}
 
           {/* Row 3: Product Types | State */}
           <div className="flex flex-col gap-1">
@@ -521,8 +788,27 @@ export default function CompanyForm({
                 className="absolute left-3 top-1/2 -translate-y-1/2 z-10"
               />
               <div
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center"
+                tabIndex={0}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={isProductDropdownOpen}
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.productTypeIds ? "border-red-500" : "border-neutral-500"}`}
                 onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setIsProductDropdownOpen(!isProductDropdownOpen);
+                  } else if (e.key === "Escape") {
+                    setIsProductDropdownOpen(false);
+                  }
+                }}
+                onBlur={(e) => {
+                  const nextFocus = e.relatedTarget as Node | null;
+                  if (productDropdownRef.current && nextFocus && productDropdownRef.current.contains(nextFocus)) {
+                    return;
+                  }
+                  setTimeout(() => setIsProductDropdownOpen(false), 150);
+                }}
               >
                 <span className={formData.productTypes.length === 0 ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.productTypes
@@ -536,8 +822,9 @@ export default function CompanyForm({
 
               {isProductDropdownOpen && !loadingStates.productTypes && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={productSearch} onChange={setProductSearch} placeholder="Search product types..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {productTypes.length > 0 && (
+                    {productSearch === "" && productTypes.length > 0 && (
                       <div
                         className="flex items-center px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200"
                         onClick={onSelectAll}
@@ -554,7 +841,11 @@ export default function CompanyForm({
                       </div>
                     )}
 
-                    {productTypes.map((product) => (
+                    {filteredProductTypes.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+
+                    {filteredProductTypes.map((product) => (
                       <div
                         key={product.productTypeId}
                         className="flex items-center px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -580,6 +871,12 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.productTypeIds && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                <span>{errors.productTypeIds}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -590,8 +887,14 @@ export default function CompanyForm({
             <div className="relative" ref={stateDropdownRef}>
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
               <div
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center"
+                tabIndex={0}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'state'}
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.stateId ? "border-red-500" : "border-neutral-500"}`}
                 onClick={() => setOpenDropdown(openDropdown === 'state' ? null : 'state')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'state')}
+                onBlur={(e) => handleDropdownBlur(e, 'state', stateDropdownRef)}
               >
                 <span className={!getSelectedStateLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.states
@@ -603,8 +906,12 @@ export default function CompanyForm({
 
               {openDropdown === 'state' && !loadingStates.states && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search state..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {states.map((state) => (
+                    {filteredStates.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+                    {filteredStates.map((state) => (
                       <div
                         key={state.stateId}
                         className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -622,6 +929,12 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.stateId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                <span>{errors.stateId}</span>
+              </p>
+            )}
           </div>
 
           {/* Row 4: District | Taluka */}
@@ -633,8 +946,16 @@ export default function CompanyForm({
             <div className="relative" ref={districtDropdownRef}>
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
               <div
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center ${formData.stateId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                tabIndex={formData.stateId ? 0 : -1}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'district'}
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
+                  errors.districtId ? "border-red-500" : "border-neutral-500"
+                } ${formData.stateId ? "cursor-pointer bg-white" : "cursor-not-allowed bg-neutral-100"}`}
                 onClick={() => formData.stateId && setOpenDropdown(openDropdown === 'district' ? null : 'district')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'district', !!formData.stateId)}
+                onBlur={(e) => handleDropdownBlur(e, 'district', districtDropdownRef)}
               >
                 <span className={!getSelectedDistrictLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.districts
@@ -648,8 +969,12 @@ export default function CompanyForm({
 
               {openDropdown === 'district' && !loadingStates.districts && formData.stateId && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search district..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {districts.map((district) => (
+                    {filteredDistricts.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+                    {filteredDistricts.map((district) => (
                       <div
                         key={district.districtId}
                         className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -667,6 +992,12 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.districtId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                <span>{errors.districtId}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -677,8 +1008,16 @@ export default function CompanyForm({
             <div className="relative" ref={talukaDropdownRef}>
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
               <div
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center ${formData.districtId ? 'cursor-pointer' : 'cursor-not-allowed bg-gray-50'}`}
+                tabIndex={formData.districtId ? 0 : -1}
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown === 'taluka'}
+                className={`w-full h-13 pl-10 pr-4 border rounded-xl flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
+                  errors.talukaId ? "border-red-500" : "border-neutral-500"
+                } ${formData.districtId ? "cursor-pointer bg-white" : "cursor-not-allowed bg-neutral-100"}`}
                 onClick={() => formData.districtId && setOpenDropdown(openDropdown === 'taluka' ? null : 'taluka')}
+                onKeyDown={(e) => handleDropdownKeyDown(e, 'taluka', !!formData.districtId)}
+                onBlur={(e) => handleDropdownBlur(e, 'taluka', talukaDropdownRef)}
               >
                 <span className={!getSelectedTalukaLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
                   {loadingStates.talukas
@@ -692,8 +1031,12 @@ export default function CompanyForm({
 
               {openDropdown === 'taluka' && !loadingStates.talukas && formData.districtId && (
                 <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search taluka..." />
                   <div className="max-h-60 overflow-y-auto">
-                    {talukas.map((taluka) => (
+                    {filteredTalukas.length === 0 && (
+                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                    )}
+                    {filteredTalukas.map((taluka) => (
                       <div
                         key={taluka.talukaId}
                         className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
@@ -711,165 +1054,141 @@ export default function CompanyForm({
                 </div>
               )}
             </div>
+            {errors.talukaId && (
+              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                <span>{errors.talukaId}</span>
+              </p>
+            )}
           </div>
 
           {/* Row 5: City | Building No. */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              City / Town / Village:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="city"
-                autoComplete="new-password"
-                value={formData.city}
-                onChange={(e) => {
-                  let value = e.target.value;
-                  value = value.replace(/\s{2,}/g, ' ');
-                  if (value.length <= 100) {
-                    const syntheticEvent = {
-                      ...e,
-                      target: { ...e.target, name: "city", value }
-                    };
-                    onChange(syntheticEvent);
-                  }
-                }}
-                maxLength={100}
-                placeholder="Enter City/Town/Village"
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="City / Town / Village:"
+            required
+            type="text"
+            name="city"
+            autoComplete="new-password"
+            value={formData.city}
+            onChange={(e) => {
+              let value = e.target.value;
+              value = value.replace(/\s{2,}/g, ' ');
+              if (value.length <= 100) {
+                const syntheticEvent = {
+                  ...e,
+                  target: { ...e.target, name: "city", value }
+                };
+                onChange(syntheticEvent);
+              }
+            }}
+            maxLength={100}
+            placeholder="Enter City/Town/Village"
+            leftIcon={<MapPin className="w-5 h-5" />}
+            error={errors.city}
+          />
 
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Building No./House No.:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="buildingNo"
-                autoComplete="off"
-                value={formData.buildingNo}
-                onChange={(e) => {
-                  let value = e.target.value;
-                  value = value.replace(/\s{2,}/g, ' ');
-                  if (value.length <= 50) {
-                    const syntheticEvent = {
-                      ...e,
-                      target: { ...e.target, name: "buildingNo", value }
-                    };
-                    onChange(syntheticEvent);
-                  }
-                }}
-                maxLength={50}
-                placeholder="Enter Building/House No."
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="Building No./House No.:"
+            required
+            type="text"
+            name="buildingNo"
+            autoComplete="off"
+            value={formData.buildingNo}
+            onChange={(e) => {
+              let value = e.target.value;
+              value = value.replace(/\s{2,}/g, ' ');
+              if (value.length <= 50) {
+                const syntheticEvent = {
+                  ...e,
+                  target: { ...e.target, name: "buildingNo", value }
+                };
+                onChange(syntheticEvent);
+              }
+            }}
+            maxLength={50}
+            placeholder="Enter Building/House No."
+            leftIcon={<MapPin className="w-5 h-5" />}
+            error={errors.buildingNo}
+          />
 
           {/* Row 6: Street | Pincode */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Street / Road / Lane:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="street"
-                autoComplete="off"
-                value={formData.street}
-                onChange={(e) => {
-                  let value = e.target.value;
-                  value = value.replace(/\s{2,}/g, ' ');
-                  if (value.length <= 100) {
-                    const syntheticEvent = {
-                      ...e,
-                      target: { ...e.target, name: "street", value }
-                    };
-                    onChange(syntheticEvent);
-                  }
-                }}
-                maxLength={100}
-                placeholder="Enter Street/Area/Road"
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="Street / Road / Lane:"
+            required
+            type="text"
+            name="street"
+            autoComplete="off"
+            value={formData.street}
+            onChange={(e) => {
+              let value = e.target.value;
+              value = value.replace(/\s{2,}/g, ' ');
+              if (value.length <= 100) {
+                const syntheticEvent = {
+                  ...e,
+                  target: { ...e.target, name: "street", value }
+                };
+                onChange(syntheticEvent);
+              }
+            }}
+            maxLength={100}
+            placeholder="Enter Street/Area/Road"
+            leftIcon={<MapPin className="w-5 h-5" />}
+            error={errors.street}
+          />
 
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Pin Code:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="pincode"
-                autoComplete="new-password"
-                value={formData.pincode}
-                onChange={(e) => onNumericInput(e, "pincode", 6)}
-                placeholder="Enter 6-Digit Pincode"
-                maxLength={6}
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="Pin Code:"
+            required
+            type="text"
+            name="pincode"
+            autoComplete="new-password"
+            value={formData.pincode}
+            onChange={(e) => onNumericInput(e, "pincode", 6)}
+            placeholder="Enter 6-Digit Pincode"
+            maxLength={6}
+            leftIcon={<MapPin className="w-5 h-5" />}
+            error={errors.pincode}
+          />
 
           {/* Row 7: Landmark | Company Phone */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Landmark (optional):
-            </label>
-            <input
-              type="text"
-              name="landmark"
-              autoComplete="off"
-              value={formData.landmark}
-              onChange={(e) => {
-                let value = e.target.value;
-                value = value.replace(/\s{2,}/g, ' ');
-                const allowedChars = /^[a-zA-Z0-9\s]*$/;
-                if (value.length <= 100 && (value === "" || allowedChars.test(value))) {
-                  const syntheticEvent = {
-                    ...e,
-                    target: { ...e.target, name: "landmark", value }
-                  };
-                  onChange(syntheticEvent);
-                }
-              }}
-              maxLength={100}
-              placeholder="Enter Landmark"
-              className="w-full h-13 px-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-            />
-          </div>
+          <FormInput
+            label="Landmark (optional):"
+            type="text"
+            name="landmark"
+            autoComplete="off"
+            value={formData.landmark}
+            onChange={(e) => {
+              let value = e.target.value;
+              value = value.replace(/\s{2,}/g, ' ');
+              const allowedChars = /^[a-zA-Z0-9\s]*$/;
+              if (value.length <= 100 && (value === "" || allowedChars.test(value))) {
+                setLandmarkFormatError("");
+                const syntheticEvent = {
+                  ...e,
+                  target: { ...e.target, name: "landmark", value }
+                };
+                onChange(syntheticEvent);
+              } else {
+                setLandmarkFormatError("Landmark should only contain letters, numbers, and spaces");
+              }
+            }}
+            onBlur={() => setLandmarkFormatError("")}
+            maxLength={100}
+            placeholder="Enter Landmark"
+            error={errors.landmark || landmarkFormatError}
+          />
 
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Company Website (Optional):
-            </label>
-            <div className="relative">
-              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="text"
-                name="website"
-                autoComplete="off"
-                value={formData.website}
-                onChange={onChange}
-                placeholder="https://example.com"
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="Company Website (Optional):"
+            type="text"
+            name="website"
+            autoComplete="off"
+            value={formData.website}
+            onChange={onChange}
+            placeholder="https://example.com"
+            leftIcon={<Globe className="w-5 h-5" />}
+            error={errors.website}
+          />
 
           <div className="flex flex-col gap-1">
             <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
@@ -883,7 +1202,9 @@ export default function CompanyForm({
                   <button
                     type="button"
                     onClick={() => setIsCompanyPhoneDropdownOpen(!isCompanyPhoneDropdownOpen)}
-                    className="h-13 px-2 pl-10 pr-2 rounded-l-md border border-r-0 border-neutral-500 bg-white flex items-center gap-1 focus:outline-none"
+                    className={`h-13 px-2 pl-10 pr-2 rounded-l-xl border border-r-0 bg-white flex items-center gap-1 focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
+                      (errors.phone || companyPhoneError) ? "border-red-500" : "border-neutral-500"
+                    }`}
                   >
                     <span className="text-p4 font-body font-regular text-pneutral-900">{selectedCompanyCountryCode}</span>
                     <ChevronDown className="w-4 h-4 text-pneutral-900" />
@@ -892,11 +1213,15 @@ export default function CompanyForm({
                   {isCompanyPhoneDropdownOpen && (
                     <>
                       <div
-                        className="fixed inset-0 z-10"
+                        className="fixed inset-0 z-40"
                         onClick={() => setIsCompanyPhoneDropdownOpen(false)}
                       />
-                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-xl shadow-lg z-20 max-h-60 overflow-y-auto">
-                        {companyCountryCodes.map((country) => (
+                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
+                        <DropdownSearchInput value={phoneCountrySearch} onChange={setPhoneCountrySearch} placeholder="Search country..." />
+                        {filteredCompanyCountryCodes.length === 0 && (
+                          <div className="px-3 py-2.5 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                        )}
+                        {filteredCompanyCountryCodes.map((country) => (
                           <button
                             key={country.code}
                             onClick={() => {
@@ -923,7 +1248,9 @@ export default function CompanyForm({
                   )}
                 </div>
 
-                <input
+                <FormInput
+                  containerClassName="flex-1"
+                  inputClassName="rounded-l-none! rounded-r-xl! pl-4!"
                   type="tel"
                   name="phone"
                   autoComplete="new-password"
@@ -931,41 +1258,36 @@ export default function CompanyForm({
                   onChange={handleCompanyPhoneChange}
                   onKeyDown={handlePhoneKeyDown}
                   onPaste={handlePhonePaste}
+                  onBlur={() => setCompanyPhoneError("")}
                   placeholder={getPlaceholder()}
                   maxLength={getMaxLength()}
-                  className={`flex-1 h-13 px-4 pr-4 rounded-r-md border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 ${companyPhoneError ? 'border-red-500' : 'border-neutral-500'}`}
+                  error={errors.phone || companyPhoneError}
+                  hideMessage
                 />
               </div>
-              {companyPhoneError && (
-                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                  <span className="mr-1">⚠️</span>
-                  <span>{companyPhoneError}</span>
-                </p>
-              )}
             </div>
+            {(errors.phone || companyPhoneError) && (
+              <p className="text-p2 font-body font-regular text-red-500 flex items-start mt-1">
+                <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                <span>{errors.phone || companyPhoneError}</span>
+              </p>
+            )}
           </div>
 
           {/* Row 8: Company Email */}
-          <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
-              Company Email ID:
-              <span className="text-warning-500 font-semibold ml-1">*</span>
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pneutral-900" />
-              <input
-                type="email"
-                name="email"
-                autoComplete="new-password"
-                value={formData.email}
-                onChange={onChange}
-                placeholder="Enter Company Email ID"
-                className="w-full h-13 pl-10 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-              />
-            </div>
-          </div>
+          <FormInput
+            label="Company Email ID:"
+            required
+            type="email"
+            name="email"
+            autoComplete="new-password"
+            value={formData.email}
+            onChange={onChange}
+            placeholder="Enter Company Email ID"
+            leftIcon={<Mail className="w-5 h-5" />}
+            error={errors.email}
+          />
 
-          
         </div>
       </div>
 
@@ -973,10 +1295,16 @@ export default function CompanyForm({
       <div className="flex justify-between mt-10">
         <div className="flex gap-4">
           <button
-            onClick={() => router.push("/")}
-            className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold"
+            onClick={() => (onExitToIntro ? onExitToIntro() : router.push("/"))}
+            className="h-12 px-6 border-2 border-pneutral-900 text-pneutral-900 rounded-xl flex items-center gap-2"
           >
-            Cancel
+            <Image
+              src="/icons/backbuttonicon.png"
+              alt="Back"
+              width={18}
+              height={18}
+            />
+            Back
           </button>
         </div>
 

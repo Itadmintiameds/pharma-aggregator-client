@@ -43,12 +43,14 @@ const Dropdown: React.FC<CommonDropdownProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Filter options based on typed text
-  const filteredOptions = searchTerm
-    ? options.filter((opt) =>
-        opt.label.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : options;
+  // Filter options based on typed text, always shown in ascending order
+  const filteredOptions = (
+    searchTerm
+      ? options.filter((opt) =>
+          opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : options
+  ).slice().sort((a, b) => a.label.localeCompare(b.label));
 
   // Handle click outside
   useEffect(() => {

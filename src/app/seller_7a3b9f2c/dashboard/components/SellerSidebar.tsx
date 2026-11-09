@@ -8,12 +8,13 @@ import {
   Package,
   Gift,
   ChevronRight,
+  Lock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { HiOutlineShoppingBag } from "react-icons/hi";
 import { AiOutlinePieChart } from "react-icons/ai";
 import { IoSettingsOutline } from "react-icons/io5";
-import { MdOutlineLocalShipping } from "react-icons/md";
+import { MdOutlineAssignmentReturn, MdOutlineLocalShipping } from "react-icons/md";
 import { PiHeadphones } from "react-icons/pi";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { sellerAuthService } from "@/src/services/seller/authService";
@@ -21,9 +22,14 @@ import { sellerAuthService } from "@/src/services/seller/authService";
 interface SellerSidebarProps {
   currentView: DashboardView;
   setCurrentView: (view: DashboardView) => void;
+  // While the seller isn't yet approved, every item except Overview is
+  // disabled — the dashboard's Overview area is the only thing they can use
+  // until admin approval (see OnboardingGate). Defaults to true so pages
+  // that don't pass it (e.g. any leftover standalone usage) behave as before.
+  approved?: boolean;
 }
 
-const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
+const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerSidebarProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -32,7 +38,8 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
     { id: "overview", label: "Overview", icon: <LayoutDashboard size={20} />, path: "/seller_7a3b9f2c/dashboard" },
     { id: "product", label: "Products", icon: <Package size={20} />, path: "/seller_7a3b9f2c/products" },
     { id: "orders", label: "Orders", icon: <HiOutlineShoppingBag size={20} />, path: "/seller_7a3b9f2c/orders" },
-    { id: "rfqs", label: "Conversions", icon: <AiOutlinePieChart size={20} />, path: "/seller_7a3b9f2c/conversions" },
+    { id: "returns", label: "Returns", icon: <MdOutlineAssignmentReturn size={20} />, path: "/seller_7a3b9f2c/returns" },
+    { id: "rfqs", label: "Quote Requests", icon: <AiOutlinePieChart size={20} />, path: "/seller_7a3b9f2c/conversions" },
     { id: "settings", label: "Settings", icon: <IoSettingsOutline size={20} />, path: "/seller_7a3b9f2c/settings" },
     { id: "shipment", label: "Shipment", icon: <MdOutlineLocalShipping size={20} />, path: "/seller_7a3b9f2c/shipment" },
   ];
@@ -61,6 +68,7 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
   const handleUpgrade = () => toast.success("Upgrade account clicked");
 
   const handleMenuClick = (itemId: string, path: string) => {
+    if (!approved && itemId !== "overview") return;
     setCurrentView(itemId as DashboardView);
     router.push(path);
   };
@@ -75,26 +83,34 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
 
   return (
     <aside
-      className="fixed left-0 bottom-0 w-64 bg-white z-40 flex flex-col"
-      style={{ top: 74, padding: 24, boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.10)", justifyContent: "space-between" }}
+      className="fixed left-0 bottom-0 w-64 z-40 flex flex-col"
+      style={{
+        top: 74,
+        padding: 24,
+        background: "var(--Colors-Secondary-Secondary-600, #9659FD)",
+        boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.10)",
+        justifyContent: "space-between",
+      }}
     >
       {/* Nav items */}
       <nav className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 8 }}>
         {menuItems.map((item) => {
           const active = isActive(item.id, item.path);
+          const disabled = !approved && item.id !== "overview";
           return (
             <button
               key={item.id}
               onClick={() => handleMenuClick(item.id, item.path)}
+              disabled={disabled}
               style={{
                 alignSelf: "stretch",
                 height: 48,
                 minHeight: 48,
                 maxHeight: 52,
-                background: active ? "var(--Colors-Secondary-Secondary-700, #7D32FC)" : "transparent",
+                background: active ? "#FFFFFF" : "transparent",
                 borderRadius: 8,
                 border: "none",
-                cursor: "pointer",
+                cursor: disabled ? "not-allowed" : "pointer",
                 display: "flex",
                 alignItems: "center",
                 paddingLeft: 16,
@@ -103,17 +119,19 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
                 overflow: "hidden",
               }}
               onMouseEnter={(e) => {
-                if (!active) (e.currentTarget as HTMLButtonElement).style.background = "#F4F0FF";
+                if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255, 255, 255, 0.12)";
               }}
               onMouseLeave={(e) => {
-                if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
               }}
             >
-              <span style={{ display: "flex", flexShrink: 0, color: active ? "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" : "var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)" }}>
+              <span style={{ display: "flex", flexShrink: 0, color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "#000000" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" }}>
                 {item.icon}
               </span>
               <span style={{
-                color: active ? "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" : "var(--Colors-Primary-Neutral-pneutral-900, #1E1E1D)",
+                flex: 1,
+                textAlign: "left",
+                color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "#000000" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)",
                 fontSize: 16,
                 fontFamily: "Work Sans, sans-serif",
                 fontWeight: active ? 500 : 400,
@@ -121,6 +139,9 @@ const SellerSidebar = ({ currentView, setCurrentView }: SellerSidebarProps) => {
               }}>
                 {item.label}
               </span>
+              {disabled && (
+                <Lock size={16} style={{ flexShrink: 0, color: "rgba(255, 255, 255, 0.4)" }} />
+              )}
             </button>
           );
         })}

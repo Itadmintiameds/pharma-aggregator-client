@@ -1,6 +1,7 @@
 import { CreateDrugProductRequest } from "@/src/types/product/ProductData";
 import { api } from "@/src/utils/api";
 import { AxiosError } from "axios";
+import { getCurrentSellerId, withSellerId } from "@/src/services/product/sellerContext";
 
 // ─── DRUG ────────────────────────────────────────────────────────────────────
 
@@ -182,7 +183,7 @@ export const getPackTypes = async () => {
 
 export const createDrugProduct = async (payload: CreateDrugProductRequest) => {
   try {
-    const response = await api.post('/products/create', payload, {
+    const response = await api.post('/products/create', await withSellerId(payload), {
       headers: { 'Content-Type': 'application/json' },
     });
     return response.data;
@@ -200,7 +201,8 @@ export const createDrugProduct = async (payload: CreateDrugProductRequest) => {
 
 export const getProductList = async () => {
   try {
-    const response = await api.get('/products/getAll');
+    const sellerId = await getCurrentSellerId();
+    const response = await api.get(`/products/seller/${sellerId}`);
     return (
       response.data?.data?.content ||
       response.data?.data ||
@@ -234,7 +236,7 @@ export const getProductById = async (productId: string) => {
 
 export const updateProduct = async (productId: string, payload: CreateDrugProductRequest) => {
   try {
-    const response = await api.put(`/products/update/${productId}`, payload, {
+    const response = await api.put(`/products/update/${productId}`, await withSellerId(payload), {
       headers: { 'Content-Type': 'application/json' },
     });
     return response.data;
@@ -345,6 +347,6 @@ export const drugProductDelete = async (productId: string) => {
 };
 
 export const editDrugProduct = async (productId: string, payload: CreateDrugProductRequest) => {
-  const response = await api.put(`products/update/${productId}`, payload);
+  const response = await api.put(`products/update/${productId}`, await withSellerId(payload));
   return response.data;
 };

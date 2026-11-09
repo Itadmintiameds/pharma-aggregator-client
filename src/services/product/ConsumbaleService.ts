@@ -1,6 +1,5 @@
 import { api } from "@/src/utils/api";
-
-const API_BASE = "https://api-test-aggreator.tiameds.ai/api/v1";
+import { withSellerId } from "@/src/services/product/sellerContext";
 
 // ─── MASTERS ─────────────────────────────────────────────────────────────────
 
@@ -39,7 +38,7 @@ export const getConsumableMaterialTypes = async () => {
 
 export const getConsumableStorageConditions = async () => {
   try {
-    const response = await api.get("storageconditions");
+    const response = await api.get("masters/storagecondition");
     return response.data?.data ?? response.data ?? [];
   } catch (error: unknown) {
     console.error("Error fetching storage conditions:", error);
@@ -85,7 +84,7 @@ export const getConsumablePackTypes = async (categoryId: number = 5) => {
 
 export const createConsumableProduct = async (payload: Record<string, unknown>) => {
   try {
-    const response = await api.post("products/create", payload, {
+    const response = await api.post("products/create", await withSellerId(payload), {
       headers: { "Content-Type": "application/json" },
     });
     return response.data;

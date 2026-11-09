@@ -1,16 +1,20 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { AlertCircle } from "lucide-react";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { ProductTypeResponse } from "@/src/types/seller/SellerRegMasterData";
 import { toast } from "react-toastify";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { sellerRegService } from "@/src/services/seller/sellerRegistrationService";
 import { debounce } from "lodash";
 import LicenseWarning from "./LicenseWarning";
+import { classifySellerType, requiredAgreementCodes, mandatoryExtraDocumentCodes, optionalExtraDocumentCodes, documentTypeLabel, type SellerTypeCategory } from "@/src/schema/seller/sellerRegSchema";
+import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
+import UploadedFileChip from "./UploadedFileChip";
+import FormInput from "./FormInput";
 
 interface Props {
   formData: any;
@@ -22,9 +26,87 @@ interface Props {
   onLicenseNumberChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onIssuingAuthorityChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onClearLicenseNumber?: (productName: string) => void;
+  onAgreementNumberChange: (code: string, value: string) => void;
+  onAgreementFileChange: (code: string, file: File | null) => void;
+  onAgreementIssueDateChange: (date: Date | null, code: string) => void;
+  onAgreementExpiryDateChange: (date: Date | null, code: string) => void;
+  onDeleteGstFile: () => void;
+  onDeleteLicenseFile: (productName: string) => void;
+  onDeleteAgreementFile: (code: string) => void;
   prevStep: () => void;
   nextStep: () => void;
 }
+
+// Human-readable labels for seller-type-driven agreement document codes.
+// Single source of truth for document-type labels lives in sellerRegSchema.ts
+// (documentTypeLabel) so the frontend schema, this form, and SellerRegister's
+// submit payload all describe the same code the same way.
+const getAgreementLabel = (code: string): string => documentTypeLabel(code);
+
+// MUI's DatePicker can't take Tailwind classes, so its look has to be
+// hand-matched to FormInput.tsx's default ("lg") field instead of drifting
+// per call site. This is the one place that mapping lives - every DatePicker
+// on this page should use it so date fields are indistinguishable from the
+// text fields around them. #737373/#f5f5f5/#d4d4d4 mirror Tailwind's
+// built-in neutral-500/neutral-100/neutral-300 (the "neutral" palette
+// FormInput's default border uses is never overridden in global.css, so
+// it's Tailwind's stock color, not one of this app's custom --pneutral-*
+// tokens); #ef4444 mirrors Tailwind's stock red-500 (FormInput's
+// `border-red-500` error state). The focus color intentionally *does* use a
+// custom token (var(--secondary-500)) since FormInput's focus ring is
+// themed, not a Tailwind default. FormInput's `focus:border-secondary-500
+// focus:ring-2 focus:ring-secondary-200` classes are unconditional - they
+// apply on top of `border-red-500` regardless of `error`, and Tailwind's
+// focus variant wins while focused - so the error border is only visible
+// while blurred; focusing an errored field switches it to the same purple
+// focus treatment as any other field. Mirror that here instead of keeping
+// the red border (and dropping the ring) while focused.
+// NOTE: @mui/x-date-pickers v8's DatePicker renders its outline via
+// PickersOutlinedInput, not @mui/material's OutlinedInput, when the default
+// accessible field DOM structure is in play - so the outline/root/input
+// slots carry the `MuiPickersOutlinedInput-*` classes, not `MuiOutlinedInput-*`.
+// Targeting the latter silently matches nothing; both are targeted below so
+// this keeps working whichever field structure ends up mounted.
+const dateFieldSx = (hasError: boolean, disabled?: boolean) => ({
+  "& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root": {
+    height: "52px",
+    borderRadius: "12px",
+    backgroundColor: disabled ? "#f5f5f5" : "#ffffff",
+    "& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline": {
+      borderColor: disabled ? "#d4d4d4" : hasError ? "#ef4444" : "#737373",
+    },
+    "&:hover .MuiOutlinedInput-notchedOutline, &:hover .MuiPickersOutlinedInput-notchedOutline": {
+      borderColor: disabled ? "#d4d4d4" : hasError ? "#ef4444" : "#737373",
+    },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline, &.Mui-focused .MuiPickersOutlinedInput-notchedOutline": {
+      borderColor: "var(--secondary-500)",
+      borderWidth: "1px",
+    },
+    "&.Mui-focused": {
+      boxShadow: "0 0 0 2px var(--secondary-200)",
+    },
+  },
+  "& .MuiInputBase-input, & .MuiPickersOutlinedInput-input": {
+    padding: "0 14px",
+    fontSize: "16px",
+    fontFamily: "var(--font-body)",
+    fontWeight: 400,
+    color: disabled ? "var(--pneutral-500)" : "var(--pneutral-900)",
+    "&::placeholder": {
+      fontSize: "16px",
+      fontFamily: "var(--font-body)",
+      fontWeight: 400,
+      color: "var(--pneutral-500)",
+      opacity: 1,
+    },
+  },
+  "& .Mui-disabled": {
+    WebkitTextFillColor: "var(--pneutral-500) !important",
+  },
+  "& .clearButton": {
+    opacity: "1 !important",
+  },
+});
 
 // Helper function to calculate license status based on dates
 const calculateLicenseStatus = (issueDate: Date | null, expiryDate: Date | null): string => {
@@ -74,45 +156,131 @@ const getMaxIssueDate = (): Date => {
   return maxDate;
 };
 
-// License Number validation function with dynamic license name
-const validateLicenseNumber = (value: string, licenseName: string): string | null => {
+// License number format category, per the regulatory format table (Drugs,
+// Supplements/Nutraceuticals FSSAI, Food & Infant FSSAI, Cosmetic, Medical
+// Devices). Supplements and Food/Infant share the same FSSAI 14-digit rule.
+type LicenseValidationCategory = "DRUG" | "FSSAI" | "COSMETIC" | "MEDICAL_DEVICE" | "OTHER";
+
+const getLicenseValidationCategory = (productName: string): LicenseValidationCategory => {
+  const name = productName.toLowerCase();
+  if (name.includes("drug")) return "DRUG";
+  if (name.includes("cosmetic")) return "COSMETIC";
+  if (name.includes("medical device")) return "MEDICAL_DEVICE";
+  if (name.includes("food") || name.includes("supplement") || name.includes("nutraceutical") || name.includes("nutrition")) return "FSSAI";
+  return "OTHER";
+};
+
+const LICENSE_MAX_LENGTH: Record<LicenseValidationCategory, number> = {
+  DRUG: 30,
+  FSSAI: 30,
+  COSMETIC: 30,
+  MEDICAL_DEVICE: 30,
+  OTHER: 30,
+};
+
+// License Number validation function, format rules keyed off product category
+const validateLicenseNumber = (value: string, licenseName: string, category: LicenseValidationCategory): string | null => {
   const cleaned = value.trim().toUpperCase();
-  
+
   if (!cleaned) {
     return `${licenseName} Number is required`;
   }
-  
-  if (cleaned.length < 8) {
-    return `${licenseName} Number must be at least 8 characters`;
+
+  switch (category) {
+    case "FSSAI": {
+      if (!/^\d+$/.test(cleaned)) {
+        return `${licenseName} Number must contain digits only`;
+      }
+      if (cleaned.length !== 14) {
+        return `${licenseName} Number must be exactly 14 digits`;
+      }
+      return null;
+    }
+    case "DRUG": {
+      if (cleaned.length < 10) {
+        return `${licenseName} Number must be at least 10 characters`;
+      }
+      if (cleaned.length > 30) {
+        return `${licenseName} Number cannot exceed 30 characters`;
+      }
+      if (!/^[A-Z0-9\/\-]+$/.test(cleaned)) {
+        return `${licenseName} Number can only contain letters, numbers, "/" and "-"`;
+      }
+      return null;
+    }
+    case "COSMETIC": {
+      if (cleaned.length < 10) {
+        return `${licenseName} Number must be at least 10 characters`;
+      }
+      if (cleaned.length > 30) {
+        return `${licenseName} Number cannot exceed 30 characters`;
+      }
+      if (!/^[A-Z0-9\-]+$/.test(cleaned)) {
+        return `${licenseName} Number can only contain letters, numbers and "-"`;
+      }
+      return null;
+    }
+    case "MEDICAL_DEVICE": {
+      if (cleaned.length < 10) {
+        return `${licenseName} Number must be at least 10 characters`;
+      }
+      if (cleaned.length > 30) {
+        return `${licenseName} Number cannot exceed 30 characters`;
+      }
+      if (!/^[A-Z0-9\/\-]+$/.test(cleaned)) {
+        return `${licenseName} Number can only contain letters, numbers, "/" and "-"`;
+      }
+      return null;
+    }
+    default: {
+      if (cleaned.length < 10) {
+        return `${licenseName} Number must be at least 10 characters`;
+      }
+      if (cleaned.length > 30) {
+        return `${licenseName} Number cannot exceed 30 characters`;
+      }
+
+      const patterns = [
+        /^[A-Z]{2}\/[A-Z]{3}\/\d{2}[A-Z]?-\d{3,10}$/,
+        /^[A-Z]{2}-[A-Z0-9]{2,4}-\d{4,10}$/,
+        /^[A-Z]{2}-\d{2,3}-\d{5,10}$/,
+        /^\d{2}[A-Z]?-\d{3,10}$/,
+        /^\d{2}\/\d{2}-\d{3,10}$/,
+        /^[A-Z]{2}\/\d{2}[A-Z]?-\d{3,10}$/,
+        /^[A-Z]{2}\/\d{2,3}\/\d{4,10}$/,
+        /^[A-Z]{2}[A-Z0-9]{2,4}\d{4,10}$/,
+      ];
+
+      const isValid = patterns.some(pattern => pattern.test(cleaned));
+
+      if (!isValid) {
+        return `Invalid ${licenseName} Number format`;
+      }
+      return null;
+    }
   }
-  
-  if (cleaned.length > 30) {
-    return `${licenseName} Number cannot exceed 30 characters`;
-  }
-  
-  const patterns = [
-    /^[A-Z]{2}\/[A-Z]{3}\/\d{2}[A-Z]?-\d{3,10}$/,
-    /^[A-Z]{2}-[A-Z0-9]{2,4}-\d{4,10}$/,
-    /^[A-Z]{2}-\d{2,3}-\d{5,10}$/,
-    /^\d{2}[A-Z]?-\d{3,10}$/,
-    /^\d{2}\/\d{2}-\d{3,10}$/,
-    /^[A-Z]{2}\/\d{2}[A-Z]?-\d{3,10}$/,
-    /^[A-Z]{2}\/\d{2,3}\/\d{4,10}$/,
-    /^[A-Z]{2}[A-Z0-9]{2,4}\d{4,10}$/,
-  ];
-  
-  const isValid = patterns.some(pattern => pattern.test(cleaned));
-  
-  if (!isValid) {
-    return `Invalid ${licenseName} Number format`;
-  }
-  
-  return null;
 };
 
-const formatLicenseNumber = (value: string): string => {
+// Import Licence agreement codes that carry a real regulatory license number
+// format (same rules as the mandatory per-product licenses above). Other
+// agreement codes (e.g. distributorship agreement number, IEC Certificate)
+// have no standardized format, so they stay free text.
+const AGREEMENT_LICENSE_CATEGORY: Record<string, LicenseValidationCategory> = {
+  DRUG_IMPORT_LICENCE: "DRUG",
+  FSSAI_IMPORT_LICENCE: "FSSAI",
+  COSMETIC_IMPORT_LICENCE: "COSMETIC",
+  MEDICAL_DEVICE_IMPORT_LICENCE: "MEDICAL_DEVICE",
+};
+
+const formatLicenseNumber = (value: string, category: LicenseValidationCategory): string => {
   let cleaned = value.toUpperCase();
-  cleaned = cleaned.replace(/[^A-Z0-9\/\-]/g, '');
+  if (category === "FSSAI") {
+    cleaned = cleaned.replace(/[^0-9]/g, '');
+  } else if (category === "COSMETIC") {
+    cleaned = cleaned.replace(/[^A-Z0-9\-]/g, '');
+  } else {
+    cleaned = cleaned.replace(/[^A-Z0-9\/\-]/g, '');
+  }
   return cleaned;
 };
 
@@ -164,17 +332,35 @@ export default function DocumentForm({
   onLicenseNumberChange,
   onIssuingAuthorityChange,
   onClearLicenseNumber,
+  onAgreementNumberChange,
+  onAgreementFileChange,
+  onAgreementIssueDateChange,
+  onAgreementExpiryDateChange,
+  onDeleteGstFile,
+  onDeleteLicenseFile,
+  onDeleteAgreementFile,
   prevStep,
   nextStep,
 }: Props) {
 
-  const router = useRouter();
   const [uploadingGST, setUploadingGST] = useState(false);
   const [uploadingLicenses, setUploadingLicenses] = useState<Record<string, boolean>>({});
+  const [uploadingAgreements, setUploadingAgreements] = useState<Record<string, boolean>>({});
   const [licenseErrors, setLicenseErrors] = useState<Record<string, string>>({});
   const [licenseExistsErrors, setLicenseExistsErrors] = useState<Record<string, string>>({});
+  // "Copy Upload is required" - kept separate from licenseErrors (which
+  // renders only under the License Number field) so this shows under the
+  // file upload box it's actually about, instead of surfacing next to the
+  // wrong field.
+  const [licenseFileErrors, setLicenseFileErrors] = useState<Record<string, string>>({});
   const [checkingLicense, setCheckingLicense] = useState<Record<string, boolean>>({});
   const [dateErrors, setDateErrors] = useState<Record<string, string>>({});
+  const [agreementErrors, setAgreementErrors] = useState<Record<string, string>>({});
+  // Keyed `${code}_issue` / `${code}_expiry`, same convention as dateErrors
+  // above (which is keyed by productName instead of agreement code) - kept
+  // separate rather than sharing dateErrors since the keys are drawn from
+  // different domains (agreement codes vs. product names) and could collide.
+  const [agreementDateErrors, setAgreementDateErrors] = useState<Record<string, string>>({});
   const [warningState, setWarningState] = useState<{
     isOpen: boolean;
     licenseNumber: string;
@@ -184,8 +370,14 @@ export default function DocumentForm({
     pendingLicenseNumber: string;
   } | null>(null);
   
+  // Inline feedback for a rejected keystroke on the per-product Issuing
+  // Authority field - shown until the next valid keystroke or blur, keyed by
+  // productName the same way licenseErrors already is.
+  const [issuingAuthorityFormatErrors, setIssuingAuthorityFormatErrors] = useState<Record<string, string>>({});
+
   const [gstError, setGstError] = useState<string>("");
   const [gstExistsError, setGstExistsError] = useState<string>("");
+  const [gstFileError, setGstFileError] = useState<string>("");
   const [checkingGST, setCheckingGST] = useState(false);
 
   const debouncedCheckLicenseExists = useRef<Record<string, ReturnType<typeof debounce>>>({});
@@ -195,20 +387,91 @@ export default function DocumentForm({
 
   const gstFileName = formData.gstFile?.name || "";
 
+  // Seller-level agreement documents required for this seller's type
+  // (Manufacturer requires none). Reuses formData.sellerType (already
+  // tracked seller type display name) rather than a new prop.
+  const sellerCategory = classifySellerType(formData.sellerType);
+  const agreementCodes = requiredAgreementCodes(sellerCategory);
+  // Additional mandatory compliance docs beyond the agreement codes above
+  // (Manufacturer's GMP/WHO-GMP Certificate, White Labeling's Trademark
+  // Certificate). Rendered together with agreementCodes as one required set.
+  const mandatoryExtraCodes = mandatoryExtraDocumentCodes(sellerCategory);
+  const requiredDocumentCodes = [...agreementCodes, ...mandatoryExtraCodes];
+  // Documents a seller MAY attach but is never required to (Import Licences,
+  // IEC Certificate, and type-specific optionals like Trademark Certificate
+  // for Manufacturer/Distributor or Distribution Agreement for White Labeling).
+  const optionalDocumentCodes = optionalExtraDocumentCodes(sellerCategory, formData.productTypes);
+
+  // Names the mandatory per-product-category licence per the requirement spec:
+  // Manufacturer needs a *Manufacturing* Licence, everyone else needs a
+  // *Wholesale*/*Trade*/*Marketing* Licence for the same product category.
+  // regulatory_category is empty for every seeded product today, so this
+  // previously fell back to the bare product name (e.g. "Drugs License Number"),
+  // which is genuinely ambiguous with the separate, optional "Drug Import
+  // Licence" field — this naming makes clear which one it is.
+  const getLicenseName = (productName: string, category: SellerTypeCategory): string => {
+    const name = productName.toLowerCase();
+    const isManufacturer = category === "MANUFACTURER";
+
+    if (name.includes("drug")) {
+      return isManufacturer ? "Drug Manufacturing Licence" : "Wholesale Drug Licence (20B/21B)";
+    }
+    if (name.includes("cosmetic")) {
+      if (isManufacturer) return "Cosmetic Manufacturing Licence";
+      if (category === "WHITE_LABELING") return "Cosmetic Marketing Licence";
+      return "Cosmetic Wholesale Licence";
+    }
+    if (name.includes("medical device")) {
+      return isManufacturer ? "Medical Device Manufacturing Licence" : "Medical Device Wholesale Licence (MD-42)";
+    }
+    if (name.includes("food") || name.includes("supplement") || name.includes("nutraceutical") || name.includes("nutrition")) {
+      if (isManufacturer) return "FSSAI Manufacturing Licence";
+      if (category === "WHITE_LABELING") return "FSSAI Trade / Marketing Licence";
+      return "FSSAI Trade Licence";
+    }
+    return productName;
+  };
+
+  const LICENSE_PLACEHOLDER: Record<LicenseValidationCategory, string> = {
+    DRUG: "e.g., KA-BLR-20B-123456",
+    FSSAI: "e.g., 11223344556677",
+    COSMETIC: "e.g., COS-KA-2026-12345",
+    MEDICAL_DEVICE: "e.g., MD-KA-2026-123456",
+    OTHER: "e.g., TN/CBE/20B-12345",
+  };
+
   const getLicenseInfo = (productName: string) => {
-    const product = productTypes.find((p) => p.productTypeName === productName);
-    const licenseName = product?.regulatoryCategory || productName;
-    
+    const category = classifySellerType(formData.sellerType);
+    const licenseName = getLicenseName(productName, category);
+    const validationCategory = getLicenseValidationCategory(productName);
+
     return {
       licenseName,
-      placeholder: `e.g., TN/CBE/20B-12345`,
-      numberLabel: `${licenseName} License Number`,
-      fileLabel: `${licenseName} License Copy Upload`,
-      issueDateLabel: `${licenseName} License Issue Date`,
-      expiryDateLabel: `${licenseName} License Expiry Date`,
-      authorityLabel: `${licenseName} License Issuing Authority`,
-      statusLabel: `${licenseName} License Status`,
+      validationCategory,
+      maxLength: LICENSE_MAX_LENGTH[validationCategory],
+      placeholder: LICENSE_PLACEHOLDER[validationCategory],
+      numberLabel: `${licenseName} Number`,
+      fileLabel: `${licenseName} Copy Upload`,
+      issueDateLabel: `${licenseName} Issue Date`,
+      expiryDateLabel: `${licenseName} Expiry Date`,
+      authorityLabel: `${licenseName} Issuing Authority`,
+      statusLabel: `${licenseName} Status`,
     };
+  };
+
+  // Whether an agreement/compliance document's whole set of fields (number,
+  // file, issue date, expiry date) is mandatory: either the code itself is
+  // always required (isRequiredCode - e.g. Distribution Agreement for a
+  // Distributor), or it's an otherwise-optional code (IEC Certificate,
+  // Import Licences, ...) that the seller has started filling in - a number
+  // or file with no dates is the same orphaned-document gap as a number with
+  // no file. Shared between renderDocumentBlock (drives the labels) and
+  // handleContinue (drives the actual validation) so the two can't drift.
+  const isAgreementPairRequired = (code: string, isRequiredCode: boolean): boolean => {
+    const agreementData = formData.agreements?.[code];
+    const hasNumber = !!agreementData?.number && !!agreementData.number.trim();
+    const hasFile = !!agreementData?.file || isRealFileUrl(agreementData?.fileUrl);
+    return isRequiredCode || hasNumber || hasFile;
   };
 
   // Check for duplicate license numbers within the same form and show warning
@@ -319,6 +582,10 @@ export default function DocumentForm({
         checkGSTExists(value);
       }
     }
+    // Hide the transient "must be 15 characters"/"invalid format" message once
+    // focus leaves - gstExistsError (a real duplicate-GST conflict, checked
+    // above) is left alone, same as the coordinator email/phone exists-checks.
+    setGstError("");
   };
 
   const checkLicenseExists = async (licenseNumber: string, productName: string, licenseName: string) => {
@@ -490,25 +757,27 @@ export default function DocumentForm({
 
   const handleLicenseNumberChangeWithValidation = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
     let value = e.target.value;
-    const cleanedValue = formatLicenseNumber(value);
-    
+    const licenseInfo = getLicenseInfo(productName);
+    const cleanedValue = formatLicenseNumber(value, licenseInfo.validationCategory);
+
     if (cleanedValue !== value) {
+      setLicenseErrors(prev => ({ ...prev, [productName]: "Invalid character in license number" }));
       return;
     }
-    
-    if (cleanedValue.length > 30) {
+
+    if (cleanedValue.length > licenseInfo.maxLength) {
+      setLicenseErrors(prev => ({ ...prev, [productName]: "License number exceeds maximum length" }));
       return;
     }
-    
+
     const syntheticEvent = {
       ...e,
       target: { ...e.target, name: `licenseNumber-${productName}`, value: cleanedValue }
     } as React.ChangeEvent<HTMLInputElement>;
-    
+
     onLicenseNumberChange(syntheticEvent);
-    
-    const licenseInfo = getLicenseInfo(productName);
-    const error = validateLicenseNumber(cleanedValue, licenseInfo.licenseName);
+
+    const error = validateLicenseNumber(cleanedValue, licenseInfo.licenseName, licenseInfo.validationCategory);
     
     // Clear existing errors first
     setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
@@ -540,21 +809,26 @@ export default function DocumentForm({
     }
   };
 
-  const handleLicenseKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentValue: string) => {
+  const handleLicenseKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentValue: string, category: LicenseValidationCategory, onInvalidKey?: () => void) => {
     const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
     if (allowedKeys.includes(e.key)) {
       return;
     }
-    
-    const allowedChars = /^[A-Za-z0-9\/\-]$/;
+
+    const allowedChars = category === "FSSAI"
+      ? /^[0-9]$/
+      : category === "COSMETIC"
+        ? /^[A-Za-z0-9\-]$/
+        : /^[A-Za-z0-9\/\-]$/;
     if (!allowedChars.test(e.key)) {
       e.preventDefault();
+      onInvalidKey?.();
     }
   };
 
   const handleLicenseNumberBlur = (value: string, productName: string) => {
     const licenseInfo = getLicenseInfo(productName);
-    const error = validateLicenseNumber(value, licenseInfo.licenseName);
+    const error = validateLicenseNumber(value, licenseInfo.licenseName, licenseInfo.validationCategory);
     setLicenseErrors(prev => ({ ...prev, [productName]: error || "" }));
     
     if (value.length >= 8 && !error) {
@@ -613,16 +887,42 @@ export default function DocumentForm({
   const handleIssuingAuthorityInput = (e: React.ChangeEvent<HTMLInputElement>, productName: string) => {
     let value = e.target.value;
     const filteredValue = value.replace(/[^a-zA-Z0-9\s]/g, '');
-    
+
     if (filteredValue !== value) {
+      setIssuingAuthorityFormatErrors(prev => ({ ...prev, [productName]: "Issuing authority can only contain letters, numbers, and spaces" }));
       const syntheticEvent = {
         ...e,
         target: { ...e.target, name: `issuingAuthority-${productName}`, value: filteredValue }
       } as React.ChangeEvent<HTMLInputElement>;
       onIssuingAuthorityChange(syntheticEvent);
     } else {
+      setIssuingAuthorityFormatErrors(prev => ({ ...prev, [productName]: "" }));
       onIssuingAuthorityChange(e);
     }
+  };
+
+  const handleAgreementNumberChangeWithValidation = (code: string, value: string, label: string) => {
+    const category = AGREEMENT_LICENSE_CATEGORY[code];
+
+    if (!category) {
+      onAgreementNumberChange(code, value);
+      return;
+    }
+
+    const cleaned = formatLicenseNumber(value, category);
+    if (cleaned.length > LICENSE_MAX_LENGTH[category]) {
+      return;
+    }
+
+    onAgreementNumberChange(code, cleaned);
+
+    if (!cleaned) {
+      setAgreementErrors(prev => ({ ...prev, [code]: "" }));
+      return;
+    }
+
+    const error = validateLicenseNumber(cleaned, label, category);
+    setAgreementErrors(prev => ({ ...prev, [code]: error || "" }));
   };
 
   const handleGSTFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -678,7 +978,33 @@ export default function DocumentForm({
         };
         onFileChange(syntheticEvent, 'license', productName);
         setUploadingLicenses(prev => ({ ...prev, [productName]: false }));
+        setLicenseFileErrors(prev => ({ ...prev, [productName]: "" }));
         toast.success("License uploaded successfully");
+      }, 1000);
+    }
+  };
+
+  const handleAgreementFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, code: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size should be less than 5MB");
+        return;
+      }
+
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Only PDF, JPG, JPEG, and PNG files are allowed");
+        return;
+      }
+
+      setUploadingAgreements(prev => ({ ...prev, [code]: true }));
+      toast.info(`Uploading ${getAgreementLabel(code)}...`);
+
+      setTimeout(() => {
+        onAgreementFileChange(code, file);
+        setUploadingAgreements(prev => ({ ...prev, [code]: false }));
+        toast.success(`${getAgreementLabel(code)} uploaded successfully`);
       }, 1000);
     }
   };
@@ -724,7 +1050,135 @@ export default function DocumentForm({
       toast.error("Please fix duplicate GST number before continuing.");
       return;
     }
-    
+
+    const hasAgreementNumberErrors = Object.values(agreementErrors).some(error => error !== "");
+    if (hasAgreementNumberErrors) {
+      toast.error("Please fix invalid import licence numbers before continuing.");
+      return;
+    }
+
+    // ---- Required-field inline validation ----
+    // Below, missing-value checks are surfaced as per-field inline errors
+    // (reusing the same local error-state buckets already rendered per row)
+    // instead of a single generic toast, so the seller can see exactly which
+    // field on which product/document is empty.
+    let hasRequiredFieldErrors = false;
+
+    // GST number / GST certificate required
+    const trimmedGstNumber = (formData.gstNumber || "").trim();
+    if (!trimmedGstNumber) {
+      setGstError("GST Number is required");
+      hasRequiredFieldErrors = true;
+    }
+    const hasGstFile = !!formData.gstFile || isRealFileUrl(formData.gstFileUrl);
+    if (!hasGstFile) {
+      setGstFileError("GST Certificate is required");
+      hasRequiredFieldErrors = true;
+    } else {
+      setGstFileError("");
+    }
+
+    // Per-product license required fields (number, file, issue date, expiry
+    // date, issuing authority). Skips a product that already has a more
+    // specific error (format error or duplicate-exists error) so we don't
+    // clobber it with a generic "required" message. Each sub-check writes
+    // into the error bucket that's actually rendered next to that field -
+    // they used to all land in newLicenseErrors/licenseErrors, which is only
+    // displayed under the License Number field, so e.g. a missing Issuing
+    // Authority showed its error under Number instead of under Issuing
+    // Authority (or a missing file/date showed no visible error at all).
+    const newLicenseErrors: Record<string, string> = {};
+    const newLicenseFileErrors: Record<string, string> = {};
+    const newLicenseDateErrors: Record<string, string> = {};
+    const newAuthorityErrors: Record<string, string> = {};
+    formData.productTypes.forEach((productName: string) => {
+      if (licenseErrors[productName] || licenseExistsErrors[productName]) {
+        return;
+      }
+      const licenseData = formData.licenses[productName] || {};
+      const licenseInfo = getLicenseInfo(productName);
+      const hasLicenseFile = !!licenseData.file || isRealFileUrl(licenseData.fileUrl);
+
+      if (!licenseData.number || !licenseData.number.trim()) {
+        newLicenseErrors[productName] = `${licenseInfo.numberLabel} is required`;
+      } else if (!hasLicenseFile) {
+        newLicenseFileErrors[productName] = `${licenseInfo.fileLabel} is required`;
+      } else if (!licenseData.issueDate) {
+        newLicenseDateErrors[`${productName}_issue`] = `${licenseInfo.issueDateLabel} is required`;
+      } else if (!licenseData.expiryDate) {
+        newLicenseDateErrors[`${productName}_expiry`] = `${licenseInfo.expiryDateLabel} is required`;
+      } else if (!licenseData.issuingAuthority || !licenseData.issuingAuthority.trim()) {
+        newAuthorityErrors[productName] = `${licenseInfo.authorityLabel} is required`;
+      }
+    });
+    if (Object.keys(newLicenseErrors).length > 0) {
+      setLicenseErrors(prev => ({ ...prev, ...newLicenseErrors }));
+      hasRequiredFieldErrors = true;
+    }
+    if (Object.keys(newLicenseFileErrors).length > 0) {
+      setLicenseFileErrors(prev => ({ ...prev, ...newLicenseFileErrors }));
+      hasRequiredFieldErrors = true;
+    }
+    if (Object.keys(newLicenseDateErrors).length > 0) {
+      setDateErrors(prev => ({ ...prev, ...newLicenseDateErrors }));
+      hasRequiredFieldErrors = true;
+    }
+    if (Object.keys(newAuthorityErrors).length > 0) {
+      setIssuingAuthorityFormatErrors(prev => ({ ...prev, ...newAuthorityErrors }));
+      hasRequiredFieldErrors = true;
+    }
+
+    // Per-agreement required-field check (replaces the old generic "Please
+    // upload the X document" toast with inline errors next to the relevant
+    // agreement block). Covers both always-required codes (requiredDocumentCodes)
+    // and otherwise-optional ones the seller has started filling in
+    // (isAgreementPairRequired - see its comment): number, file, issue date,
+    // and expiry date are all-or-nothing once any one of them applies, same
+    // ordering as the per-product license check above, so a mandatory/started
+    // document can't be "completed" while still missing a piece of itself.
+    const newAgreementErrors: Record<string, string> = {};
+    const newAgreementDateErrors: Record<string, string> = {};
+    [...requiredDocumentCodes, ...optionalDocumentCodes].forEach((code: string) => {
+      if (agreementErrors[code]) {
+        return;
+      }
+      const isCodeRequired = requiredDocumentCodes.includes(code);
+      if (!isAgreementPairRequired(code, isCodeRequired)) {
+        return; // untouched optional document - nothing to enforce
+      }
+
+      const label = getAgreementLabel(code);
+      const agreementData = formData.agreements?.[code];
+      const hasAgreementNumber = !!agreementData?.number && !!agreementData.number.trim();
+      const hasAgreementFile = !!agreementData?.file || isRealFileUrl(agreementData?.fileUrl);
+
+      if (!hasAgreementNumber) {
+        newAgreementErrors[code] = isCodeRequired
+          ? `${label} number is required`
+          : `${label} number is required once a document is uploaded`;
+      } else if (!hasAgreementFile) {
+        newAgreementErrors[code] = isCodeRequired
+          ? `${label} document is required`
+          : `${label} document is required once a number is entered`;
+      } else if (!agreementData?.issueDate) {
+        newAgreementDateErrors[`${code}_issue`] = `${label} Issue Date is required`;
+      } else if (!agreementData?.expiryDate) {
+        newAgreementDateErrors[`${code}_expiry`] = `${label} Expiry Date is required`;
+      }
+    });
+    if (Object.keys(newAgreementErrors).length > 0) {
+      setAgreementErrors(prev => ({ ...prev, ...newAgreementErrors }));
+      hasRequiredFieldErrors = true;
+    }
+    if (Object.keys(newAgreementDateErrors).length > 0) {
+      setAgreementDateErrors(prev => ({ ...prev, ...newAgreementDateErrors }));
+      hasRequiredFieldErrors = true;
+    }
+
+    if (hasRequiredFieldErrors) {
+      return;
+    }
+
     nextStep();
   };
 
@@ -794,6 +1248,7 @@ export default function DocumentForm({
           const isUploading = uploadingLicenses[productName];
           const licenseError = licenseErrors[productName];
           const licenseExistsError = licenseExistsErrors[productName];
+          const licenseFileError = licenseFileErrors[productName];
           const isCheckingLicense = checkingLicense[productName];
           const issueDateError = dateErrors[`${productName}_issue`];
           const expiryDateError = dateErrors[`${productName}_expiry`];
@@ -842,46 +1297,24 @@ export default function DocumentForm({
 
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 {/* LICENSE NUMBER */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-                    {licenseInfo.numberLabel}
-                    <span className="text-warning-500 font-semibold ml-1">*</span>
-                  </label>
-
-                  <div className="relative">
-                    <input
-                      type="text"
-                      autoComplete="off"
-                      name={`licenseNumber-${productName}`}
-                      value={licenseData.number}
-                      onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
-                      onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number)}
-                      onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
-                      placeholder={licenseInfo.placeholder}
-                      maxLength={30}
-                      className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 uppercase ${
-                        licenseError || licenseExistsError ? 'border-red-500' : 'border-neutral-500'
-                      }`}
-                    />
-                    {isCheckingLicense && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
-                      </div>
-                    )}
-                  </div>
-                  {licenseError && (
-                    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                      <span className="mr-1">⚠️</span>
-                      <span>{licenseError}</span>
-                    </p>
-                  )}
-                  {licenseExistsError && !licenseError && (
-                    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                      <span className="mr-1">⚠️</span>
-                      <span>{licenseExistsError}</span>
-                    </p>
-                  )}
-                </div>
+                <FormInput
+                  label={licenseInfo.numberLabel}
+                  required
+                  type="text"
+                  autoComplete="off"
+                  name={`licenseNumber-${productName}`}
+                  value={licenseData.number}
+                  onChange={(e) => handleLicenseNumberChangeWithValidation(e, productName)}
+                  onKeyDown={(e) => handleLicenseKeyDown(e, licenseData.number, licenseInfo.validationCategory, () => setLicenseErrors(prev => ({ ...prev, [productName]: "Invalid character" })))}
+                  onBlur={(e) => handleLicenseNumberBlur(e.target.value, productName)}
+                  placeholder={licenseInfo.placeholder}
+                  maxLength={licenseInfo.maxLength}
+                  uppercase
+                  error={licenseError || (!licenseError && licenseExistsError ? licenseExistsError : undefined)}
+                  rightSlot={isCheckingLicense ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                  ) : undefined}
+                />
 
                 {/* LICENSE FILE UPLOAD WITH CROSS BUTTON */}
                 <div className="flex flex-col gap-1">
@@ -900,8 +1333,25 @@ export default function DocumentForm({
                     disabled={isUploading}
                   />
 
+                  {!licenseFileName && isRealFileUrl(licenseData.fileUrl) ? (
+                    <UploadedFileChip
+                      url={licenseData.fileUrl}
+                      fileName={licenseData.fileName}
+                      inputId={`license-upload-${productName}`}
+                      onDelete={() => onDeleteLicenseFile(productName)}
+                    />
+                  ) : (
                   <div
-                    className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer"
+                    tabIndex={isUploading ? -1 : 0}
+                    role="button"
+                    aria-label={`Upload ${licenseInfo.fileLabel}`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        document.getElementById(`license-upload-${productName}`)?.click();
+                      }
+                    }}
+                    className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
                     onClick={() => document.getElementById(`license-upload-${productName}`)?.click()}
                   >
                     <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
@@ -959,6 +1409,13 @@ export default function DocumentForm({
                       </div>
                     </div>
                   </div>
+                  )}
+                  {licenseFileError && (
+                    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                      <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                      <span>{licenseFileError}</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* ISSUE DATE - With 5 year lookback restriction (exclusive) */}
@@ -978,6 +1435,12 @@ export default function DocumentForm({
                       maxDate={maxIssueDate}
                       format="dd/MM/yyyy"
                       slotProps={{
+                        field: {
+                          clearable: true,
+                        },
+                        actionBar: {
+                          actions: ["clear"],
+                        },
                         textField: {
                           fullWidth: true,
                           size: "small",
@@ -986,41 +1449,13 @@ export default function DocumentForm({
                           inputProps: {
                             onKeyDown: handleDateInputKeyDown,
                           },
-                          sx: {
-                            '& .MuiOutlinedInput-root': {
-                              height: '52px',
-                              borderRadius: '12px',
-                              backgroundColor: '#ffffff',
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: issueDateError ? '#ef4444' : '#d1d5db',
-                              },
-                              '&:hover .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#d1d5db',
-                              },
-                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#d1d5db',
-                              },
-                            },
-                            '& .MuiInputBase-input': {
-                              padding: '0 14px',
-                              fontSize: '16px',
-                              fontFamily: 'var(--font-body)',
-                              fontWeight: 400,
-                              color: '#1E1E1D',
-                              '&::placeholder': {
-                                fontSize: '16px',
-                                fontFamily: 'var(--font-body)',
-                                fontWeight: 400,
-                                color: '#969793',
-                              },
-                            },
-                          },
+                          sx: dateFieldSx(!!issueDateError),
                         },
                       }}
                     />
                     {issueDateError && (
                       <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                        <span className="mr-1">⚠️</span>
+                        <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                         <span>{issueDateError}</span>
                       </p>
                     )}
@@ -1043,6 +1478,12 @@ export default function DocumentForm({
                       disabled={isExpiryDisabled}
                       format="dd/MM/yyyy"
                       slotProps={{
+                        field: {
+                          clearable: true,
+                        },
+                        actionBar: {
+                          actions: ["clear"],
+                        },
                         textField: {
                           fullWidth: true,
                           size: "small",
@@ -1052,44 +1493,13 @@ export default function DocumentForm({
                             onKeyDown: handleDateInputKeyDown,
                             readOnly: isExpiryDisabled,
                           },
-                          sx: {
-                            '& .MuiOutlinedInput-root': {
-                              height: '52px',
-                              borderRadius: '12px',
-                              backgroundColor: isExpiryDisabled ? '#f5f5f5' : '#ffffff',
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: expiryDateError ? '#ef4444' : '#d1d5db',
-                              },
-                              '&:hover .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#d1d5db',
-                              },
-                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#d1d5db',
-                              },
-                            },
-                            '& .MuiInputBase-input': {
-                              padding: '0 14px',
-                              fontSize: '16px',
-                              fontFamily: 'var(--font-body)',
-                              fontWeight: 400,
-                              color: isExpiryDisabled ? '#969793' : '#1E1E1D',
-                              '&::placeholder': {
-                                fontSize: '16px',
-                                fontFamily: 'var(--font-body)',
-                                fontWeight: 400,
-                                color: '#969793',
-                              },
-                            },
-                            '& .Mui-disabled': {
-                              WebkitTextFillColor: '#969793 !important',
-                            },
-                          },
+                          sx: dateFieldSx(!!expiryDateError, isExpiryDisabled),
                         },
                       }}
                     />
                     {expiryDateError && (
                       <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                        <span className="mr-1">⚠️</span>
+                        <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                         <span>{expiryDateError}</span>
                       </p>
                     )}
@@ -1108,25 +1518,19 @@ export default function DocumentForm({
                 </div>
 
                 {/* ISSUING AUTHORITY */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-                    {licenseInfo.authorityLabel}
-                    <span className="text-warning-500 font-semibold ml-1">*</span>
-                  </label>
-
-                  <div className="relative">
-                    <input
-                      type="text"
-                      autoComplete="off"
-                      name={`issuingAuthority-${productName}`}
-                      value={licenseData.issuingAuthority}
-                      onChange={(e) => handleIssuingAuthorityInput(e, productName)}
-                      placeholder="Enter issuing authority"
-                      maxLength={150}
-                      className="w-full h-13 pl-5 pr-4 rounded-xl border border-neutral-500 focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500"
-                    />
-                  </div>
-                </div>
+                <FormInput
+                  label={licenseInfo.authorityLabel}
+                  required
+                  type="text"
+                  autoComplete="off"
+                  name={`issuingAuthority-${productName}`}
+                  value={licenseData.issuingAuthority}
+                  onChange={(e) => handleIssuingAuthorityInput(e, productName)}
+                  onBlur={() => setIssuingAuthorityFormatErrors(prev => ({ ...prev, [productName]: "" }))}
+                  placeholder="Enter issuing authority"
+                  maxLength={150}
+                  error={issuingAuthorityFormatErrors[productName]}
+                />
 
                 {/* LICENSE STATUS */}
                 <div className="flex items-center gap-4 mt-1">
@@ -1180,6 +1584,270 @@ export default function DocumentForm({
           );
         })}
 
+        {/* AGREEMENT & COMPLIANCE DOCUMENTS - seller-type-driven, separate from
+            per-product licenses above. renderDocumentBlock is shared between
+            the mandatory set (agreements + GMP/Trademark) and the purely
+            optional set (Import Licences, IEC Certificate, etc.) below —
+            only the "required" flag changes what's shown/enforced. */}
+        {(() => {
+          const renderDocumentBlock = (code: string, isRequired: boolean) => {
+            const agreementData = formData.agreements?.[code] || {
+              number: "",
+              file: null,
+              issueDate: null,
+              expiryDate: null,
+            };
+            const agreementFileName = agreementData.file?.name || "";
+            const isUploading = uploadingAgreements[code];
+            const label = getAgreementLabel(code);
+            const licenseCategory = AGREEMENT_LICENSE_CATEGORY[code];
+            const agreementNumberError = agreementErrors[code];
+            // Filling in either half of an otherwise-optional document (e.g.
+            // IEC Certificate) makes the whole set mandatory - number, file,
+            // issue date, and expiry date all-or-nothing (see
+            // isAgreementPairRequired's comment). All four fields share this
+            // one flag, including whichever one is already filled in (e.g.
+            // upload the file first and the file's own label switches to
+            // required too, not just Number's - it's now a committed
+            // document, not still individually optional).
+            const isDocumentPairRequired = isAgreementPairRequired(code, isRequired);
+            const issueDateError = agreementDateErrors[`${code}_issue`];
+            const expiryDateError = agreementDateErrors[`${code}_expiry`];
+            const isFileEffectivelyRequired = isDocumentPairRequired;
+            const isNumberEffectivelyRequired = isDocumentPairRequired;
+
+            return (
+              <div key={code} className="mb-4">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                  {/* NUMBER - required whenever the document itself is required,
+                      or once its file has been attached (see isNumberEffectivelyRequired
+                      above - a mandatory/uploaded document with no way to key its
+                      number is a logical gap). */}
+                  <FormInput
+                    label={isNumberEffectivelyRequired ? `${label} Number` : `${label} Number (optional)`}
+                    required={isNumberEffectivelyRequired}
+                    type="text"
+                    autoComplete="off"
+                    value={agreementData.number}
+                    onChange={(e) => handleAgreementNumberChangeWithValidation(code, e.target.value, label)}
+                    onKeyDown={licenseCategory ? (e) => handleLicenseKeyDown(e, agreementData.number, licenseCategory, () => setAgreementErrors(prev => ({ ...prev, [code]: "Invalid character" }))) : undefined}
+                    onBlur={() => setAgreementErrors(prev => ({ ...prev, [code]: "" }))}
+                    placeholder={licenseCategory ? LICENSE_PLACEHOLDER[licenseCategory] : `Enter ${label} number`}
+                    maxLength={licenseCategory ? LICENSE_MAX_LENGTH[licenseCategory] : 30}
+                    uppercase={!!licenseCategory}
+                    error={agreementNumberError}
+                  />
+
+                  {/* DOCUMENT UPLOAD (required if isRequired, or once a number has been entered) */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                      {label} Document
+                      {isFileEffectivelyRequired ? (
+                        <span className="text-warning-500 font-semibold ml-1">*</span>
+                      ) : (
+                        <span className="text-pneutral-500 font-normal ml-1">(optional)</span>
+                      )}
+                    </label>
+
+                    <input
+                      id={`agreement-upload-${code}`}
+                      type="file"
+                      onChange={(e) => handleAgreementFileUpload(e, code)}
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      className="hidden"
+                      disabled={isUploading}
+                    />
+
+                    {!agreementFileName && isRealFileUrl(agreementData.fileUrl) ? (
+                      <UploadedFileChip
+                        url={agreementData.fileUrl}
+                        fileName={agreementData.fileName}
+                        inputId={`agreement-upload-${code}`}
+                        onDelete={() => onDeleteAgreementFile(code)}
+                      />
+                    ) : (
+                    <div
+                      tabIndex={isUploading ? -1 : 0}
+                      role="button"
+                      aria-label={`Upload ${label} Document`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          document.getElementById(`agreement-upload-${code}`)?.click();
+                        }
+                      }}
+                      className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
+                      onClick={() => document.getElementById(`agreement-upload-${code}`)?.click()}
+                    >
+                      <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
+                        <Image
+                          src="/icons/upload.png"
+                          alt="Upload"
+                          width={18}
+                          height={18}
+                          className="brightness-0 invert"
+                        />
+                      </div>
+
+                      <div className="flex-1 h-full flex items-center justify-between px-3">
+                        <div className="flex-1 flex items-center min-w-0">
+                          {isUploading ? (
+                            <span className="text-p4 font-body font-regular text-pneutral-500">Uploading...</span>
+                          ) : agreementFileName ? (
+                            <div className="flex items-center gap-2 bg-sneutral-800 rounded-md px-3 py-1 max-w-fit">
+                              <span className="text-p4 font-body font-regular text-white truncate max-w-[120px]">
+                                {agreementFileName}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onAgreementFileChange(code, null);
+                                  const fileInput = document.getElementById(`agreement-upload-${code}`) as HTMLInputElement;
+                                  if (fileInput) fileInput.value = "";
+                                }}
+                                className="shrink-0"
+                                aria-label="Remove file"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="white"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <line x1="18" y1="6" x2="6" y2="18" />
+                                  <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-p4 font-body font-regular text-pneutral-500">
+                              Upload the {label}{isFileEffectivelyRequired ? "" : " (optional)"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    )}
+                  </div>
+
+                  {/* ISSUE DATE - required whenever the document pair is (see isAgreementPairRequired) */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                      {label} Issue Date{isDocumentPairRequired ? (
+                        <span className="text-warning-500 font-semibold ml-1">*</span>
+                      ) : (
+                        " (optional)"
+                      )}
+                    </label>
+                    <DatePicker
+                      value={agreementData.issueDate}
+                      onChange={(date) => {
+                        setAgreementDateErrors(prev => ({ ...prev, [`${code}_issue`]: "" }));
+                        onAgreementIssueDateChange(date, code);
+                      }}
+                      maxDate={new Date()}
+                      format="dd/MM/yyyy"
+                      slotProps={{
+                        field: {
+                          clearable: true,
+                        },
+                        actionBar: {
+                          actions: ["clear"],
+                        },
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          placeholder: "DD/MM/YYYY",
+                          error: !!issueDateError,
+                          sx: dateFieldSx(!!issueDateError),
+                        },
+                      }}
+                    />
+                    {issueDateError && (
+                      <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                        <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                        <span>{issueDateError}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* EXPIRY DATE - required whenever the document pair is (see isAgreementPairRequired) */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                      {label} Expiry Date{isDocumentPairRequired ? (
+                        <span className="text-warning-500 font-semibold ml-1">*</span>
+                      ) : (
+                        " (optional)"
+                      )}
+                    </label>
+                    <DatePicker
+                      value={agreementData.expiryDate}
+                      onChange={(date) => {
+                        setAgreementDateErrors(prev => ({ ...prev, [`${code}_expiry`]: "" }));
+                        onAgreementExpiryDateChange(date, code);
+                      }}
+                      minDate={agreementData.issueDate || undefined}
+                      format="dd/MM/yyyy"
+                      slotProps={{
+                        field: {
+                          clearable: true,
+                        },
+                        actionBar: {
+                          actions: ["clear"],
+                        },
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          placeholder: "DD/MM/YYYY",
+                          error: !!expiryDateError,
+                          sx: dateFieldSx(!!expiryDateError),
+                        },
+                      }}
+                    />
+                    {expiryDateError && (
+                      <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                        <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                        <span>{expiryDateError}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          return (
+            <>
+              {requiredDocumentCodes.length > 0 && (
+                <div className="mt-2">
+                  <h3 className="text-label-l5 font-heading font-semibold text-pneutral-900 mb-3">
+                    Agreement &amp; Compliance Documents
+                  </h3>
+                  {requiredDocumentCodes.map((code: string) => renderDocumentBlock(code, true))}
+                </div>
+              )}
+
+              {optionalDocumentCodes.length > 0 && (
+                <div className="mt-2">
+                  <h3 className="text-label-l5 font-heading font-semibold text-pneutral-900 mb-3">
+                    Additional Documents (Optional)
+                  </h3>
+                  <p className="text-p4 font-body font-regular text-pneutral-500 mb-3">
+                    These aren&apos;t required to submit your registration — attach them only if applicable (e.g. import licences only apply if you import).
+                  </p>
+                  {optionalDocumentCodes.map((code: string) => renderDocumentBlock(code, false))}
+                </div>
+              )}
+            </>
+          );
+        })()}
+
         {/* GST SECTION */}
         <div className="mt-2">
           <h3 className="text-label-l5 font-heading font-semibold text-pneutral-900 mb-3">
@@ -1187,45 +1855,23 @@ export default function DocumentForm({
           </h3>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
-                GSTIN Number
-                <span className="text-warning-500 font-semibold ml-1">*</span>
-              </label>
-
-              <div className="relative">
-                <input
-                  type="text"
-                  name="gstNumber"
-                  autoComplete="off"
-                  value={formData.gstNumber}
-                  onChange={handleGSTChangeWithValidation}
-                  onBlur={(e) => handleGSTBlur(e.target.value)}
-                  placeholder="Enter GST number"
-                  maxLength={15}
-                  className={`w-full h-13 pl-5 pr-4 rounded-xl border focus:outline-none focus:ring-0 text-p4 font-body font-regular text-pneutral-900 placeholder:text-p4 placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 uppercase ${
-                    gstError || gstExistsError ? 'border-red-500' : 'border-neutral-500'
-                  }`}
-                />
-                {checkingGST && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
-                  </div>
-                )}
-              </div>
-              {gstError && (
-                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                  <span className="mr-1">⚠️</span>
-                  <span>{gstError}</span>
-                </p>
-              )}
-              {gstExistsError && !gstError && (
-                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
-                  <span className="mr-1">⚠️</span>
-                  <span>{gstExistsError}</span>
-                </p>
-              )}
-            </div>
+            <FormInput
+              label="GSTIN Number"
+              required
+              type="text"
+              name="gstNumber"
+              autoComplete="off"
+              value={formData.gstNumber}
+              onChange={handleGSTChangeWithValidation}
+              onBlur={(e) => handleGSTBlur(e.target.value)}
+              placeholder="Enter GST number"
+              maxLength={15}
+              uppercase
+              error={gstError || (!gstError && gstExistsError ? gstExistsError : undefined)}
+              rightSlot={checkingGST ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+              ) : undefined}
+            />
 
             {/* GST FILE UPLOAD WITH CROSS BUTTON */}
             <div className="flex flex-col gap-1">
@@ -1244,8 +1890,25 @@ export default function DocumentForm({
                 disabled={uploadingGST}
               />
 
+              {!gstFileName && isRealFileUrl(formData.gstFileUrl) ? (
+                <UploadedFileChip
+                  url={formData.gstFileUrl}
+                  fileName={formData.gstFileName}
+                  inputId="gst-upload"
+                  onDelete={onDeleteGstFile}
+                />
+              ) : (
               <div
-                className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer"
+                tabIndex={uploadingGST ? -1 : 0}
+                role="button"
+                aria-label="Upload GST Certificate"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    document.getElementById('gst-upload')?.click();
+                  }
+                }}
+                className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
                 onClick={() => document.getElementById('gst-upload')?.click()}
               >
                 <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
@@ -1303,48 +1966,44 @@ export default function DocumentForm({
                   </div>
                 </div>
               </div>
+              )}
+              {gstFileError && (
+                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                  <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
+                  <span>{gstFileError}</span>
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         {/* BUTTONS */}
         <div className="flex justify-between mt-10">
-          <div className="flex gap-4">
-            <button
-              onClick={() => router.push("/")}
-              className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold"
-            >
-              Cancel
-            </button>
-          </div>
+          <button
+            onClick={prevStep}
+            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
+          >
+            <Image
+              src="/icons/backbuttonicon.png"
+              alt="Back"
+              width={18}
+              height={18}
+            />
+            Back
+          </button>
 
-          <div className="flex gap-4">
-            <button
-              onClick={prevStep}
-              className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
-            >
-              <Image
-                src="/icons/backbuttonicon.png"
-                alt="Back"
-                width={18}
-                height={18}
-              />
-              Back
-            </button>
-
-            <button
-              onClick={handleContinue}
-              className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"
-            >
-              Continue
-              <Image
-                src="/icons/continueicon.png"
-                alt="Continue"
-                width={20}
-                height={20}
-              />
-            </button>
-          </div>
+          <button
+            onClick={handleContinue}
+            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"
+          >
+            Continue
+            <Image
+              src="/icons/continueicon.png"
+              alt="Continue"
+              width={20}
+              height={20}
+            />
+          </button>
         </div>
 
       </div>
