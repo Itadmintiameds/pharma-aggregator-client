@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { LayoutDashboard, Package, Lock, ArrowRight, Headset, LogOut } from "lucide-react";
 import { HiOutlineShoppingBag } from "react-icons/hi";
 import { AiOutlinePieChart } from "react-icons/ai";
-import { MdOutlineLocalShipping } from "react-icons/md";
+import { MdOutlineAssignmentReturn, MdOutlineLocalShipping } from "react-icons/md";
 import { IoSettingsOutline } from "react-icons/io5";
 import toast from "react-hot-toast";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
@@ -26,6 +26,7 @@ const menuItems = [
   { id: "overview", label: "Overview", icon: <LayoutDashboard size={20} />, path: "/buyer_e8d45a1b/dashboard" },
   { id: "catalog", label: "Products", icon: <Package size={20} />, path: "/buyer_e8d45a1b/dashboard/catalog" },
   { id: "orders", label: "Orders", icon: <HiOutlineShoppingBag size={20} />, path: "/buyer_e8d45a1b/dashboard/orders" },
+  { id: "returns", label: "Returns", icon: <MdOutlineAssignmentReturn size={20} />, path: "/buyer_e8d45a1b/dashboard/returns" },
   { id: "rfq", label: "Conversions", icon: <AiOutlinePieChart size={20} />, path: "/buyer_e8d45a1b/dashboard/rfq" },
   { id: "suppliers", label: "Shipment", icon: <MdOutlineLocalShipping size={20} />, path: "/buyer_e8d45a1b/dashboard/suppliers" },
   { id: "support", label: "Settings", icon: <IoSettingsOutline size={20} />, path: "/buyer_e8d45a1b/dashboard/support" },

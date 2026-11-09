@@ -281,7 +281,16 @@ function ReturnCard({
           <p className="text-p2 font-heading font-semibold text-pneutral-900">Return #{returnRequest.returnId}</p>
           <p className="text-p4 font-body text-pneutral-500">
             Order {returnRequest.sellerOrderId}
-            {returnRequest.requestedAt ? ` · ${new Date(returnRequest.requestedAt).toLocaleString()}` : ""}
+            {returnRequest.requestedAt
+              ? ` · ${new Date(returnRequest.requestedAt).toLocaleString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })}`
+              : ""}
           </p>
         </div>
         <span
