@@ -353,7 +353,14 @@ export default function SellerOrdersPage() {
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [orders, setOrders] = useState<SellerOrder[] | null>(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [priceFilter, setPriceFilter] = useState<"ALL" | "QUOTATION" | "ORIGINAL">("ALL");
   const [error, setError] = useState<string | null>(null);
+
+  // Counts/filter apply to the orders loaded for the selected status tab.
+  const quotationCount = (orders ?? []).filter((o) => o.quoteRequestId != null).length;
+  const visibleOrders = (orders ?? []).filter((o) =>
+    priceFilter === "ALL" ? true : priceFilter === "QUOTATION" ? o.quoteRequestId != null : o.quoteRequestId == null
+  );
 
   const loadOrders = useCallback(async (id: string, status: string) => {
     try {
@@ -401,6 +408,26 @@ export default function SellerOrdersPage() {
         ))}
       </div>
 
+      {orders !== null && (
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          {([
+            ["ALL", "All orders", orders.length],
+            ["QUOTATION", "Quotation orders", quotationCount],
+            ["ORIGINAL", "Original price orders", orders.length - quotationCount],
+          ] as const).map(([key, label, count]) => (
+            <button
+              key={key}
+              onClick={() => setPriceFilter(key)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                priceFilter === key ? "bg-secondary-100 text-secondary-800" : "bg-neutral-100 text-neutral-600"
+              }`}
+            >
+              {label} ({count})
+            </button>
+          ))}
+        </div>
+      )}
+
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
           <p className="text-p3 font-body text-red-700">{error}</p>
@@ -413,13 +440,13 @@ export default function SellerOrdersPage() {
         </div>
       )}
 
-      {orders !== null && orders.length === 0 && (
+      {orders !== null && visibleOrders.length === 0 && (
         <p className="text-p3 font-body text-neutral-500">No orders found.</p>
       )}
 
-      {orders !== null && orders.length > 0 && sellerId && (
+      {orders !== null && visibleOrders.length > 0 && sellerId && (
         <div className="space-y-4">
-          {orders.map((order) => (
+          {visibleOrders.map((order) => (
             <OrderCard
               key={order.sellerOrderId}
               order={order}

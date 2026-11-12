@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { SlidersHorizontal } from "lucide-react";
 import {
   isRequestCancelled,
   searchProducts,
@@ -115,8 +116,13 @@ export default function ProductGrid() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-end justify-between mb-10">
           <h2 className="text-3xl font-semibold text-gray-800">Products</h2>
-          <Link href="/search" className="text-sm font-medium text-primary-700 hover:text-primary-900 underline">
-            Browse all &amp; filter
+          <Link
+            href="/search"
+            aria-label="Browse all and filter products"
+            title="Browse all & filter"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm transition-colors hover:border-primary-700 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          >
+            <SlidersHorizontal className="h-5 w-5" aria-hidden="true" />
           </Link>
         </div>
 

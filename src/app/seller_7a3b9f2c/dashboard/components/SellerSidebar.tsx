@@ -13,8 +13,7 @@ import {
 import toast from "react-hot-toast";
 import { HiOutlineShoppingBag } from "react-icons/hi";
 import { AiOutlinePieChart } from "react-icons/ai";
-import { IoSettingsOutline } from "react-icons/io5";
-import { MdOutlineAssignmentReturn, MdOutlineLocalShipping } from "react-icons/md";
+import { MdOutlineAssignmentReturn } from "react-icons/md";
 import { PiHeadphones } from "react-icons/pi";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { sellerAuthService } from "@/src/services/seller/authService";
@@ -40,8 +39,6 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
     { id: "orders", label: "Orders", icon: <HiOutlineShoppingBag size={20} />, path: "/seller_7a3b9f2c/orders" },
     { id: "returns", label: "Returns", icon: <MdOutlineAssignmentReturn size={20} />, path: "/seller_7a3b9f2c/returns" },
     { id: "rfqs", label: "Quote Requests", icon: <AiOutlinePieChart size={20} />, path: "/seller_7a3b9f2c/conversions" },
-    { id: "settings", label: "Settings", icon: <IoSettingsOutline size={20} />, path: "/seller_7a3b9f2c/settings" },
-    { id: "shipment", label: "Shipment", icon: <MdOutlineLocalShipping size={20} />, path: "/seller_7a3b9f2c/shipment" },
   ];
 
   const handleLogout = async () => {
@@ -73,13 +70,9 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
     router.push(path);
   };
 
-  const isActive = (itemId: string, path: string) => {
-    if (itemId === "overview" && pathname.includes("/dashboard")) return true;
-    if (itemId === "product" && pathname.includes("/products")) return true;
-    if (itemId === "profile" && pathname.includes("/profile")) return true;
-    if (itemId === "reports" && pathname.includes("/reports")) return true;
-    return false;
-  };
+  // Active = the current route is the item's route or one of its sub-routes (e.g. /products/add).
+  const isActive = (_itemId: string, path: string) =>
+    pathname === path || pathname.startsWith(`${path}/`);
 
   return (
     <aside

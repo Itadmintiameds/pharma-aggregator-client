@@ -18,6 +18,9 @@ export interface BuyerProfile {
 }
 
 const BUYER_ID_CACHE_KEY = "buyerId";
+// The cached id is stored with the buyerUserId it was resolved for, so a different login (or a DB reset) never
+// reuses another account's buyerId.
+const BUYER_ID_CACHE_USER_KEY = "buyerIdUser";
 
 // Resolves the approved Buyer business ID (needed for order placement/history)
 // from the logged-in BuyerUser's own ID — see backend BuyerProfileController.
@@ -27,13 +30,14 @@ const BUYER_ID_CACHE_KEY = "buyerId";
 export async function getBuyerId(buyerUserId: number): Promise<string> {
   if (typeof window !== "undefined") {
     const cached = localStorage.getItem(BUYER_ID_CACHE_KEY);
-    if (cached) return cached;
+    if (cached && localStorage.getItem(BUYER_ID_CACHE_USER_KEY) === String(buyerUserId)) return cached;
   }
 
   const buyerId = (await getBuyerProfile(buyerUserId)).buyerId;
 
   if (typeof window !== "undefined" && buyerId) {
     localStorage.setItem(BUYER_ID_CACHE_KEY, buyerId);
+    localStorage.setItem(BUYER_ID_CACHE_USER_KEY, String(buyerUserId));
   }
 
   return buyerId;

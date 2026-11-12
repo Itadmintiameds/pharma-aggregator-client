@@ -110,6 +110,12 @@ export default function ProductCard({ product, searchContext }: ProductCardProps
               src={image || "/icons/Tumbnail.svg"}
               alt={product.productName}
               className="w-full h-full object-contain transition-transform duration-500 ease-in-out group-hover:-translate-y-1"
+              onError={(e) => {
+                // stale/unreachable image URL: fall back once to the default thumbnail
+                const img = e.currentTarget;
+                img.onerror = null;
+                img.src = "/icons/Tumbnail.svg";
+              }}
             />
           </div>
         </div>
