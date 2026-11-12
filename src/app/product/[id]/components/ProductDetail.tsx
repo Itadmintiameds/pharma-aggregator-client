@@ -298,7 +298,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
         {product.productDescription && (
           <div className="mt-6">
             <h2 className="text-p2 font-heading font-medium text-pneutral-900 mb-2">Description</h2>
-            <p className="text-p3 font-body text-pneutral-700 leading-relaxed">
+            <p className="text-p3 font-body text-pneutral-700 leading-relaxed whitespace-pre-line">
               {product.productDescription}
             </p>
           </div>
