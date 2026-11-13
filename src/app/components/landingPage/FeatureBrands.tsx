@@ -16,6 +16,13 @@ const GRADIENTS: [string, string][] = [
     ["#7C3AED", "#A78BFA"], // violet
 ];
 
+// Marquee geometry: each logo cell is 100px wide with a 32px gap after it, inside a 1240px strip.
+const ITEM_WIDTH = 100;
+const ITEM_GAP = 32;
+const STRIP_WIDTH = 1240;
+/** Scroll speed, so a long list does not race past and a short one does not crawl. */
+const SCROLL_PX_PER_SECOND = 80;
+
 function hashString(str: string) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -87,7 +94,14 @@ const FeatureBrands = () => {
 
     if (sellers.length === 0) return null;
 
-    const marqueeSellers = [...sellers, ...sellers];
+    // The scroll loops by sliding the row left by exactly one copy of itself, so one copy has to be wider than the
+    // strip - otherwise the right-hand side is empty while it scrolls. With only a few sellers the list is repeated
+    // until one copy fills the strip, then doubled for the seamless loop.
+    const cell = ITEM_WIDTH + ITEM_GAP;
+    const copies = Math.ceil((STRIP_WIDTH + ITEM_WIDTH) / cell / sellers.length);
+    const oneCopy = Array.from({ length: Math.max(copies, 1) }, () => sellers).flat();
+    const marqueeSellers = [...oneCopy, ...oneCopy];
+    const loopSeconds = Math.round((oneCopy.length * cell) / SCROLL_PX_PER_SECOND);
 
     return (
         <section className="w-full xl:w-[1280px] h-[176px] mx-auto bg-neutral-50 flex flex-col items-center justify-center">
@@ -102,12 +116,12 @@ const FeatureBrands = () => {
             {/* ================= LOGO MARQUEE ================= */}
             <div className="w-[1240px] h-[80px] overflow-hidden mt-6 ">
 
-                <div className=" gap-8 brand-marquee">
+                <div className="brand-marquee" style={{ animationDuration: `${loopSeconds}s` }}>
 
                     {marqueeSellers.map((seller, index) => (
                         <div
                             key={`${seller.sellerId}-${index}`}
-                            className="group relative w-[100px] h-[80px] shrink-0 flex items-center justify-center"
+                            className="group relative mr-8 w-[100px] h-[80px] shrink-0 flex items-center justify-center"
                         >
                             {seller.sellerImageUrl ? (
                                 <img

@@ -11,7 +11,7 @@ import {
 import { BuyerProduct } from "@/src/types/buyer/product";
 import { SearchResultPage } from "@/src/types/buyer/search";
 import { SearchContext } from "@/src/services/buyer/searchEvents";
-import ProductCard from "./ProductCard";
+import ProductCard, { ProductCardSkeleton } from "./ProductCard";
 
 const PAGE_SIZE = 12;
 // The search API rejects page * size > 10,000, so the list stops there instead of asking for a page it would refuse.
@@ -114,19 +114,31 @@ export default function ProductGrid() {
   return (
     <div className="py-14 bg-gray-100">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="flex items-end justify-between mb-10">
-          <h2 className="text-3xl font-semibold text-gray-800">Products</h2>
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-semibold text-gray-900">Products</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              {totalResults > 0
+                ? `${totalResults.toLocaleString("en-IN")} products from verified sellers · newest first`
+                : "The newest products from verified sellers"}
+            </p>
+          </div>
           <Link
             href="/search"
-            aria-label="Browse all and filter products"
-            title="Browse all & filter"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm transition-colors hover:border-primary-700 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:border-primary-700 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           >
-            <SlidersHorizontal className="h-5 w-5" aria-hidden="true" />
+            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+            Browse all &amp; filter
           </Link>
         </div>
 
-        {loading && products.length === 0 && <p className="text-gray-500">Loading products...</p>}
+        {loading && products.length === 0 && (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4" role="status" aria-label="Loading products">
+            {Array.from({ length: 8 }, (_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
+        )}
         {!loading && error && products.length === 0 && (
           <div className="text-red-500">
             <p>{error}</p>
@@ -139,7 +151,7 @@ export default function ProductGrid() {
 
         {products.length > 0 && (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {products.map((product) => (
                 <ProductCard key={product.productId} product={product} searchContext={contexts[product.productId]} />
               ))}

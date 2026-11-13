@@ -145,6 +145,8 @@ export default function CatalogFilterSidebar({
   activeCount,
   onChange,
   onClear,
+  priceLocked = false,
+  stickyClassName = "lg:top-24 lg:max-h-[calc(100vh-7rem)]",
 }: {
   filters: CatalogFilters;
   facetByField: Map<string, SearchFacet>;
@@ -152,6 +154,10 @@ export default function CatalogFilterSidebar({
   activeCount: number;
   onChange: (patch: Partial<CatalogFilters>) => void;
   onClear: () => void;
+  /** Visitors who are not logged in cannot see prices, so they cannot filter by them either. */
+  priceLocked?: boolean;
+  /** Where the panel sticks while scrolling: it must clear whatever fixed header the page has. */
+  stickyClassName?: string;
 }) {
   const categoryOptions = STOREFRONT_CATEGORIES.map((c) => ({
     value: String(c.id),
@@ -165,7 +171,7 @@ export default function CatalogFilterSidebar({
       : undefined;
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+    <div className={`rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm lg:sticky lg:overflow-y-auto ${stickyClassName}`}>
       <div className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-3">
         <h3 className="flex items-center gap-2 text-p3 font-heading font-semibold text-neutral-900">
           <SlidersHorizontal size={16} className="text-neutral-500" />
@@ -210,8 +216,9 @@ export default function CatalogFilterSidebar({
                 key={range.label}
                 type="button"
                 aria-pressed={selected}
+                disabled={priceLocked}
                 onClick={() => onChange(selected ? { priceMin: "", priceMax: "" } : { priceMin: range.min, priceMax: range.max })}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   selected
                     ? "border-primary-800 bg-primary-50 text-primary-800"
                     : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"
@@ -224,7 +231,7 @@ export default function CatalogFilterSidebar({
         </div>
         {/* keyed on the applied range so the boxes reset when it changes from elsewhere (chip, clear all) */}
         <PriceFilter
-          disabled={false}
+          disabled={priceLocked}
           hideTitle
           key={`${filters.priceMin}-${filters.priceMax}`}
           initialMin={filters.priceMin}

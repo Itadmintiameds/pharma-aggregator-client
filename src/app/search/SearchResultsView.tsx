@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { SlidersHorizontal } from "lucide-react";
 import LandingHeader from "@/src/app/components/landingPage/LandingHeader";
 import Footer from "@/src/app/components/landingPage/Footer";
 import ProductCard from "@/src/app/components/landingPage/ProductCard";
-import PriceFilter from "@/src/app/components/search/PriceFilter";
+import CatalogFilterSidebar from "@/src/app/buyer_e8d45a1b/dashboard/components/CatalogFilterSidebar";
+import SortDropdown, { SortOption } from "@/src/app/buyer_e8d45a1b/dashboard/components/SortDropdown";
 import {
   isRequestCancelled,
   searchProducts,
@@ -20,11 +22,11 @@ const PAGE_SIZE = 24;
 const MAX_RESULT_WINDOW = 10_000;
 const MAX_PAGE_INDEX = Math.floor(MAX_RESULT_WINDOW / PAGE_SIZE);
 
-const SORT_OPTIONS: { value: SearchSort; label: string }[] = [
-  { value: "relevance", label: "Relevance" },
-  { value: "price_asc", label: "Price: low to high" },
-  { value: "price_desc", label: "Price: high to low" },
-  { value: "newest", label: "Newest" },
+const SORT_OPTIONS: { value: SearchSort; label: string; hint: string }[] = [
+  { value: "relevance", label: "Relevance", hint: "Best match for your search" },
+  { value: "price_asc", label: "Price: low to high", hint: "Cheapest first" },
+  { value: "price_desc", label: "Price: high to low", hint: "Most expensive first" },
+  { value: "newest", label: "Newest", hint: "Recently listed products" },
 ];
 
 // Facet groups shown in the sidebar: which facet, what to call it, and which URL/API parameter it filters.
@@ -202,79 +204,28 @@ export default function SearchResultsView() {
   const totalPages = data ? Math.min(data.totalPages, MAX_PAGE_INDEX + 1) : 0;
   const cappedResults = data !== null && data.totalPages > MAX_PAGE_INDEX + 1;
 
+  // Prices are hidden from visitors who are not logged in, so price sorting is not offered to them either.
+  const sortOptions: SortOption[] = SORT_OPTIONS.map((option) => {
+    const needsLogin = !loggedIn && (option.value === "price_asc" || option.value === "price_desc");
+    return { ...option, disabled: needsLogin, hint: needsLogin ? "Log in to sort by price" : option.hint };
+  });
+  // The sidebar counts its own filters; "in stock" is a switch next to the sort.
+  const sidebarActiveCount = activeFilters.filter((f) => f.key !== "stock").length;
+
   const sidebar = (
-    <div className="space-y-6">
-      <section>
-        <h3 className="text-sm font-semibold text-neutral-900 mb-2">Category</h3>
-        <ul className="space-y-1">
-          {STOREFRONT_CATEGORIES.map((category) => {
-            const selected = state.categoryId === String(category.id);
-            const count = categoryCounts.get(category.facetName);
-            return (
-              <li key={category.id}>
-                <button
-                  onClick={() => update({ categoryId: selected ? "" : String(category.id) })}
-                  className={`w-full flex items-center justify-between gap-2 text-left text-sm rounded-md px-2 py-1.5 transition-colors ${
-                    selected ? "bg-primary-800 text-white" : "text-neutral-700 hover:bg-neutral-100"
-                  }`}
-                >
-                  <span className="truncate">{category.name}</span>
-                  {count !== undefined && <span className={selected ? "text-white/80" : "text-neutral-400"}>{count}</span>}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
-      {FACET_GROUPS.map((group) => {
-        const values = facetByField.get(group.field)?.values ?? [];
-        if (values.length === 0) return null;
-        const selectedValue = state[group.param as keyof UrlState] as string;
-        return (
-          <section key={group.field}>
-            <h3 className="text-sm font-semibold text-neutral-900 mb-2">{group.label}</h3>
-            <ul className="space-y-1 max-h-56 overflow-y-auto pr-1">
-              {values.map((v) => {
-                const selected = selectedValue === v.value;
-                return (
-                  <li key={v.value}>
-                    <button
-                      onClick={() => update({ [group.param]: selected ? "" : v.value })}
-                      className={`w-full flex items-center justify-between gap-2 text-left text-sm rounded-md px-2 py-1.5 transition-colors ${
-                        selected ? "bg-primary-800 text-white" : "text-neutral-700 hover:bg-neutral-100"
-                      }`}
-                    >
-                      <span className="truncate">{v.value}</span>
-                      <span className={selected ? "text-white/80" : "text-neutral-400"}>{v.count}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        );
-      })}
-
-      {/* keyed on the applied range so the boxes reset when it changes from elsewhere (chip, back button) */}
-      <PriceFilter
-        disabled={!loggedIn}
-        key={`${state.priceMin}-${state.priceMax}`}
-        initialMin={state.priceMin}
-        initialMax={state.priceMax}
-        onApply={(priceMin, priceMax) => update({ priceMin, priceMax })}
-      />
-
-      <label className="flex items-center gap-2 text-sm text-neutral-800 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={state.inStockOnly}
-          onChange={(e) => update({ inStockOnly: e.target.checked })}
-          className="h-4 w-4 accent-primary-800"
-        />
-        In stock only
-      </label>
-    </div>
+    <CatalogFilterSidebar
+      filters={state}
+      facetByField={facetByField}
+      categoryCounts={categoryCounts}
+      activeCount={sidebarActiveCount}
+      onChange={(patch) => update(patch)}
+      onClear={() =>
+        update({ categoryId: "", therapeuticCategory: "", dosageForm: "", packType: "", manufacturerName: "", priceMin: "", priceMax: "" })
+      }
+      priceLocked={!loggedIn}
+      // this page sits under the site's taller fixed header
+      stickyClassName="lg:top-40 lg:max-h-[calc(100vh-11rem)]"
+    />
   );
 
   return (
@@ -294,31 +245,40 @@ export default function SearchResultsView() {
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
               <button
-                onClick={() => setShowFilters((open) => !open)}
-                className="lg:hidden rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-700"
+                type="button"
+                role="switch"
+                aria-checked={state.inStockOnly}
+                onClick={() => update({ inStockOnly: !state.inStockOnly })}
+                className="flex items-center gap-2 text-sm font-medium text-neutral-700"
               >
-                {showFilters ? "Hide filters" : "Filters"}
+                <span className={`relative h-6 w-11 rounded-full transition-colors ${state.inStockOnly ? "bg-primary-800" : "bg-neutral-300"}`}>
+                  <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                      state.inStockOnly ? "left-[22px]" : "left-0.5"
+                    }`}
+                  />
+                </span>
+                In stock only
               </button>
-              <label className="flex items-center gap-2 text-sm text-neutral-600">
-                Sort by
-                <select
-                  value={state.sort}
-                  onChange={(e) => update({ sort: e.target.value as SearchSort })}
-                  className="rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm text-neutral-800"
-                >
-                  {SORT_OPTIONS.map((option) => {
-                    const needsLogin = !loggedIn && (option.value === "price_asc" || option.value === "price_desc");
-                    return (
-                      <option key={option.value} value={option.value} disabled={needsLogin}>
-                        {option.label}
-                        {needsLogin ? " (login required)" : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
+
+              <span className="hidden h-6 w-px bg-neutral-200 sm:block" aria-hidden />
+
+              <SortDropdown value={state.sort} options={sortOptions} onChange={(value) => update({ sort: value as SearchSort })} />
+
+              <button
+                type="button"
+                onClick={() => setShowFilters((open) => !open)}
+                aria-expanded={showFilters}
+                className="flex h-10 items-center gap-2 rounded-xl border border-neutral-300 bg-white px-3 text-sm font-medium text-neutral-800 shadow-sm lg:hidden"
+              >
+                <SlidersHorizontal size={16} />
+                {showFilters ? "Hide filters" : "Filters"}
+                {sidebarActiveCount > 0 && (
+                  <span className="rounded-full bg-primary-900 px-1.5 text-xs font-semibold text-white">{sidebarActiveCount}</span>
+                )}
+              </button>
             </div>
           </div>
 
@@ -341,7 +301,7 @@ export default function SearchResultsView() {
           )}
 
           <div className="flex flex-col lg:flex-row gap-8">
-            <aside className={`${showFilters ? "block" : "hidden"} lg:block lg:w-64 shrink-0`}>{sidebar}</aside>
+            <aside className={`${showFilters ? "block" : "hidden"} lg:block lg:w-72 shrink-0`}>{sidebar}</aside>
 
             <section className="flex-1 min-w-0">
               {loading && !data && <p className="text-neutral-500">Searching…</p>}

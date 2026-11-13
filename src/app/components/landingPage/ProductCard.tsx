@@ -4,12 +4,15 @@ import { resolveProductAvailability } from "@/src/utils/cartAvailability";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FaShoppingCart, FaMinus, FaPlus } from "react-icons/fa";
+import { Lock, Minus, Plus, ShoppingCart } from "lucide-react";
 import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { useBuyerLoginModal } from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 import { BuyerProduct } from "@/src/types/buyer/product";
 import { rememberSearchContext, SearchContext, trackSearchEvent } from "@/src/services/buyer/searchEvents";
+
+/** At or below this many units an in-stock product is flagged as running low. */
+const LOW_STOCK_UNITS = 20;
 
 interface ProductCardProps {
   product: BuyerProduct;
@@ -17,18 +20,45 @@ interface ProductCardProps {
   searchContext?: SearchContext;
 }
 
+/** Placeholder with the same shape as a card, shown while a list of products loads. */
+export function ProductCardSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" aria-hidden>
+      <div className="h-52 animate-pulse bg-gray-100" />
+      <div className="space-y-3 p-4">
+        <div className="h-3 w-1/3 animate-pulse rounded bg-gray-100" />
+        <div className="h-4 w-4/5 animate-pulse rounded bg-gray-100" />
+        <div className="h-3 w-full animate-pulse rounded bg-gray-100" />
+        <div className="h-6 w-1/3 animate-pulse rounded bg-gray-100" />
+        <div className="h-10 w-full animate-pulse rounded-xl bg-gray-100" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A product in the storefront lists (home page and search). The price, stock and the buy actions are all visible at
+ * once - nothing hides behind a hover, so it works on touch screens too - and every card has the same height so a row
+ * stays tidy. A visitor who is not logged in sees the price blurred and is asked to sign up when they try to buy.
+ */
 export default function ProductCard({ product, searchContext }: ProductCardProps) {
   const { items: cartItems, addItem, updateQuantity } = useCart();
   const router = useRouter();
-  const { openSignupModal } = useBuyerLoginModal();
-  const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(() =>
-    buyerAuthService.isAuthenticated()
-  );
-  const pricing = product.pricingDetails?.[0];
-  const outOfStock = resolveProductAvailability(product).unavailable;
+  const { openSignupModal, openLoginModal } = useBuyerLoginModal();
+  const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(() => buyerAuthService.isAuthenticated());
+  const { pricing, minQuantity, maxQuantity, unavailable } = resolveProductAvailability(product);
   const image = product.productImages?.[0]?.productImage;
-  const cartQuantity =
-    cartItems.find((item) => item.productId === product.productId)?.quantity ?? 0;
+  const cartQuantity = cartItems.find((item) => item.productId === product.productId)?.quantity ?? 0;
+
+  const sellingPrice = pricing?.sellingPrice ?? pricing?.mrp;
+  const mrp = pricing?.mrp;
+  const discount =
+    mrp != null && pricing?.sellingPrice != null && mrp > pricing.sellingPrice
+      ? Math.round(((mrp - pricing.sellingPrice) / mrp) * 100)
+      : null;
+  const lowStock = !unavailable && maxQuantity != null && maxQuantity <= LOW_STOCK_UNITS;
+  const atMax = maxQuantity != null && cartQuantity >= maxQuantity;
+  const href = `/product/${product.productId}`;
 
   useEffect(() => {
     const syncBuyerAuth = () => setIsBuyerLoggedIn(buyerAuthService.isAuthenticated());
@@ -44,37 +74,12 @@ export default function ProductCard({ product, searchContext }: ProductCardProps
     trackSearchEvent("SEARCH_CLICK", product.productId, searchContext);
   };
   const trackAddedToCart = () => {
-    if (!searchContext || outOfStock) return;
+    if (!searchContext || unavailable) return;
     rememberSearchContext(product.productId, searchContext);
     trackSearchEvent("ADD_TO_CART", product.productId, searchContext);
   };
 
-  const handleIncrement = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isBuyerLoggedIn) {
-      openSignupModal();
-      return;
-    }
-    if (cartQuantity === 0) {
-      addItem(product, 1);
-      trackAddedToCart();
-    } else {
-      updateQuantity(product.productId, cartQuantity + 1);
-    }
-  };
-
-  const handleDecrement = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (cartQuantity > 0) {
-      updateQuantity(product.productId, cartQuantity - 1);
-    }
-  };
-
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleAddToCart = () => {
     if (!isBuyerLoggedIn) {
       openSignupModal();
       return;
@@ -83,9 +88,7 @@ export default function ProductCard({ product, searchContext }: ProductCardProps
     trackAddedToCart();
   };
 
-  const handleBuyNow = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleBuyNow = () => {
     if (!isBuyerLoggedIn) {
       openSignupModal();
       return;
@@ -98,113 +101,144 @@ export default function ProductCard({ product, searchContext }: ProductCardProps
   };
 
   return (
-    <Link
-      href={`/product/${product.productId}`}
-      onClick={trackClick}
-      className="group relative bg-white rounded-3xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 p-4 overflow-hidden flex flex-col"
-    >
-      <div className="transition-transform duration-500 flex-1">
-        <div className="flex justify-center mb-4">
-          <div className="h-[200px] overflow-hidden transition-all duration-500 ease-in-out group-hover:h-[170px]">
-            <img
-              src={image || "/icons/Tumbnail.svg"}
-              alt={product.productName}
-              className="w-full h-full object-contain transition-transform duration-500 ease-in-out group-hover:-translate-y-1"
-              onError={(e) => {
-                // stale/unreachable image URL: fall back once to the default thumbnail
-                const img = e.currentTarget;
-                img.onerror = null;
-                img.src = "/icons/Tumbnail.svg";
-              }}
-            />
-          </div>
+    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+      <Link href={href} onClick={trackClick} className="relative block bg-gray-50">
+        <div className="flex h-52 items-center justify-center p-5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={image || "/icons/Tumbnail.svg"}
+            alt={product.productName}
+            className={`h-full w-full object-contain transition-transform duration-500 group-hover:scale-105 ${
+              unavailable ? "opacity-50 grayscale" : ""
+            }`}
+            onError={(e) => {
+              // stale/unreachable image URL: fall back once to the default thumbnail
+              const img = e.currentTarget;
+              img.onerror = null;
+              img.src = "/icons/Tumbnail.svg";
+            }}
+          />
         </div>
+        {discount !== null && !unavailable && isBuyerLoggedIn && (
+          <span className="absolute left-3 top-3 rounded-full bg-green-600 px-2.5 py-1 text-xs font-semibold text-white">
+            {discount}% off
+          </span>
+        )}
+        {unavailable && (
+          <span className="absolute left-3 top-3 rounded-full bg-gray-800 px-2.5 py-1 text-xs font-semibold text-white">
+            Out of stock
+          </span>
+        )}
+        {lowStock && (
+          <span className="absolute right-3 top-3 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+            Only {maxQuantity} left
+          </span>
+        )}
+      </Link>
 
-        <div className="flex items-start justify-between mb-1">
-          <div className="min-w-0">
-            {product.manufacturerName && (
-              <p className="text-sm text-gray-500 mb-1 truncate">{product.manufacturerName}</p>
-            )}
-            <h3 className="text-lg font-semibold text-gray-800 truncate">{product.productName}</h3>
-          </div>
-
-          <button
-            onClick={handleAddToCart}
-            disabled={outOfStock}
-            title={outOfStock ? "Out of stock" : undefined}
-            className="disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-start gap-2 bg-primary-700 hover:bg-purple-800 text-white rounded-xl transition-all duration-500 ease-in-out w-10 h-10 pl-3 group-hover:w-auto group-hover:px-4 overflow-hidden shrink-0 z-10"
-          >
-            <FaShoppingCart className="shrink-0 text-sm" />
-            <span className="text-sm whitespace-nowrap font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out">
-              Add to Cart
+      <div className="flex flex-1 flex-col gap-1 p-4">
+        {product.manufacturerName && (
+          <p className="truncate text-xs font-medium uppercase tracking-wide text-gray-400">{product.manufacturerName}</p>
+        )}
+        <h3 className="line-clamp-2 min-h-[2.9rem] text-base font-semibold leading-snug text-gray-900">
+          <Link href={href} onClick={trackClick} className="hover:text-primary-700">
+            {product.productName}
+          </Link>
+        </h3>
+        {product.productDescription && <p className="line-clamp-2 text-sm text-gray-500">{product.productDescription}</p>}
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+          {product.sellerName && (
+            <span className="truncate">
+              Sold by <span className="font-medium text-gray-700">{product.sellerName}</span>
             </span>
-          </button>
+          )}
+          {minQuantity > 1 && <span>Min. order {minQuantity}</span>}
         </div>
 
-        {product.productDescription && (
-          <p className="text-sm text-gray-500 mt-1 mb-2 line-clamp-2">{product.productDescription}</p>
-        )}
-
-        {product.sellerName && (
-          <p className="text-xs text-gray-400 mb-2 truncate">
-            Sold by <span className="text-gray-600 font-medium">{product.sellerName}</span>
-          </p>
-        )}
-
-        {pricing && (
-          <div className="flex items-center gap-1">
-            {!isBuyerLoggedIn && (
-              <span className="text-sm font-medium text-pneutral-900 whitespace-nowrap">
-                MRP:
-              </span>
-            )}
-            <div
-              className={`flex items-center gap-3 ${
-                isBuyerLoggedIn ? "" : "blur-[5px] select-none pointer-events-none"
-              }`}
-              title={isBuyerLoggedIn ? undefined : "Login to view price"}
-            >
-              {pricing.mrp != null && pricing.mrp !== pricing.sellingPrice && (
-                <span className="text-gray-400 line-through text-sm">₹{pricing.mrp}</span>
-              )}
-              {pricing.sellingPrice != null && (
-                <span className="text-lg font-bold text-gray-900">₹{pricing.sellingPrice}</span>
+        <div className="mt-auto pt-3">
+          {sellingPrice != null ? (
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              {!isBuyerLoggedIn && <span className="text-sm font-medium text-gray-700">MRP:</span>}
+              <div
+                className={`flex items-baseline gap-2 ${isBuyerLoggedIn ? "" : "pointer-events-none select-none blur-[5px]"}`}
+                title={isBuyerLoggedIn ? undefined : "Login to view price"}
+              >
+                <span className="text-xl font-bold text-gray-900">₹{sellingPrice}</span>
+                {mrp != null && pricing?.sellingPrice != null && mrp > pricing.sellingPrice && (
+                  <span className="text-sm text-gray-400 line-through">₹{mrp}</span>
+                )}
+                <span className="text-xs text-gray-400">/ unit</span>
+              </div>
+              {!isBuyerLoggedIn && (
+                <button
+                  type="button"
+                  onClick={openLoginModal}
+                  className="flex items-center gap-1 text-xs font-semibold text-primary-700 hover:underline"
+                >
+                  <Lock size={12} /> Log in to see price
+                </button>
               )}
             </div>
-          </div>
-        )}
-      </div>
+          ) : (
+            <span className="text-sm text-gray-500">Price on request</span>
+          )}
 
-      <div className="absolute bottom-0 left-0 w-full px-6 pb-4 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 ease-in-out z-10">
-        <div className="flex items-center justify-between bg-white pt-2 gap-2">
-          <button
-            onClick={handleBuyNow}
-            disabled={outOfStock}
-            className="disabled:opacity-40 disabled:cursor-not-allowed border border-purple-700 text-purple-700 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-purple-50 transition-colors duration-300 bg-white shadow-sm"
-          >
-            Buy Now
-          </button>
-
-          <div className="flex items-center gap-3 border border-pneutral-200  bg-pneutral-50 px-3 py-1 rounded-full">
-            <button
-              onClick={handleDecrement}
-              disabled={cartQuantity === 0}
-              className="text-purple-700 hover:text-purple-900 transition-colors disabled:opacity-40 disabled:hover:text-purple-700 disabled:cursor-default"
-            >
-              <FaMinus size={10} />
-            </button>
-            <span className="text-sm font-medium text-gray-800 w-4 text-center">{cartQuantity}</span>
-            <button
-              onClick={handleIncrement}
-              className="text-purple-700 hover:text-purple-900 transition-colors"
-            >
-              <FaPlus size={10} />
-            </button>
+          <div className="mt-3">
+            {cartQuantity === 0 ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={unavailable}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-800 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
+                >
+                  <ShoppingCart size={16} />
+                  {unavailable ? "Out of stock" : "Add to cart"}
+                </button>
+                {!unavailable && (
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    className="rounded-xl border border-primary-800 px-3 py-2.5 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50"
+                  >
+                    Buy now
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1">
+                  <button
+                    type="button"
+                    aria-label="Decrease quantity"
+                    onClick={() => updateQuantity(product.productId, cartQuantity - 1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-800 hover:bg-white"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <span className="w-8 text-center text-sm font-semibold text-gray-900">{cartQuantity}</span>
+                  <button
+                    type="button"
+                    aria-label="Increase quantity"
+                    disabled={atMax}
+                    onClick={() => updateQuantity(product.productId, cartQuantity + 1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-800 hover:bg-white disabled:opacity-40"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleBuyNow}
+                  className="rounded-xl border border-primary-800 px-4 py-2.5 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50"
+                >
+                  Buy now
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out pointer-events-none"></div>
-    </Link>
+    </article>
   );
 }

@@ -8,6 +8,8 @@ export interface SortOption {
   label: string;
   /** One line under the label that says what the order means. */
   hint?: string;
+  /** Shown but not selectable (the hint should say why, for example "Log in to sort by price"). */
+  disabled?: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export default function SortDropdown({
     setOpen(true);
   };
   const choose = (next: string) => {
+    if (options.find((o) => o.value === next)?.disabled) return;
     onChange(next);
     setOpen(false);
   };
@@ -99,10 +102,11 @@ export default function SortDropdown({
               <li key={option.value} role="option" aria-selected={isSelected}>
                 <button
                   type="button"
+                  disabled={option.disabled}
                   onClick={() => choose(option.value)}
                   onMouseEnter={() => setActive(index)}
-                  className={`flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left ${
-                    index === active ? "bg-neutral-100" : ""
+                  className={`flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 ${
+                    index === active && !option.disabled ? "bg-neutral-100" : ""
                   }`}
                 >
                   <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center text-primary-800">
