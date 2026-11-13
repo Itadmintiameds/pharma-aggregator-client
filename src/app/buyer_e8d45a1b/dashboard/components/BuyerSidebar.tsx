@@ -2,32 +2,29 @@
 
 import React, { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { LayoutDashboard, Package, Lock, Headset, LogOut } from "lucide-react";
+import { ClipboardList, FileText, LayoutDashboard, Package, Lock, Headset, LogOut, Undo2 } from "lucide-react";
 import { HiOutlineShoppingBag } from "react-icons/hi";
-import { AiOutlinePieChart } from "react-icons/ai";
 import toast from "react-hot-toast";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { HelpSupportPopup } from "@/src/app/commonComponents/SidebarPopups";
 
-// Dashboard nav rail — labels/icons now match seller's SellerSidebar
-// (dashboard/components/SellerSidebar.tsx) exactly (Overview/Products/
-// Orders/Conversions/Shipment/Settings), per the Figma buyer reference.
-// Distinct from ../../components/BuyerSidebar.tsx, the registration
-// wizard's own progress rail, not dashboard navigation.
-//
-// Routes still point at buyer's existing real pages (Products -> browse
-// catalog, Conversions -> RFQ & Quotes, Shipment -> saved suppliers,
-// Settings -> support) rather than new stub routes, so nothing already
-// built becomes unreachable — only the label/icon changed, not what each
-// item links to. Flag if dedicated Shipment/Settings pages are wanted
-// instead of this positional relabeling.
+// Dashboard nav rail. Distinct from ../../components/BuyerSidebar.tsx, the registration wizard's own progress rail,
+// which is not dashboard navigation.
+//   Products         -> browse catalog
+//   Orders           -> every order
+//   Returns          -> the returns you raised, their progress and refunds
+//   Quotes           -> price requests / RFQs and the sellers' quotes (the old "Conversions" item)
+//   Quotation Orders -> only the orders that were placed from an accepted quote
 const menuItems = [
   { id: "overview", label: "Overview", icon: <LayoutDashboard size={20} />, path: "/buyer_e8d45a1b/dashboard" },
   { id: "catalog", label: "Products", icon: <Package size={20} />, path: "/buyer_e8d45a1b/dashboard/catalog" },
   { id: "orders", label: "Orders", icon: <HiOutlineShoppingBag size={20} />, path: "/buyer_e8d45a1b/dashboard/orders" },
-  { id: "rfq", label: "Conversions", icon: <AiOutlinePieChart size={20} />, path: "/buyer_e8d45a1b/dashboard/rfq" },
+  { id: "returns", label: "Returns", icon: <Undo2 size={20} />, path: "/buyer_e8d45a1b/dashboard/returns" },
+  { id: "rfq", label: "Quotes", icon: <FileText size={20} />, path: "/buyer_e8d45a1b/dashboard/rfq" },
+  { id: "quote-orders", label: "Quotation Orders", icon: <ClipboardList size={20} />, path: "/buyer_e8d45a1b/dashboard/quotation-orders" },
 ];
 
-// Items reachable before full approval — "RFQ & Quotes" needs no approved
+// Items reachable before full approval — "Quotes" needs no approved
 // Buyer profile on the backend (BuyerQuoteRequestController only checks
 // ROLE_BUYER), so a buyer who's mid-registration (or a guest-provisioned
 // account that never registered) can still track requests they've raised.
@@ -44,6 +41,7 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const isActive = (path: string) =>
     path === "/buyer_e8d45a1b/dashboard" ? pathname === path : pathname.startsWith(path);
@@ -140,7 +138,8 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
       <div className="flex flex-col gap-2">
         <button
           type="button"
-          className="flex items-center gap-3 rounded-2xl bg-neutral-100 text-pneutral-900 text-p3 font-body font-regular px-4 py-3"
+          onClick={() => setShowHelp(true)}
+          className="flex items-center gap-3 rounded-2xl bg-neutral-100 text-pneutral-900 text-p3 font-body font-regular px-4 py-3 hover:bg-neutral-200"
         >
           <Headset size={20} />
           Help &amp; Support
@@ -156,6 +155,8 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
           {isLoggingOut ? "Logging out…" : "Logout"}
         </button>
       </div>
+
+      {showHelp && <HelpSupportPopup audience="buyer" onClose={() => setShowHelp(false)} />}
     </aside>
   );
 }

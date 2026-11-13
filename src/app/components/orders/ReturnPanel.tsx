@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import Button from "@/src/app/commonComponents/Button";
-import { cancelReturn, markReturnOutForDelivery, shipReturn } from "@/src/services/buyer/returnService";
+import ReturnActions from "./ReturnActions";
+import { UnitPriceLines } from "@/src/app/commonComponents/cardUi";
 import {
-  CANCELLABLE_RETURN_STATUSES,
   RETURN_STEPS,
   ReturnLine,
   ReturnRequest,
@@ -22,7 +20,7 @@ function formatStepLabel(step: string): string {
 const inspected = (status: string) => status === "RECEIVED" || status === "REFUNDED" || status === "CLOSED";
 
 // What happened to one product of the return, in a short phrase.
-function lineSummary(returnRequest: ReturnRequest, line: ReturnLine): string {
+export function lineSummary(returnRequest: ReturnRequest, line: ReturnLine): string {
   const requested = line.requestedQuantity;
   const approved = line.approvedQuantity;
   if (inspected(returnRequest.status)) {
@@ -42,38 +40,20 @@ export default function ReturnPanel({
   returnRequest,
   buyerId,
   onChanged,
+  priceInfo,
 }: {
   returnRequest: ReturnRequest;
   buyerId: string;
   onChanged: () => void;
+  /** Order price / listed price of each order item, so the returned products show what they were bought at. */
+  priceInfo?: Record<number, { unitPrice?: number; listedPrice?: number; isQuote: boolean }>;
 }) {
-  const [courierName, setCourierName] = useState("");
-  const [trackingNumber, setTrackingNumber] = useState("");
-  const [trackingUrl, setTrackingUrl] = useState("");
-  const [confirmingCancel, setConfirmingCancel] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const run = async (action: () => Promise<unknown>) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await action();
-      onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Action failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const { status } = returnRequest;
   const isRejected = status === "REJECTED";
   const isClosed = status === "CLOSED";
   const isCancelled = status === "CANCELLED";
   const isNegative = isRejected || isClosed || isCancelled;
   const currentStepIndex = RETURN_STEPS.indexOf(status);
-  const acceptedLines = returnRequest.lines.filter((l) => (l.approvedQuantity ?? l.requestedQuantity) > 0);
 
   return (
     <div className="mt-2 mb-3 p-3 rounded-lg bg-neutral-50 border border-neutral-200">
@@ -113,6 +93,11 @@ export default function ReturnPanel({
           <li key={line.lineId} className="flex justify-between text-p4 font-body text-pneutral-700">
             <span>
               {line.productName ?? "Item"} · {lineSummary(returnRequest, line)}
+              <UnitPriceLines
+                unitPrice={priceInfo?.[line.orderItemId]?.unitPrice}
+                listedPrice={priceInfo?.[line.orderItemId]?.listedPrice}
+                isQuote={priceInfo?.[line.orderItemId]?.isQuote ?? false}
+              />
             </span>
             {line.refundAmount != null && line.refundAmount > 0 && (
               <span className="text-green-700">
@@ -170,84 +155,7 @@ export default function ReturnPanel({
       )}
       {isClosed && <p className="text-p4 font-body text-red-700">No refund is due for this return.</p>}
 
-      {error && <p className="text-p4 text-red-600 mt-2">{error}</p>}
-
-      {status === "APPROVED" && (
-        <div className="flex flex-col gap-2 mt-3">
-          <p className="text-p4 font-body text-pneutral-700">
-            Return accepted. Pack{" "}
-            {acceptedLines.map((l) => `${units(l.approvedQuantity ?? l.requestedQuantity)} of ${l.productName ?? "item"}`).join(", ")}{" "}
-            in one parcel, hand it to a courier and enter the shipment details.
-          </p>
-          <input
-            placeholder="Courier name"
-            value={courierName}
-            onChange={(e) => setCourierName(e.target.value)}
-            className="px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white"
-          />
-          <input
-            placeholder="Tracking number"
-            value={trackingNumber}
-            onChange={(e) => setTrackingNumber(e.target.value)}
-            className="px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white"
-          />
-          <input
-            placeholder="Tracking URL (optional)"
-            value={trackingUrl}
-            onChange={(e) => setTrackingUrl(e.target.value)}
-            className="px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white"
-          />
-          <button
-            disabled={busy || !courierName || !trackingNumber}
-            onClick={() =>
-              run(() => shipReturn(returnRequest.returnId, buyerId, courierName, trackingNumber, trackingUrl))
-            }
-            className="bg-primary-900 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-40"
-          >
-            {busy ? "Shipping..." : "Mark Shipped"}
-          </button>
-        </div>
-      )}
-
-      {status === "SHIPPED" && (
-        <div className="mt-3">
-          <Button
-            variant="outline"
-            size="sm"
-            label={busy ? "Updating..." : "Mark Out for Delivery"}
-            disabled={busy}
-            onClick={() => run(() => markReturnOutForDelivery(returnRequest.returnId, buyerId))}
-          />
-        </div>
-      )}
-
-      {CANCELLABLE_RETURN_STATUSES.has(status) &&
-        (confirmingCancel ? (
-          <div className="flex flex-wrap items-center gap-2 mt-3">
-            <p className="text-p4 font-body text-pneutral-700">Cancel this return? You can still return these items while the return window is open.</p>
-            <button
-              disabled={busy}
-              onClick={() => run(() => cancelReturn(returnRequest.returnId, buyerId))}
-              className="border border-red-500 text-red-600 rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-40"
-            >
-              {busy ? "Cancelling..." : "Yes, cancel return"}
-            </button>
-            <button
-              disabled={busy}
-              onClick={() => setConfirmingCancel(false)}
-              className="border border-neutral-300 text-neutral-700 rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-40"
-            >
-              Keep it
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setConfirmingCancel(true)}
-            className="mt-3 text-p4 font-body font-semibold text-red-600 hover:underline"
-          >
-            Cancel return
-          </button>
-        ))}
+      <ReturnActions returnRequest={returnRequest} buyerId={buyerId} onChanged={onChanged} />
     </div>
   );
 }

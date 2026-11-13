@@ -2,19 +2,16 @@ import type { SellerOrder } from "@/src/types/buyer/order";
 import type { ReturnRequest } from "@/src/types/buyer/returns";
 import type { QuoteRequest } from "@/src/types/quote/quoteRequest";
 import type { SellerCommissionCharge, SellerSettlement } from "@/src/services/seller/sellerBillingService";
+import { buildTrend, inWindow, percentChange, resolveRange } from "./dashboardRange";
+import type { RangeKey, Trend, TrendPoint } from "./dashboardRange";
+
+// The range helpers live in dashboardRange.ts (shared with the buyer dashboard); re-exported so imports of them
+// from here keep working.
+export { RANGE_OPTIONS, resolveRange } from "./dashboardRange";
+export type { RangeKey, Trend, TrendPoint } from "./dashboardRange";
 
 // Every seller-dashboard number is computed here, from the raw lists, so there is exactly one definition of each
 // KPI. It is deliberately free of React and I/O.
-
-export type RangeKey = "today" | "7d" | "30d" | "90d" | "all";
-
-export const RANGE_OPTIONS: { key: RangeKey; label: string; days: number | null }[] = [
-  { key: "today", label: "Today", days: 1 },
-  { key: "7d", label: "7 days", days: 7 },
-  { key: "30d", label: "30 days", days: 30 },
-  { key: "90d", label: "90 days", days: 90 },
-  { key: "all", label: "All time", days: null },
-];
 
 // An order that has been delivered, including the ones that were returned or refunded afterwards (the sale
 // happened; the return is accounted for separately, in `refunds`).
@@ -58,19 +55,6 @@ export interface DashboardInput {
   commissions: SellerCommissionCharge[];
   range: RangeKey;
   now?: Date;
-}
-
-export interface Trend {
-  /** Percent change against the previous period of the same length; null when there is nothing to compare. */
-  percent: number | null;
-}
-
-export interface TrendPoint {
-  label: string;
-  /** Sort key (start of the bucket). */
-  at: number;
-  sales: number;
-  orders: number;
 }
 
 export interface TopProduct {
@@ -148,37 +132,6 @@ export interface DashboardStats {
 
 const num = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-/** [from, to) of the selected range, and of the period right before it. `from` is null for "all time". */
-export function resolveRange(range: RangeKey, now: Date) {
-  const days = RANGE_OPTIONS.find((o) => o.key === range)?.days ?? null;
-  if (days === null) return { from: null as number | null, to: now.getTime() + 1, prevFrom: null, prevTo: null };
-  const today = startOfDay(now).getTime();
-  const from = today - (days - 1) * 86_400_000;
-  const to = today + 86_400_000;
-  return { from, to, prevFrom: from - days * 86_400_000, prevTo: from } as {
-    from: number;
-    to: number;
-    prevFrom: number;
-    prevTo: number;
-  };
-}
-
-function inWindow(value: string | undefined | null, from: number | null, to: number): boolean {
-  if (!value) return false;
-  const time = new Date(value).getTime();
-  if (Number.isNaN(time)) return false;
-  return (from === null || time >= from) && time < to;
-}
-
-function percentChange(current: number, previous: number | null): Trend {
-  if (previous === null || previous <= 0) return { percent: null };
-  return { percent: ((current - previous) / previous) * 100 };
-}
-
 const grossOf = (orders: SellerOrder[]) =>
   orders.filter((o) => o.status !== "CANCELLED").reduce((sum, o) => sum + num(o.grandTotal), 0);
 const completedValueOf = (orders: SellerOrder[]) =>
@@ -189,34 +142,6 @@ function refundsOf(returns: ReturnRequest[]): number {
   return returns
     .filter((r) => r.status === "RECEIVED" || r.status === "REFUNDED")
     .reduce((sum, r) => sum + num(r.refundAmount), 0);
-}
-
-function bucketFor(range: RangeKey, from: number | null, firstOrderAt: number | null) {
-  const spanDays = from === null ? (firstOrderAt === null ? 0 : (Date.now() - firstOrderAt) / 86_400_000) : null;
-  const days = RANGE_OPTIONS.find((o) => o.key === range)?.days;
-  if (days != null && days <= 31) return "day" as const;
-  if (days != null && days <= 100) return "week" as const;
-  return spanDays !== null && spanDays <= 62 ? ("day" as const) : spanDays !== null && spanDays <= 200 ? ("week" as const) : ("month" as const);
-}
-
-function bucketStart(time: number, bucket: "day" | "week" | "month"): Date {
-  const d = startOfDay(new Date(time));
-  if (bucket === "week") d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // Monday
-  if (bucket === "month") d.setDate(1);
-  return d;
-}
-
-function bucketLabel(date: Date, bucket: "day" | "week" | "month"): string {
-  if (bucket === "month") return date.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
-  return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-}
-
-function nextBucket(date: Date, bucket: "day" | "week" | "month"): Date {
-  const d = new Date(date);
-  if (bucket === "day") d.setDate(d.getDate() + 1);
-  else if (bucket === "week") d.setDate(d.getDate() + 7);
-  else d.setMonth(d.getMonth() + 1);
-  return d;
 }
 
 export function computeDashboardStats(input: DashboardInput): DashboardStats {
@@ -344,28 +269,12 @@ export function computeDashboardStats(input: DashboardInput): DashboardStats {
   alerts.sort((a, b) => a.stock - b.stock);
 
   // ---- charts / lists ----
-  const firstOrderAt = ordersIn.length
-    ? Math.min(...ordersIn.map((o) => new Date(o.createdAt ?? now).getTime()))
-    : null;
-  const bucket = bucketFor(range, win.from, firstOrderAt);
-  const points = new Map<number, TrendPoint>();
-  billable.forEach((o) => {
-    if (!o.createdAt) return;
-    const start = bucketStart(new Date(o.createdAt).getTime(), bucket);
-    const point = points.get(start.getTime()) ?? { label: bucketLabel(start, bucket), at: start.getTime(), sales: 0, orders: 0 };
-    point.sales += num(o.grandTotal);
-    point.orders += 1;
-    points.set(start.getTime(), point);
-  });
-  // Fill the gaps so a quiet day shows as zero instead of being skipped.
-  const first = win.from !== null ? bucketStart(win.from, bucket) : firstOrderAt !== null ? bucketStart(firstOrderAt, bucket) : null;
-  if (first) {
-    const end = bucketStart(now.getTime(), bucket);
-    for (let d = first, guard = 0; d.getTime() <= end.getTime() && guard < 400; d = nextBucket(d, bucket), guard++) {
-      if (!points.has(d.getTime())) points.set(d.getTime(), { label: bucketLabel(d, bucket), at: d.getTime(), sales: 0, orders: 0 });
-    }
-  }
-  const trend = [...points.values()].sort((a, b) => a.at - b.at);
+  const trend = buildTrend(
+    billable.map((o) => ({ createdAt: o.createdAt, amount: num(o.grandTotal) })),
+    range,
+    win.from,
+    now
+  );
 
   const statusCounts = new Map<string, number>();
   ordersIn.forEach((o) => statusCounts.set(o.status, (statusCounts.get(o.status) ?? 0) + 1));

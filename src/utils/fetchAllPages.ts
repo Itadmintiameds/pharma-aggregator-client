@@ -1,3 +1,4 @@
+import type { AxiosInstance } from "axios";
 import api from "@/src/lib/api";
 
 const PAGE_SIZE = 100;
@@ -15,10 +16,14 @@ interface PageShape<T> {
  * `PageResponse`) of 20 rows by default, so a plain GET silently drops everything after the first 20 - any
  * total, count or KPI built on it is wrong. A bare array (an endpoint that is not paged) is returned as is.
  */
-export async function fetchAllPages<T>(url: string, params: Record<string, unknown> = {}): Promise<T[]> {
+export async function fetchAllPages<T>(
+  url: string,
+  params: Record<string, unknown> = {},
+  client: AxiosInstance = api
+): Promise<T[]> {
   const all: T[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
-    const response = await api.get(url, { params: { ...params, page, size: PAGE_SIZE } });
+    const response = await client.get(url, { params: { ...params, page, size: PAGE_SIZE } });
     const data = (response.data?.data ?? response.data) as T[] | PageShape<T> | undefined;
     if (Array.isArray(data)) return data;
     const rows = data?.content ?? [];

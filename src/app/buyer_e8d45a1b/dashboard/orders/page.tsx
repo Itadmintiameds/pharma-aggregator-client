@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useBuyerOrders } from "@/src/hooks/useBuyerOrders";
+import { prettyStatus } from "@/src/app/commonComponents/cardUi";
 
 const STATUS_STYLES: Record<string, string> = {
   PLACED: "bg-info-50 text-info-600",
@@ -12,6 +13,8 @@ const STATUS_STYLES: Record<string, string> = {
   CANCELLED: "bg-red-50 text-red-500",
 };
 
+const STATUS_FILTERS = ["ALL", "PLACED", "PARTIALLY_SHIPPED", "SHIPPED", "DELIVERED", "CANCELLED"];
+
 // Matches the page-size/pagination pattern used by seller's ProductList.tsx.
 const PAGE_SIZE = 10;
 
@@ -19,10 +22,22 @@ export default function BuyerOrdersPage() {
   const router = useRouter();
   const { orders, error } = useBuyerOrders();
   const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
-  const totalPages = orders ? Math.max(1, Math.ceil(orders.length / PAGE_SIZE)) : 1;
+  useEffect(() => {
+    // Deep link, e.g. ?status=DELIVERED opens that tab.
+    const wanted = new URLSearchParams(window.location.search).get("status");
+    if (wanted && STATUS_FILTERS.includes(wanted)) queueMicrotask(() => setStatusFilter(wanted));
+  }, []);
+
+  // Every order is loaded once; the status tabs filter on screen so each tab can show its own count.
+  const countFor = (status: string) =>
+    status === "ALL" ? orders?.length ?? 0 : (orders ?? []).filter((o) => o.status === status).length;
+  const filteredOrders = (orders ?? []).filter((o) => statusFilter === "ALL" || o.status === statusFilter);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
-  const pagedOrders = orders?.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE) ?? [];
+  const pagedOrders = filteredOrders.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-6">
@@ -31,6 +46,26 @@ export default function BuyerOrdersPage() {
         <p className="text-p3 font-body text-pneutral-600 mt-1">
           Every order you&apos;ve placed across sellers on the marketplace.
         </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {STATUS_FILTERS.map((status) => (
+          <button
+            key={status}
+            type="button"
+            onClick={() => {
+              setStatusFilter(status);
+              setCurrentPage(1);
+            }}
+            aria-pressed={statusFilter === status}
+            className={`rounded-full px-4 py-2 text-sm font-semibold ${
+              statusFilter === status ? "bg-primary-900 text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+            }`}
+          >
+            {prettyStatus(status)}
+            {orders !== null && <span className="ml-1.5 opacity-70">{countFor(status)}</span>}
+          </button>
+        ))}
       </div>
 
       {error && (
@@ -51,7 +86,13 @@ export default function BuyerOrdersPage() {
         </div>
       )}
 
-      {!error && orders !== null && orders.length > 0 && (
+      {!error && orders !== null && orders.length > 0 && filteredOrders.length === 0 && (
+        <p className="py-10 text-center text-p3 font-body text-neutral-500">
+          No {prettyStatus(statusFilter).toLowerCase()} orders.
+        </p>
+      )}
+
+      {!error && orders !== null && filteredOrders.length > 0 && (
         <div className="bg-base-white rounded-2xl border border-neutral-100 shadow-sm">
           <div className="overflow-x-auto rounded-2xl">
             <table className="w-full text-left min-w-[640px]">
@@ -104,7 +145,7 @@ export default function BuyerOrdersPage() {
           <div className="flex items-center justify-between text-p4 font-body text-neutral-600 p-4">
             <span>
               Showing {(safePage - 1) * PAGE_SIZE + 1}-
-              {Math.min(safePage * PAGE_SIZE, orders.length)} of {orders.length}
+              {Math.min(safePage * PAGE_SIZE, filteredOrders.length)} of {filteredOrders.length}
             </span>
             <div className="flex items-center gap-2">
               <button

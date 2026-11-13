@@ -423,7 +423,7 @@ function CheckoutPageInner() {
               <Button
                 variant="filled"
                 size="lg"
-                label="Back to RFQ & Quotes"
+                label="Back to Quotes"
                 onClick={() => router.push("/buyer_e8d45a1b/dashboard/rfq")}
               />
             </div>

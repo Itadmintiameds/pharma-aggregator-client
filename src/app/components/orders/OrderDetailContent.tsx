@@ -12,6 +12,7 @@ import { getReturnsByBuyer } from "@/src/services/buyer/returnService";
 import { Order, SellerOrder } from "@/src/types/buyer/order";
 import { ReturnRequest, consumedUnits } from "@/src/types/buyer/returns";
 import ReturnPanel from "./ReturnPanel";
+import { UnitPriceLines, useProductSummaries } from "@/src/app/commonComponents/cardUi";
 import ReturnRequestForm from "./ReturnRequestForm";
 import { proRate } from "@/src/utils/pricing";
 
@@ -50,8 +51,11 @@ function SellerOrderCard({
   returns,
   buyerId,
   onReturnsChanged,
+  isQuote,
 }: {
   sellerOrder: SellerOrder;
+  /** The order was placed at an accepted quote's price, not the listed price. */
+  isQuote: boolean;
   onCancel: (sellerOrderId: string) => void;
   cancelling: boolean;
   // This seller order's returns, oldest first.
@@ -60,6 +64,20 @@ function SellerOrderCard({
   onReturnsChanged: () => void;
 }) {
   const isCancelled = sellerOrder.status === "CANCELLED";
+  // What each item was bought at, next to the product's listed price (for the item rows and the returns).
+  const productSummaries = useProductSummaries(
+    sellerOrder.items.map((i) => i.productId).filter((id): id is string => !!id)
+  );
+  const priceInfo: Record<number, { unitPrice?: number; listedPrice?: number; isQuote: boolean }> = {};
+  sellerOrder.items.forEach((item) => {
+    if (item.orderItemId != null) {
+      priceInfo[item.orderItemId] = {
+        unitPrice: item.unitPriceSnapshot,
+        listedPrice: item.productId ? productSummaries[item.productId]?.listedPrice : undefined,
+        isQuote,
+      };
+    }
+  });
   const currentStepIndex = POST_DELIVERY_STATUSES.has(sellerOrder.status)
     ? FULFILLMENT_STEPS.indexOf("DELIVERED")
     : FULFILLMENT_STEPS.indexOf(sellerOrder.status);
@@ -260,6 +278,15 @@ function SellerOrderCard({
                       <span>₹{item.lineTotal?.toFixed(2)}</span>
                     )}
                   </div>
+                  {item.orderItemId != null && (
+                    <div className="mt-0.5">
+                      <UnitPriceLines
+                        unitPrice={priceInfo[item.orderItemId]?.unitPrice}
+                        listedPrice={priceInfo[item.orderItemId]?.listedPrice}
+                        isQuote={isQuote}
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -269,7 +296,7 @@ function SellerOrderCard({
             <div className="mb-4">
               <p className="text-p3 font-heading font-semibold text-pneutral-900">Returns</p>
               {returns.map((r) => (
-                <ReturnPanel key={r.returnId} returnRequest={r} buyerId={buyerId} onChanged={onReturnsChanged} />
+                <ReturnPanel key={r.returnId} returnRequest={r} buyerId={buyerId} onChanged={onReturnsChanged} priceInfo={priceInfo} />
               ))}
             </div>
           )}
@@ -432,7 +459,7 @@ export default function OrderDetailContent({ orderId, loginRedirectPath }: Order
               href="/buyer_e8d45a1b/dashboard/rfq"
               className="text-p4 font-body text-primary-800 hover:underline"
             >
-              Placed at your accepted quote price — view in RFQ & Quotes
+              Placed at your accepted quote price — view in Quotes
             </Link>
           )}
         </div>
@@ -467,6 +494,7 @@ export default function OrderDetailContent({ orderId, loginRedirectPath }: Order
             cancelling={cancellingId === sellerOrder.sellerOrderId}
             returns={returns.filter((r) => r.sellerOrderId === sellerOrder.sellerOrderId)}
             buyerId={order.buyerId ?? ""}
+            isQuote={order.quoteRequestId != null}
             onReturnsChanged={loadOrder}
             onCancel={async (sellerOrderId) => {
               const reason = (await promptReason("Reason for cancellation")) ?? "";

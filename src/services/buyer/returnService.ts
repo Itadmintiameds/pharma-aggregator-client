@@ -1,6 +1,7 @@
 import axios from "axios";
 import buyerApi from "@/src/lib/buyerApi";
 import { ReturnRequest } from "@/src/types/buyer/returns";
+import { fetchAllPages } from "@/src/utils/fetchAllPages";
 
 interface ApiResponseWrapper<T> {
   status: string;
@@ -47,13 +48,8 @@ export async function requestReturn(input: ReturnRequestInput): Promise<ReturnRe
 
 
 export async function getReturnsByBuyer(buyerId: string, status?: string): Promise<ReturnRequest[]> {
-  // order-service returns a Spring Page ({ content: [...] }), not a bare array.
-  const response = await buyerApi.get<ApiResponseWrapper<ReturnRequest[] | { content?: ReturnRequest[] }>>(
-    `/returns/buyer/${buyerId}`,
-    { params: { size: 100, ...(status ? { status } : {}) } }
-  );
-  const data = response.data.data;
-  return Array.isArray(data) ? data : data?.content ?? [];
+  // order-service returns a Spring Page, so read every page - not just the first 100.
+  return fetchAllPages<ReturnRequest>(`/returns/buyer/${buyerId}`, status ? { status } : {}, buyerApi);
 }
 
 async function transition(returnId: number, action: string, body: Record<string, unknown>, fallback: string) {

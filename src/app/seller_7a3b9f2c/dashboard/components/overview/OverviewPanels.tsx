@@ -35,11 +35,24 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-10 text-center text-p4 font-body text-neutral-500">{children}</p>;
 }
 
-export function SalesTrendPanel({ stats, loading }: { stats: DashboardStats; loading: boolean }) {
+export function SalesTrendPanel({
+  stats,
+  loading,
+  title = "Sales over time",
+  subtitle = "Order value (line) and number of orders (bars), cancelled orders excluded",
+  valueLabel = "Order value",
+}: {
+  stats: Pick<DashboardStats, "trend">;
+  loading: boolean;
+  title?: string;
+  subtitle?: string;
+  /** What the line measures in the tooltip. */
+  valueLabel?: string;
+}) {
   const hasData = stats.trend.some((p) => p.orders > 0);
   return (
     <section className={cardClass}>
-      <PanelTitle title="Sales over time" subtitle="Order value (line) and number of orders (bars), cancelled orders excluded" />
+      <PanelTitle title={title} subtitle={subtitle} />
       {loading ? (
         <div className="h-[280px] animate-pulse rounded-xl bg-neutral-100" />
       ) : !hasData ? (
@@ -62,7 +75,7 @@ export function SalesTrendPanel({ stats, loading }: { stats: DashboardStats; loa
               <Tooltip
                 cursor={{ fill: "rgba(0,0,0,0.03)" }}
                 formatter={(value, name) =>
-                  name === "Sales" ? [formatMoney(Number(value)), "Order value"] : [String(value), "Orders"]
+                  name === "Sales" ? [formatMoney(Number(value)), valueLabel] : [String(value), "Orders"]
                 }
               />
               <Bar yAxisId="orders" dataKey="orders" name="Orders" fill="#DED0FE" radius={[4, 4, 0, 0]} maxBarSize={28} />
@@ -75,11 +88,19 @@ export function SalesTrendPanel({ stats, loading }: { stats: DashboardStats; loa
   );
 }
 
-export function OrderStatusPanel({ stats, loading }: { stats: DashboardStats; loading: boolean }) {
+export function OrderStatusPanel({
+  stats,
+  loading,
+  subtitle = "Orders received in this period",
+}: {
+  stats: Pick<DashboardStats, "statusBreakdown">;
+  loading: boolean;
+  subtitle?: string;
+}) {
   const total = stats.statusBreakdown.reduce((sum, row) => sum + row.count, 0);
   return (
     <section className={cardClass}>
-      <PanelTitle title="Orders by status" subtitle="Orders received in this period" />
+      <PanelTitle title="Orders by status" subtitle={subtitle} />
       {loading ? (
         <div className="h-[200px] animate-pulse rounded-xl bg-neutral-100" />
       ) : total === 0 ? (
@@ -109,26 +130,38 @@ export function TopProductsPanel({
   stats,
   products,
   loading,
+  title = "Top selling products",
+  subtitle = "By order value in this period",
+  unitsLabel = "units sold",
+  emptyText = "No sales in this period yet.",
+  linkHref = "/seller_7a3b9f2c/products",
+  linkLabel = "All products",
 }: {
-  stats: DashboardStats;
+  stats: Pick<DashboardStats, "topProducts">;
   products: Record<string, ProductSummary>;
   loading: boolean;
+  title?: string;
+  subtitle?: string;
+  unitsLabel?: string;
+  emptyText?: string;
+  linkHref?: string;
+  linkLabel?: string;
 }) {
   return (
     <section className={cardClass}>
       <PanelTitle
-        title="Top selling products"
-        subtitle="By order value in this period"
+        title={title}
+        subtitle={subtitle}
         action={
-          <Link href="/seller_7a3b9f2c/products" className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">
-            All products
+          <Link href={linkHref} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">
+            {linkLabel}
           </Link>
         }
       />
       {loading ? (
         <div className="h-[200px] animate-pulse rounded-xl bg-neutral-100" />
       ) : stats.topProducts.length === 0 ? (
-        <Empty>No sales in this period yet.</Empty>
+        <Empty>{emptyText}</Empty>
       ) : (
         <ul className="divide-y divide-neutral-100">
           {stats.topProducts.map((product, index) => (
@@ -137,7 +170,7 @@ export function TopProductsPanel({
               <ProductThumb src={products[product.productId]?.image} alt={product.name} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-p3 font-body font-semibold text-neutral-900">{product.name}</p>
-                <p className="text-xs text-neutral-500">{product.units.toLocaleString("en-IN")} units sold</p>
+                <p className="text-xs text-neutral-500">{product.units.toLocaleString("en-IN")} {unitsLabel}</p>
               </div>
               <p className="text-p3 font-body font-semibold text-neutral-900">{formatMoney(product.revenue)}</p>
             </li>
