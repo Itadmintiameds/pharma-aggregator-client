@@ -104,7 +104,7 @@ const SellerHeader = ({ currentView, setCurrentView, approved = true }: SellerHe
         className="flex items-end justify-between"
       >
         {/* Logo */}
-        <Link href="/seller_7a3b9f2c/dashboard">
+        <Link href="/" title="Go to TiaMeds home page">
           <Image
             src="/assets/images/tiameds.logo2.png"
             alt="TiaMeds"

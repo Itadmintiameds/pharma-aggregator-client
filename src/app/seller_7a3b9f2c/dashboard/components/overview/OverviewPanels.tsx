@@ -51,14 +51,16 @@ export function SalesTrendPanel({
 }) {
   const hasData = stats.trend.some((p) => p.orders > 0);
   return (
-    <section className={cardClass}>
+    <section className={`${cardClass} flex h-full flex-col`}>
       <PanelTitle title={title} subtitle={subtitle} />
       {loading ? (
-        <div className="h-[280px] animate-pulse rounded-xl bg-neutral-100" />
+        <div className="min-h-[280px] flex-1 animate-pulse rounded-xl bg-neutral-100" />
       ) : !hasData ? (
         <Empty>No orders in this period yet.</Empty>
       ) : (
-        <div className="h-[280px]">
+        // The chart grows to the height of the neighbouring "Orders by status" card, so the row has no empty gap.
+        <div className="relative min-h-[280px] flex-1">
+          <div className="absolute inset-0">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={stats.trend} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EAEAEF" />
@@ -82,6 +84,7 @@ export function SalesTrendPanel({
               <Line yAxisId="sales" type="monotone" dataKey="sales" name="Sales" stroke="#5B1A9B" strokeWidth={2.5} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
+          </div>
         </div>
       )}
     </section>
