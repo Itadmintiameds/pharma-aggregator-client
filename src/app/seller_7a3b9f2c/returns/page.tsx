@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ProductThumb, StatusBadge, prettyStatus } from "../components/sellerCardUi";
 import { getProductsByIds } from "@/src/services/buyer/buyerProductService";
 import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
 import { decideReturn, getSellerReturns, receiveReturn } from "@/src/services/seller/sellerReturnService";
@@ -251,36 +252,6 @@ function ReceiveForm({
   );
 }
 
-const PLACEHOLDER_IMAGE = "/icons/Tumbnail.svg";
-
-const prettyStatus = (status: string) =>
-  status === "ALL" ? "All" : status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, " ");
-
-const STATUS_STYLES: Record<string, string> = {
-  REQUESTED: "bg-amber-50 text-amber-700 ring-amber-200",
-  APPROVED: "bg-blue-50 text-blue-700 ring-blue-200",
-  SHIPPED: "bg-indigo-50 text-indigo-700 ring-indigo-200",
-  OUT_FOR_DELIVERY: "bg-indigo-50 text-indigo-700 ring-indigo-200",
-  RECEIVED: "bg-teal-50 text-teal-700 ring-teal-200",
-  REFUNDED: "bg-green-50 text-green-700 ring-green-200",
-  CLOSED: "bg-red-50 text-red-700 ring-red-200",
-  REJECTED: "bg-red-50 text-red-700 ring-red-200",
-  CANCELLED: "bg-neutral-100 text-neutral-600 ring-neutral-200",
-};
-
-function ProductThumb({ src, alt }: { src?: string; alt: string }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={!src || failed ? PLACEHOLDER_IMAGE : src}
-      alt={alt}
-      onError={() => setFailed(true)}
-      className="h-16 w-16 shrink-0 rounded-lg border border-neutral-200 bg-neutral-50 object-contain"
-    />
-  );
-}
-
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-4">
@@ -330,13 +301,7 @@ function ReturnCard({
             {returnRequest.requestedAt ? ` · ${new Date(returnRequest.requestedAt).toLocaleString()}` : ""}
           </p>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${
-            STATUS_STYLES[status] ?? "bg-neutral-100 text-neutral-700 ring-neutral-200"
-          }`}
-        >
-          {prettyStatus(status)}
-        </span>
+        <StatusBadge status={status} />
       </div>
 
       <ul className="divide-y divide-neutral-100 px-6">
