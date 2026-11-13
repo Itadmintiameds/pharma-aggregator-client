@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { LogOut, LayoutDashboard, User, ChevronDown } from "lucide-react";
 import Button from "@/src/app/commonComponents/Button";
 import SearchBox from "./SearchBox";
+import PrimaryNav from "./PrimaryNav";
 import ProfileProgressRing from "@/src/app/commonComponents/ProfileProgressRing";
 import { useCart } from "@/src/context/CartContext";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
@@ -20,7 +21,6 @@ interface LandingHeaderProps {
 const LandingHeader = ({ searchQuery }: LandingHeaderProps = {}) => {
     const { totalItems } = useCart();
     const router = useRouter();
-    const pathname = usePathname();
     const [buyerEmail, setBuyerEmail] = useState<string | null>(() =>
         typeof window !== "undefined" ? buyerAuthService.getCurrentUser()?.username ?? null : null
     );
@@ -72,29 +72,7 @@ const LandingHeader = ({ searchQuery }: LandingHeaderProps = {}) => {
                     </Link>
 
                     {/* Right Navigation */}
-                    <nav aria-label="Primary" className="flex items-center gap-1 rounded-full bg-neutral-50 p-1">
-                        {[
-                            { label: "Home", href: "/" },
-                            { label: "About", href: "/about" },
-                            { label: "Contact", href: "/contact" },
-                        ].map((item) => {
-                            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-                            return (
-                                <Link
-                                    key={item.label}
-                                    href={item.href}
-                                    aria-current={active ? "page" : undefined}
-                                    className={`rounded-full px-5 py-2 text-[15px] font-body font-semibold transition-colors ${
-                                        active
-                                            ? "bg-primary-900 text-white shadow-sm"
-                                            : "text-neutral-700 hover:bg-primary-50 hover:text-primary-800"
-                                    }`}
-                                >
-                                    {item.label}
-                                </Link>
-                            );
-                        })}
-                    </nav>
+                    <PrimaryNav />
                 </div>
             </div>
 

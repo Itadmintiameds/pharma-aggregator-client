@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { FiMenu, FiX, FiLogOut } from "react-icons/fi";
+import PrimaryNav from "@/src/app/components/landingPage/PrimaryNav";
 import { sellerAuthService } from "@/src/services/seller/authService";
 
 
@@ -69,19 +70,7 @@ const Header = () => {
             {/* ================= DESKTOP NAVIGATION ================= */}
             <div className="hidden lg:flex items-center gap-6">
 
-              {[
-                { label: "Home", href: "/" },
-                { label: "About", href: "/about" },
-                { label: "Contact", href: "/contact" },
-              ].map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="text-p3 font-body font-semibold text-neutral-700 hover:text-primary-800 transition-colors"
-                >
-                  {item.label}
-                </Link>
-              ))}
+              <PrimaryNav />
 
               {isLoggedIn && (
                 <button
