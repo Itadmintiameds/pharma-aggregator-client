@@ -7,12 +7,15 @@ export default function PriceFilter({
   initialMax,
   onApply,
   disabled,
+  hideTitle = false,
 }: {
   initialMin: string;
   initialMax: string;
   onApply: (priceMin: string, priceMax: string) => void;
   /** True for visitors who are not logged in: prices are hidden from them, so they cannot filter by price. */
   disabled: boolean;
+  /** The caller already shows a "Price" heading (for instance a collapsible section title). */
+  hideTitle?: boolean;
 }) {
   const [minInput, setMinInput] = useState(initialMin);
   const [maxInput, setMaxInput] = useState(initialMax);
@@ -39,7 +42,7 @@ export default function PriceFilter({
 
   return (
     <section>
-      <h3 className="text-sm font-semibold text-neutral-900 mb-2">Price (₹)</h3>
+      {!hideTitle && <h3 className="text-sm font-semibold text-neutral-900 mb-2">Price (₹)</h3>}
       <div className="flex items-center gap-2">
         <input
           type="number"

@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FiSearch, FiX } from "react-icons/fi";
-import ProductCard from "@/src/app/components/landingPage/ProductCard";
-import PriceFilter from "@/src/app/components/search/PriceFilter";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 import {
   isRequestCancelled,
@@ -12,46 +10,75 @@ import {
 } from "@/src/services/buyer/searchService";
 import { SearchFacet, SearchResultPage, SearchSort } from "@/src/types/buyer/search";
 import { STOREFRONT_CATEGORIES } from "@/src/utils/storefrontCategories";
+import CatalogProductCard from "../components/CatalogProductCard";
+import SortDropdown, { SortOption } from "../components/SortDropdown";
+import CatalogFilterSidebar, { CatalogFilters, FACET_GROUPS, NO_FILTERS } from "../components/CatalogFilterSidebar";
 
 const PAGE_SIZE = 12;
 // The search API rejects page * size > 10,000.
 const MAX_WINDOW = 10000;
 
-type FacetKey = "therapeuticCategory" | "dosageForm" | "packType" | "manufacturerName";
-
-// Facet groups shown in the sidebar: which facet, what to call it, and which API parameter it filters.
-const FACET_GROUPS: { field: FacetKey; label: string }[] = [
-  { field: "therapeuticCategory", label: "Therapeutic area" },
-  { field: "dosageForm", label: "Dosage form" },
-  { field: "packType", label: "Pack type" },
-  { field: "manufacturerName", label: "Manufacturer" },
-];
-
-interface Filters {
-  categoryId: string;
-  therapeuticCategory: string;
-  dosageForm: string;
-  packType: string;
-  manufacturerName: string;
-  priceMin: string;
-  priceMax: string;
-  inStockOnly: boolean;
+function CardSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+      <div className="h-48 animate-pulse bg-neutral-100" />
+      <div className="space-y-3 p-4">
+        <div className="h-3 w-1/3 animate-pulse rounded bg-neutral-100" />
+        <div className="h-4 w-4/5 animate-pulse rounded bg-neutral-100" />
+        <div className="h-3 w-full animate-pulse rounded bg-neutral-100" />
+        <div className="h-6 w-1/3 animate-pulse rounded bg-neutral-100" />
+        <div className="h-10 w-full animate-pulse rounded-xl bg-neutral-100" />
+      </div>
+    </div>
+  );
 }
 
-const NO_FILTERS: Filters = {
-  categoryId: "",
-  therapeuticCategory: "",
-  dosageForm: "",
-  packType: "",
-  manufacturerName: "",
-  priceMin: "",
-  priceMax: "",
-  inStockOnly: false,
-};
+function Pager({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (page: number) => void }) {
+  // current page, its neighbours, and first/last, with gaps collapsed
+  const wanted = new Set<number>([1, totalPages, page - 1, page, page + 1]);
+  const visible = [...wanted].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+  return (
+    <nav className="mt-8 flex flex-wrap items-center justify-center gap-1" aria-label="Pagination">
+      <button
+        type="button"
+        onClick={() => onChange(page - 1)}
+        disabled={page <= 1}
+        className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+      >
+        Previous
+      </button>
+      {visible.map((p, index) => (
+        <span key={p} className="flex items-center gap-1">
+          {index > 0 && p - visible[index - 1] > 1 && <span className="px-1 text-neutral-400">…</span>}
+          <button
+            type="button"
+            onClick={() => onChange(p)}
+            aria-current={p === page ? "page" : undefined}
+            className={`min-w-9 rounded-lg border px-3 py-1.5 text-sm font-medium ${
+              p === page
+                ? "border-primary-800 bg-primary-800 text-white"
+                : "border-neutral-300 text-neutral-700 hover:bg-neutral-100"
+            }`}
+          >
+            {p}
+          </button>
+        </span>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange(page + 1)}
+        disabled={page >= totalPages}
+        className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+      >
+        Next
+      </button>
+    </nav>
+  );
+}
 
 export default function BuyerCatalogPage() {
   const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [filters, setFilters] = useState<CatalogFilters>(NO_FILTERS);
   const [sort, setSort] = useState<SearchSort | "default">("default");
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
@@ -105,8 +132,17 @@ export default function BuyerCatalogPage() {
   const error = loading ? "" : result.error;
   const totalPages = data ? Math.min(data.totalPages, Math.floor(MAX_WINDOW / PAGE_SIZE)) : 0;
 
+  const sortOptions: SortOption[] = [
+    debouncedQuery
+      ? { value: "default", label: "Best match", hint: "Most relevant to your search" }
+      : { value: "default", label: "Newest first", hint: "Recently listed products" },
+    ...(debouncedQuery ? [{ value: "newest", label: "Newest first", hint: "Recently listed products" }] : []),
+    { value: "price_asc", label: "Price: low to high", hint: "Cheapest first" },
+    { value: "price_desc", label: "Price: high to low", hint: "Most expensive first" },
+  ];
+
   /** Any filter change returns to page 1. */
-  const updateFilters = (patch: Partial<Filters>) => {
+  const updateFilters = (patch: Partial<CatalogFilters>) => {
     setFilters((previous) => ({ ...previous, ...patch }));
     setPage(1);
   };
@@ -123,7 +159,7 @@ export default function BuyerCatalogPage() {
     return counts;
   }, [facetByField]);
 
-  const activeFilters: { key: string; label: string; clear: Partial<Filters> }[] = [];
+  const activeFilters: { key: string; label: string; clear: Partial<CatalogFilters> }[] = [];
   if (filters.categoryId) {
     const name = STOREFRONT_CATEGORIES.find((c) => String(c.id) === filters.categoryId)?.name ?? "Category";
     activeFilters.push({ key: "category", label: name, clear: { categoryId: "" } });
@@ -140,193 +176,168 @@ export default function BuyerCatalogPage() {
     });
   }
   if (filters.inStockOnly) activeFilters.push({ key: "stock", label: "In stock only", clear: { inStockOnly: false } });
-
-  const optionClass = (selected: boolean) =>
-    `w-full flex items-center justify-between gap-2 text-left text-sm rounded-md px-2 py-1.5 transition-colors ${
-      selected ? "bg-primary-800 text-white" : "text-neutral-700 hover:bg-neutral-100"
-    }`;
-
-  const sidebar = (
-    <div className="space-y-6">
-      <section>
-        <h3 className="text-sm font-semibold text-neutral-900 mb-2">Category</h3>
-        <ul className="space-y-1">
-          {STOREFRONT_CATEGORIES.map((category) => {
-            const selected = filters.categoryId === String(category.id);
-            const count = categoryCounts.get(category.facetName);
-            return (
-              <li key={category.id}>
-                <button
-                  onClick={() => updateFilters({ categoryId: selected ? "" : String(category.id) })}
-                  className={optionClass(selected)}
-                >
-                  <span className="truncate">{category.name}</span>
-                  {count !== undefined && (
-                    <span className={selected ? "text-white/80" : "text-neutral-400"}>{count}</span>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
-      {FACET_GROUPS.map((group) => {
-        const values = facetByField.get(group.field)?.values ?? [];
-        if (values.length === 0) return null;
-        const selectedValue = filters[group.field];
-        return (
-          <section key={group.field}>
-            <h3 className="text-sm font-semibold text-neutral-900 mb-2">{group.label}</h3>
-            <ul className="space-y-1 max-h-56 overflow-y-auto pr-1">
-              {values.map((v) => {
-                const selected = selectedValue === v.value;
-                return (
-                  <li key={v.value}>
-                    <button
-                      onClick={() => updateFilters({ [group.field]: selected ? "" : v.value })}
-                      className={optionClass(selected)}
-                    >
-                      <span className="truncate">{v.value}</span>
-                      <span className={selected ? "text-white/80" : "text-neutral-400"}>{v.count}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        );
-      })}
-
-      {/* keyed on the applied range so the boxes reset when it changes from elsewhere (chip, clear all) */}
-      <PriceFilter
-        disabled={false}
-        key={`${filters.priceMin}-${filters.priceMax}`}
-        initialMin={filters.priceMin}
-        initialMax={filters.priceMax}
-        onApply={(priceMin, priceMax) => updateFilters({ priceMin, priceMax })}
-      />
-
-      <label className="flex items-center gap-2 text-sm text-neutral-800 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={filters.inStockOnly}
-          onChange={(e) => updateFilters({ inStockOnly: e.target.checked })}
-          className="h-4 w-4 accent-primary-800"
-        />
-        In stock only
-      </label>
-    </div>
-  );
+  // The sidebar counts its own filters; "in stock" is a switch in the toolbar.
+  const sidebarActiveCount = activeFilters.filter((f) => f.key !== "stock").length;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <div>
         <h2 className="text-h4 font-heading font-bold text-pneutral-900">Browse Catalog</h2>
-        <p className="text-p3 font-body text-pneutral-600 mt-1">
+        <p className="mt-1 text-p3 font-body text-pneutral-600">
           Search and browse every product listed by approved sellers.
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[240px]">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-          <input
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Search by product, brand or manufacturer"
-            className="w-full pl-10 pr-10 py-2.5 border border-neutral-300 rounded-lg text-sm bg-white"
-          />
-          {query && (
-            <button
-              onClick={() => {
-                setQuery("");
-                setPage(1);
-              }}
-              aria-label="Clear search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"
-            >
-              <FiX />
-            </button>
-          )}
-        </div>
-
-        <select
-          value={sort}
+      <div className="relative">
+        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+        <input
+          value={query}
           onChange={(e) => {
-            setSort(e.target.value as SearchSort | "default");
+            setQuery(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2.5 border border-neutral-300 rounded-lg text-sm bg-white"
-        >
-          <option value="default">{debouncedQuery ? "Best match" : "Newest first"}</option>
-          <option value="newest">Newest first</option>
-          <option value="price_asc">Price: low to high</option>
-          <option value="price_desc">Price: high to low</option>
-        </select>
-
-        <button
-          onClick={() => setShowFilters((open) => !open)}
-          className="lg:hidden rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-700"
-        >
-          {showFilters ? "Hide filters" : `Filters${activeFilters.length ? ` (${activeFilters.length})` : ""}`}
-        </button>
+          placeholder="Search by product, brand or manufacturer"
+          aria-label="Search products"
+          className="h-12 w-full rounded-xl border border-neutral-300 bg-white pl-11 pr-11 text-sm shadow-sm focus:border-primary-600 focus:outline-none"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setPage(1);
+            }}
+            aria-label="Clear search"
+            className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100"
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
 
-      {data && !error && (
-        <p className="text-p4 font-body text-neutral-500 -mt-3">
-          {data.totalResults.toLocaleString("en-IN")} product{data.totalResults === 1 ? "" : "s"}
-          {debouncedQuery ? ` for “${debouncedQuery}”` : ""}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 shadow-sm">
+        <p className="text-p4 font-body text-neutral-600" aria-live="polite">
+          {data && !error ? (
+            <>
+              <span className="font-semibold text-neutral-900">{data.totalResults.toLocaleString("en-IN")}</span>{" "}
+              product{data.totalResults === 1 ? "" : "s"}
+              {debouncedQuery ? ` for “${debouncedQuery}”` : ""}
+            </>
+          ) : (
+            " "
+          )}
         </p>
-      )}
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={filters.inStockOnly}
+            onClick={() => updateFilters({ inStockOnly: !filters.inStockOnly })}
+            className="flex items-center gap-2 text-p4 font-medium text-neutral-700"
+          >
+            <span
+              className={`relative h-6 w-11 rounded-full transition-colors ${filters.inStockOnly ? "bg-primary-800" : "bg-neutral-300"}`}
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                  filters.inStockOnly ? "left-[22px]" : "left-0.5"
+                }`}
+              />
+            </span>
+            In stock only
+          </button>
+
+          <span className="hidden h-6 w-px bg-neutral-200 sm:block" aria-hidden />
+
+          <SortDropdown
+            // Without a search the default already is "Newest first", so an explicit "newest" maps onto it.
+            value={sort === "newest" && !debouncedQuery ? "default" : sort}
+            options={sortOptions}
+            onChange={(value) => {
+              setSort(value as SearchSort | "default");
+              setPage(1);
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => setShowFilters((open) => !open)}
+            aria-expanded={showFilters}
+            className="flex h-10 items-center gap-2 rounded-xl border border-neutral-300 bg-white px-3 text-sm font-medium text-neutral-800 shadow-sm lg:hidden"
+          >
+            <SlidersHorizontal size={16} />
+            {showFilters ? "Hide filters" : "Filters"}
+            {sidebarActiveCount > 0 && (
+              <span className="rounded-full bg-primary-900 px-1.5 text-xs font-semibold text-white">{sidebarActiveCount}</span>
+            )}
+          </button>
+        </div>
+      </div>
 
       {activeFilters.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 -mt-2">
+        <div className="flex flex-wrap items-center gap-2">
           {activeFilters.map((filter) => (
             <button
               key={filter.key}
+              type="button"
               onClick={() => updateFilters(filter.clear)}
-              className="inline-flex items-center gap-1 rounded-full bg-primary-50 text-primary-800 text-xs px-3 py-1 hover:bg-primary-100"
+              className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-800 hover:bg-primary-100"
               aria-label={`Remove filter ${filter.label}`}
             >
-              {filter.label} <span aria-hidden>×</span>
+              {filter.label} <X size={12} aria-hidden />
             </button>
           ))}
           <button
+            type="button"
             onClick={() => updateFilters(NO_FILTERS)}
-            className="text-xs text-neutral-500 underline hover:text-neutral-800"
+            className="text-xs font-semibold text-neutral-500 underline hover:text-neutral-800"
           >
             Clear all
           </button>
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        <aside className={`${showFilters ? "block" : "hidden"} lg:block lg:w-64 shrink-0`}>{sidebar}</aside>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <aside className={`${showFilters ? "block" : "hidden"} w-full shrink-0 lg:block lg:w-72`}>
+          <CatalogFilterSidebar
+            filters={filters}
+            facetByField={facetByField}
+            categoryCounts={categoryCounts}
+            activeCount={sidebarActiveCount}
+            onChange={updateFilters}
+            onClear={() => updateFilters({ ...NO_FILTERS, inStockOnly: filters.inStockOnly })}
+          />
+        </aside>
 
-        <section className="flex-1 min-w-0">
+        <section className="min-w-0 flex-1">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
               <p className="text-p3 font-body text-red-700">{error}</p>
             </div>
           )}
 
           {!data && loading && (
-            <div className="flex justify-center py-16">
-              <div className="w-10 h-10 rounded-full border-4 border-primary-200 border-t-primary-700 animate-spin" />
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }, (_, i) => (
+                <CardSkeleton key={i} />
+              ))}
             </div>
           )}
 
           {data && data.results.length === 0 && !loading && !error && (
-            <div className="py-10 text-center">
-              <p className="text-p3 font-body text-neutral-500">No products found.</p>
+            <div className="rounded-2xl border border-neutral-200 bg-white p-12 text-center shadow-sm">
+              <p className="text-p2 font-medium text-neutral-800">No products found</p>
+              <p className="mt-1 text-p4 text-neutral-500">
+                {activeFilters.length > 0
+                  ? "Try removing a filter, or check the spelling of your search."
+                  : "Check the spelling, or try a brand, molecule or therapeutic area."}
+              </p>
               {activeFilters.length > 0 && (
                 <button
+                  type="button"
                   onClick={() => updateFilters(NO_FILTERS)}
-                  className="mt-3 text-sm text-primary-800 underline"
+                  className="mt-4 rounded-lg bg-primary-900 px-4 py-2 text-sm font-semibold text-white"
                 >
                   Clear all filters
                 </button>
@@ -336,40 +347,27 @@ export default function BuyerCatalogPage() {
 
           {data && data.results.length > 0 && (
             <div className={`transition-opacity ${loading ? "opacity-60" : "opacity-100"}`}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {data.results.map((item, index) => (
-                  <ProductCard
+                  <CatalogProductCard
                     key={item.productId}
                     product={searchResultToBuyerProduct(item)}
                     searchContext={
-                      data.searchId
-                        ? { searchId: data.searchId, position: (page - 1) * PAGE_SIZE + index }
-                        : undefined
+                      data.searchId ? { searchId: data.searchId, position: (page - 1) * PAGE_SIZE + index } : undefined
                     }
                   />
                 ))}
               </div>
 
               {totalPages > 1 && (
-                <div className="flex items-center justify-end gap-3 mt-6">
-                  <button
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                    className="px-4 py-2 border border-neutral-300 rounded-lg text-sm font-semibold disabled:opacity-40"
-                  >
-                    Previous
-                  </button>
-                  <span className="text-sm text-neutral-600">
-                    Page {page} of {totalPages}
-                  </span>
-                  <button
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                    className="px-4 py-2 border border-neutral-300 rounded-lg text-sm font-semibold disabled:opacity-40"
-                  >
-                    Next
-                  </button>
-                </div>
+                <Pager
+                  page={page}
+                  totalPages={totalPages}
+                  onChange={(next) => {
+                    setPage(next);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                />
               )}
             </div>
           )}

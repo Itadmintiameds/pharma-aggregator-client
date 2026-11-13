@@ -11,6 +11,7 @@ import {
 } from "@/src/services/buyer/quoteRequestService";
 import { QuoteRequest } from "@/src/types/quote/quoteRequest";
 import { useBuyerOnboardingStatus } from "@/src/hooks/useBuyerOnboardingStatus";
+import { useBuyerCartDrawer } from "../../context/BuyerCartDrawerContext";
 import {
   ProductSummary,
   ProductThumb,
@@ -237,6 +238,7 @@ function QuoteCard({
 
 export default function BuyerRfqPage() {
   const router = useRouter();
+  const { openQuoteOrder } = useBuyerCartDrawer();
   const { status: onboardingStatus } = useBuyerOnboardingStatus();
   const [requests, setRequests] = useState<QuoteRequest[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -297,14 +299,22 @@ export default function BuyerRfqPage() {
   // finish that first instead of hitting a checkout page that would just
   // fail. Overview is where BuyerOnboardingGate renders the registration
   // wizard for any non-approved status.
-  const handlePlaceOrder = (quoteRequestId: number) => {
+  // The order is placed in the cart drawer, over this page, instead of on the separate /checkout page.
+  const handlePlaceOrder = (request: QuoteRequest) => {
     if (onboardingStatus !== "approved") {
       toast.info("Complete your organization registration to place this order.");
       router.push("/buyer_e8d45a1b/dashboard");
       return;
     }
-    router.push(`/checkout?quoteRequestId=${quoteRequestId}`);
+    openQuoteOrder(request);
   };
+
+  useEffect(() => {
+    // The drawer announces a placed quote order, so this list moves the quote to "Order placed" without a reload.
+    const onQuotesChanged = () => load();
+    window.addEventListener("buyer-quotes-changed", onQuotesChanged);
+    return () => window.removeEventListener("buyer-quotes-changed", onQuotesChanged);
+  }, [load]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -373,7 +383,7 @@ export default function BuyerRfqPage() {
               onReject={() =>
                 act(request.quoteRequestId, () => rejectQuoteRequest(request.quoteRequestId), "Quote rejected", "Failed to reject quote")
               }
-              onPlaceOrder={() => handlePlaceOrder(request.quoteRequestId)}
+              onPlaceOrder={() => handlePlaceOrder(request)}
             />
           ))}
         </div>

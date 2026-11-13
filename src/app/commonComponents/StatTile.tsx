@@ -24,6 +24,8 @@ interface StatTileProps {
   tone?: Tone;
   /** Makes the whole tile a link (used by the "needs your attention" tiles). */
   href?: string;
+  /** Makes the whole tile a button instead (for actions that open a panel rather than a page). */
+  onClick?: () => void;
   loading?: boolean;
   /** The data behind this tile could not be loaded. */
   unavailable?: boolean;
@@ -50,6 +52,7 @@ export default function StatTile({
   trend,
   tone = "default",
   href,
+  onClick,
   loading,
   unavailable,
 }: StatTileProps) {
@@ -81,10 +84,18 @@ export default function StatTile({
     </>
   );
 
-  const className = `relative block rounded-2xl border bg-white p-5 shadow-sm transition-shadow ${styles.card} ${
-    href ? "hover:shadow-md" : ""
+  const className = `relative block w-full rounded-2xl border bg-white p-5 text-left shadow-sm transition-shadow ${styles.card} ${
+    href || onClick ? "hover:shadow-md" : ""
   }`;
 
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={className}>
+        {body}
+        <ChevronRight size={16} className="absolute bottom-4 right-4 text-neutral-300" aria-hidden />
+      </button>
+    );
+  }
   if (href) {
     return (
       <Link href={href} className={className}>

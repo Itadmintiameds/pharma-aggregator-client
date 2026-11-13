@@ -36,6 +36,7 @@ import {
   TopProductsPanel,
 } from "@/src/app/seller_7a3b9f2c/dashboard/components/overview/OverviewPanels";
 import DocumentExpiryCard from "./DocumentExpiryCard";
+import { useBuyerCartDrawer } from "../../context/BuyerCartDrawerContext";
 
 const BASE = "/buyer_e8d45a1b/dashboard";
 const DOCUMENT_WARN_DAYS = 60;
@@ -150,6 +151,7 @@ function RecentOrdersPanel({
 export default function BuyerOverview({ documents }: { documents?: RawTempBuyerDocument[] }) {
   const { data, loading, failed, failedLabels, lastUpdated, refresh } = useBuyerDashboardData();
   const { totalItems: cartItems, totalPrice: cartValue } = useCart();
+  const { openCart } = useBuyerCartDrawer();
   const [range, setRange] = useState<RangeKey>("30d");
 
   // Product images for the lists, and current listed prices to estimate what quotation orders saved.
@@ -306,7 +308,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             value={String(cartItems)}
             icon={<ShoppingCart size={18} />}
             hint={cartItems > 0 ? `Worth ${formatMoney(cartValue)} — ready to check out` : "Your cart is empty"}
-            href="/cart"
+            onClick={openCart}
             loading={false}
           />
         </div>

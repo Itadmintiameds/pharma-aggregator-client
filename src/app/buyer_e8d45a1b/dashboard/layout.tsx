@@ -7,6 +7,8 @@ import { useBuyerOnboardingStatus } from "@/src/hooks/useBuyerOnboardingStatus";
 import BuyerSidebar from "./components/BuyerSidebar";
 import BuyerHeader from "./components/BuyerHeader";
 import BuyerOnboardingGate from "./components/BuyerOnboardingGate";
+import BuyerCartDrawer from "./components/BuyerCartDrawer";
+import { BuyerCartDrawerProvider } from "../context/BuyerCartDrawerContext";
 
 // Dashboard shell shared by every /buyer_e8d45a1b/dashboard/* route (Overview,
 // Profile, Catalog, Orders, ...): auth guard + sidebar + header + the
@@ -44,13 +46,17 @@ export default function BuyerDashboardLayout({
   if (!isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen bg-secondary-50">
-      <BuyerSidebar approved={status === "approved"} />
-      <BuyerHeader tempBuyer={tempBuyer} status={status} />
+    <BuyerCartDrawerProvider>
+      <div className="min-h-screen bg-secondary-50">
+        <BuyerSidebar approved={status === "approved"} />
+        <BuyerHeader tempBuyer={tempBuyer} status={status} />
 
-      <main className="ml-64 p-6" style={{ marginTop: 74 }}>
-        <BuyerOnboardingGate>{children}</BuyerOnboardingGate>
-      </main>
-    </div>
+        <main className="ml-64 p-6" style={{ marginTop: 74 }}>
+          <BuyerOnboardingGate>{children}</BuyerOnboardingGate>
+        </main>
+      </div>
+      {/* The cart, delivery and order placement all happen here, over the page - never on a separate site page. */}
+      <BuyerCartDrawer />
+    </BuyerCartDrawerProvider>
   );
 }
