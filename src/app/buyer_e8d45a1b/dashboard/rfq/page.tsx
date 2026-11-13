@@ -80,12 +80,16 @@ function QuoteCard({
   const raised = formatDate(request.createdAt);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+    <div
+      id={`quote-${request.quoteRequestId}`}
+      className="scroll-mt-24 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm"
+    >
       <div className="flex items-start gap-4 border-b border-neutral-100 px-6 py-4">
         <ProductThumb src={product?.image} alt={request.productName} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-p2 font-heading font-semibold text-pneutral-900">{request.productName}</p>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-p4 font-body text-neutral-500">
+            <span className="font-semibold text-neutral-700">Quote #{request.quoteRequestId}</span>
             <span className="rounded-full bg-secondary-100 px-2.5 py-0.5 text-xs font-medium text-secondary-800">
               {TYPE_LABELS[request.requestType] ?? request.requestType}
             </span>
@@ -258,6 +262,14 @@ export default function BuyerRfqPage() {
     const wanted = new URLSearchParams(window.location.search).get("status");
     if (wanted && STATUS_FILTERS.includes(wanted)) queueMicrotask(() => setStatusFilter(wanted));
   }, []);
+
+  useEffect(() => {
+    // A link such as /dashboard/rfq#quote-4 (from an order) jumps to that quote once the list has loaded.
+    if (requests === null) return;
+    const hash = window.location.hash;
+    if (!hash.startsWith("#quote-")) return;
+    document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [requests]);
 
   const products = useProductSummaries((requests ?? []).map((r) => r.productId));
   const countFor = useMemo(

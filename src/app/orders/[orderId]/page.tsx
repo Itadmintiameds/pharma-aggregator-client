@@ -12,7 +12,7 @@ export default function OrderDetailPage() {
     <>
       <LandingHeader />
       <main className="pt-38 min-h-screen bg-neutral-50">
-        <div className="max-w-3xl mx-auto px-6 py-12">
+        <div className="mx-auto max-w-6xl px-6 py-12">
           <OrderDetailContent
             orderId={params.orderId}
             loginRedirectPath={`/orders/${params.orderId}`}

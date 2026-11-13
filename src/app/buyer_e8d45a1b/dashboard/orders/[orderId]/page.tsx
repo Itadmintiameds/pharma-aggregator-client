@@ -13,7 +13,7 @@ export default function DashboardOrderDetailPage() {
   const router = useRouter();
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="mx-auto max-w-6xl">
       <button
         onClick={() => router.push("/buyer_e8d45a1b/dashboard/orders")}
         className="flex items-center gap-2 text-p3 font-body text-pneutral-600 hover:text-pneutral-900 mb-6"
