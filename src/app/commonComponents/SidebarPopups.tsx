@@ -44,14 +44,14 @@ function Popup({
         aria-label={title}
         onClick={(event) => event.stopPropagation()}
         // max-w-[28rem], not max-w-md: this project's theme defines --spacing-md as 16px, which Tailwind v4 uses for max-w-md.
-        className="w-full max-w-[28rem] rounded-2xl bg-white p-6 shadow-xl"
+        className="w-full max-w-[32rem] rounded-2xl bg-white p-7 shadow-xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary-100 text-secondary-800">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary-100 text-secondary-800">
               {icon}
             </span>
-            <h2 className="text-p1 font-heading font-semibold text-neutral-900">{title}</h2>
+            <h2 className="text-[22px] leading-7 font-heading font-semibold text-neutral-900">{title}</h2>
           </div>
           <button
             onClick={onClose}
@@ -76,8 +76,8 @@ function ContactRow({ label, email }: { label: string; email: string }) {
     >
       <Mail size={18} className="shrink-0 text-primary-800" />
       <span className="min-w-0">
-        <span className="block text-xs text-neutral-500">{label}</span>
-        <span className="block truncate text-p4 font-body font-medium text-neutral-900">{email}</span>
+        <span className="block text-sm text-neutral-500">{label}</span>
+        <span className="block truncate text-base font-body font-medium text-neutral-900">{email}</span>
       </span>
     </a>
   );
@@ -93,7 +93,7 @@ export function HelpSupportPopup({
   const isBuyer = audience === "buyer";
   return (
     <Popup title="Help & Support" icon={<Headset size={20} />} onClose={onClose}>
-      <p className="mb-4 text-p4 font-body text-neutral-600">
+      <p className="mb-4 text-base leading-6 font-body text-neutral-600">
         {isBuyer
           ? "Questions about products, orders, returns or quotes? Our buyer support team is happy to help."
           : "Questions about products, orders, returns or payouts? Our seller support team is happy to help."}
@@ -105,20 +105,20 @@ export function HelpSupportPopup({
         />
         <ContactRow label="General support" email={GENERAL_SUPPORT_EMAIL} />
       </div>
-      <p className="mt-4 text-xs text-neutral-500">
+      <p className="mt-4 text-sm text-neutral-500">
         Tip: include your order or product ID in your email so we can help faster.
       </p>
       <div className="mt-5 flex items-center justify-between gap-3">
         <Link
           href="/contact"
           onClick={onClose}
-          className="inline-flex items-center gap-1.5 text-p4 font-semibold text-primary-800 hover:underline"
+          className="inline-flex items-center gap-1.5 text-base font-semibold text-primary-800 hover:underline"
         >
           More ways to reach us <ExternalLink size={14} />
         </Link>
         <button
           onClick={onClose}
-          className="rounded-lg bg-primary-900 px-4 py-2 text-sm font-semibold text-white"
+          className="rounded-lg bg-primary-900 px-5 py-2.5 text-base font-semibold text-white"
         >
           Close
         </button>
@@ -130,11 +130,11 @@ export function HelpSupportPopup({
 export function GiftPopup({ onClose }: { onClose: () => void }) {
   return (
     <Popup title="Free gift awaits you!" icon={<Gift size={20} />} onClose={onClose}>
-      <p className="text-p4 font-body text-neutral-600">{GIFT_MESSAGE}</p>
+      <p className="text-base leading-6 font-body text-neutral-600">{GIFT_MESSAGE}</p>
       <div className="mt-5 flex justify-end">
         <button
           onClick={onClose}
-          className="rounded-lg bg-primary-900 px-4 py-2 text-sm font-semibold text-white"
+          className="rounded-lg bg-primary-900 px-5 py-2.5 text-base font-semibold text-white"
         >
           Got it
         </button>

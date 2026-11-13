@@ -4007,6 +4007,7 @@ if (missingLicenses.length > 0) {
   if (isLoading) {
     return (
       <div className="bg-pneutral-50 min-h-screen w-full p-6 space-y-6">
+
         <div className="animate-pulse space-y-6">
           <div className="h-64 bg-sneutral-100 rounded-md"></div>
           <div className="h-48 bg-sneutral-100 rounded-md"></div>
@@ -4062,7 +4063,129 @@ if (missingLicenses.length > 0) {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <div className="bg-pneutral-50 min-h-screen w-full p-6 space-y-6">
+      <div className="mx-auto min-h-screen w-full max-w-6xl space-y-6 p-6">
+        {/* ================= PROFILE HEADER ================= */}
+        <section className="overflow-hidden rounded-2xl border border-pneutral-200 bg-base-white shadow-sm">
+          <div className="h-24 bg-gradient-to-r from-primary-900 via-primary-700 to-secondary-500" />
+          <div className="px-6 pb-6">
+            {/* Only the company image overlaps the banner; the name sits below it, on white, where it is readable. */}
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="relative -mt-10 h-20 w-20 shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sellerImagePreviewUrl || "/icons/default-company.svg"}
+                    alt="Company"
+                    className="h-20 w-20 rounded-2xl border-4 border-white bg-white object-cover shadow-md"
+                  />
+                  {editingSection && (
+                    <button
+                      type="button"
+                      onClick={() => sellerImageInputRef.current?.click()}
+                      className="absolute -bottom-1 -right-1 rounded-full bg-primary-900 p-1.5 text-base-white shadow hover:bg-primary-800"
+                      title="Change logo"
+                      aria-label="Change company logo"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                  )}
+                  <input
+                    ref={sellerImageInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleSellerImageFileChange(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+                <div className="min-w-0 pt-3">
+                  <h1 className="truncate text-h4 font-heading font-bold text-pneutral-900">
+                    {formData.sellerName || "Your company"}
+                  </h1>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    {sellerTypeOptions.find((o) => o.value === formData.sellerTypeId?.toString())?.label && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-pneutral-100 px-2.5 py-0.5 text-xs font-medium text-pneutral-700">
+                        <Building2 size={12} />
+                        {sellerTypeOptions.find((o) => o.value === formData.sellerTypeId?.toString())?.label}
+                      </span>
+                    )}
+                    {companyTypeOptions.find((o) => o.value === formData.companyTypeId?.toString())?.label && (
+                      <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-medium text-primary-800">
+                        {companyTypeOptions.find((o) => o.value === formData.companyTypeId?.toString())?.label}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3">
+                {!editingSection ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingSection("editing")}
+                    className="flex items-center gap-2 rounded-xl bg-primary-900 px-4 py-2 text-p3 font-semibold text-base-white transition-colors hover:bg-primary-800"
+                  >
+                    <Pencil size={16} />
+                    Edit profile
+                  </button>
+                ) : (
+                  <span className="rounded-full bg-warning-50 px-3 py-1.5 text-xs font-semibold text-warning-700">
+                    Editing - changes are reviewed by an admin
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {formData.sellerImageUrl === "PENDING" && (
+              <p className="mt-3 text-p3 text-warning-600">New logo selected - it will be submitted for admin review.</p>
+            )}
+
+            <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 border-t border-pneutral-100 pt-4 text-p3 text-pneutral-600">
+              {formData.email && (
+                <span className="inline-flex items-center gap-2">
+                  <Mail size={15} className="text-pneutral-400" /> {formData.email}
+                </span>
+              )}
+              {formData.phone && (
+                <span className="inline-flex items-center gap-2">
+                  <Phone size={15} className="text-pneutral-400" /> {formData.phone}
+                </span>
+              )}
+              {(formData.city || formData.pincode) && (
+                <span className="inline-flex items-center gap-2">
+                  <MapPin size={15} className="text-pneutral-400" /> {[formData.city, formData.pincode].filter(Boolean).join(" - ")}
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ================= JUMP BAR ================= */}
+        <nav
+          aria-label="Profile sections"
+          className="sticky top-20 z-20 flex flex-wrap gap-1 rounded-2xl border border-pneutral-200 bg-white/90 px-2 py-1.5 shadow-sm backdrop-blur"
+        >
+          {[
+            { id: "company-section", label: "Company" },
+            { id: "coordinator-section", label: "Coordinator" },
+            ...(formData.productTypes.length > 0
+              ? [{ id: `license-section-${formData.productTypes[0].replace(/\s/g, "-")}`, label: "Licenses" }]
+              : []),
+            { id: "gst-section", label: "GSTIN" },
+            { id: "bank-section", label: "Bank" },
+          ].map((link) => (
+            <a
+              key={link.id}
+              href={`#${link.id}`}
+              className="rounded-full px-3.5 py-1.5 text-sm font-medium text-pneutral-700 transition-colors hover:bg-primary-50 hover:text-primary-800"
+            >
+              {link.label}
+            </a>
+          ))}
+        </nav>
         {pendingRequestError && (
           <div className="bg-warning-50 border-l-4 border-warning-500 p-4 rounded-md flex gap-2">
             <div className="flex-shrink-0">
@@ -4144,10 +4267,10 @@ if (missingLicenses.length > 0) {
         )}
 
         {/* COMPANY DETAILS */}
-        <div id="company-section" className="bg-base-white rounded-md overflow-hidden border border-pneutral-200">
-          <div className="flex items-center justify-between px-6 py-4 bg-pneutral-50">
+        <div id="company-section" className="scroll-mt-36 overflow-hidden rounded-2xl border border-pneutral-200 bg-base-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-pneutral-100 px-6 py-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-md bg-secondary-100">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary-100">
                 <Building2 size={20} className="text-primary-900" />
               </div>
               <h2 className="text-h6 font-heading font-medium text-pneutral-900">
@@ -4155,65 +4278,13 @@ if (missingLicenses.length > 0) {
               </h2>
             </div>
 
-            {!editingSection ? (
-              <button
-                onClick={() => setEditingSection("editing")}
-                className="flex items-center gap-2 bg-primary-900 text-base-white text-p3 px-4 py-2 rounded-md hover:bg-primary-800 transition-colors"
-              >
-                <Pencil size={20} />
-                Edit
-              </button>
-            ) : (
-              <ChevronUp size={18} className="text-pneutral-600" />
-            )}
+            {editingSection && <ChevronUp size={18} className="text-pneutral-600" />}
           </div>
 
           <div className="p-6">
             <div className="space-y-6">
-              <div className="flex flex-col items-center gap-2">
-                <div className="relative w-40 h-40">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={
-                      sellerImagePreviewUrl ||
-                      (formData.sellerImageUrl && formData.sellerImageUrl !== "PENDING"
-                        ? formData.sellerImageUrl
-                        : "/icons/companylogo.png")
-                    }
-                    alt="Company Logo"
-                    className="w-40 h-40 rounded-md shadow object-cover"
-                  />
-                  {editingSection && (
-                    <button
-                      type="button"
-                      onClick={() => sellerImageInputRef.current?.click()}
-                      className="absolute bottom-1 right-1 bg-primary-900 text-base-white p-2 rounded-full shadow hover:bg-primary-800 transition-colors"
-                      title="Change Logo"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  )}
-                  <input
-                    ref={sellerImageInputRef}
-                    type="file"
-                    accept=".jpg,.jpeg,.png"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleSellerImageFileChange(file);
-                      e.target.value = "";
-                    }}
-                  />
-                </div>
-                <p className="text-p3 text-pneutral-600">Company Logo</p>
-                {formData.sellerImageUrl === "PENDING" && (
-                  <p className="text-p2 text-warning-600">New logo selected — will be submitted for admin review</p>
-                )}
-              </div>
 
-              <hr className="border-pneutral-200" />
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {/* Left Column - Seller Name/Company Name */}
                 <div>
                   <Input
@@ -4293,7 +4364,7 @@ if (missingLicenses.length > 0) {
 </div>
 
                 {/* Product Category - Full Width */}
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   <div className="flex flex-col">
                     <label className="text-label-l4 font-heading font-medium text-pneutral-900 inline-flex items-center gap-2">
                       <Image
@@ -4396,7 +4467,7 @@ if (missingLicenses.length > 0) {
                   <span className="text-warning-500">*</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <SelectField
                     label="State"
                     value={formData.stateId?.toString()}
@@ -4480,7 +4551,7 @@ if (missingLicenses.length > 0) {
                   Contact Information
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Left Column - Company Phone Number */}
                   <div className="flex flex-col">
                     <label className="text-label-l4 font-heading font-medium text-pneutral-900">
@@ -4544,7 +4615,7 @@ if (missingLicenses.length > 0) {
         </div>
 
         {/* COORDINATOR */}
-        <div id="coordinator-section">
+        <div id="coordinator-section" className="scroll-mt-36">
           <SectionCard
             title="Company Coordinator Details"
             icon={<FaRegUser size={24} />}
@@ -4552,7 +4623,7 @@ if (missingLicenses.length > 0) {
             iconColor="text-pneutral-900"
             underReview={reviewSections.includes("coordinator")}
           >
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Input
                 label="Coordinator Name"
                 value={formData.coordinatorName}
@@ -4669,7 +4740,7 @@ if (missingLicenses.length > 0) {
               </div>
 
               {(isCheckingEmail || isCheckingPhone) && (
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   {isCheckingEmail && (
                     <p className="text-p3 text-secondary-600 flex items-center gap-1">
                       <span className="animate-spin">⏳</span> Checking email availability...
@@ -4706,7 +4777,7 @@ if (missingLicenses.length > 0) {
             <div
               key={productName}
               id={`license-section-${productName.replace(/\s/g, '-')}`}
-              className={`${hasLicenseError ? 'border border-pneutral-100 rounded-md' : ''}`}
+              className={`scroll-mt-36 ${hasLicenseError ? 'border border-pneutral-100 rounded-md' : ''}`}
             >
               <SectionCard
                 title={`${productName} License Details`}
@@ -4724,7 +4795,7 @@ if (missingLicenses.length > 0) {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Left Column - License Number */}
                   <div className="flex flex-col">
                     <label className="text-label-l4 font-heading font-medium text-pneutral-900">
@@ -4968,7 +5039,7 @@ if (missingLicenses.length > 0) {
         })}
 
         {/* GST Section */}
-        <div id="gst-section">
+        <div id="gst-section" className="scroll-mt-36">
           <SectionCard
             title="GSTIN Details"
             icon={<FileText size={20} />}
@@ -4976,7 +5047,7 @@ if (missingLicenses.length > 0) {
             iconColor="text-warning-500"
             underReview={reviewSections.includes("gst")}
           >
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="flex flex-col">
   <label className="text-label-l4 font-heading font-medium text-pneutral-900">
     GSTIN Number
@@ -5053,7 +5124,7 @@ if (missingLicenses.length > 0) {
         </div>
 
         {/* BANK */}
-        <div id="bank-section">
+        <div id="bank-section" className="scroll-mt-36">
           <SectionCard
             title="Bank Details"
             icon={<Image
@@ -5067,7 +5138,7 @@ if (missingLicenses.length > 0) {
             iconColor="text-info-700"
             underReview={reviewSections.includes("bank")}
           >
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {/* Left Column - Bank Name */}
               <div>
                 <Input
@@ -5155,7 +5226,7 @@ if (missingLicenses.length > 0) {
           </SectionCard>
 
           {editingSection && (
-            <div className="flex justify-between gap-4 mt-6">
+            <div className="sticky bottom-4 z-30 mt-6 flex items-center justify-between gap-4 rounded-2xl border border-pneutral-200 bg-white/95 p-4 shadow-lg backdrop-blur">
               <button
                 type="button"
                 onClick={() => {
@@ -5166,6 +5237,7 @@ if (missingLicenses.length > 0) {
               >
                 Cancel
               </button>
+              <p className="hidden text-sm text-pneutral-500 sm:block">Changes are reviewed by an admin before they go live.</p>
               <button
                 type="button"
                 onClick={async (e) => {
@@ -5220,16 +5292,19 @@ function SectionCard({
   underReview
 }: any) {
   return (
-    <div className={`bg-base-white rounded-md overflow-hidden border ${underReview ? "border-pneutral-200" : "border-pneutral-200"}`}>
-      <div className="flex items-center justify-between px-6 py-4 bg-pneutral-50">
+    <div className="overflow-hidden rounded-2xl border border-pneutral-200 bg-base-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-pneutral-100 px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-md ${iconBg}`}>
+          <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}>
             <div className={iconColor}>{icon}</div>
           </div>
           <h2 className="text-h6 font-heading font-medium text-pneutral-900">
             {title}
           </h2>
         </div>
+        {underReview && (
+          <span className="rounded-full bg-warning-50 px-3 py-1 text-xs font-semibold text-warning-700">Under admin review</span>
+        )}
       </div>
 
       <div className="p-6">
@@ -5284,7 +5359,7 @@ function Input({
         disabled={!editable}
         maxLength={maxLength}
         placeholder={placeholder}
-        className={`w-full h-[52px] px-4 rounded-md text-p4 font-body font-regular ${className}
+        className={`w-full h-[52px] px-4 rounded-xl text-p4 font-body font-regular ${className}
         ${editable
             ? `bg-base-white border ${error ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:ring-2 focus:ring-secondary-500'} ${editable ? 'text-pneutral-800' : 'text-pneutral-800'}`
             : "bg-pneutral-50 border border-pneutral-100 cursor-not-allowed text-pneutral-800"
@@ -5344,7 +5419,7 @@ function SelectField({
       </label>
       <div className="relative" ref={dropdownRef}>
         <div
-          className={`w-full h-[52px] px-4 rounded-md border flex items-center justify-between cursor-pointer overflow-hidden
+          className={`w-full h-[52px] px-4 rounded-xl border flex items-center justify-between cursor-pointer overflow-hidden
             ${editable && !isDisabled && !isLoading
               ? `bg-base-white border-pneutral-200  focus:outline-none focus:ring-2 focus:ring-secondary-500 ${isOpen ? 'ring-2 ring-secondary-500 border-secondary-500' : ''}`
               : "bg-pneutral-50 border-pneutral-100 cursor-not-allowed"
@@ -5477,7 +5552,7 @@ function FileField({
 
       {editable ? (
         <>
-          <div className="w-full h-[52px] rounded-md border border-primary-600 bg-primary-100 px-4 flex items-center justify-between gap-4">
+          <div className="w-full min-h-[52px] rounded-xl border border-primary-200 bg-primary-50 px-4 py-1.5 flex items-center justify-between gap-4">
             {/* Left Section */}
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {/* Icon Box */}
@@ -5487,8 +5562,8 @@ function FileField({
 
               {/* File Name */}
               <div className="flex-1 min-w-0">
-                <div className="h-[26px] bg-success-50 rounded-[6px] px-3 flex items-center w-fit max-w-full">
-                  <span className="text-[18px] leading-[18px] font-medium text-secondary-800 truncate block max-w-[220px]">
+                <div className="bg-success-50 rounded-md px-3 py-1 flex items-center w-fit max-w-full">
+                  <span className="text-sm font-medium text-secondary-800 truncate block max-w-[220px]">
                     {displayFileName}
                   </span>
                 </div>
@@ -5538,7 +5613,7 @@ function FileField({
           )}
         </>
       ) : (
-        <div className="w-full h-[52px] rounded-md border border-primary-600 bg-primary-100 px-4 flex items-center justify-between gap-4">
+        <div className="w-full min-h-[52px] rounded-xl border border-primary-200 bg-primary-50 px-4 py-1.5 flex items-center justify-between gap-4">
           {/* Left Section */}
           <div className="flex items-center gap-3 flex-1 min-w-0">
             {/* Icon Box */}
@@ -5548,8 +5623,8 @@ function FileField({
 
             {/* File Name */}
             <div className="flex-1 min-w-0">
-              <div className="h-[26px] bg-success-50 rounded-[6px] px-3 flex items-center w-fit max-w-full">
-                <span className="text-[18px] leading-[18px] font-medium text-secondary-800 truncate block max-w-[220px]">
+              <div className="bg-success-50 rounded-md px-3 py-1 flex items-center w-fit max-w-full">
+                <span className="text-sm font-medium text-secondary-800 truncate block max-w-[220px]">
                   {isPending ? "Pending Approval" : displayFileName}
                 </span>
               </div>
