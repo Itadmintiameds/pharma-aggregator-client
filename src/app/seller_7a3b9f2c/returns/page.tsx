@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getProductsByIds } from "@/src/services/buyer/buyerProductService";
 import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
 import { decideReturn, getSellerReturns, receiveReturn } from "@/src/services/seller/sellerReturnService";
 import { ReturnLine, ReturnRequest, reasonLabel, units } from "@/src/types/buyer/returns";
@@ -250,13 +251,54 @@ function ReceiveForm({
   );
 }
 
+const PLACEHOLDER_IMAGE = "/icons/Tumbnail.svg";
+
+const prettyStatus = (status: string) =>
+  status === "ALL" ? "All" : status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, " ");
+
+const STATUS_STYLES: Record<string, string> = {
+  REQUESTED: "bg-amber-50 text-amber-700 ring-amber-200",
+  APPROVED: "bg-blue-50 text-blue-700 ring-blue-200",
+  SHIPPED: "bg-indigo-50 text-indigo-700 ring-indigo-200",
+  OUT_FOR_DELIVERY: "bg-indigo-50 text-indigo-700 ring-indigo-200",
+  RECEIVED: "bg-teal-50 text-teal-700 ring-teal-200",
+  REFUNDED: "bg-green-50 text-green-700 ring-green-200",
+  CLOSED: "bg-red-50 text-red-700 ring-red-200",
+  REJECTED: "bg-red-50 text-red-700 ring-red-200",
+  CANCELLED: "bg-neutral-100 text-neutral-600 ring-neutral-200",
+};
+
+function ProductThumb({ src, alt }: { src?: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={!src || failed ? PLACEHOLDER_IMAGE : src}
+      alt={alt}
+      onError={() => setFailed(true)}
+      className="h-16 w-16 shrink-0 rounded-lg border border-neutral-200 bg-neutral-50 object-contain"
+    />
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-4">
+      <dt className="w-32 shrink-0 text-p4 font-body text-neutral-500">{label}</dt>
+      <dd className="text-p4 font-body text-neutral-800">{children}</dd>
+    </div>
+  );
+}
+
 function ReturnCard({
   returnRequest,
   sellerId,
+  images,
   onChanged,
 }: {
   returnRequest: ReturnRequest;
   sellerId: string;
+  images: Record<string, string>;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -276,106 +318,148 @@ function ReturnCard({
   };
 
   const { status, lines } = returnRequest;
-  const isNegative = status === "REJECTED" || status === "CLOSED" || status === "CANCELLED";
+  const trackingOk = !!returnRequest.trackingUrl && /^https?:\/\//i.test(returnRequest.trackingUrl);
 
   return (
-    <div className="bg-white rounded-2xl shadow-md p-6">
-      <div className="flex items-center justify-between mb-2">
+    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-6 py-4">
         <div>
           <p className="text-p2 font-heading font-semibold text-pneutral-900">Return #{returnRequest.returnId}</p>
-          <p className="text-p4 font-body text-pneutral-500">
+          <p className="text-p4 font-body text-neutral-500">
             Order {returnRequest.sellerOrderId}
             {returnRequest.requestedAt ? ` · ${new Date(returnRequest.requestedAt).toLocaleString()}` : ""}
           </p>
         </div>
         <span
-          className={`text-p4 font-body font-semibold px-3 py-1 rounded-full ${
-            isNegative ? "bg-red-100 text-red-700" : "bg-neutral-100 text-neutral-700"
+          className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${
+            STATUS_STYLES[status] ?? "bg-neutral-100 text-neutral-700 ring-neutral-200"
           }`}
         >
-          {status}
+          {prettyStatus(status)}
         </span>
       </div>
 
-      <ul className="mb-2">
+      <ul className="divide-y divide-neutral-100 px-6">
         {lines.map((l) => (
-          <li key={l.lineId} className="flex justify-between text-p4 font-body text-pneutral-600">
-            <span>
-              {l.productName ?? "Item"}
-              {l.productId && l.productId !== l.productName ? ` (${l.productId})` : ""} x {l.quantity}
-              {l.approvedQuantity != null &&
-                l.approvedQuantity !== l.requestedQuantity &&
-                ` (${l.requestedQuantity} requested)`}
-              {inspected(status) &&
-                l.quantity > 0 &&
-                ` · ${l.restockedQuantity ?? 0} to stock, ${l.damagedQuantity ?? 0} damaged, ${l.rejectedQuantity ?? 0} rejected`}
-            </span>
-            {l.lineTotal != null && <span>₹{l.lineTotal.toFixed(2)}</span>}
+          <li key={l.lineId} className="flex items-center gap-4 py-4">
+            <ProductThumb src={l.productId ? images[l.productId] : undefined} alt={l.productName ?? "Product"} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-p3 font-body font-semibold text-neutral-900">{l.productName ?? "Item"}</p>
+              {l.productId && l.productId !== l.productName && (
+                <p className="text-xs text-neutral-500">{l.productId}</p>
+              )}
+              <p className="mt-1 text-p4 font-body text-neutral-600">
+                Qty {l.quantity}
+                {l.approvedQuantity != null &&
+                  l.approvedQuantity !== l.requestedQuantity &&
+                  ` (${l.requestedQuantity} requested)`}
+              </p>
+              {inspected(status) && l.quantity > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                  <span className="rounded-full bg-green-50 px-2 py-0.5 text-green-700">
+                    {l.restockedQuantity ?? 0} to stock
+                  </span>
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+                    {l.damagedQuantity ?? 0} damaged
+                  </span>
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-red-700">
+                    {l.rejectedQuantity ?? 0} rejected
+                  </span>
+                </div>
+              )}
+            </div>
+            {l.lineTotal != null && (
+              <p className="text-p3 font-body font-semibold text-neutral-900">₹{l.lineTotal.toFixed(2)}</p>
+            )}
           </li>
         ))}
       </ul>
-      <p className="text-p4 font-body text-pneutral-600 mb-1">
-        Buyer&apos;s reason: {reasonLabel(returnRequest.reasonCode)}
-        {returnRequest.reason ? ` — ${returnRequest.reason}` : ""}
-      </p>
-      {returnRequest.sellerComment && (
-        <p className="text-p4 font-body text-pneutral-600 mb-1">Your note: {returnRequest.sellerComment}</p>
+
+      <dl className="flex flex-col gap-2 border-t border-neutral-100 bg-neutral-50/60 px-6 py-4">
+        <DetailRow label="Buyer's reason">
+          {reasonLabel(returnRequest.reasonCode)}
+          {returnRequest.reason ? ` — ${returnRequest.reason}` : ""}
+        </DetailRow>
+        {returnRequest.sellerComment && <DetailRow label="Your note">{returnRequest.sellerComment}</DetailRow>}
+        {status === "CANCELLED" && (
+          <DetailRow label="Cancelled">
+            By the buyer{returnRequest.cancelReason ? ` — ${returnRequest.cancelReason}` : ""}
+          </DetailRow>
+        )}
+        {returnRequest.trackingNumber && (
+          <DetailRow label="Courier">
+            {returnRequest.courierName ?? "-"} · Tracking {returnRequest.trackingNumber}
+            {trackingOk && (
+              <>
+                {" · "}
+                <a
+                  href={returnRequest.trackingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-800 hover:underline"
+                >
+                  Track
+                </a>
+              </>
+            )}
+          </DetailRow>
+        )}
+        {inspected(status) && returnRequest.inspectionNote && (
+          <DetailRow label="Inspection">{returnRequest.inspectionNote}</DetailRow>
+        )}
+      </dl>
+
+      {(status === "APPROVED" ||
+        (status === "RECEIVED" && returnRequest.refundAmount != null) ||
+        (status === "REFUNDED" && returnRequest.refundAmount != null) ||
+        status === "CLOSED") && (
+        <div
+          className={`px-6 py-3 text-p4 font-body ${
+            status === "REFUNDED"
+              ? "bg-green-50 text-green-800"
+              : status === "CLOSED"
+                ? "bg-red-50 text-red-700"
+                : "bg-neutral-100 text-neutral-700"
+          }`}
+        >
+          {status === "APPROVED" && "Waiting for the buyer to ship the parcel back."}
+          {status === "RECEIVED" &&
+            returnRequest.refundAmount != null &&
+            (returnRequest.refundHeld
+              ? `Refund of ₹${returnRequest.refundAmount.toFixed(2)} will be issued once the buyer's whole COD order is delivered.`
+              : `Refund of ₹${returnRequest.refundAmount.toFixed(2)} issued, awaiting completion.`)}
+          {status === "REFUNDED" &&
+            returnRequest.refundAmount != null &&
+            `Refunded ₹${returnRequest.refundAmount.toFixed(2)}`}
+          {status === "CLOSED" && "No units accepted — nothing refunded."}
+        </div>
       )}
-      {status === "CANCELLED" && (
-        <p className="text-p4 font-body text-pneutral-600 mb-1">
-          Cancelled by the buyer{returnRequest.cancelReason ? ` — ${returnRequest.cancelReason}` : ""}.
-        </p>
-      )}
-      {returnRequest.trackingNumber && (
-        <p className="text-p4 font-body text-pneutral-600 mb-1">
-          Courier: {returnRequest.courierName ?? "-"} · Tracking: {returnRequest.trackingNumber}
-          {returnRequest.trackingUrl && /^https?:\/\//i.test(returnRequest.trackingUrl) && (
-            <>
-              {" · "}
-              <a href={returnRequest.trackingUrl} target="_blank" rel="noopener noreferrer" className="text-primary-800 hover:underline">
-                Track
-              </a>
-            </>
+
+      {(error || status === "REQUESTED" || status === "SHIPPED" || status === "OUT_FOR_DELIVERY") && (
+        <div className="px-6 pb-5">
+          {error && <p className="mt-3 text-p4 text-red-600">{error}</p>}
+
+          {status === "REQUESTED" && (
+            <DecisionForm
+              lines={lines}
+              busy={busy}
+              onApprove={(approvedLines, comment) =>
+                run(() => decideReturn(returnRequest.returnId, sellerId, true, comment, approvedLines))
+              }
+              onReject={(comment) => run(() => decideReturn(returnRequest.returnId, sellerId, false, comment))}
+            />
           )}
-        </p>
-      )}
-      {status === "APPROVED" && (
-        <p className="text-p4 font-body text-pneutral-500 mb-1">Waiting for the buyer to ship the parcel back.</p>
-      )}
-      {inspected(status) && returnRequest.inspectionNote && (
-        <p className="text-p4 font-body text-pneutral-600 mb-1">Inspection: {returnRequest.inspectionNote}</p>
-      )}
-      {status === "RECEIVED" && returnRequest.refundAmount != null && (
-        <p className="text-p4 font-body text-pneutral-600 mb-1">
-          {returnRequest.refundHeld
-            ? `Refund of ₹${returnRequest.refundAmount.toFixed(2)} will be issued once the buyer's whole COD order is delivered.`
-            : `Refund of ₹${returnRequest.refundAmount.toFixed(2)} issued, awaiting completion.`}
-        </p>
-      )}
-      {status === "REFUNDED" && returnRequest.refundAmount != null && (
-        <p className="text-p4 font-body text-green-700 mb-1">Refunded ₹{returnRequest.refundAmount.toFixed(2)}</p>
-      )}
-      {status === "CLOSED" && <p className="text-p4 font-body text-red-700 mb-1">No units accepted — nothing refunded.</p>}
 
-      {error && <p className="text-p4 text-red-600 mb-2">{error}</p>}
-
-      {status === "REQUESTED" && (
-        <DecisionForm
-          lines={lines}
-          busy={busy}
-          onApprove={(approvedLines, comment) =>
-            run(() => decideReturn(returnRequest.returnId, sellerId, true, comment, approvedLines))
-          }
-          onReject={(comment) => run(() => decideReturn(returnRequest.returnId, sellerId, false, comment))}
-        />
-      )}
-
-      {(status === "SHIPPED" || status === "OUT_FOR_DELIVERY") && (
-        <ReceiveForm
-          lines={lines}
-          busy={busy}
-          onSubmit={(inspectedLines, note) => run(() => receiveReturn(returnRequest.returnId, sellerId, inspectedLines, note))}
-        />
+          {(status === "SHIPPED" || status === "OUT_FOR_DELIVERY") && (
+            <ReceiveForm
+              lines={lines}
+              busy={busy}
+              onSubmit={(inspectedLines, note) =>
+                run(() => receiveReturn(returnRequest.returnId, sellerId, inspectedLines, note))
+              }
+            />
+          )}
+        </div>
       )}
     </div>
   );
@@ -386,11 +470,28 @@ export default function SellerReturnsPage() {
   const [returns, setReturns] = useState<ReturnRequest[] | null>(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [error, setError] = useState<string | null>(null);
+  const [images, setImages] = useState<Record<string, string>>({});
 
   const loadReturns = useCallback(async (id: string, status: string) => {
     try {
       const data = await getSellerReturns(id, status === "ALL" ? undefined : status);
       setReturns(data.sort((a, b) => (b.requestedAt ?? "").localeCompare(a.requestedAt ?? "")));
+      // Return lines carry no image, so look the products up (best effort; missing ones show a placeholder).
+      const ids = [...new Set(data.flatMap((r) => r.lines.map((l) => l.productId).filter((id): id is string => !!id)))];
+      if (ids.length > 0) {
+        getProductsByIds(ids)
+          .then((products) =>
+            setImages((prev) => {
+              const next = { ...prev };
+              products.forEach((product) => {
+                const image = product.productImages?.find((img) => img.productImage)?.productImage;
+                if (image) next[product.productId] = image;
+              });
+              return next;
+            })
+          )
+          .catch(() => {});
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load returns.");
     }
@@ -427,10 +528,10 @@ export default function SellerReturnsPage() {
             key={status}
             onClick={() => setStatusFilter(status)}
             className={`px-4 py-2 rounded-full text-sm font-semibold ${
-              statusFilter === status ? "bg-primary-900 text-white" : "bg-neutral-100 text-neutral-700"
+              statusFilter === status ? "bg-primary-900 text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
             }`}
           >
-            {status}
+            {prettyStatus(status)}
           </button>
         ))}
       </div>
@@ -452,12 +553,13 @@ export default function SellerReturnsPage() {
       )}
 
       {returns !== null && returns.length > 0 && sellerId && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {returns.map((returnRequest) => (
             <ReturnCard
               key={returnRequest.returnId}
               returnRequest={returnRequest}
               sellerId={sellerId}
+              images={images}
               onChanged={() => loadReturns(sellerId, statusFilter)}
             />
           ))}

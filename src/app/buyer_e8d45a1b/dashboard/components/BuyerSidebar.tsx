@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { LayoutDashboard, Package, Lock, ArrowRight, Headset, LogOut } from "lucide-react";
+import { LayoutDashboard, Package, Lock, Headset, LogOut } from "lucide-react";
 import { HiOutlineShoppingBag } from "react-icons/hi";
 import { AiOutlinePieChart } from "react-icons/ai";
 import toast from "react-hot-toast";
@@ -138,25 +138,6 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
       </nav>
 
       <div className="flex flex-col gap-2">
-        <div className="rounded-2xl bg-white p-4 flex flex-col gap-2">
-          <span className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary-600 text-white shrink-0">
-            <Lock size={18} />
-          </span>
-          <div>
-            <p className="text-p3 font-body font-bold text-pneutral-900">Unlock marketplace features</p>
-            <p className="text-p4 font-body font-regular text-pneutral-600 mt-1">
-              Complete your verification to access 10,000+ products from verified suppliers.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="self-start flex items-center gap-1.5 rounded-xl bg-secondary-600 text-white text-p4 font-body font-semibold px-4 py-2 mt-1"
-          >
-            Learn more
-            <ArrowRight size={14} />
-          </button>
-        </div>
-
         <button
           type="button"
           className="flex items-center gap-3 rounded-2xl bg-neutral-100 text-pneutral-900 text-p3 font-body font-regular px-4 py-3"
