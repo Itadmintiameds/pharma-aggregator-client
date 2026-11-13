@@ -15,6 +15,7 @@ export type ReturnStatus =
 export interface ReturnLine {
   lineId: number;
   orderItemId: number;
+  productId?: string;
   productName?: string;
   requestedQuantity: number;
   // null until the seller decides; 0 when the seller turned this product down.

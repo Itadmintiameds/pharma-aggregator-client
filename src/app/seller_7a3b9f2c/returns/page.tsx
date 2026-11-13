@@ -58,7 +58,10 @@ function DecisionForm({
       <p className="text-p4 font-body text-pneutral-700">Units to accept</p>
       {lines.map((l) => (
         <label key={l.lineId} className="flex items-center justify-between gap-3 text-p4 font-body text-pneutral-700">
-          <span>{l.productName ?? "Item"}</span>
+          <span>
+            {l.productName ?? "Item"}
+            {l.productId && l.productId !== l.productName ? ` (${l.productId})` : ""}
+          </span>
           <span className="flex items-center gap-2">
             <input
               type="number"
@@ -173,7 +176,8 @@ function ReceiveForm({
         return (
           <div key={l.lineId} className="border-t border-neutral-200 pt-2">
             <p className="text-p4 font-body font-semibold text-pneutral-800">
-              {l.productName ?? "Item"} · {units(l.quantity)} expected
+              {l.productName ?? "Item"}
+              {l.productId && l.productId !== l.productName ? ` (${l.productId})` : ""} · {units(l.quantity)} expected
             </p>
             <div className="flex flex-wrap gap-4 mt-1">
               <label className="flex items-center gap-2 text-p4 font-body text-pneutral-700">
@@ -297,7 +301,8 @@ function ReturnCard({
         {lines.map((l) => (
           <li key={l.lineId} className="flex justify-between text-p4 font-body text-pneutral-600">
             <span>
-              {l.productName ?? "Item"} x {l.quantity}
+              {l.productName ?? "Item"}
+              {l.productId && l.productId !== l.productName ? ` (${l.productId})` : ""} x {l.quantity}
               {l.approvedQuantity != null &&
                 l.approvedQuantity !== l.requestedQuantity &&
                 ` (${l.requestedQuantity} requested)`}

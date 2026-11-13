@@ -27,6 +27,25 @@ import OnboardingGate from "./OnboardingGate";
 //   setCurrentView: (view: DashboardView) => void;
 // }
 
+// Wraps widgets that still show placeholder data (not wired to the backend):
+// greyed out, non-interactive, with a "Coming soon" badge.
+const DisabledWidget = ({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <div className={`relative ${className}`} aria-disabled="true">
+    <div className="h-full opacity-50 grayscale pointer-events-none select-none">
+      {children}
+    </div>
+    <span className="absolute top-3 right-3 rounded-full bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-600">
+      Coming soon
+    </span>
+  </div>
+);
+
 interface DashboardOverviewProps {
   currentView: DashboardView;
   setCurrentView: (view: DashboardView) => void;
@@ -144,12 +163,12 @@ const DashboardOverview = ({
       </div>
       {/* Chart + Top Selling Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="min-h-[324px]">
+        <DisabledWidget className="min-h-[324px]">
           <SalesChart />
-        </div>
-        <div className="min-h-[324px]">
+        </DisabledWidget>
+        <DisabledWidget className="min-h-[324px]">
           <TopSellingCard />
-        </div>
+        </DisabledWidget>
       </div>
 
       {/* Weekly Summary Cards */}
@@ -162,16 +181,18 @@ const DashboardOverview = ({
           valueRight={totalOrders !== null ? String(totalOrders) : "..."}
         />
 
-        <WeeklySummaryCard
-          icon={<HiOutlineUserGroup size={36} />}
-          titleLeft="Customers"
-          valueLeft="1,250"
-          growthLeft="+15.80%"
-          titleRight="Active"
-          valueRight="1,180"
-          growthRight="85%"
-          bgColor="bg-yellow-50"
-        />
+        <DisabledWidget>
+          <WeeklySummaryCard
+            icon={<HiOutlineUserGroup size={36} />}
+            titleLeft="Customers"
+            valueLeft="1,250"
+            growthLeft="+15.80%"
+            titleRight="Active"
+            valueRight="1,180"
+            growthRight="85%"
+            bgColor="bg-yellow-50"
+          />
+        </DisabledWidget>
 
         <WeeklySummaryCard
           icon={<BsHandbag size={36} />}

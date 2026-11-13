@@ -3,6 +3,7 @@
 import { HiOutlineShoppingBag, HiOutlineClipboardDocumentList } from "react-icons/hi2";
 import { LuWarehouse, LuWallet } from "react-icons/lu";
 import { AiOutlinePieChart } from "react-icons/ai";
+import { Construction } from "lucide-react";
 import { useBuyerOnboardingStatus } from "@/src/hooks/useBuyerOnboardingStatus";
 import { useBuyerOrders } from "@/src/hooks/useBuyerOrders";
 import BuyerKpiCard from "./components/BuyerKpiCard";
@@ -66,8 +67,15 @@ export default function BuyerDashboardPage() {
 
       {/* Chart + Recent Orders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="min-h-[324px]">
-          <BuyerSpendChart />
+        {/* Sample data only — no purchase-history API for buyers yet */}
+        <div className="relative min-h-[324px]" aria-disabled="true">
+          <div className="h-full opacity-50 grayscale pointer-events-none select-none">
+            <BuyerSpendChart />
+          </div>
+          <span className="absolute top-3 right-3 flex items-center gap-1.5 rounded-full bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-600">
+            <Construction size={14} />
+            Coming Soon
+          </span>
         </div>
         <div className="min-h-[324px]">
           <RecentOrdersCard orders={orders} error={error} />

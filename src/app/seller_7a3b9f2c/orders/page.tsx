@@ -210,7 +210,10 @@ function OrderCard({
       <div className="space-y-1 mb-3">
         {order.items.map((item) => (
           <div key={item.orderItemId} className="flex justify-between text-p4 font-body text-pneutral-600">
-            <span>{item.productNameSnapshot} x {item.quantity}</span>
+            <span>
+              {item.productNameSnapshot}
+              {item.productId && item.productId !== item.productNameSnapshot ? ` (${item.productId})` : ""} x {item.quantity}
+            </span>
             <span>₹{item.lineTotal?.toFixed(2)}</span>
           </div>
         ))}
