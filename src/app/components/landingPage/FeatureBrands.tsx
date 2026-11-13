@@ -16,10 +16,10 @@ const GRADIENTS: [string, string][] = [
     ["#7C3AED", "#A78BFA"], // violet
 ];
 
-// Marquee geometry: each logo cell is 100px wide with a 32px gap after it, inside a 1240px strip.
-const ITEM_WIDTH = 100;
-const ITEM_GAP = 32;
-const STRIP_WIDTH = 1240;
+// Marquee geometry: each seller cell is 120px wide with a 24px gap after it. STRIP_WIDTH is the widest the strip gets.
+const ITEM_WIDTH = 120;
+const ITEM_GAP = 24;
+const STRIP_WIDTH = 1280;
 /** Scroll speed, so a long list does not race past and a short one does not crawl. */
 const SCROLL_PX_PER_SECOND = 80;
 
@@ -104,42 +104,52 @@ const FeatureBrands = () => {
     const loopSeconds = Math.round((oneCopy.length * cell) / SCROLL_PX_PER_SECOND);
 
     return (
-        <section className="w-full xl:w-[1280px] h-[176px] mx-auto bg-neutral-50 flex flex-col items-center justify-center">
+        <section className="mx-auto w-full max-w-[1280px] px-3 py-6 sm:px-4" aria-labelledby="featured-sellers-heading">
+            <div className="rounded-2xl border border-neutral-200 bg-white px-5 py-5 shadow-sm sm:px-8">
+                {/* ================= HEADER ================= */}
+                <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                        <h2 id="featured-sellers-heading" className="text-h5 font-semibold text-neutral-900">
+                            Featured Sellers
+                        </h2>
+                        <p className="mt-0.5 text-sm text-neutral-500">Manufacturers and distributors selling on TiaMeds</p>
+                    </div>
+                </div>
 
-            {/* ================= HEADER ================= */}
-            <div className="w-[1240px] h-[32px] flex items-center">
-                <h2 className="text-h4 font-semibold text-neutral-900">
-                    Featured Sellers
-                </h2>
-            </div>
-
-            {/* ================= LOGO MARQUEE ================= */}
-            <div className="w-[1240px] h-[80px] overflow-hidden mt-6 ">
-
-                <div className="brand-marquee" style={{ animationDuration: `${loopSeconds}s` }}>
-
-                    {marqueeSellers.map((seller, index) => (
-                        <div
-                            key={`${seller.sellerId}-${index}`}
-                            className="group relative mr-8 w-[100px] h-[80px] shrink-0 flex items-center justify-center"
-                        >
-                            {seller.sellerImageUrl ? (
-                                <img
-                                    src={seller.sellerImageUrl}
-                                    alt={seller.sellerName}
-                                    className="w-14 h-14 rounded-2xl object-cover shadow-md ring-1 ring-pneutral-200"
-                                />
-                            ) : (
-                                <SellerLogoMark name={seller.sellerName} />
-                            )}
-
-                            {/* Hover tooltip with the full company name */}
-                            <span className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full opacity-0 group-hover:opacity-100 transition-opacity bg-neutral-900 text-white text-xs font-medium px-2 py-1 rounded-md whitespace-nowrap z-20">
-                                {seller.sellerName}
-                            </span>
-                        </div>
-                    ))}
-
+                {/* ================= LOGO MARQUEE ================= */}
+                {/* The edges fade out, so logos glide in and out of view instead of being cut off. */}
+                <div
+                    className="overflow-hidden"
+                    style={{
+                        WebkitMaskImage: "linear-gradient(to right, transparent, #000 6%, #000 94%, transparent)",
+                        maskImage: "linear-gradient(to right, transparent, #000 6%, #000 94%, transparent)",
+                    }}
+                >
+                    <div className="brand-marquee" style={{ animationDuration: `${loopSeconds}s` }}>
+                        {marqueeSellers.map((seller, index) => (
+                            <div
+                                key={`${seller.sellerId}-${index}`}
+                                title={seller.sellerName}
+                                className="group mr-6 flex w-[120px] shrink-0 flex-col items-center gap-2 rounded-xl px-2 py-3 transition-colors hover:bg-neutral-50"
+                            >
+                                <div className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105">
+                                    {seller.sellerImageUrl ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                            src={seller.sellerImageUrl}
+                                            alt={seller.sellerName}
+                                            className="h-14 w-14 rounded-2xl object-cover shadow-md ring-1 ring-pneutral-200"
+                                        />
+                                    ) : (
+                                        <SellerLogoMark name={seller.sellerName} />
+                                    )}
+                                </div>
+                                <span className="w-full truncate text-center text-xs font-medium text-neutral-600 group-hover:text-neutral-900">
+                                    {seller.sellerName}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -155,6 +165,12 @@ const FeatureBrands = () => {
     animation-play-state: paused;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .brand-marquee {
+      animation: none;
+    }
+  }
+
   @keyframes scrollBrands {
     from {
       transform: translateX(0);
@@ -164,7 +180,6 @@ const FeatureBrands = () => {
     }
   }
 `}</style>
-
         </section>
     );
 };
