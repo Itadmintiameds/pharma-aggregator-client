@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Plus, ChevronDown } from "lucide-react";
+import { Plus } from "lucide-react";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { getCurrentSellerId } from "@/src/services/product/sellerContext";
 
@@ -1222,72 +1222,6 @@ export function OnboardingModal({ onClose, onManualEntry, onSuccessAction }: { o
   );
 }
 
-// ─── FilterDropdown ───────────────────────────────────────────────────────────
-function FilterDropdown({ label, options }: { label: string; options: string[] }) {
-  const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(label);
-  const dropRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  return (
-    <div ref={dropRef} style={{ position: "relative", boxShadow: "-1px 1px 4px rgba(0, 0, 0, 0.25)", borderRadius: 8, minWidth: 108, maxHeight: 52, minHeight: 48 }}>
-      <button
-        onClick={() => setOpen(!open)}
-        style={{
-          height: 48,
-          paddingLeft: 16,
-          paddingRight: 16,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          background: "#ffffff",
-          color: "#1E1E1D",
-          fontSize: 16,
-          fontFamily: "'Work Sans', sans-serif",
-          fontWeight: 500,
-          lineHeight: "24px",
-          borderRadius: 8,
-          border: "none",
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-          width: "100%",
-          outline: "none",
-          overflow: "hidden",
-        }}
-      >
-        <span>{selected}</span>
-        <ChevronDown size={20} color="#1E1E1D" />
-      </button>
-      {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-white border border-neutral-200 overflow-hidden min-w-full py-1" style={{ borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.12)" }}>
-          {options.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => { setSelected(opt); setOpen(false); }}
-              className={`w-full text-left px-4 py-2 text-sm transition-colors ${
-                selected === opt
-                  ? "bg-primary-100 text-primary-900 font-medium"
-                  : "text-neutral-800 hover:bg-primary-100"
-              }`}
-              style={{ fontFamily: "'Work Sans', sans-serif" }}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── DashboardFilters ─────────────────────────────────────────────────────────
 const DashboardFilters = ({ setCurrentView, onRefreshRequested }: DashboardFiltersProps) => {
   const router = useRouter();
@@ -1295,17 +1229,7 @@ const DashboardFilters = ({ setCurrentView, onRefreshRequested }: DashboardFilte
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <FilterDropdown
-            label="All Stocks"
-            options={["All Stocks", "Low Stock", "Out of Stock"]}
-          />
-          <FilterDropdown
-            label="All Categories"
-            options={["All Categories", "Drugs", "Vitamins", "Diabetes"]}
-          />
-        </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 24 }}>
         <div style={{ boxShadow: "-1px 1px 4px rgba(0, 0, 0, 0.25)", borderRadius: 8, minWidth: 108, maxHeight: 52, minHeight: 48 }}>
           <button
             onClick={() => setShowModal(true)}

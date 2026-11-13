@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ProductThumb, StatusBadge, prettyStatus } from "../components/sellerCardUi";
-import { getProductsByIds } from "@/src/services/buyer/buyerProductService";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ProductThumb, StatusBadge, prettyStatus, useProductSummaries, type ProductSummary } from "../components/sellerCardUi";
+import { useSellerOrders } from "@/src/hooks/useSellerOrders";
 import { sellerProfileService } from "@/src/services/seller/sellerProfileService";
 import { decideReturn, getSellerReturns, receiveReturn } from "@/src/services/seller/sellerReturnService";
 import { ReturnLine, ReturnRequest, reasonLabel, units } from "@/src/types/buyer/returns";
@@ -264,12 +264,15 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 function ReturnCard({
   returnRequest,
   sellerId,
-  images,
+  products,
+  orderItems,
   onChanged,
 }: {
   returnRequest: ReturnRequest;
   sellerId: string;
-  images: Record<string, string>;
+  products: Record<string, ProductSummary>;
+  /** What each order item was bought at (from the seller order the return belongs to). */
+  orderItems: Record<number, { unitPrice?: number; isQuote: boolean }>;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -305,9 +308,15 @@ function ReturnCard({
       </div>
 
       <ul className="divide-y divide-neutral-100 px-6">
-        {lines.map((l) => (
+        {lines.map((l) => {
+          const info = orderItems[l.orderItemId];
+          const unitPrice = info?.unitPrice;
+          const listed = l.productId ? products[l.productId]?.listedPrice : undefined;
+          const showListed = listed != null && unitPrice != null && Math.abs(listed - unitPrice) > 0.005;
+          const vsListed = info?.isQuote && showListed ? Math.round(((unitPrice! - listed!) / listed!) * 100) : null;
+          return (
           <li key={l.lineId} className="flex items-center gap-4 py-4">
-            <ProductThumb src={l.productId ? images[l.productId] : undefined} alt={l.productName ?? "Product"} />
+            <ProductThumb src={l.productId ? products[l.productId]?.image : undefined} alt={l.productName ?? "Product"} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-p3 font-body font-semibold text-neutral-900">{l.productName ?? "Item"}</p>
               {l.productId && l.productId !== l.productName && (
@@ -319,6 +328,28 @@ function ReturnCard({
                   l.approvedQuantity !== l.requestedQuantity &&
                   ` (${l.requestedQuantity} requested)`}
               </p>
+              {unitPrice != null && (
+                <p className="mt-0.5 text-xs text-neutral-500">
+                  Order price <span className="font-semibold text-neutral-800">₹{unitPrice.toFixed(2)}</span> / unit
+                  {info?.isQuote && (
+                    <span className="ml-1.5 rounded-full bg-secondary-100 px-2 py-0.5 text-secondary-800">
+                      Quotation price
+                    </span>
+                  )}
+                </p>
+              )}
+              {showListed && (
+                <p className="mt-0.5 text-xs text-neutral-500">
+                  {info?.isQuote ? "Original listed price" : "Current listed price"}{" "}
+                  <span className="line-through">₹{listed!.toFixed(2)}</span>
+                  {vsListed !== null && vsListed !== 0 && (
+                    <span className={vsListed < 0 ? "text-green-700" : "text-amber-700"}>
+                      {" "}
+                      · quoted {Math.abs(vsListed)}% {vsListed < 0 ? "below" : "above"} listed
+                    </span>
+                  )}
+                </p>
+              )}
               {inspected(status) && l.quantity > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
                   <span className="rounded-full bg-green-50 px-2 py-0.5 text-green-700">
@@ -337,7 +368,8 @@ function ReturnCard({
               <p className="text-p3 font-body font-semibold text-neutral-900">₹{l.lineTotal.toFixed(2)}</p>
             )}
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       <dl className="flex flex-col gap-2 border-t border-neutral-100 bg-neutral-50/60 px-6 py-4">
@@ -435,28 +467,32 @@ export default function SellerReturnsPage() {
   const [returns, setReturns] = useState<ReturnRequest[] | null>(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [error, setError] = useState<string | null>(null);
-  const [images, setImages] = useState<Record<string, string>>({});
 
-  const loadReturns = useCallback(async (id: string, status: string) => {
+  // Return lines carry only a line total, so the price each unit was bought at comes from the seller's orders;
+  // images and the current listed price come from the products.
+  const { orders } = useSellerOrders();
+  const orderItems = useMemo(() => {
+    const map: Record<number, { unitPrice?: number; isQuote: boolean }> = {};
+    (orders ?? []).forEach((order) =>
+      order.items.forEach((item) => {
+        if (item.orderItemId != null) map[item.orderItemId] = { unitPrice: item.unitPriceSnapshot, isQuote: order.quoteRequestId != null };
+      })
+    );
+    return map;
+  }, [orders]);
+  const products = useProductSummaries(
+    (returns ?? []).flatMap((r) => r.lines.map((l) => l.productId).filter((id): id is string => !!id))
+  );
+
+  // Every return is loaded once; the status tabs filter on screen so each tab can show its own count.
+  const countFor = (status: string) =>
+    status === "ALL" ? returns?.length ?? 0 : (returns ?? []).filter((r) => r.status === status).length;
+  const visibleReturns = (returns ?? []).filter((r) => statusFilter === "ALL" || r.status === statusFilter);
+
+  const loadReturns = useCallback(async (id: string) => {
     try {
-      const data = await getSellerReturns(id, status === "ALL" ? undefined : status);
+      const data = await getSellerReturns(id);
       setReturns(data.sort((a, b) => (b.requestedAt ?? "").localeCompare(a.requestedAt ?? "")));
-      // Return lines carry no image, so look the products up (best effort; missing ones show a placeholder).
-      const ids = [...new Set(data.flatMap((r) => r.lines.map((l) => l.productId).filter((id): id is string => !!id)))];
-      if (ids.length > 0) {
-        getProductsByIds(ids)
-          .then((products) =>
-            setImages((prev) => {
-              const next = { ...prev };
-              products.forEach((product) => {
-                const image = product.productImages?.find((img) => img.productImage)?.productImage;
-                if (image) next[product.productId] = image;
-              });
-              return next;
-            })
-          )
-          .catch(() => {});
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load returns.");
     }
@@ -474,12 +510,18 @@ export default function SellerReturnsPage() {
   }, []);
 
   useEffect(() => {
+    // Deep link from the dashboard tiles, e.g. ?status=PLACED opens that tab.
+    const wanted = new URLSearchParams(window.location.search).get("status");
+    if (wanted && STATUS_FILTERS.includes(wanted)) queueMicrotask(() => setStatusFilter(wanted));
+  }, []);
+
+  useEffect(() => {
     // Deferred to a microtask, same as useSellerOrders: the set-state-in-effect lint rule
     // flags loadReturns when called directly.
     if (sellerId) {
-      queueMicrotask(() => loadReturns(sellerId, statusFilter));
+      queueMicrotask(() => loadReturns(sellerId));
     }
-  }, [sellerId, statusFilter, loadReturns]);
+  }, [sellerId, loadReturns]);
 
   return (
     <div className="p-6">
@@ -497,6 +539,7 @@ export default function SellerReturnsPage() {
             }`}
           >
             {prettyStatus(status)}
+            {returns !== null && <span className="ml-1.5 opacity-70">{countFor(status)}</span>}
           </button>
         ))}
       </div>
@@ -513,19 +556,20 @@ export default function SellerReturnsPage() {
         </div>
       )}
 
-      {returns !== null && returns.length === 0 && (
+      {returns !== null && visibleReturns.length === 0 && (
         <p className="text-p3 font-body text-neutral-500">No returns found.</p>
       )}
 
-      {returns !== null && returns.length > 0 && sellerId && (
+      {returns !== null && visibleReturns.length > 0 && sellerId && (
         <div className="space-y-5">
-          {returns.map((returnRequest) => (
+          {visibleReturns.map((returnRequest) => (
             <ReturnCard
               key={returnRequest.returnId}
               returnRequest={returnRequest}
               sellerId={sellerId}
-              images={images}
-              onChanged={() => loadReturns(sellerId, statusFilter)}
+              products={products}
+              orderItems={orderItems}
+              onChanged={() => loadReturns(sellerId)}
             />
           ))}
         </div>

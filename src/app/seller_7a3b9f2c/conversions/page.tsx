@@ -282,6 +282,12 @@ export default function ConversionsPage() {
   }, []);
 
   useEffect(() => {
+    // Deep link from the dashboard tiles, e.g. ?status=PLACED opens that tab.
+    const wanted = new URLSearchParams(window.location.search).get("status");
+    if (wanted && STATUS_FILTERS.includes(wanted)) queueMicrotask(() => setStatusFilter(wanted));
+  }, []);
+
+  useEffect(() => {
     // Deferred to a microtask: the set-state-in-effect lint rule flags load() when called directly.
     queueMicrotask(load);
   }, [load]);

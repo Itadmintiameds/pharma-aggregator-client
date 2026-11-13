@@ -3,6 +3,7 @@ import api from "@/src/lib/api";
 // Order/SellerOrder DTOs are identical across buyer/seller call sites (same
 // backend response shape) — reused from buyer/order.ts rather than duplicated.
 import { SellerOrder } from "@/src/types/buyer/order";
+import { fetchAllPages } from "@/src/utils/fetchAllPages";
 
 interface ApiResponseWrapper<T> {
   status: string;
@@ -24,13 +25,8 @@ function extractErrorMessage(error: unknown, fallback: string): string {
 }
 
 export async function getSellerOrders(sellerId: string, status?: string): Promise<SellerOrder[]> {
-  // order-service returns a Spring Page ({ content: [...] }), not a bare array.
-  const response = await api.get<ApiResponseWrapper<SellerOrder[] | { content?: SellerOrder[] }>>(
-    `/seller-orders/seller/${sellerId}`,
-    { params: status ? { status } : undefined }
-  );
-  const data = response.data.data;
-  return Array.isArray(data) ? data : data?.content ?? [];
+  // order-service returns a Spring Page of 20 by default, so read every page - not just the first.
+  return fetchAllPages<SellerOrder>(`/seller-orders/seller/${sellerId}`, status ? { status } : {});
 }
 
 export async function getSellerOrder(sellerOrderId: string): Promise<SellerOrder> {

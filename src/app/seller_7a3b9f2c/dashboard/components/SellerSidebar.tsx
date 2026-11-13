@@ -17,6 +17,7 @@ import { MdOutlineAssignmentReturn } from "react-icons/md";
 import { PiHeadphones } from "react-icons/pi";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { sellerAuthService } from "@/src/services/seller/authService";
+import { GiftPopup, HelpSupportPopup } from "./SellerSidebarPopups";
 
 interface SellerSidebarProps {
   currentView: DashboardView;
@@ -32,6 +33,7 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
   const router = useRouter();
   const pathname = usePathname();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [popup, setPopup] = useState<"help" | "gift" | null>(null);
 
   const menuItems = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard size={20} />, path: "/seller_7a3b9f2c/dashboard" },
@@ -61,8 +63,8 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
     }
   };
 
-  const handleHelpSupport = () => toast.success("Help & Support clicked");
-  const handleUpgrade = () => toast.success("Upgrade account clicked");
+  const handleHelpSupport = () => setPopup("help");
+  const handleUpgrade = () => setPopup("gift");
 
   const handleMenuClick = (itemId: string, path: string) => {
     if (!approved && itemId !== "overview") return;
@@ -223,6 +225,9 @@ const SellerSidebar = ({ currentView, setCurrentView, approved = true }: SellerS
           </button>
         </div> */}
       </div>
+
+      {popup === "help" && <HelpSupportPopup onClose={() => setPopup(null)} />}
+      {popup === "gift" && <GiftPopup onClose={() => setPopup(null)} />}
     </aside>
   );
 };

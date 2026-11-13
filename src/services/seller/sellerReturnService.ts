@@ -1,6 +1,7 @@
 import axios from "axios";
 import api from "@/src/lib/api";
 import { ReturnRequest } from "@/src/types/buyer/returns";
+import { fetchAllPages } from "@/src/utils/fetchAllPages";
 
 interface ApiResponseWrapper<T> {
   status: string;
@@ -27,13 +28,8 @@ function extractErrorMessage(error: unknown, fallback: string): string {
 }
 
 export async function getSellerReturns(sellerId: string, status?: string): Promise<ReturnRequest[]> {
-  // order-service returns a Spring Page ({ content: [...] }), not a bare array.
-  const response = await api.get<ApiResponseWrapper<ReturnRequest[] | { content?: ReturnRequest[] }>>(
-    `/returns/seller/${sellerId}`,
-    { params: { size: 100, ...(status ? { status } : {}) } }
-  );
-  const data = response.data.data;
-  return Array.isArray(data) ? data : data?.content ?? [];
+  // order-service returns a Spring Page, so read every page - not just the first 100.
+  return fetchAllPages<ReturnRequest>(`/returns/seller/${sellerId}`, status ? { status } : {});
 }
 
 

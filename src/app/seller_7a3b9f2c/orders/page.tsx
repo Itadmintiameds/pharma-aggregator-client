@@ -16,7 +16,7 @@ import {
   shipSellerOrder,
 } from "@/src/services/seller/sellerOrderService";
 import { SellerOrder } from "@/src/types/buyer/order";
-import { StatusBadge, ProductThumb, prettyStatus, useProductImages } from "../components/sellerCardUi";
+import { StatusBadge, ProductThumb, prettyStatus, useProductSummaries, type ProductSummary } from "../components/sellerCardUi";
 
 const STATUS_FILTERS = [
   "ALL",
@@ -139,12 +139,12 @@ function SummaryRow({ label, value, strong }: { label: string; value?: number; s
 function OrderCard({
   order,
   sellerId,
-  images,
+  products,
   onChanged,
 }: {
   order: SellerOrder;
   sellerId: string;
-  images: Record<string, string>;
+  products: Record<string, ProductSummary>;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -223,10 +223,17 @@ function OrderCard({
       )}
 
       <ul className="divide-y divide-neutral-100 px-6">
-        {order.items.map((item) => (
+        {order.items.map((item) => {
+          // Quotation orders are priced at the accepted quote, so show what the product normally sells for.
+          const listed = item.productId ? products[item.productId]?.listedPrice : undefined;
+          const vsListed =
+            isQuote && listed && item.unitPriceSnapshot != null
+              ? Math.round(((item.unitPriceSnapshot - listed) / listed) * 100)
+              : null;
+          return (
           <li key={item.orderItemId} className="flex items-center gap-4 py-4">
             <ProductThumb
-              src={item.productId ? images[item.productId] : undefined}
+              src={item.productId ? products[item.productId]?.image : undefined}
               alt={item.productNameSnapshot ?? "Product"}
             />
             <div className="min-w-0 flex-1">
@@ -242,12 +249,24 @@ function OrderCard({
                   : `Qty ${item.quantity}`}
                 {item.batchLotNumberSnapshot ? ` · Batch ${item.batchLotNumberSnapshot}` : ""}
               </p>
+              {isQuote && listed != null && (
+                <p className="mt-0.5 text-xs text-neutral-500">
+                  Original listed price <span className="line-through">₹{listed.toFixed(2)}</span>
+                  {vsListed !== null && vsListed !== 0 && (
+                    <span className={vsListed < 0 ? "text-green-700" : "text-amber-700"}>
+                      {" "}
+                      · quoted {Math.abs(vsListed)}% {vsListed < 0 ? "below" : "above"} listed
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
             {item.lineTotal != null && (
               <p className="text-p3 font-body font-semibold text-neutral-900">₹{item.lineTotal.toFixed(2)}</p>
             )}
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       <div className="flex flex-col gap-3 border-t border-neutral-100 bg-neutral-50/60 px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
@@ -417,19 +436,23 @@ export default function SellerOrdersPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [priceFilter, setPriceFilter] = useState<"ALL" | "QUOTATION" | "ORIGINAL">("ALL");
   const [error, setError] = useState<string | null>(null);
-  const images = useProductImages(
+  const products = useProductSummaries(
     (orders ?? []).flatMap((o) => o.items.map((i) => i.productId).filter((id): id is string => !!id))
   );
 
-  // Counts/filter apply to the orders loaded for the selected status tab.
-  const quotationCount = (orders ?? []).filter((o) => o.quoteRequestId != null).length;
-  const visibleOrders = (orders ?? []).filter((o) =>
+  // Every order is loaded once; the status tabs filter on screen so each tab can show its own count.
+  const countFor = (status: string) =>
+    status === "ALL" ? orders?.length ?? 0 : (orders ?? []).filter((o) => o.status === status).length;
+  const inStatus = (orders ?? []).filter((o) => statusFilter === "ALL" || o.status === statusFilter);
+  // The price-type pills below count the orders in the selected status tab.
+  const quotationCount = inStatus.filter((o) => o.quoteRequestId != null).length;
+  const visibleOrders = inStatus.filter((o) =>
     priceFilter === "ALL" ? true : priceFilter === "QUOTATION" ? o.quoteRequestId != null : o.quoteRequestId == null
   );
 
-  const loadOrders = useCallback(async (id: string, status: string) => {
+  const loadOrders = useCallback(async (id: string) => {
     try {
-      const data = await getSellerOrders(id, status === "ALL" ? undefined : status);
+      const data = await getSellerOrders(id);
       setOrders(data.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "")));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load orders.");
@@ -448,10 +471,15 @@ export default function SellerOrdersPage() {
   }, []);
 
   useEffect(() => {
-    if (sellerId) {
-      loadOrders(sellerId, statusFilter);
-    }
-  }, [sellerId, statusFilter, loadOrders]);
+    // Deep link from the dashboard tiles, e.g. ?status=PLACED opens that tab.
+    const wanted = new URLSearchParams(window.location.search).get("status");
+    if (wanted && STATUS_FILTERS.includes(wanted)) queueMicrotask(() => setStatusFilter(wanted));
+  }, []);
+
+  useEffect(() => {
+    // Deferred to a microtask: the set-state-in-effect lint rule flags loadOrders when called directly.
+    if (sellerId) queueMicrotask(() => loadOrders(sellerId));
+  }, [sellerId, loadOrders]);
 
   return (
     <div className="p-6">
@@ -469,6 +497,7 @@ export default function SellerOrdersPage() {
             }`}
           >
             {prettyStatus(status)}
+            {orders !== null && <span className="ml-1.5 opacity-70">{countFor(status)}</span>}
           </button>
         ))}
       </div>
@@ -476,9 +505,9 @@ export default function SellerOrdersPage() {
       {orders !== null && (
         <div className="flex flex-wrap items-center gap-2 mb-6">
           {([
-            ["ALL", "All orders", orders.length],
+            ["ALL", "All orders", inStatus.length],
             ["QUOTATION", "Quotation orders", quotationCount],
-            ["ORIGINAL", "Original price orders", orders.length - quotationCount],
+            ["ORIGINAL", "Original price orders", inStatus.length - quotationCount],
           ] as const).map(([key, label, count]) => (
             <button
               key={key}
@@ -516,8 +545,8 @@ export default function SellerOrdersPage() {
               key={order.sellerOrderId}
               order={order}
               sellerId={sellerId}
-              images={images}
-              onChanged={() => loadOrders(sellerId, statusFilter)}
+              products={products}
+              onChanged={() => loadOrders(sellerId)}
             />
           ))}
         </div>
