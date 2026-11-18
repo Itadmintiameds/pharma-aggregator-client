@@ -38,7 +38,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 export function SalesTrendPanel({
   stats,
   loading,
-  title = "Sales over time",
+  title = "Sales Trend",
   subtitle = "Order value (line) and number of orders (bars), cancelled orders excluded",
   valueLabel = "Order value",
 }: {
@@ -103,7 +103,7 @@ export function OrderStatusPanel({
   const total = stats.statusBreakdown.reduce((sum, row) => sum + row.count, 0);
   return (
     <section className={cardClass}>
-      <PanelTitle title="Orders by status" subtitle={subtitle} />
+      <PanelTitle title="Orders By Status" subtitle={subtitle} />
       {loading ? (
         <div className="h-[200px] animate-pulse rounded-xl bg-neutral-100" />
       ) : total === 0 ? (
@@ -133,7 +133,7 @@ export function TopProductsPanel({
   stats,
   products,
   loading,
-  title = "Top selling products",
+  title = "Top Selling Products",
   subtitle = "By order value in this period",
   unitsLabel = "units sold",
   emptyText = "No sales in this period yet.",
@@ -198,7 +198,7 @@ export function InventoryPanel({ stats, loading, unavailable }: { stats: Dashboa
   return (
     <section className={cardClass}>
       <PanelTitle
-        title="Inventory"
+        title="Stock Overview"
         subtitle={`Low stock means ${LOW_STOCK_THRESHOLD} units or fewer`}
         action={
           <Link href="/seller_7a3b9f2c/products" className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">
@@ -215,8 +215,8 @@ export function InventoryPanel({ stats, loading, unavailable }: { stats: Dashboa
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Chip label="Published" value={inventory.published} />
             <Chip label="Drafts" value={inventory.drafts} />
-            <Chip label="Out of stock" value={inventory.outOfStock} warn />
-            <Chip label="Expiring ≤ 60 days" value={inventory.expiringBatches} warn />
+            <Chip label="Out of Stock" value={inventory.outOfStock} warn />
+            <Chip label="Expiring ≤ 60 Days" value={inventory.expiringBatches} warn />
           </div>
           {inventory.alerts.length === 0 ? (
             <p className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-p4 font-body text-green-800">

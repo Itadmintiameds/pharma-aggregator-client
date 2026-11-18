@@ -87,7 +87,7 @@ function RecentOrdersPanel({
     <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-p2 font-heading font-semibold text-neutral-900">Recent orders</h3>
+          <h3 className="text-p2 font-heading font-semibold text-neutral-900">Recent Orders</h3>
           <p className="text-xs text-neutral-500">Your latest orders, newest first</p>
         </div>
         <Link
@@ -239,7 +239,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
       <Section title="Needs your attention" subtitle="Live — not affected by the date range">
         <div className={tileGrid}>
           <StatTile
-            label="Quotes to review"
+            label="New Quotes"
             value={String(attention.quotesToReview)}
             icon={<FileText size={18} />}
             tone={tone(attention.quotesToReview)}
@@ -253,7 +253,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("quotes")}
           />
           <StatTile
-            label="Accepted quotes to order"
+            label="Quotes Ready to Order"
             value={String(attention.acceptedToOrder)}
             icon={<CircleCheck size={18} />}
             tone={tone(attention.acceptedToOrder)}
@@ -267,7 +267,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("quotes")}
           />
           <StatTile
-            label="Orders in progress"
+            label="Orders in Progress"
             value={String(attention.ordersInProgress)}
             icon={<Truck size={18} />}
             tone={attention.outForDelivery > 0 ? "attention" : "default"}
@@ -281,7 +281,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("orders")}
           />
           <StatTile
-            label="Returns to action"
+            label="Returns Process"
             value={String(returnsToAction)}
             icon={<Undo2 size={18} />}
             tone={tone(returnsToAction)}
@@ -291,7 +291,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("returns")}
           />
           <StatTile
-            label="Documents needing attention"
+            label="Compliance Documents Alerts"
             value={String(docAttention)}
             icon={<FileWarning size={18} />}
             tone={docs.expired > 0 ? "danger" : tone(docAttention)}
@@ -304,7 +304,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             loading={false}
           />
           <StatTile
-            label="Items in your cart"
+            label="Items in Cart"
             value={String(cartItems)}
             icon={<ShoppingCart size={18} />}
             hint={cartItems > 0 ? `Worth ${formatMoney(cartValue)} — ready to check out` : "Your cart is empty"}
@@ -317,7 +317,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
       <Section title="Spend" subtitle="Orders placed in the selected period">
         <div className={tileGrid}>
           <StatTile
-            label="Orders placed"
+            label="Total Orders"
             value={spend.ordersPlaced.toLocaleString("en-IN")}
             icon={<ShoppingBag size={18} />}
             trend={range === "all" ? undefined : spend.ordersPlacedTrend.percent}
@@ -326,7 +326,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("orders")}
           />
           <StatTile
-            label="Total spend"
+            label="Total Purchase Amount"
             value={formatMoney(spend.totalSpend)}
             icon={<IndianRupee size={18} />}
             trend={range === "all" ? undefined : spend.totalSpendTrend.percent}
@@ -335,7 +335,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("orders")}
           />
           <StatTile
-            label="Net spend"
+            label="Net Purchase Amount"
             value={formatMoney(spend.netSpend)}
             icon={<Wallet size={18} />}
             tone="good"
@@ -345,7 +345,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("orders") || has("returns")}
           />
           <StatTile
-            label="Average order value"
+            label="Average Order Value"
             value={spend.averageOrderValue === null ? "—" : formatMoney(spend.averageOrderValue)}
             icon={<Banknote size={18} />}
             hint="Per order, cancelled excluded"
@@ -353,7 +353,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("orders")}
           />
           <StatTile
-            label="Quotation orders"
+            label="Quote-Based Orders"
             value={String(spend.quoteOrders)}
             icon={<PiggyBank size={18} />}
             tone={spend.quoteSavings ? "good" : "default"}
@@ -369,7 +369,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("orders")}
           />
           <StatTile
-            label="Refunds received"
+            label="Total Refunds"
             value={formatMoney(spend.refunds)}
             icon={<Percent size={18} />}
             hint={
@@ -387,7 +387,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
       <Section title="Performance" subtitle="How your orders and quotes are going in the selected period">
         <div className={tileGrid}>
           <StatTile
-            label="Orders delivered"
+            label="Delivered Orders"
             value={String(performance.delivered)}
             icon={<Package size={18} />}
             hint={`${performance.cancelled} cancelled in this period`}
@@ -395,7 +395,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("orders")}
           />
           <StatTile
-            label="Average delivery time"
+            label="Average Delivery Time"
             value={formatHours(performance.avgDeliveryDays === null ? null : performance.avgDeliveryDays * 24)}
             icon={<Timer size={18} />}
             hint="From order placed to delivered"
@@ -403,7 +403,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("orders")}
           />
           <StatTile
-            label="Cancellation rate"
+            label="Cancelled Orders"
             value={formatPercent(performance.cancellationRate)}
             icon={<TriangleAlert size={18} />}
             tone={performance.cancellationRate !== null && performance.cancellationRate > 10 ? "attention" : "default"}
@@ -412,7 +412,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("orders")}
           />
           <StatTile
-            label="Return rate"
+            label="Returned Orders"
             value={formatPercent(performance.returnRate)}
             icon={<Undo2 size={18} />}
             hint={
@@ -424,7 +424,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
             unavailable={has("orders") || has("returns")}
           />
           <StatTile
-            label="Quote win rate"
+            label="Successful Quotes"
             value={formatPercent(performance.quoteWinRate)}
             icon={<Clock size={18} />}
             hint={
@@ -444,7 +444,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
           <SalesTrendPanel
             stats={stats}
             loading={loading}
-            title="Spending over time"
+            title="Purchase Trend"
             subtitle="Order value (line) and number of orders (bars), cancelled orders excluded"
             valueLabel="Spend"
           />
@@ -457,7 +457,7 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
           stats={stats}
           products={summaries}
           loading={loading}
-          title="Most purchased products"
+          title="Top Purchased Products"
           subtitle="By amount spent in this period"
           unitsLabel="units bought"
           emptyText="No purchases in this period yet."

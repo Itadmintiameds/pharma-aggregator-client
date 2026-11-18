@@ -38,7 +38,7 @@ export default function DocumentExpiryCard({ documents }: DocumentExpiryCardProp
         <span className="w-8 h-8 rounded-lg bg-primary-05 text-primary-700 flex items-center justify-center">
           <FileWarning size={16} />
         </span>
-        <h3 className="text-lg font-semibold font-heading text-black">Document Expiry</h3>
+        <h3 className="text-lg font-semibold font-heading text-black"> Documents Expiring</h3>
       </div>
 
       {withExpiry.length === 0 ? (

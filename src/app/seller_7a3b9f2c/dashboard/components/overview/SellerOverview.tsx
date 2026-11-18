@@ -113,7 +113,7 @@ export default function SellerOverview() {
       <Section title="Needs your attention" subtitle="Live — not affected by the date range">
         <div className={tileGrid}>
           <StatTile
-            label="Orders to confirm"
+            label="New Orders"
             value={String(attention.toConfirm)}
             icon={<ClipboardCheck size={18} />}
             tone={attention.overdue > 0 ? "danger" : tone(attention.toConfirm)}
@@ -123,7 +123,7 @@ export default function SellerOverview() {
             unavailable={has("orders")}
           />
           <StatTile
-            label="Orders to pack & ship"
+            label="Ready to Ship"
             value={String(attention.toShip)}
             icon={<PackageCheck size={18} />}
             tone={tone(attention.toShip)}
@@ -133,7 +133,7 @@ export default function SellerOverview() {
             unavailable={has("orders")}
           />
           <StatTile
-            label="Shipped, awaiting delivery"
+            label="In Transit"
             value={String(attention.inTransit)}
             icon={<Truck size={18} />}
             hint="Shipped or out for delivery"
@@ -152,7 +152,7 @@ export default function SellerOverview() {
             unavailable={has("returns")}
           />
           <StatTile
-            label="Quote requests to answer"
+            label="New Quote Requests"
             value={String(attention.quotesToReply)}
             icon={<FileText size={18} />}
             tone={tone(attention.quotesToReply)}
@@ -162,7 +162,7 @@ export default function SellerOverview() {
             unavailable={has("quotes")}
           />
           <StatTile
-            label="Stock alerts"
+            label="Low Stock Alerts"
             value={String(stockAlerts)}
             icon={<Boxes size={18} />}
             tone={inventory.outOfStock > 0 ? "danger" : tone(stockAlerts)}
@@ -177,7 +177,7 @@ export default function SellerOverview() {
       <Section title="Sales & earnings" subtitle="Orders placed in the selected period">
         <div className={tileGrid}>
           <StatTile
-            label="Orders received"
+            label="Orders Received"
             value={sales.ordersReceived.toLocaleString("en-IN")}
             icon={<ShoppingBag size={18} />}
             trend={range === "all" ? undefined : sales.ordersReceivedTrend.percent}
@@ -186,7 +186,7 @@ export default function SellerOverview() {
             unavailable={has("orders")}
           />
           <StatTile
-            label="Gross sales"
+            label="Gross Sales"
             value={formatMoney(sales.grossSales)}
             icon={<IndianRupee size={18} />}
             trend={range === "all" ? undefined : sales.grossSalesTrend.percent}
@@ -195,7 +195,7 @@ export default function SellerOverview() {
             unavailable={has("orders")}
           />
           <StatTile
-            label="Net sales"
+            label="Net Sales"
             value={formatMoney(sales.netSales)}
             icon={<IndianRupee size={18} />}
             tone="good"
@@ -205,7 +205,7 @@ export default function SellerOverview() {
             unavailable={has("orders") || has("returns")}
           />
           <StatTile
-            label="Average order value"
+            label="Average Order Value"
             value={sales.averageOrderValue === null ? "—" : formatMoney(sales.averageOrderValue)}
             icon={<Banknote size={18} />}
             hint="Per order, cancelled excluded"
@@ -213,7 +213,7 @@ export default function SellerOverview() {
             unavailable={has("orders")}
           />
           <StatTile
-            label="Platform commission"
+            label="Platform Fees"
             value={formatMoney(sales.commission)}
             icon={<Percent size={18} />}
             hint={`Plus ${formatMoney(sales.gstOnCommission)} GST on commission`}
@@ -221,7 +221,7 @@ export default function SellerOverview() {
             unavailable={has("commission")}
           />
           <StatTile
-            label="Payout pending"
+            label="Pending Payments"
             value={formatMoney(sales.pendingPayout)}
             icon={<Wallet size={18} />}
             tone={tone(sales.pendingPayout, "good")}
@@ -239,7 +239,7 @@ export default function SellerOverview() {
       <Section title="Performance" subtitle="How well you are serving buyers in the selected period">
         <div className={tileGrid}>
           <StatTile
-            label="Fulfilment rate"
+            label="Orders Delivered Successfully"
             value={formatPercent(performance.fulfilmentRate)}
             icon={<PackageCheck size={18} />}
             tone={performance.fulfilmentRate !== null && performance.fulfilmentRate < 80 ? "attention" : "default"}
@@ -248,7 +248,7 @@ export default function SellerOverview() {
             unavailable={has("orders")}
           />
           <StatTile
-            label="Cancellation rate"
+            label="Cancelled Orders"
             value={formatPercent(performance.cancellationRate)}
             icon={<TriangleAlert size={18} />}
             tone={performance.cancellationRate !== null && performance.cancellationRate > 10 ? "attention" : "default"}
@@ -257,7 +257,7 @@ export default function SellerOverview() {
             unavailable={has("orders")}
           />
           <StatTile
-            label="Return rate"
+            label="Returned Orders"
             value={formatPercent(performance.returnRate)}
             icon={<Undo2 size={18} />}
             tone={performance.returnRate !== null && performance.returnRate > 10 ? "attention" : "default"}
@@ -272,7 +272,7 @@ export default function SellerOverview() {
             unavailable={has("orders") || has("returns")}
           />
           <StatTile
-            label="Average time to confirm"
+            label="Order Confirmation Time"
             value={formatHours(performance.avgConfirmHours)}
             icon={<Timer size={18} />}
             tone={performance.avgConfirmHours !== null && performance.avgConfirmHours > 24 ? "attention" : "default"}
@@ -281,7 +281,7 @@ export default function SellerOverview() {
             unavailable={has("orders")}
           />
           <StatTile
-            label="Quote conversion"
+            label="Successful Quotes"
             value={formatPercent(performance.quoteConversion)}
             icon={<Clock size={18} />}
             hint={
