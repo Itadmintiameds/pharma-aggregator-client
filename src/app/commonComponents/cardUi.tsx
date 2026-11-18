@@ -38,10 +38,10 @@ export const STATUS_STYLES: Record<string, string> = {
   CANCELLED: "bg-red-50 text-red-700 ring-red-200",
 };
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, size = "md" }: { status: string; size?: "md" | "sm" }) {
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${
+      className={`rounded-full font-semibold ring-1 ring-inset ${size === "sm" ? "px-2 py-0.5 text-[10px]" : "px-3 py-1 text-xs"} ${
         STATUS_STYLES[status] ?? "bg-neutral-100 text-neutral-700 ring-neutral-200"
       }`}
     >
@@ -50,7 +50,7 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function ProductThumb({ src, alt }: { src?: string; alt: string }) {
+export function ProductThumb({ src, alt, size = "md" }: { src?: string; alt: string; size?: "md" | "sm" }) {
   const [failed, setFailed] = useState(false);
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -58,7 +58,7 @@ export function ProductThumb({ src, alt }: { src?: string; alt: string }) {
       src={!src || failed ? PLACEHOLDER_IMAGE : src}
       alt={alt}
       onError={() => setFailed(true)}
-      className="h-16 w-16 shrink-0 rounded-lg border border-neutral-200 bg-neutral-50 object-contain"
+      className={`shrink-0 rounded-lg border border-neutral-200 bg-neutral-50 object-contain ${size === "sm" ? "h-10 w-10" : "h-16 w-16"}`}
     />
   );
 }

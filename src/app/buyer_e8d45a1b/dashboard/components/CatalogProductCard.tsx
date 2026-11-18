@@ -13,9 +13,10 @@ import { formatMoney } from "@/src/utils/dashboardFormat";
 const LOW_STOCK_UNITS = 20;
 
 /**
- * A product in the buyer dashboard's catalog. Unlike the landing-page card (whose actions only appear on hover),
- * everything is visible at once - the price, the stock, and the add-to-cart control - and every card has the same
- * height so the grid stays tidy. The buyer is always logged in here, so prices are never hidden.
+ * A product in the buyer dashboard's catalog, in the same compact style as the storefront's cards (landing page and
+ * search): small image, two-line title, one meta line, price and a single outlined Add button. Everything is visible at
+ * once and every card has the same height. The buyer is always logged in here, so prices are never hidden, and adding
+ * to the cart does not pop the drawer open - a "View cart" link appears once the product is in the cart.
  */
 export default function CatalogProductCard({
   product,
@@ -57,13 +58,14 @@ export default function CatalogProductCard({
   };
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-      <Link href={href} onClick={trackClick} className="relative block bg-neutral-50">
-        <div className="flex h-48 items-center justify-center p-4">
+    <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition-all duration-200 hover:border-primary-300 hover:shadow-md">
+      <Link href={href} onClick={trackClick} className="relative block border-b border-neutral-100 bg-white">
+        <div className="flex h-28 items-center justify-center p-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={image || "/icons/Tumbnail.svg"}
             alt={product.productName}
+            loading="lazy"
             className={`h-full w-full object-contain transition-transform duration-300 group-hover:scale-105 ${
               unavailable ? "opacity-50 grayscale" : ""
             }`}
@@ -76,90 +78,89 @@ export default function CatalogProductCard({
           />
         </div>
         {discount !== null && !unavailable && (
-          <span className="absolute left-3 top-3 rounded-full bg-green-600 px-2.5 py-1 text-xs font-semibold text-white">
+          <span className="absolute left-2 top-2 rounded-md bg-green-600 px-1.5 py-0.5 text-[9px] font-semibold text-white">
             {discount}% off
           </span>
         )}
         {unavailable && (
-          <span className="absolute left-3 top-3 rounded-full bg-neutral-800 px-2.5 py-1 text-xs font-semibold text-white">
+          <span className="absolute left-2 top-2 rounded-md bg-neutral-800 px-1.5 py-0.5 text-[9px] font-semibold text-white">
             Out of stock
           </span>
         )}
         {lowStock && (
-          <span className="absolute right-3 top-3 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+          <span className="absolute right-2 top-2 rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-800">
             Only {maxQuantity} left
           </span>
         )}
       </Link>
 
-      <div className="flex flex-1 flex-col gap-1 p-4">
+      <div className="flex flex-1 flex-col gap-0.5 p-2.5">
         {product.manufacturerName && (
-          <p className="truncate text-xs font-medium uppercase tracking-wide text-neutral-400">{product.manufacturerName}</p>
+          <p className="truncate text-[9px] font-medium uppercase tracking-wide text-neutral-400">{product.manufacturerName}</p>
         )}
-        <h3 className="line-clamp-2 min-h-[2.75rem] text-p3 font-heading font-semibold leading-snug text-neutral-900">
+        <h3 className="line-clamp-2 min-h-[2.1rem] text-xs font-semibold leading-tight text-neutral-900">
           <Link href={href} onClick={trackClick} className="hover:text-primary-800">
             {product.productName}
           </Link>
         </h3>
-        {product.productDescription && (
-          <p className="line-clamp-2 text-p4 font-body text-neutral-500">{product.productDescription}</p>
-        )}
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
-          {product.sellerName && (
-            <span className="truncate">
-              Sold by <span className="font-medium text-neutral-700">{product.sellerName}</span>
-            </span>
+        <p className="mt-0.5 flex items-center gap-x-1.5 truncate text-[10px] text-neutral-500">
+          {product.sellerName && <span className="truncate">By {product.sellerName}</span>}
+          {minQuantity > 1 && (
+            <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 font-medium text-neutral-600">Min {minQuantity}</span>
           )}
-          {minQuantity > 1 && <span>Min. order {minQuantity}</span>}
-        </div>
+        </p>
 
-        <div className="mt-auto pt-3">
+        <div className="mt-auto pt-2">
           {sellingPrice != null ? (
-            <div className="flex items-baseline gap-2">
-              <span className="text-h6 font-heading font-bold text-neutral-900">{formatMoney(sellingPrice)}</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-sm font-bold text-neutral-900">{formatMoney(sellingPrice)}</span>
               {mrp != null && pricing?.sellingPrice != null && mrp > pricing.sellingPrice && (
-                <span className="text-p4 text-neutral-400 line-through">{formatMoney(mrp)}</span>
+                <span className="text-xs text-neutral-400 line-through">{formatMoney(mrp)}</span>
               )}
-              <span className="text-xs text-neutral-400">/ unit</span>
+              <span className="text-[11px] text-neutral-400">/ unit</span>
             </div>
           ) : (
-            <span className="text-p4 text-neutral-500">Price on request</span>
+            <span className="text-xs text-neutral-500">Price on request</span>
           )}
 
-          <div className="mt-3">
+          <div className="mt-2">
             {cartQuantity === 0 ? (
               <button
                 type="button"
                 onClick={add}
                 disabled={unavailable}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:bg-neutral-200 disabled:text-neutral-500"
+                className="flex w-full items-center justify-center gap-1.5 rounded-md border border-primary-800 bg-white px-2 py-1.5 text-xs font-semibold text-primary-800 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:bg-neutral-50 disabled:text-neutral-400"
               >
-                <ShoppingCart size={16} />
-                {unavailable ? "Out of stock" : "Add to cart"}
+                <ShoppingCart size={14} />
+                {unavailable ? "Out of stock" : "Add"}
               </button>
             ) : (
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-1 rounded-xl border border-neutral-200 bg-neutral-50 p-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-1 items-center justify-between rounded-lg border border-primary-800 bg-primary-50 p-0.5">
                   <button
                     type="button"
                     aria-label="Decrease quantity"
                     onClick={() => updateQuantity(product.productId, cartQuantity - 1)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-800 hover:bg-white"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-primary-800 hover:bg-white"
                   >
                     <Minus size={14} />
                   </button>
-                  <span className="w-8 text-center text-sm font-semibold text-neutral-900">{cartQuantity}</span>
+                  <span className="text-xs font-semibold text-neutral-900">{cartQuantity}</span>
                   <button
                     type="button"
                     aria-label="Increase quantity"
                     disabled={atMax}
                     onClick={() => updateQuantity(product.productId, cartQuantity + 1)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-800 hover:bg-white disabled:opacity-40"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-primary-800 hover:bg-white disabled:opacity-40"
                   >
                     <Plus size={14} />
                   </button>
                 </div>
-                <button type="button" onClick={openCart} className="text-sm font-semibold text-primary-800 hover:underline">
+                <button
+                  type="button"
+                  onClick={openCart}
+                  className="shrink-0 text-[11px] font-semibold text-primary-800 no-underline hover:text-primary-600"
+                >
                   View cart
                 </button>
               </div>

@@ -17,8 +17,8 @@ const GRADIENTS: [string, string][] = [
 ];
 
 // Marquee geometry: each seller cell is 120px wide with a 24px gap after it. STRIP_WIDTH is the widest the strip gets.
-const ITEM_WIDTH = 120;
-const ITEM_GAP = 24;
+const ITEM_WIDTH = 88;
+const ITEM_GAP = 12;
 const STRIP_WIDTH = 1280;
 /** Scroll speed, so a long list does not race past and a short one does not crawl. */
 const SCROLL_PX_PER_SECOND = 80;
@@ -59,14 +59,14 @@ function SellerLogoMark({ name }: SellerLogoMarkProps) {
     const [from, to] = GRADIENTS[hashString(name) % GRADIENTS.length];
     return (
         <div
-            className="relative w-14 h-14 rounded-2xl overflow-hidden shadow-md ring-1 ring-white/50 flex items-center justify-center shrink-0"
+            className="relative w-10 h-10 rounded-xl overflow-hidden shadow-sm ring-1 ring-white/50 flex items-center justify-center shrink-0"
             style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
         >
             <span
                 aria-hidden
-                className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white/20"
+                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white/20"
             />
-            <span className="relative text-white font-bold text-base tracking-tight drop-shadow-sm">
+            <span className="relative text-white font-bold text-xs tracking-tight drop-shadow-sm">
                 {initialsFor(name)}
             </span>
         </div>
@@ -104,15 +104,15 @@ const FeatureBrands = () => {
     const loopSeconds = Math.round((oneCopy.length * cell) / SCROLL_PX_PER_SECOND);
 
     return (
-        <section className="mx-auto w-full max-w-[1280px] px-3 py-6 sm:px-4" aria-labelledby="featured-sellers-heading">
-            <div className="rounded-2xl border border-neutral-200 bg-white px-5 py-5 shadow-sm sm:px-8">
+        <section className="w-full py-3" aria-labelledby="featured-sellers-heading">
+            <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm sm:px-5">
                 {/* ================= HEADER ================= */}
-                <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                <div className="mb-1 flex flex-wrap items-end justify-between gap-2">
                     <div>
-                        <h2 id="featured-sellers-heading" className="text-h5 font-semibold text-neutral-900">
+                        <h2 id="featured-sellers-heading" className="text-base font-semibold text-neutral-900">
                             Featured Sellers
                         </h2>
-                        <p className="mt-0.5 text-sm text-neutral-500">Manufacturers and distributors selling on TiaMeds</p>
+                        <p className="mt-0.5 text-xs text-neutral-500">Manufacturers and distributors selling on TiaMeds</p>
                     </div>
                 </div>
 
@@ -130,7 +130,7 @@ const FeatureBrands = () => {
                             <div
                                 key={`${seller.sellerId}-${index}`}
                                 title={seller.sellerName}
-                                className="group mr-6 flex w-[120px] shrink-0 flex-col items-center gap-2 rounded-xl px-2 py-3 transition-colors hover:bg-neutral-50"
+                                className="group mr-3 flex w-[88px] shrink-0 flex-col items-center gap-1 rounded-lg px-1.5 py-2 transition-colors hover:bg-neutral-50"
                             >
                                 <div className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105">
                                     {seller.sellerImageUrl ? (
@@ -138,13 +138,13 @@ const FeatureBrands = () => {
                                         <img
                                             src={seller.sellerImageUrl}
                                             alt={seller.sellerName}
-                                            className="h-14 w-14 rounded-2xl object-cover shadow-md ring-1 ring-pneutral-200"
+                                            className="h-10 w-10 rounded-xl object-cover shadow-sm ring-1 ring-neutral-200"
                                         />
                                     ) : (
                                         <SellerLogoMark name={seller.sellerName} />
                                     )}
                                 </div>
-                                <span className="w-full truncate text-center text-xs font-medium text-neutral-600 group-hover:text-neutral-900">
+                                <span className="w-full truncate text-center text-[11px] font-medium text-neutral-600 group-hover:text-neutral-900">
                                     {seller.sellerName}
                                 </span>
                             </div>

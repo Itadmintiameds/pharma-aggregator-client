@@ -112,11 +112,11 @@ export default function ProductGrid() {
   }, [canLoadMore, loading, error, page, loadPage, products.length]);
 
   return (
-    <div className="py-14 bg-gray-100">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <div className="py-6">
+      <div>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-semibold text-gray-900">Products</h2>
+            <h2 className="text-xl font-semibold text-gray-900 sm:text-2xl">Products</h2>
             <p className="mt-1 text-sm text-gray-500">
               {totalResults > 0
                 ? `${totalResults.toLocaleString("en-IN")} products from verified sellers · newest first`
@@ -133,9 +133,9 @@ export default function ProductGrid() {
         </div>
 
         {loading && products.length === 0 && (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4" role="status" aria-label="Loading products">
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(156px,1fr))]" role="status" aria-label="Loading products">
             {Array.from({ length: 8 }, (_, i) => (
-              <ProductCardSkeleton key={i} />
+              <ProductCardSkeleton key={i} compact />
             ))}
           </div>
         )}
@@ -151,9 +151,9 @@ export default function ProductGrid() {
 
         {products.length > 0 && (
           <>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(156px,1fr))]">
               {products.map((product) => (
-                <ProductCard key={product.productId} product={product} searchContext={contexts[product.productId]} />
+                <ProductCard compact key={product.productId} product={product} searchContext={contexts[product.productId]} />
               ))}
             </div>
 

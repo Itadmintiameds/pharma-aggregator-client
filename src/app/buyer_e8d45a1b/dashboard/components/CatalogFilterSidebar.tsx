@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Check, ChevronDown, SlidersHorizontal } from "lucide-react";
-import PriceFilter from "@/src/app/components/search/PriceFilter";
+import PriceRangeSlider from "@/src/app/components/search/PriceRangeSlider";
 import type { SearchFacet } from "@/src/types/buyer/search";
 import { STOREFRONT_CATEGORIES } from "@/src/utils/storefrontCategories";
 
@@ -38,12 +38,6 @@ export const FACET_GROUPS: { field: FacetKey; label: string }[] = [
   { field: "manufacturerName", label: "Manufacturer" },
 ];
 
-const QUICK_PRICE_RANGES = [
-  { label: "Under ₹100", min: "", max: "100" },
-  { label: "₹100 – ₹500", min: "100", max: "500" },
-  { label: "₹500 – ₹1,000", min: "500", max: "1000" },
-  { label: "Over ₹1,000", min: "1000", max: "" },
-];
 
 const SHOW_FIRST = 6;
 
@@ -60,9 +54,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <details open={defaultOpen} className="group border-b border-neutral-100 py-3 last:border-b-0">
+    <details open={defaultOpen} className="group border-b border-neutral-100 py-2.5 last:border-b-0">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
-        <span className="text-p4 font-heading font-semibold text-neutral-900">{title}</span>
+        <span className="text-[13px] font-heading font-semibold text-neutral-900">{title}</span>
         <span className="flex min-w-0 items-center gap-2">
           {selected && (
             <span className="max-w-[7rem] truncate rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-800">
@@ -105,7 +99,7 @@ function OptionList({
                 type="button"
                 aria-pressed={selected}
                 onClick={() => onSelect(selected ? "" : option.value)}
-                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-p4 transition-colors ${
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[13px] transition-colors ${
                   selected ? "bg-primary-50 font-medium text-primary-800" : "text-neutral-700 hover:bg-neutral-50"
                 }`}
               >
@@ -118,7 +112,7 @@ function OptionList({
                 </span>
                 <span className="min-w-0 flex-1 truncate">{option.label}</span>
                 {option.count !== undefined && (
-                  <span className={`text-xs ${selected ? "text-primary-700" : "text-neutral-400"}`}>{option.count}</span>
+                  <span className={`text-[11px] ${selected ? "text-primary-700" : "text-neutral-400"}`}>{option.count}</span>
                 )}
               </button>
             </li>
@@ -173,7 +167,7 @@ export default function CatalogFilterSidebar({
   return (
     <div className={`rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm lg:sticky lg:overflow-y-auto ${stickyClassName}`}>
       <div className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-3">
-        <h3 className="flex items-center gap-2 text-p3 font-heading font-semibold text-neutral-900">
+        <h3 className="flex items-center gap-2 text-sm font-heading font-semibold text-neutral-900">
           <SlidersHorizontal size={16} className="text-neutral-500" />
           Filters
           {activeCount > 0 && (
@@ -207,32 +201,10 @@ export default function CatalogFilterSidebar({
         );
       })}
 
-      <Section title="Price (₹)" selected={priceSelected} defaultOpen>
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {QUICK_PRICE_RANGES.map((range) => {
-            const selected = filters.priceMin === range.min && filters.priceMax === range.max;
-            return (
-              <button
-                key={range.label}
-                type="button"
-                aria-pressed={selected}
-                disabled={priceLocked}
-                onClick={() => onChange(selected ? { priceMin: "", priceMax: "" } : { priceMin: range.min, priceMax: range.max })}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  selected
-                    ? "border-primary-800 bg-primary-50 text-primary-800"
-                    : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                }`}
-              >
-                {range.label}
-              </button>
-            );
-          })}
-        </div>
-        {/* keyed on the applied range so the boxes reset when it changes from elsewhere (chip, clear all) */}
-        <PriceFilter
+      <Section title="Price Range" selected={priceSelected} defaultOpen>
+        {/* keyed on the applied range so the handles reset when it changes from elsewhere (chip, clear all) */}
+        <PriceRangeSlider
           disabled={priceLocked}
-          hideTitle
           key={`${filters.priceMin}-${filters.priceMax}`}
           initialMin={filters.priceMin}
           initialMax={filters.priceMax}

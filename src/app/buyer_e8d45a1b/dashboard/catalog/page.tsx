@@ -20,14 +20,13 @@ const MAX_WINDOW = 10000;
 
 function CardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-      <div className="h-48 animate-pulse bg-neutral-100" />
-      <div className="space-y-3 p-4">
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <div className="h-28 animate-pulse bg-neutral-100" />
+      <div className="space-y-2.5 p-2.5">
         <div className="h-3 w-1/3 animate-pulse rounded bg-neutral-100" />
         <div className="h-4 w-4/5 animate-pulse rounded bg-neutral-100" />
-        <div className="h-3 w-full animate-pulse rounded bg-neutral-100" />
-        <div className="h-6 w-1/3 animate-pulse rounded bg-neutral-100" />
-        <div className="h-10 w-full animate-pulse rounded-xl bg-neutral-100" />
+        <div className="h-5 w-1/3 animate-pulse rounded bg-neutral-100" />
+        <div className="h-8 w-full animate-pulse rounded-md bg-neutral-100" />
       </div>
     </div>
   );
@@ -180,16 +179,16 @@ export default function BuyerCatalogPage() {
   const sidebarActiveCount = activeFilters.filter((f) => f.key !== "stock").length;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-3">
       <div>
-        <h2 className="text-h4 font-heading font-bold text-pneutral-900">Browse Catalog</h2>
-        <p className="mt-1 text-p3 font-body text-pneutral-600">
+        <h2 className="text-xl font-heading font-bold text-neutral-900">Browse Catalog</h2>
+        <p className="mt-0.5 text-xs font-body text-neutral-600">
           Search and browse every product listed by approved sellers.
         </p>
       </div>
 
       <div className="relative">
-        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
         <input
           value={query}
           onChange={(e) => {
@@ -198,7 +197,7 @@ export default function BuyerCatalogPage() {
           }}
           placeholder="Search by product, brand or manufacturer"
           aria-label="Search products"
-          className="h-12 w-full rounded-xl border border-neutral-300 bg-white pl-11 pr-11 text-sm shadow-sm focus:border-primary-600 focus:outline-none"
+          className="h-10 w-full rounded-lg border border-neutral-300 bg-white pl-10 pr-10 text-[13px] shadow-sm focus:border-primary-600 focus:outline-none"
         />
         {query && (
           <button
@@ -215,8 +214,8 @@ export default function BuyerCatalogPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 shadow-sm">
-        <p className="text-p4 font-body text-neutral-600" aria-live="polite">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-sm">
+        <p className="text-xs font-body text-neutral-600" aria-live="polite">
           {data && !error ? (
             <>
               <span className="font-semibold text-neutral-900">{data.totalResults.toLocaleString("en-IN")}</span>{" "}
@@ -234,14 +233,14 @@ export default function BuyerCatalogPage() {
             role="switch"
             aria-checked={filters.inStockOnly}
             onClick={() => updateFilters({ inStockOnly: !filters.inStockOnly })}
-            className="flex items-center gap-2 text-p4 font-medium text-neutral-700"
+            className="flex items-center gap-2 text-xs font-medium text-neutral-700"
           >
             <span
-              className={`relative h-6 w-11 rounded-full transition-colors ${filters.inStockOnly ? "bg-primary-800" : "bg-neutral-300"}`}
+              className={`relative h-5 w-9 rounded-full transition-colors ${filters.inStockOnly ? "bg-primary-800" : "bg-neutral-300"}`}
             >
               <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
-                  filters.inStockOnly ? "left-[22px]" : "left-0.5"
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
+                  filters.inStockOnly ? "left-[18px]" : "left-0.5"
                 }`}
               />
             </span>
@@ -318,7 +317,7 @@ export default function BuyerCatalogPage() {
           )}
 
           {!data && loading && (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(156px,1fr))]">
               {Array.from({ length: 6 }, (_, i) => (
                 <CardSkeleton key={i} />
               ))}
@@ -347,7 +346,7 @@ export default function BuyerCatalogPage() {
 
           {data && data.results.length > 0 && (
             <div className={`transition-opacity ${loading ? "opacity-60" : "opacity-100"}`}>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(156px,1fr))]">
                 {data.results.map((item, index) => (
                   <CatalogProductCard
                     key={item.productId}

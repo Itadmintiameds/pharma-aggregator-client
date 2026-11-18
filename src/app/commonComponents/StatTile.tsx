@@ -32,12 +32,12 @@ interface StatTileProps {
 }
 
 function TrendBadge({ percent }: { percent: number | null }) {
-  if (percent === null) return <span className="text-xs text-neutral-400">No earlier data to compare</span>;
+  if (percent === null) return <span className="text-[11px] text-neutral-400">No earlier data to compare</span>;
   const up = percent >= 0;
   const Icon = up ? ArrowUpRight : ArrowDownRight;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${up ? "text-green-700" : "text-red-600"}`}>
-      <Icon size={14} />
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold ${up ? "text-green-700" : "text-red-600"}`}>
+      <Icon size={12} />
       {Math.abs(percent).toFixed(percent !== 0 && Math.abs(percent) < 10 ? 1 : 0)}%
       <span className="font-normal text-neutral-500">vs previous period</span>
     </span>
@@ -59,32 +59,32 @@ export default function StatTile({
   const styles = TONE_STYLES[tone];
   const body = (
     <>
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-p4 font-body font-medium text-neutral-600">{label}</p>
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${styles.icon}`}>{icon}</span>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-body font-medium text-neutral-600">{label}</p>
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${styles.icon}`}>{icon}</span>
       </div>
       <p
-        className={`mt-2 text-h5 font-heading font-bold text-neutral-900 ${loading ? "animate-pulse text-neutral-300" : ""}`}
+        className={`mt-1 text-lg font-heading font-bold leading-tight text-neutral-900 ${loading ? "animate-pulse text-neutral-300" : ""}`}
         title={unavailable ? "Could not be loaded" : undefined}
       >
         {loading ? "…" : unavailable ? "—" : value}
       </p>
-      <div className="mt-1 min-h-[18px]">
+      <div className="mt-0.5 min-h-[16px]">
         {unavailable ? (
-          <span className="text-xs text-neutral-400">Unavailable right now</span>
+          <span className="text-[11px] text-neutral-400">Unavailable right now</span>
         ) : !loading && trend !== undefined ? (
           <TrendBadge percent={trend} />
         ) : !loading && hint ? (
-          <span className="text-xs text-neutral-500">{hint}</span>
+          <span className="text-[11px] leading-snug text-neutral-500">{hint}</span>
         ) : null}
       </div>
       {!loading && !unavailable && trend !== undefined && hint && (
-        <p className="mt-0.5 text-xs text-neutral-500">{hint}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-neutral-500">{hint}</p>
       )}
     </>
   );
 
-  const className = `relative block w-full rounded-2xl border bg-white p-5 text-left shadow-sm transition-shadow ${styles.card} ${
+  const className = `relative block w-full rounded-xl border bg-white p-3.5 text-left shadow-sm transition-shadow ${styles.card} ${
     href || onClick ? "hover:shadow-md" : ""
   }`;
 
@@ -92,7 +92,7 @@ export default function StatTile({
     return (
       <button type="button" onClick={onClick} className={className}>
         {body}
-        <ChevronRight size={16} className="absolute bottom-4 right-4 text-neutral-300" aria-hidden />
+        <ChevronRight size={14} className="absolute bottom-3 right-3 text-neutral-300" aria-hidden />
       </button>
     );
   }
@@ -100,7 +100,7 @@ export default function StatTile({
     return (
       <Link href={href} className={className}>
         {body}
-        <ChevronRight size={16} className="absolute bottom-4 right-4 text-neutral-300" aria-hidden />
+        <ChevronRight size={14} className="absolute bottom-3 right-3 text-neutral-300" aria-hidden />
       </Link>
     );
   }

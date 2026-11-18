@@ -251,12 +251,12 @@ export default function SearchResultsView() {
                 role="switch"
                 aria-checked={state.inStockOnly}
                 onClick={() => update({ inStockOnly: !state.inStockOnly })}
-                className="flex items-center gap-2 text-sm font-medium text-neutral-700"
+                className="flex items-center gap-2 text-xs font-medium text-neutral-700"
               >
-                <span className={`relative h-6 w-11 rounded-full transition-colors ${state.inStockOnly ? "bg-primary-800" : "bg-neutral-300"}`}>
+                <span className={`relative h-5 w-9 rounded-full transition-colors ${state.inStockOnly ? "bg-primary-800" : "bg-neutral-300"}`}>
                   <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
-                      state.inStockOnly ? "left-[22px]" : "left-0.5"
+                    className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
+                      state.inStockOnly ? "left-[18px]" : "left-0.5"
                     }`}
                   />
                 </span>
@@ -333,9 +333,10 @@ export default function SearchResultsView() {
 
               {data && data.results.length > 0 && (
                 <div className={`transition-opacity ${loading ? "opacity-60" : "opacity-100"}`}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(156px,1fr))]">
                     {data.results.map((result, index) => (
                       <ProductCard
+                        compact
                         key={result.productId}
                         product={searchResultToBuyerProduct(result)}
                         // which search showed this product and at what rank, for the search analytics

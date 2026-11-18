@@ -11,8 +11,8 @@ const TOPICS = [
   "Partnerships and general enquiries",
 ];
 
-const card = "flex gap-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm";
-const iconBox = "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary-100 text-primary-800";
+const card = "flex gap-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm";
+const iconBox = "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-100 text-primary-800";
 
 export default function ContactPage() {
   return (
@@ -27,25 +27,25 @@ export default function ContactPage() {
         >
           <a
             href="mailto:support@tiameds.ai"
-            className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-base font-semibold text-primary-900 transition-colors hover:bg-neutral-100"
+            className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary-900 transition-colors hover:bg-neutral-100"
           >
-            <FaEnvelope className="h-4 w-4" /> Email support
+            <FaEnvelope className="h-3.5 w-3.5" /> Email support
           </a>
         </PageHero>
 
-        <div className="px-6 py-16 lg:px-8">
-          <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-5">
-            <div className="grid gap-6 lg:col-span-3">
+        <div className="px-4 py-8 lg:px-8">
+          <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-5">
+            <div className="grid gap-4 lg:col-span-3">
               <div className={card}>
                 <span className={iconBox}>
-                  <FaEnvelope className="h-5 w-5" />
+                  <FaEnvelope className="h-4 w-4" />
                 </span>
                 <div>
-                  <h2 className="text-xl font-heading font-semibold text-primary-900">Email</h2>
-                  <p className="mt-1 text-base text-neutral-600">Best for orders, account and onboarding questions.</p>
+                  <h2 className="text-base font-heading font-semibold text-primary-900">Email</h2>
+                  <p className="mt-0.5 text-sm text-neutral-600">Best for orders, account and onboarding questions.</p>
                   <a
                     href="mailto:support@tiameds.ai"
-                    className="mt-2 inline-block text-lg font-semibold text-primary-700 hover:text-primary-900 hover:underline"
+                    className="mt-1.5 inline-block text-sm font-semibold text-primary-700 no-underline hover:text-primary-900"
                   >
                     support@tiameds.ai
                   </a>
@@ -54,24 +54,24 @@ export default function ContactPage() {
 
               <div className={card}>
                 <span className={iconBox}>
-                  <FaHeadset className="h-5 w-5" />
+                  <FaHeadset className="h-4 w-4" />
                 </span>
                 <div>
-                  <h2 className="text-xl font-heading font-semibold text-primary-900">Help Center</h2>
-                  <p className="mt-1 text-base text-neutral-600">Reach our support team for any platform-related queries.</p>
-                  <p className="mt-2 inline-flex items-center gap-2 text-base text-neutral-500">
-                    <FaClock className="h-3.5 w-3.5" /> Tip: include your order or product ID so we can help faster.
+                  <h2 className="text-base font-heading font-semibold text-primary-900">Help Center</h2>
+                  <p className="mt-0.5 text-sm text-neutral-600">Reach our support team for any platform-related queries.</p>
+                  <p className="mt-1.5 inline-flex items-center gap-2 text-xs text-neutral-500">
+                    <FaClock className="h-3 w-3" /> Tip: include your order or product ID so we can help faster.
                   </p>
                 </div>
               </div>
 
               <div className={card}>
                 <span className={iconBox}>
-                  <FaMapMarkerAlt className="h-5 w-5" />
+                  <FaMapMarkerAlt className="h-4 w-4" />
                 </span>
                 <div>
-                  <h2 className="text-xl font-heading font-semibold text-primary-900">Address</h2>
-                  <address className="mt-1 text-base not-italic leading-relaxed text-neutral-600">
+                  <h2 className="text-base font-heading font-semibold text-primary-900">Address</h2>
+                  <address className="mt-0.5 text-sm not-italic leading-relaxed text-neutral-600">
                     No. 59, 2nd Floor of Dakshina Murthy Towers, Devanooru,
                     <br />
                     Rajeevnagara 2nd Stage, Udayagiri, Mysore
@@ -82,17 +82,17 @@ export default function ContactPage() {
               </div>
             </div>
 
-            <aside className="h-fit rounded-2xl bg-secondary-50 p-7 lg:col-span-2">
-              <h2 className="text-xl font-heading font-semibold text-primary-900">How can we help?</h2>
-              <ul className="mt-4 space-y-3">
+            <aside className="h-fit rounded-xl bg-secondary-50 p-5 lg:col-span-2">
+              <h2 className="text-base font-heading font-semibold text-primary-900">How can we help?</h2>
+              <ul className="mt-3 space-y-2">
                 {TOPICS.map((topic) => (
-                  <li key={topic} className="flex gap-3 text-base text-neutral-700">
-                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary-700" />
+                  <li key={topic} className="flex gap-2.5 text-sm text-neutral-700">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary-700" />
                     {topic}
                   </li>
                 ))}
               </ul>
-              <Link href="/careers" className="mt-6 inline-block text-base font-semibold text-primary-800 hover:underline">
+              <Link href="/careers" className="mt-4 inline-block text-sm font-semibold text-primary-800 no-underline hover:text-primary-600">
                 Looking for a career at TiaMeds? →
               </Link>
             </aside>

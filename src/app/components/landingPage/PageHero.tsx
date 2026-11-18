@@ -13,14 +13,14 @@ export default function PageHero({
   children?: ReactNode;
 }) {
   return (
-    <section className="bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 px-6 pb-16 pt-40 text-white lg:px-8">
+    <section className="bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 px-4 pb-10 pt-[9.5rem] text-white lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <span className="inline-block rounded-full bg-white/10 px-3.5 py-1 text-sm font-semibold uppercase tracking-wider text-secondary-200">
+        <span className="inline-block rounded-full bg-white/10 px-3 py-0.5 text-xs font-semibold uppercase tracking-wider text-secondary-200">
           {eyebrow}
         </span>
-        <h1 className="mt-4 text-[40px] font-heading font-bold leading-tight sm:text-5xl">{title}</h1>
-        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-neutral-100">{description}</p>
-        {children && <div className="mt-8 flex flex-wrap gap-3">{children}</div>}
+        <h1 className="mt-3 text-2xl font-heading font-bold leading-tight sm:text-4xl">{title}</h1>
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-neutral-100 sm:text-base">{description}</p>
+        {children && <div className="mt-5 flex flex-wrap gap-3">{children}</div>}
       </div>
     </section>
   );

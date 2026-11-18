@@ -80,21 +80,21 @@ export default function SortDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => (open ? setOpen(false) : openMenu())}
-        className={`flex h-10 items-center gap-2 rounded-xl border bg-white px-3 text-sm shadow-sm transition-colors hover:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-200 ${
+        className={`flex h-8 items-center gap-1.5 rounded-lg border bg-white px-2.5 text-xs shadow-sm transition-colors hover:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-200 ${
           open ? "border-primary-600" : "border-neutral-300"
         }`}
       >
-        <ArrowUpDown size={16} className="text-neutral-500" />
+        <ArrowUpDown size={14} className="text-neutral-500" />
         <span className="text-neutral-500">Sort by</span>
         <span className="font-semibold text-neutral-900">{selected.label}</span>
-        <ChevronDown size={16} className={`text-neutral-500 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown size={14} className={`text-neutral-500 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
         <ul
           role="listbox"
           aria-label="Sort products"
-          className="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg"
+          className="absolute right-0 z-30 mt-1.5 w-56 rounded-lg border border-neutral-200 bg-white p-1 shadow-lg"
         >
           {options.map((option, index) => {
             const isSelected = option.value === selected.value;
@@ -105,18 +105,18 @@ export default function SortDropdown({
                   disabled={option.disabled}
                   onClick={() => choose(option.value)}
                   onMouseEnter={() => setActive(index)}
-                  className={`flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`flex w-full items-start gap-2 rounded-md px-2.5 py-1.5 text-left disabled:cursor-not-allowed disabled:opacity-50 ${
                     index === active && !option.disabled ? "bg-neutral-100" : ""
                   }`}
                 >
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center text-primary-800">
-                    {isSelected && <Check size={16} strokeWidth={3} />}
+                  <span className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center text-primary-800">
+                    {isSelected && <Check size={14} strokeWidth={3} />}
                   </span>
                   <span className="min-w-0">
-                    <span className={`block text-sm ${isSelected ? "font-semibold text-primary-800" : "font-medium text-neutral-800"}`}>
+                    <span className={`block text-[13px] leading-tight ${isSelected ? "font-semibold text-primary-800" : "font-medium text-neutral-800"}`}>
                       {option.label}
                     </span>
-                    {option.hint && <span className="block text-xs text-neutral-500">{option.hint}</span>}
+                    {option.hint && <span className="block text-[11px] text-neutral-500">{option.hint}</span>}
                   </span>
                 </button>
               </li>

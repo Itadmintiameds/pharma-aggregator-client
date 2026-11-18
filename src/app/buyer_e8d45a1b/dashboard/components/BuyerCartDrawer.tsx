@@ -484,7 +484,8 @@ function DrawerBody({ onClose, quote }: { onClose: () => void; quote: QuoteReque
                     type="button"
                     onClick={() => {
                       onClose();
-                      router.push("/buyer_e8d45a1b/dashboard/catalog");
+                      // Works from the public site and the dashboard alike (the dashboard catalog is a dashboard-only page).
+                      router.push("/search?sort=newest");
                     }}
                     className="mt-2 rounded-xl bg-primary-900 px-5 py-2.5 text-sm font-semibold text-white"
                   >
@@ -559,6 +560,11 @@ function DrawerBody({ onClose, quote }: { onClose: () => void; quote: QuoteReque
                   <SummaryRow label="GST" value={summary.taxTotal} />
                   <SummaryRow label={`Total · ${unitCount} unit${unitCount === 1 ? "" : "s"}`} value={summary.total} strong />
                 </div>
+                {summary.discountTotal > 0 && (
+                  <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs font-semibold text-green-700">
+                    You&apos;re saving {formatMoney(summary.discountTotal)} on this order
+                  </p>
+                )}
                 {hasUnavailable && (
                   <p className="mt-3 text-xs font-medium text-red-600">Some items are out of stock. Remove them to continue.</p>
                 )}
