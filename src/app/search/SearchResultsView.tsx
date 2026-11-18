@@ -27,6 +27,9 @@ const SORT_OPTIONS: { value: SearchSort; label: string; hint: string }[] = [
   { value: "price_asc", label: "Price: low to high", hint: "Cheapest first" },
   { value: "price_desc", label: "Price: high to low", hint: "Most expensive first" },
   { value: "newest", label: "Newest", hint: "Recently listed products" },
+  { value: "bestselling", label: "Most selling", hint: "Most units sold recently" },
+  { value: "fastest_delivery", label: "Fastest delivery", hint: "Sellers who deliver quickest" },
+  { value: "fastest_approval", label: "Fastest approval", hint: "Sellers who approve orders quickest" },
 ];
 
 // Facet groups shown in the sidebar: which facet, what to call it, and which URL/API parameter it filters.

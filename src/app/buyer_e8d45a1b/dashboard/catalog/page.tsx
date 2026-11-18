@@ -138,6 +138,9 @@ export default function BuyerCatalogPage() {
     ...(debouncedQuery ? [{ value: "newest", label: "Newest first", hint: "Recently listed products" }] : []),
     { value: "price_asc", label: "Price: low to high", hint: "Cheapest first" },
     { value: "price_desc", label: "Price: high to low", hint: "Most expensive first" },
+    { value: "bestselling", label: "Most selling", hint: "Most units sold recently" },
+    { value: "fastest_delivery", label: "Fastest delivery", hint: "Sellers who deliver quickest" },
+    { value: "fastest_approval", label: "Fastest approval", hint: "Sellers who approve orders quickest" },
   ];
 
   /** Any filter change returns to page 1. */
