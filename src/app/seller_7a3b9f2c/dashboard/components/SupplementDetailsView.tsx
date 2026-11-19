@@ -1,8 +1,8 @@
 import React, { useState } from "react";
+import ProductImageGallery from "./ProductImageGallery";
 import { PiSealCheckLight } from "react-icons/pi";
 import { FileText, ExternalLink, Edit2, X, Gift, BadgePercent, ShoppingBag, Tag } from "lucide-react";
 import Image from "next/image";
-import { downloadProductImage } from "@/src/utils/downloadImage";
 import { useConfirmClose } from "@/src/hooks/useConfirmClose";
 import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
@@ -58,23 +58,25 @@ const FieldRow = ({
   value,
   required = true,
   multiline = false,
+  bold = false,
   valueNode,
 }: {
   label: string;
   value?: string | number | null;
   required?: boolean;
   multiline?: boolean;
+  bold?: boolean;
   valueNode?: React.ReactNode;
 }) => (
-  <div className={`grid grid-cols-2 gap-4 px-4 py-3 border-b border-pneutral-200 ${multiline ? "items-start" : "items-center"}`}>
+  <div className={`grid grid-cols-2 gap-3 px-3 py-2 border-b border-pneutral-200 ${multiline ? "items-start" : "items-center"}`}>
     <div className="flex items-start gap-1 flex-1 min-w-0">
-      <span className="text-pneutral-500 text-base font-heading font-medium leading-6 break-words">{label}</span>
+      <span className="text-pneutral-500 text-[13px] font-heading font-medium leading-5 break-words">{label}</span>
       {required && <span className="text-warning-500 text-base font-heading font-medium leading-6 shrink-0">*</span>}
     </div>
     {valueNode ? (
       <div className="flex-1 flex justify-end">{valueNode}</div>
     ) : (
-      <p className="text-pneutral-800 text-base font-body font-normal leading-6 break-words text-right flex-1">
+      <p className={`text-sm font-body leading-6 break-words text-right flex-1 ${bold ? "font-bold text-pneutral-900" : "font-semibold text-pneutral-900"}`}>
         {value ?? "—"}
       </p>
     )}
@@ -102,9 +104,9 @@ const FullWidthBlock = ({
   value?: string | null;
   required?: boolean;
 }) => (
-  <div className="px-4 py-3 border-b border-pneutral-200 flex flex-col gap-3">
+  <div className="px-3 py-2 border-b border-pneutral-200 flex flex-col gap-3">
     <div className="flex items-center gap-1">
-      <span className="text-pneutral-500 text-base font-heading font-medium leading-6 break-words">{label}</span>
+      <span className="text-pneutral-500 text-[13px] font-heading font-medium leading-5 break-words">{label}</span>
       {required && <span className="text-warning-500 text-base font-heading font-medium leading-6 shrink-0">*</span>}
     </div>
     <p className="text-pneutral-800 text-base font-body font-normal leading-6 break-words whitespace-pre-wrap">
@@ -132,7 +134,6 @@ export default function SupplementDetailsView({
   additionalDiscounts = [],
   specialSchemes = [],
 }: SupplementDetailsViewProps) {
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCertModal, setShowCertModal] = useState(false);
   const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
   const closeCertModal = () => {
@@ -171,7 +172,7 @@ export default function SupplementDetailsView({
       : null;
 
   return (
-    <div className="bg-base-white min-h-screen font-heading">
+    <div className="bg-base-white font-heading">
 
       {/* ── Page Header ── */}
       {(onEdit || onClose) && (
@@ -201,65 +202,19 @@ export default function SupplementDetailsView({
 
         {/* ── Section header ── */}
         <div className="py-2">
-          <h2 className="text-pneutral-900 text-[28px] font-heading font-medium leading-9">
+          <h2 style={{ color: "#4A0D75", background: "#F8EDFF", borderLeft: "4px solid #6C12A9", borderRadius: 6, padding: "6px 12px", fontSize: 18, fontWeight: 700, lineHeight: "26px", margin: 0 }}>
             Product Details
           </h2>
         </div>
 
-        {/* ── Product Images ── */}
-        <div className="flex flex-col gap-4 p-3 bg-[#F8F5FF] rounded-xl border border-pneutral-200 w-full min-h-[340px]">
-          <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-[#1E1E1D]">
-            Product Images
-          </h3>
-          <div className="flex justify-center flex-wrap gap-3">
-            {imagesToShow.slice(0, 5).map((img, idx) => (
-              <div
-                key={idx}
-                onClick={() => setSelectedImageIndex(idx)}
-                className={`relative h-[274px] w-full max-w-[calc(20%-10px)] overflow-hidden rounded-xl cursor-pointer shadow-sm${idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""
-                  }`}
-              >
-                <Image
-                  src={img}
-                  alt={`Product image ${idx + 1}`}
-                  fill
-                  className="object-cover"
-                  unoptimized={img.startsWith("http")}
-                  onError={(e) => { (e.target as HTMLImageElement).src = placeholderImage; }}
-                />
-                {idx === 0 && (
-                  <div className="absolute left-[10px] top-[10px] px-2 py-1 bg-secondary-500 rounded-[4px]">
-                    <span className="text-white text-xs font-body font-semibold leading-[18px]">Primary</span>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    downloadProductImage(img, `product-image-${idx + 1}.jpg`);
-                  }}
-                  aria-label="Download image"
-                  className="absolute right-2.5 bottom-2.5 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 hover:bg-white shadow-md"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E1E1D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3v12" />
-                    <path d="m7 10 5 5 5-5" />
-                    <path d="M5 21h14" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-
-          </div>
-        </div>
 
         {/* ── Two-column details ── */}
         <div className="flex gap-9 items-start">
 
           {/* LEFT COLUMN: BASIC & COMPOSITION */}
           <div className="flex-1 flex flex-col">
-            <FieldRow label="Product Name" value={productName} multiline />
+            <ProductImageGallery className="mb-2" images={imagesToShow} placeholderImage={placeholderImage} />
+            <FieldRow label="Product Name" value={productName} multiline bold />
             <FieldRow label="Therapeutic Category" value={suppAttr.therapeuticCategoryName} />
             <FieldRow label="Therapeutic Subcategory" value={suppAttr.therapeuticSubCategoryName} />
             <FieldRow label="Brand Name" value={suppAttr.brandName} />
@@ -273,7 +228,7 @@ export default function SupplementDetailsView({
             <FieldRow label="Intended Use / Health Benefit" value={suppAttr.intendedUse} multiline />
 
             {/* Nutritional Info Thumbnail */}
-            <div className="grid grid-cols-2 gap-4 px-4 py-3 border-b border-pneutral-200 items-start">
+            <div className="grid grid-cols-2 gap-3 px-3 py-2 border-b border-pneutral-200 items-start">
               <div className="flex items-start gap-1 flex-1 min-w-0">
                 <span className="text-pneutral-500 text-base font-heading font-medium leading-6 break-words">Nutritional Information</span>
                 <span className="text-warning-500 text-base font-heading font-medium leading-6 shrink-0">*</span>
@@ -309,7 +264,7 @@ export default function SupplementDetailsView({
             <FieldRow label="Gender" value={suppAttr.gender} />
 
             {/* Veg / Non-Veg Indicator */}
-            <div className="px-4 py-3 border-b border-pneutral-200 flex flex-col gap-2">
+            <div className="px-3 py-2 border-b border-pneutral-200 flex flex-col gap-2">
               <div className="flex items-center gap-1">
                 <span className="text-pneutral-500 text-base font-heading font-medium leading-6 break-words">Veg / Non-Veg Indicator</span>
                 <span className="text-warning-500 text-base font-heading font-medium leading-6 shrink-0">*</span>
@@ -348,7 +303,7 @@ export default function SupplementDetailsView({
 
             {/* Certifications Seals */}
             {certDocs.length > 0 && (
-              <div className="px-4 py-3 border-b border-pneutral-200 flex flex-col gap-2">
+              <div className="px-3 py-2 border-b border-pneutral-200 flex flex-col gap-2">
                 <div className="flex items-start gap-1">
                   <span className="text-pneutral-500 text-base font-heading font-medium leading-6 break-words">Certifications / Compliance</span>
                   <span className="text-warning-500 text-base font-heading font-medium leading-6 shrink-0">*</span>
@@ -370,63 +325,13 @@ export default function SupplementDetailsView({
             )}
 
             <FieldRow label="Product Claims" value={suppAttr.productClaims} multiline />
+
+            {/* ── DESCRIPTION & WARNINGS (right column, under the other details) ── */}
+            <FullWidthBlock label="Product Description" value={productDescription} />
+            <FullWidthBlock label="Warnings & Precautions" value={warningsPrecautions} />
           </div>
         </div>
 
-        {/* ── DESCRIPTION & WARNINGS ── */}
-        <div className="flex flex-col">
-          <FullWidthBlock label="Product Description" value={productDescription} />
-          <FullWidthBlock label="Warnings & Precautions" value={warningsPrecautions} />
-        </div>
-
-        {/* ── SPECIAL OFFERS & PROMOTIONAL SCHEMES ── */}
-        {specialSchemes.length > 0 && (
-          <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
-            <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
-              Special Offers & Promotional Schemes
-            </h4>
-            <div className={`grid gap-4 ${specialSchemes.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-              {/* Special Schemes */}
-              {specialSchemes.map((scheme, index) => {
-                const themes = [
-                  { border: "#4EB300", bg: "#DCF7CB", text: "#47A400", Icon: Gift },
-                  { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: Gift },
-                  { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Gift },
-                ];
-                let theme = themes[index % themes.length];
-                const type = scheme.schemeType?.toLowerCase();
-                if (type === "bogo" || type === "buy_x_get_y") theme = themes[0];
-                else if (type === "bundle") theme = themes[1];
-                else if (type === "seasonal") theme = themes[2];
-
-                const dateStr = scheme.effectiveStartDate && scheme.effectiveEndDate
-                  ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
-                  : "Valid: Ongoing";
-
-                return (
-                  <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
-                    {/* Icon Box */}
-                    <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
-                      <theme.Icon className="w-6 h-6 text-white" />
-                    </div>
-                    {/* Content */}
-                    <div className="flex flex-col">
-                      <h5 className="font-heading font-medium text-[20px] leading-[28px] mb-1.5" style={{ color: theme.text }}>
-                        {scheme.schemeName || "Special Scheme"}
-                      </h5>
-                      <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
-                        Purchase {scheme.buyQuantity} {productName || "this product"} and get {scheme.freeQuantity} absolutely free. Limited stock available!
-                      </p>
-                      <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">
-                        {dateStr}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── Certificate Modal ── */}

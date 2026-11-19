@@ -1,10 +1,10 @@
 "use client";
 
+import ProductImageGallery from "./ProductImageGallery";
 import React, { useState, useEffect } from "react";
 import { FileText, ExternalLink, Gift, Tag, Handbag, BadgePercent } from "lucide-react";
 import { PiSealCheckLight } from "react-icons/pi";
 import Image from "next/image";
-import { downloadProductImage } from "@/src/utils/downloadImage";
 import {
   getProductCategories,
   getProductSubcategories,
@@ -117,7 +117,6 @@ const FoodInfantView = ({
   additionalDiscounts = [],
   specialSchemes = [],
 }: FoodInfantViewProps) => {
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCertModal, setShowCertModal] = useState(false);
   const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
   const [resolvedAttr, setResolvedAttr] = useState<FoodInfantAttributes | null>(null);
@@ -298,67 +297,21 @@ console.log('Is Image:', isImageUrl(activeCertDoc?.certificateUrl || ''));
 
 
   return (
-    <div className="bg-base-white min-h-screen font-heading w-full flex flex-col gap-4">
+    <div className="bg-base-white font-heading w-full flex flex-col gap-4">
       {/* Section header */}
       <div className="pt-2 pb-2 border-b border-pneutral-200">
-        <h2 className="text-h4 font-heading font-medium text-pneutral-900 m-0">
+        <h2 style={{ color: "#4A0D75", background: "#F8EDFF", borderLeft: "4px solid #6C12A9", borderRadius: 6, padding: "6px 12px", fontSize: 18, fontWeight: 700, lineHeight: "26px", margin: 0 }}>
           Product Details
         </h2>
       </div>
 
-      {/* Product Images - 5 images grid*/}
-      <div className="flex flex-col gap-4 p-3 bg-[#F8F5FF] rounded-xl border border-pneutral-200 w-full">
-        <p className="font-heading font-semibold text-[18px] leading-[24px] text-[#1E1E1D]">
-          Product Images
-        </p>
-       <div className="flex justify-center flex-wrap gap-3">
-  {imagesToShow.slice(0, 5).map((img, idx) => (
-    <div
-      key={idx}
-      onClick={() => setSelectedImageIndex(idx)}
-      className={`relative h-[274px] w-full max-w-[calc(20%-12px)] overflow-hidden rounded-xl cursor-pointer shadow-sm ${idx === selectedImageIndex ? "outline outline-2 outline-primary-500 -outline-offset-1" : ""}`}
-    >
-      <Image
-        src={img}
-        alt={`Product image ${idx + 1}`}
-        fill
-        className="object-cover"
-        unoptimized={img.startsWith("http")}
-        onError={(e) => {
-          (e.target as HTMLImageElement).src = placeholderImage;
-        }}
-      />
-      {idx === 0 && (
-        <div className="absolute left-[10px] top-[10px] px-2 py-1 bg-secondary-500 rounded-[4px]">
-          <span className="text-white text-xs font-body font-semibold leading-[18px]">Primary</span>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          downloadProductImage(img, `product-image-${idx + 1}.jpg`);
-        }}
-        aria-label="Download image"
-        className="absolute right-2.5 bottom-2.5 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 hover:bg-white shadow-md"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E1E1D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 3v12" />
-          <path d="m7 10 5 5 5-5" />
-          <path d="M5 21h14" />
-        </svg>
-      </button>
-    </div>
-  ))}
-</div>
-      </div>
 
       {/* Two-column layout */}
       <div className="flex gap-9 items-start">
         {/* LEFT COLUMN */}
         <div className="flex-1 flex flex-col">
-          <FieldRow label="Product Name" value={productName} multiline />
+          <ProductImageGallery className="mb-2" images={imagesToShow} placeholderImage={placeholderImage} />
+          <FieldRow label="Product Name" value={productName} multiline bold />
           <FieldRow label="Product Category" value={attr.productCategoryName} />
           <FieldRow label="Product Subcategory" value={attr.productSubcategoryName} />
           <FieldRow label="Brand Name" value={attr.brandName} />
@@ -371,7 +324,7 @@ console.log('Is Image:', isImageUrl(activeCertDoc?.certificateUrl || ''));
           <FieldRow label="Additives / Preservatives" value={attr.additivesPreservatives} multiline required={false} />
 
           {/* Nutritional Information */}
-          <div className="grid grid-cols-2 items-start gap-4 py-3 px-4 border-b border-pneutral-200">
+          <div className="grid grid-cols-2 items-start gap-3 py-2 px-3 border-b border-pneutral-200">
             <div className="flex items-start gap-1">
               <span className="text-p4 font-heading font-medium text-pneutral-700">Nutritional Information</span>
               <span className="text-warning-500 font-heading font-medium text-p4">*</span>
@@ -402,7 +355,7 @@ console.log('Is Image:', isImageUrl(activeCertDoc?.certificateUrl || ''));
           <FieldRow label="Allergen Information" value={attr.allergenInformation} multiline />
 
           {/* Veg / Non-Veg Indicator */}
-          <div className="py-3 px-4 border-b border-pneutral-200 flex flex-col gap-2">
+          <div className="py-2 px-3 border-b border-pneutral-200 flex flex-col gap-2">
             <div className="flex items-center gap-1">
               <span className="text-p4 font-heading font-medium text-pneutral-700">Veg / Non-Veg Indicator</span>
               <span className="text-warning-500 font-heading font-medium text-p4">*</span>
@@ -455,87 +408,13 @@ console.log('Is Image:', isImageUrl(activeCertDoc?.certificateUrl || ''));
               </div>
             </div>
           )}
+
+          <FullWidthBlock label="Warnings & Precautions" value={warningsPrecautions} />
+          <FullWidthBlock label="Product Description" value={productDescription} />
         </div>
       </div>
 
-      <FullWidthBlock label="Warnings & Precautions" value={warningsPrecautions} />
-      <FullWidthBlock label="Product Description" value={productDescription} />
 
-
-{/* SPECIAL OFFERS & PROMOTIONAL SCHEMES */}
-{specialSchemes.length > 0 && (
-  <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
-    <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
-      Special Offers & Promotional Schemes
-    </h4>
-    <div className={`grid gap-4 ${specialSchemes.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-      {specialSchemes.map((scheme, index) => {
-        // Define themes based on index (0-based)
-        const themes = [
-          { 
-            bg: "bg-success-50", 
-            border: "border-success-700", 
-            text: "text-success-700", 
-            iconBg: "bg-success-700",
-            Icon: Gift 
-          },
-          { 
-            bg: "bg-primary-100", 
-            border: "border-primary-800", 
-            text: "text-primary-800", 
-            iconBg: "bg-primary-800",
-            Icon: BadgePercent 
-          },
-          { 
-            bg: "bg-danger-50",  
-            border: "border-danger-500", 
-            text: "text-danger-600", 
-            iconBg: "bg-danger-600",
-            Icon: Handbag 
-          },
-          { 
-            bg: "bg-info-50", 
-            border: "border-info-500", 
-            text: "text-info-500", 
-            iconBg: "bg-info-500",
-            Icon: Tag 
-          },
-        ];
-        
-        const theme = themes[index % 4];
-
-        const dateStr = scheme.effectiveStartDate && scheme.effectiveEndDate
-          ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
-          : "Valid: Ongoing";
-
-        return (
-          <div 
-            key={index} 
-            className={`flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px] ${theme.bg} ${theme.border}`}
-          >
-            {/* Icon Box - background matches scheme name color */}
-            <div className={`flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md ${theme.iconBg}`}>
-              <theme.Icon className="w-6 h-6 text-white" />
-            </div>
-            
-            {/* Content */}
-            <div className="flex flex-col">
-              <h5 className={`font-heading font-medium text-[20px] leading-[28px] mb-1.5 ${theme.text}`}>
-                {scheme.schemeName || "Special Scheme"}
-              </h5>
-              <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
-                Purchase {scheme.buyQuantity} {productName || "this product"} and get {scheme.freeQuantity} absolutely free. Limited stock available!
-              </p>
-              <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">
-                {dateStr}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  </div>
-)}
 
       {/* Certificate Modal - FIXED to show images correctly */}
       {showCertModal && activeCertDoc !== null && (
@@ -662,22 +541,24 @@ const FieldRow = ({
   required = true,
   valueNode,
   multiline = false,
+  bold = false,
 }: {
   label: string;
   value?: string | number | null;
   required?: boolean;
   valueNode?: React.ReactNode;
   multiline?: boolean;
+  bold?: boolean;
 }) => (
-  <div className={`grid grid-cols-2 gap-4 py-3 px-4 border-b border-pneutral-200 ${multiline ? "items-start" : "items-center"}`}>
+  <div className={`grid grid-cols-2 gap-3 py-2 px-3 border-b border-pneutral-200 ${multiline ? "items-start" : "items-center"}`}>
     <div className="flex items-start gap-1">
-      <span className="text-p4 font-heading font-medium text-pneutral-700">{label}</span>
+      <span className="text-[13px] font-heading font-medium text-pneutral-500">{label}</span>
       {required && <span className="text-warning-500 font-heading font-medium text-p4">*</span>}
     </div>
     {valueNode ? (
       <div className="flex justify-end flex-1">{valueNode}</div>
     ) : (
-      <p className="text-p4 font-body font-normal text-pneutral-800 text-right m-0">{value ?? "—"}</p>
+      <p className={`text-sm font-body ${bold ? "font-bold text-pneutral-900" : "font-semibold text-pneutral-900"} text-right m-0`}>{value ?? "—"}</p>
     )}
   </div>
 );
@@ -704,9 +585,9 @@ const FullWidthBlock = ({
   value?: string | null;
   required?: boolean;
 }) => (
-  <div className="px-4 py-3 border-b border-pneutral-200 flex flex-col gap-3">
+  <div className="px-3 py-2 border-b border-pneutral-200 flex flex-col gap-3">
     <div className="flex items-center gap-1">
-      <span className="text-p4 font-heading font-medium text-pneutral-700">{label}</span>
+      <span className="text-[13px] font-heading font-medium text-pneutral-500">{label}</span>
       {required && <span className="text-warning-500 font-heading font-medium text-p4">*</span>}
     </div>
     <p className="text-p4 font-body font-normal text-pneutral-800 whitespace-pre-wrap m-0">{value ?? "—"}</p>
@@ -1017,10 +898,10 @@ export default FoodInfantView;
 
 
 //   return (
-//     <div className="bg-base-white min-h-screen font-heading w-full flex flex-col gap-4">
+//     <div className="bg-base-white font-heading w-full flex flex-col gap-4">
 //       {/* Section header */}
 //       <div className="pt-2 pb-2 border-b border-pneutral-200">
-//         <h2 className="text-h4 font-heading font-medium text-pneutral-900 m-0">
+//         <h2 className="text-xl font-heading font-bold text-pneutral-900 m-0 border-l-4 border-primary-800 pl-2.5">
 //           Product Details
 //         </h2>
 //       </div>
@@ -1035,7 +916,7 @@ export default FoodInfantView;
 //             <div
 //               key={idx}
 //               onClick={() => setSelectedImageIndex(idx)}
-//               className={`relative h-[274px] w-full overflow-hidden rounded-xl cursor-pointer shadow-sm ${idx === selectedImageIndex ? "outline outline-2 outline-primary-500 -outline-offset-1" : ""}`}
+//               className={`relative h-[176px] w-full overflow-hidden rounded-xl cursor-pointer shadow-sm ${idx === selectedImageIndex ? "outline outline-2 outline-primary-500 -outline-offset-1" : ""}`}
 //             >
 //               <Image
 //                 src={img}
@@ -1055,7 +936,7 @@ export default FoodInfantView;
 //             </div>
 //           ))}
 //           {Array.from({ length: Math.max(0, 5 - imagesToShow.length) }).map((_, i) => (
-//             <div key={`empty-${i}`} className="h-[274px] w-full rounded-xl bg-pneutral-50 shadow-sm" />
+//             <div key={`empty-${i}`} className="h-[176px] w-full rounded-xl bg-pneutral-50 shadow-sm" />
 //           ))}
 //         </div>
 //       </div>
@@ -1077,7 +958,7 @@ export default FoodInfantView;
 //           <FieldRow label="Additives / Preservatives" value={attr.additivesPreservatives} multiline required={false} />
 
 //           {/* Nutritional Information */}
-//           <div className="grid grid-cols-2 items-start gap-4 py-3 px-4 border-b border-pneutral-200">
+//           <div className="grid grid-cols-2 items-start gap-3 py-2 px-3 border-b border-pneutral-200">
 //             <div className="flex items-start gap-1">
 //               <span className="text-p4 font-heading font-medium text-pneutral-700">Nutritional Information</span>
 //               <span className="text-warning-500 font-heading font-medium text-p4">*</span>
@@ -1108,7 +989,7 @@ export default FoodInfantView;
 //           <FieldRow label="Allergen Information" value={attr.allergenInformation} multiline />
 
 //           {/* Veg / Non-Veg Indicator */}
-//           <div className="py-3 px-4 border-b border-pneutral-200 flex flex-col gap-2">
+//           <div className="py-2 px-3 border-b border-pneutral-200 flex flex-col gap-2">
 //             <div className="flex items-center gap-1">
 //               <span className="text-p4 font-heading font-medium text-pneutral-700">Veg / Non-Veg Indicator</span>
 //               <span className="text-warning-500 font-heading font-medium text-p4">*</span>
@@ -1170,7 +1051,7 @@ export default FoodInfantView;
 //       {/* SPECIAL OFFERS & PROMOTIONAL SCHEMES */}
 //       {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
 //         <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
-//           <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
+//           <h4 className="text-xl font-heading font-bold leading-7 text-pneutral-900 border-l-4 border-primary-800 pl-2.5">
 //             Special Offers & Promotional Schemes
 //           </h4>
 //           <div className="grid grid-cols-2 gap-4">
@@ -1192,7 +1073,7 @@ export default FoodInfantView;
 //                 : "Valid: Ongoing";
 
 //               return (
-//                 <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+//                 <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-4 min-h-[96px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
 //                   <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
 //                     <theme.Icon className="w-6 h-6 text-white" />
 //                   </div>
@@ -1213,7 +1094,7 @@ export default FoodInfantView;
 
 //             {/* Additional Discount */}
 //             {additionalDiscounts.length > 0 && (
-//               <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] bg-[#F8EDFF] border-[#6C12A9] h-[142px]">
+//               <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-4 bg-[#F8EDFF] border-[#6C12A9] min-h-[96px]">
 //                 <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md bg-[#6C12A9]">
 //                   <BadgePercent className="w-6 h-6 text-white" />
 //                 </div>
@@ -1369,9 +1250,9 @@ export default FoodInfantView;
 //   valueNode?: React.ReactNode;
 //   multiline?: boolean;
 // }) => (
-//   <div className={`grid grid-cols-2 gap-4 py-3 px-4 border-b border-pneutral-200 ${multiline ? "items-start" : "items-center"}`}>
+//   <div className={`grid grid-cols-2 gap-3 py-2 px-3 border-b border-pneutral-200 ${multiline ? "items-start" : "items-center"}`}>
 //     <div className="flex items-start gap-1">
-//       <span className="text-p4 font-heading font-medium text-pneutral-700">{label}</span>
+//       <span className="text-[13px] font-heading font-medium text-pneutral-500">{label}</span>
 //       {required && <span className="text-warning-500 font-heading font-medium text-p4">*</span>}
 //     </div>
 //     {valueNode ? (
@@ -1404,9 +1285,9 @@ export default FoodInfantView;
 //   value?: string | null;
 //   required?: boolean;
 // }) => (
-//   <div className="px-4 py-3 border-b border-pneutral-200 flex flex-col gap-3">
+//   <div className="px-3 py-2 border-b border-pneutral-200 flex flex-col gap-3">
 //     <div className="flex items-center gap-1">
-//       <span className="text-p4 font-heading font-medium text-pneutral-700">{label}</span>
+//       <span className="text-[13px] font-heading font-medium text-pneutral-500">{label}</span>
 //       {required && <span className="text-warning-500 font-heading font-medium text-p4">*</span>}
 //     </div>
 //     <p className="text-p4 font-body font-normal text-pneutral-800 whitespace-pre-wrap m-0">{value ?? "—"}</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ChevronDown, PackagePlus, Pencil, Search, Trash2 } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import Table, { Column } from "@/src/app/commonComponents/Table";
 import { getProductList } from "@/src/services/product/ProductService";
@@ -32,6 +33,11 @@ export const categoryMap: Record<number, string> = {
   5: "Consumable Medical Devices & Equipment",
   6: "Non-Consumable Medical Devices & Equipment",
 };
+
+// Row action buttons: square icon buttons (label in the tooltip / aria-label), so the Actions column is the same
+// width on every row whether the product is a draft or published.
+const actionBtn =
+  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300";
 
 const LOW_STOCK_THRESHOLD = 10;
 const PAGE_SIZE = 10;
@@ -126,7 +132,7 @@ const columns: Column<ProductListData>[] = [
         <img
           src={image || "/icons/Tumbnail.svg"}
           alt="product"
-          className="w-10 h-10 rounded-md object-cover"
+          className="w-8 h-8 rounded-md object-cover"
           onError={(e) => {
             // stale/unreachable image URL: fall back once to the placeholder
             const img = e.currentTarget;
@@ -141,7 +147,7 @@ const columns: Column<ProductListData>[] = [
   {
     header: "Product Names",
     accessor: (row) => (
-      <div className="max-w-55 truncate whitespace-nowrap overflow-hidden">
+      <div className="max-w-56 truncate font-medium whitespace-nowrap overflow-hidden">
         {row.productName ?? "-"}
       </div>
     ),
@@ -172,7 +178,7 @@ const columns: Column<ProductListData>[] = [
       const isUnpublished = row.status === "UNPUBLISHED";
       return (
         <span
-          className={`px-3 py-1 rounded-full text-p4 font-medium ${
+          className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${
             isDraft
               ? "bg-warning-50 text-warning-900"
               : isUnpublished
@@ -270,41 +276,47 @@ const ProductList = ({
 
   return (
     <>
-      <div className="flex justify-between gap-10 font-open-sans">
+      <div className="flex items-center gap-2 font-open-sans">
         <div className="relative w-full">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" aria-hidden />
           <input
             type="text"
             name="search"
             id="search"
-            placeholder="Search"
+            aria-label="Search products"
+            placeholder="Search by name, category, batches or stock"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="border border-pneutral-200 text-p4 text-pneutral-500 font-medium w-full h-12 rounded-lg px-5 pr-14 focus:outline-none focus:ring-0 "
+            className="h-9 w-full rounded-lg border border-pneutral-200 bg-white pl-9 pr-9 text-[13px] font-medium text-neutral-900 placeholder:font-normal placeholder:text-neutral-400 focus:border-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-100"
           />
-
-          <div className="absolute right-0 top-0 h-12 w-12 flex items-center justify-center rounded-r-lg bg-[#E4D6FB]">
-            <img src="/icons/SearchIcon.svg" alt="search" className="w-6 h-6" />
-          </div>
+          {searchTerm && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearchTerm("")}
+              className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100"
+            >
+              ×
+            </button>
+          )}
         </div>
 
         <div className="relative shrink-0" ref={sortDropdownRef}>
           <button
             type="button"
+            aria-haspopup="listbox"
+            aria-expanded={showSortDropdown}
             onClick={() => setShowSortDropdown((prev) => !prev)}
-            className="w-36 h-12 bg-pneutral-50 border border-pneutral-200 rounded-lg text-p3 font-semibold text-neutral-900 flex items-center justify-center gap-2 cursor-pointer"
+            className={`flex h-9 w-36 cursor-pointer items-center justify-between gap-2 rounded-lg border bg-white px-3 text-[13px] font-semibold text-neutral-900 transition-colors hover:border-primary-800 ${
+              showSortDropdown || sortOption ? "border-primary-800" : "border-pneutral-200"
+            }`}
           >
-            Sort By
-            <img
-              src="/icons/DownArrow.svg"
-              alt="sort"
-              className={`w-4.5 h-4.5 transition-transform duration-200 ${
-                showSortDropdown ? "rotate-180" : ""
-              }`}
-            />
+            <span className="truncate">{sortOption ? "Sorted" : "Sort By"}</span>
+            <ChevronDown size={16} className={`shrink-0 text-neutral-500 transition-transform duration-200 ${showSortDropdown ? "rotate-180" : ""}`} />
           </button>
 
           {showSortDropdown && (
-            <div className="absolute right-0 top-14 z-20 w-56 bg-white border border-pneutral-200 rounded-lg shadow-lg py-2">
+            <div className="absolute right-0 top-10 z-20 w-56 rounded-lg border border-pneutral-200 bg-white py-1 shadow-lg">
               {sortOption && (
                 <button
                   type="button"
@@ -312,7 +324,7 @@ const ProductList = ({
                     setSortOption(null);
                     setShowSortDropdown(false);
                   }}
-                  className="w-full text-left px-4 py-2 text-p4 font-semibold text-primary-900 hover:bg-neutral-100 cursor-pointer"
+                  className="w-full cursor-pointer px-3 py-1.5 text-left text-[13px] font-semibold text-primary-900 hover:bg-neutral-100"
                 >
                   Clear sort
                 </button>
@@ -325,10 +337,8 @@ const ProductList = ({
                     setSortOption(key);
                     setShowSortDropdown(false);
                   }}
-                  className={`w-full text-left px-4 py-2 text-p4 hover:bg-neutral-100 cursor-pointer ${
-                    sortOption === key
-                      ? "font-semibold text-primary-900"
-                      : "text-neutral-900"
+                  className={`w-full cursor-pointer px-3 py-1.5 text-left text-[13px] hover:bg-neutral-100 ${
+                    sortOption === key ? "bg-primary-50 font-semibold text-primary-900" : "text-neutral-900"
                   }`}
                 >
                   {SORT_LABELS[key]}
@@ -339,11 +349,12 @@ const ProductList = ({
         </div>
       </div>
 
-      <div>
+      <div className="mt-2">
         <Table<ProductListData>
           columns={columns}
           data={paginatedData}
           loading={loading}
+          compact
           onRowClick={(row) => {
             if (!row.productId) return;
             router.push(`/seller_7a3b9f2c/products/view/${row.productId}`);
@@ -351,7 +362,7 @@ const ProductList = ({
           actions={(row) => {
             const isDraft = row.status === "DRAFT";
             return (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -364,31 +375,42 @@ const ProductList = ({
                         : `/seller_7a3b9f2c/products/view/${row.productId}`,
                     );
                   }}
-                  className="px-3 py-1.5 rounded-md border border-primary-900 text-primary-900 text-p4 font-semibold whitespace-nowrap cursor-pointer hover:bg-primary-50"
+                  aria-label={`${isDraft ? "Edit / Submit" : "Edit"} ${row.productName ?? "product"}`}
+                  title={isDraft ? "Edit / Submit draft" : "Edit product"}
+                  className={`${actionBtn} cursor-pointer ${
+                    isDraft
+                      ? "border-primary-900 bg-primary-900 text-white hover:bg-primary-800"
+                      : "border-primary-900 text-primary-900 hover:bg-primary-50"
+                  }`}
                 >
-                  {isDraft ? "Edit / Submit" : "Edit"}
+                  <Pencil size={14} />
                 </button>
                 <button
                   type="button"
                   disabled={isDraft}
+                  aria-label={`Update stock for ${row.productName ?? "product"}`}
+                  title={isDraft ? "Submit the draft before updating stock" : "Update stock"}
                   onClick={() => setStockUpdateProduct(row)}
-                  className={`px-3 py-1.5 rounded-md border text-p4 font-semibold whitespace-nowrap ${
+                  className={`${actionBtn} ${
                     isDraft
                       ? "border-neutral-300 text-neutral-400 cursor-not-allowed"
                       : "border-primary-900 text-primary-900 cursor-pointer hover:bg-primary-50"
                   }`}
                 >
-                  Update Stock
+                  <PackagePlus size={14} />
                 </button>
-                <img
-                  src="/icons/DeleteIcon.svg"
-                  alt="delete"
-                  className="w-6 h-6 rounded-md object-cover cursor-pointer"
+                <button
+                  type="button"
+                  aria-label={`Delete ${row.productName ?? "product"}`}
+                  title="Delete product"
                   onClick={() => {
                     setSelectedProductIdLocal(row.productId);
                     setOpenDeleteModal(true);
                   }}
-                />
+                  className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                >
+                  <Trash2 size={15} />
+                </button>
               </div>
             );
           }}
@@ -396,7 +418,7 @@ const ProductList = ({
       </div>
 
       {!loading && sortedData.length > 0 && (
-        <div className="flex items-center justify-between font-open-sans text-p4 text-neutral-600 mt-3">
+        <div className="flex items-center justify-between font-open-sans text-xs text-neutral-600 mt-2">
           <span>
             Showing {(currentPage - 1) * PAGE_SIZE + 1}-
             {Math.min(currentPage * PAGE_SIZE, sortedData.length)} of{" "}
@@ -407,7 +429,7 @@ const ProductList = ({
               type="button"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              className={`px-3 py-1.5 rounded-md border text-p4 font-semibold ${
+              className={`h-7 px-2.5 rounded-md border text-xs font-semibold ${
                 currentPage === 1
                   ? "border-neutral-200 text-neutral-400 cursor-not-allowed"
                   : "border-primary-900 text-primary-900 cursor-pointer hover:bg-primary-50"
@@ -424,7 +446,7 @@ const ProductList = ({
               onClick={() =>
                 setCurrentPage((prev) => Math.min(totalPages, prev + 1))
               }
-              className={`px-3 py-1.5 rounded-md border text-p4 font-semibold ${
+              className={`h-7 px-2.5 rounded-md border text-xs font-semibold ${
                 currentPage === totalPages
                   ? "border-neutral-200 text-neutral-400 cursor-not-allowed"
                   : "border-primary-900 text-primary-900 cursor-pointer hover:bg-primary-50"

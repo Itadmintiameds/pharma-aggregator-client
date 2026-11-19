@@ -1,10 +1,10 @@
 "use client";
 
+import ProductImageGallery from "./ProductImageGallery";
 import React, { useState } from "react";
 import { FileText, ExternalLink, Edit2, X, Gift, ShoppingBag, Tag, BadgePercent } from "lucide-react";
 import { PiSealCheckLight } from "react-icons/pi";
 import Image from "next/image";
-import { downloadProductImage } from "@/src/utils/downloadImage";
 
 
 /* ─────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ const ROW: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
   alignItems: "center",
-  padding: "12px 16px",
+  padding: "8px 12px",
   borderBottom: "1px solid #D5D5D4",
   gap: 16,
 };
@@ -176,10 +176,10 @@ const ROW_LABEL: React.CSSProperties = {
 
 const LABEL_TEXT: React.CSSProperties = {
   color: "#5A5B58",
-  fontSize: 16,
+  fontSize: 13,
   fontFamily: FONTS.workSans,
   fontWeight: 500,
-  lineHeight: "24px",
+  lineHeight: "20px",
   wordWrap: "break-word",
   margin: 0,
 };
@@ -187,20 +187,20 @@ const LABEL_TEXT: React.CSSProperties = {
 
 const REQUIRED_STAR: React.CSSProperties = {
   color: "#FF3B3B",
-  fontSize: 16,
+  fontSize: 14,
   fontFamily: FONTS.workSans,
   fontWeight: 500,
-  lineHeight: "24px",
+  lineHeight: "20px",
   flexShrink: 0,
 };
 
 
 const VALUE_TEXT: React.CSSProperties = {
   color: "#3C3D3A",
-  fontSize: 16,
+  fontSize: 14,
   fontFamily: FONTS.notoSans,
-  fontWeight: 400,
-  lineHeight: "24px",
+  fontWeight: 600,
+  lineHeight: "20px",
   wordWrap: "break-word",
   textAlign: "right",
   flex: "1 1 0",
@@ -319,12 +319,14 @@ const FieldRow = ({
   required = true,
   valueNode,
   multiline = false,
+  bold = false,
 }: {
   label: string;
   value?: string | number | null;
   required?: boolean;
   valueNode?: React.ReactNode;
   multiline?: boolean;
+  bold?: boolean;
 }) => (
   <div style={{ ...ROW, alignItems: multiline ? "flex-start" : "center" }}>
     <div style={ROW_LABEL}>
@@ -336,7 +338,7 @@ const FieldRow = ({
         {valueNode}
       </div>
     ) : (
-      <p style={VALUE_TEXT}>{value ?? "—"}</p>
+      <p style={bold ? { ...VALUE_TEXT, fontWeight: 700, color: "#1E1E1D" } : VALUE_TEXT}>{value ?? "—"}</p>
     )}
   </div>
 );
@@ -370,10 +372,10 @@ const FullWidthBlock = ({
     <p
       style={{
         color: "#3C3D3A",
-        fontSize: 16,
+        fontSize: 14,
         fontFamily: FONTS.notoSans,
         fontWeight: 400,
-        lineHeight: "24px",
+        lineHeight: "20px",
         wordWrap: "break-word",
         margin: 0,
         whiteSpace: "pre-wrap",
@@ -387,7 +389,7 @@ const FullWidthBlock = ({
 
 const SectionHeading = ({ title }: { title: string }) => (
   <div style={{ paddingTop: 8, paddingBottom: 8, borderBottom: "1px #D5D5D4 solid", marginTop: 32 }}>
-    <h2 style={{ color: "#1E1E1D", fontSize: 28, fontFamily: FONTS.workSans, fontWeight: 500, lineHeight: "36px", margin: 0 }}>
+    <h2 style={{ color: "#1E1E1D", fontSize: 20, fontFamily: FONTS.workSans, fontWeight: 700, lineHeight: "28px", borderLeft: "4px solid var(--Colors-Brand-Primary-800, #6C12A9)", paddingLeft: 10, margin: 0 }}>
       {title}
     </h2>
   </div>
@@ -396,7 +398,7 @@ const SectionHeading = ({ title }: { title: string }) => (
 
 const SubHeading = ({ title }: { title: string }) => (
   <div style={{ paddingTop: 8, paddingBottom: 4, borderBottom: "1px #D5D5D4 solid", marginTop: 20, marginBottom: 4 }}>
-    <h3 style={{ color: "#1E1E1D", fontSize: 20, fontFamily: FONTS.workSans, fontWeight: 500, lineHeight: "28px", margin: 0 }}>
+    <h3 style={{ color: "#1E1E1D", fontSize: 20, fontFamily: FONTS.workSans, fontWeight: 700, lineHeight: "28px", borderLeft: "4px solid var(--Colors-Brand-Primary-800, #6C12A9)", paddingLeft: 10, margin: 0 }}>
       {title}
     </h3>
   </div>
@@ -448,7 +450,6 @@ const CosmeticPersonalCareView = ({
   additionalDiscounts = [],
   specialSchemes = [],
 }: CosmeticPersonalCareViewProps) => {
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCertModal, setShowCertModal] = useState(false);
   const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
 
@@ -581,7 +582,7 @@ const CosmeticPersonalCareView = ({
 
 
   return (
-    <div style={{ background: "#FFFFFF", minHeight: "100vh", fontFamily: FONTS.workSans }}>
+    <div style={{ background: "#FFFFFF", fontFamily: FONTS.workSans }}>
       {/* ── Page Header ── */}
       {(onEdit || onClose) && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 12, padding: "20px 0 16px", borderBottom: "1px solid #E5E5E5", marginBottom: 24 }}>
@@ -602,57 +603,19 @@ const CosmeticPersonalCareView = ({
       {/* ── Product Details Section ── */}
       <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ paddingTop: 8, paddingBottom: 8, borderBottom: "1px #D5D5D4 solid" }}>
-          <h2 style={{ color: "#1E1E1D", fontSize: 28, fontFamily: FONTS.workSans, fontWeight: 500, lineHeight: "36px", margin: 0 }}>
+          <h2 style={{ color: "#4A0D75", background: "#F8EDFF", borderLeft: "4px solid #6C12A9", borderRadius: 6, padding: "6px 12px", fontSize: 18, fontWeight: 700, lineHeight: "26px", margin: 0 }}>
             Product Details
           </h2>
         </div>
 
 
-        {/* ── Product Images ── */}
-        <div className="flex flex-col gap-4 p-3 bg-[#F8F5FF] rounded-xl border border-pneutral-200 w-full min-h-[340px]">
-          <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-[#1E1E1D]">
-            Product Images
-          </h3>
-          <div className="flex justify-center flex-wrap gap-3">
-            {imagesToShow.slice(0, 5).map((img, idx) => (
-              <div
-                key={idx}
-                onClick={() => setSelectedImageIndex(idx)}
-                className={`relative h-[274px] w-full max-w-[calc(20%-10px)] overflow-hidden rounded-xl cursor-pointer shadow-sm${idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""}`}
-              >
-                <Image src={img} alt={`Product image ${idx + 1}`} fill className="object-cover" unoptimized={img.startsWith("http")} onError={(e) => { (e.target as HTMLImageElement).src = placeholderImage; }} />
-                {idx === 0 && (
-                  <div className="absolute left-[10px] top-[10px] px-2 py-1 bg-secondary-500 rounded-[4px]">
-                    <span className="text-white text-xs font-body font-semibold leading-[18px]">Primary</span>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    downloadProductImage(img, `product-image-${idx + 1}.jpg`);
-                  }}
-                  aria-label="Download image"
-                  className="absolute right-2.5 bottom-2.5 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 hover:bg-white shadow-md"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E1E1D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3v12" />
-                    <path d="m7 10 5 5 5-5" />
-                    <path d="M5 21h14" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
 
         {/* ── Two-column field rows ── */}
-        <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
+        <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
           {/* LEFT COLUMN */}
           <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-            <FieldRow label="Product Name" value={productName} multiline />
+            <ProductImageGallery className="mb-2" images={imagesToShow} placeholderImage={placeholderImage} />
+            <FieldRow label="Product Name" value={productName} multiline bold />
             <FieldRow label="Product Type" value={cosAttr?.productType} />
             {/* FIX: productSubtype resolved from parent; falls back to productSubType */}
             <FieldRow label="Product Subtype" value={productSubtypeDisplay} />
@@ -688,14 +651,14 @@ const CosmeticPersonalCareView = ({
               {resolvedBrochureUrl ? (
                 <a href={resolvedBrochureUrl} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, background: "#F8F8F9", borderRadius: 8, textDecoration: "none" }}>
                   <FileText size={24} color="#3C3D3A" />
-                  <span style={{ color: "#3C3D3A", fontSize: 16, fontFamily: FONTS.openSans, fontWeight: 400, lineHeight: "22px" }}>
+                  <span style={{ color: "#3C3D3A", fontSize: 14, fontFamily: FONTS.openSans, fontWeight: 400, lineHeight: "22px" }}>
                     {resolvedBrochureUrl.split("/").pop()?.split("?")[0] || "product-brochure.pdf"}
                   </span>
                 </a>
               ) : (
                 <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, background: "#F8F8F9", borderRadius: 8 }}>
                   <FileText size={24} color="#3C3D3A" />
-                  <span style={{ color: "#5A5B58", fontSize: 16, fontFamily: FONTS.openSans, fontWeight: 400, lineHeight: "22px" }}>No brochure uploaded</span>
+                  <span style={{ color: "#5A5B58", fontSize: 14, fontFamily: FONTS.openSans, fontWeight: 400, lineHeight: "22px" }}>No brochure uploaded</span>
                 </div>
               )}
             </div>
@@ -712,7 +675,7 @@ const CosmeticPersonalCareView = ({
                   {certDocs.map((cert, idx) => {
                     const c = CERT_COLORS[idx % CERT_COLORS.length];
                     return (
-                      <button key={cert.certificationId} type="button" onClick={() => { setActiveCertDoc(cert); setShowCertModal(true); }} style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 8, paddingRight: 8, paddingTop: 4, paddingBottom: 4, background: c.bg, border: "none", borderRadius: 8, cursor: "pointer", fontFamily: FONTS.notoSans, fontSize: 16, fontWeight: 500, lineHeight: "24px", color: c.color }}>
+                      <button key={cert.certificationId} type="button" onClick={() => { setActiveCertDoc(cert); setShowCertModal(true); }} style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 8, paddingRight: 8, paddingTop: 4, paddingBottom: 4, background: c.bg, border: "none", borderRadius: 8, cursor: "pointer", fontFamily: FONTS.notoSans, fontSize: 14, fontWeight: 500, lineHeight: "20px", color: c.color }}>
                         <PiSealCheckLight size={16} />
                         {cert.certificationName ?? cert.label ?? `Cert ${cert.certificationId}`}
                       </button>
@@ -721,167 +684,16 @@ const CosmeticPersonalCareView = ({
                 </div>
               </div>
             )}
+
+            <FullWidthBlock label="Product Description" value={resolvedProductDescription} />
+            <FullWidthBlock label="Warnings & Precautions" value={resolvedWarnings} />
           </div>
         </div>
-
-
-        <FullWidthBlock label="Product Description" value={resolvedProductDescription} />
-        <FullWidthBlock label="Warnings & Precautions" value={resolvedWarnings} />
       </div>
 
 
-      {/* ── Promotional Schemes ── */}
-      {promotionalSchemes.length > 0 && (
-        <div style={{ marginTop: 36 }}>
-          <SectionHeading title="Special Offers & Promotional Schemes" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
-            {promotionalSchemes.map((scheme, idx) => {
-              const style = SCHEME_STYLES[idx % SCHEME_STYLES.length];
-              const validityText = scheme.isOngoing ? "Valid: Ongoing" : scheme.validFrom && scheme.validTo ? `Valid: ${scheme.validFrom} - ${scheme.validTo}` : null;
-              return (
-                <div key={idx} style={{ background: style.bg, border: `1.5px solid ${style.border}`, borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                    <div style={{ width: 36, height: 36, background: style.iconBg, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16 }}>{style.icon}</div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ color: style.titleColor, fontSize: 14, fontFamily: FONTS.workSans, fontWeight: 600, lineHeight: "20px", margin: "0 0 4px" }}>{scheme.schemeTitle}</p>
-                      <p style={{ color: "#3C3D3A", fontSize: 13, fontFamily: FONTS.notoSans, fontWeight: 400, lineHeight: "19px", margin: 0 }}>{scheme.schemeDescription}</p>
-                      {validityText && <p style={{ color: "#5A5B58", fontSize: 11, fontFamily: FONTS.notoSans, fontWeight: 400, lineHeight: "16px", margin: "6px 0 0" }}>{validityText}</p>}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
 
-      {/* ── Packaging & Order Details ── */}
-      {packagingDetails && (
-        <>
-          <SectionHeading title="Packaging & Order Details" />
-          <div style={{ display: "flex", gap: 36, alignItems: "flex-start", marginTop: 8 }}>
-            <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-              <FieldRow label="Pack Type" value={packagingDetails.packTypeName ?? packagingDetails.packType ?? null} />
-              <FieldRow label="Units per Pack" value={formatVal(packagingDetails.unitsPerPack ?? packagingDetails.unitPerPack)} />
-              <FieldRow label="Number of Packs" value={packagingDetails.numberOfPacks != null ? `${packagingDetails.numberOfPacks} ${resolvedPackLabel}` : null} />
-              <FieldRow label="Pack Size (Total Units)" value={packSizeDisplay} />
-            </div>
-            <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-              <FieldRow label="Min. Order Quantity" value={formatVal(packagingDetails.minimumOrderQuantity)} />
-              <FieldRow label="Max. Order Quantity" value={formatVal(packagingDetails.maximumOrderQuantity)} />
-            </div>
-          </div>
-        </>
-      )}
-
-
-      {/* ── Batch, Stock & Expiry ── */}
-      {pricingDetails && (
-        <>
-          <SubHeading title="Batch, Stock & Expiry" />
-          <div style={{ display: "flex", gap: 36, alignItems: "flex-start", marginTop: 8 }}>
-            <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-              <FieldRow label="Batch Number" value={batchNumber} />
-              <FieldRow label="Manufacturing Date" value={formatDate(pricingDetails.manufacturingDate)} />
-              <FieldRow label="Expiry Date" value={formatDate(pricingDetails.expiryDate)} />
-              <FieldRow label="Shelf Life" value={shelfLife} required={false} />
-            </div>
-            <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-              <FieldRow label="Stock Quantity" value={formatVal(pricingDetails.stockQuantity)} />
-              <FieldRow label="Date of Stock Entry" value={formatDate(pricingDetails.dateOfStockEntry)} required={false} />
-            </div>
-          </div>
-
-
-          <SubHeading title="Pricing" />
-          <div style={{ display: "flex", gap: 36, alignItems: "flex-start", marginTop: 8 }}>
-            <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-              <FieldRow label="MRP (per Pack Size)" value={formatCurrency(pricingDetails.mrp)} />
-              <FieldRow label="Selling Price (per Pack Size)" value={formatCurrency(pricingDetails.sellingPrice)} />
-            </div>
-            <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-              <FieldRow label="Discount %" value={pricingDetails.discountPercentage != null && pricingDetails.discountPercentage !== "" ? `${pricingDetails.discountPercentage}%` : "—"} required={false} />
-              <FieldRow label="Final Price" value={formatCurrency(pricingDetails.finalPrice)} />
-            </div>
-          </div>
-
-
-          <SubHeading title="Tax & Billing" />
-          <div style={{ display: "flex", gap: 36, alignItems: "flex-start", marginTop: 8 }}>
-            <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-              <FieldRow label="GST %" value={gstPct != null && gstPct !== "" ? `${gstPct}%` : "—"} />
-            </div>
-            <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-              <FieldRow label="HSN Code" value={formatVal(hsnCode)} />
-            </div>
-          </div>
-        </>
-      )}
-
-
-      {/* ── SPECIAL OFFERS & PROMOTIONAL SCHEMES ── */}
-      {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
-        <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
-          <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
-            Special Offers &amp; Promotional Schemes
-          </h4>
-          <div className="grid grid-cols-2 gap-4">
-            {specialSchemes.map((scheme, index) => {
-              const themes = [
-                { border: "#4EB300", bg: "#DCF7CB", text: "#47A400", Icon: Gift },
-                { border: "#FFB020", bg: "#FFF8E7", text: "#D99100", Icon: ShoppingBag },
-                { border: "#2563EB", bg: "#EFF6FF", text: "#2563EB", Icon: Tag },
-              ];
-              let theme = themes[index % themes.length];
-              const type = (scheme.schemeType ?? "").toLowerCase();
-              if (type === "bogo" || type === "buy_x_get_y") theme = themes[0];
-              else if (type === "bundle") theme = themes[1];
-              else if (type === "seasonal") theme = themes[2];
-              const dateStr = scheme.effectiveStartDate && scheme.effectiveEndDate
-                ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
-                : "Valid: Ongoing";
-              return (
-                <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
-                  <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
-                    <theme.Icon className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex flex-col">
-                    <h5 className="font-heading font-medium text-[20px] leading-[28px] mb-1.5" style={{ color: theme.text }}>
-                      {scheme.schemeName || "Special Scheme"}
-                    </h5>
-                    <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
-                      Purchase {scheme.buyQuantity} {productName || "this product"} and get {scheme.freeQuantity} absolutely free. Limited stock available!
-                    </p>
-                    <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">{dateStr}</span>
-                  </div>
-                </div>
-              );
-            })}
-            {additionalDiscounts.length > 0 && (
-              <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] bg-[#F8EDFF] border-[#6C12A9] h-[142px]">
-                <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md bg-[#6C12A9]">
-                  <BadgePercent className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex flex-col">
-                  <h5 className="font-heading font-medium text-[20px] leading-[28px] text-[#6C12A9] mb-1.5">
-                    Bulk Purchase Discount
-                  </h5>
-                  <p className="font-body font-medium text-[14px] leading-[20px] text-pneutral-900 line-clamp-2">
-                    {additionalDiscounts.map((discount, i) => (
-                      <span key={i}>
-                        Get {discount.additionalDiscountPercentage}% off on orders of {discount.minimumPurchaseQuantity}+ units
-                        {i < additionalDiscounts.length - 1 ? ", " : "."}
-                      </span>
-                    ))}
-                  </p>
-                  <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">Valid: Ongoing</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       <div style={{ height: 40 }} />
 
@@ -896,7 +708,7 @@ const CosmeticPersonalCareView = ({
                   <PiSealCheckLight size={20} color="#378200" />
                 </div>
                 <div>
-                  <p style={{ color: "#1E1E1D", fontSize: 16, fontFamily: FONTS.workSans, fontWeight: 600, lineHeight: "22px", margin: 0 }}>{activeCertDoc.certificationName ?? activeCertDoc.label ?? `Certificate ${activeCertDoc.certificationId}`}</p>
+                  <p style={{ color: "#1E1E1D", fontSize: 14, fontFamily: FONTS.workSans, fontWeight: 600, lineHeight: "22px", margin: 0 }}>{activeCertDoc.certificationName ?? activeCertDoc.label ?? `Certificate ${activeCertDoc.certificationId}`}</p>
                   <p style={{ color: "#5A5B58", fontSize: 12, fontFamily: FONTS.notoSans, fontWeight: 400, lineHeight: "18px", margin: 0 }}>Certification Document</p>
                 </div>
               </div>
@@ -918,7 +730,7 @@ const CosmeticPersonalCareView = ({
                     <FileText size={32} color="#378200" />
                   </div>
                   <div style={{ textAlign: "center" }}>
-                    <p style={{ color: "#1E1E1D", fontSize: 16, fontFamily: FONTS.workSans, fontWeight: 600, lineHeight: "22px", margin: "0 0 8px" }}>{activeCertDoc.certificationName ?? activeCertDoc.label ?? `Certificate ${activeCertDoc.certificationId}`}</p>
+                    <p style={{ color: "#1E1E1D", fontSize: 14, fontFamily: FONTS.workSans, fontWeight: 600, lineHeight: "22px", margin: "0 0 8px" }}>{activeCertDoc.certificationName ?? activeCertDoc.label ?? `Certificate ${activeCertDoc.certificationId}`}</p>
                     <p style={{ color: "#5A5B58", fontSize: 14, fontFamily: FONTS.notoSans, fontWeight: 400, lineHeight: "20px", margin: "0 0 16px" }}>This file cannot be previewed in the browser.</p>
                     <a href={activeCertDoc.certificateUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#47A400", color: "white", fontSize: 14, fontFamily: FONTS.workSans, fontWeight: 600, lineHeight: "20px", padding: "10px 20px", borderRadius: 8, textDecoration: "none" }}>
                       <ExternalLink size={14} /> Open / Download
