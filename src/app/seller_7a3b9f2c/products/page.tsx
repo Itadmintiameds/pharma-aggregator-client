@@ -160,47 +160,49 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 font-open-sans">
-        <FilterDropdown
-          label="Filter by stock"
-          value={stockFilter}
-          options={(Object.keys(STOCK_LABELS) as StockFilter[]).map((key) => ({ value: key, label: STOCK_LABELS[key] }))}
-          onChange={(v) => setStockFilter(v as StockFilter)}
-        />
-        <FilterDropdown
-          label="Filter by status"
-          value={statusFilter}
-          options={(Object.keys(STATUS_LABELS) as StatusFilter[]).map((key) => ({ value: key, label: STATUS_LABELS[key] }))}
-          onChange={(v) => setStatusFilter(v as StatusFilter)}
-        />
-        <FilterDropdown
-          label="Filter by category"
-          widthClass="w-56"
-          value={String(categoryFilter)}
-          options={[
-            { value: "all", label: "All Categories" },
-            ...availableCategoryEntries.map(([id, name]) => ({ value: id, label: name })),
-          ]}
-          onChange={(v) => setCategoryFilter(v === "all" ? "all" : Number(v))}
-        />
-
-        <button
-          type="button"
-          onClick={() => setShowAddModal(true)}
-          className="ml-auto flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border-[1.5px] border-primary-900 bg-transparent px-3.5 text-[13px] font-semibold text-primary-900 transition-colors hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2"
-        >
-          <Plus size={15} aria-hidden />
-          <span>Add New Product</span>
-        </button>
-      </div>
-
-      <div className="mt-2 space-y-2">
+      <div className="space-y-2">
         <ProductList
           setCurrentView={setCurrentView}
           setSelectedProductId={setSelectedProductId}
           categoryFilter={categoryFilter}
           stockFilter={stockFilter}
           statusFilter={statusFilter}
+          filtersSlot={
+            <>
+      <FilterDropdown
+        label="Filter by stock"
+        value={stockFilter}
+        options={(Object.keys(STOCK_LABELS) as StockFilter[]).map((key) => ({ value: key, label: STOCK_LABELS[key] }))}
+        onChange={(v) => setStockFilter(v as StockFilter)}
+      />
+      <FilterDropdown
+        label="Filter by status"
+        value={statusFilter}
+        options={(Object.keys(STATUS_LABELS) as StatusFilter[]).map((key) => ({ value: key, label: STATUS_LABELS[key] }))}
+        onChange={(v) => setStatusFilter(v as StatusFilter)}
+      />
+      <FilterDropdown
+        label="Filter by category"
+        widthClass="w-56"
+        value={String(categoryFilter)}
+        options={[
+          { value: "all", label: "All Categories" },
+          ...availableCategoryEntries.map(([id, name]) => ({ value: id, label: name })),
+        ]}
+        onChange={(v) => setCategoryFilter(v === "all" ? "all" : Number(v))}
+      />
+            </>
+          }
+          actionSlot={
+      <button
+        type="button"
+        onClick={() => setShowAddModal(true)}
+        className="flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border-[1.5px] border-primary-900 bg-transparent px-3.5 text-[13px] font-semibold text-primary-900 transition-colors hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2"
+      >
+        <Plus size={15} aria-hidden />
+        <span>Add New Product</span>
+      </button>
+          }
         />
       </div>
 

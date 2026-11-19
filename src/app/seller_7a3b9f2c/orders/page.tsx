@@ -77,7 +77,7 @@ function ShipForm({ onSubmit, busy }: { onSubmit: (courierName: string, tracking
       <button
         disabled={busy || !courierName || !trackingNumber}
         onClick={() => onSubmit(courierName, trackingNumber, trackingUrl)}
-        className="h-9 rounded-lg border-[1.5px] border-primary-900 bg-transparent px-4 text-[13px] font-semibold text-primary-900 hover:bg-primary-50 disabled:opacity-40"
+        className="h-8 rounded-lg border-[1.5px] border-primary-900 bg-transparent px-4 text-xs font-semibold text-primary-900 hover:bg-primary-50 disabled:opacity-40"
       >
         {busy ? "Shipping..." : "Mark Shipped"}
       </button>
@@ -116,7 +116,7 @@ function DeliverForm({
       <button
         disabled={busy || !otp}
         onClick={() => onSubmit(otp)}
-        className="h-9 rounded-lg border-[1.5px] border-primary-900 bg-transparent px-3 text-[13px] font-semibold text-primary-900 hover:bg-primary-50 disabled:opacity-40"
+        className="h-8 rounded-lg border-[1.5px] border-primary-900 bg-transparent px-3 text-xs font-semibold text-primary-900 hover:bg-primary-50 disabled:opacity-40"
       >
         {busy ? "Confirming..." : "Confirm Delivery"}
       </button>
@@ -330,7 +330,7 @@ function OrderCard({
                 <button
                   disabled={busy}
                   onClick={() => run(() => confirmSellerOrder(order.sellerOrderId, sellerId))}
-                  className="border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
+                  className="border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-40"
                 >
                   Confirm
                 </button>
@@ -341,7 +341,7 @@ function OrderCard({
                       cancelSellerOrderAsSeller(order.sellerOrderId, sellerId, reason)
                     )
                   }
-                  className="border-[1.5px] border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
+                  className="border-[1.5px] border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-40"
                 >
                   Reject
                 </button>
@@ -352,7 +352,7 @@ function OrderCard({
               <button
                 disabled={busy}
                 onClick={() => run(() => packSellerOrder(order.sellerOrderId, sellerId))}
-                className="border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
+                className="border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-40"
               >
                 Mark Packed
               </button>
@@ -362,7 +362,7 @@ function OrderCard({
               <button
                 disabled={busy}
                 onClick={() => run(() => markOutForDelivery(order.sellerOrderId, sellerId))}
-                className="border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
+                className="border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-40"
               >
                 Mark Out for Delivery
               </button>
@@ -376,7 +376,7 @@ function OrderCard({
                     cancelSellerOrderAsSeller(order.sellerOrderId, sellerId, reason)
                   )
                 }
-                className="border-[1.5px] border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
+                className="border-[1.5px] border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-40"
               >
                 Cancel
               </button>

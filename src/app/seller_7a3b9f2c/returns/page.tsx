@@ -26,7 +26,8 @@ function isWholeNumberIn(value: string, min: number, max: number): boolean {
   return value !== "" && Number.isInteger(n) && n >= min && n <= max;
 }
 
-const inputClass = "w-20 px-2 py-1 border border-neutral-300 rounded-lg text-sm bg-white";
+const inputClass =
+  "h-8 w-20 rounded-lg border border-neutral-300 bg-white px-2 text-[13px] focus:border-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-100";
 
 const inspected = (status: string) => status === "RECEIVED" || status === "REFUNDED" || status === "CLOSED";
 
@@ -48,7 +49,7 @@ function DecisionForm({
   );
   const [comment, setComment] = useState("");
   const [rejectTried, setRejectTried] = useState(false);
-  const commentRef = useRef<HTMLTextAreaElement>(null);
+  const commentRef = useRef<HTMLInputElement>(null);
 
   const quantitiesValid = lines.every((l) => isWholeNumberIn(approved[l.lineId] ?? "", 0, l.requestedQuantity));
   const totalApproved = quantitiesValid ? lines.reduce((sum, l) => sum + Number(approved[l.lineId]), 0) : 0;
@@ -56,47 +57,46 @@ function DecisionForm({
   const hasComment = comment.trim() !== "";
 
   return (
-    <div className="flex flex-col gap-2 mt-3 p-3 bg-neutral-50 rounded-lg">
-      <p className="text-p4 font-body text-pneutral-700">Units to accept</p>
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2">
+      {/* units to accept (one compact chip per product) */}
       {lines.map((l) => (
-        <label key={l.lineId} className="flex items-center justify-between gap-3 text-p4 font-body text-pneutral-700">
-          <span>
+        <label
+          key={l.lineId}
+          className="flex h-9 items-center gap-2 rounded-lg border border-neutral-300 bg-white pl-3 pr-1.5 text-xs text-neutral-500"
+        >
+          <span className="max-w-[200px] truncate text-[13px] font-semibold text-neutral-900" title={l.productName ?? "Item"}>
             {l.productName ?? "Item"}
-            {l.productId && l.productId !== l.productName ? ` (${l.productId})` : ""}
           </span>
-          <span className="flex items-center gap-2">
-            <input
-              type="number"
-              min={0}
-              max={l.requestedQuantity}
-              value={approved[l.lineId] ?? ""}
-              disabled={busy}
-              onChange={(e) => setApproved((prev) => ({ ...prev, [l.lineId]: e.target.value }))}
-              className={inputClass}
-            />
-            of {l.requestedQuantity}
-          </span>
+          <span className="text-neutral-400">·</span>
+          Accept
+          <input
+            type="number"
+            min={0}
+            max={l.requestedQuantity}
+            value={approved[l.lineId] ?? ""}
+            disabled={busy}
+            aria-label={`Units to accept for ${l.productName ?? "item"}`}
+            onChange={(e) => setApproved((prev) => ({ ...prev, [l.lineId]: e.target.value }))}
+            className="h-6 w-12 rounded-md border border-neutral-300 bg-neutral-50 px-1.5 text-center text-[13px] font-semibold text-neutral-900 focus:border-primary-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100"
+          />
+          <span className="pr-1.5">of {l.requestedQuantity}</span>
         </label>
       ))}
-      <textarea
+
+      {/* note */}
+      <input
         ref={commentRef}
-        placeholder={partial ? "Why are you accepting fewer units? (required)" : "Note to the buyer (required to reject)"}
+        type="text"
+        aria-label="Note to the buyer"
+        placeholder={partial ? "Why fewer units? (required)" : "Note to buyer (required to reject)"}
         value={comment}
         disabled={busy}
         onChange={(e) => setComment(e.target.value)}
-        rows={2}
-        className="px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white resize-none"
+        className="h-9 min-w-[220px] flex-1 rounded-lg border border-neutral-300 bg-white px-3 text-[13px] focus:border-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-100"
       />
-      {rejectTried && !hasComment && (
-        <p className="text-p4 font-body text-red-600">Add a note telling the buyer why you are rejecting this return.</p>
-      )}
-      {!quantitiesValid && (
-        <p className="text-p4 font-body text-red-600">Enter a whole number between 0 and the units requested.</p>
-      )}
-      {quantitiesValid && totalApproved === 0 && (
-        <p className="text-p4 font-body text-red-600">Accept at least one unit, or reject the return.</p>
-      )}
-      <div className="flex flex-wrap gap-2">
+
+      {/* actions */}
+      <div className="flex gap-2">
         <button
           disabled={busy || !quantitiesValid || totalApproved === 0 || (partial && !hasComment)}
           onClick={() =>
@@ -105,7 +105,7 @@ function DecisionForm({
               comment.trim()
             )
           }
-          className="bg-primary-900 text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40"
+          className="h-9 rounded-lg border-[1.5px] border-primary-900 px-4 text-xs font-semibold text-primary-900 hover:bg-primary-50 disabled:opacity-40"
         >
           {partial ? `Accept ${units(totalApproved)}` : "Accept"}
         </button>
@@ -119,11 +119,19 @@ function DecisionForm({
             }
             onReject(comment.trim());
           }}
-          className="border border-red-500 text-red-600 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40"
+          className="h-9 rounded-lg border-[1.5px] border-red-500 px-4 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40"
         >
           Reject
         </button>
       </div>
+
+      {(rejectTried && !hasComment) || !quantitiesValid || (quantitiesValid && totalApproved === 0) ? (
+        <p className="basis-full text-xs text-red-600">
+          {rejectTried && !hasComment && "Add a note telling the buyer why you are rejecting this return. "}
+          {!quantitiesValid && "Enter a whole number between 0 and the units requested. "}
+          {quantitiesValid && totalApproved === 0 && "Accept at least one unit, or reject the return."}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -169,20 +177,18 @@ function ReceiveForm({
     : null;
 
   return (
-    <div className="flex flex-col gap-2 mt-3 p-3 bg-neutral-50 rounded-lg">
-      <p className="text-p4 font-body text-pneutral-700">
-        Inspect the parcel. The buyer is refunded for every unit you accept.
-      </p>
+    <div className="mt-2 flex flex-col gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+      <p className="text-xs text-neutral-600">Inspect the parcel. The buyer is refunded for every unit you accept.</p>
       {expected.map((l) => {
         const restock = l.quantity - Number(damaged[l.lineId]) - Number(rejected[l.lineId]);
         return (
           <div key={l.lineId} className="border-t border-neutral-200 pt-2">
-            <p className="text-p4 font-body font-semibold text-pneutral-800">
+            <p className="text-[13px] font-semibold text-pneutral-800">
               {l.productName ?? "Item"}
               {l.productId && l.productId !== l.productName ? ` (${l.productId})` : ""} · {units(l.quantity)} expected
             </p>
-            <div className="flex flex-wrap gap-4 mt-1">
-              <label className="flex items-center gap-2 text-p4 font-body text-pneutral-700">
+            <div className="mt-1 flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-[13px] text-pneutral-700">
                 Damaged
                 <input
                   type="number"
@@ -194,7 +200,7 @@ function ReceiveForm({
                   className={inputClass}
                 />
               </label>
-              <label className="flex items-center gap-2 text-p4 font-body text-pneutral-700">
+              <label className="flex items-center gap-2 text-[13px] text-pneutral-700">
                 Rejected
                 <input
                   type="number"
@@ -208,18 +214,18 @@ function ReceiveForm({
               </label>
             </div>
             {lineValid(l) ? (
-              <p className="text-p4 font-body text-pneutral-500 mt-1">
+              <p className="mt-1 text-xs text-neutral-500">
                 {restock} back to stock · {damaged[l.lineId]} to damaged stock · {rejected[l.lineId]} rejected
               </p>
             ) : (
-              <p className="text-p4 font-body text-red-600 mt-1">
+              <p className="text-xs text-red-600 mt-1">
                 Damaged and rejected together must be between 0 and {l.quantity}.
               </p>
             )}
           </div>
         );
       })}
-      <p className="text-p4 font-body text-pneutral-500">
+      <p className="text-xs text-neutral-500">
         Damaged units are still refunded and go to damaged stock. Rejected units (not as described, missing) are not
         refunded.
       </p>
@@ -229,9 +235,9 @@ function ReceiveForm({
         disabled={busy}
         onChange={(e) => setNote(e.target.value)}
         rows={2}
-        className="px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white resize-none"
+        className="resize-none rounded-lg border border-neutral-300 bg-white px-3 py-2 text-[13px] focus:border-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-100"
       />
-      {refund != null && <p className="text-p4 font-body text-pneutral-700">Refund ₹{refund.toFixed(2)}</p>}
+      {refund != null && <p className="text-[13px] font-semibold text-primary-900">Refund ₹{refund.toFixed(2)}</p>}
       <button
         disabled={busy || !valid || noteMissing}
         onClick={() =>
@@ -244,7 +250,7 @@ function ReceiveForm({
             note.trim()
           )
         }
-        className="bg-primary-900 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-40"
+        className="self-start rounded-lg border-[1.5px] border-primary-900 px-3 py-1 text-xs font-semibold text-primary-900 hover:bg-primary-50 disabled:opacity-40"
       >
         {busy ? "Saving..." : anyAccepted ? "Confirm received & refund" : "Confirm received (no refund)"}
       </button>
@@ -254,9 +260,9 @@ function ReceiveForm({
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-4">
-      <dt className="w-32 shrink-0 text-p4 font-body text-neutral-500">{label}</dt>
-      <dd className="text-p4 font-body text-neutral-800">{children}</dd>
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
+      <dt className="w-28 shrink-0 text-xs font-medium text-neutral-500">{label}</dt>
+      <dd className="min-w-0 text-[13px] text-neutral-800">{children}</dd>
     </div>
   );
 }
@@ -295,12 +301,12 @@ function ReturnCard({
   const trackingOk = !!returnRequest.trackingUrl && /^https?:\/\//i.test(returnRequest.trackingUrl);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-6 py-4">
-        <div>
-          <p className="text-p2 font-heading font-semibold text-pneutral-900">Return #{returnRequest.returnId}</p>
-          <p className="text-p4 font-body text-neutral-500">
-            Order {returnRequest.sellerOrderId}
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-neutral-100 bg-neutral-50/60 px-4 py-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+          <p className="text-[13px] font-heading font-bold text-pneutral-900">Return #{returnRequest.returnId}</p>
+          <span className="text-xs text-neutral-500">
+            Order <span className="font-medium text-neutral-700">{returnRequest.sellerOrderId}</span>
             {returnRequest.requestedAt
               ? ` · ${new Date(returnRequest.requestedAt).toLocaleString("en-IN", {
                   day: "2-digit",
@@ -311,12 +317,12 @@ function ReturnCard({
                   hour12: true,
                 })}`
               : ""}
-          </p>
+          </span>
         </div>
         <StatusBadge status={status} />
       </div>
 
-      <ul className="divide-y divide-neutral-100 px-6">
+      <ul className="divide-y divide-neutral-100 px-4">
         {lines.map((l) => {
           const info = orderItems[l.orderItemId];
           const unitPrice = info?.unitPrice;
@@ -324,21 +330,21 @@ function ReturnCard({
           const showListed = listed != null && unitPrice != null && Math.abs(listed - unitPrice) > 0.005;
           const vsListed = info?.isQuote && showListed ? Math.round(((unitPrice! - listed!) / listed!) * 100) : null;
           return (
-          <li key={l.lineId} className="flex items-center gap-4 py-4">
-            <ProductThumb src={l.productId ? products[l.productId]?.image : undefined} alt={l.productName ?? "Product"} />
+          <li key={l.lineId} className="flex items-center gap-3 py-1.5">
+            <ProductThumb size="sm" src={l.productId ? products[l.productId]?.image : undefined} alt={l.productName ?? "Product"} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-p3 font-body font-semibold text-neutral-900">{l.productName ?? "Item"}</p>
-              {l.productId && l.productId !== l.productName && (
-                <p className="text-xs text-neutral-500">{l.productId}</p>
-              )}
-              <p className="mt-1 text-p4 font-body text-neutral-600">
-                Qty {l.quantity}
+              <p className="truncate text-[13px] font-semibold text-neutral-900">{l.productName ?? "Item"}</p>
+              <p className="mt-0.5 text-xs text-neutral-600">
+                {l.productId && l.productId !== l.productName && (
+                  <span className="mr-2 text-neutral-400">{l.productId}</span>
+                )}
+                <span className="font-semibold text-neutral-800">Qty {l.quantity}</span>
                 {l.approvedQuantity != null &&
                   l.approvedQuantity !== l.requestedQuantity &&
                   ` (${l.requestedQuantity} requested)`}
               </p>
               {unitPrice != null && (
-                <p className="mt-0.5 text-xs text-neutral-500">
+                <p className="text-[11px] text-neutral-500">
                   Order price <span className="font-semibold text-neutral-800">₹{unitPrice.toFixed(2)}</span> / unit
                   {info?.isQuote && (
                     <span className="ml-1.5 rounded-full bg-secondary-100 px-2 py-0.5 text-secondary-800">
@@ -348,7 +354,7 @@ function ReturnCard({
                 </p>
               )}
               {showListed && (
-                <p className="mt-0.5 text-xs text-neutral-500">
+                <p className="text-[11px] text-neutral-500">
                   {info?.isQuote ? "Original listed price" : "Current listed price"}{" "}
                   <span className="line-through">₹{listed!.toFixed(2)}</span>
                   {vsListed !== null && vsListed !== 0 && (
@@ -360,7 +366,7 @@ function ReturnCard({
                 </p>
               )}
               {inspected(status) && l.quantity > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px] font-medium">
                   <span className="rounded-full bg-green-50 px-2 py-0.5 text-green-700">
                     {l.restockedQuantity ?? 0} to stock
                   </span>
@@ -374,14 +380,14 @@ function ReturnCard({
               )}
             </div>
             {l.lineTotal != null && (
-              <p className="text-p3 font-body font-semibold text-neutral-900">₹{l.lineTotal.toFixed(2)}</p>
+              <p className="text-[13px] font-bold text-neutral-900">₹{l.lineTotal.toFixed(2)}</p>
             )}
           </li>
           );
         })}
       </ul>
 
-      <dl className="flex flex-col gap-2 border-t border-neutral-100 bg-neutral-50/60 px-6 py-4">
+      <dl className="grid gap-x-8 gap-y-1 border-t border-neutral-100 bg-neutral-50/60 px-4 py-1.5 lg:grid-cols-2">
         <DetailRow label="Buyer's reason">
           {reasonLabel(returnRequest.reasonCode)}
           {returnRequest.reason ? ` — ${returnRequest.reason}` : ""}
@@ -420,7 +426,7 @@ function ReturnCard({
         (status === "REFUNDED" && returnRequest.refundAmount != null) ||
         status === "CLOSED") && (
         <div
-          className={`px-6 py-3 text-p4 font-body ${
+          className={`px-4 py-2 text-xs font-medium ${
             status === "REFUNDED"
               ? "bg-green-50 text-green-800"
               : status === "CLOSED"
@@ -442,8 +448,8 @@ function ReturnCard({
       )}
 
       {(error || status === "REQUESTED" || status === "SHIPPED" || status === "OUT_FOR_DELIVERY") && (
-        <div className="px-6 pb-5">
-          {error && <p className="mt-3 text-p4 text-red-600">{error}</p>}
+        <div className="px-4 pb-2.5">
+          {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
 
           {status === "REQUESTED" && (
             <DecisionForm
@@ -533,18 +539,21 @@ export default function SellerReturnsPage() {
   }, [sellerId, loadReturns]);
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-h4 font-heading font-medium text-pneutral-900">Returns</h1>
+    <div>
+      <div className="mb-3 flex items-baseline gap-2">
+        <h1 className="text-xl font-heading font-bold text-pneutral-900">Returns</h1>
+        {returns !== null && <span className="text-xs text-neutral-500">{visibleReturns.length} shown</span>}
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="mb-3 flex flex-wrap gap-1.5">
         {STATUS_FILTERS.map((status) => (
           <button
             key={status}
             onClick={() => setStatusFilter(status)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold ${
-              statusFilter === status ? "bg-primary-900 text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+            className={`rounded-full border-[1.5px] px-3 py-1 text-xs font-semibold transition-colors ${
+              statusFilter === status
+                ? "border-primary-900 bg-transparent text-primary-900"
+                : "border-neutral-200 bg-white text-neutral-700 hover:border-primary-800 hover:text-primary-900"
             }`}
           >
             {prettyStatus(status)}
@@ -570,7 +579,7 @@ export default function SellerReturnsPage() {
       )}
 
       {returns !== null && visibleReturns.length > 0 && sellerId && (
-        <div className="space-y-5">
+        <div className="space-y-3">
           {visibleReturns.map((returnRequest) => (
             <ReturnCard
               key={returnRequest.returnId}

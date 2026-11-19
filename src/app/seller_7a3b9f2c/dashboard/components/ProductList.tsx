@@ -23,6 +23,10 @@ interface ProductListProps {
   categoryFilter?: CategoryFilter;
   stockFilter?: StockFilter;
   statusFilter?: StatusFilter;
+  /** Rendered in the toolbar row between the search box and Sort By (e.g. the filter dropdowns). */
+  filtersSlot?: React.ReactNode;
+  /** Rendered at the end of the toolbar row (e.g. the Add New Product button). */
+  actionSlot?: React.ReactNode;
 }
 
 export const categoryMap: Record<number, string> = {
@@ -200,6 +204,8 @@ const ProductList = ({
   categoryFilter = "all",
   stockFilter = "all",
   statusFilter = "all",
+  filtersSlot,
+  actionSlot,
 }: ProductListProps) => {
   const [data, setData] = useState<ProductListData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -276,8 +282,8 @@ const ProductList = ({
 
   return (
     <>
-      <div className="flex items-center gap-2 font-open-sans">
-        <div className="relative w-full">
+      <div className="flex flex-wrap items-center gap-2 font-open-sans">
+        <div className="relative min-w-[220px] flex-1">
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" aria-hidden />
           <input
             type="text"
@@ -300,6 +306,8 @@ const ProductList = ({
             </button>
           )}
         </div>
+
+        {filtersSlot}
 
         <div className="relative shrink-0" ref={sortDropdownRef}>
           <button
@@ -347,6 +355,7 @@ const ProductList = ({
             </div>
           )}
         </div>
+        {actionSlot}
       </div>
 
       <div className="mt-2">
