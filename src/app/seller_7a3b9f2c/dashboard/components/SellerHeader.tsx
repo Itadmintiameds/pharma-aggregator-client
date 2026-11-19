@@ -122,6 +122,9 @@ const SellerHeader = ({ currentView, setCurrentView, approved = true }: SellerHe
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
               disabled={isLoggingOut}
+              aria-haspopup="menu"
+              aria-expanded={showUserMenu}
+              className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
               style={{ justifyContent: "flex-start", alignItems: "flex-end", display: "flex" }}
             >
               <div style={{ justifyContent: "flex-start", alignItems: "center", gap: 10, display: "flex" }}>
@@ -163,30 +166,30 @@ const SellerHeader = ({ currentView, setCurrentView, approved = true }: SellerHe
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-neutral-100 py-1 z-50">
+              <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-md border border-neutral-200 py-1 z-50">
                 <button
                   onClick={() => { if (!approved) return; setShowUserMenu(false); router.push("/seller_7a3b9f2c/profile"); }}
                   disabled={!approved}
-                  className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 transition-colors ${approved ? "hover:bg-primary-05" : "opacity-40 cursor-not-allowed"}`}
+                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 text-neutral-700 transition-colors ${approved ? "hover:bg-primary-05" : "opacity-40 cursor-not-allowed"}`}
                 >
-                  <User size={16} />
+                  <User size={15} />
                   <span>My Profile</span>
                 </button>
                 <button
                   onClick={() => { if (!approved) return; setShowUserMenu(false); router.push("/seller_7a3b9f2c/settings"); }}
                   disabled={!approved}
-                  className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 transition-colors ${approved ? "hover:bg-primary-05" : "opacity-40 cursor-not-allowed"}`}
+                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 text-neutral-700 transition-colors ${approved ? "hover:bg-primary-05" : "opacity-40 cursor-not-allowed"}`}
                 >
-                  <Settings size={16} />
+                  <Settings size={15} />
                   <span>Settings</span>
                 </button>
                 <div className="border-t border-neutral-100 my-1"></div>
                 <button
                   onClick={() => { setShowUserMenu(false); handleLogout(); }}
                   disabled={isLoggingOut}
-                  className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-warning-600 hover:bg-warning-50 transition-colors ${isLoggingOut ? "opacity-50 cursor-not-allowed" : ""}`}
+                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 text-warning-600 hover:bg-warning-50 transition-colors ${isLoggingOut ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
-                  <LogOut size={16} />
+                  <LogOut size={15} />
                   <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
                 </button>
               </div>

@@ -70,7 +70,7 @@ const DashboardOverview = ({
 
   return (
     <OnboardingGate>
-    <div className="space-y-8">
+    <div className="space-y-3">
       <SellerOverview />
     </div>
     </OnboardingGate>

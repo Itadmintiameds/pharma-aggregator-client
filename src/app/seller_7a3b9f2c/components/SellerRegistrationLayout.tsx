@@ -23,7 +23,7 @@ export default function SellerRegistrationLayout({
   if (hideSidebar) {
     return (
       <div className="bg-white overflow-visible">
-        <div className="p-4 sm:p-6 lg:p-10">
+        <div className="p-3 sm:p-4 lg:p-5">
           {children}
         </div>
       </div>
@@ -35,7 +35,7 @@ export default function SellerRegistrationLayout({
       <SellerSidebar step={step} />
 
       <div className="flex-1 bg-white overflow-visible">
-        <div className="p-4 sm:p-6 lg:p-10">
+        <div className="p-3 sm:p-4 lg:p-5">
           {children}
         </div>
       </div>

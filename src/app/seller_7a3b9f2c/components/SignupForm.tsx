@@ -105,16 +105,16 @@ export default function SignupForm({ onOpenLogin }: Props) {
 
   if (signupComplete) {
     return (
-      <div className="w-full max-w-[28rem] mx-auto bg-white rounded-xl shadow-md p-8 text-center">
-        <h2 className="text-h4 font-heading font-medium text-pneutral-900 mb-2">
+      <div className="w-full max-w-[28rem] mx-auto bg-white rounded-xl border border-neutral-200 shadow-sm px-5 py-5 text-center">
+        <h2 className="text-base font-heading font-bold text-pneutral-900 mb-1">
           Account created
         </h2>
-        <p className="text-p3 font-body text-pneutral-600 mb-6">
+        <p className="text-[13px] font-body text-pneutral-600 mb-4">
           Your seller account has been created. Please log in with your email and password to continue your registration.
         </p>
         <button
           onClick={onOpenLogin}
-          className="w-full py-3 rounded-xl bg-primary-800 text-white font-semibold"
+          className="w-full h-9 rounded-lg border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
         >
           Log in now
         </button>
@@ -123,17 +123,17 @@ export default function SignupForm({ onOpenLogin }: Props) {
   }
 
   return (
-    <div className="w-full max-w-[28rem] mx-auto bg-white rounded-xl shadow-md p-8">
-      <h2 className="text-h4 font-heading font-medium text-pneutral-900 mb-1">
+    <div className="w-full max-w-[28rem] mx-auto bg-white rounded-xl border border-neutral-200 shadow-sm px-5 py-5">
+      <h2 className="text-base font-heading font-bold text-pneutral-900 mb-1">
         Create your seller account
       </h2>
-      <p className="text-p3 font-body text-pneutral-600 mb-6">
+      <p className="text-[13px] font-body text-pneutral-600 mb-4">
         Sign up with your email and password to start your seller registration.
       </p>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
-          <label className="block text-label-l4 font-heading font-medium text-pneutral-900 mb-1">
+          <label className="block text-xs font-heading font-semibold text-pneutral-900 mb-1">
             Full Name
           </label>
           <div className="relative">
@@ -143,14 +143,14 @@ export default function SignupForm({ onOpenLogin }: Props) {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Your full name"
-              className="w-full pl-10 pr-3 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-500"
+              className="w-full pl-10 pr-3 h-9 text-[13px] border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
             />
           </div>
-          {errors.fullName && <p className="text-red-500 text-p3 mt-1">{errors.fullName}</p>}
+          {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
         </div>
 
         <div>
-          <label className="block text-label-l4 font-heading font-medium text-pneutral-900 mb-1">
+          <label className="block text-xs font-heading font-semibold text-pneutral-900 mb-1">
             Email
           </label>
           <div className="relative">
@@ -160,14 +160,14 @@ export default function SignupForm({ onOpenLogin }: Props) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
-              className="w-full pl-10 pr-3 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-500"
+              className="w-full pl-10 pr-3 h-9 text-[13px] border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
             />
           </div>
-          {errors.email && <p className="text-red-500 text-p3 mt-1">{errors.email}</p>}
+          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
         </div>
 
         <div>
-          <label className="block text-label-l4 font-heading font-medium text-pneutral-900 mb-1">
+          <label className="block text-xs font-heading font-semibold text-pneutral-900 mb-1">
             Password
           </label>
           <div className="relative">
@@ -177,21 +177,21 @@ export default function SignupForm({ onOpenLogin }: Props) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Create a password"
-              className="w-full pl-10 pr-10 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-500"
+              className="w-full pl-10 pr-10 h-9 text-[13px] border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
-          {errors.password && <p className="text-red-500 text-p3 mt-1">{errors.password}</p>}
+          {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
         </div>
 
         <div>
-          <label className="block text-label-l4 font-heading font-medium text-pneutral-900 mb-1">
+          <label className="block text-xs font-heading font-semibold text-pneutral-900 mb-1">
             Confirm Password
           </label>
           <div className="relative">
@@ -201,31 +201,31 @@ export default function SignupForm({ onOpenLogin }: Props) {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Re-enter your password"
-              className="w-full pl-10 pr-10 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-500"
+              className="w-full pl-10 pr-10 h-9 text-[13px] border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
             >
               {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
-          {errors.confirmPassword && <p className="text-red-500 text-p3 mt-1">{errors.confirmPassword}</p>}
+          {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
         </div>
 
         <button
           onClick={handleGetOtp}
           disabled={submitting}
-          className="w-full py-3 rounded-xl bg-primary-800 text-white font-semibold disabled:opacity-60"
+          className="w-full h-9 rounded-lg border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold hover:bg-primary-50 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
         >
           {submitting ? "Sending OTP..." : "Get OTP"}
         </button>
       </div>
 
-      <p className="text-center text-p3 font-body text-pneutral-600 mt-6">
+      <p className="text-center text-[13px] font-body text-pneutral-600 mt-4">
         Already have an account?{" "}
-        <button onClick={onOpenLogin} className="text-primary-800 font-semibold">
+        <button onClick={onOpenLogin} className="text-primary-800 font-semibold rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100">
           Log in
         </button>
       </p>

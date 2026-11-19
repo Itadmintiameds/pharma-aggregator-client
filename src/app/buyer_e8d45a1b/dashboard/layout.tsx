@@ -47,7 +47,9 @@ export default function BuyerDashboardLayout({
   useEffect(() => {
     queueMicrotask(() => {
       try {
-        setCollapsed(localStorage.getItem("buyer-sidebar-collapsed") === "1");
+        const saved = localStorage.getItem("buyer-sidebar-collapsed");
+        // no saved choice yet: start as an icon rail on narrow windows / zoomed-in pages so the content keeps its room
+        setCollapsed(saved === null ? window.innerWidth < 1100 : saved === "1");
       } catch {
         // storage blocked: start expanded
       }
@@ -74,7 +76,7 @@ export default function BuyerDashboardLayout({
         <BuyerHeader tempBuyer={tempBuyer} status={status} />
 
         <main
-          className={`p-6 transition-[margin] duration-200 ${collapsed ? "ml-16" : "ml-52"}`}
+          className={`min-w-0 overflow-x-clip p-6 transition-[margin] duration-200 ${collapsed ? "ml-16" : "ml-52"}`}
           style={{ marginTop: 74 }}
         >
           <BuyerOnboardingGate>{children}</BuyerOnboardingGate>

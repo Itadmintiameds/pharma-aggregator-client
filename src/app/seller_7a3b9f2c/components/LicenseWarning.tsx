@@ -37,66 +37,50 @@ export default function LicenseWarning({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur">
-      <div className="w-120 rounded-3xl bg-white p-6">
+      <div className="w-full max-w-[28rem] mx-4 rounded-xl bg-white p-4 shadow-xl">
         {/* Header */}
         <div className="flex items-center gap-2">
-          <div className="flex h-13 w-13 items-center justify-center">
+          <div className="flex h-9 w-9 items-center justify-center">
             <Image
               src="/icons/warning.png"
               alt="warning"
-              width={40}
-              height={40}
+              width={28}
+              height={28}
             />
           </div>
 
-          <h2 className="text-h6 font-semibold text-warning-500">
+          <h2 className="text-base font-bold text-warning-500">
             Warning - Duplicate License Number
           </h2>
         </div>
 
         {/* Content Box */}
-        <div className="mt-6 rounded-2xl border border-danger-500 bg-danger-100 px-4 py-4">
-          <p className="text-p4 font-medium text-pneutral-800">
+        <div className="mt-3 rounded-lg border border-danger-500 bg-danger-100 px-3 py-3">
+          <p className="text-[13px] font-medium text-pneutral-800">
             License No.{" "}
             <span className="font-semibold">{licenseNumber}</span> is already
             been used for{" "}
             <span className="font-semibold">{formattedProductNames}</span>.
           </p>
 
-          <p className="mt-4 text-p4 font-medium text-pneutral-800">
+          <p className="mt-2 text-[13px] font-medium text-pneutral-800">
             Do you want to continue using the same license no. for{" "}
             <span className="font-semibold">{newProductName}</span>?
           </p>
         </div>
 
         {/* Actions */}
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-4 flex items-center justify-between">
           <button
             onClick={onCancel}
-            className="
-              h-12
-              rounded-xl
-              border-2
-              border-warning-500
-              px-7
-              text-l4
-              font-medium text-warning-500
-            "
+            className="h-9 rounded-lg border-[1.5px] border-warning-500 px-4 text-[13px] font-semibold text-warning-500 hover:bg-warning-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-100"
           >
             No, Clear Field
           </button>
 
           <button
             onClick={onConfirm}
-            className="
-              h-12
-              rounded-xl
-              bg-success-900
-              px-8
-              text-[18px]
-              font-medium
-              text-pneutral-50
-            "
+            className="h-9 rounded-lg border-[1.5px] border-success-900 px-4 text-[13px] font-semibold text-success-900 hover:bg-success-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success-100"
           >
             Yes, Continue
           </button>

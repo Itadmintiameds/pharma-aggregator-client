@@ -20,7 +20,7 @@ interface Props {
 // `steps` as a prop — there's only one caller today (BuyerOnboardingGate).
 export default function BuyerOnboardingStepper({ step, steps }: Props) {
   return (
-    <div className="w-full rounded-2xl border border-neutral-200 bg-white px-6 py-5 flex items-center">
+    <div className="flex w-full items-center rounded-xl border border-neutral-200 bg-white px-4 py-3">
       {steps.map((item, index) => {
         const stepNumber = index + 1;
         const isCompleted = step > stepNumber;
@@ -29,23 +29,23 @@ export default function BuyerOnboardingStepper({ step, steps }: Props) {
           <React.Fragment key={item.title}>
             <div className="flex items-center gap-3 shrink-0">
               <div
-                className={`w-8 h-8 flex items-center justify-center rounded-full text-p3 font-body font-semibold shrink-0 ${
+                className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-body font-semibold shrink-0 ${
                   isCompleted ? "bg-success-500 text-white" : "bg-neutral-100 border border-neutral-200 text-pneutral-600"
                 }`}
               >
-                {isCompleted ? <Check size={16} /> : stepNumber}
+                {isCompleted ? <Check size={14} /> : stepNumber}
               </div>
               <div className="max-w-[220px]">
-                <h3 className={`text-p3 font-body font-semibold leading-tight ${isCompleted ? "text-pneutral-900" : "text-pneutral-700"}`}>
+                <h3 className={`text-[13px] font-body font-semibold leading-tight ${isCompleted ? "text-pneutral-900" : "text-pneutral-700"}`}>
                   {item.title}
                 </h3>
-                <p className="text-p4 font-body font-regular text-pneutral-500 leading-snug mt-0.5">{item.description}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-pneutral-500">{item.description}</p>
               </div>
             </div>
 
             {index !== steps.length - 1 && (
               <div
-                className={`flex-1 border-t-2 border-dashed mx-4 ${isCompleted ? "border-success-400" : "border-secondary-300"}`}
+                className={`flex-1 border-t-2 border-dashed mx-3 ${isCompleted ? "border-success-400" : "border-secondary-300"}`}
               />
             )}
           </React.Fragment>

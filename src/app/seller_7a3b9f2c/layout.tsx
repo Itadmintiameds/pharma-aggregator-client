@@ -32,7 +32,9 @@ export default function SellerLayout({
   useEffect(() => {
     queueMicrotask(() => {
       try {
-        setCollapsed(localStorage.getItem("seller-sidebar-collapsed") === "1");
+        const saved = localStorage.getItem("seller-sidebar-collapsed");
+        // no saved choice yet: start as an icon rail on narrow windows / zoomed-in pages so the content keeps its room
+        setCollapsed(saved === null ? window.innerWidth < 1100 : saved === "1");
       } catch {
         // storage blocked: start expanded
       }
@@ -213,7 +215,7 @@ export default function SellerLayout({
         approved={onboardingStatus === "approved"}
       />
       <main
-        className={`p-6 transition-[margin] duration-200 ${collapsed ? "ml-16" : "ml-52"}`}
+        className={`min-w-0 overflow-x-clip p-6 transition-[margin] duration-200 ${collapsed ? "ml-16" : "ml-52"}`}
         style={{ marginTop: 74 }}
       >
         {children}

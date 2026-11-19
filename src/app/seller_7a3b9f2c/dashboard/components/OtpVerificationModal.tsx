@@ -366,7 +366,7 @@ export default function OtpVerificationModal({
     if (!email || !phone) return null;
     
     return (
-      <div className="flex justify-center gap-2 mb-6">
+      <div className="flex justify-center gap-2 mb-3">
         <div className={`w-2 h-2 rounded-full ${emailVerified ? 'bg-green-500' : step === 'email' ? 'bg-purple-600' : 'bg-gray-300'}`} />
         <div className={`w-2 h-2 rounded-full ${phoneVerified ? 'bg-green-500' : step === 'phone' ? 'bg-purple-600' : 'bg-gray-300'}`} />
       </div>
@@ -374,44 +374,44 @@ export default function OtpVerificationModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div 
         ref={modalRef}
-        className="w-96 bg-white rounded-xl shadow-lg p-8 text-center"
+        className="w-full max-w-[26rem] bg-white rounded-xl shadow-xl p-5 text-center"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Progress Indicator - only show if both need verification */}
         {email && phone && renderProgress()}
 
         {/* Icon */}
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-2">
           <div
-            className={`w-20 h-20 rounded-full flex items-center justify-center shadow-md ${getStepIconBg()}`}
+            className={`w-14 h-14 rounded-full flex items-center justify-center shadow-sm ${getStepIconBg()}`}
           >
             <Image
               src={getStepIcon()}
               alt="Verification Icon"
-              width={85}
-              height={40}
+              width={44}
+              height={24}
               className="object-contain"
             />
           </div>
         </div>
 
         {/* Title */}
-        <h2 className="text-2xl font-semibold text-neutral-900 mb-1">
+        <h2 className="text-base font-bold text-neutral-900 mb-1">
           {getStepTitle()}
         </h2>
 
         {/* Subtitle */}
-        <p className="text-sm text-neutral-600 mb-6">
+        <p className="text-[13px] text-neutral-600 mb-3">
           {getStepSubtitle()}
         </p>
 
         {step === 'email' && email && (
           <>
             {/* Email OTP Inputs */}
-            <div className="flex justify-center gap-2 mb-6">
+            <div className="flex justify-center gap-2 mb-3">
               {emailOtp.map((digit, index) => (
                 <input
                   key={index}
@@ -425,14 +425,14 @@ export default function OtpVerificationModal({
                   onKeyDown={(e) => handleKeyDown(e, index, 'email')}
                   onPaste={(e) => handlePaste(e, 'email')}
                   disabled={isVerifying}
-                  className="w-12 h-12 bg-neutral-100 text-center text-lg font-semibold border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600 disabled:opacity-50"
+                  className="w-10 h-10 bg-white text-center text-base font-semibold border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 disabled:opacity-40"
                 />
               ))}
             </div>
 
             {/* Error Message */}
             {emailError && (
-              <p className="text-sm text-red-500 mb-4">
+              <p className="text-xs text-red-500 mb-3">
                 {emailError}
               </p>
             )}
@@ -441,17 +441,17 @@ export default function OtpVerificationModal({
             <button
               onClick={() => verifyEmailOtp(emailOtp.join(""))}
               disabled={isVerifying || emailOtp.join("").length !== 6}
-              className="mb-4 px-6 py-2 bg-primary-900 text-white rounded-lg font-medium hover:bg-primary-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mb-3 h-9 px-5 border-[1.5px] border-primary-900 text-primary-900 text-[13px] rounded-lg font-semibold hover:bg-primary-50 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
             >
               {isVerifying ? "Verifying..." : "Verify"}
             </button>
 
             {/* Resend */}
-            <div className="mb-4">
+            <div className="mb-2">
               <button
                 onClick={handleResendEmail}
                 disabled={!canResendEmail}
-                className="text-warning-500 font-medium hover:underline disabled:text-neutral-400"
+                className="text-xs text-warning-500 font-semibold rounded hover:underline disabled:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
               >
                 {canResendEmail ? "Resend OTP" : `Resend in ${emailResendCountdown}s`}
               </button>
@@ -462,7 +462,7 @@ export default function OtpVerificationModal({
         {step === 'phone' && phone && (
           <>
             {/* Phone OTP Inputs */}
-            <div className="flex justify-center gap-2 mb-6">
+            <div className="flex justify-center gap-2 mb-3">
               {phoneOtp.map((digit, index) => (
                 <input
                   key={index}
@@ -476,14 +476,14 @@ export default function OtpVerificationModal({
                   onKeyDown={(e) => handleKeyDown(e, index, 'phone')}
                   onPaste={(e) => handlePaste(e, 'phone')}
                   disabled={isVerifying}
-                  className="w-12 h-12 bg-neutral-100 text-center text-lg font-semibold border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600 disabled:opacity-50"
+                  className="w-10 h-10 bg-white text-center text-base font-semibold border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 disabled:opacity-40"
                 />
               ))}
             </div>
 
             {/* Error Message */}
             {phoneError && (
-              <p className="text-sm text-red-500 mb-4">
+              <p className="text-xs text-red-500 mb-3">
                 {phoneError}
               </p>
             )}
@@ -492,17 +492,17 @@ export default function OtpVerificationModal({
             <button
               onClick={() => verifyPhoneOtp(phoneOtp.join(""))}
               disabled={isVerifying || phoneOtp.join("").length !== 6}
-              className="mb-4 px-6 py-2 bg-primary-900 text-white rounded-lg font-medium hover:bg-primary-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mb-3 h-9 px-5 border-[1.5px] border-primary-900 text-primary-900 text-[13px] rounded-lg font-semibold hover:bg-primary-50 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
             >
               {isVerifying ? "Verifying..." : "Verify"}
             </button>
 
             {/* Resend */}
-            <div className="mb-4">
+            <div className="mb-2">
               <button
                 onClick={handleResendPhone}
                 disabled={!canResendPhone}
-                className="text-warning-500 font-medium hover:underline disabled:text-neutral-400"
+                className="text-xs text-warning-500 font-semibold rounded hover:underline disabled:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
               >
                 {canResendPhone ? "Resend OTP" : `Resend in ${phoneResendCountdown}s`}
               </button>
@@ -511,15 +511,15 @@ export default function OtpVerificationModal({
         )}
 
         {step === 'completed' && (
-          <div className="mb-6">
-            <p className="text-green-600 font-medium mb-4">
+          <div className="mb-2">
+            <p className="text-[13px] text-green-600 font-medium mb-3">
               ✓ {emailVerified && 'Email verified'} 
               {emailVerified && phoneVerified && ' and '}
               {phoneVerified && 'Phone verified'}
             </p>
             <button
               onClick={handleClose}
-              className="px-6 py-2 bg-primary-900 text-white rounded-lg font-medium hover:bg-primary-800 transition"
+              className="h-9 px-5 border-[1.5px] border-primary-900 text-primary-900 text-[13px] rounded-lg font-semibold hover:bg-primary-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
             >
               Continue
             </button>

@@ -42,7 +42,7 @@ const DeleteConfirmationModal = ({
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4">
       <div
-        className="relative w-full max-w-110 rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full max-w-[26rem] rounded-xl bg-white p-5 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
@@ -69,10 +69,10 @@ const DeleteConfirmationModal = ({
         </div>
 
         {/* Icon */}
-        <div className="mb-6 flex justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-100">
+        <div className="mb-3 flex justify-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
             <svg
-              className="h-10 w-10 text-red-600"
+              className="h-7 w-7 text-red-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -89,24 +89,24 @@ const DeleteConfirmationModal = ({
 
         {/* Content */}
         <div className="text-center">
-          <h2 className="mb-2 text-2xl font-semibold text-gray-900">
+          <h2 className="mb-1 text-lg font-bold text-gray-900">
             {title}
           </h2>
 
-          <p className="mb-1 text-gray-600">{message}</p>
+          <p className="mb-1 text-[13px] text-gray-600">{message}</p>
 
           {subMessage && (
-            <p className="mb-8 text-sm text-gray-500">{subMessage}</p>
+            <p className="mb-4 text-xs text-gray-500">{subMessage}</p>
           )}
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 mt-6">
+        <div className="mt-4 flex gap-2">
           <button
             type="button"
             onClick={onClose}
             disabled={isProcessing}
-            className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+            className="flex-1 rounded-lg border-[1.5px] border-gray-300 bg-white px-4 py-1.5 text-[13px] font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -115,7 +115,7 @@ const DeleteConfirmationModal = ({
             type="button"
             onClick={onConfirm}
             disabled={isProcessing}
-            className="flex-1 rounded-xl bg-red-600 px-4 py-3 font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+            className="flex-1 rounded-lg border-[1.5px] border-red-600 bg-transparent px-4 py-1.5 text-[13px] font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
           >
             {isProcessing ? "Deleting…" : confirmLabel}
           </button>

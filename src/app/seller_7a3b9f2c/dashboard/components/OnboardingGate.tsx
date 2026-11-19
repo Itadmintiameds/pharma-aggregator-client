@@ -87,24 +87,24 @@ export default function OnboardingGate({ children }: Props) {
   const stepperStep = status === "pending" ? 2 : status === "approved" ? 3 : 1;
 
   return (
-    <div className="flex flex-col items-center px-4">
+    <div className="flex flex-col items-center px-3">
       <OnboardingStepper step={stepperStep} />
 
       {status === "draft" && !showForm && (
-        <div className="bg-base-white rounded-2xl shadow-lg max-w-[28rem] w-full p-10 text-center mt-4">
-          <div className="w-16 h-16 rounded-full bg-primary-05 flex items-center justify-center mx-auto mb-6 text-primary-700">
-            <FaBuilding className="w-7 h-7" />
+        <div className="bg-base-white rounded-xl border border-neutral-200 shadow-sm max-w-[26rem] w-full px-5 py-5 text-center mt-2">
+          <div className="w-12 h-12 rounded-full bg-primary-05 flex items-center justify-center mx-auto mb-3 text-primary-700">
+            <FaBuilding className="w-5 h-5" />
           </div>
-          <h2 className="text-h4 font-heading font-bold text-pneutral-900 mb-3">
+          <h2 className="text-base font-heading font-bold text-pneutral-900 mb-2">
             Let&apos;s get your company registered
           </h2>
-          <p className="text-p3 font-body text-pneutral-600 mb-6">
+          <p className="text-[13px] font-body text-pneutral-600 mb-4">
             Complete your company, coordinator, document and bank details so
             we can review and approve your seller account.
           </p>
           <button
             onClick={handleStart}
-            className="px-6 py-3 rounded-md bg-primary-800 text-base-white font-bold"
+            className="h-9 px-4 rounded-lg border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
           >
             Fill Company Details
           </button>
@@ -122,14 +122,14 @@ export default function OnboardingGate({ children }: Props) {
       )}
 
       {status === "pending" && (
-        <div className="bg-base-white rounded-2xl shadow-lg max-w-[28rem] w-full p-10 text-center mt-4">
-          <div className="w-16 h-16 rounded-full bg-warning-50 flex items-center justify-center mx-auto mb-6 text-warning-500">
-            <FaClock className="w-7 h-7" />
+        <div className="bg-base-white rounded-xl border border-neutral-200 shadow-sm max-w-[26rem] w-full px-5 py-5 text-center mt-2">
+          <div className="w-12 h-12 rounded-full bg-warning-50 flex items-center justify-center mx-auto mb-3 text-warning-500">
+            <FaClock className="w-5 h-5" />
           </div>
-          <h2 className="text-h4 font-heading font-bold text-pneutral-900 mb-3">
+          <h2 className="text-base font-heading font-bold text-pneutral-900 mb-2">
             Application Under Review
           </h2>
-          <p className="text-p3 font-body text-pneutral-600">
+          <p className="text-[13px] font-body text-pneutral-600">
             You&apos;ve already submitted your company details. Our team is
             reviewing your registration and you&apos;ll be notified by email
             once your account is approved.
@@ -138,20 +138,20 @@ export default function OnboardingGate({ children }: Props) {
       )}
 
       {status === "approved" && !acknowledged && (
-        <div className="bg-base-white rounded-2xl shadow-lg max-w-[28rem] w-full p-10 text-center mt-4">
-          <div className="w-16 h-16 rounded-full bg-success-50 flex items-center justify-center mx-auto mb-6 text-success-600">
-            <FaCheckCircle className="w-7 h-7" />
+        <div className="bg-base-white rounded-xl border border-neutral-200 shadow-sm max-w-[26rem] w-full px-5 py-5 text-center mt-2">
+          <div className="w-12 h-12 rounded-full bg-success-50 flex items-center justify-center mx-auto mb-3 text-success-600">
+            <FaCheckCircle className="w-5 h-5" />
           </div>
-          <h2 className="text-h4 font-heading font-bold text-pneutral-900 mb-3">
+          <h2 className="text-base font-heading font-bold text-pneutral-900 mb-2">
             Seller Registration Complete
           </h2>
-          <p className="text-p3 font-body text-pneutral-600 mb-6">
+          <p className="text-[13px] font-body text-pneutral-600 mb-4">
             Congratulations! Your registration has been approved. You now
             have full access to your seller dashboard.
           </p>
           <button
             onClick={handleContinue}
-            className="px-6 py-3 rounded-md bg-primary-800 text-base-white font-bold"
+            className="h-9 px-4 rounded-lg border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
           >
             Go to Dashboard
           </button>

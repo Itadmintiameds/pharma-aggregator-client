@@ -4006,14 +4006,14 @@ if (missingLicenses.length > 0) {
 
   if (isLoading) {
     return (
-      <div className="bg-pneutral-50 min-h-screen w-full p-6 space-y-6">
+      <div className="bg-pneutral-50 min-h-screen w-full p-4 space-y-3">
 
-        <div className="animate-pulse space-y-6">
-          <div className="h-64 bg-sneutral-100 rounded-md"></div>
-          <div className="h-48 bg-sneutral-100 rounded-md"></div>
-          <div className="h-56 bg-sneutral-100 rounded-md"></div>
-          <div className="h-40 bg-sneutral-100 rounded-md"></div>
-          <div className="h-40 bg-sneutral-100 rounded-md"></div>
+        <div className="animate-pulse space-y-3">
+          <div className="h-24 bg-sneutral-100 rounded-xl"></div>
+          <div className="h-32 bg-sneutral-100 rounded-xl"></div>
+          <div className="h-32 bg-sneutral-100 rounded-xl"></div>
+          <div className="h-24 bg-sneutral-100 rounded-xl"></div>
+          <div className="h-24 bg-sneutral-100 rounded-xl"></div>
         </div>
       </div>
     );
@@ -4021,12 +4021,12 @@ if (missingLicenses.length > 0) {
 
   if (error || !profileData) {
     return (
-      <div className="bg-pneutral-50 min-h-screen w-full p-6 space-y-6">
-        <div className="bg-warning-50 border border-warning-200 rounded-md p-6 text-center">
-          <p className="text-warning-600 mb-4">{error || 'Failed to load profile'}</p>
+      <div className="bg-pneutral-50 min-h-screen w-full p-4 space-y-3">
+        <div className="bg-warning-50 border border-warning-200 rounded-xl p-4 text-center">
+          <p className="text-[13px] text-warning-600 mb-3">{error || 'Failed to load profile'}</p>
           <button
             onClick={() => window.location.reload()}
-            className="bg-primary-900 text-base-white px-4 py-2 rounded-md hover:bg-primary-800"
+            className="inline-flex h-8 items-center rounded-lg border-[1.5px] border-primary-800 px-4 text-xs font-semibold text-primary-800 transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-800"
           >
             Retry
           </button>
@@ -4063,26 +4063,26 @@ if (missingLicenses.length > 0) {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <div className="mx-auto min-h-screen w-full max-w-6xl space-y-6 p-6">
+      <div className="w-full space-y-3">
         {/* ================= PROFILE HEADER ================= */}
-        <section className="overflow-hidden rounded-2xl border border-pneutral-200 bg-base-white shadow-sm">
-          <div className="h-24 bg-gradient-to-r from-primary-900 via-primary-700 to-secondary-500" />
-          <div className="px-6 pb-6">
+        <section className="overflow-hidden rounded-xl border border-pneutral-200 bg-base-white shadow-sm">
+          <div className="h-12 bg-gradient-to-r from-primary-900 via-primary-700 to-secondary-500" />
+          <div className="px-4 pb-3">
             {/* Only the company image overlaps the banner; the name sits below it, on white, where it is readable. */}
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="relative -mt-10 h-20 w-20 shrink-0">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="relative -mt-6 h-14 w-14 shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={sellerImagePreviewUrl || "/icons/default-company.svg"}
                     alt="Company"
-                    className="h-20 w-20 rounded-2xl border-4 border-white bg-white object-cover shadow-md"
+                    className="h-14 w-14 rounded-xl border-4 border-white bg-white object-cover shadow-md"
                   />
                   {editingSection && (
                     <button
                       type="button"
                       onClick={() => sellerImageInputRef.current?.click()}
-                      className="absolute -bottom-1 -right-1 rounded-full bg-primary-900 p-1.5 text-base-white shadow hover:bg-primary-800"
+                      className="absolute -bottom-1 -right-1 rounded-full border border-primary-800 bg-white p-1 text-primary-800 shadow-sm hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary-800"
                       title="Change logo"
                       aria-label="Change company logo"
                     >
@@ -4101,19 +4101,19 @@ if (missingLicenses.length > 0) {
                     }}
                   />
                 </div>
-                <div className="min-w-0 pt-3">
-                  <h1 className="truncate text-h4 font-heading font-bold text-pneutral-900">
+                <div className="min-w-0 pt-1.5">
+                  <h1 className="truncate text-xl font-heading font-bold text-pneutral-900">
                     {formData.sellerName || "Your company"}
                   </h1>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     {sellerTypeOptions.find((o) => o.value === formData.sellerTypeId?.toString())?.label && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-pneutral-100 px-2.5 py-0.5 text-xs font-medium text-pneutral-700">
-                        <Building2 size={12} />
+                      <span className="inline-flex items-center gap-1 rounded-full bg-pneutral-100 px-2 py-0.5 text-[11px] font-medium text-pneutral-700">
+                        <Building2 size={11} />
                         {sellerTypeOptions.find((o) => o.value === formData.sellerTypeId?.toString())?.label}
                       </span>
                     )}
                     {companyTypeOptions.find((o) => o.value === formData.companyTypeId?.toString())?.label && (
-                      <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-medium text-primary-800">
+                      <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-800">
                         {companyTypeOptions.find((o) => o.value === formData.companyTypeId?.toString())?.label}
                       </span>
                     )}
@@ -4121,18 +4121,18 @@ if (missingLicenses.length > 0) {
                 </div>
               </div>
 
-              <div className="pt-3">
+              <div className="pt-1.5">
                 {!editingSection ? (
                   <button
                     type="button"
                     onClick={() => setEditingSection("editing")}
-                    className="flex items-center gap-2 rounded-xl bg-primary-900 px-4 py-2 text-p3 font-semibold text-base-white transition-colors hover:bg-primary-800"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border-[1.5px] border-primary-800 px-3 text-xs font-semibold text-primary-800 transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-800"
                   >
-                    <Pencil size={16} />
+                    <Pencil size={13} />
                     Edit profile
                   </button>
                 ) : (
-                  <span className="rounded-full bg-warning-50 px-3 py-1.5 text-xs font-semibold text-warning-700">
+                  <span className="rounded-full bg-warning-50 px-2.5 py-1 text-[11px] font-semibold text-warning-700">
                     Editing - changes are reviewed by an admin
                   </span>
                 )}
@@ -4140,23 +4140,23 @@ if (missingLicenses.length > 0) {
             </div>
 
             {formData.sellerImageUrl === "PENDING" && (
-              <p className="mt-3 text-p3 text-warning-600">New logo selected - it will be submitted for admin review.</p>
+              <p className="mt-2 text-xs text-warning-600">New logo selected - it will be submitted for admin review.</p>
             )}
 
-            <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 border-t border-pneutral-100 pt-4 text-p3 text-pneutral-600">
+            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 border-t border-pneutral-100 pt-2 text-xs text-pneutral-600">
               {formData.email && (
-                <span className="inline-flex items-center gap-2">
-                  <Mail size={15} className="text-pneutral-400" /> {formData.email}
+                <span className="inline-flex items-center gap-1.5">
+                  <Mail size={13} className="text-pneutral-400" /> {formData.email}
                 </span>
               )}
               {formData.phone && (
-                <span className="inline-flex items-center gap-2">
-                  <Phone size={15} className="text-pneutral-400" /> {formData.phone}
+                <span className="inline-flex items-center gap-1.5">
+                  <Phone size={13} className="text-pneutral-400" /> {formData.phone}
                 </span>
               )}
               {(formData.city || formData.pincode) && (
-                <span className="inline-flex items-center gap-2">
-                  <MapPin size={15} className="text-pneutral-400" /> {[formData.city, formData.pincode].filter(Boolean).join(" - ")}
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin size={13} className="text-pneutral-400" /> {[formData.city, formData.pincode].filter(Boolean).join(" - ")}
                 </span>
               )}
             </div>
@@ -4166,7 +4166,7 @@ if (missingLicenses.length > 0) {
         {/* ================= JUMP BAR ================= */}
         <nav
           aria-label="Profile sections"
-          className="sticky top-20 z-20 flex flex-wrap gap-1 rounded-2xl border border-pneutral-200 bg-white/90 px-2 py-1.5 shadow-sm backdrop-blur"
+          className="sticky top-20 z-20 flex flex-wrap gap-1 rounded-xl border border-pneutral-200 bg-white/90 px-2 py-1 shadow-sm backdrop-blur"
         >
           {[
             { id: "company-section", label: "Company" },
@@ -4180,26 +4180,26 @@ if (missingLicenses.length > 0) {
             <a
               key={link.id}
               href={`#${link.id}`}
-              className="rounded-full px-3.5 py-1.5 text-sm font-medium text-pneutral-700 transition-colors hover:bg-primary-50 hover:text-primary-800"
+              className="rounded-full px-3 py-1 text-xs font-semibold text-pneutral-700 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-primary-800"
             >
               {link.label}
             </a>
           ))}
         </nav>
         {pendingRequestError && (
-          <div className="bg-warning-50 border-l-4 border-warning-500 p-4 rounded-md flex gap-2">
+          <div className="bg-warning-50 border-l-4 border-warning-500 px-3 py-2 rounded-lg flex gap-2">
             <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-warning-500" viewBox="0 0 20 20" fill="currentColor">
+              <svg className="h-4 w-4 text-warning-500" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
               </svg>
             </div>
             <div>
-              <p className="text-h6 font-heading font-medium text-warning-800">Update Request Already Pending</p>
-              <p className="text-p3 text-warning-700 whitespace-pre-line">{pendingRequestError}</p>
+              <p className="text-[13px] font-heading font-bold text-warning-800">Update Request Already Pending</p>
+              <p className="text-xs text-warning-700 whitespace-pre-line">{pendingRequestError}</p>
             </div>
             <button
               onClick={() => setPendingRequestError(null)}
-              className="ml-auto text-warning-500 hover:text-warning-700"
+              aria-label="Dismiss" className="ml-auto h-6 w-6 rounded-md text-warning-500 hover:text-warning-700 focus-visible:outline-2 focus-visible:outline-primary-800"
             >
               ×
             </button>
@@ -4207,18 +4207,18 @@ if (missingLicenses.length > 0) {
         )}
 
         {showInactiveError && inactiveLicenses.length > 0 && (
-          <div className="p-4 bg-warning-50 border border-warning-300 rounded-md flex items-start gap-3">
-            <span className="text-warning-500 text-xl mt-0.5">🚫</span>
+          <div className="px-3 py-2 bg-warning-50 border border-warning-300 rounded-lg flex items-start gap-2">
+            <span className="text-warning-500 text-base">🚫</span>
             <div>
-              <p className="text-warning-700 font-semibold">
+              <p className="text-warning-700 text-[13px] font-semibold">
                 Inactive/Expired license{inactiveLicenses.length > 1 ? "s" : ""} detected — cannot submit
               </p>
-              <p className="text-warning-600 text-p3 mt-1">
+              <p className="text-warning-600 text-xs mt-1">
                 The following license{inactiveLicenses.length > 1 ? "s are" : " is"} inactive/expired. Please provide a valid, active license before submitting:
               </p>
-              <ul className="mt-2 space-y-1">
+              <ul className="mt-1 space-y-0.5">
                 {inactiveLicenses.map((productName) => (
-                  <li key={productName} className="text-warning-600 text-p3 font-medium flex items-center gap-1">
+                  <li key={productName} className="text-warning-600 text-xs font-medium flex items-center gap-1">
                     <span>•</span>
                     <span>{productName} License</span>
                   </li>
@@ -4227,7 +4227,7 @@ if (missingLicenses.length > 0) {
             </div>
             <button
               onClick={() => setShowInactiveError(false)}
-              className="ml-auto text-warning-500 hover:text-warning-700"
+              aria-label="Dismiss" className="ml-auto h-6 w-6 rounded-md text-warning-500 hover:text-warning-700 focus-visible:outline-2 focus-visible:outline-primary-800"
             >
               ×
             </button>
@@ -4235,13 +4235,13 @@ if (missingLicenses.length > 0) {
         )}
 
         {!pendingRequestError && savedSection && showSuccess && (
-          <div className="bg-success-50 border-l-4 border-success-300 p-4 rounded-md flex gap-2">
-            <MdSchedule size={20} className="text-success-700 mt-1" />
+          <div className="bg-success-50 border-l-4 border-success-300 px-3 py-2 rounded-lg flex gap-2">
+            <MdSchedule size={16} className="text-success-700 mt-0.5" />
             <div>
-              <p className="text-h6 font-heading font-medium text-success-900">
+              <p className="text-[13px] font-heading font-bold text-success-900">
                 {savedSection === 'all' && savedSection ? 'Changes Submitted Successfully!' : 'Changes Applied!'}
               </p>
-              <p className="text-p3 text-success-800">
+              <p className="text-xs text-success-800">
                 {savedSection === 'all' && savedSection ?
                   'Your changes have been saved and submitted for admin review. You\'ll receive a notification once they are approved.' :
                   'Your changes have been applied successfully.'}
@@ -4251,14 +4251,14 @@ if (missingLicenses.length > 0) {
         )}
 
         {editingSection && (
-          <div className="bg-danger-50 border-l-4 border-danger-500 p-4 rounded-md">
+          <div className="bg-danger-50 border-l-4 border-danger-500 px-3 py-2 rounded-lg">
             <div className="flex gap-2">
-              <PiInfo size={24} className="text-danger-700 mt-1" />
+              <PiInfo size={16} className="text-danger-700 mt-0.5" />
               <div>
-                <p className="text-h6 font-heading font-medium text-danger-800">
+                <p className="text-[13px] font-heading font-bold text-danger-800">
                   Admin Review Required
                 </p>
-                <p className="text-p3 text-danger-700">
+                <p className="text-xs text-danger-700">
                   All changes made to your profile will be reviewed by an administrator before they are reflected in the system. You will be notified once your changes have been approved.
                 </p>
               </div>
@@ -4267,13 +4267,13 @@ if (missingLicenses.length > 0) {
         )}
 
         {/* COMPANY DETAILS */}
-        <div id="company-section" className="scroll-mt-36 overflow-hidden rounded-2xl border border-pneutral-200 bg-base-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-pneutral-100 px-6 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary-100">
-                <Building2 size={20} className="text-primary-900" />
+        <div id="company-section" className="scroll-mt-28 overflow-hidden rounded-xl border border-pneutral-200 bg-base-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-pneutral-100 bg-pneutral-50/60 px-4 py-2">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-50">
+                <Building2 size={15} className="text-primary-800" />
               </div>
-              <h2 className="text-h6 font-heading font-medium text-pneutral-900">
+              <h2 className="text-[13px] font-heading font-bold text-pneutral-900">
                 Seller Company Details
               </h2>
             </div>
@@ -4281,10 +4281,10 @@ if (missingLicenses.length > 0) {
             {editingSection && <ChevronUp size={18} className="text-pneutral-600" />}
           </div>
 
-          <div className="p-6">
-            <div className="space-y-6">
+          <div className="px-4 py-3">
+            <div className="space-y-3">
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2">
                 {/* Left Column - Seller Name/Company Name */}
                 <div>
                   <Input
@@ -4296,7 +4296,7 @@ if (missingLicenses.length > 0) {
                     error={sellerNameError}
                   />
                   {sellerNameChanged && editingSection && (
-                    <p className="text-p2 text-warning-600 mt-1">
+                    <p className="text-[11px] text-warning-600 mt-1">
                       ⚠️ Changing seller name requires updated: Company Registration Certificate, GST Certificate, License(s), and Bank Proof
                     </p>
                   )}
@@ -4366,7 +4366,7 @@ if (missingLicenses.length > 0) {
                 {/* Product Category - Full Width */}
                 <div className="md:col-span-2">
                   <div className="flex flex-col">
-                    <label className="text-label-l4 font-heading font-medium text-pneutral-900 inline-flex items-center gap-2">
+                    <label className="text-[11px] font-heading font-semibold uppercase tracking-wide text-pneutral-500 mb-1 inline-flex items-center gap-2">
                       <Image
                         src="/icons/pcategory.jpg"
                         alt="Product Category"
@@ -4379,34 +4379,34 @@ if (missingLicenses.length > 0) {
                     </label>
                     <div className="relative" ref={productDropdownRef}>
                       <div
-                        className={`w-full h-[52px] px-4 rounded-md border flex items-center justify-between ${!editingSection ? 'bg-pneutral-50 border-pneutral-100 cursor-not-allowed' : 'bg-base-white border-pneutral-200 cursor-pointer hover:border-secondary-500 focus:outline-none focus:ring-2 focus:ring-secondary-500'}`}
+                        className={`w-full h-9 px-3 rounded-lg border flex items-center justify-between ${!editingSection ? 'bg-pneutral-50 border-pneutral-100 cursor-not-allowed' : 'bg-base-white border-pneutral-200 cursor-pointer hover:border-primary-800 focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100'}`}
                         onClick={() => {
                           if (editingSection && !loadingStates.productTypes) {
                             setIsProductDropdownOpen(!isProductDropdownOpen);
                           }
                         }}
                       >
-                        <span className={`text-p4 font-body font-regular ${formData.productTypes.length === 0 ? "text-pneutral-500" : editingSection ? "text-pneutral-500" : "text-pneutral-800"}`}>
+                        <span className={`text-[13px] font-body font-medium ${formData.productTypes.length === 0 ? "text-pneutral-500" : editingSection ? "text-pneutral-500" : "text-pneutral-800"}`}>
                           {loadingStates.productTypes
                             ? "Loading product types..."
                             : formData.productTypes.length > 0
                               ? formData.productTypes.join(", ")
                               : "Select Product Types"}
                         </span>
-                        <ChevronDown className={`w-5 h-5 text-pneutral-500 transition-transform ${isProductDropdownOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-4 h-4 text-pneutral-500 transition-transform ${isProductDropdownOpen ? 'rotate-180' : ''}`} />
                       </div>
 
                       {editingSection && isProductDropdownOpen && !loadingStates.productTypes && (
-                        <div className="absolute top-full mt-1 w-full bg-base-white border border-pneutral-200 rounded-md shadow-xlg z-50 max-h-80 overflow-y-auto">
+                        <div className="absolute top-full mt-1 w-full bg-base-white border border-pneutral-200 rounded-lg shadow-xlg z-50 max-h-80 overflow-y-auto">
                           <div className="p-2 border-b border-pneutral-200 sticky top-0 bg-base-white">
-                            <p className="text-p3 text-pneutral-600 font-medium">
+                            <p className="text-xs text-pneutral-600 font-medium">
                               Select product types:
                             </p>
                           </div>
                           <div className="max-h-60 overflow-y-auto">
                             {productTypes.length > 0 && (
                               <div
-                                className="flex items-center px-4 py-2 hover:bg-secondary-50 cursor-pointer border-b border-pneutral-200"
+                                className="flex items-center px-3 py-1.5 hover:bg-secondary-50 cursor-pointer border-b border-pneutral-200"
                                 onClick={handleSelectAllProductTypes}
                               >
                                 <input
@@ -4416,7 +4416,7 @@ if (missingLicenses.length > 0) {
                                   disabled
                                   className="h-4 w-4 text-secondary-700 rounded border-pneutral-300 focus:ring-secondary-500"
                                 />
-                                <label className="ml-3 text-p3 font-medium text-secondary-700 cursor-pointer">
+                                <label className="ml-3 text-xs font-medium text-secondary-700 cursor-pointer">
                                   Select All
                                 </label>
                               </div>
@@ -4425,7 +4425,7 @@ if (missingLicenses.length > 0) {
                             {productTypes.map((product) => (
                               <div
                                 key={product.productTypeId}
-                                className="flex items-center px-4 py-2 hover:bg-secondary-50 cursor-pointer border-b border-pneutral-200 last:border-b-0"
+                                className="flex items-center px-3 py-1.5 hover:bg-secondary-50 cursor-pointer border-b border-pneutral-200 last:border-b-0"
                                 onClick={() => handleProductTypeToggle(product)}
                               >
                                 <input
@@ -4434,10 +4434,10 @@ if (missingLicenses.length > 0) {
                                   onChange={() => { }}
                                   className="h-4 w-4 text-secondary-700 rounded border-pneutral-300 focus:ring-secondary-500"
                                 />
-                                <label className="ml-3 text-p3 text-pneutral-900 cursor-pointer">
+                                <label className="ml-3 text-xs text-pneutral-900 cursor-pointer">
                                   {product.productTypeName}
                                   {product.regulatoryCategory && (
-                                    <span className="ml-2 text-p2 text-secondary-600">
+                                    <span className="ml-2 text-[11px] text-secondary-600">
                                       ({product.regulatoryCategory})
                                     </span>
                                   )}
@@ -4446,7 +4446,7 @@ if (missingLicenses.length > 0) {
                             ))}
                           </div>
                           <div className="p-2 border-t border-pneutral-200 bg-secondary-50 sticky bottom-0">
-                            <p className="text-p2 text-pneutral-600">
+                            <p className="text-[11px] text-pneutral-600">
                               {formData.productTypes.length} of {productTypes.length} selected
                             </p>
                           </div>
@@ -4461,13 +4461,13 @@ if (missingLicenses.length > 0) {
               <hr className="border-pneutral-200" />
 
               <div>
-                <div className="flex items-center gap-2 text-label-l5 font-heading font-semibold text-pneutral-900 mb-4">
-                  <MapPin size={24} />
+                <div className="flex items-center gap-1.5 text-xs font-heading font-bold text-pneutral-900 mb-2">
+                  <MapPin size={14} />
                   Company Address
                   <span className="text-warning-500">*</span>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2">
                   <SelectField
                     label="State"
                     value={formData.stateId?.toString()}
@@ -4546,21 +4546,21 @@ if (missingLicenses.length > 0) {
               <hr className="border-pneutral-200" />
 
               <div>
-                <div className="flex items-center gap-2 text-label-l4 font-heading font-medium text-pneutral-900 mb-4">
-                  <Phone size={24} />
+                <div className="flex items-center gap-1.5 text-xs font-heading font-bold text-pneutral-900 mb-2">
+                  <Phone size={14} />
                   Contact Information
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2">
                   {/* Left Column - Company Phone Number */}
                   <div className="flex flex-col">
-                    <label className="text-label-l4 font-heading font-medium text-pneutral-900">
-                      <Phone size={16} className="inline mr-2 text-pneutral-600" />
+                    <label className="text-[11px] font-heading font-semibold uppercase tracking-wide text-pneutral-500 mb-1">
+                      <Phone size={12} className="inline mr-1.5 text-pneutral-400" />
                       Company Phone Number
                       <span className="text-warning-500 ml-1">*</span>
                     </label>
                     <div className="relative">
-                      <div className="absolute left-3 top-0 h-[52px] flex items-center text-pneutral-800 ">
+                      <div className="absolute left-3 top-0 h-9 flex items-center text-[13px] text-pneutral-800 ">
                         +91
                       </div>
                       <input
@@ -4571,17 +4571,17 @@ if (missingLicenses.length > 0) {
                         disabled={!editingSection}
                         maxLength={10}
                         placeholder="9876543210"
-                        className={`w-full h-[52px] pl-12 pr-4 rounded-md text-p4 font-body font-regular
+                        className={`w-full h-9 pl-11 pr-4 rounded-lg text-[13px] font-body font-medium
                           ${editingSection
-                            ? `bg-base-white border ${companyPhoneError ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:ring-2 focus:ring-secondary-500'} ${editingSection ? 'text-pneutral-800' : 'text-pneutral-800'}`
+                            ? `bg-base-white border ${companyPhoneError ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100'} ${editingSection ? 'text-pneutral-800' : 'text-pneutral-800'}`
                             : "bg-pneutral-50 border border-pneutral-100 cursor-not-allowed text-pneutral-800"
                           }`}
                       />
                       {companyPhoneError && (
-                        <p className="mt-1 text-p2 text-warning-500">{companyPhoneError}</p>
+                        <p className="mt-1 text-[11px] text-warning-500">{companyPhoneError}</p>
                       )}
                       {editingSection && !companyPhoneError && formData.phone && formData.phone.length === 10 && (
-                        <p className="mt-1 text-p2 text-success-600">✓ Valid mobile number</p>
+                        <p className="mt-1 text-[11px] text-success-600">✓ Valid mobile number</p>
                       )}
                     </div>
                   </div>
@@ -4615,7 +4615,7 @@ if (missingLicenses.length > 0) {
         </div>
 
         {/* COORDINATOR */}
-        <div id="coordinator-section" className="scroll-mt-36">
+        <div id="coordinator-section" className="scroll-mt-28">
           <SectionCard
             title="Company Coordinator Details"
             icon={<FaRegUser size={24} />}
@@ -4623,7 +4623,7 @@ if (missingLicenses.length > 0) {
             iconColor="text-pneutral-900"
             underReview={reviewSections.includes("coordinator")}
           >
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2">
               <Input
                 label="Coordinator Name"
                 value={formData.coordinatorName}
@@ -4645,8 +4645,8 @@ if (missingLicenses.length > 0) {
               />
 
               <div id="coordinator-email-section" className="flex flex-col">
-                <label className="text-label-l4 font-heading font-medium text-pneutral-900">
-                  <Mail size={16} className="inline mr-2 text-pneutral-600" />
+                <label className="text-[11px] font-heading font-semibold uppercase tracking-wide text-pneutral-500 mb-1">
+                  <Mail size={12} className="inline mr-1.5 text-pneutral-400" />
                   Coordinator Email ID
                   <span className="text-warning-500 ml-1">*</span>
                 </label>
@@ -4658,44 +4658,44 @@ if (missingLicenses.length > 0) {
                     onBlur={handleCoordinatorEmailBlur}
                     disabled={!editingSection}
                     placeholder="coordinator@company.com"
-                    className={`w-full h-[52px] px-4 rounded-md text-p4 font-body font-regular pr-10
+                    className={`w-full h-9 px-3 rounded-lg text-[13px] font-body font-medium pr-10
                       ${editingSection
-                        ? `bg-base-white border ${emailExistsError ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:ring-2 focus:ring-secondary-500'} ${emailExistsError ? 'text-pneutral-800' : 'text-pneutral-800'}`
+                        ? `bg-base-white border ${emailExistsError ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100'} ${emailExistsError ? 'text-pneutral-800' : 'text-pneutral-800'}`
                         : "bg-pneutral-50 border border-pneutral-100 cursor-not-allowed text-pneutral-800"
                       }`}
                   />
                   {isCheckingEmail && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-900"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-900"></div>
                     </div>
                   )}
                   {!isCheckingEmail && formData.coordinatorEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.coordinatorEmail) && !emailExistsError && profileData?.coordinator?.email !== formData.coordinatorEmail && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <GoCheckCircle className="text-success-600" size={20} />
+                      <GoCheckCircle className="text-success-600" size={16} />
                     </div>
                   )}
                   {!isCheckingEmail && emailExistsError && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <span className="text-warning-500 text-xl">⚠️</span>
+                      <span className="text-warning-500 text-base">⚠️</span>
                     </div>
                   )}
                 </div>
                 {emailExistsError && (
-                  <p className="text-p2 text-warning-500">{emailExistsError}</p>
+                  <p className="text-[11px] text-warning-500">{emailExistsError}</p>
                 )}
                 {!emailExistsError && formData.coordinatorEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.coordinatorEmail) && !isCheckingEmail && profileData?.coordinator?.email !== formData.coordinatorEmail && (
-                  <p className="text-p2 text-success-600">✓ Valid email format</p>
+                  <p className="text-[11px] text-success-600">✓ Valid email format</p>
                 )}
               </div>
 
               <div id="coordinator-phone-section" className="flex flex-col">
-                <label className="text-label-l4 font-heading font-medium text-pneutral-900">
-                  <Phone size={16} className="inline mr-2 text-pneutral-600" />
+                <label className="text-[11px] font-heading font-semibold uppercase tracking-wide text-pneutral-500 mb-1">
+                  <Phone size={12} className="inline mr-1.5 text-pneutral-400" />
                   Coordinator Mobile Number
                   <span className="text-warning-500 ml-1">*</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute left-3 top-0 h-[52px] flex items-center text-pneutral-800">
+                  <div className="absolute left-3 top-0 h-9 flex items-center text-[13px] text-pneutral-800">
                     +91
                   </div>
                   <input
@@ -4706,35 +4706,35 @@ if (missingLicenses.length > 0) {
                     disabled={!editingSection}
                     maxLength={10}
                     placeholder="9876543210"
-                    className={`w-full h-[52px] pl-12 pr-10 rounded-md text-p4 font-body font-regular
+                    className={`w-full h-9 pl-11 pr-10 rounded-lg text-[13px] font-body font-medium
                       ${editingSection
-                        ? `bg-base-white border ${coordinatorPhoneError || phoneExistsError ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:ring-2 focus:ring-secondary-500'} ${coordinatorPhoneError || phoneExistsError ? 'text-pneutral-800' : 'text-pneutral-800'}`
+                        ? `bg-base-white border ${coordinatorPhoneError || phoneExistsError ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100'} ${coordinatorPhoneError || phoneExistsError ? 'text-pneutral-800' : 'text-pneutral-800'}`
                         : "bg-pneutral-50 border border-pneutral-100 cursor-not-allowed text-pneutral-800"
                       }`}
                   />
                   {isCheckingPhone && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-900"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-900"></div>
                     </div>
                   )}
                   {!isCheckingPhone && formData.coordinatorMobile.length === 10 && !coordinatorPhoneError && !phoneExistsError && profileData?.coordinator?.mobile !== formData.coordinatorMobile && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <GoCheckCircle className="text-success-600" size={20} />
+                      <GoCheckCircle className="text-success-600" size={16} />
                     </div>
                   )}
                   {!isCheckingPhone && phoneExistsError && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <span className="text-warning-500 text-xl">⚠️</span>
+                      <span className="text-warning-500 text-base">⚠️</span>
                     </div>
                   )}
                   {coordinatorPhoneError && (
-                    <p className="mt-1 text-p2 text-warning-500">{coordinatorPhoneError}</p>
+                    <p className="mt-1 text-[11px] text-warning-500">{coordinatorPhoneError}</p>
                   )}
                   {phoneExistsError && (
-                    <p className="mt-1 text-p2 text-warning-500">{phoneExistsError}</p>
+                    <p className="mt-1 text-[11px] text-warning-500">{phoneExistsError}</p>
                   )}
                   {editingSection && !coordinatorPhoneError && !phoneExistsError && formData.coordinatorMobile && formData.coordinatorMobile.length === 10 && (
-                    <p className="mt-1 text-p2 text-success-600">✓ Valid mobile number</p>
+                    <p className="mt-1 text-[11px] text-success-600">✓ Valid mobile number</p>
                   )}
                 </div>
               </div>
@@ -4742,12 +4742,12 @@ if (missingLicenses.length > 0) {
               {(isCheckingEmail || isCheckingPhone) && (
                 <div className="md:col-span-2">
                   {isCheckingEmail && (
-                    <p className="text-p3 text-secondary-600 flex items-center gap-1">
+                    <p className="text-xs text-secondary-600 flex items-center gap-1">
                       <span className="animate-spin">⏳</span> Checking email availability...
                     </p>
                   )}
                   {isCheckingPhone && (
-                    <p className="text-p3 text-secondary-600 flex items-center gap-1">
+                    <p className="text-xs text-secondary-600 flex items-center gap-1">
                       <span className="animate-spin">⏳</span> Checking phone availability...
                     </p>
                   )}
@@ -4777,7 +4777,7 @@ if (missingLicenses.length > 0) {
             <div
               key={productName}
               id={`license-section-${productName.replace(/\s/g, '-')}`}
-              className={`scroll-mt-36 ${hasLicenseError ? 'border border-pneutral-100 rounded-md' : ''}`}
+              className={`scroll-mt-28 ${hasLicenseError ? 'border border-pneutral-100 rounded-md' : ''}`}
             >
               <SectionCard
                 title={`${productName} License Details`}
@@ -4787,19 +4787,19 @@ if (missingLicenses.length > 0) {
                 underReview={reviewSections.includes(`license-${index}`)}
               >
                 {isInactive && licenseData.issueDate && licenseData.expiryDate && (
-                  <div className="mb-4 px-4 py-2.5 bg-warning-50 border border-warning-200 rounded-md flex items-center gap-2">
+                  <div className="mb-3 px-3 py-2 bg-warning-50 border border-warning-200 rounded-lg flex items-center gap-2">
                     <span className="text-warning-500 text-base">⚠️</span>
-                    <p className="text-warning-600 text-p3 font-medium">
+                    <p className="text-warning-600 text-xs font-medium">
                       {productName} License is inactive/expired. Please update with a valid license.
                     </p>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2">
                   {/* Left Column - License Number */}
                   <div className="flex flex-col">
-                    <label className="text-label-l4 font-heading font-medium text-pneutral-900">
-                      <Hash size={16} className="inline mr-2 text-pneutral-600" />
+                    <label className="text-[11px] font-heading font-semibold uppercase tracking-wide text-pneutral-500 mb-1">
+                      <Hash size={12} className="inline mr-1.5 text-pneutral-400" />
                       License Number <span className="text-warning-500 ml-1">*</span>
                     </label>
                     <div>
@@ -4814,50 +4814,50 @@ if (missingLicenses.length > 0) {
                           disabled={!editingSection}
                           placeholder={LICENSE_PLACEHOLDER[getLicenseValidationCategory(productName)]}
                           maxLength={LICENSE_MAX_LENGTH}
-                          className={`w-full h-[52px] px-4 rounded-md text-p4 font-body font-regular uppercase pr-10
+                          className={`w-full h-9 px-3 rounded-lg text-[13px] font-body font-medium uppercase pr-10
                             ${editingSection
-                              ? `bg-base-white border border-pneutral-200 focus:outline-none focus:ring-2 focus:ring-secondary-500 ${licenseErrors[productName] || licenseExistsError[productName] ? 'border-pneutral-200' : ''} ${licenseErrors[productName] || licenseExistsError[productName] ? 'text-pneutral-800' : 'text-pneutral-800'}`
+                              ? `bg-base-white border border-pneutral-200 focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${licenseErrors[productName] || licenseExistsError[productName] ? 'border-pneutral-200' : ''} ${licenseErrors[productName] || licenseExistsError[productName] ? 'text-pneutral-800' : 'text-pneutral-800'}`
                               : "bg-pneutral-50 border border-pneutral-100 cursor-not-allowed text-pneutral-800"
                             }`}
                         />
                         {isCheckingLicense[productName] && (
                           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-900"></div>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-900"></div>
                           </div>
                         )}
                         {!isCheckingLicense[productName] && licenseData.number && licenseData.number.length >= 8 && !licenseErrors[productName] && !licenseExistsError[productName] && (
                           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <GoCheckCircle className="text-success-600" size={20} />
+                            <GoCheckCircle className="text-success-600" size={16} />
                           </div>
                         )}
                         {!isCheckingLicense[productName] && licenseExistsError[productName] && (
                           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <span className="text-warning-500 text-xl">⚠️</span>
+                            <span className="text-warning-500 text-base">⚠️</span>
                           </div>
                         )}
                       </div>
                       {licenseErrors[productName] && (
-                        <p className="mt-1 text-p2 text-warning-500 flex items-start">
+                        <p className="mt-1 text-[11px] text-warning-500 flex items-start">
                           <span className="mr-1">⚠️</span>
                           <span>{licenseErrors[productName]}</span>
                         </p>
                       )}
                       {licenseExistsError[productName] && !licenseErrors[productName] && (
-                        <p className="mt-1 text-p2 text-warning-500 flex items-start">
+                        <p className="mt-1 text-[11px] text-warning-500 flex items-start">
                           <span className="mr-1">⚠️</span>
                           <span>{licenseExistsError[productName]}</span>
                         </p>
                       )}
                       {!licenseErrors[productName] && !licenseExistsError[productName] && licenseData.number && licenseData.number.length >= 8 && (
-                        <p className="mt-1 text-p2 text-success-600">✓ Valid license number format</p>
+                        <p className="mt-1 text-[11px] text-success-600">✓ Valid license number format</p>
                       )}
                     </div>
                   </div>
 
                   {/* Left Column - License Issue Date */}
 <div className="flex flex-col">
-  <label className="text-label-l4 font-heading font-medium text-pneutral-900">
-    <Calendar size={16} className="inline mr-2 text-pneutral-600" />
+  <label className="text-[11px] font-heading font-semibold uppercase tracking-wide text-pneutral-500 mb-1">
+    <Calendar size={12} className="inline mr-1.5 text-pneutral-400" />
     License Issue Date <span className="text-warning-500 ml-1">*</span>
   </label>
   {editingSection ? (
@@ -4881,8 +4881,8 @@ if (missingLicenses.length > 0) {
           helperText: licenseDateErrors[productName]?.issue || licenseDateErrors[productName]?.gap,
           sx: {
             '& .MuiOutlinedInput-root': {
-              height: '52px',
-              borderRadius: '6px',
+              height: '36px',
+              borderRadius: '8px',
               backgroundColor: '#FFFFFF',
               '& .MuiOutlinedInput-notchedOutline': {
                 borderColor: (licenseDateErrors[productName]?.issue || licenseDateErrors[productName]?.gap) ? '#ef4444' : '#d1d5db',
@@ -4896,7 +4896,7 @@ if (missingLicenses.length > 0) {
               },
             },
             '& .MuiInputBase-input': {
-              fontSize: '16px',
+              fontSize: '13px',
               fontFamily: 'Noto Sans',
               fontWeight: 400,
               color: '#5A5B58',
@@ -4909,17 +4909,17 @@ if (missingLicenses.length > 0) {
       }}
     />
   ) : (
-    <div className="h-[52px] px-4 rounded-md bg-pneutral-50 border border-pneutral-100 flex items-center">
+    <div className="h-9 px-3 rounded-lg bg-pneutral-50 border border-pneutral-100 flex items-center">
       <IoCalendarOutline className="mr-2 text-pneutral-600" />
-      <span className="text-p4 font-body font-regular text-pneutral-800">{licenseData.issueDate ? licenseData.issueDate.toLocaleDateString('en-GB') : '-'}</span>
+      <span className="text-[13px] font-body font-medium text-pneutral-800">{licenseData.issueDate ? licenseData.issueDate.toLocaleDateString('en-GB') : '-'}</span>
     </div>
   )}
 </div>
 
 {/* Left Column - License Expiry Date */}
 <div className="flex flex-col">
-  <label className="text-label-l4 font-heading font-medium text-pneutral-900">
-    <Calendar size={16} className="inline mr-2 text-pneutral-600" />
+  <label className="text-[11px] font-heading font-semibold uppercase tracking-wide text-pneutral-500 mb-1">
+    <Calendar size={12} className="inline mr-1.5 text-pneutral-400" />
     License Expiry Date <span className="text-warning-500 ml-1">*</span>
   </label>
   {editingSection ? (
@@ -4943,8 +4943,8 @@ if (missingLicenses.length > 0) {
           helperText: licenseDateErrors[productName]?.expiry || licenseDateErrors[productName]?.gap,
           sx: {
             '& .MuiOutlinedInput-root': {
-              height: '52px  !important',
-              minHeight: '52px !important',
+              height: '36px !important',
+              minHeight: '36px !important',
               borderRadius: '8px',
               backgroundColor: '#FFFFFF',
               '& .MuiOutlinedInput-notchedOutline': {
@@ -4959,7 +4959,7 @@ if (missingLicenses.length > 0) {
               },
             },
             '& .MuiInputBase-input': {
-              fontSize: '16px',
+              fontSize: '13px',
               fontFamily: 'Noto Sans',
               fontWeight: 400,
               color: '#5A5B58',
@@ -4972,9 +4972,9 @@ if (missingLicenses.length > 0) {
       }}
     />
   ) : (
-    <div className="h-[52px] px-4 rounded-md bg-pneutral-50 border border-pneutral-100 flex items-center">
+    <div className="h-9 px-3 rounded-lg bg-pneutral-50 border border-pneutral-100 flex items-center">
       <IoCalendarOutline className="mr-2 text-pneutral-800" />
-      <span className="text-p4 font-body font-regular text-pneutral-800">{licenseData.expiryDate ? licenseData.expiryDate.toLocaleDateString('en-GB') : '-'}</span>
+      <span className="text-[13px] font-body font-medium text-pneutral-800">{licenseData.expiryDate ? licenseData.expiryDate.toLocaleDateString('en-GB') : '-'}</span>
     </div>
   )}
   {/* {(licenseDateErrors[productName]?.expiry || licenseDateErrors[productName]?.gap) && (
@@ -5023,11 +5023,11 @@ if (missingLicenses.length > 0) {
                   </div>
 
                   {/* Right Column - License Status */}
-                  <div className="flex flex-col gap-2 py-8">
+                  <div className="flex flex-col gap-2 py-1 md:pt-5">
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full w-fit ${currentStatus === 'Active' ? 'bg-success-50 text-success-700' : 'bg-warning-50 text-warning-700'
                       }`}>
-                      <GoCheckCircle size={16} />
-                      <span className="text-p3 font-medium">
+                      <GoCheckCircle size={14} />
+                      <span className="text-xs font-medium">
                         {!licenseData.issueDate || !licenseData.expiryDate ? 'Pending' : currentStatus}
                       </span>
                     </div>
@@ -5039,7 +5039,7 @@ if (missingLicenses.length > 0) {
         })}
 
         {/* GST Section */}
-        <div id="gst-section" className="scroll-mt-36">
+        <div id="gst-section" className="scroll-mt-28">
           <SectionCard
             title="GSTIN Details"
             icon={<FileText size={20} />}
@@ -5047,9 +5047,9 @@ if (missingLicenses.length > 0) {
             iconColor="text-warning-500"
             underReview={reviewSections.includes("gst")}
           >
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2">
               <div className="flex flex-col">
-  <label className="text-label-l4 font-heading font-medium text-pneutral-900">
+  <label className="text-[11px] font-heading font-semibold uppercase tracking-wide text-pneutral-500 mb-1">
     GSTIN Number
     <span className="text-warning-500 ml-1">*</span>
   </label>
@@ -5062,9 +5062,9 @@ if (missingLicenses.length > 0) {
       disabled={!editingSection}
       maxLength={15}
       placeholder="22AAAAA0000A1Z"
-      className={`w-full h-[52px] px-4 rounded-md text-p4 font-body font-regular uppercase pr-10
+      className={`w-full h-9 px-3 rounded-lg text-[13px] font-body font-medium uppercase pr-10
         ${editingSection
-          ? `bg-base-white border ${gstExistsError || gstNumberError ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:ring-2 focus:ring-secondary-500'}`
+          ? `bg-base-white border ${gstExistsError || gstNumberError ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100'}`
           : "bg-pneutral-50 border border-pneutral-100 cursor-not-allowed text-pneutral-800"
         }`}
     />
@@ -5085,16 +5085,16 @@ if (missingLicenses.length > 0) {
     )} */}
   </div>
   {gstNumberError && (
-    <p className="text-p2 text-warning-500">{gstNumberError}</p>
+    <p className="text-[11px] text-warning-500">{gstNumberError}</p>
   )}
   {gstExistsError && (
-    <p className="text-p2 text-warning-500">{gstExistsError}</p>
+    <p className="text-[11px] text-warning-500">{gstExistsError}</p>
   )}
   {!gstNumberError && !gstExistsError && formData.gstNumber && formData.gstNumber.length === 15 && validateGSTNumberFormat(formData.gstNumber) && !isCheckingGST && profileData?.sellerGST?.gstNumber !== formData.gstNumber && (
-    <p className="text-p2 text-success-600">✓ Valid GST number format</p>
+    <p className="text-[11px] text-success-600">✓ Valid GST number format</p>
   )}
   {formData.gstNumber && formData.gstNumber.length > 0 && formData.gstNumber.length !== 15 && (
-    <p className="text-p2 text-warning-500">GST number must be 15 characters</p>
+    <p className="text-[11px] text-warning-500">GST number must be 15 characters</p>
   )}
 </div>
 
@@ -5124,7 +5124,7 @@ if (missingLicenses.length > 0) {
         </div>
 
         {/* BANK */}
-        <div id="bank-section" className="scroll-mt-36">
+        <div id="bank-section" className="scroll-mt-28">
           <SectionCard
             title="Bank Details"
             icon={<Image
@@ -5138,7 +5138,7 @@ if (missingLicenses.length > 0) {
             iconColor="text-info-700"
             underReview={reviewSections.includes("bank")}
           >
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2">
               {/* Left Column - Bank Name */}
               <div>
                 <Input
@@ -5226,18 +5226,18 @@ if (missingLicenses.length > 0) {
           </SectionCard>
 
           {editingSection && (
-            <div className="sticky bottom-4 z-30 mt-6 flex items-center justify-between gap-4 rounded-2xl border border-pneutral-200 bg-white/95 p-4 shadow-lg backdrop-blur">
+            <div className="sticky bottom-3 z-30 mt-3 flex items-center justify-between gap-3 rounded-xl border border-pneutral-200 bg-white/95 px-4 py-2 shadow-md backdrop-blur">
               <button
                 type="button"
                 onClick={() => {
                   console.log('Cancel clicked');
                   handleCancel();
                 }}
-                className="flex items-center gap-2 border-2 border-warning-500 text-warning-500 text-p3 font-semibold px-6 py-3 rounded-md hover:bg-warning-50 transition-colors"
+                className="inline-flex h-8 items-center gap-2 rounded-lg border-[1.5px] border-danger-600 px-4 text-xs font-semibold text-danger-600 transition-colors hover:bg-danger-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-600"
               >
                 Cancel
               </button>
-              <p className="hidden text-sm text-pneutral-500 sm:block">Changes are reviewed by an admin before they go live.</p>
+              <p className="hidden text-xs text-pneutral-500 sm:block">Changes are reviewed by an admin before they go live.</p>
               <button
                 type="button"
                 onClick={async (e) => {
@@ -5246,12 +5246,12 @@ if (missingLicenses.length > 0) {
                   await handleSaveAll();
                 }}
                 disabled={isSubmitting}
-                className={`flex items-center gap-2 bg-primary-900 font-semibold text-base-white text-p3 px-6 py-3 rounded-md transition-colors ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-primary-800'
+                className={`inline-flex h-8 items-center gap-2 rounded-lg border-[1.5px] border-primary-800 px-4 text-xs font-semibold text-primary-800 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-800 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-primary-50'
                   }`}
               >
                 {isSubmitting ? (
                   <>
-                    <svg className="animate-spin h-5 w-5 text-base-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-4 w-4 text-primary-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -5292,22 +5292,22 @@ function SectionCard({
   underReview
 }: any) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-pneutral-200 bg-base-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-pneutral-100 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}>
-            <div className={iconColor}>{icon}</div>
+    <div className="overflow-hidden rounded-xl border border-pneutral-200 bg-base-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-pneutral-100 bg-pneutral-50/60 px-4 py-2">
+        <div className="flex items-center gap-2.5">
+          <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${iconBg}`}>
+            <div className={`${iconColor} flex items-center [&>svg]:h-[15px] [&>svg]:w-[15px] [&>img]:h-4 [&>img]:w-4`}>{icon}</div>
           </div>
-          <h2 className="text-h6 font-heading font-medium text-pneutral-900">
+          <h2 className="text-[13px] font-heading font-bold text-pneutral-900">
             {title}
           </h2>
         </div>
         {underReview && (
-          <span className="rounded-full bg-warning-50 px-3 py-1 text-xs font-semibold text-warning-700">Under admin review</span>
+          <span className="rounded-full bg-warning-50 px-2.5 py-0.5 text-[11px] font-semibold text-warning-700">Under admin review</span>
         )}
       </div>
 
-      <div className="p-6">
+      <div className="px-4 py-3">
         {children}
       </div>
     </div>
@@ -5343,7 +5343,7 @@ function Input({
 }: InputProps) {
   return (
     <div className="flex flex-col">
-      <label className="text-label-l4 font-heading font-medium text-pneutral-900 inline-flex items-center gap-2">
+      <label className="text-[11px] font-heading font-semibold uppercase tracking-wide text-pneutral-500 mb-1 inline-flex items-center gap-2">
         {icon && (
           <span className="text-pneutral-600 inline-flex items-center">
             {icon}
@@ -5359,15 +5359,15 @@ function Input({
         disabled={!editable}
         maxLength={maxLength}
         placeholder={placeholder}
-        className={`w-full h-[52px] px-4 rounded-xl text-p4 font-body font-regular ${className}
+        className={`w-full h-9 px-3 rounded-lg text-[13px] font-body font-medium ${className}
         ${editable
-            ? `bg-base-white border ${error ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:ring-2 focus:ring-secondary-500'} ${editable ? 'text-pneutral-800' : 'text-pneutral-800'}`
+            ? `bg-base-white border ${error ? 'border-warning-500 focus:ring-warning-500' : 'border-pneutral-200 focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100'} ${editable ? 'text-pneutral-800' : 'text-pneutral-800'}`
             : "bg-pneutral-50 border border-pneutral-100 cursor-not-allowed text-pneutral-800"
           }
         `}
       />
       {error && (
-        <p className="text-p2 text-warning-500 mt-1">{error}</p>
+        <p className="text-[11px] text-warning-500 mt-1">{error}</p>
       )}
     </div>
   );
@@ -5408,7 +5408,7 @@ function SelectField({
 
   return (
     <div className="flex flex-col">
-      <label className="text-label-l4 font-heading font-medium text-pneutral-900 inline-flex items-center gap-2">
+      <label className="text-[11px] font-heading font-semibold uppercase tracking-wide text-pneutral-500 mb-1 inline-flex items-center gap-2">
         {labelIcon && (
           <span className="text-pneutral-600 inline-flex items-center">
             {labelIcon}
@@ -5419,9 +5419,9 @@ function SelectField({
       </label>
       <div className="relative" ref={dropdownRef}>
         <div
-          className={`w-full h-[52px] px-4 rounded-xl border flex items-center justify-between cursor-pointer overflow-hidden
+          className={`w-full h-9 px-3 rounded-lg border flex items-center justify-between cursor-pointer overflow-hidden
             ${editable && !isDisabled && !isLoading
-              ? `bg-base-white border-pneutral-200  focus:outline-none focus:ring-2 focus:ring-secondary-500 ${isOpen ? 'ring-2 ring-secondary-500 border-secondary-500' : ''}`
+              ? `bg-base-white border-pneutral-200  focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${isOpen ? 'ring-2 ring-primary-100 border-primary-800' : ''}`
               : "bg-pneutral-50 border-pneutral-100 cursor-not-allowed"
             }`}
           onClick={() => {
@@ -5432,31 +5432,31 @@ function SelectField({
         >
           <div className="flex items-center gap-2 flex-1">
             {inputIcon && <span className="text-pneutral-800 shrink-0">{inputIcon}</span>}
-            <span className={`text-p4 font-body font-regular truncate ${!selectedOption ? "text-pneutral-500" : editable ? "text-pneutral-800" : "text-pneutral-800"}`}>
+            <span className={`text-[13px] font-body font-medium truncate ${!selectedOption ? "text-pneutral-500" : editable ? "text-pneutral-800" : "text-pneutral-800"}`}>
               {isLoading ? "Loading..." : displayValue}
             </span>
           </div>
           <ChevronDown
-            className={`w-5 h-5 text-pneutral-500 transition-transform shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-pneutral-500 transition-transform shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`}
           />
         </div>
 
         {isOpen && editable && !isDisabled && !isLoading && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-base-white border border-pneutral-200 rounded-md shadow-xlg z-50 overflow-hidden">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-base-white border border-pneutral-200 rounded-lg shadow-xlg z-50 overflow-hidden">
             <div className="max-h-60 overflow-y-auto">
               {options.length > 0 ? (
                 options.map((opt: any) => (
                   <div
                     key={opt.value}
-                    className={`px-4 py-2 hover:bg-secondary-50 cursor-pointer border-b border-pneutral-200 last:border-b-0
+                    className={`px-3 py-1.5 hover:bg-secondary-50 cursor-pointer border-b border-pneutral-200 last:border-b-0
                       ${value === opt.value ? "bg-secondary-50 text-secondary-700 font-medium" : "text-pneutral-900"}`}
                     onClick={() => handleSelect(opt.value, opt.label)}
                   >
-                    <span className="text-p3">{opt.label}</span>
+                    <span className="text-xs">{opt.label}</span>
                   </div>
                 ))
               ) : (
-                <div className="px-4 py-3 text-p3 text-pneutral-500 text-center">
+                <div className="px-4 py-3 text-xs text-pneutral-500 text-center">
                   No options available
                 </div>
               )}
@@ -5543,8 +5543,8 @@ function FileField({
   return (
     <div className="flex flex-col">
       {label && (
-        <label className="text-label-l4 font-heading font-medium text-pneutral-900 inline-flex items-center gap-2">
-          <FileText size={16} className="text-pneutral-600" />
+        <label className="text-[11px] font-heading font-semibold uppercase tracking-wide text-pneutral-500 mb-1 inline-flex items-center gap-2">
+          <FileText size={12} className="text-pneutral-400" />
           {label}
           <span className="text-warning-500">*</span>
         </label>
@@ -5552,18 +5552,18 @@ function FileField({
 
       {editable ? (
         <>
-          <div className="w-full min-h-[52px] rounded-xl border border-primary-200 bg-primary-50 px-4 py-1.5 flex items-center justify-between gap-4">
+          <div className="w-full min-h-9 rounded-lg border border-primary-200 bg-primary-50 px-3 py-1 flex items-center justify-between gap-3">
             {/* Left Section */}
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {/* Icon Box */}
-              <div className="w-10 h-10 rounded-[10px] bg-white flex items-center justify-center shrink-0">
-                <FileText size={16} className="text-black" />
+              <div className="h-7 w-7 rounded-md bg-white flex items-center justify-center shrink-0">
+                <FileText size={14} className="text-black" />
               </div>
 
               {/* File Name */}
               <div className="flex-1 min-w-0">
-                <div className="bg-success-50 rounded-md px-3 py-1 flex items-center w-fit max-w-full">
-                  <span className="text-sm font-medium text-secondary-800 truncate block max-w-[220px]">
+                <div className="bg-success-50 rounded-md px-2 py-0.5 flex items-center w-fit max-w-full">
+                  <span className="text-xs font-medium text-secondary-800 truncate block max-w-[220px]">
                     {displayFileName}
                   </span>
                 </div>
@@ -5571,32 +5571,32 @@ function FileField({
             </div>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-4 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleReplaceClick}
-                className="text-secondary-900 hover:opacity-80"
+                className="rounded p-1 focus-visible:outline-2 focus-visible:outline-primary-800 text-secondary-900 hover:opacity-80"
                 title="Replace file"
               >
-                <Pencil size={18} />
+                <Pencil size={15} />
               </button>
 
               <button
                 type="button"
                 onClick={onDownload}
-                className="text-secondary-800 hover:opacity-80"
+                className="rounded p-1 focus-visible:outline-2 focus-visible:outline-primary-800 text-secondary-800 hover:opacity-80"
                 title="Download file"
               >
-                <Download size={20} />
+                <Download size={15} />
               </button>
 
               <button
                 type="button"
                 onClick={onView}
-                className="text-secondary-800 hover:opacity-80"
+                className="rounded p-1 focus-visible:outline-2 focus-visible:outline-primary-800 text-secondary-800 hover:opacity-80"
                 title="Open in new tab"
               >
-                <ExternalLink size={20} />
+                <ExternalLink size={15} />
               </button>
             </div>
 
@@ -5609,22 +5609,22 @@ function FileField({
             />
           </div>
           {error && (
-            <p className="text-p2 text-warning-500 mt-1">{error}</p>
+            <p className="text-[11px] text-warning-500 mt-1">{error}</p>
           )}
         </>
       ) : (
-        <div className="w-full min-h-[52px] rounded-xl border border-primary-200 bg-primary-50 px-4 py-1.5 flex items-center justify-between gap-4">
+        <div className="w-full min-h-9 rounded-lg border border-primary-200 bg-primary-50 px-3 py-1 flex items-center justify-between gap-3">
           {/* Left Section */}
           <div className="flex items-center gap-3 flex-1 min-w-0">
             {/* Icon Box */}
-            <div className="w-10 h-10 rounded-[10px] bg-white flex items-center justify-center shrink-0">
-              <FileText size={16} className="text-black" />
+            <div className="h-7 w-7 rounded-md bg-white flex items-center justify-center shrink-0">
+              <FileText size={14} className="text-black" />
             </div>
 
             {/* File Name */}
             <div className="flex-1 min-w-0">
-              <div className="bg-success-50 rounded-md px-3 py-1 flex items-center w-fit max-w-full">
-                <span className="text-sm font-medium text-secondary-800 truncate block max-w-[220px]">
+              <div className="bg-success-50 rounded-md px-2 py-0.5 flex items-center w-fit max-w-full">
+                <span className="text-xs font-medium text-secondary-800 truncate block max-w-[220px]">
                   {isPending ? "Pending Approval" : displayFileName}
                 </span>
               </div>
@@ -5632,29 +5632,29 @@ function FileField({
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={onDownload}
-              className={`transition-colors ${isPending
+              className={`rounded p-1 focus-visible:outline-2 focus-visible:outline-primary-800 transition-colors ${isPending
                 ? "text-pneutral-400 cursor-not-allowed"
                 : "text-secondary-800 hover:opacity-80"
                 }`}
               title="Download file"
               disabled={isPending}
             >
-              <Download size={20} />
+              <Download size={15} />
             </button>
 
             <button
               onClick={onView}
-              className={`transition-colors ${isPending
+              className={`rounded p-1 focus-visible:outline-2 focus-visible:outline-primary-800 transition-colors ${isPending
                 ? "text-pneutral-400 cursor-not-allowed"
                 : "text-secondary-800 hover:opacity-80"
                 }`}
               title="Open in new tab"
               disabled={isPending}
             >
-              <ExternalLink size={20} />
+              <ExternalLink size={15} />
             </button>
           </div>
         </div>

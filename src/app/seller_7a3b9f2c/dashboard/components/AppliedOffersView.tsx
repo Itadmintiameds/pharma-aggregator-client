@@ -32,52 +32,40 @@ const AppliedOffersView: React.FC<AppliedOffersViewProps> = ({
   }
 
   return (
-    <div className="col-span-2 flex flex-col gap-[12px] w-full mt-4">
+    <div className="col-span-2 flex flex-col gap-3 w-full mt-3">
       {/* APPLIED ADDITIONAL DISCOUNTS */}
       {visibleDiscounts.length > 0 && (
-        <div className="flex flex-col gap-[12px] w-full">
-          <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-pneutral-900">
+        <div className="flex flex-col gap-2 w-full">
+          <h3 className="text-sm font-bold text-neutral-900">
             Applied Discount Slabs
           </h3>
-          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #C0C1BE" }}>
+          <div className="rounded-xl overflow-hidden border border-neutral-200 shadow-sm">
             <table className="w-full border-collapse">
-              <thead style={{ background: "var(--secondary-600, #9659FD)" }}>
+              <thead className="bg-neutral-50">
                 <tr>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px", color: "#F8F8F9" }}>Min Qty</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px", color: "#F8F8F9" }}>Discount (%)</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px", color: "#F8F8F9" }}>Start date</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px", color: "#F8F8F9" }}>End Date</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150.33px", color: "#F8F8F9" }}>Action</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-neutral-700 border-b border-neutral-200" style={{ width: "150.33px" }}>Min Qty</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-neutral-700 border-b border-neutral-200" style={{ width: "150.33px" }}>Discount (%)</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-neutral-700 border-b border-neutral-200" style={{ width: "150.33px" }}>Start date</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-neutral-700 border-b border-neutral-200" style={{ width: "150.33px" }}>End Date</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-neutral-700 border-b border-neutral-200" style={{ width: "150.33px" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {additionalDiscounts.map((d, index) => {
                   if ((d.displayOffer ?? d.isSelected) === false) return null;
                   return (
-                    <tr key={index} style={{ backgroundColor: index % 2 === 0 ? "#F8F8F9" : "#EAEAE9" }}>
-                      <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.minimumPurchaseQuantity}</td>
-                      <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.additionalDiscountPercentage}%</td>
-                      <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.effectiveStartDate ? new Date(d.effectiveStartDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
-                      <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{d.effectiveEndDate ? new Date(d.effectiveEndDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
-                      <td className="px-4 py-3" style={{ border: "1px solid #C0C1BE" }}>
-                        <div className="flex justify-center items-center gap-3 relative">
+                    <tr key={index} className="hover:bg-neutral-50/60">
+                      <td className="px-3 py-2 text-center text-xs text-neutral-800 border-b border-neutral-100">{d.minimumPurchaseQuantity}</td>
+                      <td className="px-3 py-2 text-center text-xs text-neutral-800 border-b border-neutral-100">{d.additionalDiscountPercentage}%</td>
+                      <td className="px-3 py-2 text-center text-xs text-neutral-800 border-b border-neutral-100">{d.effectiveStartDate ? new Date(d.effectiveStartDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
+                      <td className="px-3 py-2 text-center text-xs text-neutral-800 border-b border-neutral-100">{d.effectiveEndDate ? new Date(d.effectiveEndDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
+                      <td className="px-3 py-1.5 border-b border-neutral-100">
+                        <div className="flex justify-center items-center gap-2">
                           {onEditDiscount && (
-                            <img
-                              src="/icons/EditIcon.svg"
-                              alt="edit"
-                              className="cursor-pointer relative"
-                              style={{ width: "16.88px", height: "16.88px", top: "1.25px", left: "1.88px" }}
-                              onClick={() => onEditDiscount(index)}
-                            />
+                            <button type="button" aria-label="Edit" onClick={() => onEditDiscount(index)} className="p-1.5 rounded-md hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"><img src="/icons/EditIcon.svg" alt="" className="w-4 h-4" /></button>
                           )}
                           {onDeleteDiscount && (
-                            <img
-                              src="/icons/DeleteIcon.svg"
-                              alt="delete"
-                              className="relative cursor-pointer hover:opacity-80 transition-opacity"
-                              style={{ width: "14.93px", height: "17.52px", top: "1.24px", left: "2.54px" }}
-                              onClick={() => onDeleteDiscount(index)}
-                            />
+                            <button type="button" aria-label="Delete" onClick={() => onDeleteDiscount(index)} className="p-1.5 rounded-md hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"><img src="/icons/DeleteIcon.svg" alt="" className="w-4 h-4" /></button>
                           )}
                         </div>
                       </td>
@@ -92,52 +80,40 @@ const AppliedOffersView: React.FC<AppliedOffersViewProps> = ({
 
       {/* APPLIED SPECIAL SCHEMES */}
       {visibleSchemes.length > 0 && (
-        <div className="flex flex-col gap-[12px] w-full mt-2">
-          <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-pneutral-900">
+        <div className="flex flex-col gap-2 w-full">
+          <h3 className="text-sm font-bold text-neutral-900">
             Applied Special Offers & Promotional Schemes
           </h3>
-          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #C0C1BE" }}>
+          <div className="rounded-xl overflow-hidden border border-neutral-200 shadow-sm">
             <table className="w-full border-collapse">
-              <thead style={{ background: "var(--secondary-600, #9659FD)" }}>
+              <thead className="bg-neutral-50">
                 <tr>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "150px", color: "#F8F8F9" }}>Name</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", color: "#F8F8F9" }}>Type</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "130px", color: "#F8F8F9" }}>Start date</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "130px", color: "#F8F8F9" }}>End Date</th>
-                  <th className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "20px", textAlign: "center", border: "1px solid #C0C1BE", width: "100px", color: "#F8F8F9" }}>Action</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-neutral-700 border-b border-neutral-200" style={{ width: "150px" }}>Name</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-neutral-700 border-b border-neutral-200">Type</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-neutral-700 border-b border-neutral-200" style={{ width: "130px" }}>Start date</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-neutral-700 border-b border-neutral-200" style={{ width: "130px" }}>End Date</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-neutral-700 border-b border-neutral-200" style={{ width: "100px" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {specialSchemes.map((scheme, index) => {
                   if ((scheme.displayOfferScheme ?? scheme.isSelected) === false) return null;
                   return (
-                    <tr key={index} style={{ backgroundColor: index % 2 === 0 ? "#F8F8F9" : "#EAEAE9" }}>
-                      <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{scheme.schemeName || "Special Scheme"}</td>
-                      <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>
+                    <tr key={index} className="hover:bg-neutral-50/60">
+                      <td className="px-3 py-2 text-center text-xs text-neutral-800 border-b border-neutral-100">{scheme.schemeName || "Special Scheme"}</td>
+                      <td className="px-3 py-2 text-center text-xs text-neutral-800 border-b border-neutral-100">
                         <div>Buy {scheme.buyQuantity} Get {scheme.freeQuantity} Free</div>
-                        <div className="text-gray-500 text-xs">({scheme.schemeType || "Special Offer"})</div>
+                        <div className="text-neutral-500 text-[11px]">({scheme.schemeType || "Special Offer"})</div>
                       </td>
-                      <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{scheme.effectiveStartDate ? new Date(scheme.effectiveStartDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
-                      <td className="px-4 py-3" style={{ fontFamily: "'Open Sans', sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: "20px", letterSpacing: "-0.02em", textAlign: "center", border: "1px solid #C0C1BE" }}>{scheme.effectiveEndDate ? new Date(scheme.effectiveEndDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
-                      <td className="px-4 py-3" style={{ border: "1px solid #C0C1BE" }}>
-                        <div className="flex justify-center items-center gap-3 relative">
+                      <td className="px-3 py-2 text-center text-xs text-neutral-800 border-b border-neutral-100">{scheme.effectiveStartDate ? new Date(scheme.effectiveStartDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
+                      <td className="px-3 py-2 text-center text-xs text-neutral-800 border-b border-neutral-100">{scheme.effectiveEndDate ? new Date(scheme.effectiveEndDate).toLocaleDateString('en-GB') : "Ongoing"}</td>
+                      <td className="px-3 py-1.5 border-b border-neutral-100">
+                        <div className="flex justify-center items-center gap-2">
                           {onEditScheme && (
-                            <img
-                              src="/icons/EditIcon.svg"
-                              alt="edit"
-                              className="cursor-pointer relative"
-                              style={{ width: "16.88px", height: "16.88px", top: "1.25px", left: "1.88px" }}
-                              onClick={() => onEditScheme(index)}
-                            />
+                            <button type="button" aria-label="Edit" onClick={() => onEditScheme(index)} className="p-1.5 rounded-md hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"><img src="/icons/EditIcon.svg" alt="" className="w-4 h-4" /></button>
                           )}
                           {!hideDeleteScheme && onDeleteScheme && (
-                            <img
-                              src="/icons/DeleteIcon.svg"
-                              alt="delete"
-                              className="relative cursor-pointer hover:opacity-80 transition-opacity"
-                              style={{ width: "14.93px", height: "17.52px", top: "1.24px", left: "2.54px" }}
-                              onClick={() => onDeleteScheme(index)}
-                            />
+                            <button type="button" aria-label="Delete" onClick={() => onDeleteScheme(index)} className="p-1.5 rounded-md hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"><img src="/icons/DeleteIcon.svg" alt="" className="w-4 h-4" /></button>
                           )}
                         </div>
                       </td>

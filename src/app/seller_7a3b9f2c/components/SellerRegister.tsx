@@ -2115,7 +2115,7 @@ export default function SellerRegistration({ embedded = false, onSubmitted, onEx
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50 py-12 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 py-6 px-4">
         <SignupForm onOpenLogin={() => setShowLoginModal(true)} />
         <LoginModals
           isOpen={showLoginModal}

@@ -63,11 +63,11 @@ export default function BuyerWelcomeOverview({ onRegister, status, hasAnyProgres
   const isUnderReview = !!status && REVIEW_STATUSES.includes(status);
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto px-4">
-      <div className="flex items-start justify-between gap-4 mb-6">
+    <div className="w-full">
+      <div className="mb-3 flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-h4 font-heading font-semibold text-pneutral-900">Welcome to TiaMeds</h1>
-          <p className="text-p3 font-body font-regular text-pneutral-600 mt-1">
+          <h1 className="text-xl font-heading font-bold text-pneutral-900">Welcome to TiaMeds</h1>
+          <p className="text-xs text-neutral-500">
             Complete your profile and verification to start sourcing medicines from verified suppliers.
           </p>
         </div>
@@ -76,7 +76,7 @@ export default function BuyerWelcomeOverview({ onRegister, status, hasAnyProgres
             <button
               type="button"
               onClick={onViewDetails}
-              className="h-12 px-6 rounded-xl bg-primary-800 text-white text-p3 font-body font-semibold shrink-0"
+              className="h-8 shrink-0 rounded-lg border-[1.5px] border-primary-800 px-4 text-xs font-semibold text-primary-800 hover:bg-primary-50"
             >
               View Submitted Details
             </button>
@@ -85,40 +85,40 @@ export default function BuyerWelcomeOverview({ onRegister, status, hasAnyProgres
           <button
             type="button"
             onClick={onRegister}
-            className="h-12 px-6 rounded-xl bg-primary-800 text-white text-p3 font-body font-semibold shrink-0"
+            className="h-8 shrink-0 rounded-lg border-[1.5px] border-primary-800 px-4 text-xs font-semibold text-primary-800 hover:bg-primary-50"
           >
             Register Your Business
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6 flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="flex flex-col gap-2.5 rounded-xl border border-neutral-200 bg-white p-4">
           <div>
-            <h2 className="text-p2 font-body font-bold text-pneutral-900">Setup Progress</h2>
-            <p className="text-p4 font-body font-regular text-pneutral-500 mt-0.5">
+            <h2 className="text-sm font-heading font-bold text-pneutral-900">Setup Progress</h2>
+            <p className="text-xs text-neutral-500">
               {percent !== undefined ? `${percent}% Complete` : isApproved ? "100% Complete" : "Awaiting admin review"}
             </p>
           </div>
           <div className="border-t border-neutral-200" />
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2.5">
             {setupItems.map((item, index) => {
               const badge = statusBadge(item.status);
               return (
                 <div key={item.title} className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-full bg-neutral-100 text-pneutral-500 text-p4 font-body font-semibold shrink-0">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-neutral-100 text-pneutral-500 text-xs font-body font-semibold shrink-0">
                     {index + 1}
                   </span>
-                  <span className="flex-1 text-p3 font-body font-regular text-pneutral-900">{item.title}</span>
-                  <span className={`px-3 py-1 rounded-md text-p4 font-body font-medium shrink-0 ${badge.className}`}>{badge.label}</span>
+                  <span className="flex-1 text-[13px] font-medium text-pneutral-900">{item.title}</span>
+                  <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold shrink-0 ${badge.className}`}>{badge.label}</span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6">
-          <h2 className="text-p2 font-body font-bold text-pneutral-900 mb-6">Registration Status</h2>
+        <div className="rounded-xl border border-neutral-200 bg-white p-4">
+          <h2 className="mb-3 text-sm font-heading font-bold text-pneutral-900">Registration Status</h2>
           <div className="flex items-center">
             <StatusNode
               icon={CheckCircle2}
@@ -162,12 +162,12 @@ function StatusNode({
   }[tone];
 
   return (
-    <div className="flex flex-col items-center gap-2 text-center w-32 shrink-0">
-      <span className={`flex items-center justify-center w-12 h-12 rounded-full shrink-0 ${toneClasses.circle}`}>
-        <Icon size={20} />
+    <div className="flex w-28 shrink-0 flex-col items-center gap-1 text-center">
+      <span className={`flex items-center justify-center w-9 h-9 rounded-full shrink-0 ${toneClasses.circle}`}>
+        <Icon size={16} />
       </span>
-      <span className="text-p4 font-body font-semibold text-pneutral-900">{label}</span>
-      <span className={`text-p4 font-body font-medium ${toneClasses.sub}`}>{sub}</span>
+      <span className="text-xs font-semibold text-pneutral-900">{label}</span>
+      <span className={`text-[11px] font-medium ${toneClasses.sub}`}>{sub}</span>
     </div>
   );
 }

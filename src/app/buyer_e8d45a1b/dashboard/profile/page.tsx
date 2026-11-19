@@ -57,8 +57,8 @@ function initials(name?: string) {
 function Verified({ verified }: { verified?: boolean }) {
   if (!verified) return null;
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-      <BadgeCheck size={12} /> Verified
+    <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-1.5 py-0.5 text-[11px] font-medium text-green-700">
+      <BadgeCheck size={11} /> Verified
     </span>
   );
 }
@@ -81,7 +81,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
       onClick={copy}
       aria-label={`Copy ${label}`}
       title={copied ? "Copied" : `Copy ${label}`}
-      className="flex h-6 w-6 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+      className="flex h-6 w-6 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 focus-visible:outline-2 focus-visible:outline-primary-800"
     >
       {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
     </button>
@@ -91,9 +91,9 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 function Field({ label, value, copyable }: { label: string; value?: React.ReactNode; copyable?: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">{label}</p>
-      <div className="mt-1 flex items-center gap-2">
-        <p className="min-w-0 break-words text-p3 font-body font-medium text-neutral-900">{value || "—"}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{label}</p>
+      <div className="flex items-center gap-1.5">
+        <p className="min-w-0 break-words text-[13px] font-semibold text-neutral-900">{value || "—"}</p>
         {copyable && <CopyButton text={copyable} label={label} />}
       </div>
     </div>
@@ -112,12 +112,12 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-      <div className="flex items-center gap-3 border-b border-neutral-100 px-6 py-4">
-        <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${tone}`}>{icon}</span>
-        <h2 className="text-p2 font-heading font-semibold text-neutral-900">{title}</h2>
+    <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <div className="flex items-center gap-2.5 border-b border-neutral-100 bg-neutral-50/60 px-4 py-2">
+        <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${tone}`}>{icon}</span>
+        <h2 className="text-sm font-heading font-bold text-neutral-900">{title}</h2>
       </div>
-      <div className="p-6">{children}</div>
+      <div className="px-4 py-3">{children}</div>
     </section>
   );
 }
@@ -126,12 +126,12 @@ function ExpiryChip({ expiry }: { expiry?: string }) {
   const days = daysUntil(expiry);
   if (days === null) return null;
   if (days < 0) {
-    return <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">Expired {Math.abs(days)} days ago</span>;
+    return <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">Expired {Math.abs(days)} days ago</span>;
   }
   if (days <= WARN_DAYS) {
-    return <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">Expires in {days} days</span>;
+    return <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Expires in {days} days</span>;
   }
-  return <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">Valid</span>;
+  return <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">Valid</span>;
 }
 
 /** What the page shows, whichever record it came from. */
@@ -282,7 +282,7 @@ export default function BuyerProfilePage() {
   if (!tempBuyer && !approved) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center px-4">
-        <p className="text-p3 font-body text-neutral-600">No profile details found yet.</p>
+        <p className="text-[13px] text-neutral-600">No profile details found yet.</p>
       </div>
     );
   }
@@ -309,29 +309,29 @@ export default function BuyerProfilePage() {
   const email = contact.email ?? currentUser?.email;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* ================================================================ header */}
-      <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-        <div className="h-24 bg-gradient-to-r from-primary-900 via-primary-700 to-secondary-500" />
-        <div className="px-6 pb-6">
+      <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+        <div className="h-12 bg-gradient-to-r from-primary-900 via-primary-700 to-secondary-500" />
+        <div className="px-4 pb-3">
           {/* Only the avatar overlaps the banner; the name sits below it, on white, where it is readable. */}
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="-mt-10 flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-4 border-white bg-primary-100 text-h4 font-heading font-bold text-primary-900 shadow-md">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="-mt-6 flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border-4 border-white bg-primary-100 text-lg font-heading font-bold text-primary-900 shadow-md">
                 {initials(view.organizationName)}
               </div>
-              <div className="min-w-0 pt-3">
-                <h1 className="truncate text-h4 font-heading font-bold text-neutral-900">
+              <div className="min-w-0 pt-1.5">
+                <h1 className="truncate text-xl font-heading font-bold text-neutral-900">
                   {view.organizationName || "Buyer account"}
                 </h1>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   {view.buyerTypeName && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-700">
-                      <Building2 size={12} /> {view.buyerTypeName}
+                    <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-700">
+                      <Building2 size={11} /> {view.buyerTypeName}
                     </span>
                   )}
                   {statusChip && (
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${statusChip.className}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${statusChip.className}`}>
                       {statusChip.text}
                     </span>
                   )}
@@ -340,43 +340,43 @@ export default function BuyerProfilePage() {
             </div>
 
             {completion && (
-              <div className="w-full pt-3 sm:w-64">
-                <div className="mb-1 flex items-center justify-between text-xs">
+              <div className="w-full pt-1.5 sm:w-56">
+                <div className="mb-1 flex items-center justify-between text-[11px]">
                   <span className="font-medium text-neutral-600">Profile completion</span>
-                  <span className="font-semibold text-neutral-900">{completion.percent}%</span>
+                  <span className="font-bold text-neutral-900">{completion.percent}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+                <div className="h-1.5 overflow-hidden rounded-full bg-neutral-100">
                   <div className="h-full rounded-full" style={{ width: `${completion.percent}%`, background: completion.color }} />
                 </div>
               </div>
             )}
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 border-t border-neutral-100 pt-4 text-p4 font-body text-neutral-600">
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 border-t border-neutral-100 pt-2 text-xs text-neutral-600">
             {email && (
-              <span className="inline-flex items-center gap-2">
-                <Mail size={15} className="text-neutral-400" /> {email}
+              <span className="inline-flex items-center gap-1.5">
+                <Mail size={13} className="text-neutral-400" /> {email}
               </span>
             )}
             {contact.mobile && (
-              <span className="inline-flex items-center gap-2">
-                <Phone size={15} className="text-neutral-400" /> {contact.mobile}
+              <span className="inline-flex items-center gap-1.5">
+                <Phone size={13} className="text-neutral-400" /> {contact.mobile}
               </span>
             )}
             {location && (
-              <span className="inline-flex items-center gap-2">
-                <MapPin size={15} className="text-neutral-400" /> {location}
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin size={13} className="text-neutral-400" /> {location}
               </span>
             )}
           </div>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
         {/* ============================================================== details */}
-        <div className="space-y-6 xl:col-span-2">
-          <SectionCard icon={<Building2 size={18} />} title="Organization details" tone="bg-primary-50 text-primary-800">
-            <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+        <div className="space-y-3 xl:col-span-2">
+          <SectionCard icon={<Building2 size={15} />} title="Organization details" tone="bg-primary-50 text-primary-800">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 lg:grid-cols-4">
               <Field label="Organization name" value={view.organizationName} />
               <Field label="Buyer type" value={view.buyerTypeName} />
               <Field label="GST number" value={view.gstNumber} copyable={view.gstNumber || undefined} />
@@ -384,11 +384,11 @@ export default function BuyerProfilePage() {
             </div>
           </SectionCard>
 
-          <SectionCard icon={<MapPin size={18} />} title="Address" tone="bg-blue-50 text-blue-700">
+          <SectionCard icon={<MapPin size={15} />} title="Address" tone="bg-blue-50 text-blue-700">
             {fullAddress && (
-              <p className="mb-5 rounded-xl bg-neutral-50 px-4 py-3 text-p3 font-body text-neutral-800">{fullAddress}</p>
+              <p className="mb-2 rounded-lg bg-neutral-50 px-3 py-1.5 text-[13px] text-neutral-800">{fullAddress}</p>
             )}
-            <div className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
               <Field label="Building / street" value={[address.buildingNo, address.street].filter(Boolean).join(", ")} />
               <Field label="Landmark" value={address.landmark} />
               <Field label="City" value={address.city} />
@@ -399,8 +399,8 @@ export default function BuyerProfilePage() {
             </div>
           </SectionCard>
 
-          <SectionCard icon={<UserRound size={18} />} title="Contact person" tone="bg-green-50 text-green-700">
-            <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+          <SectionCard icon={<UserRound size={15} />} title="Contact person" tone="bg-green-50 text-green-700">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 lg:grid-cols-4">
               <Field label="Name" value={contact.name} />
               <Field label="Designation" value={contact.designation} />
               <Field
@@ -426,24 +426,24 @@ export default function BuyerProfilePage() {
         </div>
 
         {/* ============================================================ documents + help */}
-        <aside className="space-y-6">
-          <SectionCard icon={<FileText size={18} />} title="Documents & licenses" tone="bg-red-50 text-red-600">
+        <aside className="space-y-3">
+          <SectionCard icon={<FileText size={15} />} title="Documents & licenses" tone="bg-red-50 text-red-600">
             {documents.length === 0 ? (
-              <p className="text-p3 font-body text-neutral-500">No documents uploaded.</p>
+              <p className="text-xs text-neutral-500">No documents uploaded.</p>
             ) : (
-              <ul className="space-y-4">
+              <ul className="space-y-2">
                 {documents.map((doc) => (
-                  <li key={doc.key} className="rounded-xl border border-neutral-200 p-4">
+                  <li key={doc.key} className="rounded-lg border border-neutral-200 px-3 py-2">
                     <div className="flex items-start justify-between gap-3">
-                      <p className="min-w-0 text-p3 font-body font-semibold text-neutral-900">{doc.typeName || "Document"}</p>
+                      <p className="min-w-0 text-[13px] font-semibold text-neutral-900">{doc.typeName || "Document"}</p>
                       <ExpiryChip expiry={doc.expiryDate} />
                     </div>
-                    <p className="mt-1 text-xs text-neutral-500">
+                    <p className="text-xs text-neutral-500">
                       No. {doc.number || "—"}
                       {doc.authority ? ` · ${doc.authority}` : ""}
                     </p>
                     {(doc.issueDate || doc.expiryDate) && (
-                      <p className="mt-1 flex items-center gap-1.5 text-xs text-neutral-500">
+                      <p className="flex items-center gap-1.5 text-[11px] text-neutral-500">
                         <Calendar size={12} />
                         {formatDate(doc.issueDate)} – {formatDate(doc.expiryDate)}
                       </p>
@@ -453,7 +453,7 @@ export default function BuyerProfilePage() {
                         href={doc.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-primary-800 px-3 py-1.5 text-xs font-semibold text-primary-800 hover:bg-primary-50"
+                        className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border-[1.5px] border-primary-800 px-2.5 py-1 text-xs font-semibold text-primary-800 hover:bg-primary-50"
                       >
                         View document <ExternalLink size={12} />
                       </a>
@@ -464,19 +464,19 @@ export default function BuyerProfilePage() {
             )}
           </SectionCard>
 
-          <section className="rounded-2xl border border-primary-100 bg-primary-50/50 p-6">
-            <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary-800 shadow-sm">
-                <Headset size={18} />
+          <section className="rounded-xl border border-primary-100 bg-primary-50/50 px-4 py-3">
+            <div className="flex items-start gap-2.5">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-primary-800 shadow-sm">
+                <Headset size={15} />
               </span>
               <div>
-                <h2 className="text-p3 font-heading font-semibold text-neutral-900">Need to change something?</h2>
-                <p className="mt-1 text-p4 font-body text-neutral-600">
+                <h2 className="text-[13px] font-heading font-bold text-neutral-900">Need to change something?</h2>
+                <p className="text-xs text-neutral-600">
                   Profile details can&apos;t be edited here yet. Write to us and the team will update them for you.
                 </p>
                 <a
                   href="mailto:buyer-support@tiameds.ai"
-                  className="mt-3 inline-block text-p4 font-semibold text-primary-800 hover:underline"
+                  className="mt-1.5 inline-block text-xs font-semibold text-primary-800 hover:underline"
                 >
                   buyer-support@tiameds.ai
                 </a>

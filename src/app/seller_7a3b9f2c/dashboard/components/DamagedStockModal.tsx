@@ -83,13 +83,13 @@ export default function DamagedStockModal({
       onClick={() => !submitting && onClose()}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl p-6"
-        style={{ width: "min(30rem, 100%)", fontFamily: "'Work Sans', sans-serif" }}
+        className="bg-white rounded-xl shadow-xl p-5"
+        style={{ width: "min(26rem, 100%)", fontFamily: "'Work Sans', sans-serif" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-3">
           <div>
-            <h3 style={{ color: TEXT_DARK, fontSize: 18, fontWeight: 600 }}>Manage Damaged Stock</h3>
+            <h3 style={{ color: TEXT_DARK, fontSize: 16, fontWeight: 700 }}>Manage Damaged Stock</h3>
             <p style={{ color: TEXT_GRAY, fontSize: 13 }}>
               Batch {batchLotNumber || "—"} · {damagedQuantity} damaged · {stockQuantity} available
             </p>
@@ -99,11 +99,11 @@ export default function DamagedStockModal({
           </button>
         </div>
 
-        <div className="flex flex-col gap-2 mb-4">
+        <div className="flex flex-col gap-1.5 mb-3">
           {ACTIONS.map((a) => (
             <label
               key={a.value}
-              className="flex gap-3 p-3 rounded-lg cursor-pointer"
+              className="flex gap-2.5 px-3 py-2 rounded-lg cursor-pointer"
               style={{ border: `1px solid ${action === a.value ? PURPLE : BORDER}` }}
             >
               <input
@@ -114,8 +114,8 @@ export default function DamagedStockModal({
                 style={{ accentColor: "#6C12A9", marginTop: 3 }}
               />
               <span>
-                <span style={{ color: TEXT_DARK, fontSize: 14, fontWeight: 600, display: "block" }}>{a.label}</span>
-                <span style={{ color: TEXT_GRAY, fontSize: 12.5 }}>{a.help}</span>
+                <span style={{ color: TEXT_DARK, fontSize: 13, fontWeight: 600, display: "block" }}>{a.label}</span>
+                <span style={{ color: TEXT_GRAY, fontSize: 12 }}>{a.help}</span>
               </span>
             </label>
           ))}
@@ -129,7 +129,7 @@ export default function DamagedStockModal({
             max={damagedQuantity}
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
-            className="block w-full mt-1 px-3 py-2 rounded-lg text-sm"
+            className="block w-full mt-1 h-9 px-3 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary-100"
             style={{ border: `1px solid ${BORDER}`, fontWeight: 400 }}
           />
         </label>
@@ -146,20 +146,20 @@ export default function DamagedStockModal({
 
         {error && <p style={{ color: "#B42318", fontSize: 13, marginTop: 8 }}>{error}</p>}
 
-        <div className="flex justify-end gap-2 mt-5">
+        <div className="flex justify-end gap-2 mt-4">
           <button
             onClick={onClose}
             disabled={submitting}
-            className="px-4 py-2 rounded-xl text-sm font-semibold"
-            style={{ border: `1px solid ${BORDER}`, color: TEXT_DARK }}
+            className="px-3.5 py-1.5 rounded-lg text-xs font-semibold"
+            style={{ border: `1.5px solid ${BORDER}`, color: TEXT_DARK }}
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting || !valid}
-            className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
-            style={{ background: PURPLE }}
+            className="px-3.5 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
+            style={{ background: "transparent", border: `1.5px solid ${PURPLE}`, color: PURPLE }}
           >
             {submitting ? "Saving..." : action === "DISPOSE" ? "Dispose" : "Move to Stock"}
           </button>

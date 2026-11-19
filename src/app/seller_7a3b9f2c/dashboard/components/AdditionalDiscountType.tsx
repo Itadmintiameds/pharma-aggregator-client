@@ -22,7 +22,7 @@ type OptionType = {
 const customStyles: StylesConfig<OptionType, false> = {
   control: (provided, state) => ({
     ...provided,
-    minHeight: "48px",
+    minHeight: "36px",
     width: "204px",
     borderRadius: "8px",
     borderColor: state.isFocused ? "#BF6BFF" : "#D5D5D4",
@@ -37,18 +37,18 @@ const customStyles: StylesConfig<OptionType, false> = {
   placeholder: (provided) => ({
     ...provided,
     color: "#9ca3af",
-    fontSize: "16px",
+    fontSize: "13px",
   }),
 
   singleValue: (provided) => ({
     ...provided,
-    fontSize: "16px",
+    fontSize: "13px",
     color: "#111827",
   }),
 
   menu: (provided) => ({
     ...provided,
-    minHeight: "48px",
+    minHeight: "36px",
     width: "204px",
     borderRadius: "8px",
     overflow: "hidden",
@@ -67,10 +67,10 @@ const customStyles: StylesConfig<OptionType, false> = {
     ...provided,
     backgroundColor: "#ffffff",
     color: "#111827",
-    padding: "14px 16px",
+    padding: "8px 12px",
     borderBottom: "1px solid #ABACA9",
     cursor: "pointer",
-    fontSize: "16px",
+    fontSize: "13px",
 
     "&:hover": {
       backgroundColor: "#EBCEFF",
@@ -132,16 +132,16 @@ const AdditionalDiscountType = ({
 
   return (
     <>
-      <div className="h-[90vh] overflow-y-auto flex flex-col p-4">
+      <div className="h-[90vh] overflow-y-auto flex flex-col px-4 py-3">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="text-h6 font-normal">Additional Discount </span>
-            <span className="text-label-l3 font-normal">(Quantity-based)</span>
+            <span className="text-xl font-bold text-neutral-900">Additional Discount </span>
+            <span className="text-xs text-neutral-500">(Quantity-based)</span>
           </div>
-          <div className="text-p3 font-normal">
+          <div className="text-xs text-neutral-500 pb-1">
             Create a time-based discount for bulk purchases
           </div>
-          <div className="border-b border-pneutral-200"></div>
+          <div className="border-b border-neutral-200"></div>
         </div>
 
         <div className="flex justify-between items-center w-full">
@@ -158,16 +158,26 @@ const AdditionalDiscountType = ({
                 />
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="text-label-l font-normal">Always Active</div>
+              <div className="flex items-center gap-2">
+                <div className="text-[13px] font-semibold text-neutral-700">Always Active</div>
 
                 <div
                   onClick={() => setAlwaysActive((prev) => !prev)}
-                  className={`w-13 h-7 rounded-full flex items-center px-0.5 cursor-pointer transition-all duration-300 ${alwaysActive ? "bg-secondary-700" : "bg-pneutral-200"
+                  role="switch"
+                  aria-checked={alwaysActive}
+                  aria-label="Always Active"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      setAlwaysActive((prev) => !prev);
+                    }
+                  }}
+                  className={`w-10 h-6 rounded-full flex items-center px-0.5 cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 ${alwaysActive ? "bg-secondary-700" : "bg-neutral-300"
                     }`}
                 >
                   <div
-                    className={`w-6 h-6 bg-white rounded-full transition-all duration-300 ${alwaysActive ? "translate-x-6" : "translate-x-0"
+                    className={`w-5 h-5 bg-white rounded-full transition-all duration-300 ${alwaysActive ? "translate-x-4" : "translate-x-0"
                       }`}
                   />
                 </div>
@@ -201,13 +211,13 @@ const AdditionalDiscountType = ({
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 px-5 py-3">
+        <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 px-4 py-2 bg-white">
           <div className="border-t border-neutral-200"></div>
 
           <div className="flex justify-between">
             <button
               onClick={onClose}
-              className="w-27 h-10 rounded-lg border-2 border-warning-500 text-warning-500 font-medium text-label-l3 cursor-pointer"
+              className="h-9 px-5 rounded-lg border-[1.5px] border-neutral-300 text-neutral-700 hover:bg-neutral-50 text-[13px] font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
             >
               Cancel
             </button>
@@ -222,14 +232,14 @@ const AdditionalDiscountType = ({
                     specialSchemesRef.current?.submitForm();
                   }
                 }}
-                className="w-33.25 h-10 bg-[#4B0082] rounded-lg text-white font-medium text-label-l3 cursor-pointer"
+                className="h-9 px-6 rounded-lg border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 text-[13px] font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
               >
                 Submit
               </button>
             ) : (
               <button
                 disabled
-                className="w-33.25 h-10 bg-primary-200 rounded-lg text-sneutral-300 font-medium text-label-l3 cursor-not-allowed"
+                className="h-9 px-6 rounded-lg border-[1.5px] border-neutral-200 text-neutral-400 text-[13px] font-semibold cursor-not-allowed"
               >
                 Submit
               </button>
