@@ -55,29 +55,29 @@ function ShipForm({ onSubmit, busy }: { onSubmit: (courierName: string, tracking
   const [trackingUrl, setTrackingUrl] = useState("");
 
   return (
-    <div className="flex flex-col gap-2 mt-3 p-3 bg-neutral-50 rounded-lg">
+    <div className="mt-3 grid gap-2 rounded-lg bg-neutral-50 p-3 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
       <input
         placeholder="Courier name"
         value={courierName}
         onChange={(e) => setCourierName(e.target.value)}
-        className="px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+        className="h-9 rounded-lg border border-neutral-300 bg-white px-3 text-[13px] focus:border-primary-800 focus:outline-none"
       />
       <input
         placeholder="Tracking number"
         value={trackingNumber}
         onChange={(e) => setTrackingNumber(e.target.value)}
-        className="px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+        className="h-9 rounded-lg border border-neutral-300 bg-white px-3 text-[13px] focus:border-primary-800 focus:outline-none"
       />
       <input
         placeholder="Tracking URL (optional)"
         value={trackingUrl}
         onChange={(e) => setTrackingUrl(e.target.value)}
-        className="px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+        className="h-9 rounded-lg border border-neutral-300 bg-white px-3 text-[13px] focus:border-primary-800 focus:outline-none"
       />
       <button
         disabled={busy || !courierName || !trackingNumber}
         onClick={() => onSubmit(courierName, trackingNumber, trackingUrl)}
-        className="bg-primary-900 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-40"
+        className="h-9 rounded-lg border-[1.5px] border-primary-900 bg-transparent px-4 text-[13px] font-semibold text-primary-900 hover:bg-primary-50 disabled:opacity-40"
       >
         {busy ? "Shipping..." : "Mark Shipped"}
       </button>
@@ -103,12 +103,12 @@ function DeliverForm({
         placeholder="Delivery OTP from buyer"
         value={otp}
         onChange={(e) => setOtp(e.target.value)}
-        className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+        className="h-9 min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 text-[13px] focus:border-primary-800 focus:outline-none"
       />
       <button
         disabled={busy || resending}
         onClick={onResendOtp}
-        className="border border-neutral-300 text-neutral-700 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40"
+        className="h-9 rounded-lg border border-neutral-300 px-3 text-[13px] font-semibold text-neutral-700 disabled:opacity-40"
         title="Buyer didn't receive the OTP? Resend it."
       >
         {resending ? "Resending..." : "Resend OTP"}
@@ -116,7 +116,7 @@ function DeliverForm({
       <button
         disabled={busy || !otp}
         onClick={() => onSubmit(otp)}
-        className="bg-primary-900 text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40"
+        className="h-9 rounded-lg border-[1.5px] border-primary-900 bg-transparent px-3 text-[13px] font-semibold text-primary-900 hover:bg-primary-50 disabled:opacity-40"
       >
         {busy ? "Confirming..." : "Confirm Delivery"}
       </button>
@@ -127,12 +127,16 @@ function DeliverForm({
 function SummaryRow({ label, value, strong }: { label: string; value?: number; strong?: boolean }) {
   if (value == null) return null;
   return (
-    <div className={`flex justify-between gap-8 ${strong ? "pt-2 mt-1 border-t border-neutral-200" : ""}`}>
-      <span className={strong ? "text-p3 font-semibold text-neutral-900" : "text-p4 text-neutral-500"}>{label}</span>
-      <span className={strong ? "text-p2 font-heading font-semibold text-neutral-900" : "text-p4 text-neutral-700"}>
+    <span
+      className={`inline-flex items-baseline gap-1.5 whitespace-nowrap ${
+        strong ? "rounded-md border border-primary-200 px-2.5 py-1" : ""
+      }`}
+    >
+      <span className={strong ? "text-xs font-semibold text-primary-900" : "text-xs text-neutral-500"}>{label}</span>
+      <span className={strong ? "text-sm font-bold text-primary-900" : "text-xs font-semibold text-neutral-700"}>
         ₹{value.toFixed(2)}
       </span>
-    </div>
+    </span>
   );
 }
 
@@ -184,22 +188,20 @@ function OrderCard({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-6 py-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-p2 font-heading font-semibold text-pneutral-900">{order.sellerOrderId}</p>
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                isQuote ? "bg-secondary-100 text-secondary-800" : "bg-neutral-100 text-neutral-500"
-              }`}
-            >
-              {isQuote ? "Quotation price" : "Original price"}
-            </span>
-          </div>
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-neutral-100 bg-neutral-50/60 px-4 py-2.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+          <p className="text-[13px] font-heading font-bold text-pneutral-900">{order.sellerOrderId}</p>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+              isQuote ? "bg-secondary-100 text-secondary-800" : "bg-neutral-100 text-neutral-500"
+            }`}
+          >
+            {isQuote ? "Quotation price" : "Original price"}
+          </span>
           {placedAt && (
-            <p className="mt-0.5 text-p4 font-body text-neutral-500">
-              Placed on{" "}
+            <span className="text-xs text-neutral-500">
+              Placed{" "}
               {new Date(placedAt).toLocaleString("en-IN", {
                 day: "2-digit",
                 month: "short",
@@ -208,21 +210,21 @@ function OrderCard({
                 minute: "2-digit",
                 hour12: true,
               })}
-            </p>
+            </span>
           )}
         </div>
         <StatusBadge status={order.status} />
       </div>
 
       {isStale && (
-        <div className="border-b border-red-100 bg-red-50 px-6 py-2">
-          <p className="text-p4 font-body text-red-700">
+        <div className="border-b border-red-100 bg-red-50 px-4 py-1.5">
+          <p className="text-xs text-red-700">
             Placed {Math.floor(ageHours!)}h ago — still not confirmed. Please action soon.
           </p>
         </div>
       )}
 
-      <ul className="divide-y divide-neutral-100 px-6">
+      <ul className="divide-y divide-neutral-100 px-4">
         {order.items.map((item) => {
           // Quotation orders are priced at the accepted quote, so show what the product normally sells for.
           const listed = item.productId ? products[item.productId]?.listedPrice : undefined;
@@ -231,26 +233,27 @@ function OrderCard({
               ? Math.round(((item.unitPriceSnapshot - listed) / listed) * 100)
               : null;
           return (
-          <li key={item.orderItemId} className="flex items-center gap-4 py-4">
+          <li key={item.orderItemId} className="flex items-center gap-3 py-2.5">
             <ProductThumb
+              size="sm"
               src={item.productId ? products[item.productId]?.image : undefined}
               alt={item.productNameSnapshot ?? "Product"}
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-p3 font-body font-semibold text-neutral-900">
+              <p className="truncate text-[13px] font-semibold text-neutral-900">
                 {item.productNameSnapshot ?? "Item"}
               </p>
-              {item.productId && item.productId !== item.productNameSnapshot && (
-                <p className="text-xs text-neutral-500">{item.productId}</p>
-              )}
-              <p className="mt-1 text-p4 font-body text-neutral-600">
+              <p className="mt-0.5 text-xs text-neutral-600">
+                {item.productId && item.productId !== item.productNameSnapshot && (
+                  <span className="mr-2 text-neutral-400">{item.productId}</span>
+                )}
                 {item.unitPriceSnapshot != null
                   ? `₹${item.unitPriceSnapshot.toFixed(2)} × ${item.quantity}`
                   : `Qty ${item.quantity}`}
                 {item.batchLotNumberSnapshot ? ` · Batch ${item.batchLotNumberSnapshot}` : ""}
               </p>
               {isQuote && listed != null && (
-                <p className="mt-0.5 text-xs text-neutral-500">
+                <p className="text-[11px] text-neutral-500">
                   Original listed price <span className="line-through">₹{listed.toFixed(2)}</span>
                   {vsListed !== null && vsListed !== 0 && (
                     <span className={vsListed < 0 ? "text-green-700" : "text-amber-700"}>
@@ -262,15 +265,15 @@ function OrderCard({
               )}
             </div>
             {item.lineTotal != null && (
-              <p className="text-p3 font-body font-semibold text-neutral-900">₹{item.lineTotal.toFixed(2)}</p>
+              <p className="text-[13px] font-bold text-neutral-900">₹{item.lineTotal.toFixed(2)}</p>
             )}
           </li>
           );
         })}
       </ul>
 
-      <div className="flex flex-col gap-3 border-t border-neutral-100 bg-neutral-50/60 px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-col gap-1 text-p4 font-body text-neutral-600">
+      {(order.trackingNumber || order.status === "CANCELLED" || isQuote) && (
+        <div className="flex flex-col gap-0.5 border-t border-neutral-100 px-4 py-2 text-xs text-neutral-600">
           {order.trackingNumber && (
             <p>
               <span className="text-neutral-500">Courier:</span> {order.courierName ?? "-"} · Tracking{" "}
@@ -303,41 +306,31 @@ function OrderCard({
             </p>
           )}
         </div>
-        <div className="flex min-w-[220px] flex-col gap-1">
-          {order.subtotal != null && order.grandTotal != null && order.subtotal !== order.grandTotal && (
-            <>
-              <SummaryRow label="Subtotal" value={order.subtotal} />
-              {!!order.shippingFee && <SummaryRow label="Shipping" value={order.shippingFee} />}
-              {!!order.taxAmount && <SummaryRow label="Tax" value={order.taxAmount} />}
-            </>
-          )}
-          <SummaryRow label="Total" value={order.grandTotal} strong />
-        </div>
-      </div>
+      )}
 
       {RETURN_NOTICES[order.status] && (
-        <div className="flex items-center justify-between gap-3 border-t border-amber-200 bg-amber-50 px-6 py-3">
-          <p className="text-p4 font-body text-amber-800">{RETURN_NOTICES[order.status]}</p>
+        <div className="flex items-center justify-between gap-3 border-t border-amber-200 bg-amber-50 px-4 py-2">
+          <p className="text-xs text-amber-800">{RETURN_NOTICES[order.status]}</p>
           <Link
             href="/seller_7a3b9f2c/returns"
-            className="shrink-0 rounded-lg bg-primary-900 px-4 py-2 text-sm font-semibold text-white"
+            className="shrink-0 rounded-lg border-[1.5px] border-primary-900 px-3 py-1.5 text-xs font-semibold text-primary-900 hover:bg-primary-50"
           >
             Go to Returns
           </Link>
         </div>
       )}
 
-      {(error || hasActions) && (
-        <div className="border-t border-neutral-100 px-6 py-4">
-          {error && <p className="mb-2 text-p4 text-red-600">{error}</p>}
+      <div className="border-t border-neutral-100 bg-neutral-50/60 px-4 py-2.5">
+        {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
 
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
           <div className="flex flex-wrap gap-2">
             {order.status === "PLACED" && (
               <>
                 <button
                   disabled={busy}
                   onClick={() => run(() => confirmSellerOrder(order.sellerOrderId, sellerId))}
-                  className="bg-primary-900 text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40"
+                  className="border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
                 >
                   Confirm
                 </button>
@@ -348,7 +341,7 @@ function OrderCard({
                       cancelSellerOrderAsSeller(order.sellerOrderId, sellerId, reason)
                     )
                   }
-                  className="border border-red-500 text-red-600 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40"
+                  className="border-[1.5px] border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
                 >
                   Reject
                 </button>
@@ -359,7 +352,7 @@ function OrderCard({
               <button
                 disabled={busy}
                 onClick={() => run(() => packSellerOrder(order.sellerOrderId, sellerId))}
-                className="bg-primary-900 text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40"
+                className="border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
               >
                 Mark Packed
               </button>
@@ -369,7 +362,7 @@ function OrderCard({
               <button
                 disabled={busy}
                 onClick={() => run(() => markOutForDelivery(order.sellerOrderId, sellerId))}
-                className="bg-primary-900 text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40"
+                className="border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
               >
                 Mark Out for Delivery
               </button>
@@ -383,12 +376,24 @@ function OrderCard({
                     cancelSellerOrderAsSeller(order.sellerOrderId, sellerId, reason)
                   )
                 }
-                className="border border-red-500 text-red-600 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40"
+                className="border-[1.5px] border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
               >
                 Cancel
               </button>
             )}
           </div>
+
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
+            {order.subtotal != null && order.grandTotal != null && order.subtotal !== order.grandTotal && (
+              <>
+                <SummaryRow label="Subtotal" value={order.subtotal} />
+                {!!order.shippingFee && <SummaryRow label="Shipping" value={order.shippingFee} />}
+                {!!order.taxAmount && <SummaryRow label="Tax" value={order.taxAmount} />}
+              </>
+            )}
+            <SummaryRow label="Total" value={order.grandTotal} strong />
+          </div>
+        </div>
 
           {order.status === "PACKED" && (
             <ShipForm
@@ -401,7 +406,7 @@ function OrderCard({
 
           {order.status === "OUT_FOR_DELIVERY" && (
             <>
-              {resendMessage && <p className="text-p4 font-body text-green-600 mt-2">{resendMessage}</p>}
+              {resendMessage && <p className="text-xs text-green-600 mt-2">{resendMessage}</p>}
               <DeliverForm
                 busy={busy}
                 resending={resending}
@@ -422,8 +427,7 @@ function OrderCard({
               />
             </>
           )}
-        </div>
-      )}
+      </div>
 
       {reasonModal}
     </div>
@@ -482,18 +486,42 @@ export default function SellerOrdersPage() {
   }, [sellerId, loadOrders]);
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-h4 font-heading font-medium text-pneutral-900">Orders</h1>
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-xl font-heading font-bold text-pneutral-900">Orders</h1>
+          {orders !== null && <span className="text-xs text-neutral-500">{visibleOrders.length} shown</span>}
+        </div>
+        {orders !== null && (
+          <div className="inline-flex gap-0.5 rounded-lg border border-neutral-200 p-0.5">
+            {([
+              ["ALL", "All", inStatus.length],
+              ["QUOTATION", "Quotation", quotationCount],
+              ["ORIGINAL", "Original price", inStatus.length - quotationCount],
+            ] as const).map(([key, label, count]) => (
+              <button
+                key={key}
+                onClick={() => setPriceFilter(key)}
+                className={`rounded-md border-[1.5px] px-3 py-1 text-xs font-semibold transition-colors ${
+                  priceFilter === key ? "border-primary-900 text-primary-900" : "border-transparent text-neutral-500 hover:text-primary-900"
+                }`}
+              >
+                {label} <span className="opacity-70">{count}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="mb-3 flex flex-wrap gap-1.5">
         {STATUS_FILTERS.map((status) => (
           <button
             key={status}
             onClick={() => setStatusFilter(status)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold ${
-              statusFilter === status ? "bg-primary-900 text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+            className={`rounded-full border-[1.5px] px-3 py-1 text-xs font-semibold transition-colors ${
+              statusFilter === status
+                ? "border-primary-900 bg-transparent text-primary-900"
+                : "border-neutral-200 bg-white text-neutral-700 hover:border-primary-800 hover:text-primary-900"
             }`}
           >
             {prettyStatus(status)}
@@ -501,26 +529,6 @@ export default function SellerOrdersPage() {
           </button>
         ))}
       </div>
-
-      {orders !== null && (
-        <div className="flex flex-wrap items-center gap-2 mb-6">
-          {([
-            ["ALL", "All orders", inStatus.length],
-            ["QUOTATION", "Quotation orders", quotationCount],
-            ["ORIGINAL", "Original price orders", inStatus.length - quotationCount],
-          ] as const).map(([key, label, count]) => (
-            <button
-              key={key}
-              onClick={() => setPriceFilter(key)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                priceFilter === key ? "bg-secondary-100 text-secondary-800" : "bg-neutral-100 text-neutral-600"
-              }`}
-            >
-              {label} ({count})
-            </button>
-          ))}
-        </div>
-      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -539,7 +547,7 @@ export default function SellerOrdersPage() {
       )}
 
       {orders !== null && visibleOrders.length > 0 && sellerId && (
-        <div className="space-y-5">
+        <div className="space-y-3">
           {visibleOrders.map((order) => (
             <OrderCard
               key={order.sellerOrderId}

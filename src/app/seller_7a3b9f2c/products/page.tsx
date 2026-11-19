@@ -187,7 +187,7 @@ export default function ProductsPage({ setCurrentView }: ProductsProps) {
         <button
           type="button"
           onClick={() => setShowAddModal(true)}
-          className="ml-auto flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary-900 px-3.5 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2"
+          className="ml-auto flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border-[1.5px] border-primary-900 bg-transparent px-3.5 text-[13px] font-semibold text-primary-900 transition-colors hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2"
         >
           <Plus size={15} aria-hidden />
           <span>Add New Product</span>
