@@ -1,5 +1,13 @@
 "use client";
 
+import OfferWindowFields from "./OfferWindowFields";
+import {
+  type OfferWindowInput,
+  emptyOfferWindow,
+  offerWindowError,
+  offerWindowPayload,
+  offerWindowSummary,
+} from "@/src/utils/offerWindow";
 import React, { useEffect, useState } from "react";
 import {
   X,
@@ -34,7 +42,7 @@ interface SelectOption {
 
 // One row of the repeatable "special discount" list on a new batch — each row becomes its
 // own AdditionalDiscount record server-side (see StockService.SpecialDiscountPayload).
-interface SpecialDiscountRow {
+interface SpecialDiscountRow extends OfferWindowInput {
   minimumPurchaseQuantity: string;
   percentage: string;
   displayOffer: boolean;
@@ -44,6 +52,7 @@ const emptySpecialDiscountRow = (): SpecialDiscountRow => ({
   minimumPurchaseQuantity: "",
   percentage: "",
   displayOffer: true,
+  ...emptyOfferWindow(),
 });
 
 interface StockUpdateModalProps {
@@ -429,12 +438,28 @@ export default function StockUpdateModal({
       rows.map((row, i) => (i === index ? { ...row, ...patch } : row))
     );
 
+  // Buyers can order at most min(max order quantity, the batch's stock), so a larger offer quantity is unreachable.
+  const offerQtyLimit = (() => {
+    const stock = Number(newBatch.quantity);
+    const max = Number(newBatch.maximumOrderQuantity);
+    const limits = [stock, max].filter((n) => Number.isFinite(n) && n > 0);
+    return limits.length > 0 ? Math.min(...limits) : null;
+  })();
+  const offerQtyError = (row: SpecialDiscountRow): string | null => {
+    const qty = Number(row.minimumPurchaseQuantity);
+    if (offerQtyLimit != null && qty > offerQtyLimit)
+      return `Above what buyers can order (${offerQtyLimit}, the lower of stock and max order quantity). Raise them or lower this quantity.`;
+    return null;
+  };
+
   const isDraftSpecialDiscountsValid = draftSpecialDiscounts.every(
     (row) =>
       row.percentage.trim() !== "" &&
       Number(row.percentage) >= 0 &&
       Number(row.percentage) <= 100 &&
-      Number(row.minimumPurchaseQuantity) > 0
+      Number(row.minimumPurchaseQuantity) > 0 &&
+      offerWindowError(row) == null &&
+      offerQtyError(row) == null
   );
 
   const isSpecialDiscountsValid = specialDiscounts.every(
@@ -442,7 +467,9 @@ export default function StockUpdateModal({
       row.percentage.trim() !== "" &&
       Number(row.percentage) >= 0 &&
       Number(row.percentage) <= 100 &&
-      Number(row.minimumPurchaseQuantity) > 0
+      Number(row.minimumPurchaseQuantity) > 0 &&
+      offerWindowError(row) == null &&
+      offerQtyError(row) == null
   );
 
   const isStep2Valid =
@@ -559,6 +586,7 @@ export default function StockUpdateModal({
                       ),
                       additionalDiscountPercentage: Number(row.percentage),
                       displayOffer: row.displayOffer,
+                      ...offerWindowPayload(row),
                     })
                   )
                 : undefined,
@@ -1756,7 +1784,7 @@ export default function StockUpdateModal({
                                 (row) =>
                                   `${row.percentage || "0"}% (min qty: ${
                                     row.minimumPurchaseQuantity || "—"
-                                  }, ${row.displayOffer ? "shown" : "hidden"})`
+                                  }, ${row.displayOffer ? "shown" : "hidden"}, ${offerWindowSummary(row)})`
                               )
                               .join("; ")
                           : "—"
@@ -1969,6 +1997,7 @@ export default function StockUpdateModal({
           onAddRow={addDraftSpecialDiscountRow}
           onRemoveRow={removeDraftSpecialDiscountRow}
           onUpdateRow={updateDraftSpecialDiscountRow}
+          rowError={offerQtyError}
           onCancel={cancelSpecialOffers}
           onSave={saveSpecialOffers}
         />
@@ -2035,6 +2064,7 @@ function SpecialOffersDrawer({
   onAddRow,
   onRemoveRow,
   onUpdateRow,
+  rowError,
   onCancel,
   onSave,
 }: {
@@ -2043,6 +2073,7 @@ function SpecialOffersDrawer({
   onAddRow: () => void;
   onRemoveRow: (index: number) => void;
   onUpdateRow: (index: number, patch: Partial<SpecialDiscountRow>) => void;
+  rowError: (row: SpecialDiscountRow) => string | null;
   onCancel: () => void;
   onSave: () => void;
 }) {
@@ -2203,6 +2234,11 @@ function SpecialOffersDrawer({
                     placeholder="e.g. 5"
                     style={inputStyle}
                   />
+                  {rowError(row) && (
+                    <p style={{ margin: "4px 0 0", fontSize: 12, color: "#B91C1C" }}>
+                      {rowError(row)}
+                    </p>
+                  )}
                 </Field>
                 <Field label="Special Discount %">
                   <input
@@ -2218,6 +2254,12 @@ function SpecialOffersDrawer({
                     style={inputStyle}
                   />
                 </Field>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <OfferWindowFields
+                  value={row}
+                  onChange={(patch) => onUpdateRow(index, patch)}
+                />
               </div>
               <label
                 style={{

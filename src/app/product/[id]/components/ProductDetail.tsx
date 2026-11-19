@@ -1,4 +1,6 @@
 "use client";
+import { bestApplicableOffer, offerMinQty, offerPercent } from "@/src/utils/pricing";
+import { formatOfferInstant } from "@/src/utils/offerWindow";
 import { resolveProductAvailability } from "@/src/utils/cartAvailability";
 
 import { useEffect, useRef, useState } from "react";
@@ -254,6 +256,16 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
     router.push("/cart");
   };
 
+  // Quantity slabs the backend lets buyers see: live now and not hidden by the seller.
+  const offers = (pricing?.additionalDiscounts ?? [])
+    .filter((o) => offerMinQty(o) != null && offerPercent(o) != null && o.displayOffer !== false && o.active !== false)
+    .sort((a, b) => (offerMinQty(a) ?? 0) - (offerMinQty(b) ?? 0));
+  const appliedOffer = bestApplicableOffer(pricing?.discountPercentage, offers, clampQty(quantity));
+  const offerUnitPrice =
+    appliedOffer && pricing?.sellingPrice != null
+      ? Math.round(pricing.sellingPrice * (1 - (offerPercent(appliedOffer) ?? 0) / 100) * 100) / 100
+      : null;
+
   const stockBadge = unavailable
     ? { text: "Out of stock", className: "bg-red-50 text-red-700" }
     : stock != null && stock <= LOW_STOCK_UNITS
@@ -371,6 +383,48 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
               <p className="mt-1 text-xs text-gray-500">+ {product.gstPercentage}% GST</p>
             )}
           </div>
+
+          {offers.length > 0 && (
+            <div className="mt-3 rounded-xl border border-green-200 bg-green-50/60 p-3" aria-label="Special offers">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-green-800">
+                <Tag size={14} /> Special offers
+              </p>
+              <ul className="mt-2 space-y-1.5">
+                {offers.map((o, i) => {
+                  const minQty = offerMinQty(o) as number;
+                  const reachable = maxQuantity == null || minQty <= maxQuantity;
+                  const until = formatOfferInstant(o.endsAt);
+                  const active = appliedOffer === o;
+                  return (
+                    <li key={i} className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-800">
+                      <span>
+                        <span className="font-semibold">{offerPercent(o)}% off</span> on {minQty}+ units
+                        {until && <span className="text-gray-500"> · until {until}</span>}
+                        {!reachable && <span className="text-amber-700"> · above current max order</span>}
+                      </span>
+                      {active ? (
+                        <span className="rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-semibold text-white">Applied</span>
+                      ) : (
+                        reachable &&
+                        !unavailable && (
+                          <button
+                            type="button"
+                            onClick={() => setRequestedQty(clampQty(minQty))}
+                            className="rounded-md border border-green-600 px-2 py-0.5 text-[11px] font-semibold text-green-700 hover:bg-green-100"
+                          >
+                            Set qty {minQty}
+                          </button>
+                        )
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              {appliedOffer && isBuyerLoggedIn && offerUnitPrice != null && (
+                <p className="mt-2 text-xs font-semibold text-green-800">Offer price: ₹{offerUnitPrice} / unit at {clampQty(quantity)} units</p>
+              )}
+            </div>
+          )}
 
           <div className="mt-3">
             <label className="text-xs font-medium text-gray-700" htmlFor="product-quantity">

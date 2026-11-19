@@ -13,11 +13,17 @@ export interface BuyerProductPricing {
 }
 
 // A time-limited quantity slab on a batch (backend AdditionalDiscountDto). `active` is computed by the server.
+// The backend serializes minimumPurchaseQuantity / additionalDiscountPercentage; minQty / discountPercentage
+// are the older names, kept so either shape is understood (read them through offerMinQty / offerPercent).
 export interface BuyerProductOffer {
+  minimumPurchaseQuantity?: number;
+  additionalDiscountPercentage?: number;
   minQty?: number;
   discountPercentage?: number;
   displayOffer?: boolean;
   active?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
 }
 
 export interface BuyerProductPackaging {

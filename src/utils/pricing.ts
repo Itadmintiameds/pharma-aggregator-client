@@ -29,6 +29,31 @@ export function priceLine(
   return { gross, discount, tax, total: gross - discount + tax };
 }
 
+export const offerMinQty = (o: BuyerProductOffer): number | undefined => o.minimumPurchaseQuantity ?? o.minQty;
+export const offerPercent = (o: BuyerProductOffer): number | undefined =>
+  o.additionalDiscountPercentage ?? o.discountPercentage;
+
+/** The live, visible slab that gives the best discount for this quantity, or undefined (batch discount applies). */
+export function bestApplicableOffer(
+  baseDiscount: number | undefined,
+  offers: BuyerProductOffer[] | undefined,
+  quantity: number
+): BuyerProductOffer | undefined {
+  let best = baseDiscount ?? 0;
+  let winner: BuyerProductOffer | undefined;
+  for (const offer of offers ?? []) {
+    const minQty = offerMinQty(offer);
+    const pct = offerPercent(offer);
+    if (minQty == null || quantity < minQty || pct == null) continue;
+    if (offer.displayOffer === false || offer.active === false) continue;
+    if (pct > best) {
+      best = pct;
+      winner = offer;
+    }
+  }
+  return winner;
+}
+
 // OfferSupport.effectiveDiscount: the batch discount, or a better quantity slab that is live, shown to buyers,
 // and whose minimum quantity this order reaches. A slab replaces the base discount, it does not add to it.
 export function effectiveDiscount(
@@ -36,13 +61,8 @@ export function effectiveDiscount(
   offers: BuyerProductOffer[] | undefined,
   quantity: number
 ): number {
-  let best = baseDiscount ?? 0;
-  for (const offer of offers ?? []) {
-    if (offer.minQty == null || quantity < offer.minQty || offer.discountPercentage == null) continue;
-    if (offer.displayOffer === false || offer.active === false) continue;
-    if (offer.discountPercentage > best) best = offer.discountPercentage;
-  }
-  return best;
+  const winner = bestApplicableOffer(baseDiscount, offers, quantity);
+  return winner ? (offerPercent(winner) ?? baseDiscount ?? 0) : (baseDiscount ?? 0);
 }
 
 // The pricing fields a cart line keeps from its batch. GST is per batch on the backend; the product-level

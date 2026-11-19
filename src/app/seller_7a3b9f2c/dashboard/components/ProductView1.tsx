@@ -36,6 +36,12 @@ import Table, { Column } from "@/src/app/commonComponents/Table";
 import { toast } from "react-toastify";
 import StockUpdateModal from "./StockUpdateModal";
 import BatchStockUpdateModal from "./BatchStockUpdateModal";
+import BatchOffersModal from "./BatchOffersModal";
+import {
+  getOfferStatus,
+  describeOfferWindow,
+  OFFER_STATUS_STYLE,
+} from "@/src/utils/offerWindow";
 import DamagedStockModal from "./DamagedStockModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import {
@@ -126,6 +132,13 @@ interface AdditionalDiscount {
   effectiveEndDate?: string;
   startDate?: string;
   endDate?: string;
+  effectiveStartTime?: string;
+  effectiveEndTime?: string;
+  displayOffer?: boolean;
+  // Computed by the backend from the window (IST).
+  active?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
 }
 
 interface CertificateDocument {
@@ -466,6 +479,34 @@ const normalizeDiscounts = (list: any): any[] =>
       d?.additionalDiscountPercentage ?? d?.discountPercentage,
   }));
 
+const OfferWindowRows = ({ offer }: { offer: any }) => {
+  const status = getOfferStatus(offer);
+  const st = OFFER_STATUS_STYLE[status];
+  return (
+    <>
+      <DetailRow
+        label="Status"
+        value={
+          <span
+            style={{
+              display: "inline-block",
+              padding: "2px 10px",
+              borderRadius: 999,
+              fontSize: 11.5,
+              fontWeight: 600,
+              background: st.bg,
+              color: st.color,
+            }}
+          >
+            {status}
+          </span>
+        }
+      />
+      <DetailRow label="Valid" value={describeOfferWindow(offer)} />
+    </>
+  );
+};
+
 const formatDate = (dateStr?: string | null): string => {
   if (!dateStr) return "—";
   try {
@@ -769,6 +810,7 @@ const BatchDetailModal = ({
                         : "—"
                     }
                   />
+                  <OfferWindowRows offer={d} />
                 </div>
               ))}
             </DetailCard>
@@ -790,6 +832,7 @@ const BatchDetailModal = ({
                   <DetailRow label="Scheme Name" value={s.schemeName} />
                   <DetailRow label="Buy Quantity" value={s.buyQuantity} />
                   <DetailRow label="Free Quantity" value={s.freeQuantity} />
+                  <OfferWindowRows offer={s} />
                 </div>
               ))}
             </DetailCard>
@@ -2489,6 +2532,7 @@ const ProductView1 = ({
   const [batchStockUpdate, setBatchStockUpdate] =
     useState<BatchAvailability | null>(null);
   const [viewBatch, setViewBatch] = useState<PricingDetails | null>(null);
+  const [offersBatch, setOffersBatch] = useState<PricingDetails | null>(null);
   const [batchStockLoadingLot, setBatchStockLoadingLot] = useState<
     string | null
   >(null);
@@ -3328,6 +3372,27 @@ const ProductView1 = ({
                   </button>
 
                   <button
+                    onClick={() => setOffersBatch(row)}
+                    disabled={disabled || !row.pricingId}
+                    title={isDraftProduct ? "Publish this product before adding offers" : "Add or edit special offers for this batch"}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      border: "1px solid var(--Colors-Brand-Primary-800, #6C12A9)",
+                      background: "white",
+                      color: "var(--Colors-Brand-Primary-800, #6C12A9)",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      opacity: disabled ? 0.55 : 1,
+                      whiteSpace: "nowrap",
+                      fontFamily: "'Work Sans', sans-serif",
+                    }}
+                  >
+                    Offers
+                  </button>
+
+                  <button
                     onClick={() => handleDeleteBatch(row)}
                     disabled={disabled}
                     style={{
@@ -3488,6 +3553,30 @@ const ProductView1 = ({
         categoryId={resolvedCategoryId}
         onSuccess={refetchProduct}
       />
+
+      {offersBatch?.pricingId && productData.productId && (
+        <BatchOffersModal
+          productId={productData.productId}
+          pricingId={offersBatch.pricingId}
+          batchLotNumber={offersBatch.batchLotNumber}
+          existingOffers={offersBatch.additionalDiscounts}
+          baseDiscount={offersBatch.discountPercentage ?? null}
+          stockQuantity={offersBatch.stockQuantity ?? null}
+          maxOrderQty={
+            (() => {
+              const pk = (productData as any)?.packagingDetails?.find?.(
+                (x: any) => x?.packagingId && x.packagingId === (offersBatch as any).packagingId,
+              );
+              return pk?.maximumOrderQuantity ?? pk?.maxOrderQty ?? null;
+            })()
+          }
+          onClose={() => setOffersBatch(null)}
+          onSaved={() => {
+            toast.success("Special offers updated");
+            refetchProduct();
+          }}
+        />
+      )}
 
       {batchStockUpdate && (
         <BatchStockUpdateModal

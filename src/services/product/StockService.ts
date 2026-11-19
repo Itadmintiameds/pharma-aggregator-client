@@ -17,6 +17,19 @@ export interface SpecialDiscountPayload {
   minimumPurchaseQuantity?: number;
   additionalDiscountPercentage?: number;
   displayOffer?: boolean;
+  // Optional validity window, evaluated in IST. Dates are yyyy-MM-dd, times HH:mm.
+  // No end time = runs through the whole end date; a time needs its date.
+  effectiveStartDate?: string;
+  effectiveStartTime?: string;
+  effectiveEndDate?: string;
+  effectiveEndTime?: string;
+}
+
+// A quantity offer as the backend returns it (response-only fields are computed server-side).
+export interface BatchOffer extends SpecialDiscountPayload {
+  active?: boolean | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
 }
 
 export interface StockAddRequest {
@@ -142,6 +155,23 @@ export const deleteBatch = async (
   });
   return response.data?.data ?? response.data;
 };
+
+// Replaces the complete set of quantity offers on one batch. An empty list removes them all.
+export const replaceBatchOffers = async (
+  productId: string,
+  pricingId: string,
+  offers: SpecialDiscountPayload[]
+): Promise<BatchOffer[]> => {
+  const sellerId = await getCurrentSellerId();
+  const response = await api.put(
+    `/stock/${productId}/batches/${pricingId}/offers`,
+    { additionalDiscounts: offers },
+    { params: { sellerId } }
+  );
+  const data = response.data?.data ?? response.data;
+  return Array.isArray(data) ? data : [];
+};
+
 // DISPOSE writes damaged (returned) units off; RESTOCK moves them back to sellable stock.
 export type DamagedStockAction = "DISPOSE" | "RESTOCK";
 
