@@ -26,6 +26,30 @@ export default function SellerLayout({
   useSessionManager();
   const { status: onboardingStatus } = useSellerOnboardingStatus();
 
+  // Sidebar collapsed to an icon rail. Remembered in this browser; read after mount (not in the initializer)
+  // so server and client first paint agree.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        setCollapsed(localStorage.getItem("seller-sidebar-collapsed") === "1");
+      } catch {
+        // storage blocked: start expanded
+      }
+    });
+  }, []);
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("seller-sidebar-collapsed", next ? "1" : "0");
+      } catch {
+        // storage blocked: the choice just isn't remembered
+      }
+      return next;
+    });
+  };
+
   // Define public routes that don't require authentication
   const isPublicRoute = () => {
     // The main seller page (registration/landing) is public
@@ -180,13 +204,18 @@ export default function SellerLayout({
         currentView={currentView}
         setCurrentView={() => {}}
         approved={onboardingStatus === "approved"}
+        collapsed={collapsed}
+        onToggleCollapsed={toggleCollapsed}
       />
       <SellerHeader
         currentView={currentView}
         setCurrentView={() => {}}
         approved={onboardingStatus === "approved"}
       />
-      <main className="ml-64 p-6" style={{ marginTop: 74 }}>
+      <main
+        className={`p-6 transition-[margin] duration-200 ${collapsed ? "ml-16" : "ml-52"}`}
+        style={{ marginTop: 74 }}
+      >
         {children}
       </main>
       <ToastContainer
@@ -202,7 +231,7 @@ export default function SellerLayout({
         theme="light"
         style={{ zIndex: 9999 }}
       />
-      
+
       <LogoutConfirmationModal
         isOpen={showLogoutModal}
         onClose={handleCancelLogout}

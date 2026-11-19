@@ -193,49 +193,50 @@ export function TopProductsPanel({
   );
 }
 
-function Chip({ label, value, warn }: { label: string; value: number; warn?: boolean }) {
+function Chip({ label, value, warn, compact = false }: { label: string; value: number; warn?: boolean; compact?: boolean }) {
   return (
-    <div className={`rounded-xl border px-3 py-2 ${warn && value > 0 ? "border-amber-200 bg-amber-50" : "border-neutral-200 bg-neutral-50"}`}>
-      <p className={`text-h6 font-heading font-bold ${warn && value > 0 ? "text-amber-700" : "text-neutral-900"}`}>{value}</p>
-      <p className="text-xs text-neutral-500">{label}</p>
+    <div className={`rounded-xl border ${compact ? "px-2.5 py-1.5" : "px-3 py-2"} ${warn && value > 0 ? "border-amber-200 bg-amber-50" : "border-neutral-200 bg-neutral-50"}`}>
+      <p className={`font-heading font-bold ${compact ? "text-base" : "text-h6"} ${warn && value > 0 ? "text-amber-700" : "text-neutral-900"}`}>{value}</p>
+      <p className={`text-neutral-500 ${compact ? "text-[11px]" : "text-xs"}`}>{label}</p>
     </div>
   );
 }
 
-export function InventoryPanel({ stats, loading, unavailable }: { stats: DashboardStats; loading: boolean; unavailable: boolean }) {
+export function InventoryPanel({ stats, loading, unavailable, compact = false }: { stats: DashboardStats; loading: boolean; unavailable: boolean; compact?: boolean }) {
   const { inventory } = stats;
   return (
-    <section className={cardClass}>
+    <section className={compact ? compactCardClass : cardClass}>
       <PanelTitle
+        compact={compact}
         title="Stock Overview"
         subtitle={`Low stock means ${LOW_STOCK_THRESHOLD} units or fewer`}
         action={
-          <Link href="/seller_7a3b9f2c/products" className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">
+          <Link href="/seller_7a3b9f2c/products" className={`rounded-lg border border-neutral-200 font-semibold text-neutral-700 hover:bg-neutral-50 ${compact ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"}`}>
             Manage stock
           </Link>
         }
       />
       {loading ? (
-        <div className="h-[200px] animate-pulse rounded-xl bg-neutral-100" />
+        <div className={`animate-pulse rounded-xl bg-neutral-100 ${compact ? "h-[140px]" : "h-[200px]"}`} />
       ) : unavailable ? (
-        <Empty>Inventory could not be loaded right now.</Empty>
+        <Empty compact={compact}>Inventory could not be loaded right now.</Empty>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Chip label="Published" value={inventory.published} />
-            <Chip label="Drafts" value={inventory.drafts} />
-            <Chip label="Out of Stock" value={inventory.outOfStock} warn />
-            <Chip label="Expiring ≤ 60 Days" value={inventory.expiringBatches} warn />
+          <div className={`grid grid-cols-2 sm:grid-cols-4 ${compact ? "gap-2" : "gap-3"}`}>
+            <Chip label="Published" value={inventory.published} compact={compact} />
+            <Chip label="Drafts" value={inventory.drafts} compact={compact} />
+            <Chip label="Out of Stock" value={inventory.outOfStock} warn compact={compact} />
+            <Chip label="Expiring ≤ 60 Days" value={inventory.expiringBatches} warn compact={compact} />
           </div>
           {inventory.alerts.length === 0 ? (
-            <p className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-p4 font-body text-green-800">
+            <p className={`${compact ? "mt-3 text-xs" : "mt-4 text-p4"} rounded-lg bg-green-50 px-3 py-2 font-body text-green-800`}>
               All published products are well stocked.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-neutral-100">
+            <ul className={`divide-y divide-neutral-100 ${compact ? "mt-3" : "mt-4"}`}>
               {inventory.alerts.map((alert) => (
-                <li key={alert.productId} className="flex items-center justify-between gap-3 py-2">
-                  <p className="truncate text-p4 font-body text-neutral-800">{alert.name}</p>
+                <li key={alert.productId} className={`flex items-center justify-between gap-3 ${compact ? "py-1.5" : "py-2"}`}>
+                  <p className={`truncate font-body text-neutral-800 ${compact ? "text-xs" : "text-p4"}`}>{alert.name}</p>
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                       alert.stock === 0 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"

@@ -31,16 +31,16 @@ const BASE = "/seller_7a3b9f2c";
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <section>
-      <div className="mb-3">
-        <h2 className="text-p2 font-heading font-semibold text-neutral-900">{title}</h2>
-        {subtitle && <p className="text-xs text-neutral-500">{subtitle}</p>}
+      <div className="mb-2">
+        <h2 className="text-sm font-heading font-semibold text-neutral-900">{title}</h2>
+        {subtitle && <p className="text-[11px] text-neutral-500">{subtitle}</p>}
       </div>
       {children}
     </section>
   );
 }
 
-const tileGrid = "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3";
+const tileGrid = "grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]";
 
 export default function SellerOverview() {
   const { data, loading, failed, failedLabels, lastUpdated, refresh } = useSellerDashboardData();
@@ -61,24 +61,24 @@ export default function SellerOverview() {
   const stockAlerts = inventory.outOfStock + inventory.lowStock;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {/* Title row: date range + refresh */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-h5 font-heading font-semibold text-neutral-900">Business overview</h1>
-          <p className="text-xs text-neutral-500">
+          <h1 className="text-xl font-heading font-bold text-neutral-900">Business overview</h1>
+          <p className="text-[11px] text-neutral-500">
             {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}` : "Loading your numbers…"}
             {" · "}Sales and performance cover {range === "all" ? "all time" : range === "today" ? "today" : `the last ${rangeLabel}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div role="group" aria-label="Date range" className="flex rounded-xl border border-neutral-200 bg-white p-1">
+          <div role="group" aria-label="Date range" className="flex rounded-lg border border-neutral-200 bg-white p-0.5">
             {RANGE_OPTIONS.map((option) => (
               <button
                 key={option.key}
                 onClick={() => setRange(option.key)}
                 aria-pressed={range === option.key}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
                   range === option.key ? "bg-primary-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
                 }`}
               >
@@ -91,20 +91,20 @@ export default function SellerOverview() {
             disabled={loading}
             aria-label="Refresh dashboard"
             title="Refresh"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
           >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
 
       {failed.length > 0 && !loading && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-p4 font-body text-amber-900">
-            <TriangleAlert size={16} className="mr-1.5 inline -translate-y-px" />
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <p className="text-xs font-body text-amber-900">
+            <TriangleAlert size={14} className="mr-1.5 inline -translate-y-px" />
             Couldn&apos;t load your {failedLabels.join(", ")}. Anything that depends on it shows “—”.
           </p>
-          <button onClick={refresh} className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white">
+          <button onClick={refresh} className="rounded-md bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white">
             Try again
           </button>
         </div>
@@ -115,7 +115,7 @@ export default function SellerOverview() {
           <StatTile
             label="New Orders"
             value={String(attention.toConfirm)}
-            icon={<ClipboardCheck size={18} />}
+            icon={<ClipboardCheck size={16} />}
             tone={attention.overdue > 0 ? "danger" : tone(attention.toConfirm)}
             hint={attention.overdue > 0 ? `${attention.overdue} waiting more than 24h` : "New orders waiting for you"}
             href={`${BASE}/orders?status=PLACED`}
@@ -125,7 +125,7 @@ export default function SellerOverview() {
           <StatTile
             label="Ready to Ship"
             value={String(attention.toShip)}
-            icon={<PackageCheck size={18} />}
+            icon={<PackageCheck size={16} />}
             tone={tone(attention.toShip)}
             hint="Confirmed or packed, not yet shipped"
             href={`${BASE}/orders?status=CONFIRMED`}
@@ -135,7 +135,7 @@ export default function SellerOverview() {
           <StatTile
             label="In Transit"
             value={String(attention.inTransit)}
-            icon={<Truck size={18} />}
+            icon={<Truck size={16} />}
             hint="Shipped or out for delivery"
             href={`${BASE}/orders?status=SHIPPED`}
             loading={loading}
@@ -144,7 +144,7 @@ export default function SellerOverview() {
           <StatTile
             label="Returns to action"
             value={String(attention.returnsToDecide + attention.returnsToInspect)}
-            icon={<Undo2 size={18} />}
+            icon={<Undo2 size={16} />}
             tone={tone(attention.returnsToDecide + attention.returnsToInspect)}
             hint={`${attention.returnsToDecide} to decide · ${attention.returnsToInspect} to inspect`}
             href={`${BASE}/returns`}
@@ -154,7 +154,7 @@ export default function SellerOverview() {
           <StatTile
             label="New Quote Requests"
             value={String(attention.quotesToReply)}
-            icon={<FileText size={18} />}
+            icon={<FileText size={16} />}
             tone={tone(attention.quotesToReply)}
             hint="Buyers waiting for your price"
             href={`${BASE}/conversions?status=PENDING`}
@@ -164,7 +164,7 @@ export default function SellerOverview() {
           <StatTile
             label="Low Stock Alerts"
             value={String(stockAlerts)}
-            icon={<Boxes size={18} />}
+            icon={<Boxes size={16} />}
             tone={inventory.outOfStock > 0 ? "danger" : tone(stockAlerts)}
             hint={`${inventory.outOfStock} out of stock · ${inventory.lowStock} running low`}
             href={`${BASE}/products`}
@@ -179,7 +179,7 @@ export default function SellerOverview() {
           <StatTile
             label="Orders Received"
             value={sales.ordersReceived.toLocaleString("en-IN")}
-            icon={<ShoppingBag size={18} />}
+            icon={<ShoppingBag size={16} />}
             trend={range === "all" ? undefined : sales.ordersReceivedTrend.percent}
             hint={range === "all" ? "Since you started selling" : undefined}
             loading={loading}
@@ -188,7 +188,7 @@ export default function SellerOverview() {
           <StatTile
             label="Gross Sales"
             value={formatMoney(sales.grossSales)}
-            icon={<IndianRupee size={18} />}
+            icon={<IndianRupee size={16} />}
             trend={range === "all" ? undefined : sales.grossSalesTrend.percent}
             hint={range === "all" ? "Value of all orders, cancelled excluded" : "Cancelled orders excluded"}
             loading={loading}
@@ -197,7 +197,7 @@ export default function SellerOverview() {
           <StatTile
             label="Net Sales"
             value={formatMoney(sales.netSales)}
-            icon={<IndianRupee size={18} />}
+            icon={<IndianRupee size={16} />}
             tone="good"
             trend={range === "all" ? undefined : sales.netSalesTrend.percent}
             hint={`Delivered orders after ${formatMoney(sales.refunds)} refunds`}
@@ -207,7 +207,7 @@ export default function SellerOverview() {
           <StatTile
             label="Average Order Value"
             value={sales.averageOrderValue === null ? "—" : formatMoney(sales.averageOrderValue)}
-            icon={<Banknote size={18} />}
+            icon={<Banknote size={16} />}
             hint="Per order, cancelled excluded"
             loading={loading}
             unavailable={has("orders")}
@@ -215,7 +215,7 @@ export default function SellerOverview() {
           <StatTile
             label="Platform Fees"
             value={formatMoney(sales.commission)}
-            icon={<Percent size={18} />}
+            icon={<Percent size={16} />}
             hint={`Plus ${formatMoney(sales.gstOnCommission)} GST on commission`}
             loading={loading}
             unavailable={has("commission")}
@@ -223,7 +223,7 @@ export default function SellerOverview() {
           <StatTile
             label="Pending Payments"
             value={formatMoney(sales.pendingPayout)}
-            icon={<Wallet size={18} />}
+            icon={<Wallet size={16} />}
             tone={tone(sales.pendingPayout, "good")}
             hint={
               sales.lastPayout
@@ -241,7 +241,7 @@ export default function SellerOverview() {
           <StatTile
             label="Orders Delivered Successfully"
             value={formatPercent(performance.fulfilmentRate)}
-            icon={<PackageCheck size={18} />}
+            icon={<PackageCheck size={16} />}
             tone={performance.fulfilmentRate !== null && performance.fulfilmentRate < 80 ? "attention" : "default"}
             hint={`${performance.delivered} delivered · ${performance.cancelled} cancelled`}
             loading={loading}
@@ -250,7 +250,7 @@ export default function SellerOverview() {
           <StatTile
             label="Cancelled Orders"
             value={formatPercent(performance.cancellationRate)}
-            icon={<TriangleAlert size={18} />}
+            icon={<TriangleAlert size={16} />}
             tone={performance.cancellationRate !== null && performance.cancellationRate > 10 ? "attention" : "default"}
             hint={`${performance.cancelledBySeller} by you · ${performance.cancelledByBuyer} by buyers`}
             loading={loading}
@@ -259,7 +259,7 @@ export default function SellerOverview() {
           <StatTile
             label="Returned Orders"
             value={formatPercent(performance.returnRate)}
-            icon={<Undo2 size={18} />}
+            icon={<Undo2 size={16} />}
             tone={performance.returnRate !== null && performance.returnRate > 10 ? "attention" : "default"}
             hint={
               performance.returnedOrders > 0
@@ -274,7 +274,7 @@ export default function SellerOverview() {
           <StatTile
             label="Order Confirmation Time"
             value={formatHours(performance.avgConfirmHours)}
-            icon={<Timer size={18} />}
+            icon={<Timer size={16} />}
             tone={performance.avgConfirmHours !== null && performance.avgConfirmHours > 24 ? "attention" : "default"}
             hint="From order placed to confirmed"
             loading={loading}
@@ -283,7 +283,7 @@ export default function SellerOverview() {
           <StatTile
             label="Successful Quotes"
             value={formatPercent(performance.quoteConversion)}
-            icon={<Clock size={18} />}
+            icon={<Clock size={16} />}
             hint={
               performance.quotesAnswered > 0
                 ? `${performance.quotesWon} accepted of ${performance.quotesAnswered} answered`
@@ -295,16 +295,16 @@ export default function SellerOverview() {
         </div>
       </Section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2 [&>section]:h-full">
-          <SalesTrendPanel stats={stats} loading={loading} />
+          <SalesTrendPanel stats={stats} loading={loading} compact />
         </div>
-        <OrderStatusPanel stats={stats} loading={loading} />
+        <OrderStatusPanel stats={stats} loading={loading} compact />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <TopProductsPanel stats={stats} products={productSummaries} loading={loading} />
-        <InventoryPanel stats={stats} loading={loading} unavailable={has("products")} />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <TopProductsPanel stats={stats} products={productSummaries} loading={loading} compact />
+        <InventoryPanel stats={stats} loading={loading} unavailable={has("products")} compact />
       </div>
     </div>
   );
