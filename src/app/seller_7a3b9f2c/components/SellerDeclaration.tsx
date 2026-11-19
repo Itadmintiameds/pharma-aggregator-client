@@ -3,6 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaArrowRight, FaTimes } from 'react-icons/fa';
 import Image from 'next/image';
+import DOMPurify from 'isomorphic-dompurify';
+import { useConfirmClose } from '@/src/hooks/useConfirmClose';
+import ConfirmCloseDialog from '@/src/components/common/ConfirmCloseDialog';
+import { getLegalContent } from '@/src/services/content/ContentService';
 
 interface SellerDeclarationProps {
     onAccept: () => void;
@@ -12,12 +16,33 @@ interface SellerDeclarationProps {
 const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose }) => {
     const [isAccepted, setIsAccepted] = useState(false);
     const [hasSeenBottom, setHasSeenBottom] = useState(false);
+    const [declarationsHtml, setDeclarationsHtml] = useState<string | null>(null);
     const contentRef = useRef<HTMLDivElement>(null);
+    const { isConfirmOpen, requestClose, confirmClose, cancelClose } = useConfirmClose(onClose);
 
      useEffect(() => {
         document.body.style.overflow = 'hidden';
         return () => {
             document.body.style.overflow = 'unset';
+        };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        getLegalContent('SELLER_TERMS')
+            .then((content) => {
+                if (!cancelled && content?.content) {
+                    setDeclarationsHtml(DOMPurify.sanitize(content.content));
+                }
+            })
+            .catch(() => {
+                // Keep declarationsHtml null so the hardcoded declarations below render instead;
+                // registration must not be blocked by the terms content being unreachable.
+            });
+
+        return () => {
+            cancelled = true;
         };
     }, []);
 
@@ -275,17 +300,23 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
             {/* Semi-transparent overlay */}
             <div
                 className="absolute inset-0 backdrop-blur bg-opacity-10"
-                onClick={onClose}
+                onClick={requestClose}
+            />
+
+            <ConfirmCloseDialog
+                isOpen={isConfirmOpen}
+                onConfirm={confirmClose}
+                onCancel={cancelClose}
             />
 
             {/* Modal Container*/}
-            <div className="min-h-screen relative w-full max-w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl bg-white rounded-lg sm:rounded-2xl shadow-lg sm:shadow-2xl overflow-hidden h-[90vh] sm:h-[85vh] flex flex-col mx-2">
+            <div className="min-h-screen relative w-full max-w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl bg-white rounded-xl shadow-xl overflow-hidden h-[90vh] sm:h-[85vh] flex flex-col mx-2">
                 {/* Header */}
-                <div className="sticky top-0 z-20 bg-white border-b border-neutral-200 p-1 sm:p-2">
+                <div className="sticky top-0 z-20 bg-white border-b border-neutral-200 px-3 py-1.5">
                     <div className="flex items-center justify-between">
                         {/* Logo */}
                         <div className="flex items-center group shrink-0">
-                            <div className="relative h-8 w-24 sm:h-10 sm:w-32 md:h-12 md:w-40">
+                            <div className="relative h-8 w-24 sm:h-9 sm:w-28">
                                 <Image
                                     src="/assets/images/tiameds.logo.png"
                                     alt="TiaMeds Technologies"
@@ -299,14 +330,14 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
                         {/* Close Button */}
                         <button
                             onClick={onClose}
-                            className="p-1 sm:p-2 hover:bg-neutral-100 rounded-full transition-colors"
+                            className="p-1.5 hover:bg-neutral-100 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100" aria-label="Close"
                         >
-                            <FaTimes className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-600" />
+                            <FaTimes className="w-4 h-4 text-neutral-600" />
                         </button>
                     </div>
 
                     <div >
-                        <h1 className="text-base sm:text-xl md:text-2xl lg:text-lg font-bold text-neutral-900 text-center">
+                        <h1 className="text-sm sm:text-base font-bold text-neutral-900 text-center">
                             Seller Company Pre-Registration Mandatory Declarations & Acceptance
                         </h1>
                     </div>
@@ -315,61 +346,66 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
                 {/* Scrollable Content */}
                 <div
                     ref={contentRef}
-                    className="flex-1 overflow-y-auto p-1 sm:p-2 custom-scrollbar"
+                    className="flex-1 overflow-y-auto px-3 py-2 custom-scrollbar"
                     onScroll={handleScroll}
                 >
-                    <div className="space-y-4 sm:space-y-6">
-                        {declarations.map((declaration, index) => (
-                            <div key={index} className="border-l-2 border-primary-200 pl-3 sm:pl-4">
-                                <h2 className="text-sm sm:text-base font-bold text-neutral-900 mb-1 sm:mb-2">
-                                    {index + 1}. {declaration.title}
-                                </h2>
-                                <ul className="space-y-1 sm:space-y-2">
-                                    {declaration.items.map((item, itemIndex) => {
-                                        // Check if item starts with bullet (•) for special styling
-                                        if (item.startsWith('•')) {
+                    {declarationsHtml ? (
+                        <div
+                            className="space-y-3 text-xs sm:text-[13px] text-neutral-900 [&_h2]:text-sm [&_h2]:sm:text-base [&_h2]:font-bold [&_h2]:text-neutral-900 [&_h2]:mb-1 [&_h2]:sm:mb-2 [&_h2]:mt-4 [&_h2]:sm:mt-6 [&_h2:first-child]:mt-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-1 [&_ul]:sm:space-y-2 [&_p]:mb-2"
+                            dangerouslySetInnerHTML={{ __html: declarationsHtml }}
+                        />
+                    ) : (
+                        <div className="space-y-3">
+                            {declarations.map((declaration, index) => (
+                                <div key={index} className="border-l-2 border-primary-200 pl-3 sm:pl-4">
+                                    <h2 className="text-[13px] sm:text-sm font-bold text-neutral-900 mb-1">
+                                        {index + 1}. {declaration.title}
+                                    </h2>
+                                    <ul className="space-y-1 sm:space-y-2">
+                                        {declaration.items.map((item, itemIndex) => {
+                                            // Check if item starts with bullet (•) for special styling
+                                            if (item.startsWith('•')) {
+                                                return (
+                                                    <li key={itemIndex} className="text-neutral-700 text-xs sm:text-[13px] ml-3 sm:ml-4">
+                                                        {item}
+                                                    </li>
+                                                );
+                                            }
                                             return (
-                                                <li key={itemIndex} className="text-neutral-700 text-xs sm:text-sm ml-3 sm:ml-4">
-                                                    {item}
+                                                <li key={itemIndex} className="text-neutral-900 text-xs sm:text-[13px] flex items-start">
+                                                    <span className="mr-1 sm:mr-2 min-w-0.75 sm:min-w-1">•</span>
+                                                    <span>{item}</span>
                                                 </li>
                                             );
-                                        }
-                                        return (
-                                            <li key={itemIndex} className="text-neutral-900 text-xs sm:text-sm flex items-start">
-                                                <span className="mr-1 sm:mr-2 min-w-0.75 sm:min-w-1">•</span>
-                                                <span>{item}</span>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </div>
-                        ))}
-
-
-                    </div>
+                                        })}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Fixed Footer with Checkbox */}
-                <div className="sticky bottom-0 z-20 bg-white border-t border-neutral-200 p-4 sm:p-6">
-                    <div className="flex items-start mb-3 sm:mb-4">
+                <div className="sticky bottom-0 z-20 bg-white border-t border-neutral-200 px-4 py-3">
+                    <div className="flex items-start mb-2">
                         <input
                             type="checkbox"
                             id="declaration-acceptance"
                             checked={isAccepted}
                             onChange={handleCheckboxChange}
                             disabled={!hasSeenBottom}
-                            className="mt-0.5 sm:mt-1 w-4 h-4 sm:w-5 sm:h-5 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="mt-0.5 w-4 h-4 shrink-0 rounded border-neutral-300 text-primary-600 focus-visible:ring-2 focus-visible:ring-primary-100 disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <label
                             htmlFor="declaration-acceptance"
-                            className={`ml-2 sm:ml-3 text-xs sm:text-sm ${hasSeenBottom ? 'text-neutral-900' : 'text-neutral-400'}`}
+                            className={`ml-2 text-xs ${hasSeenBottom ? 'text-neutral-900' : 'text-neutral-400'}`}
                         >
                            I hereby confirm that I have read, understood, acknowledged, and accepted all the above declarations, obligations, compliance requirements, operational responsibilities, data protection conditions, audit provisions, and marketplace governance policies applicable to participation on the TiaMeds Marketplace platform. I further understand that any non-compliance may result in suspension, regulatory reporting, investigation, restriction of platform access, or permanent removal from the TiaMeds Marketplace platform.
                         </label>
                     </div>
 
                     {!hasSeenBottom && (
-                        <p className="text-warning-300 text-xs mb-2 sm:mb-4">
+                        <p className="text-warning-300 text-xs mb-2">
                             Please scroll to the bottom of all declarations before you can accept them
                         </p>
                     )}
@@ -378,13 +414,13 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
                     {isAccepted && hasSeenBottom && (
                         <button
                             onClick={handleContinue}
-                            className="group relative w-full px-4 py-2 sm:px-8 sm:py-3 bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm sm:text-base rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                            className="group relative w-full h-9 px-4 border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 font-semibold text-[13px] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
                         >
                             <span className="flex items-center justify-center">
                                 Click here to continue to registration page
-                                <FaArrowRight className="ml-2 sm:ml-3 w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 sm:group-hover:translate-x-2 transition-transform" />
+                                <FaArrowRight className="ml-2 w-3 h-3 group-hover:translate-x-1 transition-transform" />
                             </span>
-                            <div className="absolute inset-0 rounded-lg sm:rounded-xl bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                            
                         </button>
                     )}
 
@@ -392,7 +428,7 @@ const SellerDeclaration: React.FC<SellerDeclarationProps> = ({ onAccept, onClose
                     {(!isAccepted || !hasSeenBottom) && (
                         <button
                             disabled
-                            className="w-full px-4 py-2 sm:px-8 sm:py-3 bg-neutral-200 text-neutral-500 font-bold text-sm sm:text-base rounded-lg sm:rounded-xl cursor-not-allowed"
+                            className="w-full h-9 px-4 border-[1.5px] border-primary-900 text-primary-900 opacity-40 font-semibold text-[13px] rounded-lg cursor-not-allowed"
                         >
                             {hasSeenBottom ? 'Please accept the declarations to continue' : 'Scroll to bottom to enable acceptance'}
                         </button>

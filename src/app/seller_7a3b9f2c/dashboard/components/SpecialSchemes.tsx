@@ -8,7 +8,9 @@ import {
 import React, { forwardRef, useImperativeHandle, useState, useEffect } from "react";
 import Select, { StylesConfig } from "react-select";
 import { formatDate } from "../commonComponent/DateFormat";
-import DatePicker from "@/src/app/commonComponents/DatePicker";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 type OptionType = {
   value: string;
@@ -80,8 +82,6 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
     );
 
     const [touched, setTouched] = useState<Record<string, boolean>>({});
-    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-    const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
     useEffect(() => {
@@ -120,7 +120,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                     ),
                   );
                 }}
-                className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                className="w-4 h-4 rounded border-neutral-300 cursor-pointer"
               />
               <span>{String(getValue())}</span>
             </div>
@@ -145,20 +145,24 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
         id: "actions",
         header: "Action",
         cell: ({ row }) => (
-          <div className="flex gap-3 justify-center">
-            <img
-              src="/icons/EditIcon.svg"
-              alt="edit"
-              className="w-4 h-4 cursor-pointer"
+          <div className="flex gap-1 justify-center">
+            <button
+              type="button"
+              aria-label="Edit"
               onClick={() => handleEditRow(row.index)}
-            />
+              className="p-1.5 rounded-md hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
+            >
+              <img src="/icons/EditIcon.svg" alt="" className="w-4 h-4" />
+            </button>
 
-            <img
-              src="/icons/DeleteIcon.svg"
-              alt="delete"
-              className="w-4 h-4 cursor-pointer"
+            <button
+              type="button"
+              aria-label="Delete"
               onClick={() => handleDeleteRow(row.index)}
-            />
+              className="p-1.5 rounded-md hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
+            >
+              <img src="/icons/DeleteIcon.svg" alt="" className="w-4 h-4" />
+            </button>
           </div>
         ),
       },
@@ -176,6 +180,13 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
       const [day, month, year] = value.split("/");
 
       return new Date(Number(year), Number(month) - 1, Number(day));
+    };
+
+    const formatDateToDDMMYYYY = (date: Date | null) => {
+      if (!date) return "";
+      return `${String(date.getDate()).padStart(2, "0")}/${String(
+        date.getMonth() + 1,
+      ).padStart(2, "0")}/${date.getFullYear()}`;
     };
 
     const validateForm = (
@@ -461,18 +472,18 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
 
     return (
       <>
-        <div className="flex flex-col gap-7">
+        <div className="flex flex-col gap-3">
           {tableData.length > 0 && (
             <div>
-              <div className="border rounded-xl border-pneutral-300 overflow-hidden">
-                <table className="w-full text-label-l3 border-collapse">
+              <div className="border rounded-xl border-neutral-200 shadow-sm overflow-hidden">
+                <table className="w-full text-xs border-collapse">
                   <thead>
                     {table.getHeaderGroups().map((headerGroup) => (
                       <tr key={headerGroup.id}>
                         {headerGroup.headers.map((header) => (
                           <th
                             key={header.id}
-                            className="px-4 py-3 text-left text-label-l3 text-neutral-900 border border-pneutral-300"
+                            className="px-3 py-2 text-left text-xs font-semibold text-neutral-700 bg-neutral-50 border-b border-neutral-200"
                           >
                             {flexRender(
                               header.column.columnDef.header,
@@ -489,13 +500,13 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                       <tr
                         key={row.id}
                         className={
-                          index % 2 === 0 ? "bg-white" : "bg-pneutral-100"
+                          "bg-white hover:bg-neutral-50/60"
                         }
                       >
                         {row.getVisibleCells().map((cell) => (
                           <td
                             key={cell.id}
-                            className="px-4 py-3 border border-pneutral-300 text-center"
+                            className="px-3 py-2 border-b border-neutral-100 text-center text-neutral-800"
                           >
                             {flexRender(
                               cell.column.columnDef.cell,
@@ -509,28 +520,28 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                 </table>
               </div>
 
-              <div className="flex justify-end mt-3">
+              <div className="flex justify-end mt-2">
                 <button
                   onClick={(e) => {
                     e.preventDefault();
                     if (onSave) onSave(tableData);
                   }}
-                  className="w-33.25 h-10 border-[1.5px] rounded-lg border-secondary-700 text-secondary-700 text-lable-l3 font-medium"
+                  className="h-9 px-5 border-[1.5px] rounded-lg border-primary-900 text-primary-900 hover:bg-primary-50 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
                 >
                   Apply
                 </button>
               </div>
 
-              <div className="text-label-l4 font-semibold text-center m-3">
+              <div className="text-xs font-semibold text-neutral-500 text-center my-2">
                 OR
               </div>
             </div>
           )}
 
-          <form autoComplete="off" className="flex flex-col gap-5">
+          <form autoComplete="off" className="flex flex-col gap-3">
             <div className="flex flex-col">
               <div className="flex flex-col gap-1">
-                <label htmlFor="" className="text-label-l4 font-medium">
+                <label htmlFor="" className="text-xs font-semibold text-neutral-700">
                   Scheme Name
                 </label>
                 <input
@@ -540,7 +551,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                   value={form.schemeName}
                   onChange={handleInputChange}
                   maxLength={50}
-                  className="w-113.25 h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
+                  className="w-full h-9 border border-neutral-300 rounded-lg px-3 text-[13px] focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
                 />
                 {errors.schemeName && (
                   <p className="text-warning-500 text-xs mt-1">
@@ -551,10 +562,10 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
             </div>
 
             <div className="flex flex-col gap-2">
-              <div className="text-label-l5 font-medium">DISCOUNT DETAILS</div>
+              <div className="text-[13px] font-bold text-neutral-800">DISCOUNT DETAILS</div>
               <div className="flex gap-3">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="" className="text-label-l4 font-medium">
+                <div className="flex flex-col gap-1 flex-1 min-w-0">
+                  <label htmlFor="" className="text-xs font-semibold text-neutral-700">
                     Buy Quantity
                   </label>
 
@@ -564,7 +575,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                     id="buyQuantity"
                     value={form.buyQuantity || ""}
                     onChange={handleInputChange}
-                    className="w-[220.5px] h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
+                    className="w-full h-9 border border-neutral-300 rounded-lg px-3 text-[13px] focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
                   />
                   {errors.buyQuantity && (
                     <p className="text-warning-500 text-xs mt-1">
@@ -572,8 +583,8 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                     </p>
                   )}
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="" className="text-label-l4 font-medium">
+                <div className="flex flex-col gap-1 flex-1 min-w-0">
+                  <label htmlFor="" className="text-xs font-semibold text-neutral-700">
                     Free Quantity
                   </label>
                   <input
@@ -582,7 +593,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                     id="freeQuantity"
                     value={form.freeQuantity || ""}
                     onChange={handleInputChange}
-                    className="w-[220.5px] h-12 border border-pneutral-300 rounded-lg p-4 focus:outline-none"
+                    className="w-full h-9 border border-neutral-300 rounded-lg px-3 text-[13px] focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
                   />
 
                   {errors.freeQuantity && (
@@ -595,83 +606,71 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
             </div>
 
             <div className="flex flex-col gap-2">
-              <div className="text-label-l5 font-medium">VALIDITY PERIOD</div>
+              <div className="text-[13px] font-bold text-neutral-800">VALIDITY PERIOD</div>
               <div className="flex flex-col gap-1">
                 <label
                   htmlFor=""
-                  className="text-label-l4 font-medium  text-pneutral-700"
+                  className="text-xs font-semibold text-neutral-700"
                 >
                   Start Date
                 </label>
                 <div className="flex gap-3">
-                  <div className="relative flex flex-col">
-                    <input
-                      type="text"
-                      name="effectiveStartDate"
-                      id="effectiveStartDate"
-                      readOnly
-                      disabled={alwaysActive}
-                      placeholder="dd/mm/yyyy"
-                      value={form.effectiveStartDate || ""}
-                      onClick={() =>
-                        !alwaysActive && setShowStartDatePicker(true)
-                      }
-                      className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
-                        alwaysActive
-                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                          : "border-pneutral-300 cursor-pointer"
-                      }`}
-                    />
+                  <div className="relative flex flex-col flex-1 min-w-0">
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={parseDate(form.effectiveStartDate || "")}
+                        disabled={alwaysActive}
+                        format="dd/MM/yyyy"
+                        onChange={(date) => {
+                          const formattedDate = formatDateToDDMMYYYY(date);
 
-                    {showStartDatePicker && (
-                      <div className="absolute bottom-full left-0 mb-2 z-50">
-                        <DatePicker
-                          selectedDate={
-                            form.effectiveStartDate
-                              ? new Date(
-                                  form.effectiveStartDate
-                                    .split("/")
-                                    .reverse()
-                                    .join("-"),
-                                )
-                              : new Date()
-                          }
-                          onSelect={(date) => {
-                            const formattedDate = `${String(
-                              date.getDate(),
-                            ).padStart(2, "0")}/${String(
-                              date.getMonth() + 1,
-                            ).padStart(2, "0")}/${date.getFullYear()}`;
+                          const updatedForm = {
+                            ...form,
+                            effectiveStartDate: formattedDate,
+                          };
 
-                            const updatedForm = {
-                              ...form,
-                              effectiveStartDate: formattedDate,
-                            };
+                          setForm(updatedForm);
 
-                            setForm(updatedForm);
+                          setTouched((prev) => ({
+                            ...prev,
+                            effectiveStartDate: true,
+                          }));
 
-                            setTouched((prev) => ({
-                              ...prev,
-                              effectiveStartDate: true,
-                            }));
+                          const validationErrors = validateForm(
+                            updatedForm,
+                            "effectiveStartDate",
+                          );
 
-                            const validationErrors = validateForm(
-                              updatedForm,
-                              "effectiveStartDate",
-                            );
-
-                            setErrors((prev) => ({
-                              ...prev,
-                              effectiveStartDate:
-                                validationErrors.effectiveStartDate || "",
-                            }));
-
-                            setShowStartDatePicker(false);
-                          }}
-                          onClose={() => setShowStartDatePicker(false)}
-                        />
-                      </div>
-                    )}
+                          setErrors((prev) => ({
+                            ...prev,
+                            effectiveStartDate:
+                              validationErrors.effectiveStartDate || "",
+                          }));
+                        }}
+                        slotProps={{
+                          field: {
+                            clearable: true,
+                          },
+                          actionBar: {
+                            actions: ["clear"],
+                          },
+                          textField: {
+                            placeholder: "dd/mm/yyyy",
+                            error: !!errors.effectiveStartDate,
+                            sx: {
+                              width: "100%",
+                              "& .MuiOutlinedInput-root": {
+                                height: "36px",
+                                borderRadius: "8px",
+                              },
+                              "& .clearButton": {
+                                opacity: "1 !important",
+                              },
+                            },
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
 
                     {errors.effectiveStartDate && (
                       <p className="text-warning-500 text-xs mt-1">
@@ -680,7 +679,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                     )}
                   </div>
 
-                  <div className="flex flex-col">
+                  <div className="flex flex-col flex-1 min-w-0">
                     <input
                       type="time"
                       name="effectiveStartTime"
@@ -688,10 +687,10 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                       value={form.effectiveStartTime || ""}
                       onChange={handleInputChange}
                       disabled={alwaysActive}
-                      className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                      className={`w-full h-9 border rounded-lg px-3 text-[13px] focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${
                         alwaysActive
-                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                          : "border-pneutral-300"
+                          ? "bg-neutral-100 cursor-not-allowed border-neutral-200"
+                          : "border-neutral-300"
                       }`}
                     />
                     {errors.effectiveStartTime && (
@@ -706,79 +705,67 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
               <div className="flex flex-col gap-1">
                 <label
                   htmlFor=""
-                  className="text-label-l3=4 font-medium text-pneutral-700"
+                  className="text-xs font-semibold text-neutral-700"
                 >
                   End Date
                 </label>
                 <div className="flex gap-3">
-                  <div className="relative flex flex-col">
-                    <input
-                      type="text"
-                      name="effectiveEndDate"
-                      id="effectiveEndDate"
-                      readOnly
-                      disabled={alwaysActive}
-                      placeholder="dd/mm/yyyy"
-                      value={form.effectiveEndDate || ""}
-                      onClick={() =>
-                        !alwaysActive && setShowEndDatePicker(true)
-                      }
-                      className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
-                        alwaysActive
-                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                          : "border-pneutral-300 cursor-pointer"
-                      }`}
-                    />
+                  <div className="relative flex flex-col flex-1 min-w-0">
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        value={parseDate(form.effectiveEndDate || "")}
+                        disabled={alwaysActive}
+                        format="dd/MM/yyyy"
+                        onChange={(date) => {
+                          const formattedDate = formatDateToDDMMYYYY(date);
 
-                    {showEndDatePicker && (
-                      <div className="absolute bottom-full left-0 mb-2 z-50">
-                        <DatePicker
-                          selectedDate={
-                            form.effectiveEndDate
-                              ? new Date(
-                                  form.effectiveEndDate
-                                    .split("/")
-                                    .reverse()
-                                    .join("-"),
-                                )
-                              : new Date()
-                          }
-                          onSelect={(date) => {
-                            const formattedDate = `${String(
-                              date.getDate(),
-                            ).padStart(2, "0")}/${String(
-                              date.getMonth() + 1,
-                            ).padStart(2, "0")}/${date.getFullYear()}`;
+                          const updatedForm = {
+                            ...form,
+                            effectiveEndDate: formattedDate,
+                          };
 
-                            const updatedForm = {
-                              ...form,
-                              effectiveEndDate: formattedDate,
-                            };
+                          setForm(updatedForm);
 
-                            setForm(updatedForm);
+                          setTouched((prev) => ({
+                            ...prev,
+                            effectiveEndDate: true,
+                          }));
 
-                            setTouched((prev) => ({
-                              ...prev,
-                              effectiveEndDate: true,
-                            }));
+                          const validationErrors = validateForm(
+                            updatedForm,
+                            "effectiveEndDate",
+                          );
 
-                            const validationErrors = validateForm(
-                              updatedForm,
-                              "effectiveEndDate",
-                            );
-
-                            setErrors((prev) => ({
-                              ...prev,
-                              effectiveEndDate:
-                                validationErrors.effectiveEndDate || "",
-                            }));
-
-                            setShowEndDatePicker(false);
-                          }}
-                          onClose={() => setShowEndDatePicker(false)}
-                        />
-                      </div>
-                    )}
+                          setErrors((prev) => ({
+                            ...prev,
+                            effectiveEndDate:
+                              validationErrors.effectiveEndDate || "",
+                          }));
+                        }}
+                        slotProps={{
+                          field: {
+                            clearable: true,
+                          },
+                          actionBar: {
+                            actions: ["clear"],
+                          },
+                          textField: {
+                            placeholder: "dd/mm/yyyy",
+                            error: !!errors.effectiveEndDate,
+                            sx: {
+                              width: "100%",
+                              "& .MuiOutlinedInput-root": {
+                                height: "36px",
+                                borderRadius: "8px",
+                              },
+                              "& .clearButton": {
+                                opacity: "1 !important",
+                              },
+                            },
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
 
                     {errors.effectiveEndDate && (
                       <p className="text-warning-500 text-xs mt-1">
@@ -787,7 +774,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                     )}
                   </div>
 
-                  <div className="flex flex-col">
+                  <div className="flex flex-col flex-1 min-w-0">
                     <input
                       type="time"
                       name="effectiveEndTime"
@@ -795,10 +782,10 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
                       value={form.effectiveEndTime || ""}
                       onChange={handleInputChange}
                       disabled={alwaysActive}
-                      className={`w-[220.5px] h-12 border rounded-lg p-4 focus:outline-none ${
+                      className={`w-full h-9 border rounded-lg px-3 text-[13px] focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${
                         alwaysActive
-                          ? "bg-pneutral-100 cursor-not-allowed border-pneutral-200"
-                          : "border-pneutral-300"
+                          ? "bg-neutral-100 cursor-not-allowed border-neutral-200"
+                          : "border-neutral-300"
                       }`}
                     />
                     {errors.effectiveEndTime && (
@@ -811,7 +798,7 @@ const SpecialSchemes = forwardRef<SpecialSchemesRef, SpecialSchemesProps>(
               </div>
             </div>
           </form>
-          <div className="text-label-l3 font-medium text-neutral-700">
+          <div className="text-xs text-neutral-500">
             This discount will apply for orders above (MPQ to MXPQ) units from
             (Start Date & Time to End Date & Time)
           </div>

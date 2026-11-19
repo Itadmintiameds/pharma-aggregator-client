@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Seller User Service — schema consolidation and deployment topology</title>
+<link rel="stylesheet" href="../assets/doc.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">Seller User Service — schema consolidation and deployment topology</h1>
+    <p class="dek">What Seller User owns today across three parallel entity packages, how those collapse into one service schema, and why this service sits in the single-writer bucket rather than active-active.</p>
+    <div class="meta-row">
+      <span><b>Status:</b> Draft</span>
+      <span><b>Owns:</b> Seller User Service (§3 of HLD)</span>
+      <span><b>Last updated:</b> 2026-09-02</span>
+      <span><a href="../index.html">&larr; back to service index</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#overview">01 Overview</a>
+      <a href="#data">02 Data ownership</a>
+      <a href="#comms">03 Communication</a>
+      <a href="#arch">04 Architecture diagram</a>
+      <a href="#deploy">05 Deployment</a>
+      <a href="#scaling">06 Scaling &amp; region topology</a>
+      <a href="#decisions">07 Decisions</a>
+    </nav>
+  </header>
+
+  <section id="overview">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Overview</h2>
+    </div>
+    <p class="lede">Seller User owns the seller's identity end to end: profile, registration, onboarding documents, bank details, and the seller/coordinator auth surface that Order, Quotation, and Product all lean on to answer "is this seller allowed to act." Nothing about a seller's catalog or transactions lives here — only who they are and whether they're approved.</p>
+    <p>Traffic is bursty rather than steady: registration and document upload spike around onboarding windows (new seller cohorts, re-verification pushes) and go quiet in between. Document upload in particular is I/O heavy, not CPU heavy — the work is streaming files to S3 and writing metadata rows, not computation — so this service scales on request queue depth, not on CPU utilization. Sizing it like a compute-bound service would leave it either idle and over-provisioned or backed up during exactly the windows it needs to hold up.</p>
+  </section>
+
+  <section id="data">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Data ownership</h2>
+    </div>
+    <p>The current monolith spreads seller data across three entity packages — roughly 21 tables — that this service must absorb into one schema.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Table</th><th>Package</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>tbl_seller</code></td><td>entity/seller</td><td>Live, approved seller record — the row Order/Quotation/Product eligibility checks resolve against.</td></tr>
+          <tr><td><code>tbl_seller_gst</code></td><td>entity/seller</td><td>GST registration details for a live seller.</td></tr>
+          <tr><td><code>tbl_seller_document</code></td><td>entity/seller</td><td>Approved onboarding documents, post-verification copies.</td></tr>
+          <tr><td><code>tbl_seller_bank_details</code></td><td>entity/seller</td><td>Live bank/payout details, validated against IFSC lookup.</td></tr>
+          <tr><td><code>tbl_seller_address</code></td><td>entity/seller</td><td>Registered business address(es) for a live seller.</td></tr>
+          <tr><td><code>tbl_seller_coordinator</code></td><td>entity/seller</td><td>Named coordinator/contact person on the account, shares the auth surface below.</td></tr>
+          <tr><td><code>tbl_seller_history</code></td><td>entity/seller</td><td>Audit trail of changes to a live seller record.</td></tr>
+          <tr><td><code>tbl_pending_seller</code></td><td>entity/seller (profile)</td><td>Seller record awaiting admin approval — a distinct lifecycle stage from both temp and live.</td></tr>
+          <tr><td><code>tbl_pending_seller_document</code></td><td>entity/seller (profile)</td><td>Documents attached to a pending-approval seller.</td></tr>
+          <tr><td><code>tbl_temp_seller</code></td><td>entity/temp/seller</td><td>In-progress registration, before submission for approval.</td></tr>
+          <tr><td><code>tbl_temp_seller_document</code></td><td>entity/temp/seller</td><td>Documents uploaded mid-registration, not yet reviewed.</td></tr>
+          <tr><td><code>tbl_temp_seller_bank_details</code></td><td>entity/temp/seller</td><td>Bank details captured during registration, pre-approval.</td></tr>
+          <tr><td><code>tbl_temp_seller_coordinator</code></td><td>entity/temp/seller</td><td>Coordinator details captured during registration.</td></tr>
+          <tr><td><code>tbl_temp_seller_address</code></td><td>entity/temp/seller</td><td>Address captured during registration.</td></tr>
+          <tr><td><code>tbl_temp_seller_email_otp</code></td><td>entity/temp/seller</td><td>Email verification OTP for registration flow.</td></tr>
+          <tr><td><code>tbl_temp_seller_review_history</code></td><td>entity/temp/seller</td><td>Reviewer actions/comments on a temp registration.</td></tr>
+          <tr><td><code>phone_otp</code></td><td>entity/temp/seller</td><td>Phone verification OTP, registration flow.</td></tr>
+          <tr><td><code>tbl_terms_master</code></td><td>entity/temp/seller</td><td>Legal terms content shown at registration — placed here but not actually seller-specific; see open question below.</td></tr>
+          <tr><td><code>tbl_user</code></td><td>entity/auth</td><td>Shared login identity, used by both seller and coordinator accounts.</td></tr>
+          <tr><td><code>tbl_signup_otp</code></td><td>entity/auth</td><td>Signup OTP, shared auth table.</td></tr>
+          <tr><td><code>tbl_refresh_tokens</code></td><td>entity/auth</td><td>Refresh token store, shared auth table.</td></tr>
+          <tr><td><code>tbl_login_otp</code></td><td>entity/auth</td><td>Login OTP, shared auth table.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout"><b>Open question — <code>tbl_terms_master</code> is misplaced:</b> it lives under <code>entity/temp/seller</code> today but its content (legal terms/conditions text) is shared, not seller-specific — Buyer registration presumably needs the same terms. It shouldn't ship inside Seller User's schema as-is; it belongs in a shared legal-content table, referenced by both Seller User and Buyer User rather than owned by either.</div>
+
+    <div class="callout"><b>Three lifecycles, one schema:</b> a seller record today moves through <b>Temp &rarr; Pending &rarr; live Seller</b> across three separate table families with independent primary keys. Consolidating into Seller User Service means picking a single seller identity that persists across all three stages (a state column, not three tables), rather than carrying the three-way split forward into the new service. This is a real migration task, not a rename — it touches every FK that currently points at whichever of the three tables a given feature happened to be built against.</div>
+
+    <p>Also flag: <code>tbl_ifsc_overrides</code> (bank-IFSC lookup) sits in its own <code>entity/ifsc</code> package today but exists purely to validate <code>tbl_seller_bank_details</code>/<code>tbl_temp_seller_bank_details</code> — no other domain reads it. It's a candidate to fold into Seller User's schema rather than staying a standalone package.</p>
+
+    <p>Both Seller User and Buyer User FK into shared master tables — <code>tbl_state_master</code>, <code>tbl_district_master</code>, <code>tbl_taluka_master</code>, <code>tbl_seller_type_master</code>/<code>tbl_buyer_type_master</code>, <code>tbl_document_type_master</code>. These stay a shared read-only reference module per the HLD, not a numbered service of their own, and get cached at the edge since they change on the order of months, not requests.</p>
+  </section>
+
+  <section id="comms">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Communication</h2>
+    </div>
+    <p class="lede">Seller User is called far more than it calls out — the dominant traffic pattern is other services asking "is this seller approved," not Seller User reaching into anyone else's data.</p>
+
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-sync">Sync</span> Inbound eligibility lookups</h3>
+        <div class="when">on nearly every write path elsewhere</div>
+        <ul>
+          <li>Order Management &rarr; Seller User: is this seller active/approved before accepting an order line against them.</li>
+          <li>Quotation Management &rarr; Seller User: same eligibility check before a quotation can be issued.</li>
+          <li>Product Management &rarr; Seller User: seller-approval check before a listing can be published or updated.</li>
+          <li>These are read-only and called at high frequency relative to Seller User's own write volume — they should be cached aggressively (short TTL, invalidated on approval-status change) rather than hitting the seller table on every call.</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h3><span class="phase-tag tag-async">Platform</span> Boot-time platform calls</h3>
+        <div class="when">on service startup, not business traffic</div>
+        <ul>
+          <li>Registers itself with Discovery Service so Order/Quotation/Product can resolve it without hardcoded endpoints.</li>
+          <li>Pulls environment config from Config Service at boot — DB connection details, S3 bucket names, feature flags.</li>
+          <li>These are platform plumbing, not part of the seller-eligibility request path, and shouldn't be conflated with the sync business calls above.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="arch">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Architecture diagram</h2>
+    </div>
+    <p>Simplified to the calls that matter for capacity planning: three callers doing high-frequency eligibility checks against one service, backed by its consolidated data.</p>
+
+    <div class="arch-diagram">
+      <svg viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg">
+        <rect class="node-box self" x="270" y="115" width="150" height="70" rx="6"></rect>
+        <text class="node-label" x="345" y="145" text-anchor="middle">Seller User</text>
+        <text class="node-sub" x="345" y="162" text-anchor="middle">profile · auth · docs</text>
+
+        <rect class="node-box" x="470" y="20" width="170" height="50" rx="6"></rect>
+        <text class="node-label" x="555" y="41" text-anchor="middle">Order Management</text>
+        <text class="node-sub" x="555" y="56" text-anchor="middle">eligibility check</text>
+
+        <rect class="node-box" x="470" y="125" width="170" height="50" rx="6"></rect>
+        <text class="node-label" x="555" y="146" text-anchor="middle">Quotation Management</text>
+        <text class="node-sub" x="555" y="161" text-anchor="middle">eligibility check</text>
+
+        <rect class="node-box" x="470" y="230" width="170" height="50" rx="6"></rect>
+        <text class="node-label" x="555" y="251" text-anchor="middle">Product Management</text>
+        <text class="node-sub" x="555" y="266" text-anchor="middle">approval check</text>
+
+        <rect class="node-box" x="30" y="20" width="180" height="50" rx="6"></rect>
+        <text class="node-label" x="120" y="41" text-anchor="middle">Seller/coordinator schema</text>
+        <text class="node-sub" x="120" y="56" text-anchor="middle">tbl_seller, tbl_seller_*</text>
+
+        <rect class="node-box" x="30" y="125" width="180" height="50" rx="6"></rect>
+        <text class="node-label" x="120" y="146" text-anchor="middle">Onboarding schema</text>
+        <text class="node-sub" x="120" y="161" text-anchor="middle">temp_seller, pending_seller</text>
+
+        <rect class="node-box" x="30" y="230" width="180" height="50" rx="6"></rect>
+        <text class="node-label" x="120" y="251" text-anchor="middle">Auth schema</text>
+        <text class="node-sub" x="120" y="266" text-anchor="middle">tbl_user, refresh_tokens</text>
+
+        <path class="edge-sync" d="M270,140 L470,45" marker-end="url(#arrow)"></path>
+        <path class="edge-sync" d="M270,150 L470,150" marker-end="url(#arrow)"></path>
+        <path class="edge-sync" d="M270,160 L470,255" marker-end="url(#arrow)"></path>
+        <text class="edge-label" x="380" y="80">sync</text>
+        <text class="edge-label" x="380" y="200">sync</text>
+
+        <path class="edge-sync" d="M210,45 L270,130"></path>
+        <path class="edge-sync" d="M210,150 L270,150"></path>
+        <path class="edge-sync" d="M210,255 L270,170"></path>
+
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 z" fill="var(--sync)"></path>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="arch-legend">
+      <span><span class="swatch sync"></span>sync request (eligibility/approval check)</span>
+      <span><span class="swatch async"></span>async / platform (not shown — Discovery + Config at boot)</span>
+    </div>
+  </section>
+
+  <section id="deploy">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Deployment</h2>
+    </div>
+    <p>ECS Fargate for the API, Aurora PostgreSQL for the consolidated schema, S3 for document storage — the existing <code>S3Service</code> in the codebase already targets this pattern, so document upload doesn't need a new storage integration, just a new bucket and IAM boundary per service.</p>
+
+    <span class="file-tab">modules/seller-user-service/main.tf</span>
+    <pre><span class="c">// region as a variable, one module call per region — same pattern as Search</span>
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"seller_user"</span> {
+  cluster_identifier      = <span class="s">"seller-user-${var.region_short}-${var.environment}"</span>
+  engine                  = <span class="s">"aurora-postgresql"</span>
+  engine_version          = <span class="s">"15.4"</span>
+  master_username         = var.db_master_username
+  master_password         = var.db_master_password
+  db_subnet_group_name    = var.db_subnet_group
+  vpc_security_group_ids  = [aws_security_group.seller_user_db_sg.id]
+  backup_retention_period = <span class="k">7</span>
+  storage_encrypted       = <span class="k">true</span>
+
+  <span class="c">// single writer — no reader-scaled autoscaling policy here,</span>
+  <span class="c">// see §06: this service is correctness-sensitive, not read-scaled</span>
+}
+
+resource <span class="s">"aws_rds_cluster_instance"</span> <span class="s">"writer"</span> {
+  cluster_identifier = aws_rds_cluster.seller_user.id
+  instance_class     = var.db_instance_class
+  engine             = aws_rds_cluster.seller_user.engine
+}
+
+resource <span class="s">"aws_s3_bucket"</span> <span class="s">"seller_documents"</span> {
+  bucket = <span class="s">"pharma-seller-docs-${var.region_short}-${var.environment}"</span>
+}
+
+resource <span class="s">"aws_s3_bucket_server_side_encryption_configuration"</span> <span class="s">"seller_documents"</span> {
+  bucket = aws_s3_bucket.seller_documents.id
+  rule {
+    apply_server_side_encryption_by_default { sse_algorithm = <span class="s">"aws:kms"</span> }
+  }
+}
+
+module <span class="s">"seller_user_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"seller-user"</span>
+  image         = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  desired_count = var.task_count
+  cpu           = <span class="k">512</span>
+  memory        = <span class="k">1024</span>
+  autoscale_on  = <span class="s">"request_queue_depth"</span> <span class="c">// I/O-bound doc upload, not CPU — see §01</span>
+}</pre>
+
+    <span class="file-tab">envs/ap-southeast-1/seller-user.tfvars</span>
+    <pre>region_short      = <span class="s">"apse1"</span>
+db_instance_class = <span class="s">"db.r6g.large"</span>
+task_count        = <span class="k">2</span></pre>
+  </section>
+
+  <section id="scaling">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>Scaling &amp; region topology</h2>
+    </div>
+    <p class="lede">Seller User sits in the HLD's <b>single-writer with warm standby</b> bucket, not active-active — the opposite topology from Product/Search. That's a deliberate call, not a default.</p>
+    <p>Registration and auth are correctness-sensitive: two regions independently accepting seller registrations or issuing refresh tokens against divergent copies of <code>tbl_seller</code>/<code>tbl_user</code> creates split-brain identity data that's expensive to reconcile after the fact (duplicate sellers, conflicting approval states, tokens that don't match). Product and Search can run active-active because a stale read of a listing is cheap to tolerate and self-heals from an event stream; a stale or conflicting write to seller identity is not something that self-heals — it needs a human to reconcile. So the tradeoff here is deliberately correctness over read scale: one writer region, one warm standby.</p>
+    <p>Failover is a controlled Aurora promotion, not an instant DNS flip: the standby cluster is kept warm (replicating, right-sized, but not accepting writes), and a region failure triggers a runbook-driven promotion of the standby to writer, then a Route 53 cutover once promotion confirms healthy. This is minutes, not seconds — an acceptable cost for a service where accepting writes against an unpromoted, possibly-lagging replica is worse than a short outage.</p>
+
+    <div class="cost-strip">
+      <div class="cost-item">
+        <div class="lbl">Writer region floor</div>
+        <div class="fig">2 tasks</div>
+        <div class="note">Fargate HA minimum, autoscaling on request queue depth above that</div>
+      </div>
+      <div class="cost-item">
+        <div class="lbl">Standby region floor</div>
+        <div class="fig">1 task + replica</div>
+        <div class="note">warm enough to promote quickly, not sized for production traffic until promoted</div>
+      </div>
+      <div class="cost-item">
+        <div class="lbl">Failover time</div>
+        <div class="fig">minutes</div>
+        <div class="note">controlled Aurora promotion, not instant — see rationale above</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2>Decisions worth writing down</h2>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — one seller identity, three lifecycle states</span>
+      <h4>Collapse Temp/Pending/Live into a single schema with a status column</h4>
+      <p>The current <code>tbl_temp_seller</code> &rarr; <code>tbl_pending_seller</code> &rarr; <code>tbl_seller</code> chain is three tables with independent keys standing in for what is really one entity moving through registration states. Seller User Service should model this as one <code>seller</code> table (plus its child tables for documents/bank/address/coordinator) carrying a <code>lifecycle_status</code> enum, with history preserved in the existing <code>tbl_seller_history</code>/<code>tbl_temp_seller_review_history</code> pattern rather than in separate parallel tables per stage. This beats keeping three tables because every consumer of "give me this seller" currently has to know which of three tables to check depending on approval state — that branching logic disappears once there's one identity.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — standardize on Buyer's per-domain auth pattern</span>
+      <h4>Seller User should adopt dedicated auth tables, not keep sharing <code>entity/auth</code></h4>
+      <p>Today Seller reuses a generic <code>tbl_user</code>/<code>tbl_refresh_tokens</code>/<code>tbl_signup_otp</code>/<code>tbl_login_otp</code> package shared with coordinator login, while Buyer already has its own <code>tbl_buyer_signup_otp</code>, <code>tbl_buyer_login_otp</code>, <code>tbl_buyer_refresh_tokens</code>. Once both are separate services, a shared <code>entity/auth</code> package becomes a cross-service dependency that defeats the point of splitting them — Seller User would have to call into whatever owns the generic auth tables (or that package becomes an awkward third service) just to issue its own tokens. Recommendation: Seller User forks its own auth tables scoped to seller + coordinator logins, following Buyer's existing pattern, rather than the reverse. It's less churn overall — Buyer's pattern is already proven in production — and it keeps each service's auth data inside its own schema boundary, which is the whole point of the split.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — fold IFSC overrides in, carve terms master out</span>
+      <h4><code>tbl_ifsc_overrides</code> moves into Seller User; <code>tbl_terms_master</code> moves to shared legal content</h4>
+      <p><code>tbl_ifsc_overrides</code> exists solely to validate Seller's bank-details entry and has no other reader — it belongs inside Seller User's schema rather than its own standalone package, so bank-details validation doesn't require a cross-service call for what is effectively a lookup table scoped to one feature. <code>tbl_terms_master</code>, despite living under <code>entity/temp/seller</code> today, holds legal content that Buyer registration will need too — it should not become part of either service's owned schema and instead move to the shared reference module alongside the state/district/document-type masters, read-only and cached the same way.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; Seller User Service</span>
+    <span><a href="../index.html">Service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,150 @@
+sequenceDiagram
+    autonumber
+
+    actor Buyer
+    participant BuyerUI as Buyer UI<br/>(checkout/page.tsx,<br/>orders/page.tsx,<br/>OrderDetailContent.tsx)
+    participant OrderCtrl as OrderController<br/>(/orders)
+    participant PlaceSvc as OrderPlacementServiceImpl
+    participant StockSvc as StockService<br/>(FIFO debit/restock)
+    participant OrderDB as Order / SellerOrder /<br/>OrderItem / Payment (DB)
+
+    actor Seller
+    participant SellerUI as Seller UI<br/>(seller_7a3b9f2c/orders/page.tsx)
+    participant SOCtrl as SellerOrderController<br/>(/seller-orders)
+    participant FulfillSvc as SellerOrderFulfillmentServiceImpl
+    participant Twilio as TwilioOTPService
+
+    participant InvCtrl as InvoiceController<br/>(/invoices)
+    participant InvSvc as InvoiceServiceImpl
+    participant S3 as S3Service
+
+    participant PayCtrl as PaymentController<br/>(/payments)
+
+    participant APIClient as No frontend caller found<br/>(returns/refunds/invoices/payments<br/>are backend-only today)
+    participant RetCtrl as ReturnController<br/>(/returns)
+    participant RetSvc as ReturnRefundServiceImpl
+    participant CancelSvc as OrderCancellationServiceImpl
+
+    Note over OrderCtrl,RetCtrl: SecurityConfig.filterChain = anyRequest().permitAll()<br/>(no @PreAuthorize anywhere in this flow) — only<br/>SellerOrderController resolves the actor from the JWT;<br/>everywhere else actorId/buyerId/sellerId is trusted from the request body.
+
+    %% ============ 1. ORDER PLACEMENT ============
+    rect rgb(235,245,255)
+    Note over Buyer,OrderDB: 1. ORDER PLACEMENT — POST /orders (real UI: checkout/page.tsx -> orderService.placeOrder)
+    Buyer->>BuyerUI: Checkout cart (or "Place Order" from an ACCEPTED QuoteRequest)
+    BuyerUI->>OrderCtrl: POST /orders {buyerId, lines[] or quoteRequestId, idempotencyKey}
+    OrderCtrl->>PlaceSvc: placeOrder(request)
+    alt idempotencyKey already used
+        PlaceSvc-->>OrderCtrl: return the ORIGINAL Order unchanged (no duplicate)
+    else new order
+        PlaceSvc->>PlaceSvc: resolve product/seller/packaging server-side per line<br/>(sellerId never trusted from client)
+        PlaceSvc->>StockSvc: hasSufficientStock() then debitStock() (FIFO, per line)
+        StockSvc-->>PlaceSvc: debited batches (1 line may span multiple batches)
+        Note right of PlaceSvc: A line that can't be fulfilled is dropped into<br/>rejectedLines instead of failing the whole order<br/>(BadRequestException only if EVERY line fails)
+        PlaceSvc->>PlaceSvc: group resulting OrderItems by sellerId<br/>(LinkedHashMap) -> build one SellerOrder per seller<br/>id = SORD-{orderId-suffix}-{seq}, status=PLACED
+        PlaceSvc->>OrderDB: save Order (status=OrderStatus.PLACED,<br/>id=ORD-yyyyMMdd-##### via pg advisory lock 98765)
+        PlaceSvc->>OrderDB: save Payment (provider=COD,<br/>status=PaymentStatus.SUCCESS, paidAt=now,<br/>id=PAY-yyyyMMdd-##### via advisory lock 98766)
+        Note right of OrderDB: COD-only build, no gateway/webhook —<br/>every order is settled SUCCESS immediately.<br/>Invoice is NOT generated here (only on delivery).
+        PlaceSvc-->>OrderCtrl: OrderResponseDTO (+ rejectedLines[])
+    end
+    OrderCtrl-->>BuyerUI: 201 Created
+    BuyerUI-->>Buyer: order confirmation
+    end
+
+    %% ============ 2. SELLER-ORDER FULFILLMENT ============
+    rect rgb(235,255,240)
+    Note over Seller,Twilio: 2. SELLER-ORDER FULFILLMENT — real UI: seller_7a3b9f2c/orders/page.tsx -> sellerOrderService.ts
+    Seller->>SellerUI: Confirm order
+    SellerUI->>SOCtrl: PATCH /seller-orders/{id}/confirm (JWT -> sellerId, ownership checked)
+    SOCtrl->>FulfillSvc: confirm(sellerOrderId, sellerId)
+    FulfillSvc->>FulfillSvc: require PLACED -> set CONFIRMED,<br/>write OrderStatusHistory, recompute Order rollup
+    FulfillSvc-->>SellerUI: SellerOrder(CONFIRMED)
+
+    SellerUI->>SOCtrl: PATCH /seller-orders/{id}/pack
+    SOCtrl->>FulfillSvc: pack(): require CONFIRMED -> PACKED
+
+    SellerUI->>SOCtrl: PATCH /seller-orders/{id}/ship {courierName, trackingNumber, trackingUrl}
+    SOCtrl->>FulfillSvc: ship(): require PACKED -> SHIPPED (records courier info)
+
+    SellerUI->>SOCtrl: PATCH /seller-orders/{id}/out-for-delivery
+    SOCtrl->>FulfillSvc: markOutForDelivery(): require SHIPPED -> OUT_FOR_DELIVERY
+    FulfillSvc->>Twilio: sendOTP(buyer delivery phone) [best-effort, failure only logged]
+
+    Seller->>SellerUI: Buyer reads OTP aloud at doorstep
+    opt buyer says OTP never arrived
+        SellerUI->>SOCtrl: PATCH /seller-orders/{id}/resend-delivery-otp
+        SOCtrl->>FulfillSvc: resendDeliveryOtp() (only while OUT_FOR_DELIVERY, not a status transition)
+        FulfillSvc->>Twilio: sendOTP() again (failure IS surfaced this time)
+    end
+
+    SellerUI->>SOCtrl: PATCH /seller-orders/{id}/deliver {otp}
+    SOCtrl->>FulfillSvc: markDelivered(sellerOrderId, sellerId, otp)
+    FulfillSvc->>Twilio: verifyOTP(phone, otp)
+    Twilio-->>FulfillSvc: valid (else BadRequestException BEFORE any state mutation)
+    FulfillSvc->>InvSvc: generateInvoiceWithPdfBytes(sellerOrderId) [best-effort,<br/>try/catch — a PDF/S3 failure never blocks DELIVERED]
+    InvSvc->>S3: uploadFileFromResource(invoice PDF)
+    InvSvc->>OrderDB: save Invoice (INV-{sellerId}-{FYstartYY}{FYendYY}-#####,<br/>one per SellerOrder, sequential per seller per FY)
+    FulfillSvc->>OrderDB: SellerOrder OUT_FOR_DELIVERY -> DELIVERED,<br/>deliveredAt=now, recompute Order rollup
+    FulfillSvc-->>SellerUI: SellerOrder(DELIVERED)
+    end
+
+    %% ============ 3. INVOICE (manual/idempotent path) ============
+    rect rgb(255,250,230)
+    Note over APIClient,S3: 3. INVOICE — no frontend UI calls this;<br/>only reachable via a direct API client
+    APIClient->>InvCtrl: POST /invoices/generate/{sellerOrderId}
+    InvCtrl->>InvSvc: generateInvoice()
+    alt Invoice already exists for this SellerOrder
+        InvSvc->>S3: GET existing PDF bytes (plain java.net.http.HttpClient)
+        InvSvc-->>InvCtrl: same Invoice (idempotent — no duplicate numbering)
+    else no invoice yet
+        InvSvc->>OrderDB: create Invoice as in step 2
+    end
+    APIClient->>InvCtrl: GET /invoices/{invoiceId}
+    InvCtrl-->>APIClient: invoiceNumber, invoiceFileUrl, generatedAt
+
+    APIClient->>PayCtrl: GET /payments/{paymentId}
+    PayCtrl-->>APIClient: Payment row (read-only; class javadoc says<br/>no gateway/webhook is integrated — COD-only)
+    end
+
+    %% ============ 4. CANCELLATION (alternate path, pre-delivery) ============
+    rect rgb(255,235,235)
+    Note over Buyer,OrderDB: 4. CANCELLATION — real UI: OrderDetailContent.tsx / seller orders page<br/>only legal while SellerOrder is PLACED, CONFIRMED or PACKED
+    alt buyer cancels whole Order
+        BuyerUI->>OrderCtrl: POST /orders/{orderId}/cancel {actorRole:BUYER, actorId, reason}
+        OrderCtrl->>CancelSvc: cancelOrder() — SELLER role is REJECTED on this endpoint,<br/>ADMIN unrestricted
+    else buyer or seller cancels one SellerOrder
+        BuyerUI->>SOCtrl: (buyer, via buyerApi) PATCH /seller-orders/{id}/cancel
+        SellerUI->>SOCtrl: (seller) PATCH /seller-orders/{id}/cancel
+        SOCtrl->>CancelSvc: cancelSellerOrder()
+    end
+    CancelSvc->>StockSvc: restockExactBatch() per OrderItem (by pricingId)
+    CancelSvc->>OrderDB: OrderItem.itemStatus=CANCELLED,<br/>SellerOrder.status=CANCELLED
+    opt Payment.status == SUCCESS
+        CancelSvc->>OrderDB: create Refund(status=REQUESTED,<br/>orderItem=null i.e. whole-seller-order scope,<br/>amount=sellerOrder.grandTotal)
+    end
+    CancelSvc->>OrderDB: recompute Order rollup (OrderStatusRollup.compute)
+    end
+
+    %% ============ 5. RETURN + REFUND (post-delivery) ============
+    rect rgb(245,235,255)
+    Note over APIClient,RetSvc: 5. RETURN / REFUND — no frontend UI calls /returns anywhere in this repo
+    APIClient->>RetCtrl: POST /returns {orderItemId, buyerId, reason}
+    RetCtrl->>RetSvc: requestReturn()
+    RetSvc->>RetSvc: require SellerOrder.status==DELIVERED AND<br/>now <= deliveredAt + 7 days (RETURN_WINDOW_DAYS, hardcoded placeholder)
+    RetSvc->>OrderDB: create ReturnRequest(status=REQUESTED),<br/>SellerOrder DELIVERED -> RETURN_REQUESTED
+
+    APIClient->>RetCtrl: PATCH /returns/{id}/decision {sellerId, approve, comment}
+    RetCtrl->>RetSvc: decideReturn() — only legal while ReturnRequest==REQUESTED
+    alt approve = true
+        RetSvc->>OrderDB: ReturnRequest -> APPROVED,<br/>SellerOrder -> RETURN_APPROVED
+        RetSvc->>OrderDB: create Refund(status=REQUESTED, orderItem=that item,<br/>amount=item.lineTotal), linked to the ReturnRequest
+    else approve = false
+        RetSvc->>OrderDB: ReturnRequest -> REJECTED,<br/>SellerOrder -> RETURN_REJECTED (terminal — no Refund)
+    end
+
+    APIClient->>RetCtrl: POST /returns/refunds/{refundId}/process
+    RetCtrl->>RetSvc: processRefund() — idempotent no-op if already COMPLETED
+    RetSvc->>OrderDB: Refund.status=COMPLETED, processedAt=now
+    RetSvc->>StockSvc: restockExactBatch() (unconditional — no "resellable" flag exists)
+    RetSvc->>OrderDB: SellerOrder -> RETURNED (actorRole=SYSTEM, terminal state)
+    Note right of OrderDB: Payment.status is NEVER updated to REFUNDED here —<br/>PaymentStatus.REFUNDED/PARTIALLY_REFUNDED and<br/>SellerOrderStatus.REFUNDED are declared but dead code.<br/>ReturnStatus.PICKED_UP/CLOSED are also declared but never set —<br/>an approved ReturnRequest stays APPROVED forever.
+    end

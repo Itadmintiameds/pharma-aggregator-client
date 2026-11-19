@@ -42,7 +42,7 @@ const quantityWithMaxLength = z
   .max(20, "Maximum 20 characters allowed") 
   .regex(/^[a-zA-Z0-9\s]+$/, "Only alphanumeric characters and spaces are allowed");
 
-export const foodInfantSchema = z
+const foodInfantBaseSchema = z
   .object({
     productName: z
       .string()
@@ -169,11 +169,8 @@ export const foodInfantSchema = z
 
     gstPercentage: z
       .string()
-      .trim()
-      .min(1, "GST % is required")
-      .regex(/^\d+(\.\d+)?$/, "Only numeric values are allowed")
-      .refine((val) => Number(val) >= 0 && Number(val) <= 100, {
-        message: "GST must be between 0 and 100",
+      .refine((val) => ["0", "5", "8", "10", "12"].includes(val), {
+        message: "Select a valid GST %",
       }),
 
     hsnCode: z
@@ -216,7 +213,9 @@ export const foodInfantSchema = z
         })
       )
       .optional(),
-  })
+  });
+
+export const foodInfantSchema = foodInfantBaseSchema
   .superRefine((data, ctx) => {
     // Cross-field validation: Serving Size cannot exceed Net Quantity
     const netQty = Number(data.netQuantityValue);
@@ -303,12 +302,27 @@ export const foodInfantSchema = z
       }
     }
   });
-  
-  
-  
-  
-  
-  
+
+// Used when adding a product without its packaging (variant) and pricing (batch/stock)
+// details — those are attached afterwards from the product view page.
+export const foodInfantCreateSchema = foodInfantBaseSchema.omit({
+  packType: true,
+  unitsPerPack: true,
+  numberOfPacks: true,
+  minimumOrderQuantity: true,
+  maximumOrderQuantity: true,
+  batchLotNumber: true,
+  manufacturingDate: true,
+  expiryDate: true,
+  stockQuantity: true,
+  mrp: true,
+  sellingPricePerPack: true,
+});
+
+
+
+
+
   
   // old schema dated 20.05.2026............
   

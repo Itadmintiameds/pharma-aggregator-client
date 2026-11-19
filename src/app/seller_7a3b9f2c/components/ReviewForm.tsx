@@ -6,7 +6,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { GoCheckCircleFill } from "react-icons/go";
-import { useRouter } from "next/navigation";
+import { isRealFileUrl } from "@/src/utils/sellerRegFiles";
+import { documentTypeLabel } from "@/src/schema/seller/sellerRegSchema";
 
 interface Props {
   formData: any;
@@ -23,26 +24,24 @@ export default function ReviewForm({
   onEdit,
   onSubmit,
   submitting,
-  prevStep
+  prevStep,
 }: Props) {
 
-  const router = useRouter();
-
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
 
       {/* HEADER */}
       <div>
-        <h1 className="text-h3 font-heading font-medium text-pneutral-900 leading-[40px]">
+        <h1 className="text-xl font-heading font-bold text-pneutral-900 leading-7">
           Review & Confirm Your Registration
         </h1>
-        <p className="text-label-l4 font-heading font-regular text-pneutral-800 leading-[24px] mt-1">
+        <p className="text-[13px] font-heading font-regular text-pneutral-800 leading-[18px] mt-1">
           Please verify your details before submission.
         </p>
       </div>
 
       {/* GRID */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-3">
 
         {/* COMPANY DETAILS */}
         <Card title="Company Details" onEdit={() => onEdit("company")}>
@@ -50,6 +49,12 @@ export default function ReviewForm({
           <Row label="Company Type" value={formData.companyType} />
           <Row label="Seller Type" value={formData.sellerType} />
           <Row label="GST Number" value={formData.gstNumber} />
+          {!!formData.parentManufacturerName && (
+            <Row label="Parent Manufacturer Name" value={formData.parentManufacturerName} />
+          )}
+          {!!formData.brandOwnerName && (
+            <Row label="Brand Owner Name" value={formData.brandOwnerName} />
+          )}
         </Card>
 
         {/* COORDINATOR DETAILS */}
@@ -58,18 +63,26 @@ export default function ReviewForm({
           <Row label="Designation" value={formData.coordinatorDesignation} />
           <Row label="Email" value={formData.coordinatorEmail} />
           <Row label="Phone Number" value={formData.coordinatorMobile} />
+          <FileRow
+            label="Authorization Letter"
+            name={formData.authorizationLetterFile?.name || formData.authorizationLetterFileName || "-"}
+            uploaded={!!formData.authorizationLetterFile || isRealFileUrl(formData.authorizationLetterUrl)}
+            file={formData.authorizationLetterFile}
+            fileUrl={formData.authorizationLetterUrl}
+          />
         </Card>
         </div>
 
         {/* COMPLIANCE DOCUMENTS - Combined GST + Licenses */}
         <Card title="Compliance Documents" onEdit={() => onEdit("documents")}>
           {/* GST Document */}
-          <div className="mb-4">
+          <div className="mb-2">
             <LicenseRow
               productName="GST"
               licenseNumber={formData.gstNumber}
-              uploaded={!!formData.gstFile}
+              uploaded={!!formData.gstFile || isRealFileUrl(formData.gstFileUrl)}
               file={formData.gstFile}
+              fileUrl={formData.gstFileUrl}
               showView={true}
             />
           </div>
@@ -77,7 +90,7 @@ export default function ReviewForm({
           {/* License Documents */}
           {formData.productTypes && formData.productTypes.length > 0 && (
             <div>
-              <div className="space-y-4">
+              <div className="space-y-2.5">
                 {formData.productTypes.map((productName: string) => {
                   const license = formData.licenses?.[productName];
                   return (
@@ -85,13 +98,38 @@ export default function ReviewForm({
                       key={productName}
                       productName={productName}
                       licenseNumber={license?.number || ""}
-                      uploaded={!!license?.file}
+                      uploaded={!!license?.file || isRealFileUrl(license?.fileUrl)}
                       file={license?.file}
+                      fileUrl={license?.fileUrl}
                       showView={true}
                     />
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Seller-type-driven agreement documents - rendered with the same
+              DocRow layout as GST/license rows above (icon+label / centered
+              value / status+view all in the same three columns) instead of
+              a separate Row+FileRow pair, so number and file line up with
+              the rows above rather than drifting to their own column widths. */}
+          {formData.agreements && Object.keys(formData.agreements).length > 0 && (
+            <div className="mt-2 space-y-2.5">
+              {Object.entries(formData.agreements as Record<string, any>).map(([code, agreement]) => {
+                if (!agreement?.file && !agreement?.fileUrl && !agreement?.number) return null;
+                const label = documentTypeLabel(code);
+                return (
+                  <DocRow
+                    key={code}
+                    label={label}
+                    value={agreement?.number}
+                    uploaded={!!agreement?.file || isRealFileUrl(agreement?.fileUrl)}
+                    file={agreement?.file}
+                    fileUrl={agreement?.fileUrl}
+                  />
+                );
+              })}
             </div>
           )}
         </Card>
@@ -109,74 +147,73 @@ export default function ReviewForm({
 
     <Row label="IFSC Code" value={formData.ifscCode} />
 
+    <Row label="Bank State" value={formData.bankState} />
+
+    <Row label="Bank District" value={formData.bankDistrict} />
+
+    <Row label="Bank Taluka" value={formData.bankTaluka} />
+
     <Row
       label="Account Number"
       value={formData.accountNumber}
     />
 
-    <FileRow
-      label=""
-      name={formData.cancelledChequeFile?.name || "cancelled-cheque.pdf"}
-      uploaded={!!formData.cancelledChequeFile}
-      file={formData.cancelledChequeFile}
-      showStatus={false}
-    />
+    <div className="col-span-2">
+      <FileRow
+        label=""
+        name={formData.cancelledChequeFile?.name || formData.cancelledChequeFileName || "cancelled-cheque.pdf"}
+        uploaded={!!formData.cancelledChequeFile || isRealFileUrl(formData.cancelledChequeUrl)}
+        file={formData.cancelledChequeFile}
+        fileUrl={formData.cancelledChequeUrl}
+        showStatus={false}
+      />
+    </div>
 
   </div>
 
 </Card>
 
       {/* SUCCESS MESSAGE */}
-      <div className="bg-success-50 border border-success-200 rounded-lg px-4 py-3 flex items-center gap-2">
+      <div className="bg-success-50 border border-success-200 rounded-lg px-3 py-2 flex items-center gap-2">
         <GoCheckCircleFill className="w-5 h-5 text-success-600" />
-        <span className="text-p3 font-body font-semibold text-pneutral-900">
+        <span className="text-[13px] font-body font-semibold text-pneutral-900">
           All registration steps completed.
         </span>
-        <span className="text-p3 font-body font-regular text-pneutral-600">
+        <span className="text-[13px] font-body font-regular text-pneutral-600">
         Your application is ready for submission.
         </span>
       </div>
 
       {/* ACTION BUTTONS */}
-      <div className="flex justify-between items-center pt-4">
-        <div className="flex gap-4">
-          <button 
-          onClick={() => router.push("/")}
-          className="flex h-12 border-2 justify-center items-center border-warning-500 text-warning-500 px-6 py-2 rounded-xl font-semibold">
-            Cancel
-          </button>
-        </div>
+      <div className="flex justify-between items-center pt-2">
+        <button
+          onClick={prevStep}
+          className="h-9 px-4 border-[1.5px] border-neutral-300 text-neutral-700 text-[13px] font-semibold rounded-lg hover:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex justify-center items-center gap-2"
+        >
+          <Image
+            src="/icons/backbuttonicon.png"
+            alt="Back"
+            width={20}
+            height={20}
+          />
+          Back
+        </button>
 
-        <div className="flex gap-4">
-          <button
-            onClick={prevStep}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
-          >
+        <button
+          onClick={onSubmit}
+          disabled={submitting}
+          className="h-9 px-4 border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold rounded-lg hover:bg-primary-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex justify-center items-center gap-2"
+        >
+          {submitting ? "Submitting..." : "Submit"}
+          {!submitting && (
             <Image
-              src="/icons/backbuttonicon.png"
-              alt="Back"
+              src="/icons/continueicon.png"
+              alt="Continue"
               width={20}
               height={20}
             />
-            Back
-          </button>
-
-          <button
-            onClick={onSubmit}
-            disabled={submitting}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitting ? "Submitting..." : "Submit"}
-            {!submitting && (
-              <Image
-                src="/icons/continueicon.png"
-                alt="Continue"
-                width={20}
-                height={20}
-              />
-            )}
-          </button>
-        </div>
+          )}
+        </button>
       </div>
 
     </div>
@@ -195,17 +232,17 @@ function Card({
   onEdit: () => void;
 }) {
   return (
-    <div className="border border-neutral-200 rounded-xl p-5 bg-white shadow-sm">
+    <div className="h-full flex flex-col border border-neutral-200 rounded-xl px-4 py-3 bg-white shadow-sm">
 
       {/* Header */}
       <div className="flex justify-between items-center mb-3">
-        <h3 className="text-label-l5 font-heading font-semibold text-pneutral-900 leading-[24px]">
+        <h3 className="text-sm font-heading font-semibold text-pneutral-900 leading-[18px]">
           {title}
         </h3>
 
         <button
           onClick={onEdit}
-          className="text-primary-800 text-p3 font-body font-medium flex items-center gap-1"
+          className="text-primary-800 text-[13px] font-body font-semibold flex items-center gap-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
         >
           <Image
             src="/icons/EditIcon.png"
@@ -218,15 +255,21 @@ function Card({
       </div>
 
       {/* Divider line */}
-      <div className="border-t border-neutral-200 mb-4"></div>
+      <div className="border-t border-neutral-200 mb-2"></div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex-1 flex flex-col gap-2">
         {children}
       </div>
 
     </div>
   );
 }
+
+// Shared label-column width for Row/FileRow within the same card - wide
+// enough for the longest label ("Authorization Letter") to stay on one
+// line, so every row's value starts at the same x position instead of the
+// label wrapping and throwing off vertical alignment with rows above/below.
+const LABEL_COL = "grid-cols-[190px_1fr]";
 
 /* ---------------- ROW - Simple label-value pair ---------------- */
 
@@ -238,54 +281,59 @@ function Row({
   value?: string;
 }) {
   return (
-    <div className="grid grid-cols-[180px_1fr] items-center text-md">
-      <span className="text-p4 font-body font-semibold text-pneutral-900">{label}</span>
-      <span className="text-p4 font-body font-regular text-pneutral-900">{value || "-"}</span>
+    <div className={`grid ${LABEL_COL} items-center text-[13px]`}>
+      <span className="text-[13px] font-body font-semibold text-pneutral-900">{label}</span>
+      <span className="text-[13px] font-body font-regular text-pneutral-900">{value || "-"}</span>
     </div>
   );
 }
 
-/* ---------------- LICENSE ROW - EXACT ORIGINAL LAYOUT ---------------- */
+/* ---------------- DOC ROW - icon+label / centered value / status+view,
+   shared by GST, per-product licenses, and agreement documents in
+   Compliance Documents so all rows share the same three column widths. ---- */
 
-function LicenseRow({
-  productName,
-  licenseNumber,
+function DocRow({
+  label,
+  value,
   uploaded,
   file,
+  fileUrl,
   showView = true
 }: {
-  productName: string;
-  licenseNumber: string;
+  label: string;
+  value?: string;
   uploaded: boolean;
   file?: File | null;
+  fileUrl?: string;
   showView?: boolean;
 }) {
   const handleView = () => {
     if (file) {
-      const fileUrl = URL.createObjectURL(file);
+      window.open(URL.createObjectURL(file), "_blank");
+    } else if (fileUrl) {
       window.open(fileUrl, "_blank");
     }
   };
 
   return (
     <div className="w-full">
-      
+
       {/* Main Row */}
-      <div className="grid grid-cols-[280px_1fr_auto] items-center gap-4">
+      <div className="grid grid-cols-[230px_1fr_auto] items-center gap-4">
 
         {/* LEFT */}
         <div className="flex items-center gap-2 min-w-0">
           <FileText className="w-5 h-5 shrink-0 text-pneutral-500" />
 
-          <span className="text-p4 font-body font-semibold text-pneutral-900 whitespace-nowrap">
-            {productName} License Number
+          <span className="text-[13px] font-body font-semibold text-pneutral-900 whitespace-nowrap">
+            {label}
           </span>
         </div>
 
         {/* CENTER */}
         <div className="flex justify-center">
-          <span className="text-p4 font-body font-regular text-pneutral-900 truncate">
-            {licenseNumber || "-"}
+          <span className="text-[13px] font-body font-regular text-pneutral-900 truncate">
+            {value || "-"}
           </span>
         </div>
 
@@ -295,21 +343,21 @@ function LicenseRow({
             <>
               <GoCheckCircleFill className="w-5 h-5 text-success-600 shrink-0" />
 
-              <span className="text-p3 font-body font-regular text-pneutral-900 whitespace-nowrap">
+              <span className="text-[13px] font-body font-regular text-pneutral-900 whitespace-nowrap">
                 Uploaded
               </span>
 
-              {showView && file && (
+              {showView && (file || fileUrl) && (
                 <button
                   onClick={handleView}
-                  className="text-primary-800 text-p3 font-body font-medium hover:underline whitespace-nowrap"
+                  className="text-primary-800 text-[13px] font-body font-semibold hover:underline whitespace-nowrap rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
                 >
                   View
                 </button>
               )}
             </>
           ) : (
-            <span className="text-p3 font-body font-regular text-warning-500 whitespace-nowrap">
+            <span className="text-[13px] font-body font-regular text-warning-500 whitespace-nowrap">
               Not Uploaded
             </span>
           )}
@@ -317,8 +365,38 @@ function LicenseRow({
       </div>
 
       {/* Divider */}
-      <div className="border-b border-neutral-200 mt-3"></div>
+      <div className="border-b border-neutral-200 mt-2"></div>
     </div>
+  );
+}
+
+/* ---------------- LICENSE ROW - GST / per-product license rows, a thin
+   wrapper over DocRow that appends the "License Number" suffix ---------- */
+
+function LicenseRow({
+  productName,
+  licenseNumber,
+  uploaded,
+  file,
+  fileUrl,
+  showView = true
+}: {
+  productName: string;
+  licenseNumber: string;
+  uploaded: boolean;
+  file?: File | null;
+  fileUrl?: string;
+  showView?: boolean;
+}) {
+  return (
+    <DocRow
+      label={`${productName} License Number`}
+      value={licenseNumber}
+      uploaded={uploaded}
+      file={file}
+      fileUrl={fileUrl}
+      showView={showView}
+    />
   );
 }
 
@@ -328,57 +406,80 @@ function FileRow({
   name,
   uploaded,
   file,
+  fileUrl,
   label,
   showStatus = true
 }: {
   name: string;
   uploaded: boolean;
   file?: File | null;
+  fileUrl?: string;
   label?: string;
    showStatus?: boolean;
 }) {
   const handleView = () => {
     if (file) {
-      const fileUrl = URL.createObjectURL(file);
+      window.open(URL.createObjectURL(file), '_blank');
+    } else if (fileUrl) {
       window.open(fileUrl, '_blank');
     }
   };
 
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <div className="flex items-center gap-3 flex-1">
-        <FileText className="w-5 h-5 shrink-0 text-pneutral-500"/>
-        <div className="flex items-center gap-2 flex-wrap">
-          {label && <span className="text-p4 font-body font-semibold text-pneutral-900">{label}:</span>}
-          <span className="truncate max-w-50 text-p4 font-body font-regular text-pneutral-900">{name}</span>
+  const status = (
+    <div className="flex items-center gap-3 shrink-0">
+      {uploaded ? (
+        <>
+          {showStatus && (
+            <>
+              <GoCheckCircleFill className="w-5 h-5 text-success-600" />
+              <span className="text-[13px] font-body font-regular text-pneutral-600">Uploaded</span>
+            </>
+          )}
+
+          {(file || fileUrl) && (
+            <button
+              onClick={handleView}
+              className="text-primary-800 text-[13px] font-body font-semibold hover:underline cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
+            >
+              View
+            </button>
+          )}
+        </>
+      ) : (
+        showStatus && (
+          <span className="text-[13px] font-body font-regular text-warning-500">Not Uploaded</span>
+        )
+      )}
+    </div>
+  );
+
+  // Rows with a label (e.g. "Authorization Letter", agreement doc names)
+  // share Row's fixed 180px label column so they line up with the plain
+  // label/value rows above them in the same card, instead of drifting right
+  // by the icon's width the way a single flex row would.
+  if (label) {
+    return (
+      <div className={`grid ${LABEL_COL} items-center text-sm`}>
+        <span className="flex items-center gap-2 text-[13px] font-body font-semibold text-pneutral-900 whitespace-nowrap">
+          <FileText className="w-4 h-4 shrink-0 text-pneutral-500" />
+          {label}
+        </span>
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <span className="truncate max-w-50 text-[13px] font-body font-regular text-pneutral-900">{name}</span>
+          {status}
         </div>
       </div>
+    );
+  }
 
-      <div className="flex items-center gap-3 shrink-0">
-        {uploaded ? (
-          <>
-            {showStatus && (
-              <>
-                <GoCheckCircleFill className="w-5 h-5 text-success-600" />
-                <span className="text-p3 font-body font-regular text-pneutral-600">Uploaded</span>
-              </>
-            )}
-
-            {file && (
-              <button
-                onClick={handleView}
-                className="text-primary-800 text-p3 font-body font-medium hover:underline cursor-pointer"
-              >
-                View
-              </button>
-            )}
-          </>
-        ) : (
-          showStatus && (
-            <span className="text-p3 font-body font-regular text-warning-500">Not Uploaded</span>
-          )
-        )}
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <FileText className="w-5 h-5 shrink-0 text-pneutral-500"/>
+        <span className="truncate max-w-50 text-[13px] font-body font-regular text-pneutral-900">{name}</span>
       </div>
+
+      {status}
     </div>
   );
 }

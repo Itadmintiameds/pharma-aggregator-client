@@ -8,8 +8,10 @@ import SellerSidebar from "./dashboard/components/SellerSidebar";
 import SellerHeader from "./dashboard/components/SellerHeader";
 import { sellerAuthService } from "@/src/services/seller/authService";
 import { useSessionManager } from "@/src/hooks/useSessionManager";
+import { useSellerOnboardingStatus } from "@/src/hooks/useSellerOnboardingStatus";
 import toast from "react-hot-toast";
 import LogoutConfirmationModal from "./dashboard/components/LogoutConfirmationModal";
+import { DashboardBackInterceptContext } from "@/src/context/DashboardBackInterceptContext";
 
 export default function SellerLayout({
   children,
@@ -20,7 +22,35 @@ export default function SellerLayout({
   const router = useRouter();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const hasPushedState = useRef(false);
+  const backInterceptorRef = useRef<(() => boolean) | null>(null);
   useSessionManager();
+  const { status: onboardingStatus } = useSellerOnboardingStatus();
+
+  // Sidebar collapsed to an icon rail. Remembered in this browser; read after mount (not in the initializer)
+  // so server and client first paint agree.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        const saved = localStorage.getItem("seller-sidebar-collapsed");
+        // no saved choice yet: start as an icon rail on narrow windows / zoomed-in pages so the content keeps its room
+        setCollapsed(saved === null ? window.innerWidth < 1100 : saved === "1");
+      } catch {
+        // storage blocked: start expanded
+      }
+    });
+  }, []);
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("seller-sidebar-collapsed", next ? "1" : "0");
+      } catch {
+        // storage blocked: the choice just isn't remembered
+      }
+      return next;
+    });
+  };
 
   // Define public routes that don't require authentication
   const isPublicRoute = () => {
@@ -35,6 +65,11 @@ export default function SellerLayout({
       "/seller_7a3b9f2c/products",
       "/seller_7a3b9f2c/profile",
       "/seller_7a3b9f2c/reports",
+      "/seller_7a3b9f2c/orders",
+      "/seller_7a3b9f2c/returns",
+      "/seller_7a3b9f2c/conversions",
+      "/seller_7a3b9f2c/settings",
+      "/seller_7a3b9f2c/shipment",
     ];
     return protectedPaths.some(protectedPath => pathname.startsWith(protectedPath));
   };
@@ -89,13 +124,26 @@ export default function SellerLayout({
     }
 
     const onBackButton = () => {
-      setShowLogoutModal(true);
+      // Give a downstream component (e.g. the onboarding wizard's own
+      // step-back) first refusal on this back-press before falling back to
+      // the logout-confirmation prompt.
+      const handledDownstream = backInterceptorRef.current?.();
+      if (!handledDownstream) {
+        setShowLogoutModal(true);
+      }
 
       window.history.pushState(
         { dashboardProtected: true },
         "",
         window.location.href
       );
+      // Belt-and-suspenders: a raw history.pushState can leave Next's App
+      // Router out of sync with the browser's history stack (it doesn't
+      // carry Next's own navigation metadata), which has shown up as a
+      // fallback hard navigation away from the dashboard on the very next
+      // back-press instead of staying trapped here. Re-assert the route
+      // through Next's own router too so it can't drift.
+      router.replace("/seller_7a3b9f2c/dashboard");
     };
 
     const timeout = setTimeout(() => {
@@ -152,16 +200,24 @@ export default function SellerLayout({
 
   // For protected routes, render with sidebar and header
   return (
+    <DashboardBackInterceptContext.Provider value={backInterceptorRef}>
     <div className="min-h-screen bg-secondary-50">
       <SellerSidebar
         currentView={currentView}
         setCurrentView={() => {}}
+        approved={onboardingStatus === "approved"}
+        collapsed={collapsed}
+        onToggleCollapsed={toggleCollapsed}
       />
       <SellerHeader
         currentView={currentView}
         setCurrentView={() => {}}
+        approved={onboardingStatus === "approved"}
       />
-      <main className="ml-64 p-6" style={{ marginTop: 74 }}>
+      <main
+        className={`min-w-0 overflow-x-clip p-6 transition-[margin] duration-200 ${collapsed ? "ml-16" : "ml-52"}`}
+        style={{ marginTop: 74 }}
+      >
         {children}
       </main>
       <ToastContainer
@@ -177,13 +233,14 @@ export default function SellerLayout({
         theme="light"
         style={{ zIndex: 9999 }}
       />
-      
+
       <LogoutConfirmationModal
         isOpen={showLogoutModal}
         onClose={handleCancelLogout}
         onConfirm={handleConfirmLogout}
       />
     </div>
+    </DashboardBackInterceptContext.Provider>
   );
 }
 

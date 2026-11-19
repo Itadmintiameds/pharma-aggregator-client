@@ -77,6 +77,7 @@ class SellerAuthService {
   private readonly authBaseUrl = '/authentication';
   private readonly passwordBaseUrl = '/auth';
   private readonly otpBaseUrl = '/temp-seller/email-otp';
+  private readonly signupBaseUrl = '/auth/signup';
   
   // For preventing multiple refresh attempts
   private isRefreshing = false;
@@ -249,9 +250,13 @@ class SellerAuthService {
         data: error.response?.data
       });
       
-      // If refresh fails, clear everything and force logout
-      this.clearAuth();
-      
+      // Only clear the session when the backend rejects the refresh token —
+      // a network error or 5xx shouldn't log the seller out.
+      const refreshStatus = error.response?.status;
+      if (refreshStatus === 401 || refreshStatus === 403) {
+        this.clearAuth();
+      }
+
       // Reject waiting promises
       const resolvers = [...this.refreshPromiseResolvers];
       this.refreshPromiseResolvers = [];
@@ -279,15 +284,21 @@ class SellerAuthService {
       const response = await api.post<LoginApiResponse>(`${this.authBaseUrl}/login`, credentials);
       
       const responseData = response.data;
-      
-      if (responseData.status === "SUCCESS" && responseData.data) {
+
+      // Backend sometimes wraps auth failures inside a 200 envelope, e.g.
+      // { status: "SUCCESS", data: { error: "Unauthorized", message: "...", status: 401 } }
+      // so the outer "SUCCESS" alone doesn't mean the login actually succeeded.
+      const nestedError = responseData.data as unknown as { error?: string; status?: number; message?: string };
+      const isNestedFailure = !!nestedError && (nestedError.status === 401 || !!nestedError.error);
+
+      if (responseData.status === "SUCCESS" && responseData.data && !isNestedFailure) {
         // Store username for OTP verification step
         localStorage.setItem('otpUsername', responseData.data.username);
         console.log("✅ Login successful - OTP will be sent");
         console.log("=========================================");
         return responseData.data;
       } else {
-        const errorMsg = responseData.message || "Login failed";
+        const errorMsg = nestedError?.message || responseData.message || "Login failed";
         console.error("❌ Login failed - invalid response structure");
         console.error("=========================================");
         throw new Error(errorMsg);
@@ -299,6 +310,15 @@ class SellerAuthService {
       console.error("Error message:", error.message);
       console.error("Error status:", error.response?.status);
       console.error("=========================================");
+
+      // Error-status responses are no longer double-wrapped (see backend
+      // GlobalResponseHandler), so the message is usually one level up at
+      // data.message now — data.data.message is kept as a fallback for any
+      // response that still goes through the old double-wrap path.
+      const message = error.response?.data?.message || error.response?.data?.data?.message;
+      if (message) {
+        throw new Error(message);
+      }
       throw error;
     }
   }
@@ -414,6 +434,68 @@ class SellerAuthService {
       
       console.error("=========================================");
       throw error;
+    }
+  }
+
+  // ========== SIGNUP (standalone "signup first" flow) ==========
+
+  /**
+   * STEP 1: Signup - email + password, sends OTP to verify the email
+   */
+  async sendSignupOtp(data: { fullName: string; email: string; password: string }): Promise<OtpSentResponse> {
+    try {
+      const response = await api.post<LoginApiResponse>(this.signupBaseUrl, data);
+      const responseData = response.data;
+
+      if (responseData.status === "SUCCESS" && responseData.data) {
+        return responseData.data;
+      }
+      throw new Error(responseData.message || "Signup failed");
+    } catch (error: any) {
+      console.error("❌ Signup send-OTP error:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      // Backend wraps every response (including error bodies) in a generic
+      // {status:"SUCCESS", message:"Request processed successfully", data:{...}}
+      // envelope regardless of HTTP status — the real message is one level
+      // deeper, inside data.message (or data.data.message for exceptions
+      // handled by GlobalExceptionHandler).
+      const msg =
+        error?.response?.data?.data?.message ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to send OTP. Please try again.";
+      throw new Error(msg);
+    }
+  }
+
+  /**
+   * STEP 2: Verify signup OTP - creates the account. No tokens are issued —
+   * the user must log in explicitly afterward via login().
+   */
+  async verifySignupOtp(data: { email: string; otp: string }): Promise<OtpSentResponse> {
+    try {
+      const response = await api.post<LoginApiResponse>(`${this.signupBaseUrl}/verify-otp`, data);
+      const responseData = response.data;
+
+      if (responseData.status === "SUCCESS" && responseData.data) {
+        return responseData.data;
+      }
+      throw new Error(responseData.message || "OTP verification failed");
+    } catch (error: any) {
+      console.error("❌ Signup verify-OTP error:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      const msg =
+        error?.response?.data?.data?.message ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "OTP verification failed. Please try again.";
+      throw new Error(msg);
     }
   }
 
@@ -534,6 +616,10 @@ class SellerAuthService {
       user: afterUser ? "Still Present!" : "Removed ✅",
       cookie: afterCookie ? "Still Present!" : "Removed ✅"
     });
+
+    // Let components that only check auth state on mount (e.g. Header) know
+    // it changed, without requiring a full page navigation/reload.
+    window.dispatchEvent(new Event('auth-changed'));
   }
 
   // ========== SESSION VALIDATION ==========

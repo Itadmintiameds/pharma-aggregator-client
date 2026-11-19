@@ -1,0 +1,1938 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HLD v0.2 — Complete Document</title>
+<link rel="stylesheet" href="assets/doc.css" />
+<style>
+  /* AWS-services category colors, carried over from aws-services.html */
+  :root{
+    --c-compute:#ED7100;
+    --c-database:#527FFF;
+    --c-storage:#7AA116;
+    --c-integration:#E7157B;
+    --c-network:#8C4FFF;
+    --c-security:#DD344C;
+    --c-management:#E7157B;
+    --c-devtools:#C925D1;
+  }
+  .stat-strip{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:28px 0 8px; }
+  @media (max-width:680px){ .stat-strip{ grid-template-columns:repeat(2,1fr); } }
+  .stat-tile{ border:1px solid var(--line); border-radius:6px; background:var(--paper-raised); padding:16px 18px; box-shadow:var(--shadow); }
+  .stat-tile .fig{ font-family:'Newsreader', serif; font-size:1.8rem; font-weight:600; color:var(--accent-strong); line-height:1; }
+  .stat-tile .lbl{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-top:6px; }
+  .legend-row{ display:flex; flex-wrap:wrap; gap:10px 18px; margin:22px 0 0; font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--muted); }
+  .legend-row span{ display:inline-flex; align-items:center; gap:7px; }
+  .legend-dot{ width:11px; height:11px; border-radius:3px; display:inline-block; }
+  .cat-section{ margin-bottom:56px; }
+  .cat-head{ display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+  .cat-swatch{ width:8px; height:28px; border-radius:2px; flex:0 0 auto; }
+  .cat-head h3{ font-family:'Newsreader',serif; font-weight:600; font-size:1.4rem; margin:0; }
+  .cat-desc{ color:var(--muted); font-size:14px; margin:6px 0 20px; max-width:70ch; }
+  .svc-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px; }
+  .svc-card{ border:1px solid var(--line); border-radius:8px; background:var(--paper-raised); box-shadow:var(--shadow); padding:18px 20px 20px; display:flex; flex-direction:column; gap:12px; }
+  .svc-top{ display:flex; align-items:flex-start; gap:12px; }
+  .svc-icon{ flex:0 0 auto; width:42px; height:42px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+  .svc-icon svg{ width:24px; height:24px; }
+  .svc-name{ font-family:'Newsreader', serif; font-size:1.08rem; font-weight:600; line-height:1.25; }
+  .svc-code{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--muted); margin-top:2px; display:block; }
+  .svc-status{ font-family:'IBM Plex Mono', monospace; font-size:9.5px; text-transform:uppercase; letter-spacing:0.05em; padding:1px 7px; border-radius:99px; font-weight:600; display:inline-block; margin-top:6px; }
+  .svc-status.active{ background:var(--async-soft); color:var(--async); }
+  .svc-status.candidate{ background:var(--sync-soft); color:var(--sync); }
+  .svc-used{ display:flex; flex-wrap:wrap; gap:5px; }
+  .svc-used .chip{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; padding:2px 8px; border-radius:99px; background:var(--paper); border:1px solid var(--line); color:var(--ink); text-decoration:none; }
+  .svc-used .chip:hover{ border-color:var(--accent); color:var(--accent-strong); }
+  .svc-why{ font-size:13.5px; color:var(--ink); line-height:1.55; margin:0; }
+  .svc-why b{ color:var(--accent-strong); }
+  .why-not{ background:var(--accent-soft); border-left:3px solid var(--accent); border-radius:0 6px 6px 0; padding:14px 18px; font-size:14px; margin-top:10px; }
+  .why-not b{ color:var(--accent-strong); }
+
+  /* master document chrome */
+  .part-divider{
+    margin:80px 0 48px;
+    padding-top:40px;
+    border-top:3px solid var(--ink);
+  }
+  .part-eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:.09em; text-transform:uppercase; color:var(--accent-strong); margin-bottom:10px; }
+  .part-title{ font-size:clamp(1.7rem,3vw,2.3rem); }
+  .master-toc{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:4px 40px;
+    margin:28px 0 0;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+  }
+  @media (max-width:680px){ .master-toc{ grid-template-columns:1fr; } }
+  .master-toc a{ color:var(--ink); text-decoration:none; display:block; padding:6px 0; border-bottom:1px dotted var(--line); }
+  .master-toc a:hover{ color:var(--accent-strong); }
+  .master-toc .grp-lbl{ grid-column:1/-1; font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin:18px 0 2px; }
+  .master-toc .grp-lbl:first-child{ margin-top:0; }
+  .svc-doc{ margin-top:8px; }
+  .svc-doc-head{
+    padding:20px 24px;
+    background:var(--accent-soft);
+    border:1px solid var(--line);
+    border-radius:8px 8px 0 0;
+    border-bottom:none;
+  }
+  .svc-doc-head .kicker{ font-family:'IBM Plex Mono', monospace; font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--accent-strong); margin-bottom:6px; }
+  .svc-doc-head h3{ font-size:1.5rem; margin:0 0 8px; }
+  .svc-doc-head p{ margin:0; color:var(--muted); font-size:14.5px; }
+  .svc-doc-body{ border:1px solid var(--line); border-top:none; border-radius:0 0 8px 8px; padding:8px 28px 32px; }
+  .back-to-toc{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator</div>
+    <h1 class="title">HLD v0.2 — complete document</h1>
+    <p class="dek">Everything from the v0.2 doc set — service index, architecture decision records, AWS service inventory, and all eleven service designs — merged into one file. For the maintained multi-page version, browsable per doc, see <a href="index.html">index.html</a>.</p>
+    <div class="meta-row">
+      <span><b>Assembled from:</b> <code>docs/v.0.2/index.html</code>, <code>adr.html</code>, <code>aws-services.html</code>, <code>services/*.html</code></span>
+      <span><b>Last updated:</b> 2026-09-07</span>
+    </div>
+
+    <nav class="master-toc">
+      <div class="grp-lbl">Front matter</div>
+      <a href="#part-decisions">Architecture Decision Records (9)</a>
+      <a href="#part-aws">AWS Services Reference</a>
+
+      <div class="grp-lbl">Domain services</div>
+      <a href="#svc-seller-user">01 &middot; Seller User</a>
+      <a href="#svc-buyer-user">02 &middot; Buyer User</a>
+      <a href="#svc-order-management">03 &middot; Order Management</a>
+      <a href="#svc-quotation-management">04 &middot; Quotation Management</a>
+      <a href="#svc-search-service">05 &middot; Search Service</a>
+      <a href="#svc-product-management">06 &middot; Product Management</a>
+      <a href="#svc-billing-management">07 &middot; Billing Management</a>
+      <a href="#svc-notification-service">08 &middot; Notification Service</a>
+
+      <div class="grp-lbl">Platform layer</div>
+      <a href="#svc-api-gateway">09 &middot; API Gateway</a>
+      <a href="#svc-config-service">10 &middot; Config Service</a>
+      <a href="#svc-discovery-service">11 &middot; Discovery Service</a>
+    </nav>
+  </header>
+
+  <!-- ======================================================================= -->
+  <!-- PART — ARCHITECTURE DECISION RECORDS                                    -->
+  <!-- ======================================================================= -->
+  <div class="part-divider" id="part-decisions">
+    <div class="part-eyebrow">Part one</div>
+    <h2 class="part-title">Architecture Decision Records</h2>
+    <p style="color:var(--muted); font-size:1.05rem; max-width:62ch; margin-top:10px;">Nine decisions that shaped the v0.2 service split — what was decided, what it beat, and the trade-off accepted in exchange. Each links to the service section(s) it governs, further down this same document.</p>
+  </div>
+
+  <section id="adr-001">
+    <div class="decision-card">
+      <span class="verdict">ADR-001 &middot; Accepted</span>
+      <h4>Service boundaries, v0.2</h4>
+      <p class="lede">Adopt 11 services — Seller User, Buyer User, Order Management, Quotation Management, Search Service, Product Management, Billing Management, Notification Service, API Gateway, Config Service, Discovery Service. Master/reference data stays a shared module, not a numbered service.</p>
+      <p><b>Context:</b> v0.1 proposed 5 coarse domain services. Stakeholders want finer granularity to scale Order, Quotation, Billing, and Search independently, plus explicit platform services instead of implied infrastructure.</p>
+      <p><b>Alternatives considered:</b> Keep v0.1's 5-service split; or split further per product category (rejected — no evidence of independent scaling need per category, and it would fragment a self-contained domain for no operational benefit).</p>
+      <p><b>Trade-offs:</b> More services to deploy, monitor, and secure individually, in exchange for independent scaling and clearer team ownership per capability.</p>
+      <p><b>Consequences:</b> Requires the platform layer (Gateway/Config/Discovery) to be operational before any domain service split delivers value — sequence platform-first in the migration roadmap.</p>
+      <p style="font-size:13px; color:var(--muted);">Governs: <a href="#svc-seller-user">Seller User</a>, <a href="#svc-buyer-user">Buyer User</a>, <a href="#svc-order-management">Order Management</a>, <a href="#svc-quotation-management">Quotation Management</a>, <a href="#svc-search-service">Search Service</a>, <a href="#svc-product-management">Product Management</a>, <a href="#svc-billing-management">Billing Management</a>, <a href="#svc-notification-service">Notification Service</a></p>
+    </div>
+  </section>
+
+  <section id="adr-002">
+    <div class="decision-card">
+      <span class="verdict">ADR-002 &middot; Accepted</span>
+      <h4>Discovery &amp; Config: AWS-native over self-hosted</h4>
+      <p class="lede">Use AWS Cloud Map for discovery and AWS AppConfig + Systems Manager Parameter Store for config, both provisioned per region via the same Terraform module.</p>
+      <p><b>Context:</b> One-click multi-region requires services to find each other and get region-correct config without manual wiring.</p>
+      <p><b>Alternatives considered:</b> Netflix Eureka + Spring Cloud Config Server; HashiCorp Consul. Both are natural fits for a Spring Boot team, but each is a stateful cluster to run, patch, and replicate per region.</p>
+      <p><b>Reason:</b> The backend already deploys via ECS/ECR — Cloud Map integrates with ECS service discovery natively, with no extra cluster to run per region.</p>
+      <p><b>Trade-offs:</b> Ties discovery/config to AWS; acceptable since compute, data, and CI/CD are already AWS-committed.</p>
+      <p style="font-size:13px; color:var(--muted);">Governs: <a href="#svc-config-service">Config Service</a>, <a href="#svc-discovery-service">Discovery Service</a></p>
+    </div>
+  </section>
+
+  <section id="adr-003">
+    <div class="decision-card">
+      <span class="verdict">ADR-003 &middot; Accepted</span>
+      <h4>Sync vs async: default to async</h4>
+      <p class="lede">A call is synchronous only when the caller cannot return a correct response without the result in the same request (Order&harr;Product stock/price check, Quotation&harr;Order creation on accept). Everything else — Billing, Notification, Search indexing — is event-driven over EventBridge.</p>
+      <p><b>Context:</b> Cross-service coupling risk grows with every synchronous call added.</p>
+      <p><b>Alternatives considered:</b> Sync everywhere (simpler to reason about, but couples the availability of every service to every caller); async everywhere (adds latency/complexity where a real-time answer is genuinely required).</p>
+      <p><b>Trade-offs:</b> Async paths need idempotent consumers and a dead-letter queue per consumer; sync paths need circuit breakers so a slow Product Management doesn't cascade into failed orders.</p>
+      <p style="font-size:13px; color:var(--muted);">Governs: <a href="#svc-order-management">Order Management</a>, <a href="#svc-quotation-management">Quotation Management</a>, <a href="#svc-billing-management">Billing Management</a>, <a href="#svc-notification-service">Notification Service</a>, <a href="#svc-product-management">Product Management</a></p>
+    </div>
+  </section>
+
+  <section id="adr-004">
+    <div class="decision-card">
+      <span class="verdict">ADR-004 &middot; Accepted</span>
+      <h4>Billing owns no Order data copies</h4>
+      <p class="lede">Billing's schema stores <code>order_id</code> as a foreign reference only. It's created from an <code>OrderConfirmed</code> event carrying just order id, buyer id, and total; any line-item detail needed for invoice rendering is fetched synchronously from Order Management at render time, never persisted in Billing.</p>
+      <p><b>Context:</b> Explicit requirement: Billing must not duplicate Order Management's data.</p>
+      <p><b>Alternatives considered:</b> Full data copy via CDC (rejected — reintroduces the duplication being avoided); a shared database/schema (rejected — violates service data ownership and makes the boundary unenforceable).</p>
+      <p><b>Trade-offs:</b> Invoice rendering has a runtime dependency on Order Management being reachable; mitigate with a short-TTL cache on the line-item lookup, not a persisted copy.</p>
+      <p style="font-size:13px; color:var(--muted);">Governs: <a href="#svc-billing-management">Billing Management</a>, <a href="#svc-order-management">Order Management</a></p>
+    </div>
+  </section>
+
+  <section id="adr-005">
+    <div class="decision-card">
+      <span class="verdict">ADR-005 &middot; Accepted</span>
+      <h4>Search Service owns an index, not source data</h4>
+      <p class="lede">Search Service has no source-of-truth tables — it maintains an OpenSearch index rebuilt from <code>ProductChanged</code> events published by Product Management.</p>
+      <p><b>Context:</b> Search needs to scale independently of Product Management's write path.</p>
+      <p><b>Alternatives considered:</b> Query Product Management's DB directly for search (rejected — couples search query load to the transactional catalog DB); Product Management embeds search itself (rejected — different scaling profile, per ADR-001).</p>
+      <p><b>Trade-offs:</b> Search results are eventually consistent with catalog changes — acceptable for browse/search, not used for stock/price truth (Order still calls Product Management directly for that).</p>
+      <p style="font-size:13px; color:var(--muted);">Governs: <a href="#svc-search-service">Search Service</a>, <a href="#svc-product-management">Product Management</a></p>
+    </div>
+  </section>
+
+  <section id="adr-006">
+    <div class="decision-card">
+      <span class="verdict">ADR-006 &middot; Accepted</span>
+      <h4>One-click multi-region via parameterized IaC</h4>
+      <p class="lede">One Terraform module per service, region passed as a variable, remote state isolated per region; the existing GitHub Actions pipeline gains a region <code>workflow_dispatch</code> input instead of being duplicated per region.</p>
+      <p><b>Context:</b> Requirement: adding a region should be a single scripted action, not manual per-service setup.</p>
+      <p><b>Alternatives considered:</b> Manually provisioned regions (rejected — doesn't meet the one-click requirement and is error-prone at 11 services); a full orchestration platform like AWS Control Tower/Landing Zone (deferred — justified once region count grows past a handful, not needed for the first additional region).</p>
+      <p><b>Trade-offs:</b> Requires discipline that nothing is provisioned by hand outside Terraform — any manual change in one region silently diverges from the module and breaks repeatability.</p>
+      <p style="font-size:13px; color:var(--muted);">Governs: <a href="#svc-api-gateway">API Gateway</a>, <a href="#svc-config-service">Config Service</a>, <a href="#svc-discovery-service">Discovery Service</a> — all services, per module</p>
+    </div>
+  </section>
+
+  <section id="adr-007">
+    <div class="decision-card">
+      <span class="verdict">ADR-007 &middot; Accepted</span>
+      <h4>Single-writer regions for Order, Billing, Seller/Buyer User, Quotation; active-active for Product, Search, Master Data</h4>
+      <p class="lede">Transactional/write-sensitive services (Order, Billing, Seller/Buyer User, Quotation) run single-writer with a warm standby region. Read-heavy, lag-tolerant services (Product Management, Search's OpenSearch index, Master/Reference Data on DynamoDB Global Tables) run active-active across regions.</p>
+      <p><b>Context:</b> Aurora PostgreSQL Global Database supports one writer region at a time; true multi-writer needs a different data model entirely.</p>
+      <p><b>Alternatives considered:</b> Force everything active-active via DynamoDB (rejected — Order/Billing need relational transactions and strong consistency a key-value multi-writer store doesn't give for free); force everything single-writer (rejected — throws away the real multi-region win for the read-heavy services).</p>
+      <p><b>Trade-offs:</b> A regional outage in the primary write region means a controlled Aurora promotion (seconds-to-minutes RTO) for Order/Billing, not instant failover — accepted in exchange for payment/order correctness.</p>
+      <p style="font-size:13px; color:var(--muted);">Governs: <a href="#svc-order-management">Order Management</a>, <a href="#svc-billing-management">Billing Management</a>, <a href="#svc-seller-user">Seller User</a>, <a href="#svc-buyer-user">Buyer User</a>, <a href="#svc-quotation-management">Quotation Management</a>, <a href="#svc-product-management">Product Management</a>, <a href="#svc-search-service">Search Service</a></p>
+    </div>
+  </section>
+
+  <section id="adr-008">
+    <div class="decision-card">
+      <span class="verdict">ADR-008 &middot; Accepted</span>
+      <h4>API Gateway is the only client-facing entry point</h4>
+      <p class="lede">Amazon API Gateway fronts all client traffic; no domain service is directly reachable from the internet. Service-to-service calls (Order&rarr;Product, Quotation&rarr;Order) go direct via Cloud Map resolution, bypassing the gateway.</p>
+      <p><b>Context:</b> 11 independently deployable services need one consistent place to enforce auth, rate limiting, and routing rather than each reimplementing it.</p>
+      <p><b>Alternatives considered:</b> Self-hosted Spring Cloud Gateway on Fargate — kept as a fallback option if routing needs (e.g. complex request transformation) outgrow what managed API Gateway supports.</p>
+      <p><b>Trade-offs:</b> API Gateway becomes a single dependency for all client traffic — mitigated by AWS's own multi-AZ SLA, and by keeping service-to-service calls off this path entirely so an internal domain issue doesn't compound with a gateway issue.</p>
+      <p style="font-size:13px; color:var(--muted);">Governs: <a href="#svc-api-gateway">API Gateway</a>, <a href="#svc-discovery-service">Discovery Service</a></p>
+    </div>
+  </section>
+
+  <section id="adr-009">
+    <div class="decision-card">
+      <span class="verdict">ADR-009 &middot; Accepted</span>
+      <h4>Event backbone: EventBridge by default, Kafka only where replay/ordering/volume demand it</h4>
+      <p class="lede">Every async edge in the communication matrix (ADR-003) runs on Amazon EventBridge, with SQS behind each consumer for retry/DLQ handling, unless a specific edge needs one of the properties EventBridge doesn't provide — in which case that ONE edge moves to Amazon MSK (managed Kafka), not the whole system.</p>
+      <p><b>Context:</b> EventBridge and SQS cover fan-out and task-queue semantics with no cluster to run, matching ADR-002's AWS-native bias. But EventBridge does not guarantee per-key ordering, its Archive/Replay path is a slow, ops-triggered recovery tool rather than a routine replay mechanism, and its per-event pricing/throughput has a practical ceiling.</p>
+      <p><b>Decision — the four triggers.</b> An async edge graduates from EventBridge to Kafka (MSK) only when it needs at least one of:</p>
+      <ol style="margin:6px 0 16px 18px; padding:0; font-size:14px;">
+        <li><b>Ordered replay is a correctness requirement</b> — out-of-order delivery silently corrupts state (not just delays it).</li>
+        <li><b>Routine replay-from-any-offset</b> is part of normal operation, not disaster recovery — e.g. rebuilding a derived store from scratch.</li>
+        <li><b>Multiple independent consumer groups</b> need to read the same stream at their own pace with their own offsets, without N hand-wired EventBridge targets.</li>
+        <li><b>Sustained volume exceeds EventBridge's cost/throughput curve</b> — measured, not assumed.</li>
+      </ol>
+      <p><b>Where this applies today:</b> the Product Management &rarr; Search Service edge (<code>ProductChanged</code>) is the only edge in the current service catalog that plausibly hits triggers 1 and 2 — see <a href="#svc-search-buildtime">Search Service &sect;02</a>. This edge is flagged as a <b>Kafka candidate</b>, evaluated once real event volume is measured — not switched preemptively.</p>
+      <p><b>Alternatives considered:</b> RabbitMQ — rejected for now, nothing in the current catalog needs exchange/topic routing beyond SQS. Kafka everywhere — rejected as premature; most edges are simple fan-out with no ordering/replay need.</p>
+      <p><b>Trade-offs:</b> A mixed backbone means two operational models instead of one — accepted because forcing every edge onto the hardest edge's technology is the more expensive mistake. Revisit per-edge, not system-wide.</p>
+      <p style="font-size:13px; color:var(--muted);">Governs: <a href="#svc-search-service">Search Service</a>, <a href="#svc-product-management">Product Management</a>, <a href="#svc-order-management">Order Management</a>, <a href="#svc-billing-management">Billing Management</a>, <a href="#svc-notification-service">Notification Service</a></p>
+    </div>
+  </section>
+
+  <!-- ======================================================================= -->
+  <!-- PART — AWS SERVICES REFERENCE                                           -->
+  <!-- ======================================================================= -->
+  <div class="part-divider" id="part-aws">
+    <div class="part-eyebrow">Part two</div>
+    <h2 class="part-title">AWS Services Reference</h2>
+    <p style="color:var(--muted); font-size:1.05rem; max-width:62ch; margin-top:10px;">Every AWS service named across the 11-service architecture, why it was picked, and which service(s) it belongs to.</p>
+  </div>
+
+  <div class="stat-strip">
+    <div class="stat-tile"><div class="fig">19</div><div class="lbl">Services in active use</div></div>
+    <div class="stat-tile"><div class="fig">1</div><div class="lbl">Flagged candidate (MSK)</div></div>
+    <div class="stat-tile"><div class="fig">8</div><div class="lbl">Categories</div></div>
+    <div class="stat-tile"><div class="fig">11</div><div class="lbl">Services documented</div></div>
+  </div>
+  <div class="legend-row">
+    <span><i class="legend-dot" style="background:var(--c-compute)"></i>Compute</span>
+    <span><i class="legend-dot" style="background:var(--c-database)"></i>Database</span>
+    <span><i class="legend-dot" style="background:var(--c-storage)"></i>Storage</span>
+    <span><i class="legend-dot" style="background:var(--c-integration)"></i>App Integration</span>
+    <span><i class="legend-dot" style="background:var(--c-network)"></i>Networking</span>
+    <span><i class="legend-dot" style="background:var(--c-security)"></i>Security &amp; Identity</span>
+    <span><i class="legend-dot" style="background:var(--c-management)"></i>Management &amp; Governance</span>
+    <span><i class="legend-dot" style="background:var(--c-devtools)"></i>Developer Tools</span>
+  </div>
+
+  <section class="cat-section" id="aws-compute" style="margin-top:40px;">
+    <div class="cat-head"><span class="cat-swatch" style="background:var(--c-compute)"></span><h3>Compute</h3></div>
+    <p class="cat-desc">Two compute types cover the whole system, split by traffic shape rather than convenience — see the Decisions section of <a href="#svc-search-service">Search Service</a> for the reasoning this pattern comes from.</p>
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-compute)"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.2" fill="white"/><rect x="14" y="3" width="7" height="7" rx="1.2" fill="white" opacity=".75"/><rect x="3" y="14" width="7" height="7" rx="1.2" fill="white" opacity=".75"/><rect x="14" y="14" width="7" height="7" rx="1.2" fill="white"/></svg></div>
+          <div><div class="svc-name">Amazon ECS on Fargate</div><span class="svc-code">compute &middot; serverless containers</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="#svc-seller-user">Seller User</a><a class="chip" href="#svc-buyer-user">Buyer User</a><a class="chip" href="#svc-order-management">Order Mgmt</a><a class="chip" href="#svc-quotation-management">Quotation Mgmt</a><a class="chip" href="#svc-billing-management">Billing Mgmt</a><a class="chip" href="#svc-product-management">Product Mgmt</a><a class="chip" href="#svc-search-service">Search (query layer)</a>
+        </div>
+        <p class="svc-why">The default for anything needing a <b>warm process</b> — a live connection pool to Aurora, low-latency request handling, or steady background load. No servers to patch, no idle-capacity waste at this traffic level.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-compute)"><svg viewBox="0 0 24 24" fill="none"><path d="M8 4 L8 20 M8 4 L15 4 M8 12 L14 12 M8 20 L17 20" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div><div class="svc-name">AWS Lambda</div><span class="svc-code">compute &middot; event-driven functions</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-notification-service">Notification Service</a><a class="chip" href="#svc-search-service">Search (index consumer)</a></div>
+        <p class="svc-why">Reserved for work that's <b>bursty and idle most of the time</b> — a catalog change, a notification send. Paying for an always-on Fargate task here isn't justified; Lambda scales to zero between bursts.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cat-section" id="aws-database">
+    <div class="cat-head"><span class="cat-swatch" style="background:var(--c-database)"></span><h3>Database &amp; caching</h3></div>
+    <p class="cat-desc">Transactional services get a single-writer Aurora cluster each (per <a href="#adr-007">ADR-007</a>); Product Management is the one exception, running active-active because it's read-heavy and lag-tolerant.</p>
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-database)"><svg viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="6" rx="8" ry="3" fill="white"/><path d="M4 6 V18 C4 19.7 7.6 21 12 21 C16.4 21 20 19.7 20 18 V6" stroke="white" stroke-width="2" fill="none"/><path d="M4 12 C4 13.7 7.6 15 12 15 C16.4 15 20 13.7 20 12" stroke="white" stroke-width="2" fill="none"/></svg></div>
+          <div><div class="svc-name">Amazon Aurora PostgreSQL</div><span class="svc-code">database &middot; single-writer cluster, one per service</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-seller-user">Seller User</a><a class="chip" href="#svc-buyer-user">Buyer User</a><a class="chip" href="#svc-order-management">Order Mgmt</a><a class="chip" href="#svc-quotation-management">Quotation Mgmt</a><a class="chip" href="#svc-billing-management">Billing Mgmt</a></div>
+        <p class="svc-why">Relational, transactional correctness where it actually matters — orders, payments, registrations. Single-writer with a warm standby, never active-active, per <a href="#adr-007">ADR-007</a>. <b>Billing runs a physically separate cluster from Order</b> — enforcing the no-duplication rule (<a href="#adr-004">ADR-004</a>) at the infrastructure level, not by convention.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-database)"><svg viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="6" rx="8" ry="3" fill="white"/><path d="M4 6 V18 C4 19.7 7.6 21 12 21 C16.4 21 20 19.7 20 18 V6" stroke="white" stroke-width="2" fill="none"/><circle cx="18.5" cy="17.5" r="4.2" fill="var(--c-database)" stroke="white" stroke-width="1.6"/><path d="M18.5 15.2 V19.8 M16.6 17.5 H20.4" stroke="white" stroke-width="1.2"/></svg></div>
+          <div><div class="svc-name">Aurora Global Database</div><span class="svc-code">database &middot; active-active reads across regions</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-product-management">Product Management</a></div>
+        <p class="svc-why">The one write-heavy-but-read-tolerant domain. One write primary, but read replicas fan out globally — the exception to single-writer specifically because Product Management is 59% of the system's tables and almost entirely read traffic.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-database)"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="9" width="16" height="9" rx="1.5" fill="white"/><path d="M8 9 V6 a4 4 0 0 1 8 0 v3" stroke="white" stroke-width="2" fill="none"/><circle cx="12" cy="13.5" r="1.4" fill="var(--c-database)"/></svg></div>
+          <div><div class="svc-name">Amazon ElastiCache (Redis)</div><span class="svc-code">database &middot; in-memory cache</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-product-management">Product Management</a></div>
+        <p class="svc-why">Sits in front of Aurora specifically to absorb high-volume browse/catalog-read traffic without hitting the writer. No other service gets this treatment — no other service has Product's read volume.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-database)"><svg viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="6.5" stroke="white" stroke-width="2.2" fill="none"/><path d="M15.3 15.3 L20.5 20.5" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+          <div><div class="svc-name">Amazon OpenSearch Service</div><span class="svc-code">database &middot; managed search index</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-search-service">Search Service</a></div>
+        <p class="svc-why">Purpose-built full-text/faceted search. No other service touches it — it's a <b>disposable index</b> rebuilt from Product's events (<a href="#adr-005">ADR-005</a>), never a source of truth. Managed snapshots and zone-aware replicas remove exactly the operational surface a search cluster otherwise demands.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cat-section" id="aws-integration">
+    <div class="cat-head"><span class="cat-swatch" style="background:var(--c-integration)"></span><h3>App integration &amp; messaging</h3></div>
+    <p class="cat-desc">Async-by-default (<a href="#adr-003">ADR-003</a>) runs on EventBridge + SQS everywhere except one flagged edge — see <a href="#adr-009">ADR-009</a> for exactly when that changes.</p>
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-integration)"><svg viewBox="0 0 24 24" fill="none"><path d="M4 12 H20 M20 12 L15 7 M20 12 L15 17" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>
+          <div><div class="svc-name">Amazon EventBridge</div><span class="svc-code">app integration &middot; event bus</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-order-management">Order &rarr; Billing</a><a class="chip" href="#svc-order-management">Order &rarr; Notification</a><a class="chip" href="#svc-billing-management">Billing &rarr; Notification</a><a class="chip" href="#svc-product-management">Product &rarr; Search</a></div>
+        <p class="svc-why">The async backbone for everything per <a href="#adr-003">ADR-003</a> — fan-out to independent consumers with no cluster to run, no polling.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-integration)"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="13" height="4" rx="1" fill="white"/><rect x="4" y="10" width="13" height="4" rx="1" fill="white" opacity=".75"/><rect x="4" y="15" width="9" height="4" rx="1" fill="white" opacity=".5"/></svg></div>
+          <div><div class="svc-name">Amazon SQS</div><span class="svc-code">app integration &middot; queue, behind every consumer</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#adr-009">Every async consumer</a></div>
+        <p class="svc-why">Retry and dead-letter handling behind every EventBridge target — named explicitly in <a href="#adr-009">ADR-009</a> so "async by default" doesn't silently drop failed deliveries.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-integration)"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20 L4 14 M4 14 A8 8 0 0 1 20 14 M20 14 L20 20" stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round"/><circle cx="12" cy="6" r="2" fill="white"/></svg></div>
+          <div><div class="svc-name">Amazon SNS</div><span class="svc-code">app integration &middot; SMS delivery</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-notification-service">Notification Service</a></div>
+        <p class="svc-why">SMS fan-out from the one service that never receives a synchronous call by design — Notification only subscribes to events, it exposes no internal REST endpoint at all.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-integration)"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="1.5" fill="white"/><path d="M3 6 L12 13 L21 6" stroke="var(--c-integration)" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div><div class="svc-name">Amazon SES</div><span class="svc-code">app integration &middot; email delivery</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-notification-service">Notification Service</a></div>
+        <p class="svc-why">Email delivery — order confirmations, invoice notices — fired asynchronously from Billing/Order events, never on a critical path.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--paper); border:2px dashed var(--sync);"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="4" rx="1" fill="var(--sync)"/><rect x="3" y="10" width="18" height="4" rx="1" fill="var(--sync)" opacity=".65"/><rect x="3" y="16" width="18" height="4" rx="1" fill="var(--sync)" opacity=".35"/></svg></div>
+          <div><div class="svc-name">Amazon MSK (Kafka)</div><span class="svc-code">app integration &middot; flagged, not adopted</span><span class="svc-status candidate">Candidate</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-product-management">Product &rarr; Search (candidate)</a></div>
+        <p class="svc-why">The <b>only</b> edge in the system flagged for ordered, replayable delivery — Search's index-backfill replays this exact stream, and EventBridge doesn't guarantee per-key ordering. Named in <a href="#adr-009">ADR-009</a>.</p>
+      </div>
+    </div>
+    <div class="why-not"><b>Why not Kafka or RabbitMQ everywhere:</b> most async edges here are simple fan-out with no ordering or replay requirement — running a managed Kafka cluster for those adds real operational cost with no matching benefit. RabbitMQ was considered and rejected outright: nothing in this system needs AMQP-style exchange/topic routing beyond what SQS already provides. See <a href="#adr-009">ADR-009</a> for the full reasoning.</div>
+  </section>
+
+  <section class="cat-section" id="aws-platform">
+    <div class="cat-head"><span class="cat-swatch" style="background:var(--c-management)"></span><h3>Platform &amp; management</h3></div>
+    <p class="cat-desc">Config and Discovery sit underneath every service, not on the client request path — every choice here traces back to one rule: the backend already deploys via ECS/ECR, so pick whatever integrates with that natively (<a href="#adr-002">ADR-002</a>).</p>
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-management)"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="2.4" fill="white"/><path d="M12 11.4 C7.5 11.4 5 15 5 20 H19 C19 15 16.5 11.4 12 11.4 Z" fill="white" opacity=".85"/><circle cx="12" cy="12" r="9" stroke="white" stroke-width="1.4" fill="none" stroke-dasharray="2 2"/></svg></div>
+          <div><div class="svc-name">AWS Cloud Map</div><span class="svc-code">management &middot; service registry</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-discovery-service">Discovery Service</a></div>
+        <p class="svc-why">Registration, health checks, DNS-based resolution for every service. Chosen over self-hosted Eureka/Consul specifically because it integrates natively with ECS — no new cluster to run per region, per <a href="#adr-002">ADR-002</a>.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-management)"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" fill="white"/><path d="M12 3 V6 M12 18 V21 M3 12 H6 M18 12 H21 M5.6 5.6 L7.8 7.8 M16.2 16.2 L18.4 18.4 M18.4 5.6 L16.2 7.8 M7.8 16.2 L5.6 18.4" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div><div class="svc-name">AWS AppConfig</div><span class="svc-code">management &middot; live config, no redeploy</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-config-service">Config Service</a></div>
+        <p class="svc-why">Per-service, per-environment, per-region config with a refresh event instead of polling — this is the specific mechanism that makes the one-click region rollout in <a href="#adr-006">ADR-006</a> work without touching running services.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-management)"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 L12 13" stroke="white" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17" r="4" fill="white"/><circle cx="12" cy="17" r="1.3" fill="var(--c-management)"/></svg></div>
+          <div><div class="svc-name">Systems Manager Parameter Store</div><span class="svc-code">management &middot; plain config values</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-config-service">Config Service</a></div>
+        <p class="svc-why">Plain (non-secret) config values that AppConfig profiles reference — kept distinct from Secrets Manager below as a deliberate security boundary, not an accident.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cat-section" id="aws-security">
+    <div class="cat-head"><span class="cat-swatch" style="background:var(--c-security)"></span><h3>Security &amp; identity</h3></div>
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-security)"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="1.5" fill="white"/><path d="M8 11 V8 a4 4 0 0 1 8 0 v3" stroke="white" stroke-width="2" fill="none"/><circle cx="12" cy="15.3" r="1.4" fill="var(--c-security)"/></svg></div>
+          <div><div class="svc-name">AWS Secrets Manager</div><span class="svc-code">security &middot; credentials, never in Config Service</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-config-service">Config Service (boundary)</a><span class="chip">Every service with credentials</span></div>
+        <p class="svc-why">A deliberate boundary stated explicitly in the Config Service doc — secrets never live in Config Service's own store. Separating "config" from "credentials" is a security decision, not an oversight.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-security)"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 L19 6 V11 C19 16 16 19.5 12 21 C8 19.5 5 16 5 11 V6 Z" fill="white"/><path d="M9 12 L11.2 14.2 L15.5 9.5" stroke="var(--c-security)" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div><div class="svc-name">AWS IAM</div><span class="svc-code">security &middot; roles &amp; permissions</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><span class="chip">Every service (execution roles)</span></div>
+        <p class="svc-why">Execution roles for Lambda, cross-service permission boundaries — referenced explicitly in Notification's Terraform, implicit in every other service's task role.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cat-section" id="aws-edge">
+    <div class="cat-head"><span class="cat-swatch" style="background:var(--c-network)"></span><h3>Networking &amp; client-facing edge</h3></div>
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-network)"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="2" fill="white"/><path d="M4 10 H20 M10 4 V20" stroke="var(--c-network)" stroke-width="1.6"/><path d="M14 14 L18 18 M18 14 L14 18" stroke="var(--c-network)" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+          <div><div class="svc-name">Amazon API Gateway</div><span class="svc-code">networking &middot; sole client entry point</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-api-gateway">API Gateway service</a></div>
+        <p class="svc-why">Managed auth, rate-limiting, and routing out of the box. No domain service is directly reachable from the internet, per <a href="#adr-008">ADR-008</a>. Service-to-service calls bypass it entirely, resolving via Cloud Map instead.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-network)"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="white" stroke-width="2" fill="none"/><path d="M3 12 H21 M12 3 C15 6.5 15 17.5 12 21 C9 17.5 9 6.5 12 3 Z" stroke="white" stroke-width="1.6" fill="none"/></svg></div>
+          <div><div class="svc-name">Amazon Route 53</div><span class="svc-code">networking &middot; latency-based routing</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-api-gateway">API Gateway (multi-region)</a></div>
+        <p class="svc-why">Routes clients to the nearest regional gateway. Keeps the region-add story a single parameterized deploy instead of a shared global resource to coordinate.</p>
+      </div>
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-storage)"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7 C4 5.3 7.6 4 12 4 C16.4 4 20 5.3 20 7 V17 C20 18.7 16.4 20 12 20 C7.6 20 4 18.7 4 17 Z" fill="white"/><path d="M4 7 C4 8.7 7.6 10 12 10 C16.4 10 20 8.7 20 7" stroke="var(--c-storage)" stroke-width="1.4" fill="none"/></svg></div>
+          <div><div class="svc-name">Amazon S3</div><span class="svc-code">storage &middot; onboarding documents</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><a class="chip" href="#svc-seller-user">Seller User</a><a class="chip" href="#svc-buyer-user">Buyer User</a></div>
+        <p class="svc-why">Onboarding document uploads — I/O-heavy, not CPU-heavy, which is also why these two services scale on request-queue depth rather than CPU utilization.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cat-section" id="aws-devtools">
+    <div class="cat-head"><span class="cat-swatch" style="background:var(--c-devtools)"></span><h3>Developer tools</h3></div>
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-devtools)"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="7" width="18" height="12" rx="1.5" fill="white"/><path d="M8 7 V5.5 A2 2 0 0 1 10 3.5 H14 A2 2 0 0 1 16 5.5 V7" stroke="white" stroke-width="1.8" fill="none"/></svg></div>
+          <div><div class="svc-name">Amazon ECR</div><span class="svc-code">developer tools &middot; container registry</span><span class="svc-status active">Active</span></div>
+        </div>
+        <div class="svc-used"><span class="chip">Every service (build&rarr;ECR&rarr;deploy)</span></div>
+        <p class="svc-why">Every container image lands here before deploy — the existing build&rarr;ECR&rarr;ECS pipeline the backend already runs, referenced in every service's Terraform build-time section.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================= -->
+  <!-- PART — DOMAIN SERVICES                                                  -->
+  <!-- ======================================================================= -->
+  <div class="part-divider" id="part-domain">
+    <div class="part-eyebrow">Part three</div>
+    <h2 class="part-title">Domain services</h2>
+  </div>
+
+  <!-- ============================ SELLER USER ============================ -->
+  <article class="svc-doc" id="svc-seller-user">
+    <div class="svc-doc-head">
+      <div class="kicker">01 &middot; Domain service</div>
+      <h3>Seller User Service — schema consolidation and deployment topology</h3>
+      <p>What Seller User owns today across three parallel entity packages, how those collapse into one service schema, and why this service sits in the single-writer bucket rather than active-active.</p>
+    </div>
+    <div class="svc-doc-body">
+
+      <section id="su-overview">
+        <div class="sec-head"><span class="sec-num">01</span><h2>Overview</h2></div>
+        <p class="lede">Seller User owns the seller's identity end to end: profile, registration, onboarding documents, bank details, and the seller/coordinator auth surface that Order, Quotation, and Product all lean on to answer "is this seller allowed to act." Nothing about a seller's catalog or transactions lives here — only who they are and whether they're approved.</p>
+        <p>Traffic is bursty rather than steady: registration and document upload spike around onboarding windows and go quiet in between. Document upload in particular is I/O heavy, not CPU heavy, so it scales on request queue depth, not CPU utilization.</p>
+      </section>
+
+      <section id="su-data">
+        <div class="sec-head"><span class="sec-num">02</span><h2>Data ownership</h2></div>
+        <p>The current monolith spreads seller data across three entity packages — roughly 21 tables — that this service must absorb into one schema.</p>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Table</th><th>Package</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td><code>tbl_seller</code></td><td>entity/seller</td><td>Live, approved seller record.</td></tr>
+              <tr><td><code>tbl_seller_gst</code></td><td>entity/seller</td><td>GST registration details for a live seller.</td></tr>
+              <tr><td><code>tbl_seller_document</code></td><td>entity/seller</td><td>Approved onboarding documents, post-verification.</td></tr>
+              <tr><td><code>tbl_seller_bank_details</code></td><td>entity/seller</td><td>Live bank/payout details, validated against IFSC lookup.</td></tr>
+              <tr><td><code>tbl_seller_address</code></td><td>entity/seller</td><td>Registered business address(es).</td></tr>
+              <tr><td><code>tbl_seller_coordinator</code></td><td>entity/seller</td><td>Named coordinator/contact person, shares the auth surface below.</td></tr>
+              <tr><td><code>tbl_seller_history</code></td><td>entity/seller</td><td>Audit trail of changes to a live seller record.</td></tr>
+              <tr><td><code>tbl_pending_seller</code></td><td>entity/seller (profile)</td><td>Seller record awaiting admin approval.</td></tr>
+              <tr><td><code>tbl_pending_seller_document</code></td><td>entity/seller (profile)</td><td>Documents attached to a pending-approval seller.</td></tr>
+              <tr><td><code>tbl_temp_seller</code></td><td>entity/temp/seller</td><td>In-progress registration, before submission.</td></tr>
+              <tr><td><code>tbl_temp_seller_document</code></td><td>entity/temp/seller</td><td>Documents uploaded mid-registration.</td></tr>
+              <tr><td><code>tbl_temp_seller_bank_details</code></td><td>entity/temp/seller</td><td>Bank details captured during registration.</td></tr>
+              <tr><td><code>tbl_temp_seller_coordinator</code></td><td>entity/temp/seller</td><td>Coordinator details captured during registration.</td></tr>
+              <tr><td><code>tbl_temp_seller_address</code></td><td>entity/temp/seller</td><td>Address captured during registration.</td></tr>
+              <tr><td><code>tbl_temp_seller_email_otp</code></td><td>entity/temp/seller</td><td>Email verification OTP.</td></tr>
+              <tr><td><code>tbl_temp_seller_review_history</code></td><td>entity/temp/seller</td><td>Reviewer actions/comments on a temp registration.</td></tr>
+              <tr><td><code>phone_otp</code></td><td>entity/temp/seller</td><td>Phone verification OTP.</td></tr>
+              <tr><td><code>tbl_terms_master</code></td><td>entity/temp/seller</td><td>Legal terms content — misplaced, not actually seller-specific.</td></tr>
+              <tr><td><code>tbl_user</code></td><td>entity/auth</td><td>Shared login identity, seller and coordinator accounts.</td></tr>
+              <tr><td><code>tbl_signup_otp</code></td><td>entity/auth</td><td>Signup OTP, shared auth table.</td></tr>
+              <tr><td><code>tbl_refresh_tokens</code></td><td>entity/auth</td><td>Refresh token store, shared auth table.</td></tr>
+              <tr><td><code>tbl_login_otp</code></td><td>entity/auth</td><td>Login OTP, shared auth table.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><b>Open question — <code>tbl_terms_master</code> is misplaced:</b> it lives under <code>entity/temp/seller</code> today but its content is shared, not seller-specific. It belongs in a shared legal-content table, referenced by both Seller User and Buyer User rather than owned by either.</div>
+        <div class="callout"><b>Three lifecycles, one schema:</b> a seller record moves through <b>Temp &rarr; Pending &rarr; live Seller</b> across three separate table families with independent primary keys. Consolidating means picking a single seller identity that persists across all three stages (a state column, not three tables).</div>
+        <p>Also flag: <code>tbl_ifsc_overrides</code> sits in its own <code>entity/ifsc</code> package today but exists purely to validate bank details — a candidate to fold into Seller User's schema.</p>
+        <p>Both Seller User and Buyer User FK into shared master tables — <code>tbl_state_master</code>, <code>tbl_district_master</code>, <code>tbl_taluka_master</code>, <code>tbl_seller_type_master</code>/<code>tbl_buyer_type_master</code>, <code>tbl_document_type_master</code>. These stay a shared read-only reference module, cached at the edge.</p>
+      </section>
+
+      <section id="su-comms">
+        <div class="sec-head"><span class="sec-num">03</span><h2>Communication</h2></div>
+        <p class="lede">Seller User is called far more than it calls out — the dominant traffic pattern is other services asking "is this seller approved."</p>
+        <div class="phase-grid">
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-sync">Sync</span> Inbound eligibility lookups</h3>
+            <div class="when">on nearly every write path elsewhere</div>
+            <ul>
+              <li>Order Management &rarr; Seller User: is this seller active/approved.</li>
+              <li>Quotation Management &rarr; Seller User: same eligibility check.</li>
+              <li>Product Management &rarr; Seller User: seller-approval check before a listing can be published.</li>
+              <li>Read-only, high frequency — cache aggressively, short TTL, invalidated on approval-status change.</li>
+            </ul>
+          </div>
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-async">Platform</span> Boot-time platform calls</h3>
+            <div class="when">on service startup, not business traffic</div>
+            <ul>
+              <li>Registers with Discovery Service so callers can resolve it.</li>
+              <li>Pulls environment config from Config Service at boot.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="su-arch">
+        <div class="sec-head"><span class="sec-num">04</span><h2>Architecture diagram</h2></div>
+        <p>Three callers doing high-frequency eligibility checks against one service, backed by its consolidated data.</p>
+        <div class="arch-diagram">
+          <svg viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg">
+            <rect class="node-box self" x="270" y="115" width="150" height="70" rx="6"></rect>
+            <text class="node-label" x="345" y="145" text-anchor="middle">Seller User</text>
+            <text class="node-sub" x="345" y="162" text-anchor="middle">profile · auth · docs</text>
+            <rect class="node-box" x="470" y="20" width="170" height="50" rx="6"></rect>
+            <text class="node-label" x="555" y="41" text-anchor="middle">Order Management</text>
+            <text class="node-sub" x="555" y="56" text-anchor="middle">eligibility check</text>
+            <rect class="node-box" x="470" y="125" width="170" height="50" rx="6"></rect>
+            <text class="node-label" x="555" y="146" text-anchor="middle">Quotation Management</text>
+            <text class="node-sub" x="555" y="161" text-anchor="middle">eligibility check</text>
+            <rect class="node-box" x="470" y="230" width="170" height="50" rx="6"></rect>
+            <text class="node-label" x="555" y="251" text-anchor="middle">Product Management</text>
+            <text class="node-sub" x="555" y="266" text-anchor="middle">approval check</text>
+            <rect class="node-box" x="30" y="20" width="180" height="50" rx="6"></rect>
+            <text class="node-label" x="120" y="41" text-anchor="middle">Seller/coordinator schema</text>
+            <text class="node-sub" x="120" y="56" text-anchor="middle">tbl_seller, tbl_seller_*</text>
+            <rect class="node-box" x="30" y="125" width="180" height="50" rx="6"></rect>
+            <text class="node-label" x="120" y="146" text-anchor="middle">Onboarding schema</text>
+            <text class="node-sub" x="120" y="161" text-anchor="middle">temp_seller, pending_seller</text>
+            <rect class="node-box" x="30" y="230" width="180" height="50" rx="6"></rect>
+            <text class="node-label" x="120" y="251" text-anchor="middle">Auth schema</text>
+            <text class="node-sub" x="120" y="266" text-anchor="middle">tbl_user, refresh_tokens</text>
+            <path class="edge-sync" d="M270,140 L470,45" marker-end="url(#su-arrow)"></path>
+            <path class="edge-sync" d="M270,150 L470,150" marker-end="url(#su-arrow)"></path>
+            <path class="edge-sync" d="M270,160 L470,255" marker-end="url(#su-arrow)"></path>
+            <text class="edge-label" x="380" y="80">sync</text>
+            <text class="edge-label" x="380" y="200">sync</text>
+            <path class="edge-sync" d="M210,45 L270,130"></path>
+            <path class="edge-sync" d="M210,150 L270,150"></path>
+            <path class="edge-sync" d="M210,255 L270,170"></path>
+            <defs><marker id="su-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="var(--sync)"></path></marker></defs>
+          </svg>
+        </div>
+        <div class="arch-legend">
+          <span><span class="swatch sync"></span>sync request (eligibility/approval check)</span>
+          <span><span class="swatch async"></span>async / platform (not shown — Discovery + Config at boot)</span>
+        </div>
+      </section>
+
+      <section id="su-deploy">
+        <div class="sec-head"><span class="sec-num">05</span><h2>Deployment</h2></div>
+        <p>ECS Fargate for the API, Aurora PostgreSQL for the consolidated schema, S3 for document storage — the existing <code>S3Service</code> in the codebase already targets this pattern.</p>
+        <span class="file-tab">modules/seller-user-service/main.tf</span>
+        <pre><span class="c">// region as a variable, one module call per region — same pattern as Search</span>
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"seller_user"</span> {
+  cluster_identifier      = <span class="s">"seller-user-${var.region_short}-${var.environment}"</span>
+  engine                  = <span class="s">"aurora-postgresql"</span>
+  engine_version          = <span class="s">"15.4"</span>
+  master_username         = var.db_master_username
+  master_password         = var.db_master_password
+  db_subnet_group_name    = var.db_subnet_group
+  vpc_security_group_ids  = [aws_security_group.seller_user_db_sg.id]
+  backup_retention_period = <span class="k">7</span>
+  storage_encrypted       = <span class="k">true</span>
+}
+
+resource <span class="s">"aws_rds_cluster_instance"</span> <span class="s">"writer"</span> {
+  cluster_identifier = aws_rds_cluster.seller_user.id
+  instance_class     = var.db_instance_class
+  engine             = aws_rds_cluster.seller_user.engine
+}
+
+resource <span class="s">"aws_s3_bucket"</span> <span class="s">"seller_documents"</span> {
+  bucket = <span class="s">"pharma-seller-docs-${var.region_short}-${var.environment}"</span>
+}
+
+module <span class="s">"seller_user_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"seller-user"</span>
+  image         = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  desired_count = var.task_count
+  cpu           = <span class="k">512</span>
+  memory        = <span class="k">1024</span>
+  autoscale_on  = <span class="s">"request_queue_depth"</span>
+}</pre>
+      </section>
+
+      <section id="su-scaling">
+        <div class="sec-head"><span class="sec-num">06</span><h2>Scaling &amp; region topology</h2></div>
+        <p class="lede">Seller User sits in the <b>single-writer with warm standby</b> bucket, not active-active — the opposite topology from Product/Search.</p>
+        <p>Registration and auth are correctness-sensitive: two regions independently accepting registrations creates split-brain identity data that's expensive to reconcile. Failover is a controlled Aurora promotion, minutes not seconds.</p>
+        <div class="cost-strip">
+          <div class="cost-item"><div class="lbl">Writer region floor</div><div class="fig">2 tasks</div><div class="note">Fargate HA minimum, autoscaling on request queue depth above that</div></div>
+          <div class="cost-item"><div class="lbl">Standby region floor</div><div class="fig">1 task + replica</div><div class="note">warm enough to promote quickly</div></div>
+          <div class="cost-item"><div class="lbl">Failover time</div><div class="fig">minutes</div><div class="note">controlled Aurora promotion, not instant</div></div>
+        </div>
+      </section>
+
+      <section id="su-decisions">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Decisions worth writing down</h2></div>
+        <div class="decision-card">
+          <span class="verdict">Decision — one seller identity, three lifecycle states</span>
+          <h4>Collapse Temp/Pending/Live into a single schema with a status column</h4>
+          <p>Model as one <code>seller</code> table carrying a <code>lifecycle_status</code> enum, with history preserved in the existing history-table pattern.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — standardize on Buyer's per-domain auth pattern</span>
+          <h4>Seller User should adopt dedicated auth tables, not keep sharing <code>entity/auth</code></h4>
+          <p>Seller forks its own auth tables scoped to seller + coordinator logins, following Buyer's already-proven pattern — a shared <code>entity/auth</code> package becomes a cross-service dependency once both are separate services.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — fold IFSC overrides in, carve terms master out</span>
+          <h4><code>tbl_ifsc_overrides</code> moves into Seller User; <code>tbl_terms_master</code> moves to shared legal content</h4>
+          <p><code>tbl_ifsc_overrides</code> has no other reader — belongs inside Seller User's schema. <code>tbl_terms_master</code> should move to the shared reference module alongside state/district/document-type masters.</p>
+        </div>
+      </section>
+
+      <p class="back-to-toc"><a href="#part-domain">&uarr; back to top</a></p>
+    </div>
+  </article>
+
+  <!-- ============================ BUYER USER ============================ -->
+  <article class="svc-doc" id="svc-buyer-user">
+    <div class="svc-doc-head">
+      <div class="kicker">02 &middot; Domain service</div>
+      <h3>Buyer User Service — schema, deployment, and auth-pattern alignment</h3>
+      <p>What Buyer User owns today, how it mirrors Seller User's shape at lower volume, and the auth-table inconsistency between the two domains.</p>
+    </div>
+    <div class="svc-doc-body">
+
+      <section id="bu-overview">
+        <div class="sec-head"><span class="sec-num">01</span><h2>Overview</h2></div>
+        <p class="lede">Buyer User owns the buyer's identity: profile, registration, onboarding documents, and buyer auth. It's the same shape as Seller User, just lighter in volume — no GST/bank-details/coordinator surface.</p>
+        <p>Registration traffic is bursty around onboarding pushes; document upload is I/O bound, so it scales on request queue depth. The difference from Seller User is scale, not architecture.</p>
+      </section>
+
+      <section id="bu-data">
+        <div class="sec-head"><span class="sec-num">02</span><h2>Data ownership</h2></div>
+        <p>15 tables across two packages — simpler than Seller User's three-lifecycle split, because Buyer only has two stages.</p>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Table</th><th>Package</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td><code>tbl_buyer</code></td><td>entity/buyer</td><td>Live, approved buyer account record.</td></tr>
+              <tr><td><code>tbl_buyer_user</code></td><td>entity/buyer</td><td>Login identity for a buyer.</td></tr>
+              <tr><td><code>tbl_buyer_address</code></td><td>entity/buyer</td><td>Registered address(es).</td></tr>
+              <tr><td><code>tbl_buyer_delivery_address</code></td><td>entity/buyer</td><td>Delivery-specific address(es).</td></tr>
+              <tr><td><code>tbl_buyer_contact</code></td><td>entity/buyer</td><td>Named contact person on the buyer account.</td></tr>
+              <tr><td><code>tbl_buyer_document</code></td><td>entity/buyer</td><td>Approved onboarding documents.</td></tr>
+              <tr><td><code>tbl_buyer_signup_otp</code></td><td>entity/buyer</td><td>Signup OTP, buyer-domain-specific.</td></tr>
+              <tr><td><code>tbl_buyer_login_otp</code></td><td>entity/buyer</td><td>Login OTP, buyer-domain-specific.</td></tr>
+              <tr><td><code>tbl_buyer_refresh_tokens</code></td><td>entity/buyer</td><td>Refresh token store, buyer-domain-specific.</td></tr>
+              <tr><td><code>tbl_temp_buyer</code></td><td>entity/temp/buyer</td><td>In-progress buyer registration.</td></tr>
+              <tr><td><code>tbl_temp_buyer_address</code></td><td>entity/temp/buyer</td><td>Address captured during registration.</td></tr>
+              <tr><td><code>tbl_temp_buyer_contact</code></td><td>entity/temp/buyer</td><td>Contact details captured during registration.</td></tr>
+              <tr><td><code>tbl_temp_buyer_document</code></td><td>entity/temp/buyer</td><td>Documents uploaded mid-registration.</td></tr>
+              <tr><td><code>tbl_temp_buyer_review_history</code></td><td>entity/temp/buyer</td><td>Reviewer actions/comments on a temp registration.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><b>Inconsistency worth naming:</b> Buyer already has its own dedicated OTP/refresh-token tables, fully scoped to this domain. Seller reuses a generic shared <code>entity/auth</code> package instead. The recommendation is for Seller to adopt Buyer's pattern.</div>
+        <p>Buyer User FKs into the same shared master tables as Seller User, remaining a shared read-only reference module.</p>
+      </section>
+
+      <section id="bu-comms">
+        <div class="sec-head"><span class="sec-num">03</span><h2>Communication</h2></div>
+        <p class="lede">Same shape as Seller User: mostly called, rarely calls out.</p>
+        <div class="phase-grid">
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-sync">Sync</span> Inbound eligibility/profile lookups</h3>
+            <div class="when">on order and quotation write paths</div>
+            <ul>
+              <li>Order Management &rarr; Buyer User: is this buyer account active.</li>
+              <li>Quotation Management &rarr; Buyer User: buyer-profile/eligibility check.</li>
+              <li>Lower volume than Seller User's equivalent, same caching discipline.</li>
+            </ul>
+          </div>
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-async">Platform</span> Boot-time platform calls</h3>
+            <div class="when">on service startup, not business traffic</div>
+            <ul>
+              <li>Registers with Discovery Service.</li>
+              <li>Pulls config from Config Service at boot.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="bu-arch">
+        <div class="sec-head"><span class="sec-num">04</span><h2>Architecture diagram</h2></div>
+        <p>Two inbound callers instead of Seller User's three — no Product-side gating check on the buyer side.</p>
+        <div class="arch-diagram">
+          <svg viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
+            <rect class="node-box self" x="270" y="95" width="150" height="70" rx="6"></rect>
+            <text class="node-label" x="345" y="125" text-anchor="middle">Buyer User</text>
+            <text class="node-sub" x="345" y="142" text-anchor="middle">profile · auth · docs</text>
+            <rect class="node-box" x="470" y="30" width="170" height="50" rx="6"></rect>
+            <text class="node-label" x="555" y="51" text-anchor="middle">Order Management</text>
+            <text class="node-sub" x="555" y="66" text-anchor="middle">eligibility check</text>
+            <rect class="node-box" x="470" y="180" width="170" height="50" rx="6"></rect>
+            <text class="node-label" x="555" y="201" text-anchor="middle">Quotation Management</text>
+            <text class="node-sub" x="555" y="216" text-anchor="middle">eligibility check</text>
+            <rect class="node-box" x="30" y="30" width="180" height="50" rx="6"></rect>
+            <text class="node-label" x="120" y="51" text-anchor="middle">Buyer schema</text>
+            <text class="node-sub" x="120" y="66" text-anchor="middle">tbl_buyer, tbl_buyer_*</text>
+            <rect class="node-box" x="30" y="105" width="180" height="50" rx="6"></rect>
+            <text class="node-label" x="120" y="126" text-anchor="middle">Onboarding schema</text>
+            <text class="node-sub" x="120" y="141" text-anchor="middle">temp_buyer, review_history</text>
+            <rect class="node-box" x="30" y="180" width="180" height="50" rx="6"></rect>
+            <text class="node-label" x="120" y="201" text-anchor="middle">Auth schema</text>
+            <text class="node-sub" x="120" y="216" text-anchor="middle">buyer_user, refresh_tokens</text>
+            <path class="edge-sync" d="M270,120 L470,55" marker-end="url(#bu-arrow)"></path>
+            <path class="edge-sync" d="M270,140 L470,205" marker-end="url(#bu-arrow)"></path>
+            <text class="edge-label" x="380" y="75">sync</text>
+            <text class="edge-label" x="380" y="185">sync</text>
+            <path class="edge-sync" d="M210,55 L270,110"></path>
+            <path class="edge-sync" d="M210,130 L270,130"></path>
+            <path class="edge-sync" d="M210,205 L270,150"></path>
+            <defs><marker id="bu-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="var(--sync)"></path></marker></defs>
+          </svg>
+        </div>
+        <div class="arch-legend">
+          <span><span class="swatch sync"></span>sync request (eligibility/profile check)</span>
+          <span><span class="swatch async"></span>async / platform (not shown — Discovery + Config at boot)</span>
+        </div>
+      </section>
+
+      <section id="bu-deploy">
+        <div class="sec-head"><span class="sec-num">05</span><h2>Deployment</h2></div>
+        <p>Same module shape as Seller User, sized down — lower <code>desired_count</code> and a smaller DB instance class.</p>
+        <span class="file-tab">modules/buyer-user-service/main.tf</span>
+        <pre><span class="c">// near-identical to modules/seller-user-service/main.tf — lower task_count and instance_class</span>
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"buyer_user"</span> {
+  cluster_identifier      = <span class="s">"buyer-user-${var.region_short}-${var.environment}"</span>
+  engine                  = <span class="s">"aurora-postgresql"</span>
+  engine_version          = <span class="s">"15.4"</span>
+  backup_retention_period = <span class="k">7</span>
+  storage_encrypted       = <span class="k">true</span>
+}
+
+module <span class="s">"buyer_user_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"buyer-user"</span>
+  image         = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  desired_count = var.task_count
+  cpu           = <span class="k">256</span>
+  memory        = <span class="k">512</span>
+  autoscale_on  = <span class="s">"request_queue_depth"</span>
+}</pre>
+      </section>
+
+      <section id="bu-scaling">
+        <div class="sec-head"><span class="sec-num">06</span><h2>Scaling &amp; region topology</h2></div>
+        <p class="lede">Same <b>single-writer with warm standby</b> bucket as Seller User, for the same reason: correctness over read scale. Volume affects sizing, not the write-consistency requirement.</p>
+        <div class="cost-strip">
+          <div class="cost-item"><div class="lbl">Writer region floor</div><div class="fig">1 task</div><div class="note">lower than Seller User's 2-task floor</div></div>
+          <div class="cost-item"><div class="lbl">Standby region floor</div><div class="fig">1 task + replica</div><div class="note">kept warm for promotion</div></div>
+        </div>
+      </section>
+
+      <section id="bu-decisions">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Decisions worth writing down</h2></div>
+        <div class="decision-card">
+          <span class="verdict">Decision — collapse Temp/Live into one schema, same as Seller</span>
+          <h4>Buyer's two-stage lifecycle gets one identity with a status column</h4>
+          <p>One entity with a <code>lifecycle_status</code> column rather than two tables with independent keys.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — Buyer's per-domain auth pattern is the one to standardize on</span>
+          <h4>Keep Buyer's dedicated OTP/refresh-token tables; Seller adopts this pattern, not the reverse</h4>
+          <p>Buyer User Service ships its auth tables as-is; it isn't the side with migration work to do.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — no IFSC or terms-master ownership on the Buyer side</span>
+          <h4><code>tbl_ifsc_overrides</code> stays with Seller; <code>tbl_terms_master</code> goes to shared legal content</h4>
+          <p>Both Buyer User and Seller User should read terms from a shared legal-content table, not own a copy each.</p>
+        </div>
+      </section>
+
+      <p class="back-to-toc"><a href="#part-domain">&uarr; back to top</a></p>
+    </div>
+  </article>
+
+  <!-- ============================ ORDER MANAGEMENT ============================ -->
+  <article class="svc-doc" id="svc-order-management">
+    <div class="svc-doc-head">
+      <div class="kicker">03 &middot; Domain service</div>
+      <h3>Order Management — the strict-consistency core of the order lifecycle</h3>
+      <p>Why Order stays single-writer while everything around it scales out, what has to physically move out of its package before Billing can be its own service, and how quote acceptance, price checks, and event fan-out fit together.</p>
+    </div>
+    <div class="svc-doc-body">
+
+      <section id="om-overview">
+        <div class="sec-head"><span class="sec-num">01</span><h2>Overview</h2></div>
+        <p class="lede">Order Management owns orders, order lines, order status transitions, and returns/refunds. This is the one service where correctness has to win over horizontal write scaling.</p>
+        <p>Double-charging a buyer, losing a status transition, or accepting an order against stock that no longer exists is not a data-quality problem, it's a financial and regulatory one. Order Management is deliberately single-writer and strongly consistent even though that costs active-active write scaling.</p>
+      </section>
+
+      <section id="om-ownership">
+        <div class="sec-head"><span class="sec-num">02</span><h2>Data ownership</h2></div>
+        <p class="lede">The <code>entity/order</code> package shows 8 tables: <code>tbl_order</code>, <code>tbl_seller_order</code>, <code>tbl_order_item</code>, <code>tbl_order_status_history</code>, <code>tbl_return_request</code>, <code>tbl_refund</code>, <code>tbl_payment</code>, and <code>tbl_invoice</code>.</p>
+        <p>The first six are squarely Order's: an order splits per seller since a single buyer cart can span multiple sellers, every status change is journaled rather than overwritten, and returns/refunds get their own tables.</p>
+        <div class="callout"><b>Flag — <code>tbl_payment</code> and <code>tbl_invoice</code> are misplaced today:</b> both currently live inside Order's package. This is a <b>required physical migration</b> into Billing's own schema and cluster before Billing can be extracted. See <a href="#bm-ownership">Billing Management &sect;02</a> and <a href="#adr-004">ADR-004</a>.</div>
+      </section>
+
+      <section id="om-communication">
+        <div class="sec-head"><span class="sec-num">03</span><h2>Communication</h2></div>
+        <p class="lede">Order sits at the center: one sync call in from Quotation, one sync call out to Product, two async event streams to Billing and Notification.</p>
+        <div class="phase-grid">
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-build">Sync IN</span> Quotation Management &rarr; Order</h3>
+            <div class="when">create-order-on-accept</div>
+            <ul>
+              <li>When a buyer accepts a quote, Quotation calls Order to create the order before returning "accepted."</li>
+              <li>The order references the quote by ID; nothing is copied into Order's tables.</li>
+            </ul>
+          </div>
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-build">Sync OUT</span> Order &rarr; Product Management</h3>
+            <div class="when">price/stock confirmation on order creation</div>
+            <ul>
+              <li>Confirms current price and stock with Product Management in the same request.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="phase-grid">
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-build">Async OUT</span> Order &rarr; Billing Management</h3>
+            <div class="when"><code>OrderCreated</code> / <code>OrderStatusChanged</code> via EventBridge</div>
+            <ul><li>Billing reacts to these events to generate invoices — invoicing never blocks order confirmation.</li></ul>
+          </div>
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-build">Async OUT</span> Order &rarr; Notification Service</h3>
+            <div class="when">order-confirmation emails/SMS</div>
+            <ul><li>Notification must never receive a synchronous call — platform-wide rule.</li></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="om-architecture">
+        <div class="sec-head"><span class="sec-num">04</span><h2>Architecture diagram</h2></div>
+        <p>Order Management as the hub: sync edges to Quotation and Product, async edges out to Billing and Notification.</p>
+        <div class="arch-diagram">
+          <svg viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg">
+            <rect class="node-box self" x="270" y="120" width="140" height="60" rx="6"/>
+            <text class="node-label" x="340" y="145" text-anchor="middle">Order</text>
+            <text class="node-sub" x="340" y="160" text-anchor="middle">Management</text>
+            <rect class="node-box" x="30" y="30" width="150" height="55" rx="6"/>
+            <text class="node-label" x="105" y="53" text-anchor="middle">Quotation</text>
+            <text class="node-sub" x="105" y="67" text-anchor="middle">Management</text>
+            <rect class="node-box" x="500" y="30" width="150" height="55" rx="6"/>
+            <text class="node-label" x="575" y="53" text-anchor="middle">Product</text>
+            <text class="node-sub" x="575" y="67" text-anchor="middle">Management</text>
+            <rect class="node-box" x="30" y="215" width="150" height="55" rx="6"/>
+            <text class="node-label" x="105" y="238" text-anchor="middle">Billing</text>
+            <text class="node-sub" x="105" y="252" text-anchor="middle">Management</text>
+            <rect class="node-box" x="500" y="215" width="150" height="55" rx="6"/>
+            <text class="node-label" x="575" y="238" text-anchor="middle">Notification</text>
+            <text class="node-sub" x="575" y="252" text-anchor="middle">Service</text>
+            <path class="edge-sync" d="M180,70 L270,140" marker-end="url(#om-arrow-sync)"/>
+            <text class="edge-label" x="200" y="95">create-order-on-accept</text>
+            <path class="edge-sync" d="M410,140 L500,70" marker-end="url(#om-arrow-sync)"/>
+            <text class="edge-label" x="415" y="95">confirm price/stock</text>
+            <path class="edge-async" d="M270,165 L180,230" marker-end="url(#om-arrow-async)"/>
+            <text class="edge-label" x="185" y="205">OrderCreated /</text>
+            <text class="edge-label" x="185" y="217">OrderStatusChanged</text>
+            <path class="edge-async" d="M410,165 L500,230" marker-end="url(#om-arrow-async)"/>
+            <text class="edge-label" x="450" y="205">order-confirmation</text>
+            <text class="edge-label" x="450" y="217">email/SMS</text>
+            <defs>
+              <marker id="om-arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/></marker>
+              <marker id="om-arrow-async" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--async)"/></marker>
+            </defs>
+          </svg>
+        </div>
+        <div class="arch-legend"><span><span class="swatch sync"></span> sync (blocking)</span><span><span class="swatch async"></span> async (event)</span></div>
+      </section>
+
+      <section id="om-deployment">
+        <div class="sec-head"><span class="sec-num">05</span><h2>Deployment</h2></div>
+        <p class="lede">ECS Fargate for compute, Aurora PostgreSQL as a single-writer cluster — no multi-writer pattern.</p>
+        <span class="file-tab">modules/order-management/main.tf</span>
+        <pre><span class="c">// single-writer Aurora — standby region provisioned but not a second writer</span>
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"order_db"</span> {
+  cluster_identifier      = <span class="s">"order-mgmt-${var.environment}"</span>
+  engine                  = <span class="s">"aurora-postgresql"</span>
+  engine_version          = <span class="s">"15.4"</span>
+  backup_retention_period = <span class="k">7</span>
+}
+
+module <span class="s">"order_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"order-management"</span>
+  image         = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  desired_count = var.task_count
+  cpu           = <span class="k">1024</span>
+  memory        = <span class="k">2048</span>
+  autoscale_on  = <span class="s">"request_count"</span>
+}
+
+variable <span class="s">"standby_region"</span> {
+  description = <span class="s">"region for warm-standby Aurora cluster; promoted manually on regional failover"</span>
+  type        = string
+}</pre>
+      </section>
+
+      <section id="om-scaling">
+        <div class="sec-head"><span class="sec-num">06</span><h2>Scaling &amp; region topology</h2></div>
+        <p class="lede">Order runs single-writer with a warm standby per <a href="#adr-007">ADR-007</a> — explicitly <b>not</b> active-active.</p>
+        <p>A regional outage means a controlled Aurora promotion, RTO seconds-to-minutes. Active-active would mean resolving write conflicts on order and payment state, with no safe conflict-resolution strategy.</p>
+      </section>
+
+      <section id="om-decisions">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Decisions worth writing down</h2></div>
+        <div class="decision-card">
+          <span class="verdict">Decision — Payment and Invoice must be physically extracted</span>
+          <h4><code>tbl_payment</code> / <code>tbl_invoice</code> move to Billing's own schema/cluster</h4>
+          <p>Extraction has to be physical — a shared table or view would leave the door open for a cross-service join, exactly what <a href="#adr-004">ADR-004</a> prevents.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — Order stays single-writer while Product goes active-active</span>
+          <h4>Order correctness outranks read/write scale here</h4>
+          <p>Per <a href="#adr-007">ADR-007</a>, Order is bucketed with the single-writer-plus-standby services because two regions independently accepting order writes creates exactly the failures this service is built to avoid.</p>
+        </div>
+      </section>
+
+      <p class="back-to-toc"><a href="#part-domain">&uarr; back to top</a></p>
+    </div>
+  </article>
+
+  <!-- ============================ QUOTATION MANAGEMENT ============================ -->
+  <article class="svc-doc" id="svc-quotation-management">
+    <div class="svc-doc-head">
+      <div class="kicker">04 &middot; Domain service</div>
+      <h3>Quotation Management — negotiation state and the single-table problem</h3>
+      <p>Why one table backing two flows and three cross-domain foreign keys is a bigger problem than it looks, and how the negotiation trail should actually be modeled once this becomes its own service.</p>
+    </div>
+    <div class="svc-doc-body">
+
+      <section id="qm-overview">
+        <div class="sec-head"><span class="sec-num">01</span><h2>Overview</h2></div>
+        <p class="lede">Quotation Management owns buyer quote requests, seller quote responses, and the negotiation state that sits between them — the pre-sale conversation that either dies quietly or converts into an Order.</p>
+        <p>Traffic tracks B2B negotiation cycles: quiet stretches interrupted by clusters of activity when a buyer organization is actively sourcing.</p>
+      </section>
+
+      <section id="qm-ownership">
+        <div class="sec-head"><span class="sec-num">02</span><h2>Data ownership</h2></div>
+        <p class="lede">Exactly one table in <code>entity/quote</code> today: <code>tbl_quote_request</code>. No separate seller-response table, no separate negotiation-state table.</p>
+        <p>That one table backs <b>both</b> quoting flows — "Request Price Option" and RFQ "Get a Quote" — discriminated by a <code>requestType</code> enum.</p>
+        <div class="callout"><b>Open architecture question, answered as a decision:</b> a single mutable row overwritten on every back-and-forth loses the negotiation trail. Recommendation: a companion <code>tbl_quote_negotiation_history</code> table that appends one row per exchange.</div>
+        <p><b>Second flag — three-way cross-domain foreign keys:</b> today's <code>QuoteRequest</code> entity directly foreign-keys BuyerUser, Seller, and ProductDetails. That breaks the moment those become separate service databases — the target service has to store opaque IDs and resolve via API calls.</p>
+      </section>
+
+      <section id="qm-communication">
+        <div class="sec-head"><span class="sec-num">03</span><h2>Communication</h2></div>
+        <p class="lede">Quotation makes two outbound synchronous calls and receives none.</p>
+        <div class="phase-grid">
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-build">Sync OUT</span> Quotation &rarr; Product Management</h3>
+            <div class="when">pricing lookup during quote generation</div>
+            <ul><li>The buyer needs to see an actual number, not a stale indexed one.</li></ul>
+          </div>
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-build">Sync OUT</span> Quotation &rarr; Order Management</h3>
+            <div class="when">create-order-on-accept</div>
+            <ul><li>The order must exist before the acceptance response goes back to the buyer.</li></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="qm-architecture">
+        <div class="sec-head"><span class="sec-num">04</span><h2>Architecture diagram</h2></div>
+        <p>Quotation as a self-node with two synchronous outbound edges. No async edges.</p>
+        <div class="arch-diagram">
+          <svg viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
+            <rect class="node-box self" x="270" y="100" width="140" height="60" rx="6"/>
+            <text class="node-label" x="340" y="125" text-anchor="middle">Quotation</text>
+            <text class="node-sub" x="340" y="140" text-anchor="middle">Management</text>
+            <rect class="node-box" x="30" y="30" width="150" height="55" rx="6"/>
+            <text class="node-label" x="105" y="53" text-anchor="middle">Product</text>
+            <text class="node-sub" x="105" y="67" text-anchor="middle">Management</text>
+            <rect class="node-box" x="500" y="30" width="150" height="55" rx="6"/>
+            <text class="node-label" x="575" y="53" text-anchor="middle">Order</text>
+            <text class="node-sub" x="575" y="67" text-anchor="middle">Management</text>
+            <path class="edge-sync" d="M270,120 L180,70" marker-end="url(#qm-arrow-sync)"/>
+            <text class="edge-label" x="180" y="100">pricing lookup</text>
+            <path class="edge-sync" d="M410,120 L500,70" marker-end="url(#qm-arrow-sync)"/>
+            <text class="edge-label" x="415" y="100">create-order-on-accept</text>
+            <defs><marker id="qm-arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/></marker></defs>
+          </svg>
+        </div>
+        <div class="arch-legend"><span><span class="swatch sync"></span> sync (blocking)</span></div>
+      </section>
+
+      <section id="qm-deployment">
+        <div class="sec-head"><span class="sec-num">05</span><h2>Deployment</h2></div>
+        <p class="lede">ECS Fargate, Aurora PostgreSQL — same engine as Order since a quote acceptance hands off synchronously.</p>
+        <span class="file-tab">modules/quotation-management/main.tf</span>
+        <pre><span class="c">// same single-writer-plus-standby shape as Order — see ADR-007</span>
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"quote_db"</span> {
+  cluster_identifier      = <span class="s">"quotation-mgmt-${var.environment}"</span>
+  engine                  = <span class="s">"aurora-postgresql"</span>
+  engine_version          = <span class="s">"15.4"</span>
+  backup_retention_period = <span class="k">7</span>
+}
+
+module <span class="s">"quotation_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"quotation-management"</span>
+  image         = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  cpu           = <span class="k">512</span>
+  memory        = <span class="k">1024</span>
+  autoscale_on  = <span class="s">"request_count"</span>
+}</pre>
+      </section>
+
+      <section id="qm-scaling">
+        <div class="sec-head"><span class="sec-num">06</span><h2>Scaling &amp; region topology</h2></div>
+        <p class="lede">Single-writer with a warm standby, same bucket as Order Management, per <a href="#adr-007">ADR-007</a> — same conflict-resolution reasoning as order state.</p>
+      </section>
+
+      <section id="qm-decisions">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Decisions worth writing down</h2></div>
+        <div class="decision-card">
+          <span class="verdict">Decision — add a negotiation-history companion table</span>
+          <h4><code>tbl_quote_negotiation_history</code> instead of overloading one mutable row</h4>
+          <p>Worth doing before Quotation splits into its own service — retrofitting history onto live negotiation data is much harder than starting with it.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — opaque IDs instead of foreign keys across service boundaries</span>
+          <h4>Buyer, Seller, and Product references become resolved-via-API, not FKs</h4>
+          <p>A direct, mechanical consequence of the service-boundary split.</p>
+        </div>
+      </section>
+
+      <p class="back-to-toc"><a href="#part-domain">&uarr; back to top</a></p>
+    </div>
+  </article>
+
+  <!-- ============================ SEARCH SERVICE ============================ -->
+  <article class="svc-doc" id="svc-search-service">
+    <div class="svc-doc-head">
+      <div class="kicker">05 &middot; Domain service</div>
+      <h3>Search Service — build-time vs. deployment-time infrastructure</h3>
+      <p>Where OpenSearch gets built, what Terraform provisions once versus per-deploy, and the AWS wiring that keeps the index disposable and the query path cheap.</p>
+    </div>
+    <div class="svc-doc-body">
+
+      <section id="ss-split">
+        <div class="sec-head"><span class="sec-num">01</span><h2>Why this needs a build/deploy split at all</h2></div>
+        <p class="lede">Search Service owns no source data — it's a query layer over an OpenSearch index rebuilt from <code>ProductChanged</code> events. The <b>index schema and mapping</b> is a build-time artifact; the <b>index's data</b> is a runtime artifact rebuilt continuously and disposable.</p>
+      </section>
+
+      <section id="ss-buildtime">
+        <div class="sec-head"><span class="sec-num">02</span><h2>Build-time: what CI produces</h2></div>
+        <div class="phase-grid">
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-build">Build</span> Query-layer image</h3>
+            <div class="when">on every merge to main</div>
+            <ul>
+              <li>Compile the stateless query service into one container image.</li>
+              <li>Tag with commit SHA, push to ECR.</li>
+            </ul>
+          </div>
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-build">Build</span> Index template &amp; mapping</h3>
+            <div class="when">versioned alongside the consumer code</div>
+            <ul>
+              <li>A mapping change ships as a new index version (<code>products-v13</code>), never a mutation of the live index.</li>
+              <li>CI validates the mapping against a sample document set before merge.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout"><b>Why version the index name, not the domain:</b> reindexing safely means writing to <code>products-v13</code> while <code>products-v12</code> still serves traffic, then flipping an alias.</div>
+        <div class="callout"><b>EventBridge vs. Kafka for this edge, specifically:</b> backfill works by replaying <code>ProductChanged</code> in order — EventBridge doesn't guarantee that. This is the one edge in the system flagged as a Kafka (MSK) candidate — see <a href="#adr-009">ADR-009</a>.</div>
+      </section>
+
+      <section id="ss-deploytime">
+        <div class="sec-head"><span class="sec-num">03</span><h2>Deployment-time: what gets provisioned and reconciled</h2></div>
+        <div class="pipeline">
+          <div class="pnode"><div class="k">Trigger</div><div class="v">git tag / workflow_dispatch</div><div class="sub">region as input param</div></div>
+          <div class="parrow">&rarr;</div>
+          <div class="pnode"><div class="k">Terraform apply</div><div class="v">OpenSearch domain</div><div class="sub">idempotent, per region</div></div>
+          <div class="parrow">&rarr;</div>
+          <div class="pnode"><div class="k">ECS deploy</div><div class="v">query-layer + consumer</div><div class="sub">pulls image from ECR</div></div>
+          <div class="parrow">&rarr;</div>
+          <div class="pnode"><div class="k">Bootstrap</div><div class="v">create products-vN, set alias</div><div class="sub">one-shot job, not Terraform</div></div>
+          <div class="parrow">&rarr;</div>
+          <div class="pnode"><div class="k">Backfill</div><div class="v">replay ProductChanged</div><div class="sub">from EventBridge archive or DB scan</div></div>
+        </div>
+        <p><b>Deliberate boundary:</b> Terraform provisions the OpenSearch <em>domain</em> — it does not create indices, mappings, or aliases. Index lifecycle is an application concern run by a bootstrap job.</p>
+      </section>
+
+      <section id="ss-terraform">
+        <div class="sec-head"><span class="sec-num">04</span><h2>Terraform module layout</h2></div>
+        <span class="file-tab">modules/search-service/main.tf</span>
+        <pre><span class="c">// domain: infra only — no index/mapping resources live here</span>
+resource <span class="s">"aws_opensearch_domain"</span> <span class="s">"search"</span> {
+  domain_name    = <span class="s">"search-${var.region_short}-${var.environment}"</span>
+  engine_version = <span class="s">"OpenSearch_2.15"</span>
+  cluster_config {
+    instance_type          = var.node_instance_type
+    instance_count         = var.node_count
+    zone_awareness_enabled = <span class="k">true</span>
+    zone_awareness_config { availability_zone_count = <span class="k">3</span> }
+  }
+  ebs_options { ebs_enabled = <span class="k">true</span> volume_type = <span class="s">"gp3"</span> volume_size = var.volume_size_gb }
+  vpc_options { subnet_ids = var.private_subnet_ids security_group_ids = [aws_security_group.search_sg.id] }
+  encrypt_at_rest { enabled = <span class="k">true</span> }
+  node_to_node_encryption { enabled = <span class="k">true</span> }
+}
+
+module <span class="s">"search_ecs_service"</span> {
+  source          = <span class="s">"../ecs-fargate-service"</span>
+  service_name    = <span class="s">"search-query-layer"</span>
+  image           = <span class="s">"${var.ecr_repo_url}:${var.image_tag}"</span>
+  desired_count   = var.query_layer_task_count
+  cpu             = <span class="k">512</span>
+  memory          = <span class="k">1024</span>
+  autoscale_on    = <span class="s">"request_count"</span>
+}</pre>
+        <p>Region rollout is one command: <code>terraform apply -var-file=envs/ap-southeast-1/search.tfvars</code>.</p>
+      </section>
+
+      <section id="ss-services">
+        <div class="sec-head"><span class="sec-num">05</span><h2>AWS service choices, and why</h2></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Layer</th><th>Choice</th><th>Alternative considered</th><th>Why this one</th></tr></thead>
+            <tbody>
+              <tr><td>Index store</td><td><span class="pill pill-managed">managed</span> Amazon OpenSearch Service</td><td>Self-hosted OpenSearch on EC2/ECS</td><td>Managed snapshots, patching, zone-aware replicas remove exactly the operational surface a search cluster demands.</td></tr>
+              <tr><td>Query compute</td><td><span class="pill pill-managed">managed</span> ECS Fargate, stateless</td><td>Lambda per query</td><td>Query latency needs a warm connection pool; Lambda cold starts would show up directly in result latency.</td></tr>
+              <tr><td>Index-build consumer</td><td><span class="pill pill-managed">managed</span> AWS Lambda, EventBridge-triggered</td><td>A standing Fargate consumer</td><td>Indexing is bursty and idle between catalog changes — pay-per-invocation beats a standing task.</td></tr>
+              <tr><td>Reindex/backfill job</td><td><span class="pill pill-self">self-run</span> one-shot ECS task, run by CI on deploy</td><td>Terraform provisioner (<code>local-exec</code>)</td><td>Reindexing is an application action with retries and progress tracking.</td></tr>
+              <tr><td>Alias management</td><td><span class="pill pill-self">self-run</span> bootstrap Lambda invoked post-deploy</td><td>Manual API call</td><td>Scripting the alias flip makes the one-click region story hold for Search too.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="ss-region">
+        <div class="sec-head"><span class="sec-num">06</span><h2>What a new region actually costs to spin up</h2></div>
+        <div class="cost-strip">
+          <div class="cost-item"><div class="lbl">Domain floor</div><div class="fig">3 nodes</div><div class="note">zone-aware across 3 AZs</div></div>
+          <div class="cost-item"><div class="lbl">Cold-start cost</div><div class="fig">~0</div><div class="note">index is empty until backfill runs</div></div>
+          <div class="cost-item"><div class="lbl">Query layer</div><div class="fig">2 tasks</div><div class="note">scales on request volume post-launch</div></div>
+        </div>
+        <p>Because the index rebuilds from events rather than replicating data, a new region needs no cross-region data transfer step at all.</p>
+      </section>
+
+      <section id="ss-decisions">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Decisions worth writing down</h2></div>
+        <div class="decision-card">
+          <span class="verdict">Decision — index lifecycle is not a Terraform resource</span>
+          <h4>Terraform owns the domain, application code owns the index</h4>
+          <p>Keeps a mapping change on the same release cadence as the code that produces documents.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — versioned index names, aliased in production</span>
+          <h4><code>products-vN</code> + alias, never a mutated live index</h4>
+          <p>The query layer only ever queries the alias, never a version number directly.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — consumer is Lambda, query layer is Fargate</span>
+          <h4>Split compute by traffic shape, not by convenience</h4>
+          <p>The indexing consumer tolerates cold start; the query layer is latency-sensitive and needs a warm pool.</p>
+        </div>
+      </section>
+
+      <p class="back-to-toc"><a href="#part-domain">&uarr; back to top</a></p>
+    </div>
+  </article>
+
+  <!-- ============================ PRODUCT MANAGEMENT ============================ -->
+  <article class="svc-doc" id="svc-product-management">
+    <div class="svc-doc-head">
+      <div class="kicker">06 &middot; Domain service</div>
+      <h3>Product Management — the catalog of record and the cost of splitting it out</h3>
+      <p>What Product Management owns today, how it's read by nearly every write path elsewhere, and why extracting it is the single biggest cross-cutting migration risk in the whole decomposition.</p>
+    </div>
+    <div class="svc-doc-body">
+
+      <section id="pm-overview">
+        <div class="sec-head"><span class="sec-num">01</span><h2>Overview</h2></div>
+        <p class="lede">Product Management is the catalog of record for every sellable item — Drug, Consumable, Non-consumable, Supplement, Cosmetic, and Food/Infant, plus shared lookup masters.</p>
+        <p>Reads dominate by a huge margin, writes are comparatively rare. It's also the single largest domain by table count in the entire system.</p>
+      </section>
+
+      <section id="pm-ownership">
+        <div class="sec-head"><span class="sec-num">02</span><h2>Data ownership</h2></div>
+        <p class="lede">A full entity audit counted <b>~62 entities/tables under <code>entity/product/**</code></b> — roughly <b>59% of the system's ~106 tables</b>.</p>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Group</th><th>Count</th><th>Representative tables</th></tr></thead>
+            <tbody>
+              <tr><td>Core catalog</td><td class="num">16</td><td><code>tm_product_details</code>, <code>tm_product_image</code>, <code>tm_pricing_details</code>, <code>tbl_stock_ledger</code>, <code>tbl_molecules_master</code>, <code>tm_category</code>, <code>tm_gst_percentage_master</code>, and more</td></tr>
+              <tr><td>Per-category attribute tables</td><td class="num">6</td><td><code>tm_product_attribute_drug</code>, <code>_consumable_medical</code>, <code>_non_consumable_medical</code>, <code>_supplements_or_nutraceuticals</code>, <code>_cosmetic_and_personal_use</code>, <code>_food_infant</code></td></tr>
+              <tr><td>Shared product-level lookup masters</td><td class="num">12</td><td><code>ProductCategoryMaster</code>, <code>TherapeuticCategoryMaster</code>, <code>PackType</code>, <code>StrengthUnit</code>, and more</td></tr>
+              <tr><td><code>MedicalDeviceProductMaster</code> subpackage</td><td class="num">14</td><td><code>DeviceCategory</code>, <code>MedicalDeviceType</code>, <code>StorageConditionMaster</code>, <code>Certification</code>, and more</td></tr>
+              <tr><td><code>CosmeticPersonalCareMasters</code> subpackage</td><td class="num">4</td><td><code>SkinType</code>, <code>HairType</code>, <code>IntendedUseArea</code>, <code>ProductsFormMaster</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><b>The self-contained part is easy; the referenced-from-outside part isn't:</b> all 62 tables FK to each other and nothing outside <code>entity/product/**</code>. But <b>every other domain holds foreign keys into Product</b> — Quotation's and Order's line items both carry a <code>product_id</code> that today resolves with a plain SQL join. That join disappears once Product moves to its own database.</div>
+      </section>
+
+      <section id="pm-communication">
+        <div class="sec-head"><span class="sec-num">03</span><h2>Communication</h2></div>
+        <p class="lede">Called synchronously by the two services with the sharpest latency budgets, and emits one async event stream outward.</p>
+        <div class="phase-grid">
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-sync">Sync IN</span> Order &amp; Quotation Management</h3>
+            <div class="when">buyer is waiting in the same request</div>
+            <ul>
+              <li>Order calls in for price/stock confirmation before an order is placed.</li>
+              <li>Quotation calls in for pricing when generating a quote.</li>
+              <li>Mitigation lives on the caller's side: cache aggressively.</li>
+            </ul>
+          </div>
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-async">Async OUT</span> Search Service</h3>
+            <div class="when">on every catalog change</div>
+            <ul>
+              <li>Emits <code>ProductChanged</code> events; Search rebuilds its index, eventually consistent by design (<a href="#adr-005">ADR-005</a>).</li>
+              <li>Strictly one-directional — Search never calls back into Product.</li>
+              <li>Flagged as the one Kafka (MSK) candidate — <a href="#adr-009">ADR-009</a>.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="pm-architecture">
+        <div class="sec-head"><span class="sec-num">04</span><h2>Architecture diagram</h2></div>
+        <p>Product Management sits between two hard synchronous dependents and one async downstream consumer.</p>
+        <div class="arch-diagram">
+          <svg viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg">
+            <rect class="node-box self" x="255" y="115" width="190" height="70" rx="6"/>
+            <text class="node-label" x="350" y="145" text-anchor="middle">Product Management</text>
+            <text class="node-sub" x="350" y="163" text-anchor="middle">~62 tables &middot; 59% of system</text>
+            <rect class="node-box" x="30" y="20" width="170" height="60" rx="6"/>
+            <text class="node-label" x="115" y="46" text-anchor="middle">Order Management</text>
+            <text class="node-sub" x="115" y="63" text-anchor="middle">price / stock confirm</text>
+            <rect class="node-box" x="30" y="220" width="170" height="60" rx="6"/>
+            <text class="node-label" x="115" y="246" text-anchor="middle">Quotation Management</text>
+            <text class="node-sub" x="115" y="263" text-anchor="middle">pricing for quotes</text>
+            <rect class="node-box" x="500" y="120" width="170" height="60" rx="6"/>
+            <text class="node-label" x="585" y="146" text-anchor="middle">Search Service</text>
+            <text class="node-sub" x="585" y="163" text-anchor="middle">OpenSearch index</text>
+            <path class="edge-sync" d="M200,60 C230,60 230,120 260,140" marker-end="url(#pm-arrow-sync)"/>
+            <text class="edge-label" x="205" y="95">sync (blocking)</text>
+            <path class="edge-sync" d="M200,250 C230,250 230,190 260,165" marker-end="url(#pm-arrow-sync)"/>
+            <text class="edge-label" x="205" y="220">sync (blocking)</text>
+            <path class="edge-async" d="M445,150 L498,150" marker-end="url(#pm-arrow-async)"/>
+            <text class="edge-label" x="455" y="140">ProductChanged (async)</text>
+            <defs>
+              <marker id="pm-arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/></marker>
+              <marker id="pm-arrow-async" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--async)"/></marker>
+            </defs>
+          </svg>
+          <div class="arch-legend"><span><span class="swatch sync"></span> sync, blocking</span><span><span class="swatch async"></span> async, event-driven</span></div>
+        </div>
+      </section>
+
+      <section id="pm-deployment">
+        <div class="sec-head"><span class="sec-num">05</span><h2>Deployment</h2></div>
+        <p class="lede">ECS Fargate autoscaled on read volume — not CPU. Aurora PostgreSQL with a Global Database for multi-region reads, fronted by ElastiCache Redis.</p>
+        <span class="file-tab">modules/product-management/main.tf</span>
+        <pre><span class="c">// one global cluster, one primary write region</span>
+resource <span class="s">"aws_rds_global_cluster"</span> <span class="s">"product"</span> {
+  global_cluster_identifier = <span class="s">"product-global"</span>
+  engine                    = <span class="s">"aurora-postgresql"</span>
+  engine_version            = <span class="s">"15.4"</span>
+}
+
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"product_regional"</span> {
+  cluster_identifier        = <span class="s">"product-${var.region_short}"</span>
+  global_cluster_identifier = aws_rds_global_cluster.product.id
+  is_primary_cluster        = var.is_write_region
+}
+
+resource <span class="s">"aws_elasticache_replication_group"</span> <span class="s">"product_cache"</span> {
+  replication_group_id       = <span class="s">"product-cache-${var.region_short}"</span>
+  engine                     = <span class="s">"redis"</span>
+  automatic_failover_enabled = <span class="k">true</span>
+}
+
+module <span class="s">"product_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"product-management"</span>
+  cpu           = <span class="k">1024</span>
+  memory        = <span class="k">2048</span>
+  autoscale_on  = <span class="s">"request_count"</span>
+}</pre>
+      </section>
+
+      <section id="pm-scaling">
+        <div class="sec-head"><span class="sec-num">06</span><h2>Scaling &amp; region topology</h2></div>
+        <p class="lede">Runs <b>active-active for reads</b> via Aurora Global Database, per <a href="#adr-007">ADR-007</a> — a stale catalog read is a non-event.</p>
+        <div class="cost-strip">
+          <div class="cost-item"><div class="lbl">Write region</div><div class="fig">1 primary</div><div class="note">single Aurora writer cluster</div></div>
+          <div class="cost-item"><div class="lbl">Read regions</div><div class="fig">N secondary</div><div class="note">Aurora Global Database secondary + ElastiCache per region</div></div>
+          <div class="cost-item"><div class="lbl">Cache layer</div><div class="fig">per-region</div><div class="note">sized to browse volume</div></div>
+        </div>
+      </section>
+
+      <section id="pm-decisions">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Decisions worth writing down</h2></div>
+        <div class="decision-card">
+          <span class="verdict">Decision — Product's own split is easy; the cross-service FK migration is not</span>
+          <h4>The 62 tables split cleanly; every <code>product_id</code> foreign key elsewhere does not</h4>
+          <p>The biggest cross-cutting migration risk anywhere in the decomposition — touches every consuming service, not just Product.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — ElastiCache in front of Aurora, specifically for this service</span>
+          <h4>Why Product gets a cache layer that Order doesn't</h4>
+          <p>Driven by traffic shape — extreme read/write ratio — not a blanket cache-everything policy.</p>
+        </div>
+      </section>
+
+      <p class="back-to-toc"><a href="#part-domain">&uarr; back to top</a></p>
+    </div>
+  </article>
+
+  <!-- ============================ BILLING MANAGEMENT ============================ -->
+  <article class="svc-doc" id="svc-billing-management">
+    <div class="svc-doc-head">
+      <div class="kicker">07 &middot; Domain service</div>
+      <h3>Billing Management — extracting invoicing without duplicating Order's data</h3>
+      <p>Why Billing is a migration target rather than a greenfield service, why its database has to be physically separate from Order's, and how it renders invoices without storing a second copy of an order's line items.</p>
+    </div>
+    <div class="svc-doc-body">
+
+      <section id="bm-overview">
+        <div class="sec-head"><span class="sec-num">01</span><h2>Overview</h2></div>
+        <p class="lede">Billing Management owns invoices, payment records, and ledger entries. It references orders by <code>order_id</code> and stores no copy of any order's line items.</p>
+        <p>Traffic is spiky, concentrated hard around reconciliation and month-end close.</p>
+      </section>
+
+      <section id="bm-ownership">
+        <div class="sec-head"><span class="sec-num">02</span><h2>Data ownership</h2></div>
+        <p class="lede">Zero dedicated tables exist for Billing today. <code>Payment</code> (<code>tbl_payment</code>) and <code>Invoice</code> (<code>tbl_invoice</code>) currently live inside Order's package.</p>
+        <p>Standing up Billing means extracting two existing tables out of Order's package, plus adding a <code>ledger_entries</code> table that doesn't exist yet.</p>
+        <div class="callout"><b>Why the migration has to be physical:</b> the tables must move to Billing's own schema and cluster so that no query can join Billing data against Order's tables directly — see <a href="#om-ownership">Order Management &sect;02</a>.</div>
+      </section>
+
+      <section id="bm-communication">
+        <div class="sec-head"><span class="sec-num">03</span><h2>Communication</h2></div>
+        <p class="lede">Almost entirely reactive: one async inbound stream from Order, one on-demand sync call back to Order, one async outbound stream to Notification.</p>
+        <div class="phase-grid">
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-build">Async IN</span> Order Management &rarr; Billing</h3>
+            <div class="when"><code>OrderCreated</code> / <code>OrderStatusChanged</code> via EventBridge</div>
+            <ul><li>Billing can lag behind Order by seconds without the buyer noticing.</li></ul>
+          </div>
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-build">Sync OUT</span> Billing &rarr; Order Management</h3>
+            <div class="when">line-item lookup, at invoice-render time only</div>
+            <ul><li>Used to render the invoice and then discarded — never persisted.</li></ul>
+          </div>
+        </div>
+        <div class="phase-grid">
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-build">Async OUT</span> Billing &rarr; Notification Service</h3>
+            <div class="when"><code>InvoiceGenerated</code> / <code>PaymentFailed</code> events</div>
+            <ul><li>Fire-and-forget, consistent with the platform-wide rule.</li></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="bm-architecture">
+        <div class="sec-head"><span class="sec-num">04</span><h2>Architecture diagram</h2></div>
+        <div class="arch-diagram">
+          <svg viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
+            <rect class="node-box self" x="270" y="100" width="140" height="60" rx="6"/>
+            <text class="node-label" x="340" y="125" text-anchor="middle">Billing</text>
+            <text class="node-sub" x="340" y="140" text-anchor="middle">Management</text>
+            <rect class="node-box" x="30" y="30" width="150" height="55" rx="6"/>
+            <text class="node-label" x="105" y="53" text-anchor="middle">Order</text>
+            <text class="node-sub" x="105" y="67" text-anchor="middle">Management</text>
+            <rect class="node-box" x="500" y="30" width="150" height="55" rx="6"/>
+            <text class="node-label" x="575" y="53" text-anchor="middle">Notification</text>
+            <text class="node-sub" x="575" y="67" text-anchor="middle">Service</text>
+            <path class="edge-async" d="M180,70 L270,120" marker-end="url(#bm-arrow-async)"/>
+            <text class="edge-label" x="130" y="100">OrderCreated /</text>
+            <text class="edge-label" x="130" y="112">OrderStatusChanged</text>
+            <path class="edge-sync" d="M270,140 L180,80" marker-end="url(#bm-arrow-sync)"/>
+            <text class="edge-label" x="185" y="150">line-item lookup,</text>
+            <text class="edge-label" x="185" y="162">on demand</text>
+            <path class="edge-async" d="M410,120 L500,70" marker-end="url(#bm-arrow-async)"/>
+            <text class="edge-label" x="420" y="100">InvoiceGenerated /</text>
+            <text class="edge-label" x="420" y="112">PaymentFailed</text>
+            <defs>
+              <marker id="bm-arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/></marker>
+              <marker id="bm-arrow-async" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--async)"/></marker>
+            </defs>
+          </svg>
+        </div>
+        <div class="arch-legend"><span><span class="swatch sync"></span> sync (blocking)</span><span><span class="swatch async"></span> async (event)</span></div>
+      </section>
+
+      <section id="bm-deployment">
+        <div class="sec-head"><span class="sec-num">05</span><h2>Deployment</h2></div>
+        <p class="lede">ECS Fargate with bursty autoscaling for month-end spikes, Aurora PostgreSQL physically separate from Order's.</p>
+        <span class="file-tab">modules/billing-management/main.tf</span>
+        <pre><span class="c">// deliberately its own cluster — enforces ADR-004 at the infra level</span>
+resource <span class="s">"aws_rds_cluster"</span> <span class="s">"billing_db"</span> {
+  cluster_identifier      = <span class="s">"billing-mgmt-${var.environment}"</span>
+  engine                  = <span class="s">"aurora-postgresql"</span>
+  backup_retention_period = <span class="k">14</span>
+}
+
+module <span class="s">"billing_ecs_service"</span> {
+  source        = <span class="s">"../ecs-fargate-service"</span>
+  service_name  = <span class="s">"billing-management"</span>
+  desired_count = var.task_count_floor
+  max_count     = var.task_count_burst_ceiling
+  autoscale_on  = <span class="s">"request_count"</span>
+}</pre>
+      </section>
+
+      <section id="bm-scaling">
+        <div class="sec-head"><span class="sec-num">06</span><h2>Scaling &amp; region topology</h2></div>
+        <p class="lede">Single-writer with warm standby, per <a href="#adr-007">ADR-007</a>, with autoscale burst capacity layered on top for month-end volume.</p>
+      </section>
+
+      <section id="bm-decisions">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Decisions worth writing down</h2></div>
+        <div class="decision-card">
+          <span class="verdict">Decision — physically separate database, never a shared schema</span>
+          <h4>Billing's Aurora cluster is its own resource, distinct from Order's</h4>
+          <p>Makes cross-boundary joins impossible at the infrastructure level — the direct implementation of <a href="#adr-004">ADR-004</a>.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — line-item detail is fetched at render time, never persisted</span>
+          <h4>Sync call with a short-TTL cache, not a stored copy</h4>
+          <p>Accept a runtime dependency on Order being reachable, in exchange for zero duplicated data.</p>
+        </div>
+      </section>
+
+      <p class="back-to-toc"><a href="#part-domain">&uarr; back to top</a></p>
+    </div>
+  </article>
+
+  <!-- ============================ NOTIFICATION SERVICE ============================ -->
+  <article class="svc-doc" id="svc-notification-service">
+    <div class="svc-doc-head">
+      <div class="kicker">08 &middot; Domain service</div>
+      <h3>Notification Service — async-only by construction, not convention</h3>
+      <p>The smallest service in the system by data footprint, and the one with the strictest architectural rule: nothing is allowed to call it synchronously, and the deployment shape makes that structurally true.</p>
+    </div>
+    <div class="svc-doc-body">
+
+      <section id="ns-overview">
+        <div class="sec-head"><span class="sec-num">01</span><h2>Overview</h2></div>
+        <p class="lede">Notification Service holds no persistent business data — at most a delivery log. Fully event-driven end to end, scales to zero between bursts.</p>
+        <p>One rule governs everything: <b>it must never be called synchronously by another domain service.</b> Notification delivery depends on third-party providers (SES, SNS) whose latency is outside the platform's control.</p>
+      </section>
+
+      <section id="ns-ownership">
+        <div class="sec-head"><span class="sec-num">02</span><h2>Data ownership</h2></div>
+        <p class="lede">Zero entities or tables today. 100% greenfield.</p>
+        <p><b>Proposal, not existing fact</b> — a delivery log, if added, should be a single append-only table:</p>
+        <span class="file-tab">proposed: notification_log</span>
+        <pre><span class="c">-- append-only; no updates, no foreign keys into other domains</span>
+<span class="k">CREATE TABLE</span> notification_log (
+  id          <span class="s">uuid</span> <span class="k">PRIMARY KEY</span>,
+  recipient   <span class="s">text</span>,
+  channel     <span class="s">text</span>,
+  template    <span class="s">text</span>,
+  status      <span class="s">text</span>,
+  sent_at     <span class="s">timestamptz</span>
+);</pre>
+      </section>
+
+      <section id="ns-communication">
+        <div class="sec-head"><span class="sec-num">03</span><h2>Communication</h2></div>
+        <p class="lede">Every inbound call is asynchronous. There is no synchronous inbound path, by design.</p>
+        <div class="phase-grid">
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-async">Async IN</span> Order Management</h3>
+            <div class="when">order confirmation</div>
+            <ul><li>Order's own request completes without waiting on delivery.</li></ul>
+          </div>
+          <div class="phase-card">
+            <h3><span class="phase-tag tag-async">Async IN</span> Billing Management</h3>
+            <div class="when"><code>InvoiceGenerated</code> / <code>PaymentFailed</code></div>
+            <ul><li>Billing fires the event and moves on.</li></ul>
+          </div>
+        </div>
+        <div class="callout"><b>Why zero sync inbound calls, by design:</b> an order confirmation shouldn't fail because an email provider is having a bad five minutes.</div>
+      </section>
+
+      <section id="ns-architecture">
+        <div class="sec-head"><span class="sec-num">04</span><h2>Architecture diagram</h2></div>
+        <div class="arch-diagram">
+          <svg viewBox="0 0 700 280" xmlns="http://www.w3.org/2000/svg">
+            <rect class="node-box self" x="255" y="105" width="190" height="70" rx="6"/>
+            <text class="node-label" x="350" y="135" text-anchor="middle">Notification Service</text>
+            <text class="node-sub" x="350" y="153" text-anchor="middle">0 tables &middot; async-only inbound</text>
+            <rect class="node-box" x="30" y="15" width="170" height="60" rx="6"/>
+            <text class="node-label" x="115" y="41" text-anchor="middle">Order Management</text>
+            <text class="node-sub" x="115" y="58" text-anchor="middle">order confirmation</text>
+            <rect class="node-box" x="30" y="205" width="170" height="60" rx="6"/>
+            <text class="node-label" x="115" y="231" text-anchor="middle">Billing Management</text>
+            <text class="node-sub" x="115" y="248" text-anchor="middle">InvoiceGenerated / PaymentFailed</text>
+            <rect class="node-box" x="510" y="112" width="160" height="56" rx="6" stroke-dasharray="3 3"/>
+            <text class="node-label" x="590" y="138" text-anchor="middle">SES / SNS</text>
+            <text class="node-sub" x="590" y="154" text-anchor="middle">external, not a domain service</text>
+            <path class="edge-async" d="M200,55 C230,55 230,110 260,130" marker-end="url(#ns-arrow-async)"/>
+            <text class="edge-label" x="205" y="90">async event</text>
+            <path class="edge-async" d="M200,240 C230,240 230,180 260,160" marker-end="url(#ns-arrow-async)"/>
+            <text class="edge-label" x="205" y="205">async event</text>
+            <path class="edge-sync" d="M445,140 L508,140" stroke-dasharray="2 3" marker-end="url(#ns-arrow-sync)"/>
+            <text class="edge-label" x="450" y="130">external call</text>
+            <defs>
+              <marker id="ns-arrow-async" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--async)"/></marker>
+              <marker id="ns-arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--muted)"/></marker>
+            </defs>
+          </svg>
+          <div class="arch-legend"><span><span class="swatch async"></span> async, event-driven (only direction allowed in)</span><span>dashed box = external provider</span></div>
+        </div>
+      </section>
+
+      <section id="ns-deployment">
+        <div class="sec-head"><span class="sec-num">05</span><h2>Deployment</h2></div>
+        <p class="lede">AWS Lambda, not Fargate — purely event-driven and spiky, scales to zero between bursts.</p>
+        <span class="file-tab">modules/notification-service/main.tf</span>
+        <pre><span class="c">// event-driven compute: no standing task, no idle cost</span>
+resource <span class="s">"aws_lambda_function"</span> <span class="s">"notification_handler"</span> {
+  function_name = <span class="s">"notification-handler-${var.region_short}"</span>
+  memory_size   = <span class="k">512</span>
+  timeout       = <span class="k">30</span>
+}
+
+resource <span class="s">"aws_cloudwatch_event_rule"</span> <span class="s">"notification_triggers"</span> {
+  event_pattern = jsonencode({ <span class="s">"detail-type"</span> = [<span class="s">"OrderConfirmed"</span>, <span class="s">"InvoiceGenerated"</span>, <span class="s">"PaymentFailed"</span>] })
+}
+
+resource <span class="s">"aws_ses_email_identity"</span> <span class="s">"sender"</span> { email = var.notification_from_address }
+resource <span class="s">"aws_sns_topic"</span> <span class="s">"sms_outbound"</span> { name = <span class="s">"notification-sms-${var.region_short}"</span> }</pre>
+      </section>
+
+      <section id="ns-scaling">
+        <div class="sec-head"><span class="sec-num">06</span><h2>Scaling &amp; region topology</h2></div>
+        <p class="lede">The simplest region story in the whole system — no persistent writer, nothing to fail over, no data migration step.</p>
+      </section>
+
+      <section id="ns-decisions">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Decisions worth writing down</h2></div>
+        <div class="decision-card">
+          <span class="verdict">Decision — Lambda over Fargate</span>
+          <h4>Idle cost doesn't pay for itself on a spiky, event-driven workload</h4>
+          <p>Mirrors the same reasoning applied to Search's index-build consumer.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — no REST endpoint exposed to internal callers</span>
+          <h4>"Never synchronous" is enforced structurally, not by convention</h4>
+          <p>There is no endpoint to call — a fact about deployment topology, not a code-review checklist item.</p>
+        </div>
+      </section>
+
+      <p class="back-to-toc"><a href="#part-domain">&uarr; back to top</a></p>
+    </div>
+  </article>
+
+  <!-- ======================================================================= -->
+  <!-- PART — PLATFORM LAYER                                                   -->
+  <!-- ======================================================================= -->
+  <div class="part-divider" id="part-platform">
+    <div class="part-eyebrow">Part four</div>
+    <h2 class="part-title">Platform layer</h2>
+  </div>
+
+  <!-- ============================ API GATEWAY ============================ -->
+  <article class="svc-doc" id="svc-api-gateway">
+    <div class="svc-doc-head">
+      <div class="kicker">09 &middot; Platform service</div>
+      <h3>API Gateway — the platform's sole client entry point</h3>
+      <p>Why every client request, and only client requests, pass through one component.</p>
+    </div>
+    <div class="svc-doc-body">
+
+      <section id="ag-overview">
+        <div class="sec-head"><span class="sec-num">01</span><h2>Overview</h2></div>
+        <p class="lede">API Gateway is the platform edge: routing, authN/authZ enforcement, and rate limiting all live here, in front of every domain service.</p>
+        <p>The Gateway scales <b>1:1 with total client traffic</b> across the whole platform. No domain service is directly reachable from the internet.</p>
+      </section>
+
+      <section id="ag-ownership">
+        <div class="sec-head"><span class="sec-num">02</span><h2>Data ownership</h2></div>
+        <p class="lede">None. API Gateway holds no persistent business data and no config store of its own — routing rules and auth policy are configuration it reads from Config Service and the identity provider.</p>
+      </section>
+
+      <section id="ag-communication">
+        <div class="sec-head"><span class="sec-num">03</span><h2>Communication</h2></div>
+        <p><b>Sync IN</b> — from every client for all reads and writes across the platform.</p>
+        <p><b>Sync OUT</b> — to whichever domain service the matched route maps to.</p>
+        <p><b>Explicitly out of scope: service-to-service calls.</b> Those bypass the Gateway entirely and resolve directly via Cloud Map / <a href="#svc-discovery-service">Discovery Service</a>.</p>
+      </section>
+
+      <section id="ag-architecture">
+        <div class="sec-head"><span class="sec-num">04</span><h2>Architecture diagram</h2></div>
+        <div class="arch-diagram">
+          <svg viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg">
+            <rect class="node-box" x="20" y="120" width="130" height="60" rx="6"/>
+            <text class="node-label" x="85" y="146" text-anchor="middle">Client</text>
+            <text class="node-sub" x="85" y="161" text-anchor="middle">browser / mobile</text>
+            <rect class="node-box self" x="270" y="120" width="150" height="60" rx="6"/>
+            <text class="node-label" x="345" y="146" text-anchor="middle">API Gateway</text>
+            <text class="node-sub" x="345" y="161" text-anchor="middle">routing / authN / rate limit</text>
+            <rect class="node-box" x="550" y="20" width="140" height="50" rx="6"/>
+            <text class="node-label" x="620" y="41" text-anchor="middle">Seller / Buyer</text>
+            <text class="node-sub" x="620" y="55" text-anchor="middle">User</text>
+            <rect class="node-box" x="550" y="90" width="140" height="50" rx="6"/>
+            <text class="node-label" x="620" y="111" text-anchor="middle">Order /</text>
+            <text class="node-sub" x="620" y="125" text-anchor="middle">Quotation Mgmt</text>
+            <rect class="node-box" x="550" y="160" width="140" height="50" rx="6"/>
+            <text class="node-label" x="620" y="181" text-anchor="middle">Product Mgmt</text>
+            <text class="node-sub" x="620" y="195" text-anchor="middle">/ Search</text>
+            <rect class="node-box" x="550" y="230" width="140" height="50" rx="6"/>
+            <text class="node-label" x="620" y="251" text-anchor="middle">Billing</text>
+            <text class="node-sub" x="620" y="265" text-anchor="middle">Management</text>
+            <path class="edge-sync" d="M150,150 L270,150" marker-end="url(#ag-arrow-sync)"/>
+            <text class="edge-label" x="165" y="140">HTTPS request</text>
+            <path class="edge-sync" d="M420,135 L550,50" marker-end="url(#ag-arrow-sync)"/>
+            <path class="edge-sync" d="M420,148 L550,115" marker-end="url(#ag-arrow-sync)"/>
+            <path class="edge-sync" d="M420,158 L550,185" marker-end="url(#ag-arrow-sync)"/>
+            <path class="edge-sync" d="M420,168 L550,250" marker-end="url(#ag-arrow-sync)"/>
+            <text class="edge-label" x="430" y="100">route-matched</text>
+            <text class="edge-label" x="430" y="220">forward</text>
+            <defs><marker id="ag-arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/></marker></defs>
+          </svg>
+        </div>
+        <div class="arch-legend"><span><span class="swatch sync"></span> sync (blocking) — the only edge type here</span></div>
+      </section>
+
+      <section id="ag-deployment">
+        <div class="sec-head"><span class="sec-num">05</span><h2>Deployment</h2></div>
+        <p><b>Amazon API Gateway (managed)</b> is the primary choice — routing, throttling, Cognito/JWT authorizer, no cluster to run.</p>
+        <p><b>Fallback:</b> self-hosted <b>Spring Cloud Gateway on ECS Fargate</b> — an explicit escape hatch, not a plan.</p>
+        <span class="file-tab">modules/api-gateway/main.tf</span>
+        <pre><span class="c">// managed HTTP API — routes fan out to domain services over private integrations</span>
+resource <span class="s">"aws_apigatewayv2_api"</span> <span class="s">"platform"</span> { protocol_type = <span class="s">"HTTP"</span> }
+
+resource <span class="s">"aws_apigatewayv2_authorizer"</span> <span class="s">"jwt"</span> {
+  api_id          = aws_apigatewayv2_api.platform.id
+  authorizer_type = <span class="s">"JWT"</span>
+  jwt_configuration { audience = [var.cognito_app_client_id] issuer = <span class="s">"https://cognito-idp.${var.aws_region}.amazonaws.com/${var.cognito_user_pool_id}"</span> }
+}
+
+resource <span class="s">"aws_apigatewayv2_route"</span> <span class="s">"orders"</span> {
+  api_id             = aws_apigatewayv2_api.platform.id
+  route_key          = <span class="s">"ANY /orders/{proxy+}"</span>
+  authorization_type = <span class="s">"JWT"</span>
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}</pre>
+      </section>
+
+      <section id="ag-scaling">
+        <div class="sec-head"><span class="sec-num">06</span><h2>Scaling &amp; region topology</h2></div>
+        <p><b>Recommendation: one gateway per region</b>, with Route 53 latency-based routing in front — matches <a href="#adr-006">ADR-006</a>'s one-click-per-region rollout goal.</p>
+      </section>
+
+      <section id="ag-decisions">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Decisions worth writing down</h2></div>
+        <div class="decision-card">
+          <span class="verdict">Decision — all client traffic through the Gateway, zero direct exposure</span>
+          <h4>No domain service is directly reachable from the internet</h4>
+          <p>See <a href="#adr-008">ADR-008</a>.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — managed by default, self-hosted only on concrete need</span>
+          <h4>Amazon API Gateway first; Spring Cloud Gateway is an escape hatch, not a plan</h4>
+          <p>Self-hosted stays on the shelf until a specific requirement the managed offering can't express is identified.</p>
+        </div>
+      </section>
+
+      <p class="back-to-toc"><a href="#part-platform">&uarr; back to top</a></p>
+    </div>
+  </article>
+
+  <!-- ============================ CONFIG SERVICE ============================ -->
+  <article class="svc-doc" id="svc-config-service">
+    <div class="svc-doc-head">
+      <div class="kicker">10 &middot; Platform service</div>
+      <h3>Config Service — externalized config, high availability over throughput</h3>
+      <p>Per-service, per-environment, per-region configuration, pulled at boot and refreshed live without a redeploy.</p>
+    </div>
+    <div class="svc-doc-body">
+
+      <section id="cs-overview">
+        <div class="sec-head"><span class="sec-num">01</span><h2>Overview</h2></div>
+        <p class="lede">Config Service externalizes configuration out of application code and deploy artifacts. Traffic is low, but it sits on the critical path at exactly the moments that matter — every service's boot blocks on it. The design target is <b>high availability, not high throughput</b>.</p>
+      </section>
+
+      <section id="cs-ownership">
+        <div class="sec-head"><span class="sec-num">02</span><h2>Data ownership</h2></div>
+        <p class="lede">No business tables. Owns <b>configuration key/value state</b> — AppConfig hierarchy, pointing to Parameter Store for plain values.</p>
+        <p><b>Secrets are explicitly out of this store</b> — pulled from Secrets Manager instead, a real security boundary.</p>
+      </section>
+
+      <section id="cs-communication">
+        <div class="sec-head"><span class="sec-num">03</span><h2>Communication</h2></div>
+        <p><b>Sync IN</b> — from every service, in two patterns: a boot pull (HTTP), and a refresh event (webhook), not polling.</p>
+        <p>The refresh-event model is what makes the one-click region rollout in <a href="#adr-006">ADR-006</a> actually work without touching running services.</p>
+      </section>
+
+      <section id="cs-architecture">
+        <div class="sec-head"><span class="sec-num">04</span><h2>Architecture diagram</h2></div>
+        <div class="arch-diagram">
+          <svg viewBox="0 0 680 280" xmlns="http://www.w3.org/2000/svg">
+            <rect class="node-box" x="20" y="30" width="120" height="50" rx="6"/><text class="node-label" x="80" y="51" text-anchor="middle">Seller /</text><text class="node-sub" x="80" y="65" text-anchor="middle">Buyer User</text>
+            <rect class="node-box" x="180" y="30" width="120" height="50" rx="6"/><text class="node-label" x="240" y="51" text-anchor="middle">Order /</text><text class="node-sub" x="240" y="65" text-anchor="middle">Quotation</text>
+            <rect class="node-box" x="340" y="30" width="120" height="50" rx="6"/><text class="node-label" x="400" y="51" text-anchor="middle">Product /</text><text class="node-sub" x="400" y="65" text-anchor="middle">Search</text>
+            <rect class="node-box" x="500" y="30" width="120" height="50" rx="6"/><text class="node-label" x="560" y="51" text-anchor="middle">Billing /</text><text class="node-sub" x="560" y="65" text-anchor="middle">API Gateway</text>
+            <rect class="node-box self" x="250" y="180" width="180" height="60" rx="6"/><text class="node-label" x="340" y="206" text-anchor="middle">Config Service</text><text class="node-sub" x="340" y="222" text-anchor="middle">AppConfig + Parameter Store</text>
+            <path class="edge-sync" d="M90,80 L300,185" marker-end="url(#cs-arrow-sync)"/>
+            <path class="edge-sync" d="M250,80 L320,180" marker-end="url(#cs-arrow-sync)"/>
+            <path class="edge-sync" d="M410,80 L360,180" marker-end="url(#cs-arrow-sync)"/>
+            <path class="edge-sync" d="M560,80 L400,185" marker-end="url(#cs-arrow-sync)"/>
+            <text class="edge-label" x="120" y="140">boot pull (HTTP)</text>
+            <text class="edge-label" x="420" y="140">refresh push (event)</text>
+            <defs><marker id="cs-arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/></marker></defs>
+          </svg>
+        </div>
+        <div class="arch-legend"><span><span class="swatch sync"></span> sync (blocking) — boot pull; refresh webhook triggers the same pull path</span></div>
+      </section>
+
+      <section id="cs-deployment">
+        <div class="sec-head"><span class="sec-num">05</span><h2>Deployment</h2></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Option</th><th>Choice</th><th>Operational cost</th><th>Why / why not</th></tr></thead>
+            <tbody>
+              <tr><td>A</td><td><span class="pill pill-managed">managed</span> AWS AppConfig + Parameter Store</td><td>No cluster to run</td><td><b>Chosen.</b> No new deployment target — set of AWS API calls the service SDK already knows, per <a href="#adr-002">ADR-002</a>.</td></tr>
+              <tr><td>B</td><td><span class="pill pill-self">self-hosted</span> Spring Cloud Config Server, Git-backed</td><td>A stateful service to deploy, scale, patch per region</td><td>Adds a whole new component purely to duplicate a managed service.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <span class="file-tab">modules/config-service/main.tf</span>
+        <pre><span class="c">// one AppConfig application per platform, one environment per deploy target</span>
+resource <span class="s">"aws_appconfig_application"</span> <span class="s">"platform"</span> { name = <span class="s">"pharma-aggregator"</span> }
+
+resource <span class="s">"aws_appconfig_configuration_profile"</span> <span class="s">"order_mgmt"</span> {
+  application_id = aws_appconfig_application.platform.id
+  name           = <span class="s">"order-management"</span>
+  location_uri   = <span class="s">"ssm-parameter://${aws_ssm_parameter.order_mgmt_config.name}"</span>
+}</pre>
+      </section>
+
+      <section id="cs-scaling">
+        <div class="sec-head"><span class="sec-num">06</span><h2>Scaling &amp; region topology</h2></div>
+        <p>Provisioned identically per region via the same Terraform module, matching <a href="#adr-006">ADR-006</a>. Availability matters far more than latency here.</p>
+      </section>
+
+      <section id="cs-decisions">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Decisions worth writing down</h2></div>
+        <div class="decision-card">
+          <span class="verdict">Decision — AWS-native over self-hosted Config Server</span>
+          <h4>AppConfig + Parameter Store, no cluster to operate per region</h4>
+          <p>See <a href="#adr-002">ADR-002</a>.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — secrets never live in Config Service's own store</span>
+          <h4>Secrets Manager is the only place secrets are read from</h4>
+          <p>A compromised Config Service read path can leak configuration, but never credentials.</p>
+        </div>
+      </section>
+
+      <p class="back-to-toc"><a href="#part-platform">&uarr; back to top</a></p>
+    </div>
+  </article>
+
+  <!-- ============================ DISCOVERY SERVICE ============================ -->
+  <article class="svc-doc" id="svc-discovery-service">
+    <div class="svc-doc-head">
+      <div class="kicker">11 &middot; Platform service</div>
+      <h3>Discovery Service — the live registry that wires regions together</h3>
+      <p>Who's up, in which region, at which address — the registry every service registers with and queries.</p>
+    </div>
+    <div class="svc-doc-body">
+
+      <section id="ds-overview">
+        <div class="sec-head"><span class="sec-num">01</span><h2>Overview</h2></div>
+        <p class="lede">Discovery Service is a live service registry: who's up, in which region, at which address, right now. Every service registers on boot and queries it to resolve peers.</p>
+      </section>
+
+      <section id="ds-ownership">
+        <div class="sec-head"><span class="sec-num">02</span><h2>Data ownership</h2></div>
+        <p class="lede">No business tables. Owns <b>live service-instance registration state</b> — Cloud Map namespace/service/instance records — <b>ephemeral and health-checked</b>, not a durable database.</p>
+      </section>
+
+      <section id="ds-communication">
+        <div class="sec-head"><span class="sec-num">03</span><h2>Communication</h2></div>
+        <p><b>Platform IN, from every service:</b> registration on boot, deregistration on shutdown, continuous health-check heartbeat.</p>
+        <p><b>Every service also queries Discovery</b> to resolve peers for direct service-to-service calls — the canonical example is Order resolving Product's address.</p>
+      </section>
+
+      <section id="ds-architecture">
+        <div class="sec-head"><span class="sec-num">04</span><h2>Architecture diagram</h2></div>
+        <div class="arch-diagram">
+          <svg viewBox="0 0 680 280" xmlns="http://www.w3.org/2000/svg">
+            <rect class="node-box" x="20" y="30" width="120" height="50" rx="6"/><text class="node-label" x="80" y="51" text-anchor="middle">Seller /</text><text class="node-sub" x="80" y="65" text-anchor="middle">Buyer User</text>
+            <rect class="node-box" x="180" y="30" width="120" height="50" rx="6"/><text class="node-label" x="240" y="51" text-anchor="middle">Order /</text><text class="node-sub" x="240" y="65" text-anchor="middle">Quotation</text>
+            <rect class="node-box" x="340" y="30" width="120" height="50" rx="6"/><text class="node-label" x="400" y="51" text-anchor="middle">Product /</text><text class="node-sub" x="400" y="65" text-anchor="middle">Search</text>
+            <rect class="node-box" x="500" y="30" width="120" height="50" rx="6"/><text class="node-label" x="560" y="51" text-anchor="middle">Billing /</text><text class="node-sub" x="560" y="65" text-anchor="middle">API Gateway</text>
+            <rect class="node-box self" x="250" y="180" width="180" height="60" rx="6"/><text class="node-label" x="340" y="206" text-anchor="middle">Discovery Service</text><text class="node-sub" x="340" y="222" text-anchor="middle">Cloud Map registry</text>
+            <path class="edge-sync" d="M90,80 L300,185" marker-end="url(#ds-arrow-sync)"/>
+            <path class="edge-sync" d="M250,80 L320,180" marker-end="url(#ds-arrow-sync)"/>
+            <path class="edge-sync" d="M410,80 L360,180" marker-end="url(#ds-arrow-sync)"/>
+            <path class="edge-sync" d="M560,80 L400,185" marker-end="url(#ds-arrow-sync)"/>
+            <text class="edge-label" x="105" y="140">register / heartbeat</text>
+            <text class="edge-label" x="420" y="140">resolve-query / answer</text>
+            <defs><marker id="ds-arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/></marker></defs>
+          </svg>
+        </div>
+        <div class="arch-legend"><span><span class="swatch sync"></span> sync (blocking) — registration, heartbeat, resolve-query</span></div>
+      </section>
+
+      <section id="ds-deployment">
+        <div class="sec-head"><span class="sec-num">05</span><h2>Deployment</h2></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Option</th><th>Choice</th><th>Operational cost</th><th>Why / why not</th></tr></thead>
+            <tbody>
+              <tr><td>A</td><td><span class="pill pill-managed">managed</span> AWS Cloud Map (or ECS Service Connect)</td><td>No cluster to run</td><td><b>Chosen.</b> Integrates directly with ECS service discovery, per <a href="#adr-002">ADR-002</a>.</td></tr>
+              <tr><td>B</td><td><span class="pill pill-self">self-hosted</span> Netflix Eureka or HashiCorp Consul</td><td>A stateful HA cluster to run and patch, per region</td><td>Duplicates what ECS already speaks to natively.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <span class="file-tab">modules/discovery-service/main.tf</span>
+        <pre><span class="c">// one private DNS namespace per region; every service registers its instances into it</span>
+resource <span class="s">"aws_service_discovery_private_dns_namespace"</span> <span class="s">"region"</span> {
+  name = <span class="s">"internal.${var.region_short}.pharma-aggregator"</span>
+  vpc  = var.vpc_id
+}
+
+resource <span class="s">"aws_service_discovery_service"</span> <span class="s">"order_management"</span> {
+  name = <span class="s">"order-management"</span>
+  dns_config { namespace_id = aws_service_discovery_private_dns_namespace.region.id routing_policy = <span class="s">"MULTIVALUE"</span> dns_records { type = <span class="s">"A"</span> ttl = <span class="k">10</span> } }
+  health_check_custom_config { failure_threshold = <span class="k">1</span> }
+}</pre>
+      </section>
+
+      <section id="ds-scaling">
+        <div class="sec-head"><span class="sec-num">06</span><h2>Scaling &amp; region topology</h2></div>
+        <p>Provisioned per region via the same Terraform module, matching <a href="#adr-006">ADR-006</a>. This is the mechanism that makes region rollout one-click.</p>
+      </section>
+
+      <section id="ds-decisions">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Decisions worth writing down</h2></div>
+        <div class="decision-card">
+          <span class="verdict">Decision — Cloud Map over self-hosted Eureka/Consul</span>
+          <h4>No stateful HA cluster to operate per region</h4>
+          <p>See <a href="#adr-002">ADR-002</a>.</p>
+        </div>
+        <div class="decision-card">
+          <span class="verdict">Decision — no hardcoded endpoints anywhere</span>
+          <h4>Every peer address is resolved via Cloud Map DNS, never configured by hand</h4>
+          <p>The actual mechanism, not just a principle, behind zero-manual-wiring region rollout.</p>
+        </div>
+      </section>
+
+      <p class="back-to-toc"><a href="#part-platform">&uarr; back to top</a></p>
+    </div>
+  </article>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; Complete document</span>
+    <span><a href="index.html">Multi-page version</a> &middot; <a href="summary.html">One-page summary</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -18,6 +18,10 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy application source code
 COPY . .
 
+# NEXT_PUBLIC_* is inlined at build time: pass with --build-arg NEXT_PUBLIC_API_URL=...
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # Set environment to production
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

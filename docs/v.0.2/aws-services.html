@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AWS Services Reference — HLD v0.2</title>
+<link rel="stylesheet" href="assets/doc.css" />
+<style>
+  /* ---- AWS category colors (icon language, not trademarked assets) ---- */
+  :root{
+    --c-compute:#ED7100;
+    --c-database:#527FFF;
+    --c-storage:#7AA116;
+    --c-integration:#E7157B;
+    --c-network:#8C4FFF;
+    --c-security:#DD344C;
+    --c-management:#E7157B;
+    --c-devtools:#C925D1;
+  }
+
+  .stat-strip{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:14px;
+    margin:28px 0 8px;
+  }
+  @media (max-width:680px){ .stat-strip{ grid-template-columns:repeat(2,1fr); } }
+  .stat-tile{
+    border:1px solid var(--line);
+    border-radius:6px;
+    background:var(--paper-raised);
+    padding:16px 18px;
+    box-shadow:var(--shadow);
+  }
+  .stat-tile .fig{ font-family:'Newsreader', serif; font-size:1.8rem; font-weight:600; color:var(--accent-strong); line-height:1; }
+  .stat-tile .lbl{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-top:6px; }
+
+  .legend-row{
+    display:flex; flex-wrap:wrap; gap:10px 18px;
+    margin:22px 0 0;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .legend-row span{ display:inline-flex; align-items:center; gap:7px; }
+  .legend-dot{ width:11px; height:11px; border-radius:3px; display:inline-block; }
+
+  .cat-section{ margin-bottom:56px; }
+  .cat-head{
+    display:flex; align-items:center; gap:12px;
+    margin-bottom:6px;
+  }
+  .cat-swatch{ width:8px; height:28px; border-radius:2px; flex:0 0 auto; }
+  .cat-head h2{ font-size:1.4rem; }
+  .cat-desc{ color:var(--muted); font-size:14px; margin:6px 0 20px; max-width:70ch; }
+
+  .svc-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
+    gap:16px;
+  }
+
+  .svc-card{
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--paper-raised);
+    box-shadow:var(--shadow);
+    padding:18px 20px 20px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .svc-top{ display:flex; align-items:flex-start; gap:12px; }
+  .svc-icon{
+    flex:0 0 auto;
+    width:42px; height:42px;
+    border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .svc-icon svg{ width:24px; height:24px; }
+  .svc-name{ font-family:'Newsreader', serif; font-size:1.08rem; font-weight:600; line-height:1.25; }
+  .svc-code{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--muted); margin-top:2px; display:block; }
+
+  .svc-status{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9.5px;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    padding:1px 7px;
+    border-radius:99px;
+    font-weight:600;
+    display:inline-block;
+    margin-top:6px;
+  }
+  .svc-status.active{ background:var(--async-soft); color:var(--async); }
+  .svc-status.candidate{ background:var(--sync-soft); color:var(--sync); }
+
+  .svc-used{
+    display:flex; flex-wrap:wrap; gap:5px;
+  }
+  .svc-used .chip{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    padding:2px 8px;
+    border-radius:99px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    color:var(--ink);
+    text-decoration:none;
+  }
+  .svc-used .chip:hover{ border-color:var(--accent); color:var(--accent-strong); }
+
+  .svc-why{ font-size:13.5px; color:var(--ink); line-height:1.55; margin:0; }
+  .svc-why b{ color:var(--accent-strong); }
+
+  .why-not{
+    background:var(--accent-soft);
+    border-left:3px solid var(--accent);
+    border-radius:0 6px 6px 0;
+    padding:14px 18px;
+    font-size:14px;
+    margin-top:10px;
+  }
+  .why-not b{ color:var(--accent-strong); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">AWS Services Reference</h1>
+    <p class="dek">Every AWS service named across the 11-service architecture, why it was picked, and which service(s) it belongs to — one page instead of hunting through eleven.</p>
+    <div class="meta-row">
+      <span><b>Source:</b> per-service docs under <code>services/</code> and <a href="adr.html">adr.html</a></span>
+      <span><a href="index.html">&larr; back to service index</a></span>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-tile"><div class="fig">19</div><div class="lbl">Services in active use</div></div>
+      <div class="stat-tile"><div class="fig">1</div><div class="lbl">Flagged candidate (MSK)</div></div>
+      <div class="stat-tile"><div class="fig">8</div><div class="lbl">Categories</div></div>
+      <div class="stat-tile"><div class="fig">11</div><div class="lbl">Services documented</div></div>
+    </div>
+
+    <div class="legend-row">
+      <span><i class="legend-dot" style="background:var(--c-compute)"></i>Compute</span>
+      <span><i class="legend-dot" style="background:var(--c-database)"></i>Database</span>
+      <span><i class="legend-dot" style="background:var(--c-storage)"></i>Storage</span>
+      <span><i class="legend-dot" style="background:var(--c-integration)"></i>App Integration</span>
+      <span><i class="legend-dot" style="background:var(--c-network)"></i>Networking</span>
+      <span><i class="legend-dot" style="background:var(--c-security)"></i>Security &amp; Identity</span>
+      <span><i class="legend-dot" style="background:var(--c-management)"></i>Management &amp; Governance</span>
+      <span><i class="legend-dot" style="background:var(--c-devtools)"></i>Developer Tools</span>
+    </div>
+  </header>
+
+  <!-- ============================= COMPUTE ============================= -->
+  <section class="cat-section" id="compute">
+    <div class="cat-head">
+      <span class="cat-swatch" style="background:var(--c-compute)"></span>
+      <h2>Compute</h2>
+    </div>
+    <p class="cat-desc">Two compute types cover the whole system, split by traffic shape rather than convenience — see the Decisions section of <a href="services/search-service.html">Search Service</a> for the reasoning this pattern comes from.</p>
+
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-compute)">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.2" fill="white"/><rect x="14" y="3" width="7" height="7" rx="1.2" fill="white" opacity=".75"/><rect x="3" y="14" width="7" height="7" rx="1.2" fill="white" opacity=".75"/><rect x="14" y="14" width="7" height="7" rx="1.2" fill="white"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon ECS on Fargate</div>
+            <span class="svc-code">compute · serverless containers</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/seller-user.html">Seller User</a>
+          <a class="chip" href="services/buyer-user.html">Buyer User</a>
+          <a class="chip" href="services/order-management.html">Order Mgmt</a>
+          <a class="chip" href="services/quotation-management.html">Quotation Mgmt</a>
+          <a class="chip" href="services/billing-management.html">Billing Mgmt</a>
+          <a class="chip" href="services/product-management.html">Product Mgmt</a>
+          <a class="chip" href="services/search-service.html">Search (query layer)</a>
+        </div>
+        <p class="svc-why">The default for anything needing a <b>warm process</b> — a live connection pool to Aurora, low-latency request handling, or steady background load. No servers to patch, no idle-capacity waste at this traffic level.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-compute)">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M8 4 L8 20 M8 4 L15 4 M8 12 L14 12 M8 20 L17 20" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">AWS Lambda</div>
+            <span class="svc-code">compute · event-driven functions</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/notification-service.html">Notification Service</a>
+          <a class="chip" href="services/search-service.html">Search (index consumer)</a>
+        </div>
+        <p class="svc-why">Reserved for work that's <b>bursty and idle most of the time</b> — a catalog change, a notification send. Paying for an always-on Fargate task here isn't justified; Lambda scales to zero between bursts.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= DATABASE ============================= -->
+  <section class="cat-section" id="database">
+    <div class="cat-head">
+      <span class="cat-swatch" style="background:var(--c-database)"></span>
+      <h2>Database &amp; caching</h2>
+    </div>
+    <p class="cat-desc">Transactional services get a single-writer Aurora cluster each (per <a href="adr.html#adr-007">ADR-007</a>); Product Management is the one exception, running active-active because it's read-heavy and lag-tolerant.</p>
+
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-database)">
+            <svg viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="6" rx="8" ry="3" fill="white"/><path d="M4 6 V18 C4 19.7 7.6 21 12 21 C16.4 21 20 19.7 20 18 V6" stroke="white" stroke-width="2" fill="none"/><path d="M4 12 C4 13.7 7.6 15 12 15 C16.4 15 20 13.7 20 12" stroke="white" stroke-width="2" fill="none"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon Aurora PostgreSQL</div>
+            <span class="svc-code">database · single-writer cluster, one per service</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/seller-user.html">Seller User</a>
+          <a class="chip" href="services/buyer-user.html">Buyer User</a>
+          <a class="chip" href="services/order-management.html">Order Mgmt</a>
+          <a class="chip" href="services/quotation-management.html">Quotation Mgmt</a>
+          <a class="chip" href="services/billing-management.html">Billing Mgmt</a>
+        </div>
+        <p class="svc-why">Relational, transactional correctness where it actually matters — orders, payments, registrations. Single-writer with a warm standby, never active-active, because these five are the write-sensitive services per <a href="adr.html#adr-007">ADR-007</a>. <b>Billing runs a physically separate cluster from Order</b> — enforcing the no-duplication rule (<a href="adr.html#adr-004">ADR-004</a>) at the infrastructure level, not by convention.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-database)">
+            <svg viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="6" rx="8" ry="3" fill="white"/><path d="M4 6 V18 C4 19.7 7.6 21 12 21 C16.4 21 20 19.7 20 18 V6" stroke="white" stroke-width="2" fill="none"/><circle cx="18.5" cy="17.5" r="4.2" fill="var(--c-database)" stroke="white" stroke-width="1.6"/><path d="M18.5 15.2 V19.8 M16.6 17.5 H20.4" stroke="white" stroke-width="1.2"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Aurora Global Database</div>
+            <span class="svc-code">database · active-active reads across regions</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/product-management.html">Product Management</a>
+        </div>
+        <p class="svc-why">The one write-heavy-but-read-tolerant domain. One write primary, but read replicas fan out globally — the exception to single-writer specifically because Product Management is 59% of the system's tables and almost entirely read traffic.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-database)">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="9" width="16" height="9" rx="1.5" fill="white"/><path d="M8 9 V6 a4 4 0 0 1 8 0 v3" stroke="white" stroke-width="2" fill="none"/><circle cx="12" cy="13.5" r="1.4" fill="var(--c-database)"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon ElastiCache (Redis)</div>
+            <span class="svc-code">database · in-memory cache</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/product-management.html">Product Management</a>
+        </div>
+        <p class="svc-why">Sits in front of Aurora specifically to absorb high-volume browse/catalog-read traffic without hitting the writer. No other service gets this treatment — no other service has Product's read volume.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-database)">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="6.5" stroke="white" stroke-width="2.2" fill="none"/><path d="M15.3 15.3 L20.5 20.5" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon OpenSearch Service</div>
+            <span class="svc-code">database · managed search index</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/search-service.html">Search Service</a>
+        </div>
+        <p class="svc-why">Purpose-built full-text/faceted search. No other service touches it — it's a <b>disposable index</b> rebuilt from Product's events (<a href="adr.html#adr-005">ADR-005</a>), never a source of truth. Managed snapshots and zone-aware replicas remove exactly the operational surface a search cluster otherwise demands.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= APP INTEGRATION / MESSAGING ============================= -->
+  <section class="cat-section" id="integration">
+    <div class="cat-head">
+      <span class="cat-swatch" style="background:var(--c-integration)"></span>
+      <h2>App integration &amp; messaging</h2>
+    </div>
+    <p class="cat-desc">Async-by-default (<a href="adr.html#adr-003">ADR-003</a>) runs on EventBridge + SQS everywhere except one flagged edge — see <a href="adr.html#adr-009">ADR-009</a> for exactly when that changes.</p>
+
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-integration)">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 12 H20 M20 12 L15 7 M20 12 L15 17" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon EventBridge</div>
+            <span class="svc-code">app integration · event bus</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/order-management.html">Order &rarr; Billing</a>
+          <a class="chip" href="services/order-management.html">Order &rarr; Notification</a>
+          <a class="chip" href="services/billing-management.html">Billing &rarr; Notification</a>
+          <a class="chip" href="services/product-management.html">Product &rarr; Search</a>
+        </div>
+        <p class="svc-why">The async backbone for everything per <a href="adr.html#adr-003">ADR-003</a> — fan-out to independent consumers with no cluster to run, no polling. The default for every edge unless a specific edge needs ordering or replay that EventBridge can't give.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-integration)">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="13" height="4" rx="1" fill="white"/><rect x="4" y="10" width="13" height="4" rx="1" fill="white" opacity=".75"/><rect x="4" y="15" width="9" height="4" rx="1" fill="white" opacity=".5"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon SQS</div>
+            <span class="svc-code">app integration · queue, behind every consumer</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="adr.html#adr-009">Every async consumer</a>
+        </div>
+        <p class="svc-why">Retry and dead-letter handling behind every EventBridge target — the missing piece named explicitly in <a href="adr.html#adr-009">ADR-009</a> so "async by default" doesn't silently drop failed deliveries.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-integration)">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 20 L4 14 M4 14 A8 8 0 0 1 20 14 M20 14 L20 20" stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round"/><circle cx="12" cy="6" r="2" fill="white"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon SNS</div>
+            <span class="svc-code">app integration · SMS delivery</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/notification-service.html">Notification Service</a>
+        </div>
+        <p class="svc-why">SMS fan-out from the one service that never receives a synchronous call by design — Notification only subscribes to events, it exposes no internal REST endpoint at all.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-integration)">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="1.5" fill="white"/><path d="M3 6 L12 13 L21 6" stroke="var(--c-integration)" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon SES</div>
+            <span class="svc-code">app integration · email delivery</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/notification-service.html">Notification Service</a>
+        </div>
+        <p class="svc-why">Email delivery — order confirmations, invoice notices — fired asynchronously from Billing/Order events, never on a critical path.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--paper); border:2px dashed var(--sync);">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="4" rx="1" fill="var(--sync)"/><rect x="3" y="10" width="18" height="4" rx="1" fill="var(--sync)" opacity=".65"/><rect x="3" y="16" width="18" height="4" rx="1" fill="var(--sync)" opacity=".35"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon MSK (Kafka)</div>
+            <span class="svc-code">app integration · flagged, not adopted</span>
+            <span class="svc-status candidate">Candidate</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/product-management.html">Product &rarr; Search (candidate)</a>
+        </div>
+        <p class="svc-why">The <b>only</b> edge in the system flagged for ordered, replayable delivery — Search's index-backfill replays this exact stream, and EventBridge doesn't guarantee per-key ordering. Named in <a href="adr.html#adr-009">ADR-009</a> so it isn't lost, evaluated once real volume is measured — not adopted preemptively, and not applied system-wide.</p>
+      </div>
+    </div>
+
+    <div class="why-not"><b>Why not Kafka or RabbitMQ everywhere:</b> most async edges here are simple fan-out with no ordering or replay requirement — running a managed Kafka cluster for those adds real operational cost with no matching benefit. RabbitMQ was considered and rejected outright: nothing in this system needs AMQP-style exchange/topic routing beyond what SQS already provides. See <a href="adr.html#adr-009">ADR-009</a> for the full reasoning.</div>
+  </section>
+
+  <!-- ============================= PLATFORM / MANAGEMENT ============================= -->
+  <section class="cat-section" id="platform">
+    <div class="cat-head">
+      <span class="cat-swatch" style="background:var(--c-management)"></span>
+      <h2>Platform &amp; management</h2>
+    </div>
+    <p class="cat-desc">Config and Discovery sit underneath every service, not on the client request path — every choice here traces back to one rule: the backend already deploys via ECS/ECR, so pick whatever integrates with that natively (<a href="adr.html#adr-002">ADR-002</a>).</p>
+
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-management)">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="2.4" fill="white"/><path d="M12 11.4 C7.5 11.4 5 15 5 20 H19 C19 15 16.5 11.4 12 11.4 Z" fill="white" opacity=".85"/><circle cx="12" cy="12" r="9" stroke="white" stroke-width="1.4" fill="none" stroke-dasharray="2 2"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">AWS Cloud Map</div>
+            <span class="svc-code">management · service registry</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/discovery-service.html">Discovery Service</a>
+        </div>
+        <p class="svc-why">Registration, health checks, DNS-based resolution for every service. Chosen over self-hosted Eureka/Consul specifically because it integrates natively with ECS — no new cluster to run per region, per <a href="adr.html#adr-002">ADR-002</a>.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-management)">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" fill="white"/><path d="M12 3 V6 M12 18 V21 M3 12 H6 M18 12 H21 M5.6 5.6 L7.8 7.8 M16.2 16.2 L18.4 18.4 M18.4 5.6 L16.2 7.8 M7.8 16.2 L5.6 18.4" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">AWS AppConfig</div>
+            <span class="svc-code">management · live config, no redeploy</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/config-service.html">Config Service</a>
+        </div>
+        <p class="svc-why">Per-service, per-environment, per-region config with a refresh event instead of polling — this is the specific mechanism that makes the one-click region rollout in <a href="adr.html#adr-006">ADR-006</a> work without touching running services.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-management)">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3 L12 13" stroke="white" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17" r="4" fill="white"/><circle cx="12" cy="17" r="1.3" fill="var(--c-management)"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Systems Manager Parameter Store</div>
+            <span class="svc-code">management · plain config values</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/config-service.html">Config Service</a>
+        </div>
+        <p class="svc-why">Plain (non-secret) config values that AppConfig profiles reference — kept distinct from Secrets Manager below as a deliberate security boundary, not an accident.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= SECURITY ============================= -->
+  <section class="cat-section" id="security">
+    <div class="cat-head">
+      <span class="cat-swatch" style="background:var(--c-security)"></span>
+      <h2>Security &amp; identity</h2>
+    </div>
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-security)">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="1.5" fill="white"/><path d="M8 11 V8 a4 4 0 0 1 8 0 v3" stroke="white" stroke-width="2" fill="none"/><circle cx="12" cy="15.3" r="1.4" fill="var(--c-security)"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">AWS Secrets Manager</div>
+            <span class="svc-code">security · credentials, never in Config Service</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/config-service.html">Config Service (boundary)</a>
+          <span class="chip">Every service with credentials</span>
+        </div>
+        <p class="svc-why">A deliberate boundary stated explicitly in <code>config-service.html</code> — secrets never live in Config Service's own store. Separating "config" from "credentials" is a security decision, not an oversight.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-security)">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3 L19 6 V11 C19 16 16 19.5 12 21 C8 19.5 5 16 5 11 V6 Z" fill="white"/><path d="M9 12 L11.2 14.2 L15.5 9.5" stroke="var(--c-security)" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">AWS IAM</div>
+            <span class="svc-code">security · roles &amp; permissions</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <span class="chip">Every service (execution roles)</span>
+        </div>
+        <p class="svc-why">Execution roles for Lambda, cross-service permission boundaries — referenced explicitly in Notification's Terraform, implicit in every other service's task role.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= NETWORKING / EDGE ============================= -->
+  <section class="cat-section" id="edge">
+    <div class="cat-head">
+      <span class="cat-swatch" style="background:var(--c-network)"></span>
+      <h2>Networking &amp; client-facing edge</h2>
+    </div>
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-network)">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="2" fill="white"/><path d="M4 10 H20 M10 4 V20" stroke="var(--c-network)" stroke-width="1.6"/><path d="M14 14 L18 18 M18 14 L14 18" stroke="var(--c-network)" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon API Gateway</div>
+            <span class="svc-code">networking · sole client entry point</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/api-gateway.html">API Gateway service</a>
+        </div>
+        <p class="svc-why">Managed auth, rate-limiting, and routing out of the box. No domain service is directly reachable from the internet — every client request passes through here, per <a href="adr.html#adr-008">ADR-008</a>. Service-to-service calls bypass it entirely, resolving via Cloud Map instead.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-network)">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="white" stroke-width="2" fill="none"/><path d="M3 12 H21 M12 3 C15 6.5 15 17.5 12 21 C9 17.5 9 6.5 12 3 Z" stroke="white" stroke-width="1.6" fill="none"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon Route 53</div>
+            <span class="svc-code">networking · latency-based routing</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/api-gateway.html">API Gateway (multi-region)</a>
+        </div>
+        <p class="svc-why">Routes clients to the nearest regional gateway. Supports the "one API Gateway per region" call in <code>api-gateway.html</code> — keeps the region-add story a single parameterized deploy instead of a shared global resource to coordinate.</p>
+      </div>
+
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-storage)">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 7 C4 5.3 7.6 4 12 4 C16.4 4 20 5.3 20 7 V17 C20 18.7 16.4 20 12 20 C7.6 20 4 18.7 4 17 Z" fill="white"/><path d="M4 7 C4 8.7 7.6 10 12 10 C16.4 10 20 8.7 20 7" stroke="var(--c-storage)" stroke-width="1.4" fill="none"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon S3</div>
+            <span class="svc-code">storage · onboarding documents</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <a class="chip" href="services/seller-user.html">Seller User</a>
+          <a class="chip" href="services/buyer-user.html">Buyer User</a>
+        </div>
+        <p class="svc-why">Onboarding document uploads — I/O-heavy, not CPU-heavy, which is also why these two services scale on request-queue depth rather than CPU utilization.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= DEVELOPER TOOLS ============================= -->
+  <section class="cat-section" id="devtools">
+    <div class="cat-head">
+      <span class="cat-swatch" style="background:var(--c-devtools)"></span>
+      <h2>Developer tools</h2>
+    </div>
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-top">
+          <div class="svc-icon" style="background:var(--c-devtools)">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="7" width="18" height="12" rx="1.5" fill="white"/><path d="M8 7 V5.5 A2 2 0 0 1 10 3.5 H14 A2 2 0 0 1 16 5.5 V7" stroke="white" stroke-width="1.8" fill="none"/></svg>
+          </div>
+          <div>
+            <div class="svc-name">Amazon ECR</div>
+            <span class="svc-code">developer tools · container registry</span>
+            <span class="svc-status active">Active</span>
+          </div>
+        </div>
+        <div class="svc-used">
+          <span class="chip">Every service (build&rarr;ECR&rarr;deploy)</span>
+        </div>
+        <p class="svc-why">Every container image lands here before deploy — the existing build&rarr;ECR&rarr;ECS pipeline the backend already runs, referenced in every service's Terraform build-time section.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; AWS Services Reference</span>
+    <span><a href="index.html">Service index</a> &middot; <a href="adr.html">ADRs</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

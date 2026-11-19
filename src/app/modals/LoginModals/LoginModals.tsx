@@ -1,5 +1,6 @@
 "use client";
 
+import { LoginRoleHeader, LoginRoleSwitch } from "@/src/app/commonComponents/LoginRoleHeader";
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -7,7 +8,7 @@ import { X, Eye, EyeOff } from "lucide-react";
 import { TbMailFilled } from "react-icons/tb";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import toast from "react-hot-toast";
+import { toast } from "react-toastify";
 import Link from "next/link";
 import { 
   loginSchema,
@@ -17,10 +18,16 @@ import {
 } from "@/src/schema/seller/loginSchema";
 import { sellerAuthService } from "@/src/services/seller/authService";
 import { User, AuthStep } from "@/src/types/seller/authData";
+import { useConfirmClose } from "@/src/hooks/useConfirmClose";
+import ConfirmCloseDialog from "@/src/components/common/ConfirmCloseDialog";
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
+  // Optional override: when provided, a successful login calls this instead
+  // of redirecting to the role dashboard (e.g. so the registration wizard
+  // can stay on the current page and just unlock once the user is logged in).
+  onLoginSuccess?: () => void | Promise<void>;
 }
 
 // Carousel slides data
@@ -81,7 +88,7 @@ const carouselSlides = [
   }
 ];
 
-const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
+const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -101,7 +108,8 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
   const [tempCredentials, setTempCredentials] = useState<{ username: string; password: string } | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
-  
+  const { isConfirmOpen, requestClose, confirmClose, cancelClose } = useConfirmClose(onClose);
+
   // ========== NEW STATE FOR FORGOT PASSWORD OTP FLOW ==========
   const [forgotPasswordToken, setForgotPasswordToken] = useState<string>("");
   const [forgotPasswordOtp, setForgotPasswordOtp] = useState(Array(6).fill(""));
@@ -464,13 +472,35 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
       
       // Clear stored credentials after successful verification
       clearCredentials();
-      
+
       toast.success("Login successful!");
+      window.dispatchEvent(new Event('auth-changed'));
+
+      if (onLoginSuccess) {
+        // Keep the modal (with its spinner) up until the caller's async
+        // work — e.g. checking whether a seller profile already exists —
+        // finishes. Closing immediately here exposed whatever page sits
+        // behind the modal (e.g. the signup form) for a moment before that
+        // check redirected away.
+        setIsNavigating(true);
+        await onLoginSuccess();
+        onClose();
+        setIsNavigating(false);
+        setIsLoading(false);
+        return;
+      }
+
       setIsNavigating(true);
-      
+
       // Navigate based on role
       let dashboardPath = "";
       if (role === "seller") {
+        // A seller login doesn't necessarily mean registration was completed —
+        // they may have only just signed up, or have a TempSeller still
+        // pending approval. The dashboard itself now handles that: it shows
+        // the onboarding wizard/pending-approval gate in place of the normal
+        // Overview until an approved Seller profile exists, so every seller
+        // login lands there directly regardless of status.
         dashboardPath = "/seller_7a3b9f2c/dashboard";
         router.push(dashboardPath);
       } else if (role === "buyer") {
@@ -727,19 +757,17 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
   // Render login step
   const renderLoginStep = () => (
     <form onSubmit={handleLoginSubmit(onLogin)}>
-      <div className="mb-10 flex justify-center">
+      <div className="mb-4 flex justify-center">
         <Image
           src="/assets/images/tiameds.logo.png"
           alt="TiaMeds"
-          width={233}
-          height={108}
+          width={170}
+          height={79}
           priority
         />
       </div>
 
-      <h2 className="text-h5 text-center font-medium text-pneutral-900 mb-6 font-heading">
-        Login
-      </h2>
+      <LoginRoleHeader role="seller" />
 
       <div className="mb-4">
         <div className="relative">
@@ -830,6 +858,8 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
           Forgot your password?
         </button>
       </p>
+
+      <LoginRoleSwitch role="seller" onNavigate={onClose} />
     </form>
   );
 
@@ -1184,7 +1214,13 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
       <div
         className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
+        onClick={requestClose}
+      />
+
+      <ConfirmCloseDialog
+        isOpen={isConfirmOpen}
+        onConfirm={confirmClose}
+        onCancel={cancelClose}
       />
 
       <div className="relative w-full max-w-5xl">

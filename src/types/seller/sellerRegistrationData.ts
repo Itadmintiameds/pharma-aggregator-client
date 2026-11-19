@@ -76,6 +76,9 @@ export interface TempSellerBankDetails {
   bankName: string;
   branch: string;
   ifscCode: string;
+  stateId: number;
+  districtId: number;
+  talukaId: number;
   accountNumber: string;
   accountHolderName: string;
   bankDocumentFileUrl: string;
@@ -86,12 +89,16 @@ export interface TempSellerBankDetails {
 export interface TempSellerDocument {
   gstNumber ?: string;
   gstFileUrl ?: string;
-  productTypeId: number;
+  // Exactly one of these two must be present: productTypeId for a product-tied
+  // licence (e.g. Drug Manufacturing/Wholesale Licence), or documentTypeId for
+  // a seller-level document with no product type (agreements, certificates).
+  productTypeId?: number;
+  documentTypeId?: number;
   documentNumber: string;
   documentFileUrl: string;
-  licenseIssueDate?: string; 
-  licenseExpiryDate?: string;  
-  licenseIssuingAuthority?: string; 
+  licenseIssueDate?: string;
+  licenseExpiryDate?: string;
+  licenseIssuingAuthority?: string;
 }
 
 // ==================== MAIN SELLER REGISTRATION ====================
@@ -108,10 +115,40 @@ export interface TempSellerRequest {
   email: string;
   termsAccepted: boolean;
   website?: string;
+  parentManufacturerName?: string;
+  brandOwnerName?: string;
   address?: TempSellerAddress;
   coordinator?: TempSellerCoordinator;
   bankDetails?: TempSellerBankDetails;
   documents?: TempSellerDocument[];
+}
+
+// ==================== DRAFT (SAVE-FOR-LATER) TYPES ====================
+// Draft save/update hits /temp-sellers/draft(/{id}) with a partial subset of
+// the full registration payload — no file fields, no strict validation on the
+// backend. These mirror TempSellerRequest's nested shapes but drop every
+// *FileUrl field (drafts never carry a real uploaded file) and make
+// everything optional.
+
+export type TempSellerDraftAddress = Partial<TempSellerAddress>;
+
+export type TempSellerDraftCoordinator = Partial<Omit<TempSellerCoordinator, 'authorizationLetterUrl'>>;
+
+export type TempSellerDraftBankDetails = Partial<Omit<TempSellerBankDetails, 'bankDocumentFileUrl'>>;
+
+export type TempSellerDraftDocument = Partial<Omit<TempSellerDocument, 'documentFileUrl' | 'gstFileUrl'>>;
+
+export interface TempSellerDraftRequest
+  extends Partial<
+    Omit<
+      TempSellerRequest,
+      'companyRegistrationCertificateUrl' | 'gstFileUrl' | 'address' | 'coordinator' | 'bankDetails' | 'documents'
+    >
+  > {
+  address?: TempSellerDraftAddress;
+  coordinator?: TempSellerDraftCoordinator;
+  bankDetails?: TempSellerDraftBankDetails;
+  documents?: TempSellerDraftDocument[];
 }
 
 export interface TempSellerResponse {
@@ -239,9 +276,11 @@ export interface TempSellerFormState {
   sellerName: string;
   companyType: string;
   sellerType: string;
-  productTypes: string[]; 
-  productTypeIds: number[]; 
-  
+  productTypes: string[];
+  productTypeIds: number[];
+  parentManufacturerName: string;
+  brandOwnerName: string;
+
   // Address
   state: string;
   district: string;
@@ -262,24 +301,36 @@ export interface TempSellerFormState {
   coordinatorDesignation: string;
   coordinatorEmail: string;
   coordinatorMobile: string;
-  
+  authorizationLetterFile: File | null;
+
   // GST
   gstNumber: string;
   gstFile: File | null;
-  
+
   // Licenses
   licenses: Record<string, {
     number: string;
     file: File | null;
-    issueDate: Date | null;       
-    expiryDate: Date | null;      
-    issuingAuthority: string;      
+    issueDate: Date | null;
+    expiryDate: Date | null;
+    issuingAuthority: string;
     status: 'Active' | 'Expired';
   }>;
-  
+
+  // Seller-type-driven agreement documents (Brand Owner Agreement, White
+  // Labeling Agreement, Distribution Agreement, PCD Agreement), keyed by
+  // documentTypeCode (e.g. "DISTRIBUTION_AGREEMENT").
+  agreements: Record<string, {
+    number: string;
+    file: File | null;
+    issueDate: Date | null;
+    expiryDate: Date | null;
+  }>;
+
   // Bank Details
   bankState: string;
   bankDistrict: string;
+  bankTaluka: string;
   bankName: string;
   branch: string;
   ifscCode: string;

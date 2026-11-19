@@ -1,4 +1,5 @@
 import { api } from "@/src/utils/api";
+import { withSellerId } from "@/src/services/product/sellerContext";
 
 export const getSupplementAgeGroups = async () => {
   try {
@@ -135,7 +136,7 @@ export const getSupplementPackTypes = async (dosageId: string | number) => {
 
 export const createSupplementProduct = async (payload: any) => {
   try {
-    const response = await api.post('/products/create', payload, {
+    const response = await api.post('/products/create', await withSellerId(payload), {
       headers: { 'Content-Type': 'application/json' },
     });
     return response.data;

@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import {
   deleteProduct,
   getProductById,
@@ -63,25 +64,25 @@ const Delete = ({ isOpen, onClose, onConfirm, productId }: DeleteProps) => {
 
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 px-4">
-      <div className="shrink-0 w-[448px] h-163.5 rounded-2xl bg-white p-6 shadow-2xl">
+      <div className="w-[26rem] max-w-full rounded-xl bg-white p-5 shadow-2xl">
         <div className="flex justify-center">
-          <img src="/icons/DeleteImg.svg" alt="filter" className="w-20 h-20" />
+          <img src="/icons/DeleteImg.svg" alt="" className="w-14 h-14" />
         </div>
 
-        <div className="mt-4 text-h5 font-bold text-center">
+        <div className="mt-2 text-base font-bold text-center">
           Delete Product?
         </div>
 
-        <div className="mt-4 text-p3 font-normal text-center text-pneutral-700">
+        <div className="mt-1.5 text-xs font-normal text-center text-pneutral-700">
           Are you sure you want to delete this product? <br />
           this action is{" "}
           <span className="font-semibold text-warning-500">permanent </span>
           and cannot be undone.
         </div>
 
-        <div className="mt-4 p-4 w-100 h-29.5 bg-secondary-50 border border-secondary-300 rounded-xl">
+        <div className="mt-3 p-3 w-full bg-secondary-50 border border-secondary-300 rounded-lg">
           <div
-            className="w-full text-pneutral-900 text-base font-semibold truncate"
+            className="w-full text-pneutral-900 text-sm font-semibold truncate"
             title={productDetails?.productName || "-"}
           >
             {productDetails?.productName || "-"}
@@ -89,11 +90,11 @@ const Delete = ({ isOpen, onClose, onConfirm, productId }: DeleteProps) => {
 
           <div className="flex">
             <div className="flex-1 py-2 min-w-0">
-              <p className="text-p3 font-semibold text-pneutral-900">
+              <p className="text-xs font-semibold text-pneutral-900">
                 Category
               </p>
               <p
-                className="mt-3 text-p3 text-secondary-700 font-medium truncate"
+                className="mt-1 text-xs text-secondary-700 font-medium truncate"
                 title={categoryMap[productDetails?.categoryId] || "-"}
               >
                 {categoryMap[productDetails?.categoryId] || "-"}
@@ -105,15 +106,15 @@ const Delete = ({ isOpen, onClose, onConfirm, productId }: DeleteProps) => {
             </div>
 
             <div className="flex-1 py-2 px-6">
-              <p className="text-p3 font-semibold text-pneutral-900">Stock</p>
-              <p className="mt-3 text-p3 text-success-700 font-medium">
+              <p className="text-xs font-semibold text-pneutral-900">Stock</p>
+              <p className="mt-1 text-xs text-success-700 font-medium">
                 {productDetails?.pricingDetails?.[0]?.stockQuantity || 0} units
               </p>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 p-4 w-100 h-53 bg-danger-50 border border-danger-500 rounded-xl flex flex-col gap-2">
+        <div className="mt-3 p-3 w-full bg-danger-50 border border-danger-500 rounded-lg flex flex-col gap-1.5">
           <div className="flex gap-2 items-center">
             <span>
               <img
@@ -127,51 +128,51 @@ const Delete = ({ isOpen, onClose, onConfirm, productId }: DeleteProps) => {
             </span>
           </div>
 
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-3 items-center">
             <img
               src="/icons/DeleteImg1.svg"
               alt="delete"
-              className="w-9 h-9 flex-shrink-0"
+              className="w-6 h-6 flex-shrink-0"
             />
 
             <div className="flex-1">
-              <p className="text-p3 font-normal text-pneutral-900">
+              <p className="text-xs font-normal text-pneutral-900">
                 This product will be{" "}
                 <span className="text-warning-500">Permanently deleted</span>{" "}
                 from your inventory.
               </p>
 
-              <div className="mt-2 border-b border-danger-200"></div>
+              <div className="mt-1.5 border-b border-danger-200"></div>
             </div>
           </div>
 
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-3 items-center">
             <img
               src="/icons/DeleteImg3.svg"
               alt="delete"
-              className="w-9 h-9 flex-shrink-0"
+              className="w-6 h-6 flex-shrink-0"
             />
 
             <div className="flex-1">
-              <p className="text-p3 font-normal text-pneutral-900">
+              <p className="text-xs font-normal text-pneutral-900">
                 Historical records and transactions linked to this product may
                 no longer be available.
               </p>
 
-              <div className="mt-2 border-b border-danger-200"></div>
+              <div className="mt-1.5 border-b border-danger-200"></div>
             </div>
           </div>
 
           <div>
-            <div className="flex gap-4 items-center">
+            <div className="flex gap-3 items-center">
               <img
                 src="/icons/DeleteImg4.svg"
                 alt="delete"
-                className="w-9 h-9 flex-shrink-0"
+                className="w-6 h-6 flex-shrink-0"
               />
 
               <div className="flex-1">
-                <p className="text-p3 font-normal text-pneutral-900">
+                <p className="text-xs font-normal text-pneutral-900">
                   This action{" "}
                   <span className="text-warning-500">cannot be reversed.</span>
                 </p>
@@ -180,9 +181,9 @@ const Delete = ({ isOpen, onClose, onConfirm, productId }: DeleteProps) => {
           </div>
         </div>
 
-        <div className="flex gap-3 mt-4">
+        <div className="flex gap-2 mt-3">
           <button
-            className="w-48.5 h-12 bg-pneutral-100 rounded-lg label-l4 font-medium flex items-center justify-center gap-2 "
+            className="flex-1 h-9 border-[1.5px] border-pneutral-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-pneutral-100"
             onClick={onClose}
           >
             <img src="/icons/DeleteImg5.svg" alt="filter" className="w-5 h-5" />
@@ -191,13 +192,9 @@ const Delete = ({ isOpen, onClose, onConfirm, productId }: DeleteProps) => {
           <button
             onClick={handleDeleteProduct}
             disabled={loading}
-            className="w-48.5 h-12 bg-warning-500 rounded-lg label-l4 font-medium text-white flex items-center justify-center gap-2"
+            className="flex-1 h-9 border-[1.5px] border-warning-500 rounded-lg text-xs font-semibold text-warning-500 flex items-center justify-center gap-2 hover:bg-warning-50 disabled:opacity-50"
           >
-            <img
-              src="/icons/DeleteWhite.svg"
-              alt="filter"
-              className="w-5 h-5"
-            />
+            <Trash2 size={14} aria-hidden />
             Delete Product
           </button>
         </div>
@@ -205,7 +202,7 @@ const Delete = ({ isOpen, onClose, onConfirm, productId }: DeleteProps) => {
 
       {/* <div className="shrink-0 w-[448px] h-161.75 rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex justify-center">
-          <img src="/icons/DeleteImg.svg" alt="filter" className="w-20 h-20" />
+          <img src="/icons/DeleteImg.svg" alt="" className="w-14 h-14" />
         </div>
 
         <div className="mt-6 text-h5 font-bold text-center">

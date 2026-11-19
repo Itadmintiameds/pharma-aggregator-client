@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import Input from "@/src/app/commonComponents/Input";
 import UploadInput from "../commonComponent/UploadInput";
 import PopupModal from "../commonComponent/PopupModal";
+import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import { foodInfantSchema } from "@/src/schema/product/FoodandInfantSchema";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
+import { getGstPercentages } from "@/src/services/product/GstPercentageService";
 import {
   getProductById,
   updateProduct,
@@ -66,14 +68,6 @@ interface FoodInfantFormProps {
   mode?: "create" | "edit";
   productId?: string;
 }
-
-// Hardcoded GST options
-const gstOptions = [
-  { value: "0", label: "0%" },
-  { value: "5", label: "5%" },
-  { value: "12", label: "12%" },
-  { value: "18", label: "18%" },
-];
 
 const dietaryOptions = [
   { value: "veg", label: "Veg" },
@@ -257,10 +251,24 @@ const ServingSizeDisabled: React.FC<{ label: string; required?: boolean }> = ({ 
 
 const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", productId }) => {
   const router = useRouter();
+  // After a draft save: edit mode reloads so ids/images/status are fresh (the server re-creates
+  // attribute rows on every update); add mode jumps to the saved draft's edit page so later saves
+  // update it instead of creating a duplicate product.
+  const savedDraftIdRef = useRef<string | null>(null);
+  const handleDraftModalDone = () => {
+    setShowDraftModal(false);
+    if (draftModalError) return;
+    if (mode === "edit") {
+      window.location.reload();
+    } else if (savedDraftIdRef.current) {
+      router.replace(editUrlFor(savedDraftIdRef.current, "editFoodInfant"));
+    }
+  };
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   const setFieldRef = (name: string) => (el: HTMLElement | null) => { fieldRefs.current[name] = el; };
 
-  const isEditMode = mode === "edit";
+  // true for any edit route (load/update); isEditMode additionally excludes DRAFTs, which stay fully editable
+  const isEditRoute = mode === "edit";
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
 
   const categoryId = 3;
@@ -328,6 +336,7 @@ const FoodInfantForm: React.FC<FoodInfantFormProps> = ({ mode = "create", produc
   const [storageConditions, setStorageConditions] = useState<SelectOption[]>([]);
   const [packTypes, setPackTypes] = useState<SelectOption[]>([]);
   const [certificationsMaster, setCertificationsMaster] = useState<SelectOption[]>([]);
+  const [gstOptions, setGstOptions] = useState<SelectOption[]>([]);
   const [showAdditionalDiscount, setShowAdditionalDiscount] = useState(false);
 
   // Unit options states
@@ -368,6 +377,14 @@ const [certificateDocumentIds, setCertificateDocumentIds] = useState<Map<number,
   const [loadingStorageConditions, setLoadingStorageConditions] = useState(false);
   const [loadingPackTypes, setLoadingPackTypes] = useState(false);
   const [loadingCertifications, setLoadingCertifications] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftModalError, setDraftModalError] = useState(false);
+  const [draftErrorMessage, setDraftErrorMessage] = useState("");
+  const [productStatus, setProductStatus] = useState<string>("");
+  const isEditMode = isEditRoute && productStatus !== "DRAFT";
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mastersLoaded, setMastersLoaded] = useState(false);
   const [ageGroupOptionsMap, setAgeGroupOptionsMap] = useState<Map<string, string>>(new Map());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -907,6 +924,23 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
     });
   };
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await getGstPercentages();
+        const options = response
+          .map((item: any) => ({
+            label: `${item.gstPercentageValue}%`,
+            value: String(item.gstPercentageValue),
+          }))
+          .sort((a: any, b: any) => Number(a.value) - Number(b.value));
+        setGstOptions(options);
+      } catch (error) {
+        console.error("Error fetching GST percentages:", error);
+      }
+    })();
+  }, []);
+
   const handleDropdownChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => {
@@ -1119,16 +1153,19 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
       } finally {
         setLoadingNetQuantityUnits(false);
       }
+      setMastersLoaded(true);
     };
     fetchMasterData();
   }, []);
 
   // ---------- Edit mode ----------
   useEffect(() => {
-    if (isEditMode && productId && netQuantityUnitsList.length > 0) {
+    // wait for the master lists to finish (even if one is empty or failed) so labels can be resolved
+    if (isEditRoute && productId && mastersLoaded) {
       const fetchProduct = async () => {
         try {
           const prod = await getProductById(productId);
+          setProductStatus(String(prod?.status || "").toUpperCase());
           let attr = {};
 
           if (prod.productAttributeFoodInfants && Array.isArray(prod.productAttributeFoodInfants) && prod.productAttributeFoodInfants.length > 0) {
@@ -1156,8 +1193,9 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
 
           let netQuantityUnitValue = "";
           let netQuantityUnitIdValue = 0;
-          if ((attr as any).unitId) {
-            netQuantityUnitIdValue = (attr as any).unitId;
+          const attrNetQtyUnitId = (attr as any).netQuantityUnitId ?? (attr as any).unitId;
+          if (attrNetQtyUnitId) {
+            netQuantityUnitIdValue = Number(attrNetQtyUnitId);
           }
           if ((attr as any).unitName) {
             netQuantityUnitValue = (attr as any).unitName;
@@ -1193,9 +1231,16 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
           } else if ((attr as any).servingSizeUnitName) {
             servingSizeUnitValue = (attr as any).servingSizeUnitName;
             servingSizeUnitIdValue = (attr as any).servingSizeUnitId || 0;
+          } else if ((attr as any).servingSizeUnitId) {
+            // backend returns only the id: resolve the label from the loaded serving size units (best effort)
+            servingSizeUnitIdValue = Number((attr as any).servingSizeUnitId) || 0;
+            const matchedServingUnit = servingSizeUnitsList.find((item: any) =>
+              Number(item.servingSizeUnitId ?? item.unitId ?? item.id) === servingSizeUnitIdValue
+            );
+            if (matchedServingUnit) servingSizeUnitValue = extractUnitString(matchedServingUnit);
           }
 
-          if ((attr as any).nutritionalInformationImageUrl) {
+          if (isRealFileUrl((attr as any).nutritionalInformationImageUrl)) {
             setExistingNutritionalImageUrl((attr as any).nutritionalInformationImageUrl);
           }
 
@@ -1259,14 +1304,14 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
             mrp: pricing.mrp?.toString() || "",
             sellingPricePerPack: pricing.sellingPrice?.toString() || "",
             discountPercentage: pricing.discountPercentage?.toString() || "",
-            gstPercentage: pricing.gstPercentage?.toString() || "",
-            hsnCode: pricing.hsnCode?.toString() || "",
+            gstPercentage: (pricing.gstPercentage ?? (attr as any).gstPercentage ?? prod.gstPercentage)?.toString() || "",
+            hsnCode: (pricing.hsnCode ?? (attr as any).hsnCode ?? prod.hsnCode)?.toString() || "",
             manualFile: null,
             finalPrice: pricing.finalPrice?.toString() || "",
           }));
 
           setExistingImages(prod.productImages?.map((img: any) => img.productImage) || []);
-          setExistingManualFile((attr as any).productUserManual || null);
+          setExistingManualFile(isRealFileUrl((attr as any).productUserManual) ? (attr as any).productUserManual : null);
           setAdditionalDiscounts(pricing.additionalDiscounts || []);
           setSpecialSchemes(pricing.specialSchemes || []);
           setProductAttributeId((attr as any).productAttributeId || null);
@@ -1287,10 +1332,7 @@ if ((attr as any).certificateDocuments?.length) {
       const url = certDoc?.certificateUrl;
       
       // Check if it's a valid S3 URL (not blob, not pending)
-      const isValidUrl = url && 
-        url !== "NOT_UPLOADED" && 
-        url !== "PENDING" &&
-        !url.startsWith('blob:');  // ← Skip blob URLs from Excel imports
+      const isValidUrl = isRealFileUrl(url);
       
       return {
         id,
@@ -1333,11 +1375,12 @@ if ((attr as any).certificateDocuments?.length) {
           
         } catch (err) {
           console.error("Failed to load product for edit", err);
+          alert("Failed to load product data. Please refresh and try again.");
         }
       };
       fetchProduct();
     }
-  }, [isEditMode, productId, netQuantityUnitsList]);
+  }, [isEditRoute, productId, mastersLoaded]);
 
   useEffect(() => {
     setForm((prev) => ({ ...prev, packSize: String(calculatePackSize()) }));
@@ -1410,14 +1453,17 @@ if ((attr as any).certificateDocuments?.length) {
       productFormId: Number(form.productForm),
       netQuantity: Number(form.netQuantityValue) || 0,
       unitId: form.netQuantityUnitId,
+      servingSize: form.servingSizeValue ? Number(form.servingSizeValue) : null,
+      servingSizeUnitId: form.servingSizeUnitId ? Number(form.servingSizeUnitId) : null,
       ageGroupId: firstAgeGroupId,
+      ageGroupIds: form.ageGroup.map(Number),
       ageGroupMastersDto: ageGroupMastersDto,
       vegNonvegIndicator: form.dietaryClassification as "veg" | "non-veg",
       allergenInformation: form.allergenInformation,
       nutritionalInformation: form.nutritionalInfoType,
       // nutritionalInformationImageUrl: "",
-        nutritionalInformationImageUrl: isEditMode && existingNutritionalImageUrl 
-    ? existingNutritionalImageUrl 
+        nutritionalInformationImageUrl: isEditRoute && existingNutritionalImageUrl
+    ? existingNutritionalImageUrl
     : "",
       activeIngredients: form.activeIngredients,
       additivesPreservatives: form.additivesPreservatives,
@@ -1439,7 +1485,7 @@ if ((attr as any).certificateDocuments?.length) {
             c.existingUrl !== "PENDING" &&
       !c.existingUrl.startsWith('blob:')
               ? c.existingUrl 
-              : (c.file ? URL.createObjectURL(c.file) : ""),
+              : "PENDING",
         })),
       productUserManual: existingManualFile || "PENDING",
     };
@@ -1450,10 +1496,11 @@ if ((attr as any).certificateDocuments?.length) {
       warningsPrecautions: form.warningsPrecautions,
       manufacturerName: form.manufacturerName,
       categoryId: 3,
-      packagingDetails: [packaging],
-      pricingDetails: [pricing],
+      gstPercentage: Number(form.gstPercentage) || 0,
+      hsnCode: Number(form.hsnCode) || 0,
+      status: "PUBLISHED" as const,
       productAttributeFoodInfants: [foodInfantAttr],
-      retainedImageUrls: isEditMode ? existingImages : undefined,
+      retainedImageUrls: isEditRoute ? existingImages : undefined,
     };
 
     return payload;
@@ -1485,6 +1532,19 @@ if ((attr as any).certificateDocuments?.length) {
     if (!form.storageConditionId) newErrors.storageConditionId = "Storage condition is required";
     if (!form.manufacturerName.trim()) newErrors.manufacturerName = "Manufacturer Name is required";
     if (!form.countryOfOrigin) newErrors.countryOfOrigin = "Country of origin is required";
+
+    if (!form.gstPercentage) {
+      newErrors.gstPercentage = "GST % is required";
+    } else if (!["0", "5", "8", "10", "12"].includes(form.gstPercentage)) {
+      newErrors.gstPercentage = "Select a valid GST %";
+    }
+    if (!form.hsnCode.trim()) {
+      newErrors.hsnCode = "HSN Code is required";
+    } else if (!/^\d+$/.test(form.hsnCode.trim())) {
+      newErrors.hsnCode = "HSN Code must contain only numbers";
+    } else if (![4, 6, 8].includes(form.hsnCode.trim().length)) {
+      newErrors.hsnCode = "HSN Code must be 4, 6, or 8 digits";
+    }
     
     // Product Description validation
     if (!form.productDescription.trim()) {
@@ -1504,19 +1564,6 @@ if ((attr as any).certificateDocuments?.length) {
       newErrors.warningsPrecautions = "Warnings/Precautions must not exceed 1000 characters";
     }
     
-    if (!form.packType) newErrors.packType = "Pack type is required";
-    if (!form.unitsPerPack) newErrors.unitsPerPack = "Number of Units per Pack Type is required";
-    if (!form.numberOfPacks) newErrors.numberOfPacks = "Number of Packs is required";
-    if (!form.minimumOrderQuantity) newErrors.minimumOrderQuantity = "Min Order Qty is required";
-    if (!form.maximumOrderQuantity) newErrors.maximumOrderQuantity = "Max Order Qty is required";
-    if (!form.batchLotNumber) newErrors.batchLotNumber = "Batch/Lot Number is required";
-    if (!form.manufacturingDate) newErrors.manufacturingDate = "Manufacturing Date is required";
-    if (!form.expiryDate) newErrors.expiryDate = "Expiry Date is required";
-    if (!form.stockQuantity) newErrors.stockQuantity = "Stock Quantity is required";
-    if (!form.mrp) newErrors.mrp = "MRP is required";
-    if (!form.sellingPricePerPack) newErrors.sellingPricePerPack = "Selling Price is required";
-    if (!form.gstPercentage) newErrors.gstPercentage = "GST % is required";
-    if (!form.hsnCode) newErrors.hsnCode = "HSN Code is required";
 
     if (form.nutritionalInfoType === "image-upload" && !form.nutritionalInfoImage && !existingNutritionalImageUrl) {
       newErrors.nutritionalInfoImage = "Nutritional Information Image is required";
@@ -1534,13 +1581,13 @@ if ((attr as any).certificateDocuments?.length) {
   };
 
   const handleSubmit = async () => {
-    console.log("🔍 isEditMode value:", isEditMode);
-  console.log("🔍 mode prop:", mode);
+    if (isSubmitting || isSavingDraft) return;
     const certError = validateCertifications();
     if (certError) {
       setErrors((prev) => ({ ...prev, certifications: certError }));
       const el = document.querySelector<HTMLElement>(`[data-field="certifications"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert(certError);
       return;
     }
 
@@ -1550,6 +1597,7 @@ if ((attr as any).certificateDocuments?.length) {
       const firstKey = Object.keys(fieldErrors)[0];
       const el = fieldRefs.current[firstKey] || document.querySelector<HTMLElement>(`[data-field="${firstKey}"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert("Please fix the highlighted fields before submitting: " + Object.values(fieldErrors)[0]);
       return;
     }
 
@@ -1557,6 +1605,7 @@ if ((attr as any).certificateDocuments?.length) {
       const firstErrorKey = Object.keys(errors)[0];
       const el = fieldRefs.current[firstErrorKey] || document.querySelector<HTMLElement>(`[data-field="${firstErrorKey}"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert("Please fix the highlighted fields before submitting.");
       return;
     }
 
@@ -1570,47 +1619,27 @@ if ((attr as any).certificateDocuments?.length) {
     clearTimeout(debounceTimerRef.current);
   }
 
- if (!isEditMode) {
-    console.log("🔍 Submit - Checking batch number:", form.batchLotNumber);
-    console.log("🔍 Submit - Category ID:", categoryId);
-
-    try {
-      const batchValidation = await validateBatchNumber(form.batchLotNumber, categoryId);
-      console.log("📡 Submit - Batch validation response:", batchValidation);
-      console.log("📡 Submit - batchValidation.exists:", batchValidation?.exists);
-      
-      if (batchValidation.exists) {
-        console.log("❌ Submit - Batch number exists, blocking submission");
-        setErrors((prev) => ({
-          ...prev,
-          batchLotNumber: "Batch number already exists",
-        }));
-        const el = fieldRefs.current["batchLotNumber"] || document.querySelector<HTMLElement>(`[data-field="batchLotNumber"]`);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-        return;
-      }
-      console.log("✅ Submit - Batch number is unique, continuing");
-    } catch (error) {
-      console.warn("Batch validation API error during submit:", error);
-    }
-  } else {
-    console.log("✏️ Edit mode - skipping batch validation");
-  }
+    // Batch/lot number uniqueness is no longer checked here — batch details aren't
+    // collected on create; they're added later from the product view page.
 
     const payload = buildPayload();
+    // Submit/Update: never silently re-publish an UNPUBLISHED product; DRAFT -> PUBLISHED.
+    (payload as any).status =
+      isEditRoute && productStatus && productStatus !== "DRAFT" ? productStatus : "PUBLISHED";
 
+    setIsSubmitting(true);
     try {
       let response;
       let newProductAttributeId = productAttributeId;
       let newProductId = productId;
 
-      if (isEditMode && productId) {
+      if (isEditRoute && productId) {
         response = await updateProduct(productId, payload);
-        setModalType("update");
-        setShowUpdateSuccessModal(true);
 
         const updatedData = response?.data || response;
-        newProductAttributeId = updatedData?.productAttributeFoodInfants?.productAttributeId
+        // the update re-creates the attribute row with a new id: prefer the id from the response
+        newProductAttributeId = updatedData?.productAttributeFoodInfants?.[0]?.productAttributeId
+          || updatedData?.productAttributeFoodInfants?.productAttributeId
           || updatedData?.productAttributeFoodInfant?.productAttributeId
           || productAttributeId;
 
@@ -1672,6 +1701,9 @@ if ((attr as any).certificateDocuments?.length) {
       }
     }
   }
+        if (productStatus === "DRAFT") setProductStatus("PUBLISHED");
+        setModalType("update");
+        setShowUpdateSuccessModal(true);
       } else {
         response = await createFoodInfantProduct(payload);
 
@@ -1752,7 +1784,152 @@ if ((attr as any).certificateDocuments?.length) {
     } catch (err: any) {
       console.error("Submit failed", err);
       setErrors({ submit: err.message || "Submission failed" });
-      alert(`Failed to ${isEditMode ? "update" : "create"} product: ${err.message}`);
+      alert(`Failed to ${isEditRoute ? "update" : "create"} product: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Uploads files picked before the draft was saved so reopening the draft shows them.
+  const uploadDraftFiles = async (attrId: string | null | undefined, data: any) => {
+    if (!attrId) return;
+    if (form.manualFile) {
+      try {
+        await uploadFoodInfantUserManual(attrId, form.manualFile);
+      } catch (err) {
+        console.warn("Draft: user manual upload failed:", err);
+      }
+    }
+    if (form.nutritionalInfoImage) {
+      try {
+        await uploadNutritionalInformationImage(attrId, 3, form.nutritionalInfoImage);
+      } catch (err) {
+        console.warn("Draft: nutritional image upload failed:", err);
+      }
+    }
+    const docs: any[] = data?.productAttributeFoodInfants?.[0]?.certificateDocuments ?? [];
+    const docIdMap = new Map<number, number>();
+    docs.forEach((d: any) => docIdMap.set(Number(d.certificationId), Number(d.productCertificateDocumentId)));
+    const newCerts = certificationsDetails.filter((c) => c.file && !c.existingUrl);
+    const files: File[] = [];
+    const documentIds: number[] = [];
+    newCerts.forEach((c) => {
+      const docId = docIdMap.get(Number(c.id));
+      if (docId) {
+        files.push(c.file as File);
+        documentIds.push(docId);
+      }
+    });
+    if (files.length > 0) {
+      try {
+        await uploadFoodInfantCertificates(attrId, files, documentIds);
+      } catch (err) {
+        console.warn("Draft: certificate upload failed:", err);
+      }
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (isSubmitting || isSavingDraft) return;
+    const missing: string[] = [];
+    if (!form.productCategory) missing.push("Product Category");
+    if (!form.productSubcategory) missing.push("Product Subcategory");
+    if (!form.productForm) missing.push("Product Form");
+    if (!form.netQuantityUnitId) missing.push("Net Quantity Unit");
+    if (!form.storageConditionId) missing.push("Storage Condition");
+    if (!form.countryOfOrigin) missing.push("Country of Origin");
+    if (missing.length > 0) {
+      setDraftErrorMessage(`Please select the following before saving a draft: ${missing.join(", ")}.`);
+      setDraftModalError(true);
+      setShowDraftModal(true);
+      return;
+    }
+    setDraftErrorMessage("");
+    setIsSavingDraft(true);
+    try {
+      const ageGroupMastersDto = form.ageGroup.map((id) => ({ ageGroupId: Number(id) }));
+      const firstAgeGroupId = form.ageGroup.length > 0 ? Number(form.ageGroup[0]) : undefined;
+
+      const foodInfantAttr = {
+        productCategoryId: form.productCategory ? Number(form.productCategory) : undefined,
+        productSubcategoryId: form.productSubcategory ? Number(form.productSubcategory) : undefined,
+        brandName: form.brandName,
+        variantName: form.variantName,
+        productFormId: form.productForm ? Number(form.productForm) : undefined,
+        netQuantity: form.netQuantityValue ? Number(form.netQuantityValue) : undefined,
+        unitId: form.netQuantityUnitId || undefined,
+        servingSize: form.servingSizeValue ? Number(form.servingSizeValue) : null,
+        servingSizeUnitId: form.servingSizeUnitId ? Number(form.servingSizeUnitId) : null,
+        ageGroupId: firstAgeGroupId,
+        ageGroupIds: form.ageGroup.map(Number).filter((n) => Number.isFinite(n)),
+        ageGroupMastersDto,
+        vegNonvegIndicator: form.dietaryClassification || undefined,
+        allergenInformation: form.allergenInformation,
+        nutritionalInformation: form.nutritionalInfoType,
+        nutritionalInformationImageUrl:
+          isEditRoute && existingNutritionalImageUrl ? existingNutritionalImageUrl : "",
+        activeIngredients: form.activeIngredients,
+        additivesPreservatives: form.additivesPreservatives,
+        productClaims: form.productClaims,
+        storageConditionId: form.storageConditionId ? Number(form.storageConditionId) : undefined,
+        countryId: form.countryOfOrigin ? Number(form.countryOfOrigin) : undefined,
+        // every selected certification is kept; real stored URLs are preserved and anything else is
+        // sent as PENDING (the file is uploaded right after the draft is saved)
+        certificateDocuments: certificationsDetails.map((c) => ({
+          certificationId: Number(c.id),
+          certificateUrl: isRealFileUrl(c.existingUrl) ? c.existingUrl : "PENDING",
+        })),
+        productUserManual: existingManualFile || "PENDING",
+      };
+
+      const draftPayload: CreateProductRequest = {
+        productName: form.productName,
+        productDescription: form.productDescription,
+        warningsPrecautions: form.warningsPrecautions,
+        manufacturerName: form.manufacturerName,
+        categoryId: 3,
+        gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : undefined,
+        hsnCode: form.hsnCode ? Number(form.hsnCode) : undefined,
+        status: "DRAFT" as const,
+        productAttributeFoodInfants: [foodInfantAttr as any],
+        retainedImageUrls: isEditRoute ? existingImages : undefined,
+      };
+
+      const targetProductId = isEditRoute && productId ? productId : createdProductId;
+
+      if (targetProductId) {
+        const draftUpdateResponse: any = await updateProduct(targetProductId, draftPayload);
+        const draftAttrId = (draftUpdateResponse?.data || draftUpdateResponse)?.productAttributeFoodInfants?.[0]?.productAttributeId;
+        if (draftAttrId) setProductAttributeId(draftAttrId);
+        if (images.length > 0) {
+          await uploadProductImages(targetProductId, images);
+        }
+        await uploadDraftFiles(draftAttrId || productAttributeId, draftUpdateResponse?.data || draftUpdateResponse);
+        savedDraftIdRef.current = targetProductId;
+      } else {
+        const response = await createFoodInfantProduct(draftPayload);
+        const newProductId = response?.data?.productId;
+        if (newProductId) {
+          setCreatedProductId(newProductId);
+          savedDraftIdRef.current = newProductId;
+          if (images.length > 0) {
+            await uploadProductImages(newProductId, images);
+          }
+          const newAttrId = response?.data?.productAttributeFoodInfants?.[0]?.productAttributeId;
+          if (newAttrId) setProductAttributeId(newAttrId);
+          await uploadDraftFiles(newAttrId, response?.data);
+        }
+      }
+
+      setDraftModalError(false);
+      setShowDraftModal(true);
+    } catch (err) {
+      console.error("❌ Save Draft Error:", err);
+      setDraftErrorMessage("");
+      setDraftModalError(true);
+      setShowDraftModal(true);
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -1796,6 +1973,8 @@ if ((attr as any).certificateDocuments?.length) {
   const handleContinueEditing = () => {
     setShowSuccessModal(false);
     setShowUpdateSuccessModal(false);
+    // reload so the form picks up the re-created attribute id, new images and the new status
+    if (mode === "edit") window.location.reload();
   };
 
   const handleContinueAdding = () => {
@@ -1833,6 +2012,21 @@ if ((attr as any).certificateDocuments?.length) {
         onSecondaryAction={handleContinueEditing}
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowUpdateSuccessModal(false)}
+      />
+
+      <PopupModal
+        isOpen={showDraftModal}
+        title={draftModalError ? "Failed to Save Draft" : "Draft Saved!"}
+        description={
+          draftModalError
+            ? draftErrorMessage || "Something went wrong while saving your draft. Please try again."
+            : "Your product has been saved as a draft."
+        }
+        primaryActionText="OK"
+        celebrate={!draftModalError}
+        isError={draftModalError}
+        onPrimaryAction={handleDraftModalDone}
+        onClose={handleDraftModalDone}
       />
 
       {showAdditionalDiscount && (
@@ -2147,6 +2341,32 @@ if ((attr as any).certificateDocuments?.length) {
               />
             </div>
 
+            <div data-field="gstPercentage">
+              <Dropdown
+                label="GST %"
+                options={gstOptions}
+                value={form.gstPercentage || ""}
+                onChange={(value) => handleDropdownChange("gstPercentage", value)}
+                placeholder="Select GST %"
+                isDisabled={isEditMode}
+                error={errors.gstPercentage}
+                required
+              />
+            </div>
+
+            <div data-field="hsnCode">
+              <Input
+                label="HSN Code"
+                name="hsnCode"
+                placeholder="e.g. 1901"
+                onChange={handleChange}
+                readOnly={isEditMode}
+                value={form.hsnCode}
+                error={errors.hsnCode}
+                required
+              />
+            </div>
+
            {/* Certifications / Compliance - CheckboxDropdown - Takes left column */}
 <div className="flex flex-col gap-0" data-field="certifications">
   <label className={fieldLabel}>Certifications / Compliance {requiredStar}</label>
@@ -2300,384 +2520,9 @@ if ((attr as any).certificateDocuments?.length) {
           </div>
         </div>
 
-        {/* Packaging & Order Details Section */}
-        <div className="border border-pneutral-200 rounded-xl p-6 bg-white -mb-6">
-          <div className="text-h4 font-semibold">Packaging & Order Details</div>
-          <div className="border-b border-pneutral-200 mt-3"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 pt-6">
-            <div className="flex flex-col gap-0" data-field="packType">
-              <label className={fieldLabel}>Pack Type {requiredStar}</label>
-              <Dropdown
-                options={packTypes}
-                value={form.packType}
-                onChange={(value) => handleDropdownChange("packType", value)}
-                placeholder="Select pack type"
-                isDisabled={isFieldDisabled(false, true) || loadingPackTypes}
-                error={errors.packType ? " " : ""}
-              />
-              {errors.packType && <p className={errorMsg}>{errors.packType}</p>}
-            </div>
-
-            <div data-field="unitsPerPack">
-              <Input
-                type="number"
-                label="Number of Units per Pack Type"
-                name="unitsPerPack"
-                placeholder="e.g., 100"
-                onChange={handleChange}
-                value={form.unitsPerPack}
-                readOnly={isFieldDisabled(false, true)}
-                // disabled={isFieldDisabled(false, true)}
-                error={errors.unitsPerPack}
-                required
-              />
-            </div>
-
-            <div data-field="numberOfPacks">
-              <Input
-                type="number"
-                label="Number of Packs"
-                name="numberOfPacks"
-                placeholder="e.g., 5"
-                onChange={handleChange}
-                value={form.numberOfPacks}
-                readOnly={isFieldDisabled(false, true)}
-                // disabled={isFieldDisabled(false, true)}
-                error={errors.numberOfPacks}
-                required
-              />
-            </div>
-
-            <div data-field="packSize">
-              <Input
-                label="Pack Size (auto-calculated)"
-                name="packSize"
-                value={form.packSize}
-                readOnly
-                required
-              />
-            </div>
-
-            <div className="col-span-2 text-h6 font-normal mt-2">Order Details</div>
-            <div className="col-span-2 border-b border-pneutral-200"></div>
-
-            <div data-field="minimumOrderQuantity">
-              <Input
-                type="number"
-                label="Min Order Qty"
-                name="minimumOrderQuantity"
-                placeholder="Minimum quantity per order"
-                onChange={handleChange}
-                value={form.minimumOrderQuantity}
-                readOnly={false}
-                error={errors.minimumOrderQuantity}
-                required
-              />
-            </div>
-
-            <div data-field="maximumOrderQuantity">
-              <Input
-                type="number"
-                label="Max Order Qty"
-                name="maximumOrderQuantity"
-                placeholder="Maximum quantity per order"
-                onChange={handleChange}
-                value={form.maximumOrderQuantity}
-                readOnly={false}
-                error={errors.maximumOrderQuantity}
-                required
-              />
-            </div>
-
-            <div className="col-span-2 text-h6 font-normal mt-2">Batch Management</div>
-            <div className="col-span-2 border-b border-pneutral-200 "></div>
-
-            <div data-field="batchLotNumber">
-              <Input
-                label="Batch/Lot Number"
-                name="batchLotNumber"
-                placeholder="Enter batch number"
-                onChange={handleChange}
-                value={form.batchLotNumber}
-                readOnly={isEditMode}
-                // disabled={isEditMode}
-                error={errors.batchLotNumber}
-                required
-              />
-            </div>
-
-            {/* Manufacturing Date with MonthPicker */}
-            <div className="relative" data-field="manufacturingDate">
-              <Input
-                label="Manufacturing Date"
-                type="text"
-                name="manufacturingDate"
-                required
-                readOnly={isEditMode}
-                // disabled={isEditMode}
-                value={
-                  form.manufacturingDate instanceof Date &&
-                  !isNaN(form.manufacturingDate.getTime())
-                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(2, "0")}/${form.manufacturingDate.getFullYear()}`
-                    : ""
-                }
-                placeholder="MM/YYYY"
-                onChange={() => {}}
-                onClick={() => {
-                  if (!isEditMode) {
-                    setShowManufacturingMonthPicker(true);
-                  }
-                }}
-                onKeyDown={(e) => e.preventDefault()}
-                onPaste={(e) => e.preventDefault()}
-                error={errors.manufacturingDate}
-              />
-
-              {showManufacturingMonthPicker && !isEditMode && (
-                <MonthPicker
-                  selectedMonth={
-                    form.manufacturingDate
-                      ? form.manufacturingDate.getMonth()
-                      : new Date().getMonth()
-                  }
-                  selectedYear={
-                    form.manufacturingDate
-                      ? form.manufacturingDate.getFullYear()
-                      : new Date().getFullYear()
-                  }
-                  maxDate={new Date()}
-                  onSelect={(month, year) =>
-                    handleMonthSelect("manufacturingDate", month, year)
-                  }
-                  onClose={() => setShowManufacturingMonthPicker(false)}
-                />
-              )}
-            </div>
-
-            {/* Expiry Date with MonthPicker */}
-<div className="relative" data-field="expiryDate">
-  <Input
-    label="Expiry Date"
-    name="expiryDate"
-    type="text"
-    required
-    // disabled={isEditMode}
-    readOnly={isEditMode}
-    value={
-      form.expiryDate instanceof Date &&
-      !isNaN(form.expiryDate.getTime())
-        ? `${String(form.expiryDate.getMonth() + 1).padStart(2, "0")}/${form.expiryDate.getFullYear()}`
-        : ""
-    }
-    placeholder="MM/YYYY"
-    onChange={() => {}}
-    onClick={() => {
-      if (!isEditMode) {
-        setShowExpiryMonthPicker(true);
-      }
-    }}
-    onFocus={() => {
-      if (!isEditMode) {
-        setShowExpiryMonthPicker(true);
-      }
-    }}
-    onKeyDown={(e) => e.preventDefault()}
-    onPaste={(e) => e.preventDefault()}
-    error={errors.expiryDate}
-  />
+        {/* Packaging (variant) and batch/pricing/stock are added later from the product
+            view page, not during initial product creation — see StockUpdateModal. */}
   
-  {/* Show warning message if exists */}
-  {expiryDateWarning && !errors.expiryDate && (
-    <p className="text-warning-500 text-sm mt-1">
-      {expiryDateWarning}
-    </p>
-  )}
-
-  {showExpiryMonthPicker && !isEditMode && (
-    <MonthPicker
-      selectedMonth={
-        form.expiryDate
-          ? form.expiryDate.getMonth()
-          : new Date().getMonth()
-      }
-      selectedYear={
-        form.expiryDate
-          ? form.expiryDate.getFullYear()
-          : new Date().getFullYear()
-      }
-      minDate={
-        new Date(
-          new Date().getFullYear(),
-          new Date().getMonth(),
-          1,
-        )
-      }
-      maxDate={
-        form.manufacturingDate
-          ? new Date(
-              form.manufacturingDate.getFullYear() + 5,
-              form.manufacturingDate.getMonth(),
-              1,
-            )
-          : undefined
-      }
-      onSelect={(month, year) =>
-        handleMonthSelect("expiryDate", month, year)
-      }
-      onClose={() => setShowExpiryMonthPicker(false)}
-    />
-  )}
-</div>
-
-            <div data-field="shelfLifeMonths">
-              <Input
-                type="number"
-                label="Shelf Life (Months)"
-                name="shelfLifeMonths"
-                value={form.shelfLifeMonths}
-                readOnly
-                error={errors.shelfLifeMonths}
-                required
-              />
-            </div>
-
-            <div data-field="dateOfStockEntry">
-              <Input
-                label="Date of Entry"
-                type="date"
-                name="dateOfStockEntry"
-                value={new Date().toISOString().split("T")[0]}
-                disabled
-              />
-            </div>
-
-            <div data-field="stockQuantity">
-              <Input
-                type="number"
-                label="Stock Quantity (numbers w.r.t pack size)"
-                name="stockQuantity"
-                placeholder="Number of packs in stock"
-                onChange={handleChange}
-                value={form.stockQuantity}
-                readOnly={isEditMode}
-                // disabled={isEditMode}
-                error={errors.stockQuantity}
-                required
-              />
-            </div>
-
-            <div className="col-span-2 text-h6 font-normal mt-2">Pricing</div>
-            <div className="col-span-2 border-b border-pneutral-200"></div>
-
-            <div className="col-span-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-                  <div data-field="discountPercentage">
-                    <Input
-                      type="number"
-                      label="Discount (%)"
-                      name="discountPercentage"
-                      placeholder="e.g., 10"
-                      onChange={handleChange}
-                      value={form.discountPercentage}
-                      error={errors.discountPercentage}
-                    />
-                  </div>
-                  <div data-field="mrp">
-                    <Input
-                      type="number"
-                      label="MRP (per Pack Size)"
-                      name="mrp"
-                      placeholder="Maximum Retail Price"
-                      onChange={handleChange}
-                      value={form.mrp}
-                      error={errors.mrp}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-  <div data-field="sellingPricePerPack">
-    <Input
-      type="number"
-      label="Selling Price (per Pack Size)"
-      name="sellingPricePerPack"
-      placeholder="Selling price per pack"
-      onChange={handleChange}
-      value={form.sellingPricePerPack}
-      error={errors.sellingPricePerPack}
-      required
-    />
-  </div>
-  <div className="flex items-end">
-    <button
-      type="button"
-      onClick={() => setShowAdditionalDiscount(true)}
-      className="w-[237px] h-[52px] bg-transparent border-[2.5px] border-[#7D32FC] text-[#9659FD] font-heading font-medium text-[18px] leading-[28px] rounded-lg flex items-center justify-center gap-[12px] cursor-pointer hover:bg-purple-50 transition-all duration-200"
-    >
-      <svg width="14.24" height="14.24" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
-        <path d="M7 1v12M1 7h12" stroke="#9659FD" strokeWidth="2.5" strokeLinecap="round" />
-      </svg>
-      <span>Add Special Offers</span>
-    </button>
-  </div>
-</div>
-
-{/* Display Applied Offers */}
-<AppliedOffersView
-  additionalDiscounts={additionalDiscounts}
-  specialSchemes={specialSchemes}
-  productName={form.productName}
-  onEditDiscount={() => setShowAdditionalDiscount(true)}
-  onDeleteDiscount={(index) => {
-    setAdditionalDiscounts(prev => 
-      prev.map((d, i) => i === index ? { ...d, displayOffer: false, isSelected: false } : d)
-    );
-  }}
-  onEditScheme={() => setShowAdditionalDiscount(true)}
-  onDeleteScheme={(index) => {
-    setSpecialSchemes(prev => 
-      prev.map((s, i) => i === index ? { ...s, displayOfferScheme: false, isSelected: false } : s)
-    );
-  }}
-  isEditMode={isEditMode}
-/>
-              </div>
-            </div>
-
-            <div className="col-span-2 text-h6 font-normal mt-2">TAX & BILLING</div>
-            <div className="col-span-2 border-b border-pneutral-200"></div>
-
-            <div data-field="hsnCode">
-              <Input
-                type="text"
-                label="HSN Code"
-                name="hsnCode"
-                placeholder="HSN Code"
-                onChange={handleChange}
-                value={form.hsnCode}
-                readOnly={isEditMode}
-                // disabled={isEditMode}
-                error={errors.hsnCode}
-                required
-              />
-            </div>
-
-            <div className="flex flex-col gap-0" data-field="gstPercentage">
-              <label className={fieldLabel}>GST % {requiredStar}</label>
-              <Dropdown
-                options={gstOptions}
-                value={form.gstPercentage}
-                onChange={(value) => handleDropdownChange("gstPercentage", value)}
-                placeholder="Select GST %"
-                isDisabled={isEditMode}
-                error={errors.gstPercentage ? " " : ""}
-              />
-              {errors.gstPercentage && <p className={errorMsg}>{errors.gstPercentage}</p>}
-            </div>
-          </div>
-        </div>
 
         {/* Product Photos Section */}
         <ProductImageUpload
@@ -2697,17 +2542,25 @@ if ((attr as any).certificateDocuments?.length) {
         <div className="flex justify-between mt-6 pb-8">
           <div className="flex gap-4">
             <button type="button" onClick={() => router.back()} className="px-6 py-2 border-2 border-warning-500 rounded-lg text-warning-500 font-semibold">Cancel</button>
-            <button type="button" className="px-6 py-2 bg-secondary-700 text-white rounded-lg flex items-center gap-2 font-semibold">
-              <img src="/icons/SaveDraftIcon.svg" alt="save" className="w-5 h-5" />
-              Save Draft
-            </button>
+            {(mode !== "edit" || productStatus === "DRAFT") && (
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft || isSubmitting}
+                className="px-6 py-2 bg-secondary-700 text-white rounded-lg flex items-center gap-2 font-semibold disabled:opacity-60"
+              >
+                <img src="/icons/SaveDraftIcon.svg" alt="save" className="w-5 h-5" />
+                {isSavingDraft ? "Saving..." : "Save Draft"}
+              </button>
+            )}
           </div>
           <button
             type="button"
             onClick={handleSubmit}
-            className="px-8 py-2 bg-primary-800 text-white rounded-lg font-semibold hover:bg-primary-900"
+            disabled={isSubmitting || isSavingDraft}
+            className="px-8 py-2 bg-primary-800 text-white rounded-lg font-semibold hover:bg-primary-900 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isEditMode ? "Update" : "Submit"}
+            {isSubmitting ? "Saving..." : isEditMode ? "Update" : "Submit"}
           </button>
         </div>
       </form>

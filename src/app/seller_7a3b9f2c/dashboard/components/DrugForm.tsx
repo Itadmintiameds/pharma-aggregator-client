@@ -1,5 +1,8 @@
 import Input from "@/src/app/commonComponents/Input";
-import { drugProductSchema } from "@/src/schema/product/DrugProductSchema";
+import {
+  drugProductSchema,
+  drugProductCreateSchema,
+} from "@/src/schema/product/DrugProductSchema";
 import {
   getAllMolecules,
   getMoleculeByTherapeuticSubcategoryId,
@@ -17,12 +20,13 @@ import {
   uploadProductUserManual,
 } from "@/src/services/product/ProductService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Select from "react-select";
 import CommonModal from "../commonComponent/CommonModal";
 import AdditionalDiscount from "./AdditionalDiscount";
 import UploadInput from "../commonComponent/UploadInput";
 import PopupModal from "../commonComponent/PopupModal";
+import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import AppliedOffersView from "./AppliedOffersView";
 import AddDiscNew from "./AdditionalDiscountNew";
 import AdditionalDiscountType from "./AdditionalDiscountType";
@@ -39,6 +43,8 @@ import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import NumericInputWithUnit from "@/src/app/commonComponents/NumericInputWithUnit";
 import { getPackTypeUnits } from "@/src/services/product/PackTypeService";
+import { getGstPercentages } from "@/src/services/product/GstPercentageService";
+import { getStrengthUnitsByCategory } from "@/src/services/product/StrengthUnitService";
 
 interface SelectOption {
   value: string;
@@ -81,6 +87,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       mechanismOfAction: string;
       primaryUse: string;
       strength: string;
+      strengthUnit: string;
     }[];
 
     packId: string;
@@ -135,6 +142,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         mechanismOfAction: "",
         primaryUse: "",
         strength: "",
+        strengthUnit: "",
       },
     ],
 
@@ -190,6 +198,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         mechanismOfAction: "",
         primaryUse: "",
         strength: "",
+        strengthUnit: "",
       },
     ],
 
@@ -220,14 +229,20 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     additionalDiscount: [],
   };
 
-  const gstOptions = [
-    { value: "0", label: "0%" },
-    { value: "5", label: "5%" },
-    { value: "12", label: "12%" },
-    { value: "18", label: "18%" },
-  ];
-
   const router = useRouter();
+  // After a draft save: edit mode reloads so ids/images/status are fresh (the server re-creates
+  // attribute rows on every update); add mode jumps to the saved draft's edit page so later saves
+  // update it instead of creating a duplicate product.
+  const savedDraftIdRef = useRef<string | null>(null);
+  const handleDraftModalDone = () => {
+    setShowDraftModal(false);
+    if (draftModalError) return;
+    if (mode === "edit") {
+      window.location.reload();
+    } else if (savedDraftIdRef.current) {
+      router.replace(editUrlFor(savedDraftIdRef.current, "editDrug"));
+    }
+  };
   const [therapeuticCategories, setTherapeuticCategories] = useState<
     SelectOption[]
   >([]);
@@ -235,6 +250,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [productStatus, setProductStatus] = useState<string>("");
   const [subcategoryOptions, setSubcategoryOptions] = useState<SelectOption[]>(
     [],
   );
@@ -242,6 +258,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [dosageOptions, setDosageOptions] = useState<any[]>([]);
   const [loadingDosage, setLoadingDosage] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [moleculeOptions, setMoleculeOptions] = useState<any[]>([]);
   const [loadingMolecules, setLoadingMolecules] = useState(false);
@@ -254,14 +272,19 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [additionalDiscounts, setAdditionalDiscounts] = useState([]);
   const [openDrawer, setOpenDrawer] = useState(false);
   const [existingImages, setExistingImages] = useState<string[]>([]);
-  const isReadOnly = mode === "edit";
+  const isReadOnly = mode === "edit" && productStatus !== "DRAFT";
   const [dosageFormLabel, setDosageFormLabel] = useState<string>("");
   const [manualFile, setManualFile] = useState<File | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftModalError, setDraftModalError] = useState(false);
+  const [createdProductId, setCreatedProductId] = useState<string | null>(
+    null,
+  );
   const [existingManualFile, setExistingManualFile] = useState<string | null>(
     null,
   );
-  const isEditMode = mode === "edit";
+  const isEditMode = mode === "edit" && productStatus !== "DRAFT";
   const [storageConditionData, setStorageConditionData] = useState<any[]>([]);
   const [loadingStorageConditions, setLoadingStorageConditions] =
     useState(false);
@@ -274,6 +297,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   const [showManufacturingMonthPicker, setShowManufacturingMonthPicker] =
     useState(false);
   const [packTypeUnitOptions, setPackTypeUnitOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [strengthUnitOptions, setStrengthUnitOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [gstOptions, setGstOptions] = useState<
     { label: string; value: string }[]
   >([]);
 
@@ -293,7 +322,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       const data = await getTherapeuticCategory(id);
 
       const options = data.map((cat: any) => ({
-        value: cat.therapeuticCategoryId,
+        value: String(cat.therapeuticCategoryId),
         label: cat.therapeuticCategory,
       }));
 
@@ -512,7 +541,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         const data = await getTherapeuticSubcategory(form.therapeuticCategory);
 
         const options = data.map((sub: any) => ({
-          value: sub.therapeuticSubcategoryId,
+          value: String(sub.therapeuticSubcategoryId),
           label: sub.therapeuticSubcategory,
         }));
 
@@ -658,6 +687,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           mechanismOfAction: "",
           primaryUse: "",
           strength: "",
+          strengthUnit: "",
         },
       ],
     }));
@@ -667,6 +697,17 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     const updated = [...form.molecules];
 
     updated[index].strength = value;
+
+    setForm((prev) => ({
+      ...prev,
+      molecules: updated,
+    }));
+  };
+
+  const handleStrengthUnitChange = (index: number, unit: string) => {
+    const updated = [...form.molecules];
+
+    updated[index].strengthUnit = unit;
 
     setForm((prev) => ({
       ...prev,
@@ -687,6 +728,22 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
     //   return newErrors;
     // });
+  };
+
+  const buildMoleculeStrength = (molecule: {
+    strength: string;
+    strengthUnit: string;
+    strengthUnitText?: string;
+  }) => {
+    const unitLabel = strengthUnitOptions.find(
+      (option) => option.value === molecule.strengthUnit,
+    )?.label;
+
+    if (unitLabel) return `${molecule.strength} ${unitLabel}`.trim();
+    if (!molecule.strengthUnit && molecule.strengthUnitText) {
+      return `${molecule.strength} ${molecule.strengthUnitText}`.trim();
+    }
+    return molecule.strength;
   };
 
   const getFinalDrugSchedule = (molecules: any[]) => {
@@ -713,8 +770,33 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     return combined.toISOString().slice(0, 19);
   };
 
+  const numOrUndef = (v: unknown): number | undefined => {
+    if (v === "" || v === null || v === undefined) return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  const showValidationFeedback = (errs: Record<string, string>) => {
+    setTimeout(() => {
+      let el: HTMLElement | null = null;
+      for (const key of Object.keys(errs)) {
+        el = document.querySelector<HTMLElement>(
+          `[data-field="${key}"], [name="${key}"]`,
+        );
+        if (el) break;
+      }
+      if (!el) el = document.querySelector<HTMLElement>("p.text-red-500");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus?.();
+      }
+      alert("Please fix the highlighted fields");
+    }, 50);
+  };
+
   const handleSubmit = async () => {
-    const validation = drugProductSchema.safeParse({
+    if (isSubmitting || isSavingDraft) return;
+    const validation = drugProductCreateSchema.safeParse({
       ...form,
       images: [...existingImages, ...images],
     });
@@ -730,55 +812,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       });
 
       setErrors(fieldErrors);
+      showValidationFeedback(fieldErrors);
       return;
     }
 
-    const batchValidation = await validateBatchNumber(
-      form.batchLotNumber,
-      Number(form.categoryId),
-    );
-
-    if (batchValidation.exists) {
-      setErrors((prev) => ({
-        ...prev,
-        batchLotNumber: "Batch number already exists",
-      }));
-
-      return;
-    }
-
-    const mrp = Number(form.mrp) || 0;
-    const sellingPrice = Number(form.sellingPrice) || 0;
-
-    if (sellingPrice >= mrp) {
-      setErrors((prev) => ({
-        ...prev,
-        sellingPrice: "Selling Price must be less than MRP",
-      }));
-
-      return;
-    }
-
-    // const strengthErrors: Record<string, string> = {};
-
-    // form.molecules.forEach((molecule, index) => {
-    //   const error = validateStrengthFormat(molecule.strength);
-
-    //   if (error) {
-    //     strengthErrors[`molecules.${index}.strength`] = error;
-    //   }
-    // });
-
-    // if (Object.keys(strengthErrors).length > 0) {
-    //   setErrors((prev) => ({
-    //     ...prev,
-    //     ...strengthErrors,
-    //   }));
-
-    //   return;
-    // }
+ 
 
     setErrors({});
+    setIsSubmitting(true);
     try {
       const payload = {
         productName: form.productName,
@@ -789,45 +830,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
         categoryId: Number(form.categoryId), // ✅ FIX
 
-        packagingDetails: [
-          {
-            packId: Number(form.packId),
-            packType: form.packType,
-            packTypeUnitId: Number(form.packTypeUnitId),
-            unitPerPack: Number(form.unitPerPack),
-            numberOfPacks: Number(form.numberOfPacks),
-            packSize: Number(form.packSize),
-            minimumOrderQuantity: Number(form.minimumOrderQuantity),
-            maximumOrderQuantity: Number(form.maximumOrderQuantity),
-          },
-        ],
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
+        status: "PUBLISHED" as const,
 
-        pricingDetails: [
-          {
-            batchLotNumber: form.batchLotNumber,
-            manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-            expiryDate: toLocalDateTimeString(form.expiryDate),
-            stockQuantity: Number(form.stockQuantity),
-            dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-            sellingPrice: Number(form.sellingPrice),
-            mrp: Number(form.mrp),
-            discountPercentage: Number(form.discountPercentage),
-            gstPercentage: Number(form.gstPercentage),
-            finalPrice: Number(form.finalPrice),
-            hsnCode: Number(form.hsnCode),
-            shelfLifeMonths: Number(form.shelfLifeMonths),
-
-            additionalDiscounts: form.additionalDiscount.map((d) => ({
-              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-              additionalDiscountPercentage: d.additionalDiscountPercentage,
-              effectiveStartDate: d.effectiveStartDate,
-              effectiveStartTime: d.effectiveStartTime,
-              effectiveEndDate: d.effectiveEndDate,
-              effectiveEndTime: d.effectiveEndTime,
-              displayOffer: d.displayOffer !== false,
-            })),
-          },
-        ],
+        // Packaging (variant) and pricing (batch/stock) are intentionally omitted here —
+        // they're attached afterwards from the product view page via addPackagingVariant/addStock.
 
         productAttributeDrugs: [
           {
@@ -843,14 +851,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
             molecules: form.molecules.map((m) => ({
               moleculeId: Number(m.moleculeId),
-              strength: m.strength,
+              strength: buildMoleculeStrength(m),
             })),
           },
         ],
 
-        productImages: images.map((img) => ({
-          productImage: img.name,
-        })),
       };
       const productResponse = await createDrugProduct(payload);
       const productId = productResponse?.data?.productId;
@@ -871,6 +876,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       if (images.length > 0) {
         await uploadProductImages(productId, images);
       }
+      setCreatedProductId(productId);
       setModalType("create");
       setShowSuccessModal(true);
 
@@ -878,7 +884,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       // window.location.reload();
     } catch (err) {
       console.error("❌ Submit Error:", err);
-      alert("❌ Failed to create product");
+      alert(
+        `Failed to create product: ${err instanceof Error ? err.message : "unknown error"}`,
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -894,11 +904,18 @@ export const DrugForm: React.FC<DrugFormProps> = ({
   };
 
   const handleViewProduct = () => {
-    router.push("/seller_7a3b9f2c/products");
+    const id = form.productId || createdProductId;
+    router.push(
+      id
+        ? `/seller_7a3b9f2c/products/view/${id}`
+        : "/seller_7a3b9f2c/products",
+    );
   };
 
   const handleContinueEditing = () => {
     setShowSuccessModal(false);
+    // reload so the form picks up the re-created attribute id, new images and the new status
+    if (mode === "edit") window.location.reload();
   };
 
   const handleContinueAdding = () => {
@@ -920,8 +937,10 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     try {
       const data = await getProductById(id);
       if (!data) throw new Error("Product not found");
-      await fetchTherapeuticCategories(data.categoryId);
-      const fetchedDosageOptions = await fetchDosage(data.categoryId);
+      setProductStatus(String(data.status || "").toUpperCase());
+      const loadedCategoryId = data.categoryId ?? categoryId ?? 1;
+      await fetchTherapeuticCategories(loadedCategoryId);
+      const fetchedDosageOptions = await fetchDosage(loadedCategoryId);
       const pricing =
         data.pricingDetails?.length > 0
           ? data.pricingDetails.reduce((latest: any, curr: any) =>
@@ -945,6 +964,25 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       const therapeuticSubcategoryId = String(
         attributeDrug.therapeuticSubcategoryId || "",
       );
+
+      let fetchedStrengthUnitOptions: { label: string; value: string }[] = [];
+      try {
+        const strengthUnitData = await getStrengthUnitsByCategory(
+          Number(loadedCategoryId),
+        );
+
+        fetchedStrengthUnitOptions = strengthUnitData.map((item: any) => ({
+          label: item.unitName,
+          value: String(item.strengthUnitId),
+        }));
+
+        setStrengthUnitOptions(fetchedStrengthUnitOptions);
+      } catch (error) {
+        console.error(
+          "Failed to fetch strength units for edit prefill:",
+          error,
+        );
+      }
 
       let fetchedMolecules: any[] = [];
       let fullMoleculeMap = allMoleculeMap;
@@ -1003,6 +1041,12 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                     String(opt.value.moleculeId) === String(m.moleculeId),
                 )?.value;
 
+              const {
+                value: parsedStrength,
+                unit: parsedUnit,
+                unitText: parsedUnitText,
+              } = parseMoleculeStrength(m.strength, fetchedStrengthUnitOptions);
+
               return {
                 moleculeId: m.moleculeId ?? "",
                 moleculeName: full?.moleculeName || "",
@@ -1010,7 +1054,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 drugSchedule: full?.drugSchedule || "",
                 mechanismOfAction: full?.mechanismOfAction || "",
                 primaryUse: full?.primaryUse || "",
-                strength: m.strength ?? "",
+                strength: parsedStrength,
+                strengthUnit: parsedUnit,
+                strengthUnitText: parsedUnitText,
               };
             })
           : [
@@ -1022,6 +1068,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                 mechanismOfAction: "",
                 primaryUse: "",
                 strength: "",
+                strengthUnit: "",
               },
             ];
 
@@ -1030,13 +1077,15 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       );
 
       setExistingManualFile(
-        data.productAttributeDrugs?.[0]?.userManualUrl || null,
+        isRealFileUrl(data.productAttributeDrugs?.[0]?.userManualUrl)
+          ? data.productAttributeDrugs[0].userManualUrl
+          : null,
       );
 
       setForm((prev) => ({
         ...prev,
         productId: data.productId || "",
-        categoryId: String(data.categoryId || categoryId || ""),
+        categoryId: String(loadedCategoryId),
         productName: data.productName || "",
         productDescription: data.productDescription || "",
         warningsPrecautions: data.warningsPrecautions || "",
@@ -1073,13 +1122,14 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         stockQuantity: String(pricing.stockQuantity ?? ""),
         sellingPrice: String(pricing.sellingPrice ?? ""),
         mrp: String(pricing.mrp ?? ""),
-        gstPercentage:
-          pricing.gstPercentage !== null && pricing.gstPercentage !== undefined
-            ? String(pricing.gstPercentage)
-            : "",
+        gstPercentage: (() => {
+          const resolvedGst =
+            pricing.gstPercentage ?? attributeDrug.gstPercentage ?? data.gstPercentage;
+          return resolvedGst !== null && resolvedGst !== undefined ? String(resolvedGst) : "";
+        })(),
         discountPercentage: String(pricing.discountPercentage ?? ""),
         finalPrice: String(pricing.finalPrice ?? ""),
-        hsnCode: String(pricing.hsnCode ?? ""),
+        hsnCode: String(pricing.hsnCode ?? attributeDrug.hsnCode ?? data.hsnCode ?? ""),
         shelfLifeMonths: String(pricing.shelfLifeMonths ?? ""),
         additionalDiscount: pricing.additionalDiscounts || [],
       }));
@@ -1091,22 +1141,24 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     }
   };
 
-  const handleUpdate = async () => {
-    const validation = drugProductSchema.safeParse({
-      ...form,
-      images: [...existingImages, ...images],
+const submitEdit = async (status: string) => {
+  if (isSubmitting || isSavingDraft) return;
+  const validation = drugProductCreateSchema.safeParse({
+    ...form,
+    images: [...existingImages, ...images],
+  });
+
+  if (!validation.success) {
+    const fieldErrors: Record<string, string> = {};
+    validation.error.issues.forEach((err) => {
+      fieldErrors[err.path.join(".")] = err.message;
     });
-
-    if (!validation.success) {
-      const fieldErrors: Record<string, string> = {};
-      validation.error.issues.forEach((err) => {
-        fieldErrors[err.path.join(".")] = err.message;
-      });
-      setErrors(fieldErrors);
-      return;
-    }
-
+    setErrors(fieldErrors);
+    showValidationFeedback(fieldErrors);
+    return;
+  }
     setErrors({});
+    setIsSubmitting(true);
 
     try {
       const payload = {
@@ -1117,46 +1169,9 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         manufacturerName: form.manufacturerName,
         categoryId: Number(form.categoryId),
 
-        packagingDetails: [
-          {
-            packId: Number(form.packId),
-            packType: form.packType,
-            packTypeUnitId: Number(form.packTypeUnitId),
-            unitPerPack: Number(form.unitPerPack),
-            numberOfPacks: Number(form.numberOfPacks),
-            packSize: Number(form.packSize),
-            minimumOrderQuantity: Number(form.minimumOrderQuantity),
-            maximumOrderQuantity: Number(form.maximumOrderQuantity),
-          },
-        ],
-
-        pricingDetails: [
-          {
-            pricingId: form.pricingId || undefined,
-            batchLotNumber: form.batchLotNumber,
-            manufacturingDate: toLocalDateTimeString(form.manufacturingDate),
-            expiryDate: toLocalDateTimeString(form.expiryDate),
-            stockQuantity: Number(form.stockQuantity),
-            dateOfStockEntry: toLocalDateTimeString(form.dateOfStockEntry),
-            sellingPrice: Number(form.sellingPrice),
-            mrp: Number(form.mrp),
-            discountPercentage: Number(form.discountPercentage),
-            gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : 0,
-            finalPrice: Number(form.finalPrice),
-            hsnCode: Number(form.hsnCode),
-            shelfLifeMonths: Number(form.shelfLifeMonths),
-
-            additionalDiscounts: form.additionalDiscount.map((d) => ({
-              minimumPurchaseQuantity: d.minimumPurchaseQuantity,
-              additionalDiscountPercentage: d.additionalDiscountPercentage,
-              effectiveStartDate: d.effectiveStartDate,
-              effectiveStartTime: d.effectiveStartTime,
-              effectiveEndDate: d.effectiveEndDate,
-              effectiveEndTime: d.effectiveEndTime,
-              displayOffer: d.displayOffer !== false,
-            })),
-          },
-        ],
+        gstPercentage: Number(form.gstPercentage),
+        hsnCode: Number(form.hsnCode),
+        status: status as "PUBLISHED",
 
         productAttributeDrugs: [
           {
@@ -1174,125 +1189,129 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
             molecules: form.molecules.map((m) => ({
               moleculeId: Number(m.moleculeId),
-              strength: m.strength,
+              strength: buildMoleculeStrength(m),
             })),
+            userManualUrl: existingManualFile || undefined,
           },
         ],
         retainedImageUrls: existingImages,
       };
 
-      await updateProduct(form.productId, payload);
+      const updated = await updateProduct(form.productId, payload);
 
-      if (productAttributeId && manualFile) {
-        await uploadProductUserManual(productAttributeId, manualFile);
+      // the update re-creates the attribute row, so use the new id for the brochure
+      const attrId =
+        updated?.data?.productAttributeDrugs?.[0]?.productAttributeId ||
+        productAttributeId;
+      if (attrId && manualFile) {
+        await uploadProductUserManual(attrId, manualFile);
       }
 
       if (images.length > 0) {
         await uploadProductImages(form.productId, images);
       }
 
+      if (status === "PUBLISHED") setProductStatus("PUBLISHED");
       setModalType("update");
       setShowSuccessModal(true);
     } catch (err) {
       console.error(err);
-      alert("❌ Update failed");
+      alert(
+        `Update failed: ${err instanceof Error ? err.message : "unknown error"}`,
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const selectStyles = (errorKey: string) => ({
-    control: (base: any, state: any) => ({
-      ...base,
-      minHeight: "52px",
-      height: "auto",
-      borderRadius: "8px",
-      borderWidth: state.isFocused ? "2px" : "1px",
+  // Update keeps the product's current status (never silently re-publishes UNPUBLISHED products)
+  const handleUpdate = () => submitEdit(productStatus || "PUBLISHED");
+  // Submit on a draft publishes it
+  const handlePublishDraft = () => submitEdit("PUBLISHED");
 
-      // ✅ Border colors
-      borderColor: errors[errorKey]
-        ? "#FF3B3B" // error
-        : state.isFocused
-          ? "#C4AAFD" // focus / typing
-          : "#C0C1BE", // default
+  const handleSaveDraft = async () => {
+    if (isSubmitting || isSavingDraft) return;
+    if (!numOrUndef(form.categoryId)) {
+      alert("Cannot save draft: product category is missing.");
+      return;
+    }
+    const draftProductId = form.productId || productId || "";
+    setIsSavingDraft(true);
+    try {
+      const draftPayload = {
+        productId: draftProductId || undefined,
+        productName: form.productName,
+        productDescription: form.productDescription,
+        warningsPrecautions: form.warningsPrecautions,
+        manufacturerName: form.manufacturerName,
+        categoryId: numOrUndef(form.categoryId),
+        gstPercentage: numOrUndef(form.gstPercentage),
+        hsnCode: numOrUndef(form.hsnCode),
+        status: "DRAFT" as const,
+        productAttributeDrugs: [
+          {
+            therapeuticCategoryId: form.therapeuticCategory,
+            therapeuticSubcategoryId:
+              form.therapeuticSubcategoryId || form.therapeuticSubcategory,
+            dosageForm:
+              dosageOptions.find((d) => Number(d.value) === Number(form.dosageId))
+                ?.label || "",
+            strength: form.strength,
+            storageConditionIds: form.storageConditionIds,
+            molecules: form.molecules
+              .filter((m) => numOrUndef(m.moleculeId) !== undefined)
+              .map((m) => ({
+                moleculeId: Number(m.moleculeId),
+                strength: buildMoleculeStrength(m),
+              })),
+            // keep the brochure already saved on the product (update replaces the attribute row)
+            userManualUrl: existingManualFile || undefined,
+          },
+        ],
+        // photos are uploaded below; sending their file names would create broken image rows
+        retainedImageUrls: existingImages,
+      };
 
-      boxShadow: "none",
-      cursor: "pointer",
+      if (draftProductId) {
+        const updated = await updateProduct(draftProductId, draftPayload as any);
+        // the update re-creates the attribute row, so use the new id for the brochure
+        const attrId =
+          updated?.data?.productAttributeDrugs?.[0]?.productAttributeId ||
+          productAttributeId;
+        if (manualFile && attrId) {
+          await uploadProductUserManual(attrId, manualFile);
+        }
+        if (images.length > 0) {
+          await uploadProductImages(draftProductId, images);
+        }
+      } else {
+        const productResponse = await createDrugProduct(draftPayload as any);
+        const productId = productResponse?.data?.productId;
+        const newAttributeId =
+          productResponse?.data?.productAttributeDrugs?.[0]?.productAttributeId;
+        if (productId) {
+          savedDraftIdRef.current = productId;
+          setForm((prev) => ({ ...prev, productId }));
+          if (manualFile && newAttributeId) {
+            await uploadProductUserManual(newAttributeId, manualFile);
+          }
+          if (images.length > 0) {
+            await uploadProductImages(productId, images);
+          }
+        }
+      }
 
-      alignItems:
-        state.hasValue && state.selectProps.isMulti ? "flex-start" : "center",
-
-      // ✅ Hover colors
-      "&:hover": {
-        borderColor: errors[errorKey]
-          ? "#FF3B3B"
-          : state.isFocused
-            ? "#C4AAFD"
-            : "#C0C1BE",
-      },
-    }),
-
-    valueContainer: (base: any) => ({
-      ...base,
-      padding: "8px 16px",
-      flexWrap: "wrap",
-      overflow: "visible",
-    }),
-
-    indicatorsContainer: (base: any) => ({
-      ...base,
-      height: "52px",
-    }),
-
-    dropdownIndicator: (base: any, state: any) => ({
-      ...base,
-      color: state.isFocused ? "#C4AAFD" : "#737373",
-      cursor: "pointer",
-      "&:hover": {
-        color: "#C4AAFD",
-      },
-    }),
-
-    option: (base: any, state: any) => ({
-      ...base,
-      backgroundColor: state.isSelected
-        ? "#4B0082"
-        : state.isFocused
-          ? "#F3E8FF"
-          : "white",
-
-      color: state.isSelected ? "white" : "#1E1E1E",
-
-      cursor: "pointer",
-
-      "&:active": {
-        backgroundColor: "#4B0082",
-        color: "white",
-      },
-    }),
-
-    placeholder: (base: any) => ({
-      ...base,
-      color: "#A3A3A3",
-    }),
-
-    singleValue: (base: any) => ({
-      ...base,
-      color: "#1E1E1E",
-    }),
-
-    multiValue: (base: any) => ({
-      ...base,
-      margin: "2px",
-    }),
-  });
-  const selectTheme = (theme: any) => ({
-    ...theme,
-    colors: {
-      ...theme.colors,
-      primary: "#4B0082",
-      primary25: "#F3E8FF",
-      primary50: "#E9D5FF",
-    },
-  });
+      if (draftProductId) savedDraftIdRef.current = draftProductId;
+      setDraftModalError(false);
+      setShowDraftModal(true);
+    } catch (err) {
+      console.error("❌ Save Draft Error:", err);
+      setDraftModalError(true);
+      setShowDraftModal(true);
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
 
   const fetchDosage = async (
     categoryId: string | number,
@@ -1339,6 +1358,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           moleculeStrengthFormat: "",
           drugSchedule: "",
           strength: "",
+          strengthUnit: "",
           mechanismOfAction: "",
           primaryUse: "",
         },
@@ -1432,101 +1452,57 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     label: item.conditionName,
   }));
 
-  const handleMonthSelect = (
-    field: "manufacturingDate" | "expiryDate",
-    month: number,
-    year: number,
-  ) => {
-    const selectedDate = new Date(year, month, 1);
+  useEffect(() => {
+    const fetchStrengthUnits = async () => {
+      if (!form.categoryId) return;
 
-    if (field === "manufacturingDate") {
-      const today = new Date();
+      try {
+        const data = await getStrengthUnitsByCategory(Number(form.categoryId));
 
-      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
-      if (selectedDate > currentMonth) {
-        setErrors((prev) => ({
-          ...prev,
-          manufacturingDate: "Manufacturing date cannot be in the future month",
-        }));
-        return;
+        setStrengthUnitOptions(
+          data.map((item: any) => ({
+            label: item.unitName,
+            value: String(item.strengthUnitId),
+          })),
+        );
+      } catch (error) {
+        console.error("Failed to fetch strength units:", error);
       }
+    };
 
-      setErrors((prev) => ({
-        ...prev,
-        manufacturingDate: "",
-        expiryDate: "Expiry must be within 5 years from Manufacturing Date",
-      }));
+    fetchStrengthUnits();
+  }, [form.categoryId]);
 
-      setForm((prev) => ({
-        ...prev,
-        manufacturingDate: selectedDate,
-        expiryDate: null,
-        shelfLifeMonths: "",
-      }));
+  const parseMoleculeStrength = (
+    raw: string | undefined | null,
+    unitOptions: { label: string; value: string }[] = strengthUnitOptions,
+  ) => {
+    const text = String(raw ?? "").trim();
 
-      setShowManufacturingMonthPicker(false);
-      return;
-    }
+    if (!text) return { value: "", unit: "", unitText: "" };
 
-    if (field === "expiryDate") {
-      setForm((prev) => {
-        const updatedForm = {
-          ...prev,
-          expiryDate: selectedDate,
-        };
+    // Split off the leading number regardless of whether the trailing unit
+    // text matches a known option — the numeric input can't render "500 mg",
+    // only "500", so this split must not depend on strengthUnitOptions
+    // already being loaded (it's fetched async and can lose that race).
+    const match = text.match(/^(-?\d+(?:\.\d+)?)\s*(.*)$/);
 
-        let expiryError = "";
+    if (!match) return { value: text, unit: "", unitText: "" };
 
-        if (updatedForm.manufacturingDate) {
-          const mfg = new Date(updatedForm.manufacturingDate);
-          const today = new Date();
+    const [, numericValue, unitText] = match;
 
-          // minimum = current month + 3 months
-          const minDate = new Date(
-            today.getFullYear(),
-            today.getMonth() + 3,
-            1,
-          );
+    if (!unitText) return { value: numericValue, unit: "", unitText: "" };
 
-          // maximum = manufacturing + 5 years
-          const maxDate = new Date(mfg.getFullYear() + 5, mfg.getMonth(), 1);
+    const matchedOption = unitOptions.find(
+      (option) => option.label.toLowerCase() === unitText.toLowerCase(),
+    );
 
-          // shelf life calculation
-          const totalMonths =
-            (selectedDate.getFullYear() - mfg.getFullYear()) * 12 +
-            (selectedDate.getMonth() - mfg.getMonth()) +
-            1;
-
-          const monthsUntilExpiry =
-            (selectedDate.getFullYear() - today.getFullYear()) * 12 +
-            (selectedDate.getMonth() - today.getMonth()) +
-            1;
-
-          updatedForm.shelfLifeMonths =
-            totalMonths >= 0 ? totalMonths.toString() : "";
-
-          if (monthsUntilExpiry > 0 && monthsUntilExpiry <= 3) {
-            expiryError =
-              monthsUntilExpiry === 1
-                ? "This product expires within 1 month, but it can still be added."
-                : `This product expires within ${monthsUntilExpiry} months, but it can still be added.`;
-          } else if (selectedDate > maxDate) {
-            expiryError =
-              "Expiry cannot be more than 5 years from Manufacturing Date";
-          }
-        }
-
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          expiryDate: expiryError,
-        }));
-
-        return updatedForm;
-      });
-
-      setShowExpiryMonthPicker(false);
-    }
+    return {
+      value: numericValue,
+      unit: matchedOption?.value ?? "",
+      // unit text that matched no master option; kept so saving does not strip it
+      unitText: matchedOption ? "" : unitText,
+    };
   };
 
   useEffect(() => {
@@ -1545,6 +1521,27 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       setPackTypeUnitOptions(options);
     } catch (error) {
       console.error("Error fetching pack type units:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchGstPercentages();
+  }, []);
+
+  const fetchGstPercentages = async () => {
+    try {
+      const response = await getGstPercentages();
+
+      const options = response
+        .map((item: any) => ({
+          label: `${item.gstPercentageValue}%`,
+          value: String(item.gstPercentageValue),
+        }))
+        .sort((a: any, b: any) => Number(a.value) - Number(b.value));
+
+      setGstOptions(options);
+    } catch (error) {
+      console.error("Error fetching GST percentages:", error);
     }
   };
 
@@ -1573,6 +1570,21 @@ export const DrugForm: React.FC<DrugFormProps> = ({
         }
         onTertiaryAction={handleBackToDashboard}
         onClose={() => setShowSuccessModal(false)}
+      />
+
+      <PopupModal
+        isOpen={showDraftModal}
+        title={draftModalError ? "Failed to Save Draft" : "Draft Saved!"}
+        description={
+          draftModalError
+            ? "Something went wrong while saving your draft. Please try again."
+            : "Your product has been saved as a draft."
+        }
+        primaryActionText="OK"
+        celebrate={!draftModalError}
+        isError={draftModalError}
+        onPrimaryAction={handleDraftModalDone}
+        onClose={handleDraftModalDone}
       />
 
       {showAdditionalDiscount && (
@@ -1696,10 +1708,11 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               />
             </div>
 
-            {form.molecules.map((molecule, index) => (
+            <div className="col-span-2 border border-[#C0C1BE] rounded-lg p-4 space-y-6">
+              {form.molecules.map((molecule, index) => (
               <div
                 key={index}
-                className="grid grid-cols-[1fr_0.87fr_52px] gap-6 col-span-2 items-start"
+                className="grid grid-cols-[1fr_0.87fr_52px] gap-6 items-start"
               >
                 {/* Molecule */}
                 <div className="w-full min-w-0">
@@ -1731,7 +1744,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
                 {/* Strength */}
                 <div className="w-full min-w-0">
-                  <Input
+                  <NumericInputWithUnit
                     label="Molecule Strength"
                     name="strength"
                     placeholder={
@@ -1740,8 +1753,13 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                       "Enter strength"
                     }
                     value={molecule.strength || ""}
-                    onChange={(e) =>
-                      handleStrengthChange(index, e.target.value)
+                    unit={molecule.strengthUnit || ""}
+                    options={strengthUnitOptions}
+                    onValueChange={(value) =>
+                      handleStrengthChange(index, value)
+                    }
+                    onUnitChange={(unit) =>
+                      handleStrengthUnitChange(index, unit)
                     }
                     readOnly={isEditMode}
                     required
@@ -1756,7 +1774,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
                 {/* Remove button / spacer */}
                 <div className="flex items-end h-full">
-                  {!isEditMode ? (
+                  {!isEditMode && form.molecules.length > 1 ? (
                     <button
                       onClick={() => removeMolecule(index)}
                       className="border-2 border-[#FF3B3B] w-13 h-12 rounded-lg flex items-center justify-center"
@@ -1772,22 +1790,23 @@ export const DrugForm: React.FC<DrugFormProps> = ({
                   )}
                 </div>
               </div>
-            ))}
+              ))}
 
-            {!isEditMode && (
-              <button
-                onClick={addMolecule}
-                className="col-span-2 w-40 h-12 border-2 border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5"
-              >
-                {" "}
-                <img
-                  src="/icons/PlusIcon.svg"
-                  alt="drug"
-                  className="w-5 h-5 rounded-md object-cover"
-                />{" "}
-                Add Molecule{" "}
-              </button>
-            )}
+              {!isEditMode && (
+                <button
+                  onClick={addMolecule}
+                  className="w-40 h-12 border-2 border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5"
+                >
+                  {" "}
+                  <img
+                    src="/icons/PlusIcon.svg"
+                    alt="drug"
+                    className="w-5 h-5 rounded-md object-cover"
+                  />{" "}
+                  Add Molecule{" "}
+                </button>
+              )}
+            </div>
 
             <Input
               label="Drug Schedule"
@@ -1866,6 +1885,29 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               required
             />
 
+            <Dropdown
+              label="GST %"
+              options={gstOptions}
+              value={form.gstPercentage || ""}
+              onChange={(value) =>
+                setForm((prev) => ({ ...prev, gstPercentage: value }))
+              }
+              placeholder="Select GST %"
+              error={errors.gstPercentage}
+              required
+            />
+
+            <Input
+              label="HSN Code"
+              name="hsnCode"
+              id="hsnCode"
+              placeholder="e.g. 3004"
+              value={form.hsnCode}
+              onChange={handleChange}
+              error={errors.hsnCode}
+              required
+            />
+
             <div>
               <label className="block text-label-l4 font-medium text-pneutral-900 mb-1 font-heading">
                 Warnings & Precautions
@@ -1920,487 +1962,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           </div>
         </div>
 
-        {/* Packaging & Order Details */}
-        <div className="relative border border-neutral-200 rounded-xl p-6 mt-6 bg-white">
-          <div className="text-h4 font-semibold font-heading">
-            Packaging & Order Details
-          </div>
-
-          <div className="border-b border-neutral-200 mt-3"></div>
-
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-6">
-            <div className="flex flex-col ">
-              <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
-                Pack Type
-                <span className="text-warning-500 ml-1">*</span>
-              </label>
-
-              <Dropdown
-                options={packTypeOptions.map((option: any) => ({
-                  value: String(option.value),
-                  label: option.label,
-                }))}
-                value={form.packId || ""}
-                onChange={(value, label) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    packId: value,
-                    packType: label,
-                  }))
-                }
-                placeholder="Select Pack Type"
-                isDisabled={isEditMode}
-                // isDisabled={isEditMode || !form.dosageId}
-                error={errors.packId}
-              />
-            </div>
-
-            {/* <Input
-              type="number"
-              label="Number of Units per Pack Type"
-              name="unitPerPack"
-              id="unitPerPack"
-              placeholder=""
-              value={form.unitPerPack}
-              onChange={handleChange}
-              readOnly={isEditMode}
-              error={errors.unitPerPack}
-              required
-              min={1}
-              step={1}
-              onInput={(e) => {
-                const target = e.target as HTMLInputElement;
-                target.value = target.value.slice(0, 5);
-              }}
-            /> */}
-
-            <NumericInputWithUnit
-              label="Number of Units per Pack Type"
-              name="unitPerPack"
-              value={form.unitPerPack}
-              unit={form.packTypeUnitId}
-              onValueChange={(value) =>
-                setForm((prev) => ({
-                  ...prev,
-                  unitPerPack: value,
-                }))
-              }
-              onUnitChange={(value) =>
-                setForm((prev) => ({
-                  ...prev,
-                  packTypeUnitId: value,
-                }))
-              }
-              options={packTypeUnitOptions}
-              maxLength={5}
-              min={1}
-              required
-              readOnly={isEditMode}
-              error={errors.unitPerPack || errors.packTypeUnitId}
-            />
-
-            <Input
-              type="number"
-              label="Number of Packs"
-              name="numberOfPacks"
-              id="numberOfPacks"
-              placeholder=""
-              value={form.numberOfPacks}
-              onChange={handleChange}
-              readOnly={isEditMode}
-              error={errors.numberOfPacks}
-              required
-              min={1}
-              step={1}
-              onInput={(e) => {
-                const target = e.target as HTMLInputElement;
-                target.value = target.value.slice(0, 4);
-              }}
-            />
-
-            <Input
-              type="number"
-              label="Pack Size (No. of packs X No. of Units per pack type)"
-              name="packSize"
-              id="packSize"
-              placeholder=""
-              value={form.packSize}
-              onChange={handleChange}
-              readOnly={isEditMode}
-              required
-            />
-
-            <div className="text-h6 font-normal col-span-2 mt-3 font-heading">
-              Order Details
-            </div>
-
-            <div className="border-b border-neutral-200 col-span-2"></div>
-
-            <Input
-              type="number"
-              label="Min Order Qty"
-              name="minimumOrderQuantity"
-              id="minimumOrderQuantity"
-              placeholder=""
-              value={form.minimumOrderQuantity}
-              onChange={handleChange}
-              min={1}
-              step={1}
-              onInput={(e) => {
-                const target = e.target as HTMLInputElement;
-                target.value = target.value.slice(0, 7);
-              }}
-              error={errors.minimumOrderQuantity}
-              required
-            />
-
-            <Input
-              type="number"
-              label="Max Order Qty"
-              name="maximumOrderQuantity"
-              id="maximumOrderQuantity"
-              placeholder=""
-              value={form.maximumOrderQuantity}
-              onChange={handleChange}
-              min={1}
-              step={1}
-              onInput={(e) => {
-                const target = e.target as HTMLInputElement;
-                target.value = target.value.slice(0, 7);
-              }}
-              error={errors.maximumOrderQuantity}
-              required
-            />
-
-            <div className="text-h6 font-normal col-span-2 mt-3 font-heading">
-              Batch Management
-            </div>
-
-            <div className="border-b border-neutral-200 col-span-2"></div>
-
-            <Input
-              type="text"
-              label="Batch/Lot Number"
-              name="batchLotNumber"
-              id="batchLotNumber"
-              placeholder=""
-              value={form.batchLotNumber}
-              onChange={handleChange}
-              readOnly={isEditMode}
-              maxLength={20}
-              error={errors.batchLotNumber}
-              required
-            />
-
-            <div className="relative">
-              <Input
-                label="Manufacturing Month"
-                type="text"
-                name="manufacturingDate"
-                id="manufacturingDate"
-                required
-                readOnly={isEditMode}
-                value={
-                  form.manufacturingDate instanceof Date &&
-                  !isNaN(form.manufacturingDate.getTime())
-                    ? `${String(form.manufacturingDate.getMonth() + 1).padStart(
-                        2,
-                        "0",
-                      )}/${form.manufacturingDate.getFullYear()}`
-                    : ""
-                }
-                placeholder="MM/YYYY"
-                onChange={() => {}} // prevents React warning
-                onClick={() => {
-                  if (!isEditMode) {
-                    setShowManufacturingMonthPicker(true);
-                  }
-                }}
-                onKeyDown={(e) => e.preventDefault()} // block typing
-                onPaste={(e) => e.preventDefault()}
-                error={errors.manufacturingDate}
-              />
-
-              {showManufacturingMonthPicker && !isEditMode && (
-                <MonthPicker
-                  selectedMonth={
-                    form.manufacturingDate
-                      ? form.manufacturingDate.getMonth()
-                      : new Date().getMonth()
-                  }
-                  selectedYear={
-                    form.manufacturingDate
-                      ? form.manufacturingDate.getFullYear()
-                      : new Date().getFullYear()
-                  }
-                  maxDate={new Date()}
-                  onSelect={(month, year) =>
-                    handleMonthSelect("manufacturingDate", month, year)
-                  }
-                  onClose={() => setShowManufacturingMonthPicker(false)}
-                />
-              )}
-            </div>
-
-            <div className="relative">
-              <Input
-                label="Expiry Month"
-                name="expiryDate"
-                type="text"
-                required
-                readOnly={isEditMode}
-                value={
-                  form.expiryDate instanceof Date &&
-                  !isNaN(form.expiryDate.getTime())
-                    ? `${String(form.expiryDate.getMonth() + 1).padStart(
-                        2,
-                        "0",
-                      )}/${form.expiryDate.getFullYear()}`
-                    : ""
-                }
-                placeholder="MM/YYYY"
-                onChange={() => {}} // prevents React warning
-                onClick={() => {
-                  if (!isEditMode) {
-                    setShowExpiryMonthPicker(true);
-                  }
-                }}
-                onFocus={() => {
-                  if (!isEditMode) {
-                    setShowExpiryMonthPicker(true);
-                  }
-                }}
-                onKeyDown={(e) => e.preventDefault()}
-                onPaste={(e) => e.preventDefault()}
-                error={errors.expiryDate}
-              />
-
-              {showExpiryMonthPicker && !isEditMode && (
-                <MonthPicker
-                  selectedMonth={
-                    form.expiryDate
-                      ? form.expiryDate.getMonth()
-                      : new Date().getMonth()
-                  }
-                  selectedYear={
-                    form.expiryDate
-                      ? form.expiryDate.getFullYear()
-                      : new Date().getFullYear()
-                  }
-                  minDate={
-                    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-                  }
-                  maxDate={
-                    form.manufacturingDate
-                      ? new Date(
-                          form.manufacturingDate.getFullYear() + 5,
-                          form.manufacturingDate.getMonth(),
-                          1,
-                        )
-                      : undefined
-                  }
-                  onSelect={(month, year) =>
-                    handleMonthSelect("expiryDate", month, year)
-                  }
-                  onClose={() => setShowExpiryMonthPicker(false)}
-                />
-              )}
-            </div>
-
-            <Input
-              type="number"
-              label="Shelf Life (In Months)"
-              name="shelfLifeMonths"
-              id="shelfLifeMonths"
-              value={form.shelfLifeMonths}
-              readOnly
-              error={errors.shelfLifeMonths}
-              required
-            />
-
-            <Input
-              label="Date of Entry"
-              type="date"
-              name="dateOfStockEntry"
-              id="dateOfStockEntry"
-              placeholder=""
-              onChange={(e) =>
-                setForm({ ...form, dateOfStockEntry: new Date(e.target.value) })
-              }
-              value={
-                form.dateOfStockEntry
-                  ? form.dateOfStockEntry.toISOString().split("T")[0]
-                  : ""
-              }
-              readOnly
-              error={errors.dateOfStockEntry}
-              required
-            />
-
-            <Input
-              type="number"
-              label="Stock Quantity"
-              name="stockQuantity"
-              id="stockQuantity"
-              placeholder=""
-              value={form.stockQuantity}
-              onChange={handleChange}
-              readOnly={isEditMode}
-              min={1}
-              step={1}
-              onInput={(e) => {
-                const target = e.target as HTMLInputElement;
-                target.value = target.value.slice(0, 7);
-              }}
-              error={errors.stockQuantity}
-              required
-            />
-
-            <div className="text-h6 font-normal col-span-2 mt-3 font-heading">
-              Pricing
-            </div>
-
-            <div className="border-b border-neutral-200 col-span-2"></div>
-
-            <Input
-              type="number"
-              label="MRP"
-              name="mrp"
-              id="mrp"
-              placeholder=""
-              value={form.mrp}
-              onChange={handleChange}
-              onKeyDown={(e) => {
-                if (["e", "E", "+", "-"].includes(e.key)) {
-                  e.preventDefault();
-                }
-              }}
-              min={1}
-              step="0.01"
-              error={errors.mrp}
-              required
-            />
-
-            <Input
-              type="number"
-              label="Selling Price per Pack Size"
-              name="sellingPrice"
-              id="sellingPrice"
-              placeholder=""
-              value={form.sellingPrice}
-              onChange={handleChange}
-               onKeyDown={(e) => {
-                if (["e", "E", "+", "-"].includes(e.key)) {
-                  e.preventDefault();
-                }
-              }}
-              min={1}
-              step="0.01"
-              error={errors.sellingPrice}
-              required
-            />
-
-            <div className="col-span-2 flex items-end gap-4">
-              <div className="w-1/2">
-                <Input
-                  type="number"
-                  label="Discount Percentage"
-                  name="discountPercentage"
-                  value={form.discountPercentage}
-                  onChange={handleChange}
-                  min={0}
-                  max={100}
-                  step={1}
-                  error={errors.discountPercentage}
-                />
-              </div>
-
-              <div className="mt-6">
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowAdditionalDiscount(true);
-                  }}
-                  className="w-59.25 h-14 px-6 border-[2.5px] border-secondary-700 text-secondary-700 text-label-l4 font-semibold rounded-lg flex items-center justify-center gap-2.5 whitespace-nowrap"
-                >
-                  <img
-                    src="/icons/PlusIcon.svg"
-                    alt="drug"
-                    className="w-6 h-6"
-                  />
-                  Add Special Offers
-                </button>
-              </div>
-            </div>
-
-            <AppliedOffersView
-              additionalDiscounts={form.additionalDiscount}
-              specialSchemes={[]}
-              productName={form.productName}
-              onEditDiscount={(index) => {
-                setEditTab("additional_discount");
-                setEditIndex(index);
-                setShowAdditionalDiscount(true);
-              }}
-              onDeleteDiscount={(index) => {
-                setForm((prev) => ({
-                  ...prev,
-                  additionalDiscount: prev.additionalDiscount.map((d, i) =>
-                    i === index
-                      ? { ...d, displayOffer: false, isSelected: false }
-                      : d,
-                  ),
-                }));
-              }}
-              hideDeleteScheme={true}
-              isEditMode={isEditMode}
-            />
-
-            <div className="text-h6 font-normal col-span-2 mt-3 font-heading">
-              TAX & BILLING
-            </div>
-
-            <div className="border-b border-neutral-200 col-span-2"></div>
-
-            <div className="flex flex-col ">
-              <label className="text-label-l4 font-medium text-pneutral-900 font-heading">
-                GST %<span className="text-warning-500 ml-1">*</span>
-              </label>
-              <Dropdown
-                options={gstOptions.map((option: any) => ({
-                  value: String(option.value),
-                  label: option.label,
-                }))}
-                value={String(form.gstPercentage || "")}
-                onChange={(value, label) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    gstPercentage: value,
-                  }))
-                }
-                placeholder="Select GST %"
-                isDisabled={isEditMode}
-                error={errors.gstPercentage}
-              />
-            </div>
-
-            <Input
-              type="number"
-              label="HSN Code"
-              name="hsnCode"
-              id="hsnCode"
-              placeholder=""
-              value={form.hsnCode}
-              onChange={handleChange}
-              min={1}
-              step={1}
-              maxLength={8}
-              readOnly={isEditMode}
-              error={errors.hsnCode}
-              required
-            />
-          </div>
-        </div>
+      
 
         <ProductImageUpload
           title="Product Photos"
@@ -2425,39 +1987,45 @@ export const DrugForm: React.FC<DrugFormProps> = ({
               Cancel
             </button>
 
-            <button
-              type="button"
-              className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5"
-            >
-              <img
-                src="/icons/SaveDraftIcon.svg"
-                alt="drug"
-                className="w-5 h-5 rounded-md object-cover"
-              />
-              Save Draft
-            </button>
+            {(mode !== "edit" || productStatus === "DRAFT") && (
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft || isSubmitting}
+                className="w-35.25 h-12 bg-secondary-700 text-pneutral-50 text-label-l4 font-medium rounded-lg flex items-center justify-center gap-2.5 disabled:opacity-60"
+              >
+                <img
+                  src="/icons/SaveDraftIcon.svg"
+                  alt="drug"
+                  className="w-5 h-5 rounded-md object-cover"
+                />
+                {isSavingDraft ? "Saving..." : "Save Draft"}
+              </button>
+            )}
           </div>
           <div>
             {mode === "edit" ? (
               <button
                 type="button"
-                onClick={handleUpdate}
-                className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer"
+                onClick={productStatus === "DRAFT" ? handlePublishDraft : handleUpdate}
+                disabled={isSubmitting || isSavingDraft}
+                className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Update
+                {isSubmitting ? "Saving..." : productStatus === "DRAFT" ? "Submit" : "Update"}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer"
+                disabled={isSubmitting || isSavingDraft}
+                className="bg-primary-800 text-pneutral-50 text-label-l4 font-medium rounded-lg p-3 w-35.25 h-12 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Submit
+                {isSubmitting ? "Saving..." : "Submit"}
               </button>
             )}
           </div>
         </div>
-        {/* </div> */}
+
       </form>
     </>
   );

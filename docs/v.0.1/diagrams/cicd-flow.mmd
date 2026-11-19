@@ -1,0 +1,41 @@
+flowchart TD
+    subgraph triggers["Triggers"]
+        A1["push to dev / main / test"]
+        A2["pull_request (any branch)"]
+        A3["push/PR to test branch"]
+        A4["workflow_dispatch (manual)"]
+    end
+
+    subgraph qodana["qodana_code_quality.yml"]
+        B1["Checkout"]
+        B2["JetBrains Qodana static scan\n(pr-mode: false, full-project)"]
+        B3["Post PR comments + annotations"]
+        B4["upload-result: false\n(no SARIF artifact)"]
+        B1 --> B2 --> B3 --> B4
+    end
+
+    subgraph tests["tests.yml (named for tests, is actually CI/CD Pipeline)"]
+        C1["Checkout"]
+        C2["Set up JDK 17 (Temurin)"]
+        C3["mvn -DskipTests clean install\n(tests explicitly SKIPPED)"]
+        C4["Configure AWS credentials\n(GitHub secrets)"]
+        C5["Log in to Amazon ECR"]
+        C6["docker build + docker push\n(tag = commit SHA)"]
+        C7["Render ECS task definition\n(deploy/tiamed-aggregator-task-defination.json)"]
+        C8["amazon-ecs-deploy-task-definition\n(wait-for-service-stability: true)"]
+        C9["Post-deployment Health Check step\n(ENTIRE STEP COMMENTED OUT)"]
+        C1 --> C2 --> C3 --> C4 --> C5 --> C6 --> C7 --> C8 --> C9
+    end
+
+    A1 --> B1
+    A2 --> B1
+    A3 --> C1
+    A4 --> B1
+    A4 --> C1
+
+    C9 -.->|"no live verification runs"| D["Manual / undocumented:\nno automated test execution,\nno post-deploy verification,\nno rollback automation anywhere in the workflow files"]
+
+    style D fill:#00000000,stroke-dasharray: 5 5
+    style C9 stroke-dasharray: 3 3
+    style B4 stroke-dasharray: 3 3
+    style C3 stroke-dasharray: 3 3

@@ -2,6 +2,7 @@ import api from "@/src/lib/api";
 import {
   CompanyTypeResponse,
   DistrictResponse,
+  DocumentTypeResponse,
   ProductTypeResponse,
   SellerTypeResponse,
   StateResponse,
@@ -66,6 +67,24 @@ class SellerRegMasterService {
       return Array.isArray(sellerTypes) ? sellerTypes : [];
     } catch (error) {
       console.error('❌ Service: Error fetching seller types:', error);
+      throw error;
+    }
+  }
+
+  // ==================== DOCUMENT TYPES ====================
+  async getDocumentTypes(): Promise<DocumentTypeResponse[]> {
+    try {
+      console.log("🔍 Service: Fetching document types...");
+      const response = await api.get<ApiResponse<DocumentTypeResponse[]>>('/document-types');
+      console.log("🔍 Service: Document types response:", response.data);
+
+      const documentTypes = response.data?.data || [];
+      console.log("🔍 Service: Extracted document types:", documentTypes);
+      console.log("🔍 Service: Document types count:", documentTypes?.length);
+
+      return Array.isArray(documentTypes) ? documentTypes : [];
+    } catch (error) {
+      console.error('❌ Service: Error fetching document types:', error);
       throw error;
     }
   }
