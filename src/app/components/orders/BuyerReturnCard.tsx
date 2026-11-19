@@ -34,9 +34,9 @@ export function lineSummary(returnRequest: ReturnRequest, line: ReturnLine): str
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-4">
-      <dt className="w-32 shrink-0 text-p4 font-body text-neutral-500">{label}</dt>
-      <dd className="text-p4 font-body text-neutral-800">{children}</dd>
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
+      <dt className="w-28 shrink-0 text-xs font-medium text-neutral-500">{label}</dt>
+      <dd className="min-w-0 text-[13px] text-neutral-800">{children}</dd>
     </div>
   );
 }
@@ -73,28 +73,31 @@ export default function BuyerReturnCard({
   const actionable = status === "REQUESTED" || status === "APPROVED" || status === "SHIPPED";
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-6 py-4">
-        <div>
-          <p className="text-p2 font-heading font-semibold text-pneutral-900">Return #{returnRequest.returnId}</p>
-          <p className="text-p4 font-body text-neutral-500">
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-neutral-100 bg-neutral-50/60 px-4 py-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+          <p className="text-[13px] font-heading font-bold text-pneutral-900">Return #{returnRequest.returnId}</p>
+          <span className="text-xs text-neutral-500">
             {!hideOrderLink && orderId ? (
               <>
                 Order{" "}
-                <Link href={`/buyer_e8d45a1b/dashboard/orders/${orderId}`} className="text-primary-800 hover:underline">
+                <Link
+                  href={`/buyer_e8d45a1b/dashboard/orders/${orderId}`}
+                  className="font-medium text-primary-800 hover:underline"
+                >
                   {returnRequest.sellerOrderId ?? orderId}
                 </Link>
                 {requested ? " · " : ""}
               </>
             ) : null}
             {requested ? `Requested ${requested}` : ""}
-          </p>
+          </span>
         </div>
         <StatusBadge status={status} />
       </div>
 
       {!negative && (
-        <ol className="flex flex-wrap gap-x-2 gap-y-1 border-b border-neutral-100 px-6 py-3 text-xs">
+        <ol className="flex flex-wrap gap-x-2 gap-y-0.5 border-b border-neutral-100 px-4 py-1.5 text-[11px]">
           {RETURN_STEPS.map((step, index) => (
             <li
               key={step}
@@ -113,17 +116,21 @@ export default function BuyerReturnCard({
         </ol>
       )}
 
-      <ul className="divide-y divide-neutral-100 px-6">
+      <ul className="divide-y divide-neutral-100 px-4">
         {lines.map((l) => {
           const info = orderItems[l.orderItemId];
           const refund = l.refundAmount != null && l.refundAmount > 0 ? l.refundAmount : null;
           return (
-            <li key={l.lineId} className="flex items-center gap-4 py-4">
-              <ProductThumb src={l.productId ? products[l.productId]?.image : undefined} alt={l.productName ?? "Product"} />
+            <li key={l.lineId} className="flex items-center gap-3 py-2">
+              <ProductThumb size="sm" src={l.productId ? products[l.productId]?.image : undefined} alt={l.productName ?? "Product"} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-p3 font-body font-semibold text-neutral-900">{l.productName ?? "Item"}</p>
-                {l.productId && l.productId !== l.productName && <p className="text-xs text-neutral-500">{l.productId}</p>}
-                <p className="mt-1 text-p4 font-body text-neutral-600">{lineSummary(returnRequest, l)}</p>
+                <p className="truncate text-[13px] font-semibold text-neutral-900">{l.productName ?? "Item"}</p>
+                <p className="mt-0.5 text-xs text-neutral-600">
+                  {l.productId && l.productId !== l.productName && (
+                    <span className="mr-2 text-neutral-400">{l.productId}</span>
+                  )}
+                  <span className="font-semibold text-neutral-800">{lineSummary(returnRequest, l)}</span>
+                </p>
                 <UnitPriceLines
                   unitPrice={info?.unitPrice}
                   listedPrice={l.productId ? products[l.productId]?.listedPrice : undefined}
@@ -132,10 +139,10 @@ export default function BuyerReturnCard({
               </div>
               <div className="text-right">
                 {l.lineTotal != null && (
-                  <p className="text-p3 font-body font-semibold text-neutral-900">{formatMoney(l.lineTotal)}</p>
+                  <p className="text-[13px] font-bold text-neutral-900">{formatMoney(l.lineTotal)}</p>
                 )}
                 {refund != null && (
-                  <p className="text-xs text-green-700">
+                  <p className="text-[11px] font-medium text-green-700">
                     {l.refundedAt ? "Refunded" : "Refund"} {formatMoney(refund)}
                   </p>
                 )}
@@ -145,7 +152,7 @@ export default function BuyerReturnCard({
         })}
       </ul>
 
-      <dl className="flex flex-col gap-2 border-t border-neutral-100 bg-neutral-50/60 px-6 py-4">
+      <dl className="grid gap-x-8 gap-y-1 border-t border-neutral-100 bg-neutral-50/60 px-4 py-1.5 lg:grid-cols-2">
         <DetailRow label="Your reason">
           {reasonLabel(returnRequest.reasonCode)}
           {returnRequest.reason ? ` — ${returnRequest.reason}` : ""}
@@ -183,7 +190,7 @@ export default function BuyerReturnCard({
         (status === "RECEIVED" && returnRequest.refundAmount != null) ||
         (status === "REFUNDED" && returnRequest.refundAmount != null)) && (
         <div
-          className={`px-6 py-3 text-p4 font-body ${
+          className={`px-4 py-2 text-xs font-medium ${
             status === "REFUNDED"
               ? "bg-green-50 text-green-800"
               : status === "REJECTED" || status === "CLOSED"
@@ -206,7 +213,7 @@ export default function BuyerReturnCard({
       )}
 
       {actionable && (
-        <div className="border-t border-neutral-100 px-6 pb-5 pt-1">
+        <div className="border-t border-neutral-100 px-4 pb-2.5 pt-0.5">
           <ReturnActions returnRequest={returnRequest} buyerId={buyerId} onChanged={onChanged} />
         </div>
       )}

@@ -44,8 +44,8 @@ export default function ReturnActions({
       {error && <p className="text-p4 text-red-600 mt-2">{error}</p>}
 
       {status === "APPROVED" && (
-        <div className="flex flex-col gap-2 mt-3">
-          <p className="text-p4 font-body text-pneutral-700">
+        <div className="mt-2 flex flex-col gap-2">
+          <p className="text-xs text-neutral-600">
             Return accepted. Pack{" "}
             {acceptedLines.map((l) => `${units(l.approvedQuantity ?? l.requestedQuantity)} of ${l.productName ?? "item"}`).join(", ")}{" "}
             in one parcel, hand it to a courier and enter the shipment details.
@@ -54,26 +54,26 @@ export default function ReturnActions({
             placeholder="Courier name"
             value={courierName}
             onChange={(e) => setCourierName(e.target.value)}
-            className="px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white"
+            className="h-9 rounded-lg border border-neutral-300 bg-white px-3 text-[13px] focus:border-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-100"
           />
           <input
             placeholder="Tracking number"
             value={trackingNumber}
             onChange={(e) => setTrackingNumber(e.target.value)}
-            className="px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white"
+            className="h-9 rounded-lg border border-neutral-300 bg-white px-3 text-[13px] focus:border-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-100"
           />
           <input
             placeholder="Tracking URL (optional)"
             value={trackingUrl}
             onChange={(e) => setTrackingUrl(e.target.value)}
-            className="px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white"
+            className="h-9 rounded-lg border border-neutral-300 bg-white px-3 text-[13px] focus:border-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-100"
           />
           <button
             disabled={busy || !courierName || !trackingNumber}
             onClick={() =>
               run(() => shipReturn(returnRequest.returnId, buyerId, courierName, trackingNumber, trackingUrl))
             }
-            className="bg-primary-900 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-40"
+            className="self-start rounded-lg border-[1.5px] border-primary-900 px-4 py-1.5 text-xs font-semibold text-primary-900 hover:bg-primary-50 disabled:opacity-40"
           >
             {busy ? "Shipping..." : "Mark Shipped"}
           </button>
@@ -95,18 +95,18 @@ export default function ReturnActions({
       {CANCELLABLE_RETURN_STATUSES.has(status) &&
         (confirmingCancel ? (
           <div className="flex flex-wrap items-center gap-2 mt-3">
-            <p className="text-p4 font-body text-pneutral-700">Cancel this return? You can still return these items while the return window is open.</p>
+            <p className="text-xs text-neutral-600">Cancel this return? You can still return these items while the return window is open.</p>
             <button
               disabled={busy}
               onClick={() => run(() => cancelReturn(returnRequest.returnId, buyerId))}
-              className="border border-red-500 text-red-600 rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-40"
+              className="border-[1.5px] border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-40"
             >
               {busy ? "Cancelling..." : "Yes, cancel return"}
             </button>
             <button
               disabled={busy}
               onClick={() => setConfirmingCancel(false)}
-              className="border border-neutral-300 text-neutral-700 rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-40"
+              className="border-[1.5px] border-neutral-300 text-neutral-700 hover:bg-neutral-100 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-40"
             >
               Keep it
             </button>
@@ -114,7 +114,7 @@ export default function ReturnActions({
         ) : (
           <button
             onClick={() => setConfirmingCancel(true)}
-            className="mt-3 text-p4 font-body font-semibold text-red-600 hover:underline"
+            className="mt-2 text-xs font-semibold text-red-600 hover:underline"
           >
             Cancel return
           </button>

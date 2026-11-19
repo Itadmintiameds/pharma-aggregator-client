@@ -65,9 +65,9 @@ const formatDateTime = (value?: string) =>
 function SummaryRow({ label, value, strong }: { label: string; value?: number | null; strong?: boolean }) {
   if (value == null) return null;
   return (
-    <div className={`flex justify-between gap-6 ${strong ? "mt-1 border-t border-neutral-200 pt-3" : ""}`}>
-      <span className={strong ? "text-p2 font-semibold text-neutral-900" : "text-p4 text-neutral-500"}>{label}</span>
-      <span className={strong ? "text-h6 font-heading font-semibold text-neutral-900" : "text-p4 text-neutral-700"}>
+    <div className={`flex justify-between gap-6 ${strong ? "mt-1 border-t border-neutral-200 pt-2" : ""}`}>
+      <span className={strong ? "text-[13px] font-semibold text-neutral-900" : "text-xs text-neutral-500"}>{label}</span>
+      <span className={strong ? "text-base font-heading font-bold text-primary-900" : "text-xs font-semibold text-neutral-700"}>
         {formatMoney(value)}
       </span>
     </div>
@@ -151,28 +151,28 @@ function SellerOrderCard({
   const trackingOk = !!sellerOrder.trackingUrl && /^https?:\/\//i.test(sellerOrder.trackingUrl);
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
-        className="flex w-full items-center justify-between gap-3 border-b border-neutral-100 px-6 py-4 text-left"
+        className="flex w-full items-center justify-between gap-3 border-b border-neutral-100 bg-neutral-50/60 px-4 py-2 text-left"
       >
-        <span className="flex flex-wrap items-center gap-3">
+        <span className="flex flex-wrap items-center gap-2.5">
           <ChevronDown
-            size={18}
+            size={16}
             className={`shrink-0 text-neutral-500 transition-transform ${expanded ? "rotate-0" : "-rotate-90"}`}
           />
-          <span className="text-p2 font-heading font-semibold text-pneutral-900">{sellerOrder.sellerOrderId}</span>
+          <span className="text-[13px] font-heading font-bold text-pneutral-900">{sellerOrder.sellerOrderId}</span>
           <StatusBadge status={sellerOrder.status} />
         </span>
-        <span className="text-p2 font-heading font-semibold text-pneutral-900">
+        <span className="text-sm font-heading font-bold text-pneutral-900">
           {sellerOrder.grandTotal != null ? formatMoney(sellerOrder.grandTotal) : ""}
         </span>
       </button>
 
       {expanded && (
-        <div className="space-y-5 px-6 py-5">
+        <div className="space-y-3 px-4 py-3">
           {!isCancelled ? (
             <div className="flex items-start">
               {FULFILLMENT_STEPS.map((step, index) => {
@@ -180,14 +180,14 @@ function SellerOrderCard({
                 const isCurrent = index === currentStepIndex;
                 return (
                   <div key={step} className="flex flex-1 items-start last:flex-none">
-                    <div className="-mt-0.5 flex w-16 shrink-0 flex-col items-center">
+                    <div className="-mt-0.5 flex w-14 shrink-0 flex-col items-center">
                       <div
                         className={`shrink-0 rounded-full transition-all ${isDone ? "bg-primary-800" : "bg-neutral-200"} ${
-                          isCurrent ? "h-4 w-4 ring-4 ring-primary-100" : "h-3 w-3"
+                          isCurrent ? "h-3.5 w-3.5 ring-4 ring-primary-100" : "h-2.5 w-2.5"
                         }`}
                       />
                       <p
-                        className={`mt-2 text-center text-xs leading-tight ${
+                        className={`mt-1.5 text-center text-[11px] leading-tight ${
                           isCurrent
                             ? "font-semibold text-primary-800"
                             : isDone
@@ -199,23 +199,23 @@ function SellerOrderCard({
                       </p>
                     </div>
                     {index < FULFILLMENT_STEPS.length - 1 && (
-                      <div className={`mt-1.5 h-0.5 flex-1 ${index < currentStepIndex ? "bg-primary-800" : "bg-neutral-200"}`} />
+                      <div className={`mt-1 h-0.5 flex-1 ${index < currentStepIndex ? "bg-primary-800" : "bg-neutral-200"}`} />
                     )}
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-              <p className="text-p3 font-body text-red-700">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5">
+              <p className="text-xs font-medium text-red-700">
                 Cancelled{sellerOrder.cancelReason ? `: ${sellerOrder.cancelReason}` : ""}
               </p>
             </div>
           )}
 
           {sellerOrder.status === "OUT_FOR_DELIVERY" && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-              <p className="text-p3 font-body text-blue-700">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5">
+              <p className="text-xs font-medium text-blue-700">
                 A verification code was sent to your registered phone number. Please share it with the delivery person
                 to confirm receipt.
               </p>
@@ -223,9 +223,9 @@ function SellerOrderCard({
           )}
 
           {sellerOrder.trackingNumber && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
-              <p className="flex items-center gap-2 text-p4 font-body text-neutral-700">
-                <Truck size={16} className="text-neutral-500" />
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5">
+              <p className="flex items-center gap-2 text-xs text-neutral-700">
+                <Truck size={14} className="text-neutral-500" />
                 Courier: <span className="font-semibold">{sellerOrder.courierName ?? "-"}</span> · Tracking:{" "}
                 <span className="font-semibold">{sellerOrder.trackingNumber}</span>
               </p>
@@ -235,7 +235,7 @@ function SellerOrderCard({
                   href={sellerOrder.trackingUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-lg border border-primary-800 px-3 py-1.5 text-sm font-semibold text-primary-800 hover:bg-primary-50"
+                  className="rounded-lg border-[1.5px] border-primary-800 px-3 py-1 text-xs font-semibold text-primary-800 hover:bg-primary-50"
                 >
                   Track shipment
                 </a>
@@ -243,7 +243,7 @@ function SellerOrderCard({
             </div>
           )}
 
-          <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
+          <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
             {sellerOrder.items.map((item) => {
               const orderItemId = item.orderItemId;
               const remaining = orderItemId != null ? remainingUnits(orderItemId, item.quantity) : 0;
@@ -252,7 +252,7 @@ function SellerOrderCard({
               const selected = orderItemId != null && returnQuantities.has(orderItemId);
               const listed = item.productId ? productSummaries[item.productId]?.listedPrice : undefined;
               return (
-                <li key={item.orderItemId} className={`flex items-start gap-4 p-4 ${selected ? "bg-primary-50/40" : ""}`}>
+                <li key={item.orderItemId} className={`flex items-center gap-3 px-3 py-2 ${selected ? "bg-primary-50/40" : ""}`}>
                   {selectable && (
                     <input
                       type="checkbox"
@@ -260,26 +260,27 @@ function SellerOrderCard({
                       checked={selected}
                       disabled={showReturnForm}
                       onChange={() => toggleReturnSelection(orderItemId!, remaining)}
-                      className="mt-6 h-4 w-4 shrink-0 accent-primary-800"
+                      className="h-4 w-4 shrink-0 accent-primary-800"
                     />
                   )}
                   <ProductThumb
+                    size="sm"
                     src={item.productId ? productSummaries[item.productId]?.image : undefined}
                     alt={item.productNameSnapshot ?? "Product"}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-p3 font-body font-semibold text-neutral-900">{item.productNameSnapshot ?? "Item"}</p>
-                    {item.productId && item.productId !== item.productNameSnapshot && (
-                      <p className="text-xs text-neutral-500">{item.productId}</p>
-                    )}
-                    <p className="mt-1 text-p4 font-body text-neutral-600">
-                      Qty {item.quantity}
+                    <p className="text-[13px] font-semibold text-neutral-900">{item.productNameSnapshot ?? "Item"}</p>
+                    <p className="mt-0.5 text-xs text-neutral-600">
+                      {item.productId && item.productId !== item.productNameSnapshot && (
+                        <span className="mr-2 text-neutral-400">{item.productId}</span>
+                      )}
+                      <span className="font-semibold text-neutral-800">Qty {item.quantity}</span>
                       {item.batchLotNumberSnapshot ? ` · Batch ${item.batchLotNumberSnapshot}` : ""}
                       {returnedSome && <span className="text-neutral-500"> · {remaining} returnable</span>}
                     </p>
                     <UnitPriceLines unitPrice={item.unitPriceSnapshot} listedPrice={listed} isQuote={isQuote} />
                     {selected && remaining > 1 && (
-                      <label className="mt-2 flex items-center gap-2 text-p4 text-neutral-600">
+                      <label className="mt-1 flex items-center gap-2 text-xs text-neutral-600">
                         Return
                         <input
                           type="number"
@@ -289,7 +290,7 @@ function SellerOrderCard({
                           value={returnQuantities.get(orderItemId!) || ""}
                           disabled={showReturnForm}
                           onChange={(e) => setReturnQuantity(orderItemId!, Number(e.target.value))}
-                          className="w-20 rounded-lg border border-neutral-300 px-2 py-1 text-sm"
+                          className="h-7 w-16 rounded-md border border-neutral-300 px-2 text-[13px] focus:border-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-100"
                         />
                         of {remaining}
                       </label>
@@ -299,14 +300,14 @@ function SellerOrderCard({
                     {selected && item.lineTotal != null && allQuantitiesValid ? (
                       // Same pro-rating the order-service uses for the refund.
                       <>
-                        <p className="text-p3 font-body font-semibold text-primary-800">
+                        <p className="text-[13px] font-bold text-primary-800">
                           Refund {formatMoney(proRate(item.lineTotal, returnQuantities.get(orderItemId!)!, item.quantity))}
                         </p>
-                        <p className="text-xs text-neutral-500">of {formatMoney(item.lineTotal)}</p>
+                        <p className="text-[11px] text-neutral-500">of {formatMoney(item.lineTotal)}</p>
                       </>
                     ) : (
                       item.lineTotal != null && (
-                        <p className="text-p3 font-body font-semibold text-neutral-900">{formatMoney(item.lineTotal)}</p>
+                        <p className="text-[13px] font-bold text-neutral-900">{formatMoney(item.lineTotal)}</p>
                       )
                     )}
                   </div>
@@ -316,8 +317,8 @@ function SellerOrderCard({
           </ul>
 
           {returns.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-p3 font-heading font-semibold text-pneutral-900">
+            <div className="space-y-2">
+              <h3 className="text-xs font-heading font-bold uppercase tracking-wide text-neutral-600">
                 Returns on this order ({returns.length})
               </h3>
               {returns.map((r) => (
@@ -335,21 +336,21 @@ function SellerOrderCard({
           )}
 
           {anyReturnable && !showReturnForm && (
-            <div className="flex flex-wrap items-center gap-3 rounded-xl bg-neutral-50 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-neutral-50 px-3 py-2">
               <button
                 type="button"
                 disabled={selectedReturns.length === 0 || !allQuantitiesValid}
                 onClick={() => setShowReturnForm(true)}
-                className="rounded-lg bg-primary-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                className="rounded-lg border-[1.5px] border-primary-900 px-3 py-1 text-xs font-semibold text-primary-900 hover:bg-primary-50 disabled:opacity-40"
               >
                 {`Return selected${selectedReturns.length > 0 ? ` (${selectedReturns.length})` : ""}`}
               </button>
               {!allQuantitiesValid && (
-                <p className="text-p4 font-body text-red-600">
+                <p className="text-xs text-red-600">
                   Enter a whole number between 1 and the units you can still return.
                 </p>
               )}
-              <p className="text-p4 font-body text-neutral-500">
+              <p className="text-xs text-neutral-500">
                 Tick the products to return. Returns are accepted within {RETURN_WINDOW_DAYS} days of delivery, and
                 you&apos;re refunded once the seller receives and checks the goods.
               </p>
@@ -468,18 +469,18 @@ export default function OrderDetailContent({ orderId, loginRedirectPath }: Order
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm">
         <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-h4 font-heading font-medium text-pneutral-900">{order.orderId}</h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-heading font-bold text-pneutral-900">{order.orderId}</h1>
             {isQuote && (
-              <span className="rounded-full bg-secondary-100 px-2.5 py-0.5 text-xs font-medium text-secondary-800">
+              <span className="rounded-full bg-secondary-100 px-2 py-0.5 text-[11px] font-semibold text-secondary-800">
                 Quotation price
               </span>
             )}
             <StatusBadge status={order.status} />
           </div>
-          <p className="mt-1 text-p4 font-body text-neutral-500">
+          <p className="mt-0.5 text-xs text-neutral-500">
             {placed ? `Placed on ${placed}` : "Placed"}
             {` · ${itemCount} item${itemCount === 1 ? "" : "s"}`}
             {order.sellerOrders.length > 1 ? ` · ${order.sellerOrders.length} sellers` : ""}
@@ -487,7 +488,7 @@ export default function OrderDetailContent({ orderId, loginRedirectPath }: Order
           {isQuote && (
             <Link
               href={`/buyer_e8d45a1b/dashboard/rfq#quote-${order.quoteRequestId}`}
-              className="text-p4 font-body text-primary-800 hover:underline"
+              className="text-xs font-medium text-primary-800 hover:underline"
             >
               Placed at your accepted quote price — view quote #{order.quoteRequestId}
             </Link>
@@ -496,7 +497,7 @@ export default function OrderDetailContent({ orderId, loginRedirectPath }: Order
         {anyCancellable && (
           <Button
             variant="outline"
-            size="md"
+            size="sm"
             label={cancellingId === order.orderId ? "Cancelling..." : "Cancel Order"}
             disabled={cancellingId === order.orderId}
             onClick={handleCancelWholeOrder}
@@ -504,8 +505,8 @@ export default function OrderDetailContent({ orderId, loginRedirectPath }: Order
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div className="space-y-3 lg:col-span-2">
           {order.sellerOrders.map((sellerOrder) => (
             <SellerOrderCard
               key={sellerOrder.sellerOrderId}
@@ -531,30 +532,30 @@ export default function OrderDetailContent({ orderId, loginRedirectPath }: Order
           ))}
         </div>
 
-        <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-          <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-3 text-h6 font-heading font-semibold text-pneutral-900">Order summary</h2>
-            <div className="flex flex-col gap-1.5">
+        <aside className="space-y-3 lg:sticky lg:top-24 lg:self-start">
+          <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <h2 className="mb-2 text-sm font-heading font-bold text-pneutral-900">Order summary</h2>
+            <div className="flex flex-col gap-1">
               <SummaryRow label="Subtotal" value={order.subtotal} />
               <SummaryRow label="Shipping" value={order.shippingTotal ?? 0} />
               <SummaryRow label="Tax" value={order.taxTotal} />
               <SummaryRow label="Grand total" value={order.grandTotal} strong />
             </div>
             {order.paymentStatus && (
-              <p className="mt-4 rounded-lg bg-neutral-50 px-3 py-2 text-p4 font-body text-neutral-600">
+              <p className="mt-3 rounded-lg bg-neutral-50 px-3 py-1.5 text-xs text-neutral-600">
                 Payment: <span className="font-semibold text-neutral-800">{order.paymentStatus}</span>
               </p>
             )}
           </section>
 
-          <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-3 flex items-center gap-2 text-h6 font-heading font-semibold text-pneutral-900">
-              <MapPin size={18} className="text-neutral-500" />
+          <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <h2 className="mb-2 flex items-center gap-2 text-sm font-heading font-bold text-pneutral-900">
+              <MapPin size={15} className="text-neutral-500" />
               Delivery address
             </h2>
-            <p className="text-p3 font-body font-semibold text-neutral-800">{order.deliveryName}</p>
-            <p className="text-p4 font-body text-neutral-600">{order.deliveryPhone}</p>
-            <p className="mt-1 text-p4 font-body text-neutral-600">
+            <p className="text-[13px] font-semibold text-neutral-800">{order.deliveryName}</p>
+            <p className="text-xs text-neutral-600">{order.deliveryPhone}</p>
+            <p className="mt-0.5 text-xs text-neutral-600">
               {order.deliveryAddressLine}, {order.deliveryCity}, {order.deliveryDistrict}, {order.deliveryState} -{" "}
               {order.deliveryPinCode}
             </p>

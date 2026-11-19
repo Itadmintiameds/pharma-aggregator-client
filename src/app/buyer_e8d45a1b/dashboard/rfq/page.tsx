@@ -47,8 +47,8 @@ function isQuoteExpired(quoteValidUntil?: string): boolean {
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="text-xs uppercase tracking-wide text-neutral-400">{label}</p>
-      <p className="mt-0.5 break-words text-p4 font-body font-medium text-neutral-900">{children}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{label}</p>
+      <p className="break-words text-[13px] font-semibold leading-tight text-neutral-900">{children}</p>
     </div>
   );
 }
@@ -83,25 +83,25 @@ function QuoteCard({
   return (
     <div
       id={`quote-${request.quoteRequestId}`}
-      className="scroll-mt-24 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm"
+      className="scroll-mt-24 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm"
     >
-      <div className="flex items-start gap-4 border-b border-neutral-100 px-6 py-4">
-        <ProductThumb src={product?.image} alt={request.productName} />
+      <div className="flex items-center gap-3 border-b border-neutral-100 bg-neutral-50/60 px-4 py-1.5">
+        <ProductThumb size="sm" src={product?.image} alt={request.productName} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-p2 font-heading font-semibold text-pneutral-900">{request.productName}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-p4 font-body text-neutral-500">
+          <p className="truncate text-sm font-heading font-bold text-pneutral-900">{request.productName}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500">
             <span className="font-semibold text-neutral-700">Quote #{request.quoteRequestId}</span>
-            <span className="rounded-full bg-secondary-100 px-2.5 py-0.5 text-xs font-medium text-secondary-800">
+            <span className="rounded-full bg-secondary-100 px-2 py-0.5 text-[11px] font-semibold text-secondary-800">
               {TYPE_LABELS[request.requestType] ?? request.requestType}
             </span>
-            <span>Seller: {request.sellerName}</span>
+            {request.sellerName && <span className="font-medium text-neutral-600">{request.sellerName}</span>}
             {raised && <span>· Raised {raised}</span>}
           </div>
         </div>
         <StatusBadge status={status} />
       </div>
 
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-6 py-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 px-4 py-2 sm:grid-cols-3 lg:grid-cols-6">
         <Detail label="Quantity">
           {request.quantity} {unit}
         </Detail>
@@ -114,25 +114,25 @@ function QuoteCard({
       </div>
 
       {request.message?.trim() && (
-        <div className="mx-6 mb-4 rounded-lg border-l-4 border-neutral-200 bg-neutral-50 px-4 py-2">
-          <p className="text-xs uppercase tracking-wide text-neutral-400">Your message</p>
-          <p className="whitespace-pre-wrap text-p4 font-body italic text-neutral-700">&quot;{request.message}&quot;</p>
+        <div className="mx-4 mb-2 flex flex-wrap items-baseline gap-x-2 rounded-md border-l-4 border-primary-200 bg-neutral-50 px-3 py-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Your message</p>
+          <p className="whitespace-pre-wrap text-xs italic text-neutral-700">&quot;{request.message}&quot;</p>
         </div>
       )}
 
       {status === "PENDING" && (
-        <div className="border-t border-neutral-100 bg-neutral-50/60 px-6 py-3">
-          <p className="text-p4 font-body text-neutral-600">Waiting for the seller to send you a quote.</p>
+        <div className="border-t border-neutral-100 bg-neutral-50/60 px-4 py-1.5">
+          <p className="text-xs font-medium text-neutral-600">Waiting for the seller to send you a quote.</p>
         </div>
       )}
 
       {status !== "PENDING" && quotedPrice != null && (
-        <div className="border-t border-neutral-100 bg-neutral-50/60 px-6 py-4">
-          <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="border-t border-neutral-100 bg-neutral-50/60 px-4 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-wide text-neutral-400">Seller&apos;s quote</p>
-              <p className="text-h6 font-heading font-semibold text-neutral-900">
-                {formatMoney(quotedPrice)} <span className="text-p4 font-normal text-neutral-500">/ unit</span>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Seller&apos;s quote</p>
+              <p className="text-base font-heading font-bold text-primary-900">
+                {formatMoney(quotedPrice)} <span className="text-xs font-normal text-neutral-500">/ unit</span>
               </p>
               {listed != null && (
                 <p className="text-xs text-neutral-500">
@@ -153,7 +153,7 @@ function QuoteCard({
                 </p>
               )}
             </div>
-            <div className="flex flex-wrap gap-6">
+            <div className="flex flex-wrap gap-5">
               <Detail label="Order value">{formatMoney(quotedPrice * request.quantity)}</Detail>
               {request.quoteValidUntil && (
                 <Detail label={expired ? "Expired on" : "Valid until"}>{formatDate(request.quoteValidUntil)}</Detail>
@@ -162,7 +162,7 @@ function QuoteCard({
             </div>
           </div>
           {request.sellerNotes && (
-            <p className="mt-3 text-p4 font-body text-neutral-600">
+            <p className="mt-1 text-xs text-neutral-600">
               <span className="text-neutral-500">Seller&apos;s note:</span> {request.sellerNotes}
             </p>
           )}
@@ -170,12 +170,12 @@ function QuoteCard({
       )}
 
       {status === "QUOTED" && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-6 py-4">
+        <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-4 py-2">
           <button
             type="button"
             disabled={busy || expired}
             onClick={onAccept}
-            className="rounded-lg bg-primary-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            className="rounded-lg border-[1.5px] border-primary-900 px-3 py-1 text-xs font-semibold text-primary-900 hover:bg-primary-50 disabled:opacity-40"
           >
             Accept quote
           </button>
@@ -183,17 +183,17 @@ function QuoteCard({
             type="button"
             disabled={busy}
             onClick={onReject}
-            className="rounded-lg border border-red-500 px-4 py-2 text-sm font-semibold text-red-600 disabled:opacity-40"
+            className="rounded-lg border-[1.5px] border-red-500 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40"
           >
             Reject
           </button>
-          {expired && <p className="text-p4 font-body text-amber-700">This quote has expired.</p>}
+          {expired && <p className="text-xs font-medium text-amber-700">This quote has expired.</p>}
         </div>
       )}
 
       {status === "ACCEPTED" && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-green-100 bg-green-50 px-6 py-4">
-          <p className="text-p4 font-body text-green-900">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-green-100 bg-green-50 px-4 py-2">
+          <p className="text-xs font-medium text-green-900">
             {expired
               ? `This quote expired on ${formatDate(request.quoteValidUntil)}. Ask the seller for a new quote to place this order.`
               : "You accepted this quote. Place the order to have it shipped at the agreed price."}
@@ -202,7 +202,7 @@ function QuoteCard({
             type="button"
             disabled={expired}
             onClick={onPlaceOrder}
-            className="rounded-lg bg-primary-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg border-[1.5px] border-primary-900 px-3 py-1 text-xs font-semibold text-primary-900 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Place order
           </button>
@@ -210,12 +210,12 @@ function QuoteCard({
       )}
 
       {status === "ORDER_PLACED" && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-green-100 bg-green-50 px-6 py-3">
-          <p className="text-p4 font-body text-green-900">Order placed{request.orderId ? ` — ${request.orderId}` : ""}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-green-100 bg-green-50 px-4 py-1.5">
+          <p className="text-xs font-medium text-green-900">Order placed{request.orderId ? ` — ${request.orderId}` : ""}</p>
           {request.orderId && (
             <Link
               href={`/buyer_e8d45a1b/dashboard/orders/${request.orderId}`}
-              className="text-p4 font-semibold text-primary-800 hover:underline"
+              className="text-xs font-semibold text-primary-800 hover:underline"
             >
               View order
             </Link>
@@ -224,8 +224,8 @@ function QuoteCard({
       )}
 
       {(status === "REJECTED" || status === "EXPIRED") && (
-        <div className="border-t border-neutral-100 bg-neutral-50/60 px-6 py-3">
-          <p className="text-p4 font-body text-neutral-600">
+        <div className="border-t border-neutral-100 bg-neutral-50/60 px-4 py-1.5">
+          <p className="text-xs font-medium text-neutral-600">
             {status === "REJECTED"
               ? "You rejected this quote."
               : "This quote ran out before it was accepted. You can raise a new request from the product page."}
@@ -317,23 +317,28 @@ export default function BuyerRfqPage() {
   }, [load]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-2.5">
       <div>
-        <h2 className="text-h4 font-heading font-bold text-pneutral-900">Quotes</h2>
-        <p className="mt-1 text-p3 font-body text-pneutral-600">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-xl font-heading font-bold text-pneutral-900">Quotes</h2>
+          {requests !== null && <span className="text-xs text-neutral-500">{visible.length} shown</span>}
+        </div>
+        <p className="text-xs text-neutral-500">
           Track the price requests and RFQs you&apos;ve raised, and respond once a seller quotes you.
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {STATUS_FILTERS.map((status) => (
           <button
             key={status}
             type="button"
             onClick={() => setStatusFilter(status)}
             aria-pressed={statusFilter === status}
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
-              statusFilter === status ? "bg-primary-900 text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+            className={`rounded-full border-[1.5px] px-3 py-1 text-xs font-semibold transition-colors ${
+              statusFilter === status
+                ? "border-primary-900 bg-transparent text-primary-900"
+                : "border-neutral-200 bg-white text-neutral-700 hover:border-primary-800 hover:text-primary-900"
             }`}
           >
             {prettyStatus(status)}
@@ -370,7 +375,7 @@ export default function BuyerRfqPage() {
       )}
 
       {!error && visible.length > 0 && (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-2">
           {visible.map((request) => (
             <QuoteCard
               key={request.quoteRequestId}

@@ -47,13 +47,16 @@ export default function BuyerOrdersPage() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-2.5">
       <div>
-        <h2 className="text-h4 font-heading font-bold text-pneutral-900">My Orders</h2>
-        <p className="mt-1 text-p3 font-body text-pneutral-600">Every order you&apos;ve placed across sellers on the marketplace.</p>
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-xl font-heading font-bold text-pneutral-900">My Orders</h2>
+          {orders !== null && <span className="text-xs text-neutral-500">{filteredOrders.length} shown</span>}
+        </div>
+        <p className="text-xs text-neutral-500">Every order you&apos;ve placed across sellers on the marketplace.</p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {STATUS_FILTERS.map((status) => (
           <button
             key={status}
@@ -63,8 +66,10 @@ export default function BuyerOrdersPage() {
               setCurrentPage(1);
             }}
             aria-pressed={statusFilter === status}
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
-              statusFilter === status ? "bg-primary-900 text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+            className={`rounded-full border-[1.5px] px-3 py-1 text-xs font-semibold transition-colors ${
+              statusFilter === status
+                ? "border-primary-900 bg-transparent text-primary-900"
+                : "border-neutral-200 bg-white text-neutral-700 hover:border-primary-800 hover:text-primary-900"
             }`}
           >
             {prettyStatus(status)}
@@ -90,7 +95,7 @@ export default function BuyerOrdersPage() {
           <p className="text-p2 font-body text-pneutral-600">You haven&apos;t placed any orders yet.</p>
           <Link
             href="/buyer_e8d45a1b/dashboard/catalog"
-            className="mt-4 inline-block rounded-lg bg-primary-900 px-4 py-2 text-sm font-semibold text-white"
+            className="mt-4 inline-block rounded-lg border-[1.5px] border-primary-900 px-4 py-1.5 text-sm font-semibold text-primary-900 hover:bg-primary-50"
           >
             Browse products
           </Link>
@@ -103,7 +108,7 @@ export default function BuyerOrdersPage() {
 
       {!error && pagedOrders.length > 0 && (
         <>
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
             {pagedOrders.map((order) => (
               <BuyerOrderCard
                 key={order.orderId}
@@ -115,7 +120,7 @@ export default function BuyerOrdersPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between text-p4 font-body text-neutral-600">
+            <div className="flex items-center justify-between text-xs text-neutral-600">
               <span>
                 Showing {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, filteredOrders.length)} of {filteredOrders.length}
               </span>
@@ -124,7 +129,7 @@ export default function BuyerOrdersPage() {
                   type="button"
                   disabled={safePage === 1}
                   onClick={() => setCurrentPage(safePage - 1)}
-                  className="rounded-md border border-primary-900 px-3 py-1.5 text-p4 font-semibold text-primary-900 hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:text-neutral-400 disabled:hover:bg-transparent"
+                  className="rounded-md border border-primary-900 px-2.5 py-1 text-xs font-semibold text-primary-900 hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:text-neutral-400 disabled:hover:bg-transparent"
                 >
                   Previous
                 </button>
@@ -135,7 +140,7 @@ export default function BuyerOrdersPage() {
                   type="button"
                   disabled={safePage === totalPages}
                   onClick={() => setCurrentPage(safePage + 1)}
-                  className="rounded-md border border-primary-900 px-3 py-1.5 text-p4 font-semibold text-primary-900 hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:text-neutral-400 disabled:hover:bg-transparent"
+                  className="rounded-md border border-primary-900 px-2.5 py-1 text-xs font-semibold text-primary-900 hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:text-neutral-400 disabled:hover:bg-transparent"
                 >
                   Next
                 </button>
