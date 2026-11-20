@@ -31,6 +31,14 @@ export interface ReturnLine {
   refundId?: number | null;
 }
 
+// A photo or video the buyer attached; url is a signed link valid for about 15 minutes.
+export interface ReturnEvidence {
+  evidenceId: number;
+  contentType: string;
+  sizeBytes: number;
+  url: string;
+}
+
 // One return = one parcel back to one seller, covering one or more products.
 export interface ReturnRequest {
   returnId: number;
@@ -60,6 +68,7 @@ export interface ReturnRequest {
   refundHeld?: boolean;
   refundedAt?: string;
   lines: ReturnLine[];
+  evidence?: ReturnEvidence[];
 }
 
 // Mirrors order-service's ReturnReasonCode. There is no "changed my mind" — medicines are only
@@ -91,3 +100,22 @@ export const CANCELLABLE_RETURN_STATUSES = new Set(["REQUESTED", "APPROVED"]);
 export const RETURN_STEPS = ["REQUESTED", "APPROVED", "SHIPPED", "OUT_FOR_DELIVERY", "RECEIVED", "REFUNDED"];
 
 export const units = (n: number) => `${n} unit${n === 1 ? "" : "s"}`;
+
+// Mirrors order-service's ReturnEvidenceService limits.
+export const RETURN_EVIDENCE_MAX_FILES = 5;
+export const RETURN_EVIDENCE_MAX_IMAGE_MB = 10;
+export const RETURN_EVIDENCE_MAX_VIDEO_MB = 50;
+export const RETURN_EVIDENCE_TYPES = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm", "video/quicktime"];
+// Reasons the seller can't judge without seeing the goods.
+export const REASONS_REQUIRING_EVIDENCE = ["DAMAGED", "WRONG_ITEM", "EXPIRED"];
+
+/** Why this file can't be attached, or null when it can. */
+export function evidenceFileError(file: File): string | null {
+  if (!RETURN_EVIDENCE_TYPES.includes(file.type)) {
+    return `${file.name}: only JPEG, PNG or WebP photos and MP4, WebM or MOV videos can be attached`;
+  }
+  const video = file.type.startsWith("video/");
+  const limitMb = video ? RETURN_EVIDENCE_MAX_VIDEO_MB : RETURN_EVIDENCE_MAX_IMAGE_MB;
+  if (file.size > limitMb * 1024 * 1024) return `${file.name}: ${video ? "videos" : "photos"} must be at most ${limitMb} MB`;
+  return null;
+}

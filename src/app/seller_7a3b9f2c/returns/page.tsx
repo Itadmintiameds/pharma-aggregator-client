@@ -7,6 +7,7 @@ import { sellerProfileService } from "@/src/services/seller/sellerProfileService
 import { decideReturn, getSellerReturns, receiveReturn } from "@/src/services/seller/sellerReturnService";
 import { ReturnLine, ReturnRequest, reasonLabel, units } from "@/src/types/buyer/returns";
 import { proRate } from "@/src/utils/pricing";
+import ReturnEvidenceGallery from "@/src/app/components/orders/ReturnEvidenceGallery";
 
 const STATUS_FILTERS = [
   "ALL",
@@ -392,6 +393,11 @@ function ReturnCard({
           {reasonLabel(returnRequest.reasonCode)}
           {returnRequest.reason ? ` — ${returnRequest.reason}` : ""}
         </DetailRow>
+        {!!returnRequest.evidence?.length && (
+          <DetailRow label="Photos & videos">
+            <ReturnEvidenceGallery evidence={returnRequest.evidence} />
+          </DetailRow>
+        )}
         {returnRequest.sellerComment && <DetailRow label="Your note">{returnRequest.sellerComment}</DetailRow>}
         {status === "CANCELLED" && (
           <DetailRow label="Cancelled">
