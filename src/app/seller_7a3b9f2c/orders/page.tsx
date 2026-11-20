@@ -16,6 +16,7 @@ import {
   shipSellerOrder,
 } from "@/src/services/seller/sellerOrderService";
 import { SellerOrder } from "@/src/types/buyer/order";
+import { returnPolicyLabel } from "@/src/utils/returnPolicy";
 import { StatusBadge, ProductThumb, prettyStatus, useProductSummaries, type ProductSummary } from "../components/sellerCardUi";
 
 const STATUS_FILTERS = [
@@ -251,6 +252,7 @@ function OrderCard({
                   ? `₹${item.unitPriceSnapshot.toFixed(2)} × ${item.quantity}`
                   : `Qty ${item.quantity}`}
                 {item.batchLotNumberSnapshot ? ` · Batch ${item.batchLotNumberSnapshot}` : ""}
+                {` · ${returnPolicyLabel(item.returnable, item.returnPeriodDays)}`}
               </p>
               {isQuote && listed != null && (
                 <p className="text-[11px] text-neutral-500">

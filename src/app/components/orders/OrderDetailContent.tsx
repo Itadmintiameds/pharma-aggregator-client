@@ -15,15 +15,13 @@ import {
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { cancelOrder, cancelSellerOrder, getOrder } from "@/src/services/buyer/orderService";
 import { getReturnsByBuyer } from "@/src/services/buyer/returnService";
-import { Order, SellerOrder } from "@/src/types/buyer/order";
+import { Order, OrderItem, SellerOrder } from "@/src/types/buyer/order";
 import { ReturnRequest, consumedUnits } from "@/src/types/buyer/returns";
 import BuyerReturnCard, { OrderItemInfo } from "./BuyerReturnCard";
 import ReturnRequestForm from "./ReturnRequestForm";
 import { proRate } from "@/src/utils/pricing";
 import { formatMoney } from "@/src/utils/dashboardFormat";
-
-// Same as order-service's RETURN_WINDOW_DAYS; only used to hide the return controls once it has passed.
-const RETURN_WINDOW_DAYS = 7;
+import { DEFAULT_RETURN_PERIOD_DAYS, returnPolicyLabel } from "@/src/utils/returnPolicy";
 
 // Shared order-detail body used by both the standalone marketing-site route
 // (src/app/orders/[orderId], wrapped in LandingHeader/Footer) and the
@@ -106,14 +104,17 @@ function SellerOrderCard({
   const currentStepIndex = POST_DELIVERY_STATUSES.has(sellerOrder.status)
     ? FULFILLMENT_STEPS.indexOf("DELIVERED")
     : FULFILLMENT_STEPS.indexOf(sellerOrder.status);
-  // Returns can be started (again) any time within the window after delivery; the backend enforces it too.
-  // Time is read once on mount — render must stay pure.
+  // Each item can be returned (again) any time within its product's return window after delivery; the
+  // backend enforces it too. Time is read once on mount — render must stay pure.
   const [now] = useState(() => Date.now());
-  const windowOpen =
-    !sellerOrder.deliveredAt ||
-    now < new Date(sellerOrder.deliveredAt).getTime() + RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-  const canRequestReturn =
-    (sellerOrder.status === "DELIVERED" || POST_DELIVERY_STATUSES.has(sellerOrder.status)) && windowOpen;
+  const delivered = sellerOrder.status === "DELIVERED" || POST_DELIVERY_STATUSES.has(sellerOrder.status);
+  const returnWindowOpen = (item: OrderItem) =>
+    item.returnable !== false &&
+    (!sellerOrder.deliveredAt ||
+      now <
+        new Date(sellerOrder.deliveredAt).getTime() +
+          (item.returnPeriodDays ?? DEFAULT_RETURN_PERIOD_DAYS) * 24 * 60 * 60 * 1000);
+  const canReturnItem = (item: OrderItem) => delivered && returnWindowOpen(item);
   const canCancel = CANCELLABLE_STATUSES.has(sellerOrder.status);
   // Open by default: the products are the point of this page, so they are never hidden behind a click.
   const [expanded, setExpanded] = useState(true);
@@ -145,9 +146,9 @@ function SellerOrderCard({
   const allQuantitiesValid = selectedReturns.every(
     (r) => Number.isInteger(r.quantity) && r.quantity >= 1 && r.quantity <= maxUnits(r.orderItemId)
   );
-  const anyReturnable =
-    canRequestReturn &&
-    sellerOrder.items.some((i) => i.orderItemId != null && remainingUnits(i.orderItemId, i.quantity) > 0);
+  const anyReturnable = sellerOrder.items.some(
+    (i) => i.orderItemId != null && canReturnItem(i) && remainingUnits(i.orderItemId, i.quantity) > 0
+  );
   const trackingOk = !!sellerOrder.trackingUrl && /^https?:\/\//i.test(sellerOrder.trackingUrl);
 
   return (
@@ -248,7 +249,7 @@ function SellerOrderCard({
               const orderItemId = item.orderItemId;
               const remaining = orderItemId != null ? remainingUnits(orderItemId, item.quantity) : 0;
               const returnedSome = remaining < item.quantity;
-              const selectable = canRequestReturn && remaining > 0 && orderItemId != null;
+              const selectable = canReturnItem(item) && remaining > 0 && orderItemId != null;
               const selected = orderItemId != null && returnQuantities.has(orderItemId);
               const listed = item.productId ? productSummaries[item.productId]?.listedPrice : undefined;
               return (
@@ -277,6 +278,10 @@ function SellerOrderCard({
                       <span className="font-semibold text-neutral-800">Qty {item.quantity}</span>
                       {item.batchLotNumberSnapshot ? ` · Batch ${item.batchLotNumberSnapshot}` : ""}
                       {returnedSome && <span className="text-neutral-500"> · {remaining} returnable</span>}
+                    </p>
+                    <p className="mt-0.5 text-xs text-neutral-500">
+                      {returnPolicyLabel(item.returnable, item.returnPeriodDays)}
+                      {delivered && item.returnable !== false && !returnWindowOpen(item) && " · window closed"}
                     </p>
                     <UnitPriceLines unitPrice={item.unitPriceSnapshot} listedPrice={listed} isQuote={isQuote} />
                     {selected && remaining > 1 && (
@@ -351,8 +356,8 @@ function SellerOrderCard({
                 </p>
               )}
               <p className="text-xs text-neutral-500">
-                Tick the products to return. Returns are accepted within {RETURN_WINDOW_DAYS} days of delivery, and
-                you&apos;re refunded once the seller receives and checks the goods.
+                Tick the products to return. Each product can be returned within its return period after
+                delivery, and you&apos;re refunded once the seller receives and checks the goods.
               </p>
             </div>
           )}

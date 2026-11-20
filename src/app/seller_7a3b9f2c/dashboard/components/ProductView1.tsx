@@ -77,6 +77,7 @@ import {
   CalendarClock,
 } from "lucide-react";
 import ProductImageGallery from "./ProductImageGallery";
+import { DEFAULT_RETURN_PERIOD_DAYS } from "@/src/utils/returnPolicy";
 import {
   editKeyForProduct,
   resolveProductCategoryId,
@@ -358,6 +359,8 @@ interface ProductApiData {
   mechanismOfAction?: string;
   gstPercentage?: string | number;
   hsnCode?: string;
+  returnable?: boolean;
+  returnPeriodDays?: number | null;
   specialOffers?: SpecialOffer[];
   status?: "DRAFT" | "PUBLISHED" | "UNPUBLISHED";
 }
@@ -3604,6 +3607,36 @@ const ProductView1 = ({
             <FieldRow
               label="HSN Code"
               value={hsnCode != null ? String(hsnCode) : null}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── RETURN POLICY ── */}
+      <div
+        style={{
+          alignSelf: "stretch",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+        }}
+      >
+        <SectionTitle>RETURN POLICY</SectionTitle>
+        <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+          <div style={{ flex: "1 1 0" }}>
+            <FieldRow
+              label="Returnable"
+              value={productData.returnable === false ? "No" : "Yes"}
+            />
+          </div>
+          <div style={{ flex: "1 1 0" }}>
+            <FieldRow
+              label="Return Period"
+              value={
+                productData.returnable === false
+                  ? "—"
+                  : `${productData.returnPeriodDays ?? DEFAULT_RETURN_PERIOD_DAYS} days after delivery`
+              }
             />
           </div>
         </div>

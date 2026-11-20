@@ -19,6 +19,9 @@ export interface OrderItem {
   taxAmount?: number;
   lineTotal?: number;
   itemStatus?: string;
+  // The product's return policy when the order was placed; absent on older orders (returnable, 7 days).
+  returnable?: boolean;
+  returnPeriodDays?: number | null;
 }
 
 export interface OrderStatusHistoryEntry {

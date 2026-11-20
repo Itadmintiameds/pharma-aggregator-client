@@ -45,6 +45,8 @@ export interface BuyerProduct {
   categoryId?: number;
   gstPercentage?: number;
   hsnCode?: number;
+  returnable?: boolean;
+  returnPeriodDays?: number | null;
   pricingDetails?: BuyerProductPricing[];
   packagingDetails?: BuyerProductPackaging[];
   productImages?: BuyerProductImage[];

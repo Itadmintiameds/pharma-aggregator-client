@@ -38,6 +38,14 @@ import { getSupplementDosageForms } from "@/src/services/product/SupplementServi
 import { useRouter } from "next/navigation";
 import { validateBatchNumber } from "@/src/services/product/PricingService";
 import Dropdown from "@/src/app/commonComponents/Dropdown";
+import ReturnPolicyFields from "./ReturnPolicyFields";
+import {
+  ReturnPolicyForm,
+  returnPeriodError,
+  returnPolicyDefaults,
+  returnPolicyFromProduct,
+  returnPolicyPayload,
+} from "@/src/utils/returnPolicy";
 import CheckboxDropdown from "@/src/app/commonComponents/CheckboxDropdown";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
@@ -250,6 +258,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
     useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [returnPolicy, setReturnPolicy] = useState<ReturnPolicyForm>(returnPolicyDefaults);
   const [productStatus, setProductStatus] = useState<string>("");
   const [subcategoryOptions, setSubcategoryOptions] = useState<SelectOption[]>(
     [],
@@ -801,16 +810,19 @@ export const DrugForm: React.FC<DrugFormProps> = ({
       images: [...existingImages, ...images],
     });
 
+    const fieldErrors: Record<string, string> = {};
     if (!validation.success) {
       console.log(validation.error.issues);
-
-      const fieldErrors: Record<string, string> = {};
 
       validation.error.issues.forEach((err) => {
         const fieldName = err.path.join(".");
         fieldErrors[fieldName] = err.message;
       });
+    }
+    const periodError = returnPeriodError(returnPolicy);
+    if (periodError) fieldErrors.returnPeriodDays = periodError;
 
+    if (Object.keys(fieldErrors).length > 0) {
       setErrors(fieldErrors);
       showValidationFeedback(fieldErrors);
       return;
@@ -832,6 +844,7 @@ export const DrugForm: React.FC<DrugFormProps> = ({
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         status: "PUBLISHED" as const,
 
         // Packaging (variant) and pricing (batch/stock) are intentionally omitted here —
@@ -1082,6 +1095,8 @@ export const DrugForm: React.FC<DrugFormProps> = ({
           : null,
       );
 
+      setReturnPolicy(returnPolicyFromProduct(data));
+
       setForm((prev) => ({
         ...prev,
         productId: data.productId || "",
@@ -1148,11 +1163,16 @@ const submitEdit = async (status: string) => {
     images: [...existingImages, ...images],
   });
 
+  const fieldErrors: Record<string, string> = {};
   if (!validation.success) {
-    const fieldErrors: Record<string, string> = {};
     validation.error.issues.forEach((err) => {
       fieldErrors[err.path.join(".")] = err.message;
     });
+  }
+  const periodError = returnPeriodError(returnPolicy);
+  if (periodError) fieldErrors.returnPeriodDays = periodError;
+
+  if (Object.keys(fieldErrors).length > 0) {
     setErrors(fieldErrors);
     showValidationFeedback(fieldErrors);
     return;
@@ -1171,6 +1191,7 @@ const submitEdit = async (status: string) => {
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         status: status as "PUBLISHED",
 
         productAttributeDrugs: [
@@ -1247,6 +1268,7 @@ const submitEdit = async (status: string) => {
         categoryId: numOrUndef(form.categoryId),
         gstPercentage: numOrUndef(form.gstPercentage),
         hsnCode: numOrUndef(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         status: "DRAFT" as const,
         productAttributeDrugs: [
           {
@@ -1906,6 +1928,19 @@ const submitEdit = async (status: string) => {
               onChange={handleChange}
               error={errors.hsnCode}
               required
+            />
+
+            <ReturnPolicyFields
+              value={returnPolicy}
+              onChange={(value) => {
+                setReturnPolicy(value);
+                setErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.returnPeriodDays;
+                  return next;
+                });
+              }}
+              error={errors.returnPeriodDays}
             />
 
             <div>

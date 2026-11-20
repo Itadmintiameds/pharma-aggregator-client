@@ -18,4 +18,7 @@ export interface CartItem {
   // falls back to 1 / the batch's stock quantity when not set.
   minQuantity?: number;
   maxQuantity?: number;
+  // The product's return policy, shown so the buyer knows before ordering; absent means returnable for 7 days.
+  returnable?: boolean;
+  returnPeriodDays?: number | null;
 }

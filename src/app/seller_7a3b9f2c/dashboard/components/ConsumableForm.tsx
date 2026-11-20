@@ -34,6 +34,14 @@ import {
   getConsumableSpecificationUnitsBySubCategory,
 } from "@/src/services/product/ConsumbaleService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
+import ReturnPolicyFields from "./ReturnPolicyFields";
+import {
+  ReturnPolicyForm,
+  returnPeriodError,
+  returnPolicyDefaults,
+  returnPolicyFromProduct,
+  returnPolicyPayload,
+} from "@/src/utils/returnPolicy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -268,6 +276,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
   const [submitting, setSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [returnPolicy, setReturnPolicy] = useState<ReturnPolicyForm>(returnPolicyDefaults);
   const [apiError, setApiError] = useState<string | null>(null);
   const [productStatus, setProductStatus] = useState<string>("");
   // In edit mode most fields are locked, except for DRAFT products which stay fully editable
@@ -378,6 +387,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
       setProductStatus(String(data.status || "").toUpperCase());
       setResolvedProductId(data.productId || productId);
+      setReturnPolicy(returnPolicyFromProduct(data));
       const attribute = data.productAttributeConsumableMedicals?.[0] || {};
       const packaging = (Array.isArray(data.packagingDetails) ? data.packagingDetails[0] : data.packagingDetails) || {};
       const pricing = data.pricingDetails?.[0] || {};
@@ -1045,6 +1055,9 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
       e.certifications = `You must keep all ${mandatoryCertCount} original certifications. Please re-add any removed ones.`;
     }
 
+    const periodError = returnPeriodError(returnPolicy);
+    if (periodError) e.returnPeriodDays = periodError;
+
     return e;
   };
 
@@ -1095,6 +1108,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         // Update keeps the loaded status (never re-publishes UNPUBLISHED); submitting a draft publishes it
         status: (mode === "edit" && productStatus && productStatus !== "DRAFT"
           ? productStatus
@@ -1229,6 +1243,7 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
 
         gstPercentage: numOrUndef(form.gstPercentage),
         hsnCode: numOrUndef(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         status: "DRAFT" as const,
 
         productAttributeConsumableMedicals: [{
@@ -1661,6 +1676,15 @@ const ConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: Consuma
               <Input label="HSN Code" name="hsnCode" placeholder="e.g. 3926"
                 value={form.hsnCode} onChange={handleChange} error={errors.hsnCode} required />
             )}
+
+            <ReturnPolicyFields
+              value={returnPolicy}
+              onChange={(value) => {
+                setReturnPolicy(value);
+                setErrors((p) => { const n = { ...p }; delete n.returnPeriodDays; return n; });
+              }}
+              error={errors.returnPeriodDays}
+            />
 
             {/* Storage Condition — locked after stock entry */}
             {hasStock ? (

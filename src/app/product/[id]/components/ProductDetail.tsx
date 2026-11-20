@@ -2,6 +2,7 @@
 import { bestApplicableOffer, offerMinQty, offerPercent } from "@/src/utils/pricing";
 import { formatOfferInstant } from "@/src/utils/offerWindow";
 import { resolveProductAvailability } from "@/src/utils/cartAvailability";
+import { returnPolicyLabel } from "@/src/utils/returnPolicy";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -347,6 +348,14 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stockBadge.className}`}>{stockBadge.text}</span>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                product.returnable === false ? "bg-gray-100 text-gray-600" : "bg-blue-50 text-blue-700"
+              }`}
+              title="Return period counts from delivery"
+            >
+              {returnPolicyLabel(product.returnable, product.returnPeriodDays)}
+            </span>
             {discount !== null && isBuyerLoggedIn && (
               <span className="rounded-full bg-green-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">{discount}% off</span>
             )}
@@ -535,6 +544,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
           { label: "HSN code", value: product.hsnCode },
           { label: "Min. order", value: minQuantity },
           { label: "Max. order", value: maxQuantity != null ? maxQuantity.toLocaleString("en-IN") : undefined },
+          { label: "Returns", value: returnPolicyLabel(product.returnable, product.returnPeriodDays) },
           { label: "Manufacturing date", value: formatMonthYear(pricing?.manufacturingDate) },
           { label: "Expiry date", value: formatMonthYear(pricing?.expiryDate) },
         ]}
