@@ -110,6 +110,13 @@ export default function SellerOverview() {
         </div>
       )}
 
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2 [&>section]:h-full">
+          <SalesTrendPanel stats={stats} loading={loading} compact />
+        </div>
+        <OrderStatusPanel stats={stats} loading={loading} compact />
+      </div>
+
       <Section title="Needs your attention" subtitle="Live — not affected by the date range">
         <div className={tileGrid}>
           <StatTile
@@ -294,13 +301,6 @@ export default function SellerOverview() {
           />
         </div>
       </Section>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2 [&>section]:h-full">
-          <SalesTrendPanel stats={stats} loading={loading} compact />
-        </div>
-        <OrderStatusPanel stats={stats} loading={loading} compact />
-      </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <TopProductsPanel stats={stats} products={productSummaries} loading={loading} compact />

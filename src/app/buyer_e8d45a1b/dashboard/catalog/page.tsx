@@ -8,13 +8,15 @@ import {
   searchProducts,
   searchResultToBuyerProduct,
 } from "@/src/services/buyer/searchService";
-import { SearchFacet, SearchResultPage, SearchSort } from "@/src/types/buyer/search";
+import { AutocompleteSuggestion, SearchFacet, SearchResultPage, SearchSort } from "@/src/types/buyer/search";
 import { STOREFRONT_CATEGORIES } from "@/src/utils/storefrontCategories";
 import CatalogProductCard from "../components/CatalogProductCard";
 import SortDropdown, { SortOption } from "../components/SortDropdown";
 import CatalogFilterSidebar, { CatalogFilters, FACET_GROUPS, NO_FILTERS } from "../components/CatalogFilterSidebar";
 
 const PAGE_SIZE = 12;
+const MIN_SUGGEST_LENGTH = 2;
+const MAX_SUGGEST_LENGTH = 100; // the search API rejects longer queries
 // The search API rejects page * size > 10,000.
 const MAX_WINDOW = 10000;
 
@@ -82,6 +84,48 @@ export default function BuyerCatalogPage() {
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
+
+  // Type-ahead suggestions (product names) under the search box.
+  const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const suggestDebounced = useDebouncedValue(query.trim(), 200);
+
+  useEffect(() => {
+    if (suggestDebounced.length < MIN_SUGGEST_LENGTH || suggestDebounced.length > MAX_SUGGEST_LENGTH) {
+      setSuggestions([]);
+      return;
+    }
+    const controller = new AbortController();
+    // Same search as the product list (name, molecule, composition, brand...), so the dropdown
+    // lists every product the results below will show — not just names starting with the typed text.
+    searchProducts({ q: suggestDebounced, sort: "relevance", page: 0, size: 8 }, controller.signal)
+      .then((res) => {
+        const seen = new Set<string>();
+        const list: AutocompleteSuggestion[] = [];
+        for (const item of res.results) {
+          const key = item.productName.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          list.push({ suggestion: item.productName, productId: item.productId, categoryName: item.categoryName });
+        }
+        setSuggestions(list);
+        setActiveSuggestion(-1);
+      })
+      .catch((err) => {
+        if (!isRequestCancelled(err)) setSuggestions([]); // suggestions are optional: fail quietly
+      });
+    return () => controller.abort();
+  }, [suggestDebounced]);
+
+  const pickSuggestion = (text: string) => {
+    setQuery(text);
+    setPage(1);
+    setSuggestOpen(false);
+    setActiveSuggestion(-1);
+  };
+
+  const showSuggestions = suggestOpen && suggestions.length > 0 && query.trim().length >= MIN_SUGGEST_LENGTH;
 
   const effectiveSort: SearchSort = sort === "default" ? (debouncedQuery ? "relevance" : "newest") : sort;
   const requestKey = JSON.stringify([debouncedQuery, filters, effectiveSort, page]);
@@ -197,17 +241,66 @@ export default function BuyerCatalogPage() {
           onChange={(e) => {
             setQuery(e.target.value);
             setPage(1);
+            setSuggestOpen(true);
+          }}
+          onFocus={() => setSuggestOpen(true)}
+          onBlur={() => setSuggestOpen(false)}
+          onKeyDown={(e) => {
+            if (!showSuggestions) return;
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActiveSuggestion((i) => (i + 1) % suggestions.length);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActiveSuggestion((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+            } else if (e.key === "Enter" && activeSuggestion >= 0) {
+              e.preventDefault();
+              pickSuggestion(suggestions[activeSuggestion].suggestion);
+            } else if (e.key === "Escape") {
+              setSuggestOpen(false);
+            }
           }}
           placeholder="Search by product, brand or manufacturer"
           aria-label="Search products"
+          aria-autocomplete="list"
+          aria-expanded={showSuggestions}
+          autoComplete="off"
           className="h-10 w-full rounded-lg border border-neutral-300 bg-white pl-10 pr-10 text-[13px] shadow-sm focus:border-primary-600 focus:outline-none"
         />
+        {showSuggestions && (
+          <ul
+            role="listbox"
+            className="absolute left-0 right-0 top-full z-30 mt-1 max-h-80 overflow-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-lg"
+          >
+            {suggestions.map((item, index) => (
+              <li
+                key={`${item.productId ?? item.suggestion}-${index}`}
+                role="option"
+                aria-selected={index === activeSuggestion}
+                // mousedown fires before the input's blur, so the pick isn't lost
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  pickSuggestion(item.suggestion);
+                }}
+                onMouseEnter={() => setActiveSuggestion(index)}
+                className={`flex cursor-pointer items-center gap-2 px-3.5 py-2 text-[13px] text-neutral-800 ${
+                  index === activeSuggestion ? "bg-primary-50" : ""
+                }`}
+              >
+                <Search size={14} className="shrink-0 text-neutral-400" />
+                <span className="min-w-0 flex-1 truncate">{item.suggestion}</span>
+                {item.categoryName && <span className="shrink-0 text-[11px] text-neutral-400">{item.categoryName}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
         {query && (
           <button
             type="button"
             onClick={() => {
               setQuery("");
               setPage(1);
+              setSuggestions([]);
             }}
             aria-label="Clear search"
             className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100"

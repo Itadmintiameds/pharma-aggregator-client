@@ -369,20 +369,6 @@ function OrderCard({
                 Mark Out for Delivery
               </button>
             )}
-
-            {["CONFIRMED", "PACKED", "OUT_FOR_DELIVERY"].includes(order.status) && (
-              <button
-                disabled={busy}
-                onClick={() =>
-                  runWithReason("Reason for cancelling", (reason) =>
-                    cancelSellerOrderAsSeller(order.sellerOrderId, sellerId, reason)
-                  )
-                }
-                className="border-[1.5px] border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-40"
-              >
-                Cancel
-              </button>
-            )}
           </div>
 
           <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-1">

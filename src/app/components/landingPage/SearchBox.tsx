@@ -7,9 +7,9 @@ import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 import { useRecentSearches } from "@/src/hooks/useRecentSearches";
 import { matchingRecents } from "@/src/utils/recentSearches";
 import {
-  getAutocompleteSuggestions,
   getTrendingSearches,
   isRequestCancelled,
+  searchProducts,
 } from "@/src/services/buyer/searchService";
 import { AutocompleteSuggestion, TrendingTerm } from "@/src/types/buyer/search";
 
@@ -76,8 +76,18 @@ export default function SearchBox({ initialQuery = "" }: SearchBoxProps) {
     }
     const controller = new AbortController();
     setLoading(true);
-    getAutocompleteSuggestions(debouncedQuery, 8, controller.signal)
-      .then((result) => {
+    // Same search as the results page (name, molecule, composition, brand...), so the dropdown lists
+    // every product the results will show — not just names starting with the typed text.
+    searchProducts({ q: debouncedQuery, sort: "relevance", page: 0, size: 8 }, controller.signal)
+      .then((res) => {
+        const seen = new Set<string>();
+        const result: AutocompleteSuggestion[] = [];
+        for (const item of res.results) {
+          const key = item.productName.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          result.push({ suggestion: item.productName, productId: item.productId, categoryName: item.categoryName });
+        }
         setSuggestions(result);
         setActiveIndex(-1);
       })

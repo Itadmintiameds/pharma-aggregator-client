@@ -237,6 +237,20 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
         </div>
       )}
 
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <SalesTrendPanel
+            stats={stats}
+            loading={loading}
+            title="Purchase Trend"
+            subtitle="Order value (line) and number of orders (bars), cancelled orders excluded"
+            valueLabel="Spend"
+            compact
+          />
+        </div>
+        <OrderStatusPanel stats={stats} loading={loading} subtitle="Your orders placed in this period" compact />
+      </div>
+
       <Section title="Needs your attention" subtitle="Live — not affected by the date range">
         <div className={tileGrid}>
           <StatTile
@@ -439,20 +453,6 @@ export default function BuyerOverview({ documents }: { documents?: RawTempBuyerD
           />
         </div>
       </Section>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <SalesTrendPanel
-            stats={stats}
-            loading={loading}
-            title="Purchase Trend"
-            subtitle="Order value (line) and number of orders (bars), cancelled orders excluded"
-            valueLabel="Spend"
-            compact
-          />
-        </div>
-        <OrderStatusPanel stats={stats} loading={loading} subtitle="Your orders placed in this period" compact />
-      </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <TopProductsPanel
