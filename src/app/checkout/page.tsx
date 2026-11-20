@@ -21,6 +21,7 @@ import { Order } from "@/src/types/buyer/order";
 import { QuoteRequest } from "@/src/types/quote/quoteRequest";
 import { isCartItemUnavailable, resolveProductAvailability } from "@/src/utils/cartAvailability";
 import { priceCartItem, priceLine } from "@/src/utils/pricing";
+import { returnPolicyLabel } from "@/src/utils/returnPolicy";
 
 // One idempotency key per mount of this page — every submit attempt (including
 // retries of the same click, e.g. after a transient network error) reuses it,
@@ -586,6 +587,7 @@ function CheckoutPageInner() {
                           </span>
                         </div>
                         <div className="flex justify-end gap-2 text-p4 font-body text-pneutral-500">
+                          <span className="mr-auto">{returnPolicyLabel(item.returnable, item.returnPeriodDays)}</span>
                           {hasDiscount && <span className="line-through">₹{item.mrp!.toFixed(2)}</span>}
                           <span>₹{unitPrice.toFixed(2)}/unit</span>
                           {line.discount > 0 && <span>− ₹{line.discount.toFixed(2)} off</span>}

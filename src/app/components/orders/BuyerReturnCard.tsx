@@ -11,6 +11,7 @@ import {
   prettyStatus,
 } from "@/src/app/commonComponents/cardUi";
 import { formatMoney } from "@/src/utils/dashboardFormat";
+import ReturnEvidenceGallery from "./ReturnEvidenceGallery";
 
 /** What an order item was bought at (taken from the order the return belongs to). */
 export type OrderItemInfo = { unitPrice?: number; isQuote: boolean; orderId?: string };
@@ -157,6 +158,11 @@ export default function BuyerReturnCard({
           {reasonLabel(returnRequest.reasonCode)}
           {returnRequest.reason ? ` — ${returnRequest.reason}` : ""}
         </DetailRow>
+        {!!returnRequest.evidence?.length && (
+          <DetailRow label="Photos & videos">
+            <ReturnEvidenceGallery evidence={returnRequest.evidence} />
+          </DetailRow>
+        )}
         {returnRequest.sellerComment && <DetailRow label="Seller's note">{returnRequest.sellerComment}</DetailRow>}
         {returnRequest.trackingNumber && (
           <DetailRow label="Courier">

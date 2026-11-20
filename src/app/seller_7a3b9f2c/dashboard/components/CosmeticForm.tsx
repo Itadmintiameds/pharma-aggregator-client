@@ -41,6 +41,14 @@ import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import AppliedOffersView from "./AppliedOffersView";
+import ReturnPolicyFields from "./ReturnPolicyFields";
+import {
+  ReturnPolicyForm,
+  returnPeriodError,
+  returnPolicyDefaults,
+  returnPolicyFromProduct,
+  returnPolicyPayload,
+} from "@/src/utils/returnPolicy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -408,6 +416,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
   // ─── Errors / modals ──────────────────────────────────────────────────────────
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [returnPolicy, setReturnPolicy] = useState<ReturnPolicyForm>(returnPolicyDefaults);
   const [apiError, setApiError] = useState<string | null>(null);
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -532,6 +541,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         gstLabel:              gstOptions.find((o) => o.value === gstVal)?.label || (gstVal ? `${gstVal}%` : ""),
         genderLabel:           genderOptions.find((o) => o.value === genderValue)?.label || genderValue,
       });
+
+      setReturnPolicy(returnPolicyFromProduct(data));
 
       setForm({
         productName:          data.productName || "",
@@ -1222,6 +1233,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
     if (!form.storageConditionId) e.storageConditionId = "Storage condition is required";
 
+    const periodError = returnPeriodError(returnPolicy);
+    if (periodError) e.returnPeriodDays = periodError;
+
     for (const cert of selectedCertifications) {
       if (!cert.file && !cert.existingUrl) {
         e[`certFile_${cert.id}`] = `Please upload the certificate file for "${cert.label}"`;
@@ -1290,6 +1304,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
       gstPercentage:        Number(form.gstPercentage),
       hsnCode:              Number(form.hsnCode),
+      ...returnPolicyPayload(returnPolicy),
       // Never silently re-publish an UNPUBLISHED product; DRAFT -> PUBLISHED on submit.
       status:               (mode === "edit" && productStatus && productStatus !== "DRAFT" ? productStatus : "PUBLISHED") as "PUBLISHED",
 
@@ -1534,6 +1549,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
         gstPercentage:        form.gstPercentage ? Number(form.gstPercentage) : undefined,
         hsnCode:              form.hsnCode ? Number(form.hsnCode) : undefined,
+        ...returnPolicyPayload(returnPolicy),
         status:               "DRAFT" as const,
 
         productAttributeCosmeticAndPersonalUse: [{
@@ -2006,6 +2022,17 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 <Input label="HSN Code" name="hsnCode" placeholder="e.g. 3304"
                   value={form.hsnCode} onChange={handleChange} error={errors.hsnCode} required />
               )}
+            </div>
+
+            <div data-field="returnPeriodDays">
+              <ReturnPolicyFields
+                value={returnPolicy}
+                onChange={(value) => {
+                  setReturnPolicy(value);
+                  setErrors((p) => { const n = { ...p }; delete n.returnPeriodDays; return n; });
+                }}
+                error={errors.returnPeriodDays}
+              />
             </div>
 
             <div className="flex flex-col gap-1" data-field="storageConditionId">

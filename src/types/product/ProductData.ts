@@ -5,6 +5,8 @@ export interface CreateDrugProductRequest {
   categoryId: number;
   gstPercentage?: number;
   hsnCode?: number;
+  returnable?: boolean;
+  returnPeriodDays?: number | null;
   status?: "DRAFT" | "PUBLISHED";
   packagingDetails?: PackagingData[];
   pricingDetails?: PricingData[];
@@ -21,6 +23,8 @@ export interface CreateProductRequest {
   categoryId: number;
   gstPercentage?: number;
   hsnCode?: number;
+  returnable?: boolean;
+  returnPeriodDays?: number | null;
   status?: "DRAFT" | "PUBLISHED";
   packagingDetails?: PackagingData[];
   pricingDetails?: PricingData[];

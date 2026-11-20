@@ -39,6 +39,14 @@ import AppliedOffersView from "./AppliedOffersView";
 import CommonModal from "../commonComponent/CommonModal";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import ProductImageUpload from "../commonComponent/ProductImageUpload";
+import ReturnPolicyFields from "./ReturnPolicyFields";
+import {
+  ReturnPolicyForm,
+  returnPeriodError,
+  returnPolicyDefaults,
+  returnPolicyFromProduct,
+  returnPolicyPayload,
+} from "@/src/utils/returnPolicy";
 
 import {
   CreateProductRequest,
@@ -358,6 +366,7 @@ const [certificateDocumentIds, setCertificateDocumentIds] = useState<Map<number,
 
   // UI state
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [returnPolicy, setReturnPolicy] = useState<ReturnPolicyForm>(returnPolicyDefaults);
   const [expiryDateWarning, setExpiryDateWarning] = useState<string>("");
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -1166,6 +1175,7 @@ if (name === "batchLotNumber" && value.trim() && !isEditMode) {
         try {
           const prod = await getProductById(productId);
           setProductStatus(String(prod?.status || "").toUpperCase());
+          setReturnPolicy(returnPolicyFromProduct(prod));
           let attr = {};
 
           if (prod.productAttributeFoodInfants && Array.isArray(prod.productAttributeFoodInfants) && prod.productAttributeFoodInfants.length > 0) {
@@ -1498,6 +1508,7 @@ if ((attr as any).certificateDocuments?.length) {
       categoryId: 3,
       gstPercentage: Number(form.gstPercentage) || 0,
       hsnCode: Number(form.hsnCode) || 0,
+      ...returnPolicyPayload(returnPolicy),
       status: "PUBLISHED" as const,
       productAttributeFoodInfants: [foodInfantAttr],
       retainedImageUrls: isEditRoute ? existingImages : undefined,
@@ -1576,6 +1587,9 @@ if ((attr as any).certificateDocuments?.length) {
 
     const certError = validateCertifications();
     if (certError) newErrors.certifications = certError;
+
+    const periodError = returnPeriodError(returnPolicy);
+    if (periodError) newErrors.returnPeriodDays = periodError;
 
     return newErrors;
   };
@@ -1890,6 +1904,7 @@ if ((attr as any).certificateDocuments?.length) {
         categoryId: 3,
         gstPercentage: form.gstPercentage ? Number(form.gstPercentage) : undefined,
         hsnCode: form.hsnCode ? Number(form.hsnCode) : undefined,
+        ...returnPolicyPayload(returnPolicy),
         status: "DRAFT" as const,
         productAttributeFoodInfants: [foodInfantAttr as any],
         retainedImageUrls: isEditRoute ? existingImages : undefined,
@@ -2364,6 +2379,21 @@ if ((attr as any).certificateDocuments?.length) {
                 value={form.hsnCode}
                 error={errors.hsnCode}
                 required
+              />
+            </div>
+
+            <div data-field="returnPeriodDays">
+              <ReturnPolicyFields
+                value={returnPolicy}
+                onChange={(value) => {
+                  setReturnPolicy(value);
+                  setErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.returnPeriodDays;
+                    return next;
+                  });
+                }}
+                error={errors.returnPeriodDays}
               />
             </div>
 

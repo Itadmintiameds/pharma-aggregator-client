@@ -36,6 +36,14 @@ import {
   getSpecificationUnitsBySubCategory
 } from "@/src/services/product/NonConsumbaleService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
+import ReturnPolicyFields from "./ReturnPolicyFields";
+import {
+  ReturnPolicyForm,
+  returnPeriodError,
+  returnPolicyDefaults,
+  returnPolicyFromProduct,
+  returnPolicyPayload,
+} from "@/src/utils/returnPolicy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -271,6 +279,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [returnPolicy, setReturnPolicy] = useState<ReturnPolicyForm>(returnPolicyDefaults);
   const [apiError, setApiError] = useState<string | null>(null);
 
   const [images, setImages] = useState<File[]>([]);
@@ -416,6 +425,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           setDisplayLabels((prev) => ({ ...prev, packTypeLabel: found?.label || packIdVal }));
         } catch { /* ignore */ }
       }
+
+      setReturnPolicy(returnPolicyFromProduct(data));
 
       setForm({
         productName: data.productName || "",
@@ -913,6 +924,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (!pDesc) e.productDescription = "Product description is required";
     else if (pDesc.length > 1000) e.productDescription = "Product description must not exceed 1000 characters";
 
+    const periodError = returnPeriodError(returnPolicy);
+    if (periodError) e.returnPeriodDays = periodError;
+
    
 
     if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
@@ -975,6 +989,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         status: (mode === "edit" && !publishFromDraft ? (productStatus || "PUBLISHED") : "PUBLISHED") as string,
 
         productAttributeNonConsumableMedicals: [{
@@ -1123,6 +1138,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
         gstPercentage: numOrUndef(form.gstPercentage),
         hsnCode: numOrUndef(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         status: "DRAFT" as const,
 
         productAttributeNonConsumableMedicals: [{
@@ -1690,6 +1706,18 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                 />
               </div>
             )}
+
+            {/* Return policy — editable in both create and edit modes */}
+            <div ref={setFieldRef("returnPeriodDays") as React.RefCallback<HTMLDivElement>}>
+              <ReturnPolicyFields
+                value={returnPolicy}
+                onChange={(value) => {
+                  setReturnPolicy(value);
+                  setErrors((p) => { const n = { ...p }; delete n.returnPeriodDays; return n; });
+                }}
+                error={errors.returnPeriodDays}
+              />
+            </div>
 
             {/* Storage Condition — editable only when stock is 0 */}
             {isEdit && Number(form.stockQuantity) > 0 ? (

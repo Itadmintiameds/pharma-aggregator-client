@@ -81,6 +81,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           quantity: clamp(quantity),
           minQuantity,
           maxQuantity,
+          returnable: product.returnable,
+          returnPeriodDays: product.returnPeriodDays,
         },
       ];
     });
@@ -130,7 +132,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  // Re-syncs a cart line's sellerName/minQuantity/maxQuantity against
+  // Re-syncs a cart line's sellerName/minQuantity/maxQuantity/return policy against
   // whatever the product's current data actually is. These always get
   // overwritten (not just filled in when missing) because minQuantity and
   // maxQuantity fall back to a computed default (1 / stock quantity) the
@@ -164,6 +166,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           ...(pricing ? batchPricingFields(product, pricing) : {}),
           minQuantity,
           maxQuantity,
+          returnable: product.returnable ?? item.returnable,
+          returnPeriodDays: product.returnable === undefined ? item.returnPeriodDays : product.returnPeriodDays,
           quantity,
         };
       })

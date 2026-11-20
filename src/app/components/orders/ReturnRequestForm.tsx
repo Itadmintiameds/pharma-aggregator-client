@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { requestReturn } from "@/src/services/buyer/returnService";
-import { RETURN_REASONS } from "@/src/types/buyer/returns";
+import { REASONS_REQUIRING_EVIDENCE, RETURN_REASONS } from "@/src/types/buyer/returns";
+import ReturnEvidencePicker, { EvidenceFile } from "./ReturnEvidencePicker";
 
 // Reason and details for the items the buyer ticked.
 export default function ReturnRequestForm({
@@ -18,21 +19,30 @@ export default function ReturnRequestForm({
 }) {
   const [reasonCode, setReasonCode] = useState("");
   const [details, setDetails] = useState("");
+  const [evidence, setEvidence] = useState<EvidenceFile[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const evidenceRequired = REASONS_REQUIRING_EVIDENCE.includes(reasonCode);
+  const evidenceKeys = evidence.flatMap((f) => (f.key ? [f.key] : []));
   const missing = !reasonCode
     ? "Choose a reason."
     : reasonCode === "OTHER" && !details.trim()
       ? "Describe the problem."
-      : null;
+      : evidence.some((f) => !f.key && !f.error)
+        ? "Wait for the photos and videos to finish uploading."
+        : evidence.some((f) => f.error)
+          ? "Remove or retry the files that failed."
+          : evidenceRequired && evidenceKeys.length === 0
+            ? "Add at least one photo or video of the product."
+            : null;
 
   const submit = async () => {
     if (missing) return;
     setBusy(true);
     setError(null);
     try {
-      await requestReturn({ items, buyerId, reasonCode, reason: details.trim() || undefined });
+      await requestReturn({ items, buyerId, reasonCode, reason: details.trim() || undefined, evidenceKeys });
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to request a return.");
@@ -75,6 +85,14 @@ export default function ReturnRequestForm({
           className="block w-full mt-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white resize-none"
         />
       </label>
+
+      <ReturnEvidencePicker
+        buyerId={buyerId}
+        files={evidence}
+        onChange={setEvidence}
+        required={evidenceRequired}
+        disabled={busy}
+      />
 
       {error && <p className="text-p4 font-body text-red-600">{error}</p>}
       {!error && missing && reasonCode && <p className="text-p4 font-body text-pneutral-500">{missing}</p>}

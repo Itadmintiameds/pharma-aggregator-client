@@ -1,4 +1,5 @@
 import { BuyerProduct } from "@/src/types/buyer/product";
+import { returnPolicyLabel } from "@/src/utils/returnPolicy";
 
 const PLACEHOLDER_IMAGE = "/icons/Tumbnail.svg";
 
@@ -56,6 +57,12 @@ export default function ProductSummaryCard({ product }: ProductSummaryCardProps)
             <p className="text-p4 font-body text-pneutral-800">{product.hsnCode}</p>
           </div>
         )}
+        <div className="flex items-center justify-between">
+          <p className="text-p4 font-body text-pneutral-600">Returns</p>
+          <p className="text-p4 font-body text-pneutral-800">
+            {returnPolicyLabel(product.returnable, product.returnPeriodDays)}
+          </p>
+        </div>
       </div>
     </div>
   );

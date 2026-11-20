@@ -33,6 +33,43 @@ export interface ReturnRequestInput {
   buyerId: string;
   reasonCode: string;
   reason?: string;
+  // Keys from uploadReturnEvidence.
+  evidenceKeys?: string[];
+}
+
+interface EvidenceUpload {
+  key: string;
+  uploadUrl: string;
+  headers: Record<string, string>;
+}
+
+// Uploads one photo/video straight to S3 through a URL order-service signs, and returns its key for
+// requestReturn's evidenceKeys. The file never goes through the gateway.
+export async function uploadReturnEvidence(
+  buyerId: string,
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<string> {
+  let upload: EvidenceUpload;
+  try {
+    const response = await buyerApi.post<ApiResponseWrapper<EvidenceUpload[]>>("/returns/evidence/upload-urls", {
+      buyerId,
+      files: [{ contentType: file.type, sizeBytes: file.size }],
+    });
+    upload = response.data.data[0];
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, `Could not start uploading ${file.name}.`));
+  }
+  try {
+    // Plain axios, not buyerApi: S3 must not get our auth header, and the signed headers must match exactly.
+    await axios.put(upload.uploadUrl, file, {
+      headers: upload.headers,
+      onUploadProgress: (e) => onProgress?.(e.total ? Math.round((e.loaded / e.total) * 100) : 0),
+    });
+  } catch {
+    throw new Error(`Uploading ${file.name} failed. Please try again.`);
+  }
+  return upload.key;
 }
 
 // One return (one parcel) for units of one or more items of the same seller order, under one reason.
