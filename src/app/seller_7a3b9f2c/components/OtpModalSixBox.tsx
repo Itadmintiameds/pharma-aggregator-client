@@ -10,6 +10,13 @@ interface Props {
   onClose: () => void;
   onVerified: () => void;
   onResend: () => Promise<void>;
+  // Optional override for the verify call — defaults to the temp-seller
+  // registration email/SMS OTP endpoints below. Pass this to reuse the modal
+  // for other OTP flows (e.g. signup) without forking the component.
+  onVerify?: (otp: string) => Promise<void>;
+  // When true, filling the last box (or pasting a full code) auto-submits.
+  // Defaults to false — verification always requires pressing "Verify".
+  autoVerifyOnComplete?: boolean;
 }
 
 export default function VerificationModal({
@@ -19,6 +26,8 @@ export default function VerificationModal({
   onVerified,
   type,
   onResend,
+  onVerify,
+  autoVerifyOnComplete = false,
 }: Props) {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -41,39 +50,6 @@ export default function VerificationModal({
     }
   }, [show]);
 
-  // click outside handler
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        show &&
-        modalRef.current &&
-        !modalRef.current.contains(event.target as Node)
-      ) {
-        onClose();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [show, onClose]);
-
-  // escape key handler
-  useEffect(() => {
-    const handleEscKey = (event: KeyboardEvent) => {
-      if (show && event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleEscKey);
-
-    return () => {
-      document.removeEventListener("keydown", handleEscKey);
-    };
-  }, [show, onClose]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -108,17 +84,17 @@ export default function VerificationModal({
     setError("");
 
     try {
-      let response: any;
-
-      if (type === "email") {
-        response = await sellerRegService.verifyEmailOtp({
+      if (onVerify) {
+        await onVerify(enteredOtp);
+      } else if (type === "email") {
+        await sellerRegService.verifyEmailOtp({
           email: label,
           otp: enteredOtp,
         });
       } else {
         const phoneWithPrefix = formatPhone(label);
 
-        response = await sellerRegService.verifySMSOtp({
+        await sellerRegService.verifySMSOtp({
           phone: phoneWithPrefix,
           otp: enteredOtp,
         });
@@ -162,7 +138,7 @@ export default function VerificationModal({
       inputs.current[index + 1]?.focus();
     }
 
-    if (value && index === 5) {
+    if (value && index === 5 && autoVerifyOnComplete) {
       const enteredOtp = newOtp.join("");
 
       if (enteredOtp.length === 6) {
@@ -203,9 +179,11 @@ export default function VerificationModal({
     setOtp(newOtp);
     setError("");
 
-    setTimeout(() => {
-      verifyOtpNow(pasteData);
-    }, 50);
+    if (autoVerifyOnComplete) {
+      setTimeout(() => {
+        verifyOtpNow(pasteData);
+      }, 50);
+    }
 
     setTimeout(() => {
       inputs.current[5]?.focus();
@@ -249,19 +227,38 @@ export default function VerificationModal({
   if (!show) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div
         ref={modalRef}
-        className="w-[400px] bg-white rounded-xl shadow-lg p-6 text-center"
-        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-[26rem] bg-white rounded-xl shadow-xl p-5 text-center"
       >
+        {/* Close */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-3 right-3 rounded text-pneutral-500 hover:text-pneutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+
         {/* Icon */}
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-2">
           <div
-            className={`w-20 h-20 rounded-full flex items-center justify-center shadow-md ${
+            className={`w-14 h-14 rounded-full flex items-center justify-center shadow-sm ${
               type === "email" ? "bg-secondary-100" : "bg-secondary-100"
             }`}
           >
@@ -269,16 +266,16 @@ export default function VerificationModal({
               <Image
                 src="/icons/emailVerIcon.png"
                 alt="Email Icon"
-                width={85}
-                height={40}
+                width={44}
+                height={24}
                 className="object-contain"
               />
             ) : (
               <Image
                 src="/icons/mobVerIcon.png"
                 alt="Mobile Icon"
-                width={85}
-                height={40}
+                width={44}
+                height={24}
                 className="object-contain"
               />
             )}
@@ -286,25 +283,25 @@ export default function VerificationModal({
         </div>
 
         {/* Title */}
-        <h2 className="text-h4 font-heading font-medium text-pneutral-900 leading-[36px] mb-1">
+        <h2 className="text-base font-heading font-bold text-pneutral-900 leading-6 mb-1">
           {type === "email"
             ? "Verify your email"
             : "Verify your mobile number"}
         </h2>
 
         {/* Subtitle */}
-        <p className="text-p3 font-body font-regular text-pneutral-600 leading-[20px] mb-4">
+        <p className="text-[13px] font-body font-regular text-pneutral-600 leading-[18px] mb-3">
           We just sent you a verification code to your{" "}
           {type === "email" ? "email id" : "phone number"}
         </p>
 
         {/* OTP Label */}
-        <p className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px] mb-4">
+        <p className="text-xs font-heading font-semibold text-pneutral-900 mb-2">
           Enter your OTP code here
         </p>
 
         {/* OTP Inputs */}
-        <div className="flex justify-center gap-3 mb-6">
+        <div className="flex justify-center gap-2 mb-3">
           {otp.map((digit, index) => (
             <input
               key={index}
@@ -317,14 +314,14 @@ export default function VerificationModal({
               onChange={(e) => handleChange(e.target.value, index)}
               onKeyDown={(e) => handleKeyDown(e, index)}
               onPaste={handlePaste}
-              className="w-12 h-12 bg-white text-center text-h6 font-heading font-semibold text-pneutral-900 border border-neutral-500 rounded-xl focus:outline-none focus:ring-0 focus:border-primary-500"
+              className="w-10 h-10 bg-white text-center text-base font-heading font-semibold text-pneutral-900 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-800"
             />
           ))}
         </div>
 
         {/* Error */}
         {error && (
-          <p className="text-p2 font-body font-regular text-red-500 mb-4">
+          <p className="text-xs font-body font-regular text-red-500 mb-3">
             {error}
           </p>
         )}
@@ -332,15 +329,15 @@ export default function VerificationModal({
         
 
         {/* Resend Section */}
-        <div className="mt-5">
-          <p className="text-p3 font-body font-regular text-pneutral-800">
+        <div className="mt-3">
+          <p className="text-xs font-body font-regular text-pneutral-800">
             Didn&apos;t receive the OTP?
           </p>
 
           <button
             onClick={handleResendCode}
             disabled={!canResend}
-            className="text-p3 font-body text-warning-500 mt-1 disabled:text-neutral-400"
+            className="text-xs font-semibold font-body text-warning-500 mt-1 rounded disabled:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
           >
             {canResend ? "Resend OTP" : `Resend in ${resendCountdown}s`}
           </button>
@@ -350,7 +347,7 @@ export default function VerificationModal({
         <button
           onClick={verify}
           disabled={isVerifying || otp.join("").length !== 6}
-          className="w-37.5 h-13 px-4 rounded-xl bg-primary-800 mt-3 text-white font-semibold transition-none"
+          className="min-w-[9rem] h-9 px-4 rounded-lg border-[1.5px] border-primary-900 text-primary-900 text-[13px] mt-3 font-semibold hover:bg-primary-50 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
         >
           {isVerifying ? "Verifying..." : "Verify"}
         </button>

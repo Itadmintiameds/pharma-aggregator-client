@@ -63,7 +63,7 @@ export default function UploadInput({
       )}
 
       <label className="cursor-pointer">
-        <div className={`flex items-center w-full h-13 rounded-lg border bg-white overflow-hidden ${hasError ? "border-2 border-red-500" : "border-pneutral-300"}`}>
+        <div className={`flex items-center w-full h-13 rounded-lg border bg-white overflow-hidden focus-within:border-primary-800 focus-within:ring-2 focus-within:ring-primary-100 ${hasError ? "border-2 border-red-500" : "border-pneutral-300"}`}>
           <div className="flex items-center justify-center h-full px-4 bg-secondary-800 rounded-md">
             <img src="/icons/UploadIcon.svg" className="w-6 h-6" />
           </div>
@@ -74,7 +74,7 @@ export default function UploadInput({
                 <span className="truncate">
                   {file ? file.name : existingFile?.split("/").pop()}
                 </span>
-                <button onClick={removeFile} className="ml-2">
+                <button type="button" aria-label="Remove file" onClick={removeFile} className="ml-2 rounded focus-visible:outline-2 focus-visible:outline-white">
                   ✕
                 </button>
               </div>
@@ -85,11 +85,12 @@ export default function UploadInput({
 
           {!file && (!existingFile || removedExisting) && (
             <label className="cursor-pointer px-4">
-              <img src="/icons/UploadAddIcon.svg" className="w-6 h-6" />
+              <img src="/icons/UploadAddIcon.svg" alt="" className="w-6 h-6" />
               <input
                 type="file"
                 accept={accept}
-                className="hidden"
+                aria-label={label || placeholder}
+                className="sr-only"
                 onChange={handleFileChange}
               />
             </label>

@@ -3,6 +3,14 @@ import type { Metadata } from "next";
 import { Noto_Sans, Work_Sans, Open_Sans } from "next/font/google";
 // import "bootstrap-icons/font/bootstrap-icons.css";
 import "./global.css";
+import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer } from "react-toastify";
+import { CartProvider } from "@/src/context/CartContext";
+import BuyerLoginModalProvider from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
+import BuyerLoginModal from "@/src/app/buyer_e8d45a1b/components/BuyerLoginModal";
+import BuyerSignupModal from "@/src/app/buyer_e8d45a1b/components/BuyerSignupModal";
+import { BuyerCartDrawerProvider } from "@/src/app/buyer_e8d45a1b/context/BuyerCartDrawerContext";
+import GlobalCartDrawer from "@/src/app/components/GlobalCartDrawer";
 
 const notoSans = Noto_Sans({
   subsets: ["latin"],
@@ -52,7 +60,30 @@ export default function RootLayout({
         // className="antialiased"
         className={`antialiased ${notoSans.variable} ${workSans.variable} ${openSans.variable}`}
       >
-        {children}
+        <CartProvider>
+          <BuyerLoginModalProvider>
+            <BuyerCartDrawerProvider>
+              {children}
+              {/* One side cart for the whole site (landing, search, product, dashboard). */}
+              <GlobalCartDrawer />
+            </BuyerCartDrawerProvider>
+            <BuyerLoginModal />
+            <BuyerSignupModal />
+          </BuyerLoginModalProvider>
+        </CartProvider>
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+          style={{ zIndex: 9999 }}
+        />
       </body>
     </html>
   );

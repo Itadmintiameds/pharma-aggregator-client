@@ -1,6 +1,7 @@
 "use client";
 
 
+import ProductImageGallery from "./ProductImageGallery";
 import React, { useState } from "react";
 import { FileText, ExternalLink, Gift, ShoppingBag, Tag, BadgePercent } from "lucide-react";
 import { PiSealCheckLight } from "react-icons/pi";
@@ -92,7 +93,7 @@ const ROW: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
   alignItems: "center",
-  padding: "12px 16px",
+  padding: "8px 12px",
   borderBottom: "1px solid #D5D5D4",
   gap: 16,
 };
@@ -109,10 +110,10 @@ const ROW_LABEL: React.CSSProperties = {
 
 const LABEL_TEXT: React.CSSProperties = {
   color: "#5A5B58",
-  fontSize: 16,
+  fontSize: 13,
   fontFamily: FONTS.workSans,
   fontWeight: 500,
-  lineHeight: "24px",
+  lineHeight: "20px",
   wordWrap: "break-word",
   margin: 0,
 };
@@ -120,20 +121,20 @@ const LABEL_TEXT: React.CSSProperties = {
 
 const REQUIRED_STAR: React.CSSProperties = {
   color: "#FF3B3B",
-  fontSize: 16,
+  fontSize: 14,
   fontFamily: FONTS.workSans,
   fontWeight: 500,
-  lineHeight: "24px",
+  lineHeight: "20px",
   flexShrink: 0,
 };
 
 
 const VALUE_TEXT: React.CSSProperties = {
   color: "#3C3D3A",
-  fontSize: 16,
+  fontSize: 14,
   fontFamily: FONTS.notoSans,
-  fontWeight: 400,
-  lineHeight: "24px",
+  fontWeight: 600,
+  lineHeight: "20px",
   wordWrap: "break-word",
   textAlign: "right",
   flex: "1 1 0",
@@ -156,7 +157,7 @@ const isPdfUrl = (url: string) => /\.pdf(\?.*)?$/i.test(url);
 const isValidUrl = (url?: string | null) => {
   if (!url) return false;
   const t = url.trim().toUpperCase();
-  return !["", "PENDING", "NOT_UPLOADED"].includes(t);
+  return !["", "PENDING", "NOT_UPLOADED", "TO_UPLOAD", "NULL", "UNDEFINED"].includes(t) && !t.startsWith("BLOB:");
 };
 
 
@@ -171,12 +172,14 @@ const FieldRow = ({
   required = true,
   valueNode,
   multiline = false,
+  bold = false,
 }: {
   label: string;
   value?: string | number | null;
   required?: boolean;
   valueNode?: React.ReactNode;
   multiline?: boolean;
+  bold?: boolean;
 }) => (
   <div style={{ ...ROW, alignItems: multiline ? "flex-start" : "center" }}>
     <div style={ROW_LABEL}>
@@ -188,7 +191,7 @@ const FieldRow = ({
         {valueNode}
       </div>
     ) : (
-      <p style={VALUE_TEXT}>{value ?? "—"}</p>
+      <p style={bold ? { ...VALUE_TEXT, fontWeight: 700, color: "#1E1E1D" } : VALUE_TEXT}>{value ?? "—"}</p>
     )}
   </div>
 );
@@ -217,7 +220,6 @@ const ConsumableView = ({
   additionalDiscounts = [],
   specialSchemes = [],
 }: ConsumableViewProps) => {
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCertModal, setShowCertModal] = useState(false);
   const [activeCertDoc, setActiveCertDoc] = useState<CertificateDocument | null>(null);
 
@@ -252,58 +254,22 @@ const ConsumableView = ({
       {/* ── Section header ── */}
       <div style={{ paddingTop: 8, paddingBottom: 8, borderBottom: "1px #D5D5D4 solid" }}>
         <h2
-          style={{
-            color: "#1E1E1D",
-            fontSize: 28,
-            fontFamily: FONTS.workSans,
-            fontWeight: 500,
-            lineHeight: "36px",
-            margin: 0,
-          }}
+          style={{ color: "#4A0D75", background: "#F8EDFF", borderLeft: "4px solid #6C12A9", borderRadius: 6, padding: "6px 12px", fontSize: 18, fontWeight: 700, lineHeight: "26px", margin: 0 }}
         >
           Product Details
         </h2>
       </div>
 
 
-      {/* ── Product Images ── */}
-      <div className="flex flex-col gap-4 p-3 bg-[#F8F5FF] rounded-xl border border-pneutral-200 w-full min-h-[340px]">
-        <h3 className="font-heading font-semibold text-[18px] leading-[24px] text-[#1E1E1D]">
-          Product Images
-        </h3>
-        <div className="flex justify-center flex-wrap gap-3">
-          {imagesToShow.slice(0, 5).map((img, idx) => (
-            <div
-              key={idx}
-              onClick={() => setSelectedImageIndex(idx)}
-              className={`relative h-[274px] w-full max-w-[calc(20%-10px)] overflow-hidden rounded-xl cursor-pointer shadow-sm${idx === selectedImageIndex ? " outline outline-2 outline-primary-500 -outline-offset-1" : ""}`}
-            >
-              <Image
-                src={img}
-                alt={`Product image ${idx + 1}`}
-                fill
-                className="object-cover"
-                unoptimized={img.startsWith("http")}
-                onError={(e) => { (e.target as HTMLImageElement).src = placeholderImage; }}
-              />
-              {idx === 0 && (
-                <div className="absolute left-[10px] top-[10px] px-2 py-1 bg-secondary-500 rounded-[4px]">
-                  <span className="text-white text-xs font-body font-semibold leading-[18px]">Primary</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
 
       {/* ── Two-column field rows ── */}
-      <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
 
 
         {/* LEFT COLUMN */}
         <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column" }}>
-          <FieldRow label="Product Name" value={productName} multiline />
+          <ProductImageGallery className="mb-2" images={imagesToShow} placeholderImage={placeholderImage} />
+          <FieldRow label="Product Name" value={productName} multiline bold />
           {/* Use resolved names (from ID lookup) with fallback to inline consAttr fields */}
           <FieldRow label="Device Category" value={resolvedDeviceCategoryName} />
           <FieldRow label="Device Subcategory" value={resolvedDeviceSubCategoryName} />
@@ -376,7 +342,7 @@ const ConsumableView = ({
                 <span
                   style={{
                     color: "#3C3D3A",
-                    fontSize: 16,
+                    fontSize: 14,
                     fontFamily: FONTS.openSans,
                     fontWeight: 400,
                     lineHeight: "22px",
@@ -400,7 +366,7 @@ const ConsumableView = ({
                 <span
                   style={{
                     color: "#5A5B58",
-                    fontSize: 16,
+                    fontSize: 14,
                     fontFamily: FONTS.openSans,
                     fontWeight: 400,
                     lineHeight: "22px",
@@ -455,9 +421,9 @@ const ConsumableView = ({
                         borderRadius: 8,
                         cursor: "pointer",
                         fontFamily: FONTS.notoSans,
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: 500,
-                        lineHeight: "24px",
+                        lineHeight: "20px",
                         color: c.color,
                       }}
                     >
@@ -474,7 +440,7 @@ const ConsumableView = ({
 
 
       {/* ── Key Features + Safety Instructions side by side ── */}
-      <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
         <div
           style={{
             flex: "1 1 0",
@@ -503,10 +469,10 @@ const ConsumableView = ({
                     key={i}
                     style={{
                       color: "#3C3D3A",
-                      fontSize: 16,
+                      fontSize: 14,
                       fontFamily: FONTS.notoSans,
                       fontWeight: 400,
-                      lineHeight: "24px",
+                      lineHeight: "20px",
                       wordWrap: "break-word",
                     }}
                   >
@@ -515,7 +481,7 @@ const ConsumableView = ({
                 ))}
             </div>
           ) : (
-            <p style={{ color: "#5A5B58", fontSize: 16, fontFamily: FONTS.notoSans, fontWeight: 400, lineHeight: "24px", margin: 0 }}>
+            <p style={{ color: "#5A5B58", fontSize: 14, fontFamily: FONTS.notoSans, fontWeight: 400, lineHeight: "20px", margin: 0 }}>
               —
             </p>
           )}
@@ -542,10 +508,10 @@ const ConsumableView = ({
           <p
             style={{
               color: "#3C3D3A",
-              fontSize: 16,
+              fontSize: 14,
               fontFamily: FONTS.notoSans,
               fontWeight: 400,
-              lineHeight: "24px",
+              lineHeight: "20px",
               wordWrap: "break-word",
               margin: 0,
             }}
@@ -576,10 +542,10 @@ const ConsumableView = ({
         <p
           style={{
             color: "#3C3D3A",
-            fontSize: 16,
+            fontSize: 14,
             fontFamily: FONTS.notoSans,
             fontWeight: 400,
-            lineHeight: "24px",
+            lineHeight: "20px",
             wordWrap: "break-word",
             margin: 0,
           }}
@@ -592,7 +558,7 @@ const ConsumableView = ({
       {/* ── SPECIAL OFFERS & PROMOTIONAL SCHEMES ── */}
       {/* {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
         <div className="flex flex-col gap-4 pt-4 border-t border-pneutral-200 mt-2">
-          <h4 className="text-[24px] font-heading font-medium leading-[32px] text-pneutral-900">
+          <h4 className="text-xl font-heading font-bold leading-7 text-pneutral-900 border-l-4 border-primary-800 pl-2.5">
             Special Offers &amp; Promotional Schemes
           </h4>
           <div className="grid grid-cols-2 gap-4">
@@ -611,7 +577,7 @@ const ConsumableView = ({
                 ? `Valid: ${new Date(scheme.effectiveStartDate).toLocaleDateString("en-GB")} - ${new Date(scheme.effectiveEndDate).toLocaleDateString("en-GB")}`
                 : "Valid: Ongoing";
               return (
-                <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] h-[142px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
+                <div key={index} className="flex flex-row items-start gap-4 border-2 rounded-xl p-4 min-h-[96px]" style={{ backgroundColor: theme.bg, borderColor: theme.border }}>
                   <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md" style={{ backgroundColor: theme.border }}>
                     <theme.Icon className="w-6 h-6 text-white" />
                   </div>
@@ -628,7 +594,7 @@ const ConsumableView = ({
               );
             })}
             {additionalDiscounts.length > 0 && (
-              <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-[22px] bg-[#F8EDFF] border-[#6C12A9] h-[142px]">
+              <div className="flex flex-row items-start gap-4 border-2 rounded-xl p-4 bg-[#F8EDFF] border-[#6C12A9] min-h-[96px]">
                 <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-md bg-[#6C12A9]">
                   <BadgePercent className="w-6 h-6 text-white" />
                 </div>
@@ -707,7 +673,7 @@ const ConsumableView = ({
                   <PiSealCheckLight size={20} color="#378200" />
                 </div>
                 <div>
-                  <p style={{ color: "#1E1E1D", fontSize: 16, fontFamily: FONTS.workSans, fontWeight: 600, lineHeight: "22px", margin: 0 }}>
+                  <p style={{ color: "#1E1E1D", fontSize: 14, fontFamily: FONTS.workSans, fontWeight: 600, lineHeight: "22px", margin: 0 }}>
                     {activeCertDoc.certificationName ?? activeCertDoc.label ?? `Certificate ${activeCertDoc.certificationId}`}
                   </p>
                   <p style={{ color: "#5A5B58", fontSize: 12, fontFamily: FONTS.notoSans, fontWeight: 400, lineHeight: "18px", margin: 0 }}>
@@ -800,7 +766,7 @@ const ConsumableView = ({
                     <FileText size={32} color="#378200" />
                   </div>
                   <div style={{ textAlign: "center" }}>
-                    <p style={{ color: "#1E1E1D", fontSize: 16, fontFamily: FONTS.workSans, fontWeight: 600, lineHeight: "22px", margin: "0 0 8px" }}>
+                    <p style={{ color: "#1E1E1D", fontSize: 14, fontFamily: FONTS.workSans, fontWeight: 600, lineHeight: "22px", margin: "0 0 8px" }}>
                       {activeCertDoc.certificationName ?? activeCertDoc.label ?? `Certificate ${activeCertDoc.certificationId}`}
                     </p>
                     <p style={{ color: "#5A5B58", fontSize: 14, fontFamily: FONTS.notoSans, fontWeight: 400, lineHeight: "20px", margin: "0 0 16px" }}>

@@ -3,8 +3,13 @@ export interface CreateDrugProductRequest {
   productDescription: string;
   warningsPrecautions: string;
   categoryId: number;
-  packagingDetails: PackagingData[];
-  pricingDetails: PricingData[];
+  gstPercentage?: number;
+  hsnCode?: number;
+  returnable?: boolean;
+  returnPeriodDays?: number | null;
+  status?: "DRAFT" | "PUBLISHED";
+  packagingDetails?: PackagingData[];
+  pricingDetails?: PricingData[];
   productAttributeDrugs?: ProductAttributeDrugData[];
   productAttributeConsumableMedicals?: ProductAttributeConsumableData[];
   productAttributeNonConsumableMedicals?: ProductAttributeNonConsumableData[];
@@ -16,8 +21,13 @@ export interface CreateProductRequest {
   warningsPrecautions: string;
   manufacturerName?: string;
   categoryId: number;
-  packagingDetails: PackagingData[];
-  pricingDetails: PricingData[];
+  gstPercentage?: number;
+  hsnCode?: number;
+  returnable?: boolean;
+  returnPeriodDays?: number | null;
+  status?: "DRAFT" | "PUBLISHED";
+  packagingDetails?: PackagingData[];
+  pricingDetails?: PricingData[];
   productAttributeFoodInfants?: ProductAttributeFoodInfantData[];
   retainedImageUrls?: string[];
 }
@@ -129,6 +139,8 @@ export interface PricingData {
   expiryDate: string | null;
   dateOfStockEntry: string | null;
   stockQuantity: number;
+  // Units returned damaged by buyers — read-only, kept out of stockQuantity.
+  damagedQuantity?: number | null;
   sellingPrice: number;
   mrp: number;
   gstPercentage: number;
@@ -136,6 +148,8 @@ export interface PricingData {
   finalPrice: number;
   hsnCode: number;
   shelfLifeMonths?: number;
+  deletedBy?: string | null;
+  deletedAt?: string | null;
   additionalDiscounts: AdditionalDiscountData[];
   specialSchemes?: SpecialSchemesData[];
 }
@@ -181,6 +195,7 @@ export interface ProductListData {
   productName: string;
   categoryName?: string;
   categoryId?: number;
+  status?: "DRAFT" | "PUBLISHED" | "UNPUBLISHED";
   pricingDetails: PricingData[];
   productImages?: {
     productImage: string;

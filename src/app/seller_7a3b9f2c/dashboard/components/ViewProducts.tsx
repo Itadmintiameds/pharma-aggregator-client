@@ -301,15 +301,15 @@ const ViewProducts = () => {
       {/* Products Table */}
       <div className="bg-base-white rounded-lg border border-neutral-200 overflow-hidden">
         <table className="w-full">
-          <thead className="bg-neutral-50 border-b border-neutral-200">
+          <thead className="bg-secondary-600 border-b border-neutral-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Product</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Category</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Price</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Stock</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Expiry Date</th>
-              <th className="px-6 py-3 text-right text-xs font-semibold text-neutral-600 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Product</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Category</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Price</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Stock</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Expiry Date</th>
+              <th className="px-6 py-3 text-right text-xs font-semibold text-pneutral-50 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200">
@@ -480,7 +480,7 @@ const ViewProducts = () => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl max-w-md w-full mx-4 p-6">
+          <div className="bg-white rounded-xl max-w-112 w-full mx-4 p-6">
             <div className="text-center mb-4">
               <div className="w-16 h-16 bg-warning-50 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Trash2 size={32} className="text-warning-600" />

@@ -31,10 +31,26 @@ export default function ProductImageUpload({
   maxFiles = 5,
   inputId = "fileInput",
 }: ProductImageUploadProps) {
+  const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
 
-    const newFiles = Array.from(e.target.files);
+    const selectedFiles = Array.from(e.target.files);
+    const oversizedFiles = selectedFiles.filter((f) => f.size > MAX_FILE_SIZE);
+    const newFiles = selectedFiles.filter((f) => f.size <= MAX_FILE_SIZE);
+
+    if (oversizedFiles.length > 0) {
+      setErrors?.((prev: any) => ({
+        ...prev,
+        images: `${oversizedFiles.map((f) => f.name).join(", ")} exceed${oversizedFiles.length === 1 ? "s" : ""} the 2 MB size limit`,
+      }));
+    }
+
+    if (newFiles.length === 0) {
+      e.target.value = "";
+      return;
+    }
 
     const totalFiles = images.length + existingImages.length + newFiles.length;
 
@@ -55,12 +71,15 @@ export default function ProductImageUpload({
       return;
     }
 
-    setErrors?.((prev: any) => ({
-      ...prev,
-      images: "",
-    }));
+    if (oversizedFiles.length === 0) {
+      setErrors?.((prev: any) => ({
+        ...prev,
+        images: "",
+      }));
+    }
 
     setImages((prev) => [...prev, ...newFiles]);
+    e.target.value = "";
   };
 
   return (
@@ -73,9 +92,20 @@ export default function ProductImageUpload({
       </div>
 
       <div
-        className="w-full h-40 bg-pneutral-50 flex items-center justify-center rounded-lg cursor-pointer"
+        role="button"
+        tabIndex={!isReadOnly || mode === "edit" ? 0 : -1}
+        aria-label={`${title}: choose image files`}
+        aria-disabled={isReadOnly && mode !== "edit"}
+        className="w-full h-40 bg-pneutral-50 flex items-center justify-center rounded-lg cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-800 focus-visible:ring-offset-2"
         onClick={() => {
           if (!isReadOnly || mode === "edit") {
+            document.getElementById(inputId)?.click();
+          }
+        }}
+        onKeyDown={(e) => {
+          // Enter / Space open the file picker, like a button
+          if ((e.key === "Enter" || e.key === " ") && (!isReadOnly || mode === "edit")) {
+            e.preventDefault();
             document.getElementById(inputId)?.click();
           }
         }}
@@ -132,7 +162,8 @@ export default function ProductImageUpload({
                         existingImages.filter((_, i) => i !== index),
                       )
                     }
-                    className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded"
+                    aria-label={`Remove image ${index + 1}`}
+                    className="absolute top-1 right-1 text-[#1E1E1D] cursor-pointer text-xs px-1 rounded focus-visible:outline-2 focus-visible:outline-primary-800"
                   >
                     ✕
                   </button>
@@ -158,7 +189,8 @@ export default function ProductImageUpload({
                     onClick={() =>
                       setImages(images.filter((_, i) => i !== index))
                     }
-                    className="absolute top-1 right-1 w-5 h-5 bg-[#1E1E1D] text-white rounded-full flex items-center justify-center cursor-pointer text-xs"
+                    aria-label={`Remove new image ${index + 1}`}
+                    className="absolute top-1 right-1 w-5 h-5 bg-[#1E1E1D] text-white rounded-full flex items-center justify-center cursor-pointer text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-800"
                   >
                     ✕
                   </button>

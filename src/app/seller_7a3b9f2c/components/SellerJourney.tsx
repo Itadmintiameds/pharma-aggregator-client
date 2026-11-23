@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   FaUserPlus,
   FaBox,
@@ -15,26 +16,44 @@ import {
   FaArrowRight,
 } from "react-icons/fa";
 
-import SellerRegister from "./SellerRegister";
 import ProductOnboarding from "./ProductOnboarding";
 import SellerDeclaration from "./SellerDeclaration";
+import SellerRegister from "./SellerRegister";
 import DrugProductList from "./DrugProductList";
+import LoginModals from "@/src/app/modals/LoginModals/LoginModals";
+import { useSellerOnboardingStatus } from "@/src/hooks/useSellerOnboardingStatus";
 
 const SellerJourney = () => {
-  const [showRegister, setShowRegister] = useState(false);
+  const router = useRouter();
+  const { status } = useSellerOnboardingStatus();
   const [showProductOnboarding, setShowProductOnboarding] = useState(false);
   const [showDeclaration, setShowDeclaration] = useState(false);
   const [showProductList, setShowProductList] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  // Only for a brand-new visitor starting signup from this marketing page —
+  // SellerRegister's own SignupForm step handles account creation before any
+  // session exists, so it has to render here rather than behind the
+  // dashboard's auth guard. The moment that signup makes them authenticated,
+  // the redirect effect below takes over and sends them to the dashboard to
+  // continue the same wizard (resumed from their now-existing TempSeller draft).
+  const [showRegisterFlow, setShowRegisterFlow] = useState(false);
+
+  // Any authenticated seller — regardless of registration/approval status —
+  // now lands on the dashboard, which owns the onboarding wizard/pending
+  // gate itself. This marketing page only ever renders for guests.
+  useEffect(() => {
+    if (status !== "guest" && status !== "checking") {
+      router.replace("/seller_7a3b9f2c/dashboard");
+    }
+  }, [status, router]);
 
   const handleSellerLogin = () => {
-    alert(
-      "Seller login is currently under maintenance. Please try again later.",
-    );
+    setShowLoginModal(true);
   };
 
   const handleAcceptDeclaration = () => {
     setShowDeclaration(false);
-    setShowRegister(true);
+    setShowRegisterFlow(true);
   };
 
   const handleCloseDeclaration = () => {
@@ -117,10 +136,31 @@ const SellerJourney = () => {
     { value: "10K+", label: "Active Sellers" },
   ];
 
-  if (showRegister) {
+  // Brief spinner while we resolve which of the two seller tables (if any)
+  // has this user's data — never the marketing/login page, so a returning
+  // seller can't accidentally hit "Register" or "Login" mid-check.
+  if (status === "checking") {
     return (
-      <div className="min-h-screen bg-primary-100 pt-4">
+      <div className="min-h-screen bg-primary-100 pt-20 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-primary-200 border-t-primary-700 animate-spin" />
+      </div>
+    );
+  }
+
+  if (showRegisterFlow && status === "guest") {
+    return (
+      <div className="min-h-screen bg-primary-100 pt-20">
         <SellerRegister />
+      </div>
+    );
+  }
+
+  // Any other non-guest status is mid-redirect (see effect above) — keep
+  // showing the spinner rather than flashing the marketing page.
+  if (status !== "guest") {
+    return (
+      <div className="min-h-screen bg-primary-100 pt-20 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-primary-200 border-t-primary-700 animate-spin" />
       </div>
     );
   }
@@ -135,17 +175,23 @@ const SellerJourney = () => {
         />
       )}
 
-      <div className="relative py-12 lg:py-14 mt-16">
+      {/* Login Modal */}
+      <LoginModals
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+      />
+
+      <div className="relative py-6 lg:py-8 mt-16">
         {/* Why Choose TiaMeds with CTA Buttons */}
-        <section className="mb-16">
+        <section className="mb-8">
           <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-            <div className="flex flex-col lg:flex-row lg:items-start justify-between mb-12">
+            <div className="flex flex-col lg:flex-row lg:items-start justify-between mb-6">
               <div className="lg:w-2/3">
-                <h2 className="text-h2 font-heading font-bold text-pneutral-900 mb-6">
+                <h2 className="text-xl font-heading font-bold text-pneutral-900 mb-2">
                   Why Pharma Distributors Choose{" "}
                   <span className="text-primary-600">TiaMeds</span>
                 </h2>
-                <p className="text-p4 font-body text-pneutral-600 max-w-4xl">
+                <p className="text-[13px] font-body text-pneutral-600 max-w-4xl">
                   Join India&apos;s fastest-growing B2B pharma marketplace
                   designed specifically for licensed distributors,
                   manufacturers, and wholesalers.
@@ -157,45 +203,45 @@ const SellerJourney = () => {
                 {/* Register/Sign Up Button*/}
                 <button
                   onClick={() => setShowDeclaration(true)}
-                  className="group relative px-4 py-3 bg-primary-600 hover:bg-primary-700 text-base-white font-bold text-label-l4 rounded-md shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 whitespace-nowrap"
+                  className="group relative h-9 px-4 border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold rounded-lg hover:bg-primary-50 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
                 >
                   <span className="flex items-center justify-center">
                     <FaUserPlus className="mr-2" />
                     Register / Sign Up
                   </span>
-                  <div className="absolute inset-0 rounded-md bg-base-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                  
                 </button>
 
                 {/* Login Button */}
                 <button
                   onClick={handleSellerLogin}
-                  className="group relative px-4 py-3 bg-secondary-600 hover:bg-secondary-700 text-base-white font-bold text-label-l4 rounded-md shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 whitespace-nowrap"
+                  className="group relative h-9 px-4 border-[1.5px] border-neutral-300 text-neutral-700 text-[13px] font-semibold rounded-lg hover:bg-neutral-100 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
                 >
                   <span className="flex items-center justify-center">
                     <FaSignInAlt className="mr-1" />
                     Seller Login
                   </span>
-                  <div className="absolute inset-0 rounded-md bg-base-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                  
                 </button>
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
               {platformBenefits.map((benefit, index) => (
                 <div
                   key={index}
-                  className="bg-secondary-50 rounded-lg p-6 border border-secondary-100 hover:border-primary-300 transition-all duration-300 group hover:-translate-y-1"
+                  className="bg-secondary-50 rounded-xl px-4 py-3 border border-secondary-100 hover:border-primary-300 transition-colors group"
                 >
-                  <div className="w-14 h-14 rounded-sm bg-primary-100 flex items-center justify-center mb-6 group-hover:bg-primary-200 transition-colors">
+                  <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center mb-2 group-hover:bg-primary-200 transition-colors">
                     <div className="text-primary-600">{benefit.icon}</div>
                   </div>
-                  <h3 className="text-h6 font-heading font-bold text-pneutral-900 mb-3">
+                  <h3 className="text-sm font-heading font-bold text-pneutral-900 mb-1">
                     {benefit.title}
                   </h3>
-                  <p className="text-p3 font-body text-pneutral-600 mb-4">
+                  <p className="text-xs font-body text-pneutral-600 mb-2">
                     {benefit.description}
                   </p>
-                  <div className="text-primary-700 font-semibold text-label-l3">
+                  <div className="text-primary-700 font-semibold text-xs">
                     {benefit.metric}
                   </div>
                 </div>
@@ -203,14 +249,14 @@ const SellerJourney = () => {
             </div>
 
             {/* Stats Banner */}
-            <div className="mt-12 bg-gradient-to-r from-primary-600 to-primary-800 rounded-lg p-6 text-base-white">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="mt-6 bg-gradient-to-r from-primary-600 to-primary-800 rounded-xl px-4 py-3 text-base-white">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {growthStats.map((stat, index) => (
                   <div key={index} className="text-center">
-                    <div className="text-h5 font-heading font-bold mb-2">
+                    <div className="text-base font-heading font-bold mb-0.5">
                       {stat.value}
                     </div>
-                    <div className="text-primary-200 text-p3 font-body">
+                    <div className="text-primary-200 text-xs font-body">
                       {stat.label}
                     </div>
                   </div>
@@ -223,11 +269,11 @@ const SellerJourney = () => {
         {/* Your Selling Journey */}
         <section className="py-2">
           <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-            <div className="text-center mb-12">
-              <h2 className="text-h2 font-heading font-bold text-pneutral-900 mb-6">
+            <div className="text-center mb-6">
+              <h2 className="text-xl font-heading font-bold text-pneutral-900 mb-2">
                 Start Selling in 5 Simple Steps
               </h2>
-              <p className="text-p4 font-body text-pneutral-600 max-w-3xl mx-auto">
+              <p className="text-[13px] font-body text-pneutral-600 max-w-3xl mx-auto">
                 From registration to revenue - our streamlined process gets your
                 pharma business online quickly and securely.
               </p>
@@ -237,26 +283,26 @@ const SellerJourney = () => {
               {/* Timeline for desktop */}
               <div className="hidden lg:block absolute left-0 right-0 top-12 h-0.5 bg-gradient-to-r from-primary-100 via-primary-300 to-primary-100 -translate-y-1/2 z-0"></div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 relative z-10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 relative z-10">
                 {journeySteps.map((step, index) => (
                   <div key={index} className="text-center">
-                    <div className="relative mb-6">
-                      <div className="w-16 h-16 rounded-full bg-base-white border-4 border-primary-100 flex items-center justify-center mx-auto text-primary-600 shadow-md">
+                    <div className="relative mb-3">
+                      <div className="w-12 h-12 rounded-full bg-base-white border-[3px] border-primary-100 flex items-center justify-center mx-auto text-primary-600 shadow-sm">
                         {step.icon}
                       </div>
-                      <div className="absolute -top-2 -right-2 bg-primary-600 text-base-white text-p2 font-bold px-2 py-1 rounded-full">
+                      <div className="absolute -top-2 -right-2 bg-primary-600 text-base-white text-xs font-bold px-2 py-0.5 rounded-full">
                         Step {index + 1}
                       </div>
                     </div>
 
-                    <div className="bg-base-white rounded-md p-5 border border-pneutral-100 hover:border-primary-300 transition-colors shadow-sm">
-                      <h3 className="text-h6 font-heading font-bold text-pneutral-900 mb-2">
+                    <div className="bg-base-white rounded-xl px-3 py-3 border border-neutral-200 hover:border-primary-300 transition-colors shadow-sm">
+                      <h3 className="text-sm font-heading font-bold text-pneutral-900 mb-1">
                         {step.title}
                       </h3>
-                      <p className="text-p3 font-body text-pneutral-600 mb-3">
+                      <p className="text-xs font-body text-pneutral-600 mb-2">
                         {step.description}
                       </p>
-                      <div className="text-primary-700 font-semibold text-label-l3">
+                      <div className="text-primary-700 font-semibold text-xs">
                         {step.time}
                       </div>
                     </div>
@@ -266,28 +312,28 @@ const SellerJourney = () => {
             </div>
 
             {/* Product Onboarding CTA */}
-            <div className="mt-10 text-center">
-              <div className="bg-gradient-to-r from-primary-50 to-base-white rounded-lg p-8 lg:p-12 border border-primary-100">
-                <h3 className="text-h3 font-heading font-bold text-pneutral-900 mb-4">
+            <div className="mt-6 text-center">
+              <div className="bg-gradient-to-r from-primary-50 to-base-white rounded-xl px-4 py-5 lg:px-6 border border-primary-100">
+                <h3 className="text-xl font-heading font-bold text-pneutral-900 mb-2">
                   Ready to List Your Products?
                 </h3>
-                <p className="text-p4 font-body text-pneutral-600 mb-8 max-w-2xl mx-auto">
+                <p className="text-[13px] font-body text-pneutral-600 mb-4 max-w-2xl mx-auto">
                   Start your product onboarding process and get your medicines
                   listed on India&apos;s largest pharma marketplace.
                 </p>
 
                 <button
                   onClick={() => setShowProductOnboarding(true)}
-                  className="group relative px-8 py-4 bg-primary-600 hover:bg-primary-700 text-base-white font-bold text-label-l4 rounded-md shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 mx-auto"
+                  className="group relative h-9 px-5 border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold rounded-lg hover:bg-primary-50 transition-colors mx-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
                 >
                   <span className="flex items-center justify-center">
                     Start Product Onboarding
-                    <FaArrowRight className="ml-3 w-5 h-5 group-hover:translate-x-2 transition-transform" />
+                    <FaArrowRight className="ml-2 w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                   </span>
-                  <div className="absolute inset-0 rounded-md bg-base-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                  
                 </button>
 
-                <p className="text-p3 font-body text-pneutral-500 mt-4">
+                <p className="text-xs font-body text-pneutral-500 mt-3">
                   Already registered? Access your seller dashboard to manage
                   products and orders.
                 </p>

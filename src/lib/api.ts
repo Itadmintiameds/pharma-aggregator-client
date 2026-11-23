@@ -15,6 +15,20 @@ let failedQueue: Array<{
   reject: (reason?: any) => void;
 }> = [];
 
+// Mirrors sellerAuthService.clearAuth() — remove only auth-specific keys,
+// not localStorage.clear(), so unrelated app state (e.g. the seller's
+// one-time onboarding-complete acknowledgement flag) survives a forced logout.
+const clearAuthKeys = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem('resetEmail');
+  localStorage.removeItem('tokenExpiresAt');
+  localStorage.removeItem('refreshTokenExpiresAt');
+  localStorage.removeItem('lastLogin');
+  localStorage.removeItem('otpUsername');
+};
+
 const processQueue = (error: any = null) => {
   failedQueue.forEach(prom => {
     if (error) {
@@ -54,12 +68,22 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-    
+
     // Don't retry refresh endpoint
     if (originalRequest.url?.includes('/refresh')) {
       return Promise.reject(error);
     }
-    
+
+    // Auth endpoints (login/signup/OTP) return 401 for invalid credentials —
+    // that's a normal login failure, not an expired session, so skip the
+    // force-logout redirect and let the caller's catch block show the error.
+    const isAuthEndpoint = originalRequest.url?.includes('/authentication/login')
+      || originalRequest.url?.includes('/authentication/verify-otp')
+      || originalRequest.url?.includes('/auth/signup');
+    if (isAuthEndpoint) {
+      return Promise.reject(error);
+    }
+
     // If 401 and not retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
@@ -73,21 +97,17 @@ api.interceptors.response.use(
         });
       }
       
-      originalRequest._retry = true;
-      isRefreshing = true;
-      
       const refreshToken = localStorage.getItem("refreshToken");
-      
+
+      // No refresh token means there's no session to log out of — just let
+      // the caller handle the 401. Route guards decide whether to show login.
       if (!refreshToken) {
-        // No refresh token, force logout
-        if (typeof window !== "undefined") {
-          localStorage.clear();
-          document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-          window.location.href = "/?showLogin=true&session=expired";
-        }
         return Promise.reject(error);
       }
-      
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
       try {
         // Call refresh endpoint
         const response = await axios.post(`${API_BASE_URL}/authentication/refresh`, {
@@ -113,31 +133,28 @@ api.interceptors.response.use(
         return api(originalRequest);
         
       } catch (refreshError) {
-        // Refresh failed - clear everything and redirect to login
         processQueue(refreshError);
-        
-        if (typeof window !== "undefined") {
-          localStorage.clear();
+
+        // Only end the session when the refresh endpoint itself rejects the
+        // refresh token. Network errors / 5xx on refresh, and any failing
+        // API call, just reject to the caller — a logged-in seller stays
+        // logged in.
+        const refreshStatus = (refreshError as AxiosError)?.response?.status;
+        if (typeof window !== "undefined" && (refreshStatus === 401 || refreshStatus === 403)) {
+          clearAuthKeys();
           sessionStorage.clear();
           document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
           window.location.href = "/?showLogin=true&session=expired";
         }
-        
+
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
     }
-    
-    // Handle other 401 errors
-    if (error.response?.status === 401) {
-      if (typeof window !== "undefined") {
-        localStorage.clear();
-        document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-        window.location.href = "/?showLogin=true&session=expired";
-      }
-    }
-    
+
+    // A 401 that persists after a successful refresh is an endpoint-level
+    // rejection (role/permission), not an expired session — don't log out.
     return Promise.reject(error);
   }
 );

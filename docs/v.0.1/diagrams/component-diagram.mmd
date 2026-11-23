@@ -1,0 +1,136 @@
+flowchart TB
+    subgraph FE["FRONTEND — pharma-aggregator-client (Next.js 16 App Router)"]
+        direction TB
+
+        subgraph FE_Routes["Routing (src/app/**)"]
+            R_Public["Public: page.tsx, about/, contact/,<br/>product/[id]/{request-price,get-quote}"]
+            R_Seller["seller_7a3b9f2c/**<br/>dashboard, products (add/edit/view), profile,<br/>orders, conversions, settings*, shipment*<br/>(* = UnderDevelopment stub)"]
+            R_Buyer["buyer_e8d45a1b/**<br/>login, signup, dashboard (orders, rfq, profile,<br/>catalog*, suppliers*, support*)"]
+            R_Checkout["checkout/, orders/[orderId]<br/>reset-password/, reset-password/[token]"]
+            R_Dead["(auth)/login_fhy26sb/**<br/>ORPHANED — calls non-existent /api/seller/* routes,<br/>linked from nowhere in the app"]
+        end
+
+        subgraph FE_Modals["Global auth surfaces"]
+            M_Seller["LoginModals.tsx<br/>(real seller login/OTP/reset UI)"]
+            M_Buyer["BuyerLoginModal / BuyerSignupModal<br/>(mounted in root layout.tsx)"]
+        end
+
+        subgraph FE_Services["Services layer (src/services/**)"]
+            S_Seller["seller/*<br/>authService, updateProfileService,<br/>SellerRegMasterService, IFSCService,<br/>sellerRegistrationService"]
+            S_Buyer["buyer/*<br/>buyerAuthService, buyerProfileService,<br/>buyerRegistrationService, quoteRequestService,<br/>orderService"]
+            S_Product["product/*<br/>ProductService (Drug), ConsumbaleService,<br/>NonConsumbaleService, SupplementService,<br/>CosmeticService, FoodInfantService,<br/>+ shared lookups (PackType, Molecule,<br/>TherapeuticCategory, StorageCondition, Pricing)"]
+            S_Other["StockService.ts, sellerOrderService.ts,<br/>quoteRequestService.ts (seller side)"]
+            S_Stub["admin/TestService.ts, buyer/TestService.ts<br/>one-line placeholders — no admin UI in this app"]
+        end
+
+        subgraph FE_Api["API clients"]
+            A_Lib["lib/api.ts (seller, refresh-aware)"]
+            A_Buyer["lib/buyerApi.ts (buyer, refresh-aware)"]
+            A_Utils["utils/api.ts (product/master, no refresh)"]
+        end
+
+        subgraph FE_Support["Cross-cutting"]
+            Sch["src/schema/** — Zod validation<br/>(mostly manual .parse()/.safeParse(),<br/>react-hook-form used in only 7 files)"]
+            State["localStorage tokens, CartContext,<br/>useSessionManager (30-min seller inactivity logout),<br/>react-toastify + react-hot-toast (both live)"]
+            ProxyDead["src/proxy.ts — DEAD CODE<br/>wrong filename/export, never wired as middleware"]
+        end
+
+        R_Seller --> M_Seller
+        R_Seller --> S_Seller
+        R_Seller --> S_Product
+        R_Seller --> S_Other
+        R_Buyer --> M_Buyer
+        R_Buyer --> S_Buyer
+        R_Checkout --> S_Buyer
+        R_Checkout --> S_Other
+        S_Seller --> A_Lib
+        S_Buyer --> A_Buyer
+        S_Product --> A_Utils
+        S_Other --> A_Utils
+        FE_Routes --> Sch
+        FE_Routes --> State
+    end
+
+    subgraph BE["BACKEND — pharma-aggregator-server (Spring Boot monolith, /api/v1)"]
+        direction TB
+
+        subgraph BE_Security["Security"]
+            Sec_Config["SecurityConfig<br/>anyRequest().permitAll() is LIVE —<br/>role-scoped rules exist only commented out"]
+            Sec_Filter["AuthTokenFilter + JwtUtils<br/>HS256 JWT (subject-only claims),<br/>opaque SHA-256-hashed rotating refresh tokens"]
+        end
+
+        subgraph BE_Auth["Auth & Onboarding controllers/services"]
+            C_SellerAuth["SignupController, AuthenticationController,<br/>AuthController (seller)"]
+            C_BuyerAuth["BuyerSignupController,<br/>BuyerAuthenticationController,<br/>BuyerProfileController"]
+            C_TempSeller["TempSellerController + OTP controllers<br/>(TempSellerEmailOtpController, SMSOTPController)<br/>-> TempSellerServiceImpl"]
+            C_TempBuyer["TempBuyerController<br/>-> TempBuyerServiceImpl"]
+            C_Admin["AdminSellerController, AdminBuyerController,<br/>AdminOrderController, AdminSellerApprovalController<br/>-> SellerApprovalServiceImpl / BuyerApprovalServiceImpl<br/>/ SellerProfileService / OrderQueryServiceImpl"]
+        end
+
+        subgraph BE_Master["Master / Reference Data"]
+            C_Master["8 controller/master/* (State/District/Taluka,<br/>SellerType, BuyerType, CompanyType,<br/>ProductType, DocumentType) — GET-only"]
+            C_ProdLookup["controller/product/* lookups<br/>(MastersController god-service, DosageForm,<br/>PackType, Therapeutic, Category, GST%, etc.)"]
+        end
+
+        subgraph BE_Product["Product Catalog"]
+            C_ProductCrud["ProductDetailsController<br/>-> ProductDetailsServiceImpl<br/>(create/update/delete, per-category attribute rules)"]
+            C_Import["ProductImportController<br/>-> UniversalExcelImportService<br/>-> ProductImportStrategyFactory<br/>-> 6x *ImportStrategy (Strategy pattern)"]
+            C_Docs["ProductImageController, ProductDocumentController,<br/>ProductUserManualController,<br/>NutritionalInformationImageController<br/>-> S3Service"]
+        end
+
+        subgraph BE_StockOrder["Stock, Pricing & Orders"]
+            C_Stock["StockController, PricingDetailsController<br/>-> StockServiceImpl, PricingDetailsServiceImpl<br/>(batch/lot ledger, FIFO debit, advisory-lock IDs)"]
+            C_Order["OrderController, SellerOrderController,<br/>InvoiceController, PaymentController, ReturnController<br/>-> OrderPlacementServiceImpl,<br/>SellerOrderFulfillmentServiceImpl,<br/>OrderCancellationServiceImpl,<br/>ReturnRefundServiceImpl, InvoiceServiceImpl"]
+        end
+
+        subgraph BE_Quote["Quote Requests"]
+            C_Quote["BuyerQuoteRequestController,<br/>SellerQuoteRequestController<br/>-> QuoteRequestService"]
+        end
+
+        subgraph BE_Misc["Content / Misc"]
+            C_Content["LegalContentController, IFSCOverrideController,<br/>HomeController (health checks)"]
+        end
+
+        subgraph BE_Repo["Persistence"]
+            Repo["Spring Data JPA repositories<br/>(one package per domain, mirrors controller layout)"]
+        end
+
+        Sec_Filter --> BE_Auth
+        Sec_Filter --> BE_Master
+        Sec_Filter --> BE_Product
+        Sec_Filter --> BE_StockOrder
+        Sec_Filter --> BE_Quote
+        Sec_Filter --> BE_Misc
+        Sec_Config -.->|"configures"| Sec_Filter
+
+        C_SellerAuth --> Repo
+        C_BuyerAuth --> Repo
+        C_TempSeller --> Repo
+        C_TempBuyer --> Repo
+        C_Admin --> Repo
+        C_Master --> Repo
+        C_ProdLookup --> Repo
+        C_ProductCrud --> Repo
+        C_Import --> C_ProductCrud
+        C_Docs --> Repo
+        C_Stock --> Repo
+        C_Order --> C_Stock
+        C_Quote --> C_Order
+        C_Content --> Repo
+    end
+
+    A_Lib -->|"HTTP/JSON, Bearer JWT"| Sec_Filter
+    A_Buyer -->|"HTTP/JSON, Bearer JWT"| Sec_Filter
+    A_Utils -->|"HTTP/JSON, Bearer JWT"| Sec_Filter
+
+    Repo --> DB[("PostgreSQL")]
+    C_Docs --> S3ext[("AWS S3")]
+    C_TempSeller --> S3ext
+    C_TempBuyer --> S3ext
+    C_Order --> S3ext
+    C_TempSeller --> TwilioExt["Twilio Verify"]
+    C_TempBuyer --> TwilioExt
+    C_Order --> TwilioExt
+    C_SellerAuth --> SmtpExt["SMTP (JavaMailSender)"]
+    C_BuyerAuth --> SmtpExt
+    C_Admin --> SmtpExt

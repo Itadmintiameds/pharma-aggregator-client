@@ -1,0 +1,77 @@
+<!doctype html>
+<!--
+  Template for a docs/v.0.2 service doc.
+  Copy this file to <service-name>.html, fill in every {{...}}, delete sections that don't apply,
+  and add a row for it in ../index.html. Keep section numbering sequential and update the <nav class="toc">
+  to match whatever sections you keep.
+
+  Structural building blocks available from ../assets/doc.css:
+    .phase-grid / .phase-card    — two-up comparisons (build vs deploy, sync vs async, option A vs B)
+    .pipeline / .pnode / .parrow — left-to-right flow/pipeline diagrams
+    .tbl-wrap / table            — comparison tables (use <span class="pill pill-managed|pill-self">)
+    pre / .file-tab              — code or config blocks, with an optional file-path tab above
+    .callout                     — a single emphasized aside
+    .decision-card               — one ADR-style entry (verdict + rationale)
+    .cost-strip / .cost-item     — 2-4 stat tiles
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{{Service Name}} — {{one-line subject of this doc}}</title>
+<link rel="stylesheet" href="../assets/doc.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">{{Service Name}} — {{one-line subject}}</h1>
+    <p class="dek">{{One or two sentences: what this document decides, and why it matters to the reader.}}</p>
+    <div class="meta-row">
+      <span><b>Status:</b> {{Draft | Reviewed | Approved}}</span>
+      <span><b>Owns:</b> {{Service Name}} (§{{n}} of HLD)</span>
+      <span><b>Last updated:</b> {{YYYY-MM-DD}}</span>
+      <span><a href="../index.html">&larr; back to service index</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#section-1">01 {{Section title}}</a>
+      <a href="#section-2">02 {{Section title}}</a>
+      <a href="#decisions">0N Decisions</a>
+    </nav>
+  </header>
+
+  <section id="section-1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>{{Section title}}</h2>
+    </div>
+    <p class="lede">{{Lead paragraph — the load-bearing fact this section builds on.}}</p>
+    <p>{{Supporting detail.}}</p>
+  </section>
+
+  <!-- Repeat <section> blocks as needed. End every doc with a Decisions section. -->
+
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">0N</span>
+      <h2>Decisions worth writing down</h2>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — {{one-line label}}</span>
+      <h4>{{Decision headline}}</h4>
+      <p>{{What was decided, the alternative it beat, and the reason — one paragraph.}}</p>
+    </div>
+
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; {{Service Name}}</span>
+    <span><a href="../index.html">Service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

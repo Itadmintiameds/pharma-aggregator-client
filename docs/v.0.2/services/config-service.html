@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Config Service — externalized config, high availability over throughput</title>
+<link rel="stylesheet" href="../assets/doc.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">pharma-aggregator &middot; HLD v0.2</div>
+    <h1 class="title">Config Service — externalized config, high availability over throughput</h1>
+    <p class="dek">Per-service, per-environment, per-region configuration, pulled at boot and refreshed live without a redeploy — the thing that makes the platform's region rollout actually one-click instead of one-click-plus-manual-config.</p>
+    <div class="meta-row">
+      <span><b>Status:</b> Draft</span>
+      <span><b>Owns:</b> Config Service (platform layer of HLD)</span>
+      <span><b>Last updated:</b> 2026-09-02</span>
+      <span><a href="../index.html">&larr; back to service index</a></span>
+    </div>
+    <nav class="toc">
+      <a href="#overview">01 Overview</a>
+      <a href="#ownership">02 Data ownership</a>
+      <a href="#communication">03 Communication</a>
+      <a href="#architecture">04 Architecture diagram</a>
+      <a href="#deployment">05 Deployment</a>
+      <a href="#scaling">06 Scaling &amp; region topology</a>
+      <a href="#decisions">07 Decisions</a>
+    </nav>
+  </header>
+
+  <section id="overview">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Overview</h2>
+    </div>
+    <p class="lede">Config Service externalizes configuration — per service, per environment, per region — out of application code and deploy artifacts. Every domain and platform service reads its config from here rather than from bundled properties files, which is what lets the same container image run unmodified in every region.</p>
+    <p>Traffic to it is low: a pull at boot, occasional refreshes after that. But it sits on the critical path at exactly the moments that matter most — every service's boot sequence blocks on it, and a live config refresh (a feature flag flip, a rate-limit change) depends on it being reachable. That combination means the design target here is <b>high availability, not high throughput</b>. A Config Service that's slow under load is a non-problem at this traffic level; a Config Service that's occasionally unreachable takes every dependent service's boot or refresh down with it.</p>
+  </section>
+
+  <section id="ownership">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Data ownership</h2>
+    </div>
+    <p class="lede">No business tables. Config Service owns <b>configuration key/value state</b> — the AWS AppConfig application / environment / configuration-profile hierarchy — and points to Systems Manager Parameter Store for the plain (non-secret) values themselves.</p>
+    <p><b>Secrets are explicitly out of this store.</b> Anything sensitive — database credentials, third-party API keys, signing keys — is pulled from AWS Secrets Manager, not stored inside Config Service or Parameter Store. This is a real security boundary, not an implementation detail: it means a Config Service compromise or a misconfigured read policy on it never exposes a secret, because secrets were never there to expose. Keeping this distinction sharp is worth stating plainly rather than letting "config" quietly become a place secrets accumulate over time.</p>
+  </section>
+
+  <section id="communication">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Communication</h2>
+    </div>
+    <p><b>Sync IN</b> — from every domain and platform service, in two distinct patterns:</p>
+    <ul>
+      <li><b>Boot pull (HTTP):</b> a service starting up fetches its full config profile before it starts serving traffic.</li>
+      <li><b>Refresh event (webhook), not polling:</b> when a config value changes, an event/webhook triggers a re-pull in already-running services. No service polls Config Service on a timer waiting for changes.</li>
+    </ul>
+    <p>The refresh-event model is what makes the one-click region rollout in <a href="../adr.html#adr-006">ADR-006</a> actually work without touching running services: rolling out a config change to a live region means pushing to AppConfig and letting the webhook fan out, not redeploying every service that reads that value. Polling would get the same eventual result far more slowly and with load proportional to service count; a push model keeps propagation fast and nearly free regardless of how many services are listening.</p>
+  </section>
+
+  <section id="architecture">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Architecture diagram</h2>
+    </div>
+    <p>Config Service sits <b>underneath</b> the domain services, not inline with client traffic — matching the platform topology where Config and Discovery are infrastructure every service depends on at boot, not a stop on the request path. Edges run both ways: boot-pull up top, refresh-push back down.</p>
+
+    <div class="arch-diagram">
+      <svg viewBox="0 0 680 280" xmlns="http://www.w3.org/2000/svg">
+        <rect class="node-box" x="20" y="30" width="120" height="50" rx="6"/>
+        <text class="node-label" x="80" y="51" text-anchor="middle">Seller /</text>
+        <text class="node-sub" x="80" y="65" text-anchor="middle">Buyer User</text>
+
+        <rect class="node-box" x="180" y="30" width="120" height="50" rx="6"/>
+        <text class="node-label" x="240" y="51" text-anchor="middle">Order /</text>
+        <text class="node-sub" x="240" y="65" text-anchor="middle">Quotation</text>
+
+        <rect class="node-box" x="340" y="30" width="120" height="50" rx="6"/>
+        <text class="node-label" x="400" y="51" text-anchor="middle">Product /</text>
+        <text class="node-sub" x="400" y="65" text-anchor="middle">Search</text>
+
+        <rect class="node-box" x="500" y="30" width="120" height="50" rx="6"/>
+        <text class="node-label" x="560" y="51" text-anchor="middle">Billing /</text>
+        <text class="node-sub" x="560" y="65" text-anchor="middle">API Gateway</text>
+
+        <rect class="node-box self" x="250" y="180" width="180" height="60" rx="6"/>
+        <text class="node-label" x="340" y="206" text-anchor="middle">Config Service</text>
+        <text class="node-sub" x="340" y="222" text-anchor="middle">AppConfig + Parameter Store</text>
+
+        <path class="edge-sync" d="M90,80 L300,185" marker-end="url(#arrow-sync)"/>
+        <path class="edge-sync" d="M250,80 L320,180" marker-end="url(#arrow-sync)"/>
+        <path class="edge-sync" d="M410,80 L360,180" marker-end="url(#arrow-sync)"/>
+        <path class="edge-sync" d="M560,80 L400,185" marker-end="url(#arrow-sync)"/>
+        <text class="edge-label" x="120" y="140">boot pull (HTTP)</text>
+        <text class="edge-label" x="420" y="140">refresh push (event)</text>
+
+        <defs>
+          <marker id="arrow-sync" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="var(--sync)"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="arch-legend">
+      <span><span class="swatch sync"></span> sync (blocking) — boot pull; the refresh webhook is a lightweight push notification triggering the same pull path</span>
+    </div>
+  </section>
+
+  <section id="deployment">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Deployment</h2>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Choice</th><th>Operational cost</th><th>Why / why not</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>A</td>
+            <td><span class="pill pill-managed">managed</span> AWS AppConfig + Systems Manager Parameter Store</td>
+            <td>No cluster to run</td>
+            <td><b>Chosen.</b> The backend already deploys via ECS/ECR, so this needs no new deployment target at all — it's a set of AWS API calls the service SDK already knows how to talk to, per <a href="../adr.html#adr-002">ADR-002</a>.</td>
+          </tr>
+          <tr>
+            <td>B</td>
+            <td><span class="pill pill-self">self-hosted</span> Spring Cloud Config Server, Git-backed</td>
+            <td>A stateful service to deploy, scale, and patch, per region</td>
+            <td>Would work, but adds an entirely new component to operate — a Git-backed config server with its own HA story — purely to duplicate what AWS already runs as a managed service.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <span class="file-tab">modules/config-service/main.tf</span>
+    <pre><span class="c">// one AppConfig application per platform, one environment per deploy target, one profile per service</span>
+resource <span class="s">"aws_appconfig_application"</span> <span class="s">"platform"</span> {
+  name = <span class="s">"pharma-aggregator"</span>
+}
+
+resource <span class="s">"aws_appconfig_environment"</span> <span class="s">"region_env"</span> {
+  application_id = aws_appconfig_application.platform.id
+  name           = <span class="s">"${var.region_short}-${var.environment}"</span>
+}
+
+resource <span class="s">"aws_appconfig_configuration_profile"</span> <span class="s">"order_mgmt"</span> {
+  application_id = aws_appconfig_application.platform.id
+  name           = <span class="s">"order-management"</span>
+  location_uri   = <span class="s">"ssm-parameter://${aws_ssm_parameter.order_mgmt_config.name}"</span>
+  type           = <span class="s">"AWS.Freeform"</span>
+}
+
+resource <span class="s">"aws_ssm_parameter"</span> <span class="s">"order_mgmt_config"</span> {
+  name  = <span class="s">"/pharma-aggregator/${var.region_short}/${var.environment}/order-management"</span>
+  type  = <span class="s">"String"</span>
+  value = jsonencode(var.order_mgmt_config_values)
+  <span class="c">// secrets are never placed here — see Secrets Manager reference in the service's own config</span>
+}</pre>
+    <p>One configuration profile per service, deployed alongside every other region's Terraform via the same module — a new region means a new environment inside the same AppConfig application, not a new system.</p>
+  </section>
+
+  <section id="scaling">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>Scaling &amp; region topology</h2>
+    </div>
+    <p>Provisioned identically per region via the same Terraform module, matching <a href="../adr.html#adr-006">ADR-006</a>'s one-click rollout pattern. There's no cluster to replicate here — AppConfig and Parameter Store are already regional AWS resources, so "add a region" is a Terraform apply with a new region variable, not a capacity-planning exercise.</p>
+    <p>Availability matters far more than latency for this service. A <code>.cost-strip</code> isn't meaningful here the way it is for a compute-heavy service — at this traffic level (occasional boot pulls, occasional refresh events), Config Service is nearly free. Stating that plainly is more honest than forcing stat tiles onto a service where the interesting number would just be "close to zero."</p>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2>Decisions worth writing down</h2>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — AWS-native over self-hosted Config Server</span>
+      <h4>AppConfig + Parameter Store, no cluster to operate per region</h4>
+      <p>AWS AppConfig and Systems Manager Parameter Store beat a self-hosted, Git-backed Spring Cloud Config Server because they need no new deployment target — the backend already deploys via ECS/ECR, and this rides the same AWS-native path. See <a href="../adr.html#adr-002">ADR-002</a>.</p>
+    </div>
+
+    <div class="decision-card">
+      <span class="verdict">Decision — secrets never live in Config Service's own store</span>
+      <h4>Secrets Manager is the only place secrets are read from</h4>
+      <p>Plain configuration values live in AppConfig/Parameter Store; anything sensitive is pulled from Secrets Manager instead. This is a deliberate security boundary, not an oversight — it means a compromised or over-broadly-permissioned Config Service read path can leak configuration, but never credentials, keys, or tokens.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>pharma-aggregator &middot; HLD v0.2 &middot; Config Service</span>
+    <span><a href="../index.html">Service index</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

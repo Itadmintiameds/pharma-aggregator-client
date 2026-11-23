@@ -1,0 +1,269 @@
+erDiagram
+    %% ============ MASTER / REFERENCE DATA ============
+    tbl_state_master ||--o{ tbl_district_master : "state_id"
+    tbl_state_master ||--o{ tbl_taluka_master : "state_id"
+    tbl_district_master ||--o{ tbl_taluka_master : "district_id"
+    tbl_document_type_master ||--o{ tbl_buyer_type_master : "mandatory_document_type_id"
+
+    tbl_state_master {
+        bigint state_id PK
+        varchar state_code UK
+        varchar state_name
+        boolean is_active
+    }
+    tbl_district_master {
+        bigint district_id PK
+        bigint state_id FK
+        varchar district_code UK
+        varchar district_name
+    }
+    tbl_taluka_master {
+        bigint taluka_id PK
+        bigint state_id FK
+        bigint district_id FK
+        varchar taluka_code UK
+        varchar taluka_name
+    }
+    tbl_buyer_type_master {
+        bigint buyer_type_id PK
+        varchar buyer_type_name UK
+        varchar buyer_type_abbreviation UK
+        bigint mandatory_document_type_id FK
+    }
+    tbl_seller_type_master {
+        bigint seller_type_id PK
+        varchar seller_type_name UK
+        varchar seller_type_abbreviation UK
+    }
+    tbl_document_type_master {
+        bigint document_type_id PK
+        varchar document_type_name UK
+        varchar document_type_code UK
+    }
+    tbl_role_master {
+        int role_id PK
+        varchar role_name UK
+    }
+
+    %% ============ SELLER ONBOARDING (temp -> approved) ============
+    tbl_user ||--o| tbl_temp_seller : "user_id (1:1)"
+    tbl_user ||--o| tbl_seller : "user_id (audit link)"
+    tbl_temp_seller ||--o| tbl_temp_seller_address : "1:1"
+    tbl_temp_seller ||--o| tbl_temp_seller_coordinator : "1:1"
+    tbl_temp_seller ||--o| tbl_temp_seller_bank_details : "1:1"
+    tbl_temp_seller ||--o{ tbl_temp_seller_document : "1:N"
+    tbl_temp_seller ||--o{ tbl_temp_seller_review_history : "1:N"
+    tbl_seller_type_master ||--o{ tbl_temp_seller : "seller_type_id"
+    tbl_temp_seller ||--o| tbl_seller : "approved into (audit tempSellerId)"
+
+    tbl_seller ||--o| tbl_seller_address : "1:1"
+    tbl_seller ||--o| tbl_seller_coordinator : "1:1"
+    tbl_seller ||--o| tbl_seller_bank_details : "1:1"
+    tbl_seller ||--o| tbl_seller_gst : "1:1"
+    tbl_seller ||--o{ tbl_seller_document : "1:N"
+    tbl_seller ||--o{ tbl_seller_history : "1:N (pre-update snapshots)"
+    tbl_seller ||--o{ tbl_pending_seller : "post-approval edits"
+    tbl_pending_seller ||--o{ tbl_pending_seller_document : "1:N"
+    tbl_product_type_master ||--o{ tbl_seller_document : "product_type_id"
+    tbl_document_type_master ||--o{ tbl_seller_document : "document_type_id (opt)"
+
+    tbl_user {
+        bigint user_id PK
+        varchar username UK
+        varchar password_hash
+        boolean is_password_temporary
+        boolean is_account_locked
+        int failed_login_attempts
+    }
+    tbl_temp_seller {
+        bigint id PK
+        bigint user_id FK
+        varchar status
+        boolean is_gst_verified
+        boolean is_company_registration_certificate_verified
+        bigint seller_type_id FK
+    }
+    tbl_seller {
+        varchar seller_id PK "generated: NAME+TYPE+SEQ"
+        bigint temp_seller_id "audit only, not FK"
+        varchar status
+    }
+
+    %% ============ BUYER ONBOARDING (temp -> approved) ============
+    tbl_buyer_user ||--o| tbl_temp_buyer : "user_id (1:1, opt)"
+    tbl_buyer_user ||--o| tbl_buyer : "1:1 required"
+    tbl_temp_buyer ||--o| tbl_temp_buyer_address : "1:1"
+    tbl_temp_buyer ||--o| tbl_temp_buyer_contact : "1:1"
+    tbl_temp_buyer ||--o{ tbl_temp_buyer_document : "1:N"
+    tbl_temp_buyer ||--o{ tbl_temp_buyer_review_history : "1:N"
+    tbl_buyer_type_master ||--o{ tbl_temp_buyer : "buyer_type_id"
+    tbl_buyer ||--o| tbl_buyer_address : "1:1"
+    tbl_buyer ||--o| tbl_buyer_contact : "1:1"
+    tbl_buyer ||--o{ tbl_buyer_document : "1:N"
+    tbl_buyer ||--o{ tbl_buyer_delivery_address : "1:N"
+    tbl_buyer_user ||--o{ tbl_buyer_login_otp : "1:N"
+    tbl_buyer_user ||--o{ tbl_buyer_refresh_tokens : "1:N"
+    tbl_user ||--o{ tbl_login_otp : "1:N"
+    tbl_user ||--o{ tbl_refresh_tokens : "1:N"
+
+    tbl_buyer_user {
+        bigint buyer_user_id PK
+        varchar email UK
+        varchar password_hash
+        boolean is_password_temporary
+        boolean is_account_locked
+    }
+    tbl_temp_buyer {
+        bigint id PK
+        bigint user_id FK
+        varchar temp_buyer_request_id UK
+        varchar status
+        varchar gst_number
+        varchar pan_number
+    }
+    tbl_buyer {
+        varchar buyer_id PK "generated: NAME+TYPE+SEQ"
+        bigint buyer_user_id FK UK
+        varchar status
+    }
+
+    %% ============ PRODUCT CATALOG ============
+    tm_category ||--o{ tm_product_details : "category_id"
+    tbl_seller_reflink }o--|| tm_product_details : "seller_id"
+    tm_product_details ||--o{ tm_pricing_details : "1:N batches"
+    tm_product_details ||--o{ tm_packaging_details : "1:N"
+    tm_product_details ||--o{ tm_product_image : "1:N"
+    tm_product_details ||--o| tm_product_attribute_drug : "1:1 (Drug category)"
+    tm_product_details ||--o| tm_product_attribute_consumable_medical : "1:1"
+    tm_product_details ||--o| tm_product_attribute_non_consumable_medical : "1:1"
+    tm_product_details ||--o| tm_product_attribute_supplements_or_nutraceuticals : "1:1"
+    tm_product_details ||--o| tm_product_attribute_cosmetic_and_personal_use : "1:1"
+    tm_product_details ||--o| tm_product_attribute_food_infant : "1:1"
+
+    tm_pricing_details ||--o{ tm_additional_discount : "1:N"
+    tm_pricing_details ||--o{ tm_special_schemes : "1:N"
+    tm_pricing_details ||--o{ tbl_stock_ledger : "1:N movements"
+    tm_pack_type ||--o{ tm_packaging_details : "pack_type_id"
+
+    tm_product_attribute_drug ||--o{ pm_product_molecule : "1:N"
+    tm_molecules_master ||--o{ pm_product_molecule : "molecule_id"
+    tm_product_attribute_drug ||--o| tm_product_user_manual : "1:1"
+
+    tbl_device_category_master ||--o{ tm_product_attribute_consumable_medical : "device_cat_id"
+    tbl_device_category_master ||--o{ tm_product_attribute_non_consumable_medical : "device_cat_id"
+    tbl_storage_condition_master ||--o{ tm_product_attribute_consumable_medical : "storage_condition_id"
+
+    tm_product_attribute_consumable_medical ||--o{ tm_product_certificate_document : "1:N (nullable FK)"
+    tm_product_attribute_non_consumable_medical ||--o{ tm_product_certificate_document : "1:N (nullable FK)"
+    tm_product_attribute_supplements_or_nutraceuticals ||--o{ tm_product_certificate_document : "1:N (nullable FK)"
+    tm_product_attribute_cosmetic_and_personal_use ||--o{ tm_product_certificate_document : "1:N (nullable FK)"
+    tm_product_attribute_food_infant ||--o{ tm_product_certificate_document : "1:N (nullable FK)"
+
+    tm_product_details {
+        varchar product_id PK "generated"
+        bigint category_id FK
+        varchar seller_id FK
+        varchar status "DRAFT/PUBLISHED/UNPUBLISHED"
+    }
+    tm_pricing_details {
+        varchar pricing_id PK "generated SELLERBTCH#####"
+        varchar product_id FK
+        bigint packaging_id FK "nullable"
+        varchar batch_lot_number
+        date expiry_date
+        int stock_quantity
+        numeric mrp
+        numeric selling_price
+        numeric discount_percentage
+        numeric gst_percentage
+        numeric final_price "unused, never computed"
+        timestamp deleted_at "soft delete"
+    }
+    tbl_stock_ledger {
+        bigint ledger_id PK
+        varchar pricing_id FK
+        varchar product_id FK
+        varchar seller_id FK
+        varchar transaction_type "STOCK_IN/STOCK_OUT"
+        int quantity
+        int balance_after
+    }
+    tm_product_certificate_document {
+        bigint id PK
+        bigint certification_id FK
+        bigint non_consumable_attribute_id FK "nullable"
+        bigint consumable_attribute_id FK "nullable"
+        bigint supplements_attribute_id FK "nullable"
+        bigint cosmetic_attribute_id FK "nullable"
+        bigint product_attribute_id FK "nullable, FoodInfant"
+        varchar certificate_url
+    }
+
+    %% ============ ORDER / PAYMENT / RETURN ============
+    tbl_buyer ||--o{ tbl_order : "buyer_id"
+    tbl_order ||--|| tbl_payment : "1:1"
+    tbl_order ||--o{ tbl_seller_order : "1:N per-seller fan-out"
+    tbl_seller ||--o{ tbl_seller_order : "seller_id"
+    tbl_seller_order ||--o{ tbl_order_item : "1:N"
+    tbl_seller_order ||--o{ tbl_order_status_history : "1:N"
+    tbl_seller_order ||--o| tbl_invoice : "1:1"
+    tm_product_details ||--o{ tbl_order_item : "product_id"
+    tm_pricing_details ||--o{ tbl_order_item : "pricing_id (batch)"
+    tbl_payment ||--o{ tbl_refund : "1:N"
+    tbl_order_item ||--o| tbl_return_request : "0..1"
+    tbl_return_request ||--o| tbl_refund : "1:1 on approval"
+    tbl_quote_request }o--|| tm_product_details : "product_id"
+    tbl_quote_request }o--|| tbl_seller : "seller_id (auto-resolved)"
+    tbl_quote_request }o--|| tbl_buyer_user : "buyer_user_id"
+    tbl_quote_request ||--o| tbl_order : "order_id (string pointer, not FK)"
+
+    tbl_order {
+        varchar order_id PK "ORD-yyyyMMdd-#####"
+        varchar buyer_id FK
+        varchar status "rollup"
+        varchar idempotency_key UK
+    }
+    tbl_seller_order {
+        varchar seller_order_id PK "SORD-{orderSuffix}-{seq}"
+        varchar order_id FK
+        varchar seller_id FK
+        varchar status
+    }
+    tbl_order_item {
+        bigint order_item_id PK
+        varchar seller_order_id FK
+        varchar product_id FK
+        varchar pricing_id FK
+        varchar item_status
+    }
+    tbl_payment {
+        varchar payment_id PK "PAY-yyyyMMdd-#####"
+        varchar order_id FK UK
+        varchar status "SUCCESS only, in practice"
+        varchar provider "COD"
+    }
+    tbl_refund {
+        bigint refund_id PK
+        varchar payment_id FK
+        bigint order_item_id FK "nullable"
+        varchar status
+    }
+    tbl_return_request {
+        bigint return_id PK
+        bigint order_item_id FK
+        varchar status
+    }
+    tbl_invoice {
+        bigint invoice_id PK
+        varchar seller_order_id FK UK
+        varchar invoice_number UK
+    }
+    tbl_quote_request {
+        bigint quote_request_id PK
+        varchar product_id FK
+        varchar seller_id FK
+        bigint buyer_user_id FK
+        varchar request_type "PRICE_REQUEST/RFQ"
+        varchar status
+        varchar order_id "string pointer"
+    }

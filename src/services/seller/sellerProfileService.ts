@@ -70,32 +70,40 @@ class SellerProfileService {
       
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message?: string }>;
-      
+
+      // Backend currently returns HTTP 500 (not 404) for this case, with
+      // "Seller not found for user id: X" buried in the message body — so a
+      // brand-new seller who hasn't been approved yet looks identical to a
+      // real server error unless we match on the message text too.
+      const responseMessage = axiosError.response?.data?.message;
+      const isSellerNotFound =
+        axiosError.response?.status === 404 ||
+        /seller not found/i.test(responseMessage ?? '');
+
+      if (isSellerNotFound) {
+        // Expected state for any seller who hasn't been approved yet —
+        // not an error, so don't spam the console with a red error log.
+        console.log('ℹ️ No seller profile yet for user ID:', userId);
+        throw new Error('Seller profile not found');
+      }
+
       console.error('❌ Error fetching seller profile:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         response: axiosError.response?.data,
         status: axiosError.response?.status,
         userId: userId
       });
-      
-      // Handle specific error cases
+
+      // Handle specific error cases. A 401 here must not log the seller out —
+      // the api client already refreshed the token; session expiry is handled there.
       if (axiosError.response?.status === 401) {
-        console.log('🔒 Unauthorized - clearing auth and redirecting');
-        sellerAuthService.clearAuth();
-        if (typeof window !== 'undefined') {
-          window.location.href = '/?showLogin=true&sessionExpired=true';
-        }
-        throw new Error('Session expired. Please login again.');
+        throw new Error('Unauthorized to view this profile');
       }
-      
+
       if (axiosError.response?.status === 403) {
         throw new Error('You do not have permission to view this profile');
       }
-      
-      if (axiosError.response?.status === 404) {
-        throw new Error('Seller profile not found');
-      }
-      
+
       if (error instanceof Error) {
         throw error;
       }
@@ -184,16 +192,12 @@ class SellerProfileService {
         status: axiosError.response?.status
       });
       
-      // Handle specific error cases
+      // Handle specific error cases. A 401 here must not log the seller out —
+      // the api client already refreshed the token; session expiry is handled there.
       if (axiosError.response?.status === 401) {
-        console.log('🔒 Unauthorized - clearing auth and redirecting');
-        sellerAuthService.clearAuth();
-        if (typeof window !== 'undefined') {
-          window.location.href = '/?showLogin=true&sessionExpired=true';
-        }
-        throw new Error('Session expired. Please login again.');
+        throw new Error('Unauthorized to update this profile');
       }
-      
+
       if (axiosError.response?.status === 403) {
         throw new Error('You do not have permission to update this profile');
       }
