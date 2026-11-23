@@ -17,24 +17,17 @@ export interface SpecialDiscountPayload {
   minimumPurchaseQuantity?: number;
   additionalDiscountPercentage?: number;
   displayOffer?: boolean;
-  // Optional validity window in India Standard Time (IST): dates yyyy-MM-dd, times HH:mm. Leave all four
-  // out for an offer with no time limit.
+  // Optional validity window, evaluated in IST. Dates are yyyy-MM-dd, times HH:mm.
+  // No end time = runs through the whole end date; a time needs its date.
   effectiveStartDate?: string;
   effectiveStartTime?: string;
   effectiveEndDate?: string;
   effectiveEndTime?: string;
 }
 
-// A quantity offer as the server returns it. active/startsAt/endsAt are computed server-side in IST.
-export interface BatchOffer {
-  minimumPurchaseQuantity: number;
-  additionalDiscountPercentage: number;
-  displayOffer?: boolean | null;
-  effectiveStartDate?: string | null;
-  effectiveStartTime?: string | null;
-  effectiveEndDate?: string | null;
-  effectiveEndTime?: string | null;
-  active?: boolean;
+// A quantity offer as the backend returns it (response-only fields are computed server-side).
+export interface BatchOffer extends SpecialDiscountPayload {
+  active?: boolean | null;
   startsAt?: string | null;
   endsAt?: string | null;
 }
@@ -163,8 +156,7 @@ export const deleteBatch = async (
   return response.data?.data ?? response.data;
 };
 
-// Replaces ALL quantity offers on one batch with the given list (an empty list removes them).
-// The server validates the offers and that the batch belongs to this seller.
+// Replaces the complete set of quantity offers on one batch. An empty list removes them all.
 export const replaceBatchOffers = async (
   productId: string,
   pricingId: string,
@@ -172,8 +164,27 @@ export const replaceBatchOffers = async (
 ): Promise<BatchOffer[]> => {
   const sellerId = await getCurrentSellerId();
   const response = await api.put(
-    `/stock/${encodeURIComponent(productId)}/batches/${encodeURIComponent(pricingId)}/offers`,
+    `/stock/${productId}/batches/${pricingId}/offers`,
     { additionalDiscounts: offers },
+    { params: { sellerId } }
+  );
+  const data = response.data?.data ?? response.data;
+  return Array.isArray(data) ? data : [];
+};
+
+// DISPOSE writes damaged (returned) units off; RESTOCK moves them back to sellable stock.
+export type DamagedStockAction = "DISPOSE" | "RESTOCK";
+
+export const adjustDamagedStock = async (
+  productId: string,
+  pricingId: string,
+  action: DamagedStockAction,
+  quantity: number
+): Promise<StockLedgerResponse> => {
+  const sellerId = await getCurrentSellerId();
+  const response = await api.post(
+    `/stock/${productId}/batches/${pricingId}/damaged/adjust`,
+    { action, quantity },
     { params: { sellerId } }
   );
   return response.data?.data ?? response.data;

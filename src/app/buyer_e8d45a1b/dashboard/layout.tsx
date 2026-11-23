@@ -41,16 +41,48 @@ export default function BuyerDashboardLayout({
     });
   }, [openLoginModal]);
 
+  // Sidebar collapsed to an icon rail. Remembered in this browser; read after mount (not in the initializer) for
+  // the same server/client-agreement reason as isAuthenticated above.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        const saved = localStorage.getItem("buyer-sidebar-collapsed");
+        // no saved choice yet: start as an icon rail on narrow windows / zoomed-in pages so the content keeps its room
+        setCollapsed(saved === null ? window.innerWidth < 1100 : saved === "1");
+      } catch {
+        // storage blocked: start expanded
+      }
+    });
+  }, []);
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("buyer-sidebar-collapsed", next ? "1" : "0");
+      } catch {
+        // storage blocked: the choice just isn't remembered
+      }
+      return next;
+    });
+  };
+
   if (!isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen bg-secondary-50">
-      <BuyerSidebar approved={status === "approved"} />
-      <BuyerHeader tempBuyer={tempBuyer} status={status} />
+    <>
+      <div className="min-h-screen bg-secondary-50">
+        <BuyerSidebar approved={status === "approved"} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
+        <BuyerHeader tempBuyer={tempBuyer} status={status} />
 
-      <main className="ml-64 p-6" style={{ marginTop: 74 }}>
-        <BuyerOnboardingGate>{children}</BuyerOnboardingGate>
-      </main>
-    </div>
+        <main
+          className={`min-w-0 overflow-x-clip p-6 transition-[margin] duration-200 ${collapsed ? "ml-16" : "ml-52"}`}
+          style={{ marginTop: 74 }}
+        >
+          <BuyerOnboardingGate>{children}</BuyerOnboardingGate>
+        </main>
+      </div>
+      {/* The cart drawer is mounted once in the root layout (GlobalCartDrawer). */}
+    </>
   );
 }

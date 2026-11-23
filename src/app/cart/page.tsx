@@ -11,6 +11,7 @@ import { useCart } from "@/src/context/CartContext";
 import { getProductsByIds } from "@/src/services/buyer/buyerProductService";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { isCartItemUnavailable } from "@/src/utils/cartAvailability";
+import { returnPolicyLabel } from "@/src/utils/returnPolicy";
 
 // B2B order quantities can run into the hundreds/thousands, where a ±1
 // stepper alone means dozens of clicks to reach a usable value — this lets
@@ -186,6 +187,9 @@ export default function CartPage() {
                             Sold by <span className="font-medium text-pneutral-700">{item.sellerName}</span>
                           </p>
                         )}
+                        <p className="text-p4 font-body text-pneutral-500">
+                          {returnPolicyLabel(item.returnable, item.returnPeriodDays)}
+                        </p>
                         <p
                           className={`text-p3 font-body text-pneutral-600 ${
                             isBuyerLoggedIn ? "" : "blur-[5px] select-none pointer-events-none"
@@ -243,6 +247,7 @@ export default function CartPage() {
                   >
                     ₹{totalPrice.toFixed(2)}
                   </span>
+                  <span className="block text-p4 font-body font-normal text-pneutral-500">incl. GST</span>
                 </p>
                 <Button
                   variant="filled"

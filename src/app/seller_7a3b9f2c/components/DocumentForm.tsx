@@ -1184,30 +1184,30 @@ export default function DocumentForm({
 
   if (formData.productTypes.length === 0) {
     return (
-      <div className="flex flex-col gap-5 bg-white">
+      <div className="flex flex-col gap-3 bg-white">
         <div>
-          <div className="text-h3 font-heading font-medium text-pneutral-900 leading-[40px]">
+          <div className="text-xl font-heading font-bold text-pneutral-900 leading-7">
             Statutory Documents
           </div>
-          <div className="text-label-l4 font-heading font-regular text-pneutral-800 leading-[24px] mt-1">
+          <div className="text-[13px] font-heading font-regular text-pneutral-800 leading-[18px] mt-1">
             License and GST compliance upload
           </div>
         </div>
-        <div className="mt-6 p-4 bg-warning-50 border border-warning-200 rounded-xl">
+        <div className="mt-4 p-3 bg-warning-50 border border-warning-200 rounded-lg">
           <div className="flex items-center">
             <span className="text-warning-800 text-xl mr-3">⚠️</span>
             <div>
               <p className="text-warning-800 font-medium">
                 No product types selected
               </p>
-              <p className="text-warning-700 text-p3 font-body font-regular mt-1">
+              <p className="text-warning-700 text-[13px] font-body font-regular mt-1">
                 Please go back to Step 1 and select at least one product type.
               </p>
             </div>
           </div>
         </div>
-        <div className="flex justify-between mt-10">
-          <button onClick={prevStep} className="h-12 px-6 border-2 border-pneutral-900 text-pneutral-900 rounded-xl flex items-center gap-2">
+        <div className="flex justify-between mt-4">
+          <button onClick={prevStep} className="h-9 px-4 border-[1.5px] border-neutral-300 text-neutral-700 text-[13px] font-semibold rounded-lg hover:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex items-center gap-2">
             <Image src="/icons/backbuttonicon.png" alt="Back" width={18} height={18} />
             Back
           </button>
@@ -1218,14 +1218,14 @@ export default function DocumentForm({
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <div className="flex flex-col gap-6 bg-white">
+      <div className="flex flex-col gap-3 bg-white">
 
         {/* HEADER */}
         <div>
-          <div className="text-h3 font-heading font-medium text-pneutral-900 leading-[40px]">
+          <div className="text-xl font-heading font-bold text-pneutral-900 leading-7">
             Statutory Documents
           </div>
-          <div className="text-label-l4 font-heading font-regular text-pneutral-800 leading-[24px] mt-1">
+          <div className="text-[13px] font-heading font-regular text-pneutral-800 leading-[18px] mt-1">
             License and GST compliance upload
           </div>
         </div>
@@ -1289,13 +1289,13 @@ export default function DocumentForm({
               {hasGapError && (
                 <div className="mb-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
                   <span className="text-red-500 text-base">⚠️</span>
-                  <p className="text-red-600 text-p3 font-body font-medium">
+                  <p className="text-red-600 text-[13px] font-body font-medium">
                     {gapError}
                   </p>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
                 {/* LICENSE NUMBER */}
                 <FormInput
                   label={licenseInfo.numberLabel}
@@ -1318,7 +1318,7 @@ export default function DocumentForm({
 
                 {/* LICENSE FILE UPLOAD WITH CROSS BUTTON */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                  <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
                     {licenseInfo.fileLabel}
                     <span className="text-warning-500 font-semibold ml-1">*</span>
                   </label>
@@ -1351,26 +1351,26 @@ export default function DocumentForm({
                         document.getElementById(`license-upload-${productName}`)?.click();
                       }
                     }}
-                    className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
+                    className="flex items-center border border-neutral-300 rounded-lg overflow-hidden h-10 bg-white cursor-pointer focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
                     onClick={() => document.getElementById(`license-upload-${productName}`)?.click()}
                   >
-                    <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
+                    <div className="w-10 h-full bg-primary-50 border-r border-neutral-300 flex items-center justify-center">
                       <Image
                         src="/icons/upload.png"
                         alt="Upload"
                         width={18}
                         height={18}
-                        className="brightness-0 invert"
+                        className="brightness-0"
                       />
                     </div>
 
                     <div className="flex-1 h-full flex items-center justify-between px-3">
                       <div className="flex-1 flex items-center min-w-0">
                         {isUploading ? (
-                          <span className="text-p4 font-body font-regular text-pneutral-500">Uploading...</span>
+                          <span className="text-[13px] font-body font-regular text-pneutral-500">Uploading...</span>
                         ) : licenseFileName ? (
                           <div className="flex items-center gap-2 bg-sneutral-800 rounded-md px-3 py-1 max-w-fit">
-                            <span className="text-p4 font-body font-regular text-white truncate max-w-[120px]">
+                            <span className="text-[13px] font-body font-regular text-white truncate max-w-[120px]">
                               {licenseFileName}
                             </span>
                             <button
@@ -1404,14 +1404,14 @@ export default function DocumentForm({
                             </button>
                           </div>
                         ) : (
-                          <span className="text-p4 font-body font-regular text-pneutral-500">Upload the Certificate</span>
+                          <span className="text-[13px] font-body font-regular text-pneutral-500">Upload the Certificate</span>
                         )}
                       </div>
                     </div>
                   </div>
                   )}
                   {licenseFileError && (
-                    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                    <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                       <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                       <span>{licenseFileError}</span>
                     </p>
@@ -1420,7 +1420,7 @@ export default function DocumentForm({
 
                 {/* ISSUE DATE - With 5 year lookback restriction (exclusive) */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                  <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
                     {licenseInfo.issueDateLabel}
                     <span className="text-warning-500 font-semibold ml-1">*</span>
                   </label>
@@ -1454,7 +1454,7 @@ export default function DocumentForm({
                       }}
                     />
                     {issueDateError && (
-                      <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                      <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                         <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                         <span>{issueDateError}</span>
                       </p>
@@ -1464,7 +1464,7 @@ export default function DocumentForm({
 
                 {/* EXPIRY DATE - Disabled until issue date is selected */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                  <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
                     {licenseInfo.expiryDateLabel}
                     <span className="text-warning-500 font-semibold ml-1">*</span>
                   </label>
@@ -1498,19 +1498,19 @@ export default function DocumentForm({
                       }}
                     />
                     {expiryDateError && (
-                      <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                      <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                         <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                         <span>{expiryDateError}</span>
                       </p>
                     )}
                     {/* {isExpiryDisabled && !expiryDateError && (
-                      <p className="mt-1 text-p2 font-body font-regular text-pneutral-500 flex items-start">
+                      <p className="mt-1 text-xs font-body font-regular text-pneutral-500 flex items-start">
                         <span className="mr-1">ℹ️</span>
                         <span>Please select issue date first</span>
                       </p>
                     )}
                     {!isExpiryDisabled && !expiryDateError && maxExpiryDate && (
-                      <p className="mt-1 text-p3 font-body font-regular text-pneutral-500">
+                      <p className="mt-1 text-[13px] font-body font-regular text-pneutral-500">
                         Expiry date must be within 5 years of issue date (max: {maxExpiryDate.toLocaleDateString('en-GB')})
                       </p>
                     )} */}
@@ -1534,7 +1534,7 @@ export default function DocumentForm({
 
                 {/* LICENSE STATUS */}
                 <div className="flex items-center gap-4 mt-1">
-                  <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+                  <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
                     {licenseInfo.statusLabel}
                     <span className="text-warning-500 font-semibold ml-1">*</span>
                   </label>
@@ -1563,7 +1563,7 @@ export default function DocumentForm({
                     />
 
                     <span
-                      className={`text-p4 font-body font-medium
+                      className={`text-[13px] font-body font-medium
                         ${
                           currentStatus === "Active"
                             ? "text-success-600"
@@ -1617,8 +1617,8 @@ export default function DocumentForm({
             const isNumberEffectivelyRequired = isDocumentPairRequired;
 
             return (
-              <div key={code} className="mb-4">
-                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+              <div key={code} className="mb-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
                   {/* NUMBER - required whenever the document itself is required,
                       or once its file has been attached (see isNumberEffectivelyRequired
                       above - a mandatory/uploaded document with no way to key its
@@ -1640,7 +1640,7 @@ export default function DocumentForm({
 
                   {/* DOCUMENT UPLOAD (required if isRequired, or once a number has been entered) */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                    <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
                       {label} Document
                       {isFileEffectivelyRequired ? (
                         <span className="text-warning-500 font-semibold ml-1">*</span>
@@ -1676,26 +1676,26 @@ export default function DocumentForm({
                           document.getElementById(`agreement-upload-${code}`)?.click();
                         }
                       }}
-                      className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
+                      className="flex items-center border border-neutral-300 rounded-lg overflow-hidden h-10 bg-white cursor-pointer focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
                       onClick={() => document.getElementById(`agreement-upload-${code}`)?.click()}
                     >
-                      <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
+                      <div className="w-10 h-full bg-primary-50 border-r border-neutral-300 flex items-center justify-center">
                         <Image
                           src="/icons/upload.png"
                           alt="Upload"
                           width={18}
                           height={18}
-                          className="brightness-0 invert"
+                          className="brightness-0"
                         />
                       </div>
 
                       <div className="flex-1 h-full flex items-center justify-between px-3">
                         <div className="flex-1 flex items-center min-w-0">
                           {isUploading ? (
-                            <span className="text-p4 font-body font-regular text-pneutral-500">Uploading...</span>
+                            <span className="text-[13px] font-body font-regular text-pneutral-500">Uploading...</span>
                           ) : agreementFileName ? (
                             <div className="flex items-center gap-2 bg-sneutral-800 rounded-md px-3 py-1 max-w-fit">
-                              <span className="text-p4 font-body font-regular text-white truncate max-w-[120px]">
+                              <span className="text-[13px] font-body font-regular text-white truncate max-w-[120px]">
                                 {agreementFileName}
                               </span>
                               <button
@@ -1726,7 +1726,7 @@ export default function DocumentForm({
                               </button>
                             </div>
                           ) : (
-                            <span className="text-p4 font-body font-regular text-pneutral-500">
+                            <span className="text-[13px] font-body font-regular text-pneutral-500">
                               Upload the {label}{isFileEffectivelyRequired ? "" : " (optional)"}
                             </span>
                           )}
@@ -1738,7 +1738,7 @@ export default function DocumentForm({
 
                   {/* ISSUE DATE - required whenever the document pair is (see isAgreementPairRequired) */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                    <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
                       {label} Issue Date{isDocumentPairRequired ? (
                         <span className="text-warning-500 font-semibold ml-1">*</span>
                       ) : (
@@ -1770,7 +1770,7 @@ export default function DocumentForm({
                       }}
                     />
                     {issueDateError && (
-                      <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                      <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                         <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                         <span>{issueDateError}</span>
                       </p>
@@ -1779,7 +1779,7 @@ export default function DocumentForm({
 
                   {/* EXPIRY DATE - required whenever the document pair is (see isAgreementPairRequired) */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+                    <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
                       {label} Expiry Date{isDocumentPairRequired ? (
                         <span className="text-warning-500 font-semibold ml-1">*</span>
                       ) : (
@@ -1811,7 +1811,7 @@ export default function DocumentForm({
                       }}
                     />
                     {expiryDateError && (
-                      <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                      <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                         <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                         <span>{expiryDateError}</span>
                       </p>
@@ -1826,7 +1826,7 @@ export default function DocumentForm({
             <>
               {requiredDocumentCodes.length > 0 && (
                 <div className="mt-2">
-                  <h3 className="text-label-l5 font-heading font-semibold text-pneutral-900 mb-3">
+                  <h3 className="text-sm font-heading font-semibold text-pneutral-900 mb-3">
                     Agreement &amp; Compliance Documents
                   </h3>
                   {requiredDocumentCodes.map((code: string) => renderDocumentBlock(code, true))}
@@ -1835,10 +1835,10 @@ export default function DocumentForm({
 
               {optionalDocumentCodes.length > 0 && (
                 <div className="mt-2">
-                  <h3 className="text-label-l5 font-heading font-semibold text-pneutral-900 mb-3">
+                  <h3 className="text-sm font-heading font-semibold text-pneutral-900 mb-3">
                     Additional Documents (Optional)
                   </h3>
-                  <p className="text-p4 font-body font-regular text-pneutral-500 mb-3">
+                  <p className="text-[13px] font-body font-regular text-pneutral-500 mb-3">
                     These aren&apos;t required to submit your registration — attach them only if applicable (e.g. import licences only apply if you import).
                   </p>
                   {optionalDocumentCodes.map((code: string) => renderDocumentBlock(code, false))}
@@ -1850,11 +1850,11 @@ export default function DocumentForm({
 
         {/* GST SECTION */}
         <div className="mt-2">
-          <h3 className="text-label-l5 font-heading font-semibold text-pneutral-900 mb-3">
+          <h3 className="text-sm font-heading font-semibold text-pneutral-900 mb-3">
             GSTIN Details
           </h3>
 
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
             <FormInput
               label="GSTIN Number"
               required
@@ -1875,7 +1875,7 @@ export default function DocumentForm({
 
             {/* GST FILE UPLOAD WITH CROSS BUTTON */}
             <div className="flex flex-col gap-1">
-              <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+              <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
                 GST Certificate
                 <span className="text-warning-500 font-semibold ml-1">*</span>
               </label>
@@ -1908,26 +1908,26 @@ export default function DocumentForm({
                     document.getElementById('gst-upload')?.click();
                   }
                 }}
-                className="flex items-center border border-neutral-500 rounded-xl overflow-hidden h-13 bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
+                className="flex items-center border border-neutral-300 rounded-lg overflow-hidden h-10 bg-white cursor-pointer focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
                 onClick={() => document.getElementById('gst-upload')?.click()}
               >
-                <div className="w-12 h-full bg-secondary-800 flex items-center justify-center">
+                <div className="w-10 h-full bg-primary-50 border-r border-neutral-300 flex items-center justify-center">
                   <Image
                     src="/icons/upload.png"
                     alt="Upload"
                     width={18}
                     height={18}
-                    className="brightness-0 invert"
+                    className="brightness-0"
                   />
                 </div>
 
                 <div className="flex-1 h-full flex items-center justify-between px-3">
                   <div className="flex-1 flex items-center min-w-0">
                     {uploadingGST ? (
-                      <span className="text-p4 font-body font-regular text-pneutral-500">Uploading...</span>
+                      <span className="text-[13px] font-body font-regular text-pneutral-500">Uploading...</span>
                     ) : gstFileName ? (
                       <div className="flex items-center gap-2 bg-sneutral-800 rounded-md px-3 py-1 max-w-fit">
-                        <span className="text-p4 font-body font-regular text-white truncate max-w-[120px]">
+                        <span className="text-[13px] font-body font-regular text-white truncate max-w-[120px]">
                           {gstFileName}
                         </span>
                         <button
@@ -1961,14 +1961,14 @@ export default function DocumentForm({
                         </button>
                       </div>
                     ) : (
-                      <span className="text-p4 font-body font-regular text-pneutral-500">Upload the Certificate</span>
+                      <span className="text-[13px] font-body font-regular text-pneutral-500">Upload the Certificate</span>
                     )}
                   </div>
                 </div>
               </div>
               )}
               {gstFileError && (
-                <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+                <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                   <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                   <span>{gstFileError}</span>
                 </p>
@@ -1978,10 +1978,10 @@ export default function DocumentForm({
         </div>
 
         {/* BUTTONS */}
-        <div className="flex justify-between mt-10">
+        <div className="flex justify-between mt-4">
           <button
             onClick={prevStep}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
+            className="h-9 px-4 border-[1.5px] border-neutral-300 text-neutral-700 text-[13px] font-semibold rounded-lg hover:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex justify-center items-center gap-2"
           >
             <Image
               src="/icons/backbuttonicon.png"
@@ -1994,7 +1994,7 @@ export default function DocumentForm({
 
           <button
             onClick={handleContinue}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"
+            className="h-9 px-4 border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold rounded-lg hover:bg-primary-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex justify-center items-center gap-2"
           >
             Continue
             <Image

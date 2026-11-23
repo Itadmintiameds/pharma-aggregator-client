@@ -27,7 +27,7 @@ const FAQS = () => {
     },
     {
       question: "How do I handle returns and refunds?",
-      answer: "Returns are accepted for damaged/expired products within 7 days of delivery. Refunds are processed within 5-7 business days after quality verification.",
+      answer: "Returns are accepted for damaged/expired products within each product's return period after delivery (shown on the product page; 7 days unless the seller sets otherwise). Some products are not returnable. Refunds are processed within 5-7 business days after quality verification.",
       type: "seller",
       icon: <FaStore className="w-5 h-5" />
     },

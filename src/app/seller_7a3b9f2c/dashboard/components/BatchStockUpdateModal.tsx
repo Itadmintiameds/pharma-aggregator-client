@@ -165,13 +165,13 @@ export default function BatchStockUpdateModal({
       <div
         style={{
           width: "100%",
-          maxWidth: result ? 460 : 640,
-          maxHeight: "90vh",
+          maxWidth: result ? 400 : 544,
+          maxHeight: "85vh",
           overflowY: "auto",
           background: "white",
-          borderRadius: 16,
+          borderRadius: 12,
           boxShadow:
-            "0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
+            "0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.08)",
           fontFamily: "'Noto Sans', sans-serif",
         }}
       >
@@ -182,80 +182,76 @@ export default function BatchStockUpdateModal({
             {/* ── HEADER ── */}
             <div
               style={{
-                padding: "24px 24px 16px",
+                padding: "14px 16px 10px",
                 borderBottom: `1px solid ${BORDER}`,
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "flex-start",
+                gap: 8,
               }}
             >
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
                 <h2
                   style={{
                     margin: 0,
-                    fontSize: 22,
-                    fontWeight: 600,
+                    fontSize: 16,
+                    fontWeight: 700,
                     color: TEXT_DARK,
                     fontFamily: "'Work Sans', sans-serif",
                   }}
                 >
                   Stock Update
                 </h2>
-                <p style={{ margin: 0, fontSize: 14, color: TEXT_GRAY }}>
+                <p style={{ margin: 0, fontSize: 12, color: TEXT_GRAY }}>
                   Product: {productName || "—"}
                 </p>
-                <p style={{ margin: 0, fontSize: 14, color: TEXT_GRAY }}>
+                <p style={{ margin: 0, fontSize: 12, color: TEXT_GRAY }}>
                   Product ID: {productId || "—"}
                 </p>
               </div>
               <button
                 onClick={handleClose}
                 aria-label="Close"
+                className="rounded-md p-1 text-neutral-600 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-800"
                 style={{
                   background: "transparent",
                   border: "none",
                   cursor: "pointer",
-                  color: TEXT_GRAY,
-                  padding: 4,
-                  borderRadius: 6,
+                  flexShrink: 0,
                 }}
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
             {/* ── CONTENT ── */}
-            <div style={{ padding: "24px", minHeight: 200 }}>
+            <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "200px 1fr",
-                  gap: 24,
+                  background: "#FAFAF9",
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: 8,
+                  padding: "10px 12px",
                 }}
               >
-                <div
+                <p
                   style={{
-                    background: "#FAFAF9",
-                    border: `1px solid ${BORDER}`,
-                    borderRadius: 12,
-                    padding: 16,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 14,
-                    alignSelf: "start",
+                    margin: "0 0 8px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: TEXT_DARK,
+                    fontFamily: "'Work Sans', sans-serif",
                   }}
                 >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 13.5,
-                      fontWeight: 600,
-                      color: TEXT_DARK,
-                      fontFamily: "'Work Sans', sans-serif",
-                    }}
-                  >
-                    Batch Information
-                  </p>
+                  Batch Information
+                </p>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                    gap: "8px 12px",
+                  }}
+                >
                   <InfoPair label="Batch Number" value={batch.batchLotNumber || "—"} />
                   <InfoPair
                     label="Manufacturing Date"
@@ -275,26 +271,35 @@ export default function BatchStockUpdateModal({
                     }
                   />
                 </div>
+              </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 15,
-                      fontWeight: 600,
-                      color: TEXT_DARK,
-                      fontFamily: "'Work Sans', sans-serif",
-                    }}
-                  >
-                    Add Stock Details
-                  </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: TEXT_DARK,
+                    fontFamily: "'Work Sans', sans-serif",
+                  }}
+                >
+                  Add Stock Details
+                </p>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: 10,
+                  }}
+                >
                   <Field label="Stock Adjustment Quantity *">
                     <div style={{ display: "flex" }}>
                       <input
                         type="number"
                         value={addQuantity}
                         onChange={(e) => setAddQuantity(e.target.value)}
-                        placeholder="e.g. 50 to add, -20 to remove"
+                        placeholder="e.g. 50 or -20"
+                        className={inputCls}
                         style={{
                           ...inputStyle,
                           borderTopRightRadius: 0,
@@ -306,12 +311,12 @@ export default function BatchStockUpdateModal({
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          padding: "0 14px",
+                          padding: "0 10px",
                           border: `1px solid ${BORDER}`,
                           borderTopRightRadius: 8,
                           borderBottomRightRadius: 8,
                           background: "#F5F5F5",
-                          fontSize: 13,
+                          fontSize: 12,
                           color: TEXT_GRAY,
                           whiteSpace: "nowrap",
                         }}
@@ -319,10 +324,6 @@ export default function BatchStockUpdateModal({
                         Pack(s)
                       </span>
                     </div>
-                    <p style={{ margin: "6px 0 0", fontSize: 12, color: TEXT_GRAY }}>
-                      Enter a positive number to add stock, or a negative number to
-                      deduct stock from this batch.
-                    </p>
                   </Field>
                   <Field label="Date of Stock Entry">
                     <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -338,74 +339,78 @@ export default function BatchStockUpdateModal({
                       />
                     </LocalizationProvider>
                   </Field>
-                  <Field label="Remarks (Optional)">
-                    <textarea
-                      value={remarks}
-                      onChange={(e) => setRemarks(e.target.value)}
-                      placeholder="Enter remarks (optional)"
-                      rows={2}
-                      style={{ ...inputStyle, height: "auto", padding: 10, resize: "vertical" }}
-                    />
-                  </Field>
+                </div>
+                <p style={{ margin: 0, fontSize: 11.5, color: TEXT_GRAY }}>
+                  Enter a positive number to add stock, or a negative number to
+                  deduct stock from this batch.
+                </p>
+                <Field label="Remarks (Optional)">
+                  <textarea
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    placeholder="Enter remarks (optional)"
+                    rows={2}
+                    className={inputCls}
+                    style={{ ...inputStyle, height: "auto", padding: "6px 10px", resize: "vertical" }}
+                  />
+                </Field>
 
-                  <div
+                <div
+                  style={{
+                    background: previewIsDecrease ? "#FEF2F2" : "#F0FDF4",
+                    border: `1px solid ${previewIsDecrease ? "#FCA5A5" : "#86EFAC"}`,
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                  }}
+                >
+                  <p
                     style={{
-                      background: previewIsDecrease ? "#FEF2F2" : "#F0FDF4",
-                      border: `1px solid ${previewIsDecrease ? "#FCA5A5" : "#86EFAC"}`,
-                      borderRadius: 10,
-                      padding: 14,
+                      margin: "0 0 4px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: previewIsDecrease ? "#B91C1C" : "#15803D",
                     }}
                   >
-                    <p
-                      style={{
-                        margin: "0 0 8px",
-                        fontSize: 12.5,
-                        fontWeight: 600,
-                        color: previewIsDecrease ? "#B91C1C" : "#15803D",
-                      }}
-                    >
-                      Updated Stock Quantity
-                    </p>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "baseline",
-                        gap: 8,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <SumBlock value={previewCurrent} label="Current Stock" />
-                      <span style={{ fontSize: 18, color: previewIsDecrease ? "#B91C1C" : "#15803D" }}>
-                        {previewIsDecrease ? "−" : "+"}
-                      </span>
-                      <SumBlock value={Math.abs(previewAdded)} label={previewIsDecrease ? "Removed Stock" : "Added Stock"} />
-                      <span style={{ fontSize: 18, color: previewIsDecrease ? "#B91C1C" : "#15803D" }}>=</span>
-                      <SumBlock
-                        value={previewUpdated}
-                        label="Updated Stock"
-                        bold
-                        suffix="Packs"
-                      />
-                    </div>
-                    {previewUpdated < 0 && (
-                      <p style={{ margin: "8px 0 0", fontSize: 12, color: "#B91C1C" }}>
-                        Updated stock cannot go below 0.
-                      </p>
-                    )}
+                    Updated Stock Quantity
+                  </p>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "baseline",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <SumBlock value={previewCurrent} label="Current Stock" />
+                    <span style={{ fontSize: 16, color: previewIsDecrease ? "#B91C1C" : "#15803D" }}>
+                      {previewIsDecrease ? "−" : "+"}
+                    </span>
+                    <SumBlock value={Math.abs(previewAdded)} label={previewIsDecrease ? "Removed Stock" : "Added Stock"} />
+                    <span style={{ fontSize: 16, color: previewIsDecrease ? "#B91C1C" : "#15803D" }}>=</span>
+                    <SumBlock
+                      value={previewUpdated}
+                      label="Updated Stock"
+                      bold
+                      suffix="Packs"
+                    />
                   </div>
+                  {previewUpdated < 0 && (
+                    <p style={{ margin: "6px 0 0", fontSize: 12, color: "#B91C1C" }}>
+                      Updated stock cannot go below 0.
+                    </p>
+                  )}
                 </div>
               </div>
 
               {submitError && (
                 <div
                   style={{
-                    marginTop: 16,
-                    padding: "10px 14px",
+                    padding: "8px 12px",
                     borderRadius: 8,
                     background: "#FEF2F2",
                     border: "1px solid #FCA5A5",
                     color: "#B91C1C",
-                    fontSize: 13,
+                    fontSize: 12.5,
                   }}
                 >
                   {submitError}
@@ -417,47 +422,26 @@ export default function BatchStockUpdateModal({
             <div
               style={{
                 borderTop: `1px solid ${BORDER}`,
-                padding: "16px 24px",
+                padding: "10px 16px",
                 display: "flex",
                 justifyContent: "flex-end",
                 alignItems: "center",
-                gap: 12,
+                gap: 8,
               }}
             >
               <button
                 onClick={handleClose}
                 disabled={submitting}
-                style={{
-                  height: 44,
-                  padding: "0 20px",
-                  borderRadius: 8,
-                  border: `1px solid ${BORDER}`,
-                  background: "white",
-                  color: TEXT_DARK,
-                  fontSize: 14,
-                  fontWeight: 500,
-                  cursor: submitting ? "not-allowed" : "pointer",
-                  fontFamily: "'Work Sans', sans-serif",
-                }}
+                className="h-9 rounded-lg border-[1.5px] border-neutral-300 bg-transparent px-4 text-xs font-semibold text-neutral-700 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-800 disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ fontFamily: "'Work Sans', sans-serif" }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirm}
                 disabled={!isValid || submitting}
-                style={{
-                  height: 44,
-                  padding: "0 20px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: PURPLE,
-                  color: "white",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: !isValid || submitting ? "not-allowed" : "pointer",
-                  opacity: !isValid || submitting ? 0.55 : 1,
-                  fontFamily: "'Work Sans', sans-serif",
-                }}
+                className="h-9 rounded-lg border-[1.5px] border-primary-900 bg-transparent px-4 text-xs font-semibold text-primary-900 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-800 disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ fontFamily: "'Work Sans', sans-serif" }}
               >
                 {submitting ? "Updating…" : "Update Stock"}
               </button>
@@ -471,23 +455,26 @@ export default function BatchStockUpdateModal({
 
 const datePickerSx = {
   "& .MuiOutlinedInput-root": {
-    height: 44,
+    height: 36,
     borderRadius: "8px",
     fontFamily: "'Noto Sans', sans-serif",
-    fontSize: 14,
+    fontSize: 13,
   },
   "& .clearButton": {
     opacity: "1 !important",
   },
 };
 
+const inputCls =
+  "border-neutral-300 focus:border-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-100";
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  height: 44,
+  height: 36,
   borderRadius: 8,
   border: `1px solid ${BORDER}`,
-  padding: "0 12px",
-  fontSize: 14,
+  padding: "0 10px",
+  fontSize: 13,
   color: TEXT_DARK,
   boxSizing: "border-box",
   fontFamily: "'Noto Sans', sans-serif",
@@ -505,10 +492,10 @@ function Field({
       <label
         style={{
           display: "block",
-          fontSize: 13,
-          fontWeight: 500,
+          fontSize: 12,
+          fontWeight: 600,
           color: TEXT_DARK,
-          marginBottom: 6,
+          marginBottom: 4,
         }}
       >
         {label}
@@ -521,13 +508,13 @@ function Field({
 function InfoPair({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ fontSize: 11.5, color: TEXT_GRAY }}>{label}</div>
+      <div style={{ fontSize: 11, color: TEXT_GRAY }}>{label}</div>
       <div
         style={{
-          fontSize: 13.5,
+          fontSize: 13,
           fontWeight: 600,
           color: TEXT_DARK,
-          marginTop: 2,
+          marginTop: 1,
         }}
       >
         {value}
@@ -551,7 +538,7 @@ function SumBlock({
     <div style={{ textAlign: "center" }}>
       <div
         style={{
-          fontSize: bold ? 20 : 18,
+          fontSize: bold ? 17 : 15,
           fontWeight: bold ? 700 : 600,
           color: bold ? "#15803D" : TEXT_DARK,
           fontFamily: "'Work Sans', sans-serif",
@@ -559,7 +546,7 @@ function SumBlock({
       >
         {value.toLocaleString()}
         {suffix ? (
-          <span style={{ fontSize: 12, fontWeight: 500, marginLeft: 4 }}>
+          <span style={{ fontSize: 11, fontWeight: 500, marginLeft: 4 }}>
             {suffix}
           </span>
         ) : null}
@@ -572,10 +559,10 @@ function SumBlock({
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-      <span style={{ fontSize: 13, color: TEXT_GRAY }}>{label}</span>
+      <span style={{ fontSize: 12.5, color: TEXT_GRAY }}>{label}</span>
       <span
         style={{
-          fontSize: 13,
+          fontSize: 12.5,
           fontWeight: 600,
           color: TEXT_DARK,
           textAlign: "right",
@@ -606,7 +593,7 @@ function SuccessView({
   onClose: () => void;
 }) {
   return (
-    <div style={{ padding: "40px 32px 32px", position: "relative" }}>
+    <div style={{ padding: "24px 20px 20px", position: "relative" }}>
       {CONFETTI.map((c, i) => (
         <span
           key={i}
@@ -629,13 +616,13 @@ function SuccessView({
           flexDirection: "column",
           alignItems: "center",
           textAlign: "center",
-          gap: 16,
+          gap: 12,
         }}
       >
         <div
           style={{
-            width: 72,
-            height: 72,
+            width: 56,
+            height: 56,
             borderRadius: "50%",
             background: "#DCFCE7",
             display: "flex",
@@ -645,8 +632,8 @@ function SuccessView({
         >
           <div
             style={{
-              width: 52,
-              height: 52,
+              width: 40,
+              height: 40,
               borderRadius: "50%",
               background: "#16A34A",
               display: "flex",
@@ -654,14 +641,14 @@ function SuccessView({
               justifyContent: "center",
             }}
           >
-            <Check size={28} color="white" strokeWidth={3} />
+            <Check size={22} color="white" strokeWidth={3} />
           </div>
         </div>
 
         <h2
           style={{
             margin: 0,
-            fontSize: 19,
+            fontSize: 16,
             fontWeight: 700,
             color: "#15803D",
             fontFamily: "'Work Sans', sans-serif",
@@ -674,17 +661,17 @@ function SuccessView({
           style={{
             width: "100%",
             border: `1px solid ${BORDER}`,
-            borderRadius: 12,
+            borderRadius: 8,
             overflow: "hidden",
             textAlign: "left",
           }}
         >
-          <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
             <ReviewRow label="Product Name" value={productName || "—"} />
             <ReviewRow label="Batch Number" value={result.batchNumber || "—"} />
           </div>
           <div style={{ borderTop: `1px solid ${BORDER}` }} />
-          <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
             <ReviewRow
               label="Previous Stock"
               value={`${result.previousStock.toLocaleString()} Packs`}
@@ -694,7 +681,7 @@ function SuccessView({
               value={`${Math.abs(result.addedStock).toLocaleString()} Packs`}
             />
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <span style={{ fontSize: 13, color: TEXT_GRAY }}>Updated Stock</span>
+              <span style={{ fontSize: 12.5, color: TEXT_GRAY }}>Updated Stock</span>
               <span style={{ fontSize: 14, fontWeight: 700, color: "#15803D" }}>
                 {result.updatedStock.toLocaleString()} Packs
               </span>
@@ -704,18 +691,8 @@ function SuccessView({
 
         <button
           onClick={onClose}
-          style={{
-            width: "100%",
-            height: 44,
-            borderRadius: 8,
-            border: "none",
-            background: PURPLE,
-            color: "white",
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: "'Work Sans', sans-serif",
-          }}
+          className="h-9 w-full rounded-lg border-[1.5px] border-primary-900 bg-transparent text-xs font-semibold text-primary-900 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-800"
+          style={{ fontFamily: "'Work Sans', sans-serif" }}
         >
           Close
         </button>

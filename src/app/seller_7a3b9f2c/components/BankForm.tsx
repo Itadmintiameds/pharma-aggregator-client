@@ -310,20 +310,20 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
   };
 
   return (
-    <div className="flex flex-col gap-5 bg-white">
+    <div className="flex flex-col gap-3 bg-white">
       {/* Header Section */}
       <div>
-        <div className="text-h3 font-heading font-medium text-pneutral-900 leading-[40px]">
+        <div className="text-xl font-heading font-bold text-pneutral-900 leading-7">
           Financial Setup
         </div>
-        <div className="text-label-l4 font-heading font-regular text-pneutral-800 leading-[24px] mt-1">
+        <div className="text-[13px] font-heading font-regular text-pneutral-800 leading-[18px] mt-1">
           Banking details for secure settlements
         </div>
       </div>
 
       {/* Bank Details Section */}
       <div>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-2">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 pt-2">
           {/* Account Holder Name */}
           <FormInput
             label="Account Holder Name"
@@ -336,7 +336,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             onBlur={() => setAccountHolderNameFormatError("")}
             placeholder="As per bank records"
             maxLength={100}
-            leftIcon={<HiOutlineUser className="w-5 h-5" />}
+            leftIcon={<HiOutlineUser className="w-4 h-4" />}
             error={errors.accountHolderName || accountHolderNameFormatError}
           />
 
@@ -353,7 +353,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             placeholder="e.g., SBIN0001234"
             maxLength={11}
             uppercase
-            leftIcon={<IoLockClosedOutline className="w-5 h-5" />}
+            leftIcon={<IoLockClosedOutline className="w-4 h-4" />}
             error={errors.ifscCode || ifscError}
           />
 
@@ -401,7 +401,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             name="bankName"
             value={formData.bankName}
             readOnly
-            leftIcon={<RiBankLine className="w-5 h-5 text-pneutral-500" />}
+            leftIcon={<RiBankLine className="w-4 h-4 text-pneutral-500" />}
             inputClassName="bg-neutral-100 border-neutral-300"
           />
 
@@ -413,13 +413,13 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
             name="branch"
             value={formData.branch}
             readOnly
-            leftIcon={<Building2 className="w-5 h-5 text-pneutral-500" />}
+            leftIcon={<Building2 className="w-4 h-4 text-pneutral-500" />}
             inputClassName="bg-neutral-100 border-neutral-300"
           />
 
           {/* Bank State */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               Bank State
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -430,32 +430,32 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'bankState'}
-                className="w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
+                className="w-full h-10 pl-9 pr-3 border border-neutral-300 rounded-lg bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
                 onClick={() => setOpenDropdown(openDropdown === 'bankState' ? null : 'bankState')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'bankState')}
                 onBlur={() => handleDropdownBlur('bankState')}
               >
-                <span className={!getSelectedBankStateLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                <span className={!getSelectedBankStateLabel() ? "text-[13px] font-body font-regular text-pneutral-500" : "text-[13px] font-body font-regular text-pneutral-900"}>
                   {loadingStates?.states
                     ? "Loading..."
                     : getSelectedBankStateLabel() || "Select State"}
                 </span>
-                <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'bankState' ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-pneutral-900 transition-transform ${openDropdown === 'bankState' ? 'rotate-180' : ''}`} />
               </div>
 
               {openDropdown === 'bankState' && !loadingStates?.states && (
-                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
                   <div className="max-h-60 overflow-y-auto">
                     {states.map((state) => (
                       <div
                         key={state.stateId}
-                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        className="px-3 py-1.5 hover:bg-primary-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
                         onClick={() => {
                           onBankStateChange({ value: state.stateId.toString(), label: state.stateName });
                           setOpenDropdown(null);
                         }}
                       >
-                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                        <span className="text-[13px] font-body font-regular text-pneutral-900">
                           {state.stateName}
                         </span>
                       </div>
@@ -465,7 +465,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
               )}
             </div>
             {errors.bankStateId && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+              <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                 <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.bankStateId}</span>
               </p>
@@ -474,7 +474,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
 
           {/* Bank District */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               Bank District
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -485,34 +485,34 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'bankDistrict'}
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${formData.bankStateId ? 'cursor-pointer' : 'cursor-not-allowed bg-neutral-100'}`}
+                className={`w-full h-10 pl-9 pr-3 border border-neutral-300 rounded-lg bg-white flex justify-between items-center focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${formData.bankStateId ? 'cursor-pointer' : 'cursor-not-allowed bg-neutral-100'}`}
                 onClick={() => formData.bankStateId && setOpenDropdown(openDropdown === 'bankDistrict' ? null : 'bankDistrict')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'bankDistrict', !!formData.bankStateId)}
                 onBlur={() => handleDropdownBlur('bankDistrict')}
               >
-                <span className={!getSelectedBankDistrictLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                <span className={!getSelectedBankDistrictLabel() ? "text-[13px] font-body font-regular text-pneutral-500" : "text-[13px] font-body font-regular text-pneutral-900"}>
                   {loadingStates?.bankDistricts
                     ? "Loading..."
                     : getSelectedBankDistrictLabel() || "Select District"}
                 </span>
                 {formData.bankStateId && (
-                  <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'bankDistrict' ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-pneutral-900 transition-transform ${openDropdown === 'bankDistrict' ? 'rotate-180' : ''}`} />
                 )}
               </div>
 
               {openDropdown === 'bankDistrict' && !loadingStates?.bankDistricts && formData.bankStateId && (
-                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
                   <div className="max-h-60 overflow-y-auto">
                     {bankDistricts.map((district) => (
                       <div
                         key={district.districtId}
-                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        className="px-3 py-1.5 hover:bg-primary-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
                         onClick={() => {
                           onBankDistrictChange({ value: district.districtId.toString(), label: district.districtName });
                           setOpenDropdown(null);
                         }}
                       >
-                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                        <span className="text-[13px] font-body font-regular text-pneutral-900">
                           {district.districtName}
                         </span>
                       </div>
@@ -522,7 +522,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
               )}
             </div>
             {errors.bankDistrictId && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+              <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                 <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.bankDistrictId}</span>
               </p>
@@ -531,7 +531,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
 
           {/* Bank Taluka */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               Bank Taluka
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -542,34 +542,34 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'bankTaluka'}
-                className={`w-full h-13 pl-10 pr-4 border border-neutral-500 rounded-xl bg-white flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${formData.bankDistrictId ? 'cursor-pointer' : 'cursor-not-allowed bg-neutral-100'}`}
+                className={`w-full h-10 pl-9 pr-3 border border-neutral-300 rounded-lg bg-white flex justify-between items-center focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${formData.bankDistrictId ? 'cursor-pointer' : 'cursor-not-allowed bg-neutral-100'}`}
                 onClick={() => formData.bankDistrictId && setOpenDropdown(openDropdown === 'bankTaluka' ? null : 'bankTaluka')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'bankTaluka', !!formData.bankDistrictId)}
                 onBlur={() => handleDropdownBlur('bankTaluka')}
               >
-                <span className={!getSelectedBankTalukaLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                <span className={!getSelectedBankTalukaLabel() ? "text-[13px] font-body font-regular text-pneutral-500" : "text-[13px] font-body font-regular text-pneutral-900"}>
                   {loadingStates?.bankTalukas
                     ? "Loading..."
                     : getSelectedBankTalukaLabel() || "Select Taluka"}
                 </span>
                 {formData.bankDistrictId && (
-                  <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'bankTaluka' ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-pneutral-900 transition-transform ${openDropdown === 'bankTaluka' ? 'rotate-180' : ''}`} />
                 )}
               </div>
 
               {openDropdown === 'bankTaluka' && !loadingStates?.bankTalukas && formData.bankDistrictId && (
-                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
                   <div className="max-h-60 overflow-y-auto">
                     {bankTalukas.map((taluka) => (
                       <div
                         key={taluka.talukaId}
-                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        className="px-3 py-1.5 hover:bg-primary-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
                         onClick={() => {
                           onBankTalukaChange({ value: taluka.talukaId.toString(), label: taluka.talukaName });
                           setOpenDropdown(null);
                         }}
                       >
-                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                        <span className="text-[13px] font-body font-regular text-pneutral-900">
                           {taluka.talukaName}
                         </span>
                       </div>
@@ -579,7 +579,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
               )}
             </div>
             {errors.bankTalukaId && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+              <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                 <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.bankTalukaId}</span>
               </p>
@@ -591,7 +591,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
       {/* Document Upload Section - KEPT ORIGINAL DESIGN */}
       <div className="mt-4">
         <div className="flex flex-col gap-1">
-          <label className="text-label-l4 font-heading font-semibold text-pneutral-900 leading-[24px] mb-2">
+          <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px] mb-2">
             Upload cancelled Cheque / Passbook front page copy
             <span className="text-warning-500 font-semibold ml-1">*</span>
           </label>
@@ -624,7 +624,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 document.getElementById('cheque-upload')?.click();
               }
             }}
-            className="border-2 border-dashed border-primary-300 rounded-xl p-8 text-center bg-neutral-50 cursor-pointer transition-none focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
+            className="border-[1.5px] border-dashed border-primary-300 rounded-lg p-4 text-center bg-neutral-50 cursor-pointer transition-none focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
             onClick={() => document.getElementById('cheque-upload')?.click()}
           >
             <div className="flex flex-col items-center gap-2">
@@ -635,10 +635,10 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 height={40}
               />
               {uploading ? (
-                <p className="text-p4 font-body font-regular text-pneutral-500">Uploading...</p>
+                <p className="text-[13px] font-body font-regular text-pneutral-500">Uploading...</p>
               ) : selectedFileName ? (
                 <div className="flex items-center gap-2">
-                  <p className="text-p4 font-body font-regular text-pneutral-900">
+                  <p className="text-[13px] font-body font-regular text-pneutral-900">
                     {selectedFileName}
                   </p>
                   <button
@@ -673,10 +673,10 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
                 </div>
               ) : (
                 <>
-                  <p className="text-p4 font-body font-regular text-pneutral-900">
+                  <p className="text-[13px] font-body font-regular text-pneutral-900">
                     Choose a file or drag & drop it here
                   </p>
-                  <p className="text-p2 font-body font-regular text-pneutral-500">
+                  <p className="text-xs font-body font-regular text-pneutral-500">
                     JPEG, PNG, and PDF formats, up to 5MB
                   </p>
                 </>
@@ -685,7 +685,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
           </div>
           )}
           {errors.cancelledChequeFile && (
-            <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+            <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
               <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
               <span>{errors.cancelledChequeFile}</span>
             </p>
@@ -694,10 +694,10 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
       </div>
 
       {/* Buttons */}
-      <div className="flex justify-between mt-10">
+      <div className="flex justify-between mt-4">
         <button
           onClick={prevStep}
-          className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
+          className="h-9 px-4 border-[1.5px] border-neutral-300 text-neutral-700 text-[13px] font-semibold rounded-lg hover:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex justify-center items-center gap-2"
         >
           <Image
             src="/icons/backbuttonicon.png"
@@ -710,7 +710,7 @@ const handleAccountHolderNameChange = (e: React.ChangeEvent<HTMLInputElement>) =
 
         <button
           onClick={handleContinue}
-          className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"
+          className="h-9 px-4 border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold rounded-lg hover:bg-primary-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex justify-center items-center gap-2"
         >
           Continue
           <Image

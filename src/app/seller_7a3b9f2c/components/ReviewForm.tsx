@@ -28,20 +28,20 @@ export default function ReviewForm({
 }: Props) {
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
 
       {/* HEADER */}
       <div>
-        <h1 className="text-h3 font-heading font-medium text-pneutral-900 leading-[40px]">
+        <h1 className="text-xl font-heading font-bold text-pneutral-900 leading-7">
           Review & Confirm Your Registration
         </h1>
-        <p className="text-label-l4 font-heading font-regular text-pneutral-800 leading-[24px] mt-1">
+        <p className="text-[13px] font-heading font-regular text-pneutral-800 leading-[18px] mt-1">
           Please verify your details before submission.
         </p>
       </div>
 
       {/* GRID */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-3">
 
         {/* COMPANY DETAILS */}
         <Card title="Company Details" onEdit={() => onEdit("company")}>
@@ -76,7 +76,7 @@ export default function ReviewForm({
         {/* COMPLIANCE DOCUMENTS - Combined GST + Licenses */}
         <Card title="Compliance Documents" onEdit={() => onEdit("documents")}>
           {/* GST Document */}
-          <div className="mb-4">
+          <div className="mb-2">
             <LicenseRow
               productName="GST"
               licenseNumber={formData.gstNumber}
@@ -90,7 +90,7 @@ export default function ReviewForm({
           {/* License Documents */}
           {formData.productTypes && formData.productTypes.length > 0 && (
             <div>
-              <div className="space-y-4">
+              <div className="space-y-2.5">
                 {formData.productTypes.map((productName: string) => {
                   const license = formData.licenses?.[productName];
                   return (
@@ -115,7 +115,7 @@ export default function ReviewForm({
               a separate Row+FileRow pair, so number and file line up with
               the rows above rather than drifting to their own column widths. */}
           {formData.agreements && Object.keys(formData.agreements).length > 0 && (
-            <div className="mt-2 space-y-4">
+            <div className="mt-2 space-y-2.5">
               {Object.entries(formData.agreements as Record<string, any>).map(([code, agreement]) => {
                 if (!agreement?.file && !agreement?.fileUrl && !agreement?.number) return null;
                 const label = documentTypeLabel(code);
@@ -174,21 +174,21 @@ export default function ReviewForm({
 </Card>
 
       {/* SUCCESS MESSAGE */}
-      <div className="bg-success-50 border border-success-200 rounded-lg px-4 py-3 flex items-center gap-2">
+      <div className="bg-success-50 border border-success-200 rounded-lg px-3 py-2 flex items-center gap-2">
         <GoCheckCircleFill className="w-5 h-5 text-success-600" />
-        <span className="text-p3 font-body font-semibold text-pneutral-900">
+        <span className="text-[13px] font-body font-semibold text-pneutral-900">
           All registration steps completed.
         </span>
-        <span className="text-p3 font-body font-regular text-pneutral-600">
+        <span className="text-[13px] font-body font-regular text-pneutral-600">
         Your application is ready for submission.
         </span>
       </div>
 
       {/* ACTION BUTTONS */}
-      <div className="flex justify-between items-center pt-4">
+      <div className="flex justify-between items-center pt-2">
         <button
           onClick={prevStep}
-          className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-pneutral-900 text-pneutral-900 font-semibold"
+          className="h-9 px-4 border-[1.5px] border-neutral-300 text-neutral-700 text-[13px] font-semibold rounded-lg hover:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex justify-center items-center gap-2"
         >
           <Image
             src="/icons/backbuttonicon.png"
@@ -202,7 +202,7 @@ export default function ReviewForm({
         <button
           onClick={onSubmit}
           disabled={submitting}
-          className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          className="h-9 px-4 border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold rounded-lg hover:bg-primary-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex justify-center items-center gap-2"
         >
           {submitting ? "Submitting..." : "Submit"}
           {!submitting && (
@@ -232,17 +232,17 @@ function Card({
   onEdit: () => void;
 }) {
   return (
-    <div className="h-full flex flex-col border border-neutral-200 rounded-xl p-5 bg-white shadow-sm">
+    <div className="h-full flex flex-col border border-neutral-200 rounded-xl px-4 py-3 bg-white shadow-sm">
 
       {/* Header */}
       <div className="flex justify-between items-center mb-3">
-        <h3 className="text-label-l5 font-heading font-semibold text-pneutral-900 leading-[24px]">
+        <h3 className="text-sm font-heading font-semibold text-pneutral-900 leading-[18px]">
           {title}
         </h3>
 
         <button
           onClick={onEdit}
-          className="text-primary-800 text-p3 font-body font-medium flex items-center gap-1"
+          className="text-primary-800 text-[13px] font-body font-semibold flex items-center gap-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
         >
           <Image
             src="/icons/EditIcon.png"
@@ -255,9 +255,9 @@ function Card({
       </div>
 
       {/* Divider line */}
-      <div className="border-t border-neutral-200 mb-4"></div>
+      <div className="border-t border-neutral-200 mb-2"></div>
 
-      <div className="flex-1 flex flex-col gap-3">
+      <div className="flex-1 flex flex-col gap-2">
         {children}
       </div>
 
@@ -269,7 +269,7 @@ function Card({
 // enough for the longest label ("Authorization Letter") to stay on one
 // line, so every row's value starts at the same x position instead of the
 // label wrapping and throwing off vertical alignment with rows above/below.
-const LABEL_COL = "grid-cols-[220px_1fr]";
+const LABEL_COL = "grid-cols-[190px_1fr]";
 
 /* ---------------- ROW - Simple label-value pair ---------------- */
 
@@ -281,9 +281,9 @@ function Row({
   value?: string;
 }) {
   return (
-    <div className={`grid ${LABEL_COL} items-center text-md`}>
-      <span className="text-p4 font-body font-semibold text-pneutral-900">{label}</span>
-      <span className="text-p4 font-body font-regular text-pneutral-900">{value || "-"}</span>
+    <div className={`grid ${LABEL_COL} items-center text-[13px]`}>
+      <span className="text-[13px] font-body font-semibold text-pneutral-900">{label}</span>
+      <span className="text-[13px] font-body font-regular text-pneutral-900">{value || "-"}</span>
     </div>
   );
 }
@@ -319,20 +319,20 @@ function DocRow({
     <div className="w-full">
 
       {/* Main Row */}
-      <div className="grid grid-cols-[280px_1fr_auto] items-center gap-4">
+      <div className="grid grid-cols-[230px_1fr_auto] items-center gap-4">
 
         {/* LEFT */}
         <div className="flex items-center gap-2 min-w-0">
           <FileText className="w-5 h-5 shrink-0 text-pneutral-500" />
 
-          <span className="text-p4 font-body font-semibold text-pneutral-900 whitespace-nowrap">
+          <span className="text-[13px] font-body font-semibold text-pneutral-900 whitespace-nowrap">
             {label}
           </span>
         </div>
 
         {/* CENTER */}
         <div className="flex justify-center">
-          <span className="text-p4 font-body font-regular text-pneutral-900 truncate">
+          <span className="text-[13px] font-body font-regular text-pneutral-900 truncate">
             {value || "-"}
           </span>
         </div>
@@ -343,21 +343,21 @@ function DocRow({
             <>
               <GoCheckCircleFill className="w-5 h-5 text-success-600 shrink-0" />
 
-              <span className="text-p3 font-body font-regular text-pneutral-900 whitespace-nowrap">
+              <span className="text-[13px] font-body font-regular text-pneutral-900 whitespace-nowrap">
                 Uploaded
               </span>
 
               {showView && (file || fileUrl) && (
                 <button
                   onClick={handleView}
-                  className="text-primary-800 text-p3 font-body font-medium hover:underline whitespace-nowrap"
+                  className="text-primary-800 text-[13px] font-body font-semibold hover:underline whitespace-nowrap rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
                 >
                   View
                 </button>
               )}
             </>
           ) : (
-            <span className="text-p3 font-body font-regular text-warning-500 whitespace-nowrap">
+            <span className="text-[13px] font-body font-regular text-warning-500 whitespace-nowrap">
               Not Uploaded
             </span>
           )}
@@ -365,7 +365,7 @@ function DocRow({
       </div>
 
       {/* Divider */}
-      <div className="border-b border-neutral-200 mt-3"></div>
+      <div className="border-b border-neutral-200 mt-2"></div>
     </div>
   );
 }
@@ -432,14 +432,14 @@ function FileRow({
           {showStatus && (
             <>
               <GoCheckCircleFill className="w-5 h-5 text-success-600" />
-              <span className="text-p3 font-body font-regular text-pneutral-600">Uploaded</span>
+              <span className="text-[13px] font-body font-regular text-pneutral-600">Uploaded</span>
             </>
           )}
 
           {(file || fileUrl) && (
             <button
               onClick={handleView}
-              className="text-primary-800 text-p3 font-body font-medium hover:underline cursor-pointer"
+              className="text-primary-800 text-[13px] font-body font-semibold hover:underline cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
             >
               View
             </button>
@@ -447,7 +447,7 @@ function FileRow({
         </>
       ) : (
         showStatus && (
-          <span className="text-p3 font-body font-regular text-warning-500">Not Uploaded</span>
+          <span className="text-[13px] font-body font-regular text-warning-500">Not Uploaded</span>
         )
       )}
     </div>
@@ -460,12 +460,12 @@ function FileRow({
   if (label) {
     return (
       <div className={`grid ${LABEL_COL} items-center text-sm`}>
-        <span className="flex items-center gap-2 text-p4 font-body font-semibold text-pneutral-900 whitespace-nowrap">
+        <span className="flex items-center gap-2 text-[13px] font-body font-semibold text-pneutral-900 whitespace-nowrap">
           <FileText className="w-4 h-4 shrink-0 text-pneutral-500" />
           {label}
         </span>
         <div className="flex items-center justify-between gap-2 min-w-0">
-          <span className="truncate max-w-50 text-p4 font-body font-regular text-pneutral-900">{name}</span>
+          <span className="truncate max-w-50 text-[13px] font-body font-regular text-pneutral-900">{name}</span>
           {status}
         </div>
       </div>
@@ -476,7 +476,7 @@ function FileRow({
     <div className="flex items-center justify-between text-sm">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <FileText className="w-5 h-5 shrink-0 text-pneutral-500"/>
-        <span className="truncate max-w-50 text-p4 font-body font-regular text-pneutral-900">{name}</span>
+        <span className="truncate max-w-50 text-[13px] font-body font-regular text-pneutral-900">{name}</span>
       </div>
 
       {status}

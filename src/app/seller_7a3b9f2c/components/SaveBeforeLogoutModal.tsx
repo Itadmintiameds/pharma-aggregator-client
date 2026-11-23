@@ -40,7 +40,7 @@ const SaveBeforeLogoutModal = ({
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4">
       <div
-        className="relative w-full max-w-110 rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full max-w-[26rem] rounded-xl bg-white p-4 shadow-xl animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
@@ -48,18 +48,18 @@ const SaveBeforeLogoutModal = ({
           <button
             onClick={onCancel}
             disabled={saving}
-            className="text-gray-400 transition-colors hover:text-gray-600 disabled:opacity-50"
+            className="text-gray-400 transition-colors hover:text-gray-600 disabled:opacity-40 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
           >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
         {/* Icon */}
-        <div className="mb-6 flex justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-100">
-            <svg className="h-10 w-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mb-2 flex justify-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+            <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -72,21 +72,21 @@ const SaveBeforeLogoutModal = ({
 
         {/* Content */}
         <div className="text-center">
-          <h2 className="mb-2 text-2xl font-semibold text-gray-900">Save before you go?</h2>
+          <h2 className="mb-1 text-base font-bold text-gray-900">Save before you go?</h2>
 
-          <p className="mb-8 text-sm text-gray-500">
+          <p className="mb-4 text-xs text-gray-500">
             You have registration details filled in on this page. Save them as a draft
             before logging out so you can pick up where you left off.
           </p>
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           <button
             type="button"
             onClick={onSaveAndLogout}
             disabled={saving}
-            className="rounded-xl bg-primary-800 px-4 py-3 font-medium text-white transition disabled:opacity-60"
+            className="h-9 rounded-lg border-[1.5px] border-primary-900 px-4 text-[13px] font-semibold text-primary-900 transition hover:bg-primary-50 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
           >
             {saving ? "Saving..." : "Save & Logout"}
           </button>
@@ -95,7 +95,7 @@ const SaveBeforeLogoutModal = ({
             type="button"
             onClick={onLogoutWithoutSaving}
             disabled={saving}
-            className="rounded-xl border-2 border-red-600 bg-white px-4 py-3 font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+            className="h-9 rounded-lg border-[1.5px] border-red-500 px-4 text-[13px] font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
           >
             Logout without saving
           </button>
@@ -104,7 +104,7 @@ const SaveBeforeLogoutModal = ({
             type="button"
             onClick={onCancel}
             disabled={saving}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-3 font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+            className="h-9 rounded-lg border-[1.5px] border-neutral-300 px-4 text-[13px] font-semibold text-neutral-700 transition hover:bg-neutral-100 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
           >
             Cancel
           </button>

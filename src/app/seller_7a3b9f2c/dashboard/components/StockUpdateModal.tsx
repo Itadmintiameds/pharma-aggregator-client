@@ -1,5 +1,13 @@
 "use client";
 
+import OfferWindowFields from "./OfferWindowFields";
+import {
+  type OfferWindowInput,
+  emptyOfferWindow,
+  offerWindowError,
+  offerWindowPayload,
+  offerWindowSummary,
+} from "@/src/utils/offerWindow";
 import React, { useEffect, useState } from "react";
 import {
   X,
@@ -34,55 +42,18 @@ interface SelectOption {
 
 // One row of the repeatable "special discount" list on a new batch — each row becomes its
 // own AdditionalDiscount record server-side (see StockService.SpecialDiscountPayload).
-export interface SpecialDiscountRow {
+export interface SpecialDiscountRow extends OfferWindowInput {
   minimumPurchaseQuantity: string;
   percentage: string;
   displayOffer: boolean;
-  // Validity window. Dates are yyyy-MM-dd and times HH:mm, both in India Standard Time (IST),
-  // which is the zone the server evaluates offers in. alwaysActive = no time limit.
-  alwaysActive: boolean;
-  startDate: string;
-  startTime: string;
-  endDate: string;
-  endTime: string;
-  // True for a row loaded from the server. An already-ended offer is allowed to stay on the list
-  // (the seller can still remove it); only a NEW or edited window must end in the future.
-  fromServer?: boolean;
 }
 
 export const emptySpecialDiscountRow = (): SpecialDiscountRow => ({
   minimumPurchaseQuantity: "",
   percentage: "",
   displayOffer: true,
-  alwaysActive: true,
-  startDate: "",
-  startTime: "",
-  endDate: "",
-  endTime: "",
+  ...emptyOfferWindow(),
 });
-
-const IST_OFFSET = "+05:30";
-const istMillis = (date: string, time: string) =>
-  new Date(`${date}T${time}:00${IST_OFFSET}`).getTime();
-
-// Why the row's validity window cannot be saved, or null when it is fine.
-export function offerWindowError(
-  row: SpecialDiscountRow,
-  now: number = Date.now()
-): string | null {
-  if (row.alwaysActive) return null;
-  if (!row.startDate || !row.startTime || !row.endDate || !row.endTime) {
-    return "Enter the start and end date and time, or tick \u201cAlways active\u201d.";
-  }
-  const start = istMillis(row.startDate, row.startTime);
-  const end = istMillis(row.endDate, row.endTime);
-  if (Number.isNaN(start) || Number.isNaN(end)) {
-    return "Enter a valid date and time.";
-  }
-  if (end <= start) return "The end must be after the start.";
-  if (!row.fromServer && end <= now) return "The end is already in the past.";
-  return null;
-}
 
 // What an offer must be measured against: the batch it sits on. The server enforces the same two rules.
 export interface OfferRules {
@@ -126,20 +97,10 @@ export const offerRowsToPayload = (rows: SpecialDiscountRow[]): SpecialDiscountP
     minimumPurchaseQuantity: Number(row.minimumPurchaseQuantity),
     additionalDiscountPercentage: Number(row.percentage),
     displayOffer: row.displayOffer,
-    ...(row.alwaysActive
-      ? {}
-      : {
-          effectiveStartDate: row.startDate,
-          effectiveStartTime: row.startTime,
-          effectiveEndDate: row.endDate,
-          effectiveEndTime: row.endTime,
-        }),
+    ...offerWindowPayload(row),
   }));
 
-export const describeOfferWindow = (row: SpecialDiscountRow): string =>
-  row.alwaysActive
-    ? "always active"
-    : `${row.startDate} ${row.startTime} to ${row.endDate} ${row.endTime} IST`;
+export const describeOfferWindow = (row: SpecialDiscountRow): string => offerWindowSummary(row);
 
 interface StockUpdateModalProps {
   open: boolean;
@@ -645,7 +606,16 @@ export default function StockUpdateModal({
               : undefined,
             specialDiscounts:
               specialDiscounts.length > 0
-                ? offerRowsToPayload(specialDiscounts)
+                ? specialDiscounts.map(
+                    (row): SpecialDiscountPayload => ({
+                      minimumPurchaseQuantity: Number(
+                        row.minimumPurchaseQuantity
+                      ),
+                      additionalDiscountPercentage: Number(row.percentage),
+                      displayOffer: row.displayOffer,
+                      ...offerWindowPayload(row),
+                    })
+                  )
                 : undefined,
             shelfLifeMonths: newBatch.shelfLifeMonths.trim()
               ? Number(newBatch.shelfLifeMonths)
@@ -1841,7 +1811,7 @@ export default function StockUpdateModal({
                                 (row) =>
                                   `${row.percentage || "0"}% (min qty: ${
                                     row.minimumPurchaseQuantity || "—"
-                                  }, ${row.displayOffer ? "shown" : "hidden"}, ${describeOfferWindow(row)})`
+                                  }, ${row.displayOffer ? "shown" : "hidden"}, ${offerWindowSummary(row)})`
                               )
                               .join("; ")
                           : "—"
@@ -2320,91 +2290,12 @@ export function SpecialOffersDrawer({
                     {rules.minimumOrderQuantity != null && <>Minimum order: {rules.minimumOrderQuantity} units.</>}
                   </p>
                 )}
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginTop: 12,
-                  fontSize: 13,
-                  color: TEXT_DARK,
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={row.alwaysActive}
-                  onChange={(e) =>
-                    onUpdateRow(index, { alwaysActive: e.target.checked })
-                  }
+              <div style={{ marginTop: 12 }}>
+                <OfferWindowFields
+                  value={row}
+                  onChange={(patch) => onUpdateRow(index, patch)}
                 />
-                Always active (no time limit)
-              </label>
-              {!row.alwaysActive && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 12,
-                    marginTop: 12,
-                  }}
-                >
-                  <Field label="Offer starts (IST)">
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <input
-                        type="date"
-                        value={row.startDate}
-                        onChange={(e) =>
-                          onUpdateRow(index, { startDate: e.target.value })
-                        }
-                        style={inputStyle}
-                      />
-                      <input
-                        type="time"
-                        value={row.startTime}
-                        onChange={(e) =>
-                          onUpdateRow(index, { startTime: e.target.value })
-                        }
-                        style={inputStyle}
-                      />
-                    </div>
-                  </Field>
-                  <Field label="Offer ends (IST)">
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <input
-                        type="date"
-                        value={row.endDate}
-                        min={row.startDate || undefined}
-                        onChange={(e) =>
-                          onUpdateRow(index, { endDate: e.target.value })
-                        }
-                        style={inputStyle}
-                      />
-                      <input
-                        type="time"
-                        value={row.endTime}
-                        onChange={(e) =>
-                          onUpdateRow(index, { endTime: e.target.value })
-                        }
-                        style={inputStyle}
-                      />
-                    </div>
-                  </Field>
-                  {(row.startDate || row.startTime || row.endDate || row.endTime) &&
-                    offerWindowError(row) && (
-                      <p
-                        role="alert"
-                        style={{ margin: 0, fontSize: 12.5, color: "#DC2626" }}
-                      >
-                        {offerWindowError(row)}
-                      </p>
-                    )}
-                  <p style={{ margin: 0, fontSize: 12, color: TEXT_GRAY }}>
-                    Times are India Standard Time. Buyers see this offer only
-                    between these two moments, with a countdown to the end.
-                  </p>
-                </div>
-              )}
+              </div>
               <label
                 style={{
                   display: "flex",

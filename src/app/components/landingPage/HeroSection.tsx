@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   Plus,
   Minus,
+  X,
 } from "lucide-react";
 import {
   getConsumableDeviceCategories,
@@ -203,9 +204,9 @@ const HeroSection = () => {
   }, [displayedProducts]);
 
   return (
-    <div className="flex flex-col bg-white lg:flex-row gap-3 sm:gap-4 w-full px-3 sm:px-4 mx-auto max-w-[1280px] min-h-[auto] lg:h-[570px]">
+    <div className="flex flex-col bg-white lg:flex-row gap-3 sm:gap-4 w-full px-3 sm:px-4 mx-auto max-w-[1280px] min-h-[auto] lg:min-h-[570px]">
       {/* ================= LEFT CATEGORY SIDEBAR ================= */}
-      <aside className="relative w-full lg:w-[240px] xl:w-[280px] bg-neutral-50 rounded-2xl shadow-sm border border-neutral-400 shrink-0 lg:block hidden">
+      <aside className="relative w-full lg:w-[240px] xl:w-[280px] bg-neutral-50 rounded-2xl shadow-sm border border-neutral-400 shrink-0 hidden lg:flex lg:flex-col">
         <div className="relative flex items-center bg-primary-900 text-white px-3 sm:px-4 py-2.5 sm:py-3 h-[48px] sm:h-[52px] rounded-t-2xl">
           <Menu size={16} className="sm:w-[18px]" />
           <span className="absolute left-1/2 -translate-x-1/2 font-medium text-xs sm:text-sm xl:text-base whitespace-nowrap">
@@ -214,7 +215,7 @@ const HeroSection = () => {
           <ChevronDown size={16} className="sm:w-[18px] ml-auto" />
         </div>
 
-        <div className="h-[calc(570px-52px-2px)] flex flex-col">
+        <div className="min-h-[calc(570px-52px-2px)] flex-1 flex flex-col">
           {PARENT_CATEGORIES.map((item) => {
             const subcategories = subcategoryCache[item.id];
             const isHovered = hoveredParentId === item.id;
@@ -354,19 +355,23 @@ const HeroSection = () => {
 
         {/* ================= AUTO SLIDING PRODUCT CARDS ================= */}
         {selectedCategoryId && (
-          <div className="flex items-center gap-2 px-1">
-            <span className="text-xs sm:text-sm text-neutral-600">
-              Showing:{" "}
-              <span className="font-medium text-neutral-900">
-                {selectedCategoryName}
+          <div className="px-1">
+            {/* One pill: what is being shown, and the way to clear it. */}
+            <div className="inline-flex max-w-full items-stretch overflow-hidden rounded-full border border-primary-200 bg-white text-xs shadow-sm sm:text-sm">
+              <span className="flex min-w-0 items-center gap-2 bg-primary-50 py-1.5 pl-4 pr-3">
+                <span className="shrink-0 text-neutral-500">Showing</span>
+                <span className="truncate font-semibold text-primary-800">{selectedCategoryName}</span>
               </span>
-            </span>
-            <button
-              onClick={() => setSelectedCategoryId(null)}
-              className="text-xs sm:text-sm text-primary-600 hover:text-primary-800 underline"
-            >
-              Clear filter
-            </button>
+              <button
+                type="button"
+                onClick={() => setSelectedCategoryId(null)}
+                aria-label={`Clear filter: ${selectedCategoryName}`}
+                className="flex shrink-0 items-center gap-1.5 border-l border-primary-200 px-3 font-semibold text-neutral-600 transition-colors hover:bg-primary-50 hover:text-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600"
+              >
+                <X size={14} aria-hidden />
+                Clear filter
+              </button>
+            </div>
           </div>
         )}
 

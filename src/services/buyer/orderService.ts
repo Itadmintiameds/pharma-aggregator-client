@@ -1,6 +1,7 @@
 import axios from "axios";
 import buyerApi from "@/src/lib/buyerApi";
 import { Order, PlaceOrderFromQuoteRequest, PlaceOrderRequest } from "@/src/types/buyer/order";
+import { fetchAllPages } from "@/src/utils/fetchAllPages";
 
 interface ApiResponseWrapper<T> {
   status: string;
@@ -63,10 +64,8 @@ export async function getOrder(orderId: string): Promise<Order> {
 }
 
 export async function getOrdersByBuyer(buyerId: string): Promise<Order[]> {
-  // order-service returns a Spring Page ({ content: [...] }), not a bare array.
-  const response = await buyerApi.get<ApiResponseWrapper<Order[] | { content?: Order[] }>>(`/orders/buyer/${buyerId}`);
-  const data = response.data.data;
-  return Array.isArray(data) ? data : data?.content ?? [];
+  // order-service returns a Spring Page of 20 by default, so read every page - not just the first.
+  return fetchAllPages<Order>(`/orders/buyer/${buyerId}`, {}, buyerApi);
 }
 
 export async function cancelOrder(

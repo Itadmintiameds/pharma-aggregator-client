@@ -2,36 +2,40 @@
 
 import React, { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { LayoutDashboard, Package, Lock, ArrowRight, Headset, LogOut } from "lucide-react";
+import {
+  ClipboardList,
+  FileText,
+  LayoutDashboard,
+  Package,
+  Lock,
+  Headset,
+  LogOut,
+  Undo2,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 import { HiOutlineShoppingBag } from "react-icons/hi";
-import { AiOutlinePieChart } from "react-icons/ai";
-import { MdOutlineLocalShipping } from "react-icons/md";
-import { IoSettingsOutline } from "react-icons/io5";
 import toast from "react-hot-toast";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
+import { HelpSupportPopup } from "@/src/app/commonComponents/SidebarPopups";
 
-// Dashboard nav rail — labels/icons now match seller's SellerSidebar
-// (dashboard/components/SellerSidebar.tsx) exactly (Overview/Products/
-// Orders/Conversions/Shipment/Settings), per the Figma buyer reference.
-// Distinct from ../../components/BuyerSidebar.tsx, the registration
-// wizard's own progress rail, not dashboard navigation.
-//
-// Routes still point at buyer's existing real pages (Products -> browse
-// catalog, Conversions -> RFQ & Quotes, Shipment -> saved suppliers,
-// Settings -> support) rather than new stub routes, so nothing already
-// built becomes unreachable — only the label/icon changed, not what each
-// item links to. Flag if dedicated Shipment/Settings pages are wanted
-// instead of this positional relabeling.
+// Dashboard nav rail. Distinct from ../../components/BuyerSidebar.tsx, the registration wizard's own progress rail,
+// which is not dashboard navigation.
+//   Products         -> browse catalog
+//   Orders           -> every order
+//   Returns          -> the returns you raised, their progress and refunds
+//   Quotes           -> price requests / RFQs and the sellers' quotes (the old "Conversions" item)
+//   Quotation Orders -> only the orders that were placed from an accepted quote
 const menuItems = [
-  { id: "overview", label: "Overview", icon: <LayoutDashboard size={20} />, path: "/buyer_e8d45a1b/dashboard" },
-  { id: "catalog", label: "Products", icon: <Package size={20} />, path: "/buyer_e8d45a1b/dashboard/catalog" },
-  { id: "orders", label: "Orders", icon: <HiOutlineShoppingBag size={20} />, path: "/buyer_e8d45a1b/dashboard/orders" },
-  { id: "rfq", label: "Conversions", icon: <AiOutlinePieChart size={20} />, path: "/buyer_e8d45a1b/dashboard/rfq" },
-  { id: "suppliers", label: "Shipment", icon: <MdOutlineLocalShipping size={20} />, path: "/buyer_e8d45a1b/dashboard/suppliers" },
-  { id: "support", label: "Settings", icon: <IoSettingsOutline size={20} />, path: "/buyer_e8d45a1b/dashboard/support" },
+  { id: "overview", label: "Overview", icon: <LayoutDashboard size={18} />, path: "/buyer_e8d45a1b/dashboard" },
+  { id: "catalog", label: "Products", icon: <Package size={18} />, path: "/buyer_e8d45a1b/dashboard/catalog" },
+  { id: "orders", label: "Orders", icon: <HiOutlineShoppingBag size={18} />, path: "/buyer_e8d45a1b/dashboard/orders" },
+  { id: "returns", label: "Returns", icon: <Undo2 size={18} />, path: "/buyer_e8d45a1b/dashboard/returns" },
+  { id: "rfq", label: "Quotes", icon: <FileText size={18} />, path: "/buyer_e8d45a1b/dashboard/rfq" },
+  { id: "quote-orders", label: "Quotation Orders", icon: <ClipboardList size={18} />, path: "/buyer_e8d45a1b/dashboard/quotation-orders" },
 ];
 
-// Items reachable before full approval — "RFQ & Quotes" needs no approved
+// Items reachable before full approval — "Quotes" needs no approved
 // Buyer profile on the backend (BuyerQuoteRequestController only checks
 // ROLE_BUYER), so a buyer who's mid-registration (or a guest-provisioned
 // account that never registered) can still track requests they've raised.
@@ -42,12 +46,16 @@ interface BuyerSidebarProps {
   // UNGATED_ITEM_IDS is disabled — mirrors SellerSidebar's approval gate
   // (see OnboardingGate).
   approved?: boolean;
+  /** Icon-only rail (64px) instead of the full one (208px). Owned by the layout, which also moves the page content. */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
-export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
+export default function BuyerSidebar({ approved = true, collapsed = false, onToggleCollapsed }: BuyerSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const isActive = (path: string) =>
     path === "/buyer_e8d45a1b/dashboard" ? pathname === path : pathname.startsWith(path);
@@ -76,109 +84,98 @@ export default function BuyerSidebar({ approved = true }: BuyerSidebarProps) {
     }
   };
 
+  const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
+
   return (
     <aside
-      className="fixed left-0 bottom-0 w-64 z-40 flex flex-col"
-      style={{
-        top: 74,
-        padding: 24,
-        background: "var(--Colors-Secondary-Secondary-600, #9659FD)",
-        boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.10)",
-        justifyContent: "space-between",
-      }}
+      aria-label="Dashboard navigation"
+      className={`fixed bottom-0 left-0 z-40 flex flex-col justify-between bg-[#9659FD] shadow-md transition-[width] duration-200 ${
+        collapsed ? "w-16 p-3" : "w-52 p-4"
+      }`}
+      style={{ top: 74 }}
     >
-      <nav className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 8 }}>
-        {menuItems.map((item) => {
-          const active = isActive(item.path);
-          const disabled = !approved && !UNGATED_ITEM_IDS.has(item.id);
-          return (
-            <button
-              key={item.id}
-              onClick={() => handleMenuClick(item.id, item.path)}
-              disabled={disabled}
-              style={{
-                alignSelf: "stretch",
-                height: 48,
-                minHeight: 48,
-                maxHeight: 52,
-                background: active ? "#FFFFFF" : "transparent",
-                borderRadius: 8,
-                border: "none",
-                cursor: disabled ? "not-allowed" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                paddingLeft: 16,
-                paddingRight: 16,
-                gap: 8,
-                overflow: "hidden",
-              }}
-              onMouseEnter={(e) => {
-                if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255, 255, 255, 0.12)";
-              }}
-              onMouseLeave={(e) => {
-                if (!active && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-              }}
-            >
-              <span style={{ display: "flex", flexShrink: 0, color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "#000000" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)" }}>
-                {item.icon}
-              </span>
-              <span style={{
-                flex: 1,
-                textAlign: "left",
-                color: disabled ? "rgba(255, 255, 255, 0.4)" : active ? "#000000" : "var(--Colors-Primary-Neutral-pneutral-50, #F8F8F9)",
-                fontSize: 16,
-                fontFamily: "Work Sans, sans-serif",
-                fontWeight: active ? 500 : 400,
-                lineHeight: "24px",
-              }}>
-                {item.label}
-              </span>
-              {disabled && (
-                <Lock size={16} style={{ flexShrink: 0, color: "rgba(255, 255, 255, 0.4)" }} />
-              )}
-            </button>
-          );
-        })}
-      </nav>
-
-      <div className="flex flex-col gap-2">
-        <div className="rounded-2xl bg-white p-4 flex flex-col gap-2">
-          <span className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary-600 text-white shrink-0">
-            <Lock size={18} />
-          </span>
-          <div>
-            <p className="text-p3 font-body font-bold text-pneutral-900">Unlock marketplace features</p>
-            <p className="text-p4 font-body font-regular text-pneutral-600 mt-1">
-              Complete your verification to access 10,000+ products from verified suppliers.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="self-start flex items-center gap-1.5 rounded-xl bg-secondary-600 text-white text-p4 font-body font-semibold px-4 py-2 mt-1"
-          >
-            Learn more
-            <ArrowRight size={14} />
-          </button>
-        </div>
-
+      <div className="flex min-h-0 flex-1 flex-col">
         <button
           type="button"
-          className="flex items-center gap-3 rounded-2xl bg-neutral-100 text-pneutral-900 text-p3 font-body font-regular px-4 py-3"
+          onClick={onToggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={`mb-3 flex h-8 items-center rounded-lg text-white/90 transition-colors hover:bg-white/15 hover:text-white ${
+            collapsed ? "w-full justify-center" : "self-start px-3 justify-start"
+          }`}
         >
-          <Headset size={20} />
-          Help &amp; Support
+          <ToggleIcon size={18} />
+        </button>
+
+        <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto">
+          {menuItems.map((item) => {
+            const active = isActive(item.path);
+            const disabled = !approved && !UNGATED_ITEM_IDS.has(item.id);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleMenuClick(item.id, item.path)}
+                disabled={disabled}
+                title={collapsed ? item.label : undefined}
+                aria-label={collapsed ? item.label : undefined}
+                aria-current={active ? "page" : undefined}
+                className={`flex h-10 shrink-0 items-center overflow-hidden rounded-lg transition-colors ${
+                  collapsed ? "justify-center px-0" : "gap-2.5 px-3"
+                } ${
+                  active
+                    ? "bg-white text-black"
+                    : disabled
+                      ? "cursor-not-allowed text-white/40"
+                      : "text-neutral-50 hover:bg-white/15"
+                }`}
+              >
+                <span className="flex shrink-0">{item.icon}</span>
+                {!collapsed && (
+                  <>
+                    <span className={`flex-1 truncate text-left text-sm font-heading ${active ? "font-medium" : "font-normal"}`}>
+                      {item.label}
+                    </span>
+                    {disabled && <Lock size={14} className="shrink-0" />}
+                  </>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      <div className="mt-3 flex flex-col gap-1.5">
+        <button
+          type="button"
+          onClick={() => setShowHelp(true)}
+          title={collapsed ? "Help & Support" : undefined}
+          aria-label="Help & Support"
+          className={`flex items-center rounded-xl bg-neutral-100 text-xs font-body text-neutral-900 hover:bg-neutral-200 ${
+            collapsed ? "h-10 justify-center" : "gap-2.5 px-3 py-2.5"
+          }`}
+        >
+          <Headset size={18} className="shrink-0" />
+          {!collapsed && "Help & Support"}
         </button>
 
         <button
           type="button"
           onClick={handleLogout}
           disabled={isLoggingOut}
-          className="flex items-center gap-3 rounded-2xl bg-warning-50 text-red-500 text-p3 font-body font-semibold px-4 py-3 disabled:opacity-60"
+          title={collapsed ? "Logout" : undefined}
+          aria-label="Logout"
+          className={`flex items-center rounded-xl bg-warning-50 text-xs font-body font-semibold text-red-500 disabled:opacity-60 ${
+            collapsed ? "h-10 justify-center" : "gap-2.5 px-3 py-2.5"
+          }`}
         >
-          <LogOut size={20} />
-          {isLoggingOut ? "Logging out…" : "Logout"}
+          <LogOut size={18} className="shrink-0" />
+          {!collapsed && (isLoggingOut ? "Logging out…" : "Logout")}
         </button>
       </div>
+
+      {showHelp && <HelpSupportPopup audience="buyer" onClose={() => setShowHelp(false)} />}
     </aside>
   );
 }

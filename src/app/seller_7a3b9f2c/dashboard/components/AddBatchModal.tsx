@@ -115,7 +115,7 @@ function SuccessView({
   onClose: () => void;
 }) {
   return (
-    <div style={{ padding: "40px 32px 32px", position: "relative" }}>
+    <div style={{ padding: "24px 24px 20px", position: "relative" }}>
       {CONFETTI.map((c, i) => (
         <span
           key={i}

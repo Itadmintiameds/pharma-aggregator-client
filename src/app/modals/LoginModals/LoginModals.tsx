@@ -1,5 +1,6 @@
 "use client";
 
+import { LoginRoleHeader, LoginRoleSwitch } from "@/src/app/commonComponents/LoginRoleHeader";
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -756,19 +757,17 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
   // Render login step
   const renderLoginStep = () => (
     <form onSubmit={handleLoginSubmit(onLogin)}>
-      <div className="mb-10 flex justify-center">
+      <div className="mb-4 flex justify-center">
         <Image
           src="/assets/images/tiameds.logo.png"
           alt="TiaMeds"
-          width={233}
-          height={108}
+          width={170}
+          height={79}
           priority
         />
       </div>
 
-      <h2 className="text-h5 text-center font-medium text-pneutral-900 mb-6 font-heading">
-        Login
-      </h2>
+      <LoginRoleHeader role="seller" />
 
       <div className="mb-4">
         <div className="relative">
@@ -859,6 +858,8 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
           Forgot your password?
         </button>
       </p>
+
+      <LoginRoleSwitch role="seller" onNavigate={onClose} />
     </form>
   );
 

@@ -511,20 +511,20 @@ export default function CoordinatorForm({
   };
 
   return (
-    <div className="flex flex-col gap-5 bg-white">
+    <div className="flex flex-col gap-3 bg-white">
       {/* Header */}
       <div>
-        <div className="text-h3 font-heading font-medium text-pneutral-900 leading-[40px]">
+        <div className="text-xl font-heading font-bold text-pneutral-900 leading-7">
           Coordinator contact details
         </div>
-        <div className="text-label-l4 font-heading font-regular text-pneutral-800 leading-[24px] mt-1">
+        <div className="text-[13px] font-heading font-regular text-pneutral-800 leading-[18px] mt-1">
           Coordinator details for communication and verification
         </div>
       </div>
 
       {/* Form */}
       <div>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-2">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 pt-2">
 
           {/* Name */}
           <FormInput
@@ -537,7 +537,7 @@ export default function CoordinatorForm({
             onBlur={() => setCoordinatorNameFormatError("")}
             placeholder="Enter coordinator name"
             maxLength={100}
-            leftIcon={<HiOutlineUserGroup className="w-5 h-5" />}
+            leftIcon={<HiOutlineUserGroup className="w-4 h-4" />}
             error={errors.coordinatorName ? errors.coordinatorName : coordinatorNameFormatError}
           />
 
@@ -552,13 +552,13 @@ export default function CoordinatorForm({
             onBlur={() => setCoordinatorDesignationFormatError("")}
             placeholder="Enter designation"
             maxLength={100}
-            leftIcon={<Briefcase className="w-5 h-5" />}
+            leftIcon={<Briefcase className="w-4 h-4" />}
             error={errors.coordinatorDesignation ? errors.coordinatorDesignation : coordinatorDesignationFormatError}
           />
 
           {/* Phone */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               Coordinator Number
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -571,17 +571,17 @@ export default function CoordinatorForm({
                     type="button"
                     onClick={() => !phoneVerified && setIsPhoneDropdownOpen(!isPhoneDropdownOpen)}
                     disabled={phoneVerified}
-                    className={`h-13 px-2 pl-5 pr-2 rounded-l-xl border border-r-0 flex items-center gap-1 focus:outline-none disabled:cursor-not-allowed ${
+                    className={`h-10 px-2 pl-5 pr-2 rounded-l-xl border border-r-0 flex items-center gap-1 focus:outline-none disabled:cursor-not-allowed ${
                       phoneVerified ? "bg-neutral-100 text-pneutral-500" : "bg-white"
                     } ${
                       (errors.coordinatorMobile || phoneError || phoneExistsError)
                         ? "border-red-500"
                         : phoneVerified
                           ? "border-neutral-300"
-                          : "border-neutral-500"
+                          : "border-neutral-300"
                     }`}
                   >
-                    <span className={`text-p4 font-body font-regular ${phoneVerified ? "text-pneutral-500" : "text-pneutral-900"}`}>{selectedCountryCode}</span>
+                    <span className={`text-[13px] font-body font-regular ${phoneVerified ? "text-pneutral-500" : "text-pneutral-900"}`}>{selectedCountryCode}</span>
                     <ChevronDown className={`w-4 h-4 ${phoneVerified ? "text-pneutral-500" : "text-pneutral-900"}`} />
                   </button>
 
@@ -591,7 +591,7 @@ export default function CoordinatorForm({
                         className="fixed inset-0 z-10"
                         onClick={() => setIsPhoneDropdownOpen(false)}
                       />
-                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-xl shadow-lg z-20 max-h-60 overflow-y-auto">
+                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
                         {countryCodes.map((country) => (
                           <button
                             key={country.code}
@@ -604,8 +604,8 @@ export default function CoordinatorForm({
                             className="w-full px-3 py-2.5 text-left hover:bg-neutral-50 flex items-center gap-2 transition-colors"
                           >
                             <span className="text-lg">{country.flag}</span>
-                            <span className="text-p4 font-body font-semibold text-pneutral-900">{country.code}</span>
-                            <span className="text-p2 font-body font-regular text-pneutral-500">{country.country}</span>
+                            <span className="text-[13px] font-body font-semibold text-pneutral-900">{country.code}</span>
+                            <span className="text-xs font-body font-regular text-pneutral-500">{country.country}</span>
                           </button>
                         ))}
                       </div>
@@ -634,9 +634,9 @@ export default function CoordinatorForm({
                 <button
                   onClick={handleSendPhoneOTP}
                   disabled={!!phoneError || !formData.coordinatorMobile || phoneVerified || isSendingPhoneOtp}
-                  className={`h-11 px-4 rounded-xl text-white font-semibold ml-3 transition-none ${phoneVerified || phoneError || !formData.coordinatorMobile || isSendingPhoneOtp
-                      ? 'bg-primary-800 cursor-not-allowed '
-                      : 'bg-primary-800'
+                  className={`h-10 px-3 rounded-lg border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold ml-2 hover:bg-primary-50 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 ${phoneVerified || phoneError || !formData.coordinatorMobile || isSendingPhoneOtp
+                      ? 'cursor-not-allowed'
+                      : ''
                     }`}
                 >
                   {phoneVerified ? " Verified" : isSendingPhoneOtp ? "Sending..." : "Send OTP"}
@@ -644,7 +644,7 @@ export default function CoordinatorForm({
               </div>
             </div>
             {(errors.coordinatorMobile || phoneError || phoneExistsError) && (
-              <p className="text-p2 font-body font-regular text-red-500 flex items-start mt-1">
+              <p className="text-xs font-body font-regular text-red-500 flex items-start mt-1">
                 <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.coordinatorMobile || phoneError || phoneExistsError}</span>
               </p>
@@ -653,7 +653,7 @@ export default function CoordinatorForm({
 
           {/* Email */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               Coordinator Email ID
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -669,7 +669,7 @@ export default function CoordinatorForm({
                 onBlur={() => setEmailError("")}
                 placeholder="Enter email"
                 disabled={emailVerified}
-                leftIcon={<Mail className="w-5 h-5" />}
+                leftIcon={<Mail className="w-4 h-4" />}
                 error={errors.coordinatorEmail || emailError || emailExistsError}
                 hideMessage
               />
@@ -677,9 +677,9 @@ export default function CoordinatorForm({
               <button
                 onClick={handleSendEmailOTP}
                 disabled={!formData.coordinatorEmail || !!emailError || emailVerified || isSendingEmailOtp}
-                className={`h-11 px-4 rounded-xl text-white font-semibold transition-none ${emailVerified || !formData.coordinatorEmail || !!emailError || isSendingEmailOtp
-                    ? 'bg-primary-800 cursor-not-allowed'
-                    : 'bg-primary-800'
+                className={`h-10 px-3 rounded-lg border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold hover:bg-primary-50 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 ${emailVerified || !formData.coordinatorEmail || !!emailError || isSendingEmailOtp
+                    ? 'cursor-not-allowed'
+                    : ''
                   }`}
               >
                 {emailVerified ? "Verified" : isSendingEmailOtp ? "Sending..." : "Send OTP"}
@@ -696,7 +696,7 @@ export default function CoordinatorForm({
                 />
                 <label
                   htmlFor="same-as-login-email"
-                  className="text-p3 font-body text-pneutral-700 cursor-pointer"
+                  className="text-[13px] font-body text-pneutral-700 cursor-pointer"
                 >
                   Same as my login email ({loginEmail})
                 </label>
@@ -704,19 +704,19 @@ export default function CoordinatorForm({
             )}
 
             {errors.coordinatorEmail ? (
-              <p className="text-p2 font-body font-regular text-red-500 mt-1">
+              <p className="text-xs font-body font-regular text-red-500 mt-1">
                 {errors.coordinatorEmail}
               </p>
             ) : (
               <>
                 {emailError && (
-                  <p className="text-p2 font-body font-regular text-red-500 mt-1">
+                  <p className="text-xs font-body font-regular text-red-500 mt-1">
                     {emailError}
                   </p>
                 )}
 
                 {emailExistsError && !emailError && (
-                  <p className="text-p2 font-body font-regular text-red-500 mt-1">
+                  <p className="text-xs font-body font-regular text-red-500 mt-1">
                     {emailExistsError}
                   </p>
                 )}
@@ -726,7 +726,7 @@ export default function CoordinatorForm({
 
           {/* Authorization Letter Upload - required for all seller types */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               Authorization Letter
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -758,18 +758,18 @@ export default function CoordinatorForm({
                   document.getElementById("authorization-letter-upload")?.click();
                 }
               }}
-              className="flex items-center h-[52px] border border-neutral-500 rounded-xl overflow-hidden bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200"
+              className="flex items-center h-[52px] border border-neutral-300 rounded-lg overflow-hidden bg-white cursor-pointer focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
               onClick={() => document.getElementById("authorization-letter-upload")?.click()}
             >
               <div
-                className="w-13 h-full bg-secondary-800 flex items-center justify-center shrink-0"
+                className="w-10 h-full bg-primary-50 border-r border-neutral-300 flex items-center justify-center shrink-0"
               >
                 <Image
                   src="/icons/upload.png"
                   alt="Upload"
                   width={18}
                   height={18}
-                  className="brightness-0 invert"
+                  className="brightness-0"
                 />
               </div>
 
@@ -778,7 +778,7 @@ export default function CoordinatorForm({
               >
                 <div className="flex-1 flex items-center min-w-0">
                   {uploadingAuthLetter ? (
-                    <span className="text-p4 font-body font-regular text-pneutral-500">
+                    <span className="text-[13px] font-body font-regular text-pneutral-500">
                       Uploading...
                     </span>
                   ) : formData.authorizationLetterFile?.name ? (
@@ -786,7 +786,7 @@ export default function CoordinatorForm({
                       className="flex items-center gap-2 bg-sneutral-800 rounded-md px-3 py-1 max-w-fit"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <span className="text-p4 font-body font-regular text-white truncate max-w-[120px]">
+                      <span className="text-[13px] font-body font-regular text-white truncate max-w-[120px]">
                         {formData.authorizationLetterFile.name}
                       </span>
 
@@ -820,7 +820,7 @@ export default function CoordinatorForm({
                       </button>
                     </div>
                   ) : (
-                    <span className="text-p4 font-body font-regular text-pneutral-500">
+                    <span className="text-[13px] font-body font-regular text-pneutral-500">
                       Upload the Authorization Letter
                     </span>
                   )}
@@ -829,7 +829,7 @@ export default function CoordinatorForm({
             </div>
             )}
             {errors.authorizationLetterFile && (
-              <p className="text-p2 font-body font-regular text-red-500 mt-1">
+              <p className="text-xs font-body font-regular text-red-500 mt-1">
                 {errors.authorizationLetterFile}
               </p>
             )}
@@ -838,11 +838,11 @@ export default function CoordinatorForm({
       </div>
 
       {/* Buttons */}
-      <div className="flex justify-between mt-10">
+      <div className="flex justify-between mt-4">
         <div className="flex gap-4">
           <button
             onClick={prevStep}
-            className="h-12 px-6 border-2 border-pneutral-900 text-pneutral-900 rounded-xl flex items-center gap-2"
+            className="h-9 px-4 border-[1.5px] border-neutral-300 text-neutral-700 text-[13px] font-semibold rounded-lg hover:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex items-center gap-2"
           >
             <Image
               src="/icons/backbuttonicon.png"
@@ -857,7 +857,7 @@ export default function CoordinatorForm({
         <div className="flex gap-4">
           <button
             onClick={handleContinue}
-            className="h-12 px-6 border-2 border-primary-800 text-primary-800 rounded-xl flex items-center gap-2"
+            className="h-9 px-4 border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold rounded-lg hover:bg-primary-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex items-center gap-2"
           >
             Continue
             <Image

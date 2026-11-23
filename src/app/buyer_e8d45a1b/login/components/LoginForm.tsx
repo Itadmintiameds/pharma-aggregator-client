@@ -1,5 +1,6 @@
 "use client";
 
+import { LoginRoleHeader, LoginRoleSwitch } from "@/src/app/commonComponents/LoginRoleHeader";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -51,11 +52,11 @@ export default function LoginForm({ onOtpSent, onForgotPassword }: LoginFormProp
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <div className="mb-10 flex justify-center">
-        <Image src="/assets/images/tiameds.logo.png" alt="TiaMeds" width={233} height={108} priority />
+      <div className="mb-4 flex justify-center">
+        <Image src="/assets/images/tiameds.logo.png" alt="TiaMeds" width={170} height={79} priority />
       </div>
 
-      <h2 className="text-h5 text-center font-medium text-pneutral-900 mb-6 font-heading">Buyer Login</h2>
+      <LoginRoleHeader role="buyer" />
 
       <div className="mb-4">
         <div className="relative">
@@ -132,6 +133,8 @@ export default function LoginForm({ onOtpSent, onForgotPassword }: LoginFormProp
           Forgot your password?
         </button>
       </p>
+
+      <LoginRoleSwitch role="buyer" onNavigate={closeLoginModal} />
     </form>
   );
 }

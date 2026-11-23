@@ -7,9 +7,9 @@ import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 import { useRecentSearches } from "@/src/hooks/useRecentSearches";
 import { matchingRecents } from "@/src/utils/recentSearches";
 import {
-  getAutocompleteSuggestions,
   getTrendingSearches,
   isRequestCancelled,
+  searchProducts,
 } from "@/src/services/buyer/searchService";
 import { AutocompleteSuggestion, TrendingTerm } from "@/src/types/buyer/search";
 
@@ -76,8 +76,18 @@ export default function SearchBox({ initialQuery = "" }: SearchBoxProps) {
     }
     const controller = new AbortController();
     setLoading(true);
-    getAutocompleteSuggestions(debouncedQuery, 8, controller.signal)
-      .then((result) => {
+    // Same search as the results page (name, molecule, composition, brand...), so the dropdown lists
+    // every product the results will show — not just names starting with the typed text.
+    searchProducts({ q: debouncedQuery, sort: "relevance", page: 0, size: 8 }, controller.signal)
+      .then((res) => {
+        const seen = new Set<string>();
+        const result: AutocompleteSuggestion[] = [];
+        for (const item of res.results) {
+          const key = item.productName.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          result.push({ suggestion: item.productName, productId: item.productId, categoryName: item.categoryName });
+        }
         setSuggestions(result);
         setActiveIndex(-1);
       })
@@ -191,7 +201,7 @@ export default function SearchBox({ initialQuery = "" }: SearchBoxProps) {
   const dropdownVisible = open && (items.length > 0 || loading);
 
   return (
-    <div ref={containerRef} className="relative w-[662px] max-w-full h-12">
+    <div ref={containerRef} className="relative h-11 w-full min-w-0 max-w-[720px] flex-1">
       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 w-5 h-5 pointer-events-none" />
 
       <input
@@ -204,7 +214,7 @@ export default function SearchBox({ initialQuery = "" }: SearchBoxProps) {
         autoComplete="off"
         maxLength={MAX_QUERY_LENGTH}
         placeholder="Search by molecule, Brand or therapeutic area"
-        className="w-full h-full pl-12 pr-10 rounded-md bg-neutral-100 text-label-l3 focus:outline-none focus:ring-1 focus:ring-primary-600"
+        className="w-full h-full pl-12 pr-10 rounded-xl border border-neutral-200 bg-neutral-50 text-label-l3 transition-colors focus:border-primary-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100"
         value={query}
         onChange={(event) => {
           setQuery(event.target.value);

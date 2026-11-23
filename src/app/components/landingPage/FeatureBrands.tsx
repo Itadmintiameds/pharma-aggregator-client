@@ -16,6 +16,13 @@ const GRADIENTS: [string, string][] = [
     ["#7C3AED", "#A78BFA"], // violet
 ];
 
+// Marquee geometry: each seller cell is 120px wide with a 24px gap after it. STRIP_WIDTH is the widest the strip gets.
+const ITEM_WIDTH = 88;
+const ITEM_GAP = 12;
+const STRIP_WIDTH = 1280;
+/** Scroll speed, so a long list does not race past and a short one does not crawl. */
+const SCROLL_PX_PER_SECOND = 80;
+
 function hashString(str: string) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -52,14 +59,14 @@ function SellerLogoMark({ name }: SellerLogoMarkProps) {
     const [from, to] = GRADIENTS[hashString(name) % GRADIENTS.length];
     return (
         <div
-            className="relative w-14 h-14 rounded-2xl overflow-hidden shadow-md ring-1 ring-white/50 flex items-center justify-center shrink-0"
+            className="relative w-10 h-10 rounded-xl overflow-hidden shadow-sm ring-1 ring-white/50 flex items-center justify-center shrink-0"
             style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
         >
             <span
                 aria-hidden
-                className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white/20"
+                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white/20"
             />
-            <span className="relative text-white font-bold text-base tracking-tight drop-shadow-sm">
+            <span className="relative text-white font-bold text-xs tracking-tight drop-shadow-sm">
                 {initialsFor(name)}
             </span>
         </div>
@@ -87,45 +94,62 @@ const FeatureBrands = () => {
 
     if (sellers.length === 0) return null;
 
-    const marqueeSellers = [...sellers, ...sellers];
+    // The scroll loops by sliding the row left by exactly one copy of itself, so one copy has to be wider than the
+    // strip - otherwise the right-hand side is empty while it scrolls. With only a few sellers the list is repeated
+    // until one copy fills the strip, then doubled for the seamless loop.
+    const cell = ITEM_WIDTH + ITEM_GAP;
+    const copies = Math.ceil((STRIP_WIDTH + ITEM_WIDTH) / cell / sellers.length);
+    const oneCopy = Array.from({ length: Math.max(copies, 1) }, () => sellers).flat();
+    const marqueeSellers = [...oneCopy, ...oneCopy];
+    const loopSeconds = Math.round((oneCopy.length * cell) / SCROLL_PX_PER_SECOND);
 
     return (
-        <section className="w-full xl:w-[1280px] h-[176px] mx-auto bg-neutral-50 flex flex-col items-center justify-center">
+        <section className="w-full py-3" aria-labelledby="featured-sellers-heading">
+            <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm sm:px-5">
+                {/* ================= HEADER ================= */}
+                <div className="mb-1 flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                        <h2 id="featured-sellers-heading" className="text-base font-semibold text-neutral-900">
+                            Featured Sellers
+                        </h2>
+                        <p className="mt-0.5 text-xs text-neutral-500">Manufacturers and distributors selling on TiaMeds</p>
+                    </div>
+                </div>
 
-            {/* ================= HEADER ================= */}
-            <div className="w-[1240px] h-[32px] flex items-center">
-                <h2 className="text-h4 font-semibold text-neutral-900">
-                    Featured Sellers
-                </h2>
-            </div>
-
-            {/* ================= LOGO MARQUEE ================= */}
-            <div className="w-[1240px] h-[80px] overflow-hidden mt-6 ">
-
-                <div className=" gap-8 brand-marquee">
-
-                    {marqueeSellers.map((seller, index) => (
-                        <div
-                            key={`${seller.sellerId}-${index}`}
-                            className="group relative w-[100px] h-[80px] shrink-0 flex items-center justify-center"
-                        >
-                            {seller.sellerImageUrl ? (
-                                <img
-                                    src={seller.sellerImageUrl}
-                                    alt={seller.sellerName}
-                                    className="w-14 h-14 rounded-2xl object-cover shadow-md ring-1 ring-pneutral-200"
-                                />
-                            ) : (
-                                <SellerLogoMark name={seller.sellerName} />
-                            )}
-
-                            {/* Hover tooltip with the full company name */}
-                            <span className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full opacity-0 group-hover:opacity-100 transition-opacity bg-neutral-900 text-white text-xs font-medium px-2 py-1 rounded-md whitespace-nowrap z-20">
-                                {seller.sellerName}
-                            </span>
-                        </div>
-                    ))}
-
+                {/* ================= LOGO MARQUEE ================= */}
+                {/* The edges fade out, so logos glide in and out of view instead of being cut off. */}
+                <div
+                    className="overflow-hidden"
+                    style={{
+                        WebkitMaskImage: "linear-gradient(to right, transparent, #000 6%, #000 94%, transparent)",
+                        maskImage: "linear-gradient(to right, transparent, #000 6%, #000 94%, transparent)",
+                    }}
+                >
+                    <div className="brand-marquee" style={{ animationDuration: `${loopSeconds}s` }}>
+                        {marqueeSellers.map((seller, index) => (
+                            <div
+                                key={`${seller.sellerId}-${index}`}
+                                title={seller.sellerName}
+                                className="group mr-3 flex w-[88px] shrink-0 flex-col items-center gap-1 rounded-lg px-1.5 py-2 transition-colors hover:bg-neutral-50"
+                            >
+                                <div className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105">
+                                    {seller.sellerImageUrl ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                            src={seller.sellerImageUrl}
+                                            alt={seller.sellerName}
+                                            className="h-10 w-10 rounded-xl object-cover shadow-sm ring-1 ring-neutral-200"
+                                        />
+                                    ) : (
+                                        <SellerLogoMark name={seller.sellerName} />
+                                    )}
+                                </div>
+                                <span className="w-full truncate text-center text-[11px] font-medium text-neutral-600 group-hover:text-neutral-900">
+                                    {seller.sellerName}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -141,6 +165,12 @@ const FeatureBrands = () => {
     animation-play-state: paused;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .brand-marquee {
+      animation: none;
+    }
+  }
+
   @keyframes scrollBrands {
     from {
       transform: translateX(0);
@@ -150,7 +180,6 @@ const FeatureBrands = () => {
     }
   }
 `}</style>
-
         </section>
     );
 };

@@ -643,3 +643,18 @@
   background-color: var(--neutral-300, #d4d4d4);
   border-radius: 9999px;
 }
+
+/* Buyer dashboard cart drawer (BuyerCartDrawer): slides in from the right over a fading backdrop. */
+@keyframes cart-drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes cart-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-cart-drawer-in { animation: cart-drawer-in 280ms cubic-bezier(0.22, 1, 0.36, 1); }
+.animate-cart-overlay-in { animation: cart-overlay-in 200ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-cart-drawer-in, .animate-cart-overlay-in { animation: none; }
+}

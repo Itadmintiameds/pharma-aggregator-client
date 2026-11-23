@@ -18,6 +18,9 @@ export interface BuyerProfile {
 }
 
 const BUYER_ID_CACHE_KEY = "buyerId";
+// The cached id is stored with the buyerUserId it was resolved for, so a different login (or a DB reset) never
+// reuses another account's buyerId.
+const BUYER_ID_CACHE_USER_KEY = "buyerIdUser";
 
 // Resolves the approved Buyer business ID (needed for order placement/history)
 // from the logged-in BuyerUser's own ID — see backend BuyerProfileController.
@@ -27,16 +30,74 @@ const BUYER_ID_CACHE_KEY = "buyerId";
 export async function getBuyerId(buyerUserId: number): Promise<string> {
   if (typeof window !== "undefined") {
     const cached = localStorage.getItem(BUYER_ID_CACHE_KEY);
-    if (cached) return cached;
+    if (cached && localStorage.getItem(BUYER_ID_CACHE_USER_KEY) === String(buyerUserId)) return cached;
   }
 
   const buyerId = (await getBuyerProfile(buyerUserId)).buyerId;
 
   if (typeof window !== "undefined" && buyerId) {
     localStorage.setItem(BUYER_ID_CACHE_KEY, buyerId);
+    localStorage.setItem(BUYER_ID_CACHE_USER_KEY, String(buyerUserId));
   }
 
   return buyerId;
+}
+
+/** The approved buyer record in full, as buyer-service returns it (GET /buyers/user/{userId}). */
+export interface ApprovedBuyerProfile {
+  buyerId: string;
+  buyerName?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  buyerTypeName?: string;
+  status?: string;
+  email?: string;
+  phone?: string;
+  address?: {
+    buildingNo?: string;
+    street?: string;
+    landmark?: string;
+    city?: string;
+    pinCode?: string;
+    talukaName?: string;
+    districtName?: string;
+    stateName?: string;
+  };
+  contacts?: Array<{
+    contactId?: number;
+    name?: string;
+    designation?: string;
+    email?: string;
+    isEmailVerified?: boolean;
+    emailVerified?: boolean;
+    mobile?: string;
+    isPhoneVerified?: boolean;
+    phoneVerified?: boolean;
+  }>;
+  documents?: Array<{
+    documentId?: number;
+    documentTypeName?: string;
+    documentNumber?: string;
+    documentFileUrl?: string;
+    licenseIssueDate?: string;
+    licenseExpiryDate?: string;
+    licenseIssuingAuthority?: string;
+  }>;
+}
+
+// The profile page shows this record - it is what the platform actually uses (orders, quotes, admin updates) - and
+// only falls back to the original registration form while the buyer is not approved yet.
+// Resolves to null when there is no approved record (404).
+export async function getApprovedBuyerProfile(buyerUserId: number): Promise<ApprovedBuyerProfile | null> {
+  try {
+    const response = await buyerApi.get<ApiResponseWrapper<ApprovedBuyerProfile>>(`/buyers/user/${buyerUserId}`, {
+      skipAuthRedirect: true,
+    });
+    return response.data.data ?? null;
+  } catch (error) {
+    if ((error as { response?: { status?: number } })?.response?.status === 404) return null;
+    throw error;
+  }
 }
 
 // Shape returned by buyer-service's BuyerProfileController (GET /buyers/user/{userId}).

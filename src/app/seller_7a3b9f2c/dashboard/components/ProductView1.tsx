@@ -36,8 +36,14 @@ import Table, { Column } from "@/src/app/commonComponents/Table";
 import { toast } from "react-toastify";
 import StockUpdateModal from "./StockUpdateModal";
 import BatchStockUpdateModal from "./BatchStockUpdateModal";
-import BatchOffersDrawer from "./BatchOffersDrawer";
-import { offerStatus } from "@/src/utils/offers";
+import BatchOffersModal from "./BatchOffersModal";
+import {
+  getOfferStatus,
+  describeOfferWindow,
+  formatOfferInstant,
+  OFFER_STATUS_STYLE,
+} from "@/src/utils/offerWindow";
+import DamagedStockModal from "./DamagedStockModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import {
   getAvailableBatches,
@@ -49,8 +55,30 @@ import ConsumableView from "./ConsumableView";
 import NonConsumableView from "./NonConsumableView";
 import CosmeticPersonalCareView from "./CosmeticView";
 import FoodInfantView from "./FoodInfantView";
-import { FileText, Eye, X } from "lucide-react";
-import { downloadProductImage } from "@/src/utils/downloadImage";
+import {
+  FileText,
+  Eye,
+  X,
+  Pencil,
+  PackagePlus,
+  Tag,
+  Trash2,
+  Settings2,
+  FilterX,
+  Loader2,
+  Search,
+  Boxes,
+  IndianRupee,
+  Percent,
+  Gift,
+  Copy,
+  Check,
+  Package,
+  CalendarClock,
+} from "lucide-react";
+import ProductImageGallery from "./ProductImageGallery";
+import { DEFAULT_RETURN_PERIOD_DAYS } from "@/src/utils/returnPolicy";
+import { offerStatus } from "@/src/utils/offers";
 import {
   editKeyForProduct,
   resolveProductCategoryId,
@@ -84,10 +112,15 @@ interface PackagingDetails {
   packagingId?: string;
   packSize?: number;
   packId?: number;
+  // The API sends the pack type as packTypeId (and the name as packType), and the order limits both as
+  // minimumOrderQuantity/maximumOrderQuantity and as the raw minOrderQty/maxOrderQty. Read whichever is present.
+  packTypeId?: number;
   packType?: string;
   packTypeName?: string;
   minimumOrderQuantity?: number;
   maximumOrderQuantity?: number;
+  minOrderQty?: number;
+  maxOrderQty?: number;
   unitPerPack?: number;
   unitsPerPack?: number;
   numberOfUnits?: number;
@@ -106,6 +139,8 @@ interface PricingDetails {
   manufacturingDate?: string;
   expiryDate?: string | null;
   stockQuantity?: number;
+  // Units that came back damaged on buyer returns — not part of stockQuantity, never sold.
+  damagedQuantity?: number | null;
   additionalDiscounts?: AdditionalDiscount[];
   specialSchemes?: any[];
   gstPercentage?: string | number;
@@ -330,6 +365,8 @@ interface ProductApiData {
   mechanismOfAction?: string;
   gstPercentage?: string | number;
   hsnCode?: string;
+  returnable?: boolean;
+  returnPeriodDays?: number | null;
   specialOffers?: SpecialOffer[];
   status?: "DRAFT" | "PUBLISHED" | "UNPUBLISHED";
 }
@@ -403,7 +440,7 @@ const ROW: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
   alignItems: "center",
-  padding: "12px 16px",
+  padding: "8px 12px",
   borderBottom: "1px solid #D5D5D4",
   gap: 16,
 };
@@ -418,30 +455,30 @@ const ROW_LABEL: React.CSSProperties = {
 
 const LABEL_TEXT: React.CSSProperties = {
   color: "var(--Colors-Primary-Neutral-pneutral-700, #5A5B58)",
-  fontSize: 16,
+  fontSize: 13,
   fontFamily: "'Work Sans', sans-serif",
   fontWeight: 500,
-  lineHeight: "24px",
+  lineHeight: "20px",
   wordWrap: "break-word",
   margin: 0,
 };
 
 const REQUIRED_STAR: React.CSSProperties = {
   color: "var(--Colors-Warning-warning-500, #FF3B3B)",
-  fontSize: 16,
+  fontSize: 14,
   fontFamily: "'Work Sans', sans-serif",
   fontWeight: 500,
-  lineHeight: "24px",
+  lineHeight: "20px",
   wordWrap: "break-word",
   flexShrink: 0,
 };
 
 const VALUE_TEXT: React.CSSProperties = {
   color: "var(--Colors-Primary-Neutral-pneutral-800, #3C3D3A)",
-  fontSize: 16,
+  fontSize: 14,
   fontFamily: "'Noto Sans', sans-serif",
-  fontWeight: 400,
-  lineHeight: "24px",
+  fontWeight: 600,
+  lineHeight: "20px",
   wordWrap: "break-word",
   textAlign: "right",
   flex: "1 1 0",
@@ -477,6 +514,34 @@ const normalizeDiscounts = (list: any): any[] =>
       d?.additionalDiscountPercentage ?? d?.discountPercentage,
   }));
 
+const OfferWindowRows = ({ offer }: { offer: any }) => {
+  const status = getOfferStatus(offer);
+  const st = OFFER_STATUS_STYLE[status];
+  return (
+    <>
+      <DetailRow
+        label="Status"
+        value={
+          <span
+            style={{
+              display: "inline-block",
+              padding: "2px 10px",
+              borderRadius: 999,
+              fontSize: 11.5,
+              fontWeight: 600,
+              background: st.bg,
+              color: st.color,
+            }}
+          >
+            {status}
+          </span>
+        }
+      />
+      <DetailRow label="Valid" value={describeOfferWindow(offer)} />
+    </>
+  );
+};
+
 const formatDate = (dateStr?: string | null): string => {
   if (!dateStr) return "—";
   try {
@@ -506,18 +571,31 @@ const getBatchStatus = (expiryDate?: string | null) => {
 const DetailRow = ({
   label,
   value,
+  strong = false,
 }: {
   label: string;
   value: React.ReactNode;
+  /** Larger, brand-coloured value (used for the headline figure of a card). */
+  strong?: boolean;
 }) => (
-  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-    <span style={{ fontSize: 13, color: "#5A5B58" }}>{label}</span>
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 12,
+      padding: "7px 0",
+    }}
+  >
+    <span style={{ fontSize: 13, color: "#6B6B6A", flexShrink: 0 }}>{label}</span>
     <span
       style={{
-        fontSize: 13,
-        fontWeight: 600,
-        color: "#1E1E1D",
+        fontSize: strong ? 15 : 13,
+        fontWeight: strong ? 700 : 600,
+        color: strong ? "var(--Colors-Brand-Primary-800, #6C12A9)" : "#1E1E1D",
         textAlign: "right",
+        minWidth: 0,
+        overflowWrap: "anywhere",
       }}
     >
       {value ?? "—"}
@@ -525,35 +603,212 @@ const DetailRow = ({
   </div>
 );
 
+// One discount / scheme as a compact tile: headline + status, then the start and end of its window on their own lines.
+const OfferTile = ({ title, subtitle, offer }: { title: React.ReactNode; subtitle?: React.ReactNode; offer: any }) => {
+  const status = getOfferStatus(offer);
+  const st = OFFER_STATUS_STYLE[status];
+  const start = formatOfferInstant(offer?.startsAt);
+  const end = formatOfferInstant(offer?.endsAt);
+  return (
+    <div
+      style={{
+        border: "1px solid #E5E5E4",
+        borderRadius: 10,
+        padding: "10px 12px",
+        background: "white",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        minWidth: 0,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#1E1E1D", fontFamily: "'Work Sans', sans-serif", overflowWrap: "anywhere" }}>
+            {title}
+          </div>
+          {subtitle && <div style={{ fontSize: 12.5, color: "#6B6B6A", marginTop: 2 }}>{subtitle}</div>}
+        </div>
+        <span
+          style={{
+            flexShrink: 0,
+            padding: "2px 10px",
+            borderRadius: 999,
+            fontSize: 11.5,
+            fontWeight: 600,
+            background: st.bg,
+            color: st.color,
+          }}
+        >
+          {status}
+        </span>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "flex-start",
+          paddingTop: 8,
+          borderTop: "1px dashed #E5E5E4",
+          fontSize: 12.5,
+          color: "#3C3D3A",
+        }}
+      >
+        <CalendarClock size={14} style={{ flexShrink: 0, marginTop: 2, color: "#6B6B6A" }} />
+        {start || end ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span>
+              <span style={{ color: "#6B6B6A" }}>Starts </span>
+              {start ?? "Already started"}
+            </span>
+            <span>
+              <span style={{ color: "#6B6B6A" }}>Ends </span>
+              {end ?? "No end date"}
+            </span>
+          </div>
+        ) : (
+          <span style={{ color: "#6B6B6A" }}>{describeOfferWindow(offer)}</span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const OFFER_GRID: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+  gap: 12,
+  padding: "12px 0 8px",
+};
+
+// Long identifiers (pricing / packaging IDs): shortened, monospace, with a copy button.
+const CopyableId = ({ value }: { value?: string | null }) => {
+  const [copied, setCopied] = useState(false);
+  if (!value) return <>—</>;
+  const short = value.length > 18 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard blocked: nothing to do
+    }
+  };
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span title={value} style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12.5 }}>
+        {short}
+      </span>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={copied ? "Copied" : "Copy ID"}
+        title={copied ? "Copied" : "Copy ID"}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          border: "1px solid #E5E5E4",
+          background: "white",
+          color: copied ? "#15803D" : "#6B6B6A",
+          cursor: "pointer",
+        }}
+      >
+        {copied ? <Check size={12} /> : <Copy size={12} />}
+      </button>
+    </span>
+  );
+};
+
 const DetailCard = ({
   title,
+  icon,
+  fullWidth = false,
   children,
 }: {
   title: string;
+  icon?: React.ReactNode;
+  fullWidth?: boolean;
   children: React.ReactNode;
+}) => (
+  <section
+    style={{
+      border: "1px solid #E5E5E4",
+      borderRadius: 12,
+      background: "white",
+      overflow: "hidden",
+      gridColumn: fullWidth ? "1 / -1" : undefined,
+    }}
+  >
+    <header
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "10px 16px",
+        background: "#FAF8FF",
+        borderBottom: "1px solid #EDE7F8",
+      }}
+    >
+      {icon && (
+        <span style={{ display: "inline-flex", color: "var(--Colors-Brand-Primary-800, #6C12A9)" }}>{icon}</span>
+      )}
+      <h3
+        style={{
+          margin: 0,
+          fontSize: 14,
+          fontWeight: 700,
+          color: "#1E1E1D",
+          fontFamily: "'Work Sans', sans-serif",
+        }}
+      >
+        {title}
+      </h3>
+    </header>
+    <div style={{ padding: "4px 16px 8px", display: "flex", flexDirection: "column" }}>{children}</div>
+  </section>
+);
+
+const SummaryTile = ({
+  label,
+  value,
+  note,
+  noteColor = "#6B6B6A",
+}: {
+  label: string;
+  value: React.ReactNode;
+  note?: React.ReactNode;
+  noteColor?: string;
 }) => (
   <div
     style={{
-      border: "1px solid #D5D5D4",
+      border: "1px solid #E5E5E4",
       borderRadius: 12,
-      padding: 16,
+      padding: "10px 14px",
+      background: "white",
       display: "flex",
       flexDirection: "column",
-      gap: 10,
+      gap: 2,
+      minWidth: 0,
     }}
   >
-    <p
+    <span style={{ fontSize: 12, color: "#6B6B6A", fontWeight: 500 }}>{label}</span>
+    <span
       style={{
-        margin: "0 0 4px",
-        fontSize: 14,
-        fontWeight: 600,
+        fontSize: 18,
+        fontWeight: 700,
         color: "#1E1E1D",
         fontFamily: "'Work Sans', sans-serif",
+        lineHeight: "26px",
       }}
     >
-      {title}
-    </p>
-    {children}
+      {value}
+    </span>
+    {note && <span style={{ fontSize: 12, color: noteColor, fontWeight: 500 }}>{note}</span>}
   </div>
 );
 
@@ -599,16 +854,51 @@ const BatchDetailModal = ({
     return batch.shelfLifeMonths ?? fallbackShelfLifeMonths ?? null;
   })();
 
+  // "Expired 19 days ago" / "Expires in 3 months" under the expiry tile.
+  const expiryNote = (() => {
+    if (!batch.expiryDate) return null;
+    const exp = new Date(batch.expiryDate);
+    if (isNaN(exp.getTime())) return null;
+    const days = Math.round((exp.getTime() - Date.now()) / 86_400_000);
+    const abs = Math.abs(days);
+    const span = abs >= 60 ? `${Math.round(abs / 30)} months` : `${abs} day${abs === 1 ? "" : "s"}`;
+    return days < 0 ? `Expired ${span} ago` : days === 0 ? "Expires today" : `Expires in ${span}`;
+  })();
+
+  // The variant may carry only the pack type id; look the name up so the row isn't blank.
+  const variantPackId = variant ? toPositiveInt(variant.packId ?? variant.packTypeId) : null;
+  const variantHasPackName = !!(variant?.packType || variant?.packTypeName);
+  const [variantPackName, setVariantPackName] = useState<string | null>(null);
+  useEffect(() => {
+    if (variantHasPackName || variantPackId === null) return;
+    let cancelled = false;
+    getPackTypeById(variantPackId)
+      .then((data) => {
+        const name = data?.packType ?? data?.packTypeName ?? data?.name ?? null;
+        if (!cancelled) setVariantPackName(name ? String(name).trim() : null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [variantHasPackName, variantPackId]);
+
+  // Stop the page behind from scrolling while the dialog is open. The dialog closes only with the X button.
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   return (
     <div
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
       style={{
         position: "fixed",
         inset: 0,
         zIndex: 1000,
-        background: "rgba(28, 25, 23, 0.45)",
+        background: "rgba(28, 25, 23, 0.5)",
         backdropFilter: "blur(4px)",
         WebkitBackdropFilter: "blur(4px)",
         display: "flex",
@@ -618,227 +908,232 @@ const BatchDetailModal = ({
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="batch-detail-title"
         style={{
           width: "100%",
-          maxWidth: 640,
+          maxWidth: 880,
           maxHeight: "90vh",
-          overflowY: "auto",
-          background: "white",
+          display: "flex",
+          flexDirection: "column",
+          background: "#F8F8F9",
           borderRadius: 16,
-          boxShadow:
-            "0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
+          overflow: "hidden",
+          boxShadow: "0 20px 25px -5px rgba(0,0,0,0.12), 0 8px 10px -6px rgba(0,0,0,0.12)",
           fontFamily: "'Noto Sans', sans-serif",
         }}
       >
+        {/* Header — stays visible while the body scrolls */}
         <div
           style={{
-            padding: "24px 24px 16px",
-            borderBottom: "1px solid #D5D5D4",
+            padding: "16px 20px",
+            background: "white",
+            borderBottom: "1px solid #E5E5E4",
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "flex-start",
+            alignItems: "center",
+            gap: 12,
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
             <h2
+              id="batch-detail-title"
               style={{
                 margin: 0,
-                fontSize: 20,
-                fontWeight: 600,
+                fontSize: 18,
+                fontWeight: 700,
                 color: "#1E1E1D",
                 fontFamily: "'Work Sans', sans-serif",
+                lineHeight: "24px",
               }}
             >
               Batch &amp; Variant Details
             </h2>
-            <p style={{ margin: 0, fontSize: 13, color: "#5A5B58" }}>
-              Batch: {batch.batchLotNumber || "—"}
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span
+                style={{
+                  padding: "1px 10px",
+                  borderRadius: 999,
+                  background: "#F3EEFB",
+                  color: "#4B1D7A",
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                Batch {batch.batchLotNumber || "—"}
+              </span>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "1px 10px",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: status.bg,
+                  color: status.color,
+                }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: status.color }} />
+                {status.label}
+              </span>
+            </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Close"
+            title="Close"
+            className="transition-colors hover:bg-neutral-100"
             style={{
-              background: "transparent",
-              border: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              border: "1px solid #E5E5E4",
+              background: "white",
+              color: "#3C3D3A",
               cursor: "pointer",
-              color: "#5A5B58",
-              padding: 4,
-              borderRadius: 6,
             }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
+        {/* Body */}
         <div
           style={{
-            padding: 24,
+            padding: 20,
+            overflowY: "auto",
             display: "flex",
             flexDirection: "column",
             gap: 16,
           }}
         >
-          <DetailCard title="Batch Information">
-            <DetailRow label="Pricing ID" value={batch.pricingId} />
-            <DetailRow label="Batch / Lot Number" value={batch.batchLotNumber} />
-            <DetailRow
-              label="Manufacturing Date"
-              value={formatDate(batch.manufacturingDate)}
+          {/* At-a-glance figures */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+            <SummaryTile
+              label="Available stock"
+              value={batch.stockQuantity != null ? batch.stockQuantity.toLocaleString() : "—"}
+              note={`${(batch.damagedQuantity ?? 0).toLocaleString()} damaged`}
+              noteColor={(batch.damagedQuantity ?? 0) > 0 ? "#B42318" : "#6B6B6A"}
             />
-            <DetailRow
-              label="Expiry Date"
-              value={formatDate(batch.expiryDate)}
-            />
-            <DetailRow
-              label="Date of Stock Entry"
-              value={formatDate(batch.dateOfStockEntry)}
-            />
-            <DetailRow
-              label="Available Stock"
-              value={
-                batch.stockQuantity != null
-                  ? batch.stockQuantity.toLocaleString()
-                  : "—"
-              }
-            />
-            <DetailRow
-              label="Status"
-              value={
-                <span
-                  style={{
-                    display: "inline-block",
-                    padding: "2px 10px",
-                    borderRadius: 999,
-                    fontSize: 11.5,
-                    fontWeight: 600,
-                    background: status.bg,
-                    color: status.color,
-                  }}
-                >
-                  {status.label}
-                </span>
-              }
-            />
-          </DetailCard>
-
-          <DetailCard title="Pricing & Discounts">
-            <DetailRow
-              label="MRP"
-              value={batch.mrp != null ? `₹${batch.mrp}` : "—"}
-            />
-            <DetailRow
-              label="Selling Price"
-              value={batch.sellingPrice != null ? `₹${batch.sellingPrice}` : "—"}
-            />
-            <DetailRow
-              label="Final Price"
+            <SummaryTile
+              label="Final price"
               value={finalPrice != null ? `₹${finalPrice}` : "—"}
+              note={batch.mrp != null ? `MRP ₹${batch.mrp}` : undefined}
             />
-            <DetailRow
-              label="Discount %"
+            <SummaryTile
+              label="Discount"
               value={`${batch.discountPercentage ?? 0}%`}
+              note={gstPercentage != null ? `GST ${gstPercentage}%` : undefined}
             />
-            <DetailRow label="GST %" value={gstPercentage != null ? `${gstPercentage}%` : "—"} />
-            <DetailRow label="HSN Code" value={hsnCode ?? "—"} />
-            <DetailRow
-              label="Shelf Life"
-              value={
-                shelfLifeMonths != null
-                  ? `${shelfLifeMonths} months`
-                  : "—"
-              }
+            <SummaryTile
+              label="Expiry date"
+              value={formatDate(batch.expiryDate)}
+              note={expiryNote}
+              noteColor={status.color}
             />
-          </DetailCard>
+          </div>
 
-          {additionalDiscounts.length > 0 && (
-            <DetailCard title="Special Discounts">
-              {additionalDiscounts.map((d, i) => (
-                <div
-                  key={d.additionalDiscountId ?? i}
-                  style={{
-                    borderTop: i > 0 ? "1px solid #EFEFEE" : "none",
-                    paddingTop: i > 0 ? 10 : 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                  }}
-                >
-                  <DetailRow
-                    label="Minimum Purchase Quantity"
-                    value={d.minimumPurchaseQuantity}
-                  />
-                  <DetailRow
-                    label="Discount %"
-                    value={
-                      d.additionalDiscountPercentage != null
-                        ? `${d.additionalDiscountPercentage}%`
-                        : "—"
-                    }
-                  />
-                </div>
-              ))}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16, alignItems: "start" }}>
+            <DetailCard title="Batch Information" icon={<Package size={16} />}>
+              <DetailRow label="Pricing ID" value={<CopyableId value={batch.pricingId} />} />
+              <DetailRow label="Batch / Lot Number" value={batch.batchLotNumber} />
+              <DetailRow label="Manufacturing Date" value={formatDate(batch.manufacturingDate)} />
+              <DetailRow label="Expiry Date" value={formatDate(batch.expiryDate)} />
+              <DetailRow label="Date of Stock Entry" value={formatDate(batch.dateOfStockEntry)} />
+              <DetailRow
+                label="Available Stock"
+                value={batch.stockQuantity != null ? batch.stockQuantity.toLocaleString() : "—"}
+              />
+              <DetailRow label="Damaged Stock (Returns)" value={(batch.damagedQuantity ?? 0).toLocaleString()} />
             </DetailCard>
-          )}
 
-          {specialSchemes.length > 0 && (
-            <DetailCard title="Special Schemes">
-              {specialSchemes.map((s, i) => (
-                <div
-                  key={s.specialSchemesId ?? i}
-                  style={{
-                    borderTop: i > 0 ? "1px solid #EFEFEE" : "none",
-                    paddingTop: i > 0 ? 10 : 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                  }}
-                >
-                  <DetailRow label="Scheme Name" value={s.schemeName} />
-                  <DetailRow label="Buy Quantity" value={s.buyQuantity} />
-                  <DetailRow label="Free Quantity" value={s.freeQuantity} />
-                </div>
-              ))}
+            <DetailCard title="Pricing & Discounts" icon={<IndianRupee size={16} />}>
+              <DetailRow label="MRP" value={batch.mrp != null ? `₹${batch.mrp}` : "—"} />
+              <DetailRow label="Selling Price" value={batch.sellingPrice != null ? `₹${batch.sellingPrice}` : "—"} />
+              <DetailRow label="Final Price" value={finalPrice != null ? `₹${finalPrice}` : "—"} strong />
+              <DetailRow label="Discount %" value={`${batch.discountPercentage ?? 0}%`} />
+              <DetailRow label="GST %" value={gstPercentage != null ? `${gstPercentage}%` : "—"} />
+              <DetailRow label="HSN Code" value={hsnCode ?? "—"} />
+              <DetailRow label="Shelf Life" value={shelfLifeMonths != null ? `${shelfLifeMonths} months` : "—"} />
             </DetailCard>
-          )}
 
-          <DetailCard title="Variant / Packaging Information">
-            {variant ? (
-              <>
-                <DetailRow label="Packaging ID" value={variant.packagingId} />
-                <DetailRow
-                  label="Pack Type"
-                  value={
-                    variant.packType ||
-                    variant.packTypeName ||
-                    fallbackPackTypeName ||
-                    (variant.packId != null ? `Pack #${variant.packId}` : null)
-                  }
-                />
-                <DetailRow
-                  label="Unit Per Pack"
-                  value={variant.unitPerPack ?? variant.unitsPerPack}
-                />
-                <DetailRow
-                  label="Number of Packs"
-                  value={variant.numberOfPacks ?? variant.numberOfUnits}
-                />
-                <DetailRow label="Pack Size" value={variant.packSize} />
-                <DetailRow
-                  label="Minimum Order Quantity"
-                  value={variant.minimumOrderQuantity}
-                />
-                <DetailRow
-                  label="Maximum Order Quantity"
-                  value={variant.maximumOrderQuantity}
-                />
-              </>
-            ) : (
-              <p style={{ margin: 0, fontSize: 13, color: "#5A5B58" }}>
-                No variant/packaging information linked to this batch.
-              </p>
+            <DetailCard title="Variant / Packaging Information" icon={<Boxes size={16} />} fullWidth>
+              {variant ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", columnGap: 32 }}>
+                  <div>
+                    <DetailRow label="Packaging ID" value={<CopyableId value={variant.packagingId} />} />
+                    <DetailRow
+                      label="Pack Type"
+                      value={
+                        variant.packType ||
+                        variant.packTypeName ||
+                        variantPackName ||
+                        fallbackPackTypeName ||
+                        (variantPackId != null ? `Pack #${variantPackId}` : null)
+                      }
+                    />
+                    <DetailRow label="Unit Per Pack" value={variant.unitPerPack ?? variant.unitsPerPack} />
+                    <DetailRow label="Number of Packs" value={variant.numberOfPacks ?? variant.numberOfUnits} />
+                  </div>
+                  <div>
+                    <DetailRow label="Pack Size" value={variant.packSize} />
+                    <DetailRow label="Minimum Order Quantity" value={variant.minimumOrderQuantity ?? variant.minOrderQty} />
+                    <DetailRow label="Maximum Order Quantity" value={variant.maximumOrderQuantity ?? variant.maxOrderQty} />
+                  </div>
+                </div>
+              ) : (
+                <p style={{ margin: "8px 0", fontSize: 13, color: "#6B6B6A" }}>
+                  No variant/packaging information linked to this batch.
+                </p>
+              )}
+            </DetailCard>
+
+            {additionalDiscounts.length > 0 && (
+              <DetailCard title="Special Discounts" icon={<Percent size={16} />} fullWidth>
+                <div style={OFFER_GRID}>
+                  {additionalDiscounts.map((d, i) => (
+                    <OfferTile
+                      key={d.additionalDiscountId ?? i}
+                      offer={d}
+                      title={d.additionalDiscountPercentage != null ? `${d.additionalDiscountPercentage}% off` : "Discount"}
+                      subtitle={
+                        d.minimumPurchaseQuantity != null
+                          ? `On purchases of ${d.minimumPurchaseQuantity}+ units`
+                          : undefined
+                      }
+                    />
+                  ))}
+                </div>
+              </DetailCard>
             )}
-          </DetailCard>
+
+            {specialSchemes.length > 0 && (
+              <DetailCard title="Special Schemes" icon={<Gift size={16} />} fullWidth>
+                <div style={OFFER_GRID}>
+                  {specialSchemes.map((sc, i) => (
+                    <OfferTile
+                      key={sc.specialSchemesId ?? i}
+                      offer={sc}
+                      title={sc.schemeName || "Special scheme"}
+                      subtitle={
+                        sc.buyQuantity != null || sc.freeQuantity != null
+                          ? `Buy ${sc.buyQuantity ?? "—"}, get ${sc.freeQuantity ?? "—"} free`
+                          : undefined
+                      }
+                    />
+                  ))}
+                </div>
+              </DetailCard>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -928,12 +1223,14 @@ const FieldRow = ({
   required = true,
   valueNode,
   multiline = false,
+  bold = false,
 }: {
   label: string;
   value?: string | number | null;
   required?: boolean;
   valueNode?: React.ReactNode;
   multiline?: boolean;
+  bold?: boolean;
 }) => (
   <div style={{ ...ROW, alignItems: multiline ? "flex-start" : "center" }}>
     <div style={ROW_LABEL}>
@@ -947,10 +1244,94 @@ const FieldRow = ({
         {valueNode}
       </div>
     ) : (
-      <p style={VALUE_TEXT}>{value ?? "—"}</p>
+      <p style={bold ? { ...VALUE_TEXT, fontWeight: 700, color: "#1E1E1D" } : VALUE_TEXT}>{value ?? "—"}</p>
     )}
   </div>
 );
+
+type BatchStatusFilter = "all" | "Active" | "Near Expiry" | "Expired";
+
+const BATCH_STATUS_OPTIONS: {
+  value: BatchStatusFilter;
+  label: string;
+  /** Colours reuse the batch status pills in the table below. */
+  bg?: string;
+  color?: string;
+  border?: string;
+}[] = [
+  { value: "all", label: "All" },
+  { value: "Active", label: "Active", bg: "#DCFCE7", color: "#15803D", border: "#BBF7D0" },
+  { value: "Near Expiry", label: "Near expiry", bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" },
+  { value: "Expired", label: "Expired", bg: "#FEE2E2", color: "#B91C1C", border: "#FECACA" },
+];
+
+const SUMMARY_CHIP: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  height: 28,
+  padding: "0 10px",
+  borderRadius: 999,
+  border: "1px solid #E4D6FB",
+  background: "#F8F5FF",
+  color: "#4B1D7A",
+  fontSize: 12.5,
+  fontFamily: "'Noto Sans', sans-serif",
+  whiteSpace: "nowrap",
+};
+
+type IconButtonTone = "solid" | "outline" | "danger" | "ghost";
+
+// Square icon-only button (label lives in the tooltip and aria-label). One look for every action on this page.
+const IconButton = ({
+  onClick,
+  title,
+  disabled = false,
+  tone = "outline",
+  size = 36,
+  children,
+}: {
+  onClick: () => void;
+  title: string;
+  disabled?: boolean;
+  tone?: IconButtonTone;
+  size?: number;
+  children: React.ReactNode;
+}) => {
+  const brand = "var(--Colors-Brand-Primary-800, #6C12A9)";
+  const danger = "var(--Colors-Warning-warning-500, #FF3B3B)";
+  const tones: Record<IconButtonTone, React.CSSProperties> = {
+    solid: { background: disabled ? "#B5B5B4" : brand, color: "white", border: "1px solid transparent" },
+    outline: { background: "white", color: brand, border: `1px solid ${brand}` },
+    danger: { background: "white", color: danger, border: `1px solid ${danger}` },
+    ghost: { background: "transparent", color: brand, border: "1px solid transparent" },
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      className={disabled ? "" : "transition-[filter] hover:brightness-95"}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        width: size,
+        height: size,
+        padding: 0,
+        borderRadius: size <= 26 ? 6 : 8,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.55 : 1,
+        ...tones[tone],
+      }}
+    >
+      {children}
+    </button>
+  );
+};
 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   <div
@@ -963,10 +1344,12 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
     <h2
       style={{
         color: "#1E1E1D",
-        fontSize: 28,
+        fontSize: 20,
         fontFamily: "'Work Sans', sans-serif",
-        fontWeight: 500,
-        lineHeight: "36px",
+        fontWeight: 700,
+        lineHeight: "28px",
+        borderLeft: "4px solid var(--Colors-Brand-Primary-800, #6C12A9)",
+        paddingLeft: 10,
         margin: 0,
       }}
     >
@@ -1014,108 +1397,6 @@ const OFFER_ICONS: Record<string, string> = {
   bulk: "📦",
   bundle: "🔒",
   seasonal: "🏷️",
-};
-
-const SpecialOffersSection = ({ offers }: { offers: SpecialOffer[] }) => {
-  if (!offers || offers.length === 0) return null;
-  return (
-    <div
-      style={{
-        alignSelf: "stretch",
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-      }}
-    >
-      <SectionTitle>Special Offers &amp; Promotional Schemes</SectionTitle>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: 16,
-        }}
-      >
-        {offers.map((offer, idx) => {
-          const type = offer.offerType ?? "bogo";
-          const colors = OFFER_COLORS[type] ?? OFFER_COLORS.bogo;
-          const icon = OFFER_ICONS[type] ?? "🎁";
-          const validText =
-            offer.validFrom && offer.validTo
-              ? `Valid: ${formatDate(offer.validFrom)} - ${formatDate(offer.validTo)}`
-              : null;
-          return (
-            <div
-              key={offer.offerId ?? idx}
-              style={{
-                padding: 16,
-                background: colors.bg,
-                border: `1.5px solid ${colors.border}`,
-                borderRadius: 12,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    background: colors.iconBg,
-                    borderRadius: 8,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 16,
-                  }}
-                >
-                  {icon}
-                </div>
-                <span
-                  style={{
-                    color: colors.titleColor,
-                    fontSize: 16,
-                    fontFamily: "'Work Sans', sans-serif",
-                    fontWeight: 600,
-                    lineHeight: "22px",
-                  }}
-                >
-                  {offer.title}
-                </span>
-              </div>
-              <p
-                style={{
-                  color: "#3C3D3A",
-                  fontSize: 13,
-                  fontFamily: "'Noto Sans', sans-serif",
-                  fontWeight: 400,
-                  lineHeight: "20px",
-                  margin: 0,
-                }}
-              >
-                {offer.description}
-              </p>
-              {validText && (
-                <p
-                  style={{
-                    color: colors.titleColor,
-                    fontSize: 12,
-                    fontFamily: "'Noto Sans', sans-serif",
-                    fontWeight: 400,
-                    lineHeight: "18px",
-                    margin: 0,
-                    opacity: 0.8,
-                  }}
-                >
-                  {validText}
-                </p>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
 };
 
 /* ─────────────────────────────────────────────────────────
@@ -1201,7 +1482,7 @@ const ProductView1 = ({
     setLookups((prev) => ({ ...prev, loading: true }));
 
     // ── Pack type ──
-    const packId = toPositiveInt(packaging?.packId);
+    const packId = toPositiveInt(packaging?.packId ?? packaging?.packTypeId);
     const inlinePackName =
       packaging?.packTypeName?.trim() || packaging?.packType?.trim() || null;
 
@@ -2225,8 +2506,8 @@ const ProductView1 = ({
     packaging?.packType?.trim() ||
     (lookups.loading
       ? "Loading…"
-      : packaging?.packId != null
-        ? `Pack #${packaging.packId}`
+      : (packaging?.packId ?? packaging?.packTypeId) != null
+        ? `Pack #${packaging?.packId ?? packaging?.packTypeId}`
         : null);
 
   const storageCondition: string | null =
@@ -2327,12 +2608,17 @@ const ProductView1 = ({
   const showExpiryColumn =
     !isNonConsumable || pricingArr.some((b) => b.expiryDate);
 
+  // Batch whose damaged (returned) stock the seller is disposing of or moving back to stock.
+  const [damagedStockBatch, setDamagedStockBatch] = useState<PricingDetails | null>(null);
+
   const batchColumns: Column<PricingDetails>[] = [
     ...(showBatchNumberColumn
       ? [
         {
           header: "Batch Number",
-          accessor: (row: PricingDetails) => row.batchLotNumber || "-",
+          accessor: (row: PricingDetails) => (
+            <span style={{ fontWeight: 600, color: "#1E1E1D" }}>{row.batchLotNumber || "-"}</span>
+          ),
         },
       ]
       : []),
@@ -2350,8 +2636,33 @@ const ProductView1 = ({
       : []),
     {
       header: "Available Stock",
-      accessor: (row) =>
-        row.stockQuantity != null ? row.stockQuantity.toLocaleString() : "-",
+      accessor: (row) => (
+        <span style={{ fontWeight: 600, color: "#1E1E1D" }}>
+          {row.stockQuantity != null ? row.stockQuantity.toLocaleString() : "-"}
+        </span>
+      ),
+    },
+    {
+      header: "Damaged Stock",
+      accessor: (row) => {
+        const damaged = row.damagedQuantity ?? 0;
+        if (damaged <= 0) return <span style={{ color: "#9A9B98" }}>0</span>;
+        return (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: "#B42318", fontWeight: 600 }}>{damaged.toLocaleString()}</span>
+            {row.pricingId && (
+              <IconButton
+                onClick={() => setDamagedStockBatch(row)}
+                title="Dispose or move damaged units back to stock"
+                tone="outline"
+                size={26}
+              >
+                <Settings2 size={13} />
+              </IconButton>
+            )}
+          </span>
+        );
+      },
     },
     {
       header: "Discount %",
@@ -2368,7 +2679,9 @@ const ProductView1 = ({
         return (
           <span
             style={{
-              display: "inline-block",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
               padding: "2px 10px",
               borderRadius: 999,
               fontSize: 11.5,
@@ -2377,6 +2690,7 @@ const ProductView1 = ({
               color: status.color,
             }}
           >
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: status.color }} />
             {status.label}
           </span>
         );
@@ -2394,6 +2708,7 @@ const ProductView1 = ({
         formatDate(b.manufacturingDate),
         formatDate(b.expiryDate),
         b.stockQuantity != null ? String(b.stockQuantity) : "",
+        String(b.damagedQuantity ?? 0),
         `${b.discountPercentage ?? 0}%`,
         formatDate(b.dateOfStockEntry),
         status,
@@ -2412,6 +2727,19 @@ const ProductView1 = ({
 
   const hasActiveBatchFilters =
     batchSearch !== "" || batchStatusFilter !== "all";
+
+  // Header summary and the counts shown on the status filter.
+  const totalAvailableStock = pricingArr.reduce((sum, b) => sum + (Number(b.stockQuantity) || 0), 0);
+  const batchCounts: Record<BatchStatusFilter, number> = {
+    all: pricingArr.length,
+    Active: 0,
+    "Near Expiry": 0,
+    Expired: 0,
+  };
+  pricingArr.forEach((b) => {
+    const label = getBatchStatus(b.expiryDate).label as BatchStatusFilter;
+    if (label in batchCounts) batchCounts[label] += 1;
+  });
 
   const clearBatchFilters = () => {
     setBatchSearch("");
@@ -2462,7 +2790,6 @@ const ProductView1 = ({
   const [batchStockUpdate, setBatchStockUpdate] =
     useState<BatchAvailability | null>(null);
   const [viewBatch, setViewBatch] = useState<PricingDetails | null>(null);
-  // The batch whose special-offers drawer is open (add / time-limit / remove quantity offers).
   const [offersBatch, setOffersBatch] = useState<PricingDetails | null>(null);
   const [batchStockLoadingLot, setBatchStockLoadingLot] = useState<
     string | null
@@ -2583,7 +2910,7 @@ const ProductView1 = ({
           textAlign: "center",
           color: "#5A5B58",
           fontFamily: "'Noto Sans', sans-serif",
-          fontSize: 16,
+          fontSize: 14,
           fontWeight: 400,
         }}
       >
@@ -2603,9 +2930,9 @@ const ProductView1 = ({
       style={{
         width: "100%",
         height: "100%",
-        paddingBottom: 24,
-        paddingLeft: 24,
-        paddingRight: 24,
+        paddingBottom: 16,
+        paddingLeft: 16,
+        paddingRight: 16,
         background: "var(--base-white)",
         overflow: "hidden",
         borderRadius: 16,
@@ -2613,7 +2940,7 @@ const ProductView1 = ({
         outlineOffset: -1,
         display: "flex",
         flexDirection: "column",
-        gap: 24,
+        gap: 16,
         fontFamily: "'Noto Sans', sans-serif",
       }}
     >
@@ -2621,23 +2948,23 @@ const ProductView1 = ({
       <div
         style={{
           alignSelf: "stretch",
-          paddingTop: 24,
+          paddingTop: 16,
           background: "var(--base-white)",
           borderBottom: "1px #D5D5D4 solid",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-end",
-          paddingBottom: 16,
+          paddingBottom: 12,
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <h1
             style={{
               color: "black",
-              fontSize: 36,
+              fontSize: 24,
               fontFamily: "'Work Sans', sans-serif",
-              fontWeight: 300,
-              lineHeight: "44px",
+              fontWeight: 700,
+              lineHeight: "32px",
               margin: 0,
             }}
           >
@@ -2645,26 +2972,29 @@ const ProductView1 = ({
               ? `${productData.productName} Preview`
               : "Product Preview"}
           </h1>
-          <p
+          <span
             style={{
-              color: "#5A5B58",
-              fontSize: 16,
-              fontFamily: "'Noto Sans', sans-serif",
-              fontWeight: 400,
-              lineHeight: "24px",
-              margin: 0,
+              alignSelf: "flex-start",
+              padding: "2px 12px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 600,
+              lineHeight: "18px",
+              background: "#F8EDFF",
+              color: "#4A0D75",
+              border: "1px solid #D9B8F0",
             }}
           >
-            Complete product information
-          </p>
+            {isDrug ? "Drugs" : isConsumable ? "Consumable Medical Supplies" : isNonConsumable ? "Non-Consumable Medical Devices & Equipment" : isCosmetic ? "Cosmetic & Personal Care" : isFoodInfant ? "Food & Infant Nutrition" : isSupplement ? "Supplements & Nutraceuticals" : "Product"}
+          </span>
           {productData.status && productData.status !== "PUBLISHED" && (
             <span
               style={{
                 alignSelf: "flex-start",
                 marginTop: 4,
-                padding: "2px 12px",
+                padding: "1px 10px",
                 borderRadius: 999,
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: 600,
                 background:
                   productData.status === "DRAFT" ? "#FFF4D6" : "#EEEEEE",
@@ -2678,76 +3008,26 @@ const ProductView1 = ({
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button
+          <IconButton
             onClick={handleEdit}
-            style={{
-              height: 48,
-              minWidth: 108,
-              padding: "12px 16px",
-              background: "var(--Colors-Brand-Primary-800, #6C12A9)",
-              borderRadius: 8,
-              border: "none",
-              cursor: "pointer",
-              color: "white",
-              fontSize: 16,
-              fontFamily: "'Work Sans', sans-serif",
-              fontWeight: 500,
-              lineHeight: "24px",
-            }}
+            title={isDraftProduct ? "Edit / Submit draft" : "Edit product"}
+            tone="solid"
           >
-            {isDraftProduct ? "Edit / Submit" : "Edit"}
-          </button>
+            <Pencil size={16} />
+          </IconButton>
           {/* add Stock existing batch or create new batch  */}
 
-          <button
+          <IconButton
             onClick={handleUpdateStock}
             disabled={isDraftProduct}
-            title={isDraftProduct ? "Publish this product before updating stock" : undefined}
-            style={{
-              height: 48,
-              minWidth: 152,
-              padding: "12px 16px",
-              background: isDraftProduct
-                ? "#B5B5B4"
-                : "var(--Colors-Brand-Primary-800, #6C12A9)",
-              borderRadius: 8,
-              border: "none",
-              cursor: isDraftProduct ? "not-allowed" : "pointer",
-              opacity: isDraftProduct ? 0.7 : 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              fontSize: 16,
-              fontFamily: "'Work Sans', sans-serif",
-              fontWeight: 500,
-              lineHeight: "24px",
-              whiteSpace: "nowrap",
-            }}
+            title={isDraftProduct ? "Publish this product before updating stock" : "Update stock"}
+            tone="solid"
           >
-            Update Stock
-          </button>
-          <button
-            onClick={handleClose}
-            style={{
-              height: 48,
-              minWidth: 108,
-              padding: "8px 16px",
-              borderRadius: 8,
-              outline: "2px var(--Colors-Warning-warning-500, #FF3B3B) solid",
-              outlineOffset: -2,
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              color: "var(--Colors-Warning-warning-500, #FF3B3B)",
-              fontSize: 16,
-              fontFamily: "'Work Sans', sans-serif",
-              fontWeight: 500,
-              lineHeight: "24px",
-            }}
-          >
-            Close
-          </button>
+            <PackagePlus size={16} />
+          </IconButton>
+          <IconButton onClick={handleClose} title="Close" tone="danger">
+            <X size={16} />
+          </IconButton>
         </div>
       </div>
 
@@ -2868,104 +3148,25 @@ const ProductView1 = ({
             alignSelf: "stretch",
             display: "flex",
             flexDirection: "column",
-            gap: 16,
+            gap: 12,
           }}
         >
           <div
             style={{
-              paddingTop: 8,
+              paddingTop: 4,
               paddingBottom: 8,
               borderBottom: "1px #D5D5D4 solid",
             }}
           >
             <h2
-              style={{
-                color: "#1E1E1D",
-                fontSize: 28,
-                fontFamily: "'Work Sans', sans-serif",
-                fontWeight: 500,
-                lineHeight: "36px",
-                margin: 0,
-              }}
+              style={{ color: "#4A0D75", background: "#F8EDFF", borderLeft: "4px solid #6C12A9", borderRadius: 6, padding: "6px 12px", fontSize: 18, fontWeight: 700, lineHeight: "26px", margin: 0 }}
             >
               Product Details
             </h2>
 
-            <div className="w-full rounded-xl border border-primary-600 p-4 bg-white mt-4 space-y-3">
-              <div className="text-label-l4 font-medium text-pneutral-900">
-                Product Images
-              </div>
-
-              <div className="grid grid-cols-5 gap-4">
-                {displayImages.slice(0, 5).map((img, idx) => {
-                  const count = displayImages.length;
-
-                  let colStart = "";
-
-                  if (count === 1) {
-                    colStart = "col-start-3";
-                  } else if (count === 2) {
-                    colStart = idx === 0 ? "col-start-2" : "";
-                  } else if (count === 3) {
-                    colStart = idx === 0 ? "col-start-2" : "";
-                  }
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`relative h-67.5 overflow-hidden rounded-xl bg-[#F5F5F5] ${colStart}`}
-                    >
-                      <img
-                        src={img}
-                        alt={`Product image ${idx + 1}`}
-                        className="w-full h-full object-cover rounded-xl"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src =
-                            PLACEHOLDER_IMAGE;
-                        }}
-                      />
-
-                      {idx === 0 && (
-                        <div className="absolute top-3 left-3 w-15 h-6.5 bg-primary-600 text-center rounded-md">
-                          <span className="text-white text-xs font-normal">
-                            Primary
-                          </span>
-                        </div>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          downloadProductImage(img, `product-image-${idx + 1}.jpg`);
-                        }}
-                        aria-label="Download image"
-                        className="absolute right-2.5 bottom-2.5 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 hover:bg-white shadow-md"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E1E1D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 3v12" />
-                          <path d="m7 10 5 5 5-5" />
-                          <path d="M5 21h14" />
-                        </svg>
-                      </button>
-                    </div>
-                  );
-                })}
-
-                {displayImages.length > 3 &&
-                  Array.from({
-                    length: Math.max(0, 5 - displayImages.length),
-                  }).map((_, i) => (
-                    <div
-                      key={`empty-${i}`}
-                      className="h-67.5 rounded-xl bg-[#F5F5F5]"
-                    />
-                  ))}
-              </div>
-            </div>
 
           </div>
-          <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
+          <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
             <div
               style={{
                 flex: "1 1 0",
@@ -2973,10 +3174,16 @@ const ProductView1 = ({
                 flexDirection: "column",
               }}
             >
+              <ProductImageGallery
+                className="mb-2"
+                images={displayImages}
+                placeholderImage={PLACEHOLDER_IMAGE}
+              />
               <FieldRow
                 label="Product Name"
                 value={productData.productName}
                 multiline
+                bold
               />
               <FieldRow
                 label="Therapeutic Category"
@@ -3017,10 +3224,10 @@ const ProductView1 = ({
                     <span
                       style={{
                         color: "#3C3D3A",
-                        fontSize: 16,
+                        fontSize: 14,
                         fontFamily: "'Noto Sans', sans-serif",
                         fontWeight: 700,
-                        lineHeight: "24px",
+                        lineHeight: "20px",
                       }}
                     >
                       {mol.resolvedStrength}
@@ -3052,7 +3259,7 @@ const ProductView1 = ({
 
               <div className="px-4 pt-3 pb-2 border-b border-pneutral-200 flex flex-col gap-2">
                 <div className="flex items-center gap-1">
-                  <span className="text-pneutral-500 text-base font-medium leading-6">
+                  <span className="text-pneutral-500 text-[13px] font-medium leading-5">
                     Uploaded User Manual
                   </span>
                 </div>
@@ -3066,7 +3273,7 @@ const ProductView1 = ({
                   >
                     <FileText size={24} color="var(--pneutral-800)" />
 
-                    <span className="text-pneutral-800 text-base font-normal leading-[22px] break-all">
+                    <span className="text-pneutral-800 text-sm font-medium leading-[22px] break-all">
                       {decodeURIComponent(
                         brochureUrl.split("/").pop()?.split("?")[0] ||
                         "user-manual.pdf",
@@ -3077,7 +3284,7 @@ const ProductView1 = ({
                   <div className="flex items-center gap-3 p-3 bg-pneutral-50 rounded-lg">
                     <FileText size={24} color="var(--pneutral-800)" />
 
-                    <span className="text-pneutral-500 text-base font-normal leading-[22px]">
+                    <span className="text-pneutral-500 text-sm font-normal leading-[22px]">
                       No user manual uploaded
                     </span>
                   </div>
@@ -3086,27 +3293,27 @@ const ProductView1 = ({
 
               <div className="w-full px-5 py-4 border-b border-[#D5D5D4] flex flex-col items-start gap-3">
                 <div className="flex items-center gap-1">
-                  <span className="text-pneutral-700 text-base font-normal leading-6">
+                  <span className="text-pneutral-500 text-[13px] font-medium leading-5">
                     Warnings & Precautions
                   </span>
 
-                  <span className="text-[#FF3B30] text-base">*</span>
+                  <span className="text-[#FF3B30] text-[13px]">*</span>
                 </div>
 
-                <p className="w-full text-left whitespace-pre-wrap text-pneutral-800 text-base font-normal  m-0">
+                <p className="w-full text-left whitespace-pre-wrap text-pneutral-800 text-sm leading-6 m-0">
                   {warningsPrecautions ?? "—"}
                 </p>
               </div>
               <div className="w-full px-5 py-4 border-b border-[#D5D5D4] flex flex-col items-start gap-3">
                 <div className="flex items-center gap-1">
-                  <span className="text-pneutral-700 text-base font-normal leading-6">
+                  <span className="text-pneutral-500 text-[13px] font-medium leading-5">
                     Product Description
                   </span>
 
-                  <span className="text-[#FF3B30] text-base">*</span>
+                  <span className="text-[#FF3B30] text-[13px]">*</span>
                 </div>
 
-                <p className="w-full text-left whitespace-pre-wrap text-pneutral-800 text-base font-normal  m-0">
+                <p className="w-full text-left whitespace-pre-wrap text-pneutral-800 text-sm leading-6 m-0">
                   {productDescription ?? "—"}
                 </p>
               </div>
@@ -3147,10 +3354,6 @@ const ProductView1 = ({
           specialSchemes={specialSchemes}
         />
       )}
-      {/* ── SPECIAL OFFERS (if any) ── */}
-      {specialOffers.length > 0 && (
-        <SpecialOffersSection offers={specialOffers} />
-      )}
 
       {/* ── BATCH MANAGEMENT ── */}
       <div
@@ -3163,60 +3366,118 @@ const ProductView1 = ({
       >
         <SectionTitle>Stock Management</SectionTitle>
 
+        {/* Summary + filters in one row */}
         <div
           style={{
             display: "flex",
             flexWrap: "wrap",
             alignItems: "center",
-            justifyContent: "flex-end",
-            right: 0,
+            justifyContent: "space-between",
             gap: 12,
           }}
         >
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            <span style={SUMMARY_CHIP}>
+              <strong>{pricingArr.length}</strong> {pricingArr.length === 1 ? "batch" : "batches"}
+            </span>
+            <span style={SUMMARY_CHIP}>
+              <strong>{totalAvailableStock.toLocaleString()}</strong> units available
+            </span>
+            {batchCounts["Near Expiry"] > 0 && (
+              <span style={{ ...SUMMARY_CHIP, background: "#FEF3C7", color: "#92400E", borderColor: "#FDE68A" }}>
+                <strong>{batchCounts["Near Expiry"]}</strong> near expiry
+              </span>
+            )}
+            {batchCounts.Expired > 0 && (
+              <span style={{ ...SUMMARY_CHIP, background: "#FEE2E2", color: "#B91C1C", borderColor: "#FECACA" }}>
+                <strong>{batchCounts.Expired}</strong> expired
+              </span>
+            )}
+          </div>
 
-
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <select
-              value={batchStatusFilter}
-              onChange={(e) =>
-                setBatchStatusFilter(e.target.value as typeof batchStatusFilter)
-              }
-              style={{
-                height: 40,
-                borderRadius: 8,
-                border: "1px solid #D5D5D4",
-                padding: "0 10px",
-                fontSize: 13,
-                color: "#1E1E1D",
-                fontFamily: "'Noto Sans', sans-serif",
-              }}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            <div
+              role="group"
+              aria-label="Filter batches by status"
+              style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}
             >
-              <option value="all">All statuses</option>
-              <option value="Active">Active</option>
-              <option value="Near Expiry">Near Expiry</option>
-              <option value="Expired">Expired</option>
-            </select>
-
+              {BATCH_STATUS_OPTIONS.map((option) => {
+                const selected = batchStatusFilter === option.value;
+                const count = batchCounts[option.value];
+                const empty = count === 0 && !selected;
+                const brand = "var(--Colors-Brand-Primary-800, #6C12A9)";
+                const tint = option.value === "all";
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={selected}
+                    disabled={empty}
+                    title={empty ? `No ${option.label.toLowerCase()} batches` : undefined}
+                    onClick={() => setBatchStatusFilter(option.value)}
+                    className={empty || selected ? "" : "transition-colors hover:bg-neutral-50"}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      height: 32,
+                      padding: "0 6px 0 12px",
+                      borderRadius: 999,
+                      border: `1px solid ${selected ? (tint ? brand : option.border) : "#D5D5D4"}`,
+                      cursor: empty ? "not-allowed" : "pointer",
+                      opacity: empty ? 0.5 : 1,
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                      fontFamily: "'Work Sans', sans-serif",
+                      background: selected ? (tint ? brand : option.bg) : "white",
+                      color: selected ? (tint ? "white" : option.color) : "#3C3D3A",
+                    }}
+                  >
+                    {!tint && (
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: option.color }} />
+                    )}
+                    {option.label}
+                    <span
+                      style={{
+                        minWidth: 20,
+                        height: 20,
+                        padding: "0 6px",
+                        borderRadius: 999,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        background: selected ? "rgba(255,255,255,0.28)" : "#F1F1F0",
+                        color: selected ? (tint ? "white" : option.color) : "#5A5B58",
+                      }}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
             <div style={{ position: "relative", width: 220, flex: "0 0 auto" }}>
+              <Search
+                size={15}
+                aria-hidden
+                style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9A9B98", pointerEvents: "none" }}
+              />
               <input
                 type="text"
                 value={batchSearch}
                 onChange={(e) => setBatchSearch(e.target.value)}
                 placeholder="Search batches…"
+                aria-label="Search batches"
                 style={{
                   width: "100%",
-                  height: 40,
-                  borderRadius: 8,
+                  height: 36,
+                  borderRadius: 10,
                   border: "1px solid #D5D5D4",
-                  padding: "0 12px",
+                  padding: "0 12px 0 32px",
                   fontSize: 13,
                   color: "#1E1E1D",
                   boxSizing: "border-box",
@@ -3225,32 +3486,17 @@ const ProductView1 = ({
               />
             </div>
 
-
-
             {hasActiveBatchFilters && (
-              <button
-                onClick={clearBatchFilters}
-                style={{
-                  height: 40,
-                  padding: "0 14px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: "transparent",
-                  color: "var(--Colors-Brand-Primary-800, #6C12A9)",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "'Work Sans', sans-serif",
-                }}
-              >
-                Clear filters
-              </button>
+              <IconButton onClick={clearBatchFilters} title="Clear filters" tone="ghost" size={36}>
+                <FilterX size={16} />
+              </IconButton>
             )}
           </div>
         </div>
 
         <div style={{ maxHeight: 420, overflowY: "auto" }}>
           <Table<PricingDetails>
+            compact
             columns={batchColumns}
             data={filteredBatches}
             actions={(row) => {
@@ -3261,7 +3507,7 @@ const ProductView1 = ({
               const disabled = isUpdating || isDeleting || !row.batchLotNumber || isDraftProduct;
 
               return (
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 6 }}>
                   <button
                     onClick={() => setViewBatch(row)}
                     title="View all batch & variant details"
@@ -3281,73 +3527,35 @@ const ProductView1 = ({
                   >
                     <Eye size={16} />
                   </button>
-                  <button
+                  <IconButton
                     onClick={() => handleUpdateStockForBatch(row)}
                     disabled={disabled}
-                    title={isDraftProduct ? "Publish this product before updating stock" : undefined}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--Colors-Brand-Primary-800, #6C12A9)",
-                      background: "white",
-                      color: "var(--Colors-Brand-Primary-800, #6C12A9)",
-                      fontSize: 12.5,
-                      fontWeight: 600,
-                      cursor: disabled ? "not-allowed" : "pointer",
-                      opacity: disabled ? 0.55 : 1,
-                      whiteSpace: "nowrap",
-                      fontFamily: "'Work Sans', sans-serif",
-                    }}
+                    title={isDraftProduct ? "Publish this product before updating stock" : "Update stock for this batch"}
+                    tone="outline"
+                    size={32}
                   >
-                    {isUpdating ? "Loading…" : "Update Stock"}
-                  </button>
+                    {isUpdating ? <Loader2 size={15} className="animate-spin" /> : <PackagePlus size={15} />}
+                  </IconButton>
 
-                  <button
+                  <IconButton
                     onClick={() => setOffersBatch(row)}
                     disabled={disabled || !row.pricingId}
-                    title={
-                      isDraftProduct
-                        ? "Publish this product before adding offers"
-                        : "Add or edit special offers (quantity discounts, optionally time-limited)"
-                    }
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--Colors-Brand-Primary-800, #6C12A9)",
-                      background: "var(--Colors-Brand-Primary-800, #6C12A9)",
-                      color: "white",
-                      fontSize: 12.5,
-                      fontWeight: 600,
-                      cursor: disabled || !row.pricingId ? "not-allowed" : "pointer",
-                      opacity: disabled || !row.pricingId ? 0.55 : 1,
-                      whiteSpace: "nowrap",
-                      fontFamily: "'Work Sans', sans-serif",
-                    }}
+                    title={isDraftProduct ? "Publish this product before adding offers" : "Add or edit special offers for this batch"}
+                    tone="outline"
+                    size={32}
                   >
-                    {row.additionalDiscounts && row.additionalDiscounts.length > 0
-                      ? `Offers (${row.additionalDiscounts.length})`
-                      : "Add Offer"}
-                  </button>
+                    <Tag size={15} />
+                  </IconButton>
 
-                  <button
+                  <IconButton
                     onClick={() => handleDeleteBatch(row)}
                     disabled={disabled}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--Colors-Warning-warning-500, #FF3B3B)",
-                      background: "white",
-                      color: "var(--Colors-Warning-warning-500, #FF3B3B)",
-                      fontSize: 12.5,
-                      fontWeight: 600,
-                      cursor: disabled ? "not-allowed" : "pointer",
-                      opacity: disabled ? 0.55 : 1,
-                      whiteSpace: "nowrap",
-                      fontFamily: "'Work Sans', sans-serif",
-                    }}
+                    title="Delete this batch"
+                    tone="danger"
+                    size={32}
                   >
-                    {isDeleting ? "Deleting…" : "Delete"}
-                  </button>
+                    {isDeleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                  </IconButton>
                 </div>
               );
             }}
@@ -3382,78 +3590,6 @@ const ProductView1 = ({
           />
         )}
 
-        {(additionalDiscounts.length > 0 || specialSchemes.length > 0) && (
-          <div
-            style={{
-              borderBottom: "1px solid #D5D5D4",
-              paddingBottom: 12,
-            }}
-          >
-            <div style={{ padding: "12px 8px 8px" }}>
-              <span
-                style={{
-                  color: "#5A5B58",
-                  fontSize: 18,
-                  fontFamily: "'Work Sans', sans-serif",
-                  fontWeight: 500,
-                  lineHeight: "24px",
-                }}
-              >
-                Additional Scheme Applied
-              </span>
-            </div>
-            {additionalDiscounts.map((d, i) => {
-              const startDate = d.effectiveStartDate ?? d.startDate;
-              const endDate = d.effectiveEndDate ?? d.endDate;
-              return (
-                <div
-                  key={`discount-${d.additionalDiscountId ?? i}`}
-                  style={{
-                    padding: 12,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-end",
-                  }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <p
-                      style={{
-                        color: "#5A5B58",
-                        fontSize: 14,
-                        fontFamily: "'Work Sans', sans-serif",
-                        fontWeight: 400,
-                        lineHeight: "20px",
-                        margin: 0,
-                      }}
-                    >
-                      {`Bulk order discount (${d.minimumPurchaseQuantity}${d.maximumPurchaseQuantity
-                          ? `-${d.maximumPurchaseQuantity}`
-                          : "+"
-                        } units)${startDate && endDate
-                          ? `, (${formatDate(startDate)} – ${formatDate(endDate)})`
-                          : ""
-                        }${d.startsAt || d.endsAt ? ` · ${offerStatusText(d)}` : ""}`}
-                    </p>
-                  </div>
-                  <span
-                    style={{
-                      color: "#3C3D3A",
-                      fontSize: 16,
-                      fontFamily: "'Noto Sans', sans-serif",
-                      fontWeight: 600,
-                      lineHeight: "24px",
-                      textAlign: "right",
-                      flexShrink: 0,
-                      paddingLeft: 16,
-                    }}
-                  >
-                    {d.additionalDiscountPercentage}%
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {/* ── TAX & BILLING ── */}
@@ -3466,7 +3602,7 @@ const ProductView1 = ({
         }}
       >
         <SectionTitle>TAX &amp; BILLING</SectionTitle>
-        <div style={{ display: "flex", gap: 36, alignItems: "flex-start" }}>
+        <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
           <div style={{ flex: "1 1 0" }}>
             <FieldRow
               label="GST %"
@@ -3482,6 +3618,36 @@ const ProductView1 = ({
         </div>
       </div>
 
+      {/* ── RETURN POLICY ── */}
+      <div
+        style={{
+          alignSelf: "stretch",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+        }}
+      >
+        <SectionTitle>RETURN POLICY</SectionTitle>
+        <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+          <div style={{ flex: "1 1 0" }}>
+            <FieldRow
+              label="Returnable"
+              value={productData.returnable === false ? "No" : "Yes"}
+            />
+          </div>
+          <div style={{ flex: "1 1 0" }}>
+            <FieldRow
+              label="Return Period"
+              value={
+                productData.returnable === false
+                  ? "—"
+                  : `${productData.returnPeriodDays ?? DEFAULT_RETURN_PERIOD_DAYS} days after delivery`
+              }
+            />
+          </div>
+        </div>
+      </div>
+
       <StockUpdateModal
         open={stockModalOpen}
         onClose={() => setStockModalOpen(false)}
@@ -3491,19 +3657,27 @@ const ProductView1 = ({
         onSuccess={refetchProduct}
       />
 
-      {offersBatch?.pricingId && productData?.productId && (
-        <BatchOffersDrawer
-          // re-mount when the product reloads so the rows reflect what was saved
-          key={`${offersBatch.pricingId}-${offersBatch.additionalDiscounts?.length ?? 0}`}
+      {offersBatch?.pricingId && productData.productId && (
+        <BatchOffersModal
           productId={productData.productId}
           pricingId={offersBatch.pricingId}
-          offers={offersBatch.additionalDiscounts ?? []}
-          rules={{
-            baseDiscountPercentage: offersBatch.discountPercentage ?? undefined,
-            minimumOrderQuantity: findVariantForBatch(offersBatch)?.minimumOrderQuantity ?? undefined,
-          }}
+          batchLotNumber={offersBatch.batchLotNumber}
+          existingOffers={offersBatch.additionalDiscounts}
+          baseDiscount={offersBatch.discountPercentage ?? null}
+          stockQuantity={offersBatch.stockQuantity ?? null}
+          maxOrderQty={
+            (() => {
+              const pk = (productData as any)?.packagingDetails?.find?.(
+                (x: any) => x?.packagingId && x.packagingId === (offersBatch as any).packagingId,
+              );
+              return pk?.maximumOrderQuantity ?? pk?.maxOrderQty ?? null;
+            })()
+          }
           onClose={() => setOffersBatch(null)}
-          onSaved={refetchProduct}
+          onSaved={() => {
+            toast.success("Special offers updated");
+            refetchProduct();
+          }}
         />
       )}
 
@@ -3516,6 +3690,18 @@ const ProductView1 = ({
           onSuccess={() => {
             refetchProduct();
           }}
+        />
+      )}
+
+      {damagedStockBatch?.pricingId && productData.productId && (
+        <DamagedStockModal
+          productId={productData.productId}
+          pricingId={damagedStockBatch.pricingId}
+          batchLotNumber={damagedStockBatch.batchLotNumber}
+          stockQuantity={damagedStockBatch.stockQuantity ?? 0}
+          damagedQuantity={damagedStockBatch.damagedQuantity ?? 0}
+          onClose={() => setDamagedStockBatch(null)}
+          onSuccess={refetchProduct}
         />
       )}
 

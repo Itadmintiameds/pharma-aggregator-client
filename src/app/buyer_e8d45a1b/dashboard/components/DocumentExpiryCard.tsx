@@ -33,31 +33,31 @@ export default function DocumentExpiryCard({ documents }: DocumentExpiryCardProp
   const expiringOrExpired = withExpiry.filter((entry) => entry.days <= WARN_WINDOW_DAYS);
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-100 h-full">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="w-8 h-8 rounded-lg bg-primary-05 text-primary-700 flex items-center justify-center">
-          <FileWarning size={16} />
+    <div className="bg-white p-3.5 rounded-xl shadow-sm border border-neutral-100 h-full">
+      <div className="flex items-center gap-2 mb-2.5">
+        <span className="w-7 h-7 rounded-md bg-primary-05 text-primary-700 flex items-center justify-center">
+          <FileWarning size={14} />
         </span>
-        <h3 className="text-lg font-semibold font-heading text-black">Document Expiry</h3>
+        <h3 className="text-sm font-semibold font-heading text-black">Documents Expiring</h3>
       </div>
 
       {withExpiry.length === 0 ? (
-        <p className="text-sm font-body text-neutral-500">No license expiry dates on file.</p>
+        <p className="text-xs font-body text-neutral-500">No license expiry dates on file.</p>
       ) : expiringOrExpired.length === 0 ? (
         <div className="flex items-center gap-2 text-success-900">
-          <ShieldCheck size={18} />
-          <p className="text-sm font-body">All documents are valid for the next {WARN_WINDOW_DAYS}+ days.</p>
+          <ShieldCheck size={16} />
+          <p className="text-xs font-body">All documents are valid for the next {WARN_WINDOW_DAYS}+ days.</p>
         </div>
       ) : (
         <div className="flex flex-col divide-y divide-neutral-100">
           {expiringOrExpired.map(({ doc, days }, index) => (
-            <div key={doc.tempBuyerDocumentId ?? index} className="py-3 first:pt-0 last:pb-0 flex items-center gap-3">
-              <AlertTriangle size={16} className={days < 0 ? "text-red-500" : "text-warning-600"} />
+            <div key={doc.tempBuyerDocumentId ?? index} className="py-2 first:pt-0 last:pb-0 flex items-center gap-2.5">
+              <AlertTriangle size={14} className={days < 0 ? "text-red-500" : "text-warning-600"} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold font-heading text-black truncate">
+                <p className="text-[13px] font-semibold font-heading text-black truncate">
                   {doc.documentType?.documentTypeName || "Document"}
                 </p>
-                <p className={`text-xs font-body ${days < 0 ? "text-red-500" : "text-warning-600"}`}>
+                <p className={`text-[11px] font-body ${days < 0 ? "text-red-500" : "text-warning-600"}`}>
                   {days < 0 ? `Expired ${Math.abs(days)} days ago` : `Expires in ${days} days`}
                 </p>
               </div>

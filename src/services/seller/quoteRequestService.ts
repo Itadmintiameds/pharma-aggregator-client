@@ -1,6 +1,7 @@
 import axios from "axios";
 import api from "@/src/lib/api";
 import { QuoteRequest, SellerQuoteResponsePayload } from "@/src/types/quote/quoteRequest";
+import { fetchAllPages } from "@/src/utils/fetchAllPages";
 
 interface ApiResponseWrapper<T> {
   status: string;
@@ -30,12 +31,8 @@ function extractErrorMessage(error: unknown, fallback: string): string {
 // sellerId is resolved server-side from the JWT — never passed by the caller.
 export async function getSellerQuoteRequests(): Promise<QuoteRequest[]> {
   try {
-    // quotation-service returns a Spring Page ({ content: [...] }), not a bare array.
-    const response = await api.get<ApiResponseWrapper<QuoteRequest[] | { content?: QuoteRequest[] }>>(
-      "/seller/quote-requests"
-    );
-    const data = response.data.data;
-    return Array.isArray(data) ? data : data?.content ?? [];
+    // quotation-service returns a Spring Page of 20 by default, so read every page - not just the first.
+    return await fetchAllPages<QuoteRequest>("/seller/quote-requests");
   } catch (error) {
     throw new Error(extractErrorMessage(error, "Failed to load quote requests."));
   }

@@ -1,5 +1,6 @@
 "use client";
 
+import UnitPicker from "@/src/app/commonComponents/UnitPicker";
 import Input from "@/src/app/commonComponents/Input";
 import {
   createCosmeticProduct,
@@ -40,6 +41,14 @@ import { editUrlFor, isRealFileUrl } from "@/src/utils/productRouting";
 import UploadInput from "../commonComponent/UploadInput";
 import AdditionalDiscountType from "./AdditionalDiscountType";
 import AppliedOffersView from "./AppliedOffersView";
+import ReturnPolicyFields from "./ReturnPolicyFields";
+import {
+  ReturnPolicyForm,
+  returnPeriodError,
+  returnPolicyDefaults,
+  returnPolicyFromProduct,
+  returnPolicyPayload,
+} from "@/src/utils/returnPolicy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -407,6 +416,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
   // ─── Errors / modals ──────────────────────────────────────────────────────────
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [returnPolicy, setReturnPolicy] = useState<ReturnPolicyForm>(returnPolicyDefaults);
   const [apiError, setApiError] = useState<string | null>(null);
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -531,6 +541,8 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
         gstLabel:              gstOptions.find((o) => o.value === gstVal)?.label || (gstVal ? `${gstVal}%` : ""),
         genderLabel:           genderOptions.find((o) => o.value === genderValue)?.label || genderValue,
       });
+
+      setReturnPolicy(returnPolicyFromProduct(data));
 
       setForm({
         productName:          data.productName || "",
@@ -1221,6 +1233,9 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
     if (!form.storageConditionId) e.storageConditionId = "Storage condition is required";
 
+    const periodError = returnPeriodError(returnPolicy);
+    if (periodError) e.returnPeriodDays = periodError;
+
     for (const cert of selectedCertifications) {
       if (!cert.file && !cert.existingUrl) {
         e[`certFile_${cert.id}`] = `Please upload the certificate file for "${cert.label}"`;
@@ -1289,6 +1304,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
       gstPercentage:        Number(form.gstPercentage),
       hsnCode:              Number(form.hsnCode),
+      ...returnPolicyPayload(returnPolicy),
       // Never silently re-publish an UNPUBLISHED product; DRAFT -> PUBLISHED on submit.
       status:               (mode === "edit" && productStatus && productStatus !== "DRAFT" ? productStatus : "PUBLISHED") as "PUBLISHED",
 
@@ -1533,6 +1549,7 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
 
         gstPercentage:        form.gstPercentage ? Number(form.gstPercentage) : undefined,
         hsnCode:              form.hsnCode ? Number(form.hsnCode) : undefined,
+        ...returnPolicyPayload(returnPolicy),
         status:               "DRAFT" as const,
 
         productAttributeCosmeticAndPersonalUse: [{
@@ -1848,40 +1865,19 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                         className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
                       />
                       <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
-                      <button
-                        type="button"
-                        onClick={() => setShowUnitDropdown(p => !p)}
-                        className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 hover:bg-neutral-100 transition-colors flex-shrink-0"
-                      >
-                        <span
-                          className={netQuantityUnitOptions.find(o => o.value === form.netQuantityUnitId)?.label ? "text-pneutral-800" : "text-pneutral-500"}
-                          style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}
-                        >
-                          {loadingNetQuantityUnits ? "..." : (netQuantityUnitOptions.find(o => o.value === form.netQuantityUnitId)?.label || "Select Unit")}
-                        </span>
-                        <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${showUnitDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
+                      <UnitPicker
+                        ariaLabel="Select unit"
+                        options={netQuantityUnitOptions}
+                        value={form.netQuantityUnitId}
+                        loading={loadingNetQuantityUnits}
+                        placeholder={"Select Unit"}
+                        onSelect={(opt) => {
+                          handleSelectChange("netQuantityUnitId", { value: opt.value, label: opt.label });
+                          if (errors.netQuantityUnitId) setErrors(p => { const n = { ...p }; delete n.netQuantityUnitId; return n; });
+                          setShowUnitDropdown(false);
+                        }}
+                      />
                     </div>
-                    {showUnitDropdown && (
-                      <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
-                        {netQuantityUnitOptions.map(opt => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => {
-                              handleSelectChange("netQuantityUnitId", { value: opt.value, label: opt.label });
-                              if (errors.netQuantityUnitId) setErrors(p => { const n = { ...p }; delete n.netQuantityUnitId; return n; });
-                              setShowUnitDropdown(false);
-                            }}
-                            className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer ${form.netQuantityUnitId === opt.value ? "bg-neutral-50 font-semibold" : "font-medium"}`}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
                   {errors.netQuantity && <p className={errorMsg}>{errors.netQuantity}</p>}
                   {errors.netQuantityUnitId && <p className={errorMsg}>{errors.netQuantityUnitId}</p>}
@@ -2026,6 +2022,17 @@ const CosmeticForm = ({ productId, mode = "create", onSubmitSuccess }: CosmeticF
                 <Input label="HSN Code" name="hsnCode" placeholder="e.g. 3304"
                   value={form.hsnCode} onChange={handleChange} error={errors.hsnCode} required />
               )}
+            </div>
+
+            <div data-field="returnPeriodDays">
+              <ReturnPolicyFields
+                value={returnPolicy}
+                onChange={(value) => {
+                  setReturnPolicy(value);
+                  setErrors((p) => { const n = { ...p }; delete n.returnPeriodDays; return n; });
+                }}
+                error={errors.returnPeriodDays}
+              />
             </div>
 
             <div className="flex flex-col gap-1" data-field="storageConditionId">

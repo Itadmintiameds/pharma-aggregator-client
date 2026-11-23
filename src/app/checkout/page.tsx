@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import OfferCountdown from "@/src/app/components/OfferCountdown";
 import { BuyerQuantityOffer, bestOfferForQuantity, clockOffsetMs } from "@/src/utils/offers";
 import { useServerNow } from "@/src/hooks/useServerNow";
-import { resolveProductAvailability } from "@/src/utils/cartAvailability";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MapPin, Package, X } from "lucide-react";
@@ -23,7 +22,9 @@ import { generateIdempotencyKey, placeOrder, placeOrderFromQuote } from "@/src/s
 import { checkoutAddressSchema, CheckoutAddressFormData } from "@/src/schema/buyer/checkoutSchema";
 import { Order } from "@/src/types/buyer/order";
 import { QuoteRequest } from "@/src/types/quote/quoteRequest";
-import { isCartItemUnavailable } from "@/src/utils/cartAvailability";
+import { isCartItemUnavailable, resolveProductAvailability } from "@/src/utils/cartAvailability";
+import { priceCartItem, priceLine } from "@/src/utils/pricing";
+import { returnPolicyLabel } from "@/src/utils/returnPolicy";
 
 // One idempotency key per mount of this page — every submit attempt (including
 // retries of the same click, e.g. after a transient network error) reuses it,
@@ -95,7 +96,8 @@ function CheckoutPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const quoteRequestId = searchParams.get("quoteRequestId");
-  const { items, totalPrice, clearCart, updatePricing, backfillFromProduct } = useCart();
+  const { items, subtotal, discountTotal, taxTotal, totalPrice, clearCart, updatePricing, backfillFromProduct } =
+    useCart();
   const idempotencyKey = useIdempotencyKey();
   const { tempBuyer } = useBuyerOnboardingStatus();
 
@@ -115,6 +117,8 @@ function CheckoutPageInner() {
   // quoted price — the product's current listed price is fetched separately
   // so both can be shown side by side in the order summary.
   const [quoteListedUnitPrice, setQuoteListedUnitPrice] = useState<number | null>(null);
+  // The batch's discount and GST, which the order-service applies to the quoted price as well.
+  const [quoteBatchRates, setQuoteBatchRates] = useState<{ discountPercentage?: number; gstPercentage?: number }>({});
 
   useEffect(() => {
     if (!buyerAuthService.isAuthenticated()) {
@@ -145,10 +149,18 @@ function CheckoutPageInner() {
     if (!quote) return;
     getProductById(quote.productId)
       .then((product) => {
-        const pricing = product?.pricingDetails?.[0];
+        // Same batch the backend quotes against by default: the first live batch with stock.
+        const pricing = product ? resolveProductAvailability(product).pricing : undefined;
         setQuoteListedUnitPrice(pricing?.sellingPrice ?? pricing?.mrp ?? null);
+        setQuoteBatchRates({
+          discountPercentage: pricing?.discountPercentage,
+          gstPercentage: pricing?.gstPercentage ?? product?.gstPercentage,
+        });
       })
-      .catch(() => setQuoteListedUnitPrice(null));
+      .catch(() => {
+        setQuoteListedUnitPrice(null);
+        setQuoteBatchRates({});
+      });
   }, [quote]);
 
   // Cart items added before pricingId was captured are missing what the
@@ -181,7 +193,7 @@ function CheckoutPageInner() {
               const pricing = resolveProductAvailability(product).pricing;
               return [
                 product.productId,
-                { offers: pricing?.additionalDiscounts ?? [], offset: clockOffsetMs(pricing?.serverTime) },
+                { offers: (pricing?.additionalDiscounts ?? []) as BuyerQuantityOffer[], offset: clockOffsetMs(pricing?.serverTime) },
               ] as const;
             })
           )
@@ -255,9 +267,28 @@ function CheckoutPageInner() {
     () => (isQuoteMode ? quote?.quantity ?? 0 : items.reduce((sum, item) => sum + item.quantity, 0)),
     [isQuoteMode, quote, items]
   );
-  const displayTotal = isQuoteMode
-    ? (quote?.quotedPrice ?? 0) * (quote?.quantity ?? 0)
-    : totalPrice;
+  // Quote orders: the quoted price is the unit price; the batch discount only applies when the quote is at the
+  // listed price (a negotiated price is already discounted); GST goes on top either way.
+  const quoteLine = useMemo(() => {
+    if (!quote) return null;
+    const unitPrice = quote.quotedPrice ?? quoteListedUnitPrice ?? 0;
+    const atListPrice = quote.quotedPrice == null || quote.quotedPrice === quoteListedUnitPrice;
+    return priceLine(
+      unitPrice,
+      quote.quantity,
+      atListPrice ? quoteBatchRates.discountPercentage ?? 0 : 0,
+      quoteBatchRates.gstPercentage ?? 0
+    );
+  }, [quote, quoteListedUnitPrice, quoteBatchRates]);
+
+  const summary = isQuoteMode
+    ? {
+        subtotal: quoteLine?.gross ?? 0,
+        discountTotal: quoteLine?.discount ?? 0,
+        taxTotal: quoteLine?.tax ?? 0,
+        total: quoteLine?.total ?? 0,
+      }
+    : { subtotal, discountTotal, taxTotal, total: totalPrice };
 
   const onSubmit = async (address: CheckoutAddressFormData) => {
     setSubmitError(null);
@@ -415,7 +446,7 @@ function CheckoutPageInner() {
               <Button
                 variant="filled"
                 size="lg"
-                label="Back to RFQ & Quotes"
+                label="Back to Quotes"
                 onClick={() => router.push("/buyer_e8d45a1b/dashboard/rfq")}
               />
             </div>
@@ -566,7 +597,7 @@ function CheckoutPageInner() {
                   items.map((item) => {
                     const unitPrice = item.sellingPrice ?? item.mrp ?? 0;
                     const hasDiscount = item.mrp != null && item.sellingPrice != null && item.mrp > item.sellingPrice;
-                    const lineOffer = bestOfferForQuantity(offerInfo.get(item.productId)?.offers, item.quantity, serverNowMs);
+                    const line = priceCartItem(item);
                     return (
                       <div key={item.productId} className="flex flex-col gap-0.5">
                         <div className="flex justify-between gap-3 text-p3 font-body text-pneutral-700">
@@ -577,22 +608,13 @@ function CheckoutPageInner() {
                             ₹{(unitPrice * item.quantity).toFixed(2)}
                           </span>
                         </div>
-                        {hasDiscount && (
-                          <div className="flex justify-end gap-2 text-p4 font-body text-pneutral-500">
-                            <span className="line-through">₹{item.mrp!.toFixed(2)}</span>
-                            <span>₹{item.sellingPrice!.toFixed(2)}/unit</span>
-                          </div>
-                        )}
-                        {lineOffer && (
-                          <div className="flex flex-wrap justify-end gap-x-2 text-p4 font-body text-success-600">
-                            <span>
-                              Special offer: {lineOffer.additionalDiscountPercentage}% off for {lineOffer.minimumPurchaseQuantity}+ units
-                            </span>
-                            {lineOffer.endsAt && (
-                              <OfferCountdown endsAt={lineOffer.endsAt} serverNowMs={serverNowMs} className="text-pneutral-500" />
-                            )}
-                          </div>
-                        )}
+                        <div className="flex justify-end gap-2 text-p4 font-body text-pneutral-500">
+                          <span className="mr-auto">{returnPolicyLabel(item.returnable, item.returnPeriodDays)}</span>
+                          {hasDiscount && <span className="line-through">₹{item.mrp!.toFixed(2)}</span>}
+                          <span>₹{unitPrice.toFixed(2)}/unit</span>
+                          {line.discount > 0 && <span>− ₹{line.discount.toFixed(2)} off</span>}
+                          {line.tax > 0 && <span>+ ₹{line.tax.toFixed(2)} GST ({item.gstPercentage}%)</span>}
+                        </div>
                       </div>
                     );
                   })
@@ -617,9 +639,23 @@ function CheckoutPageInner() {
                   <span>{itemCount} item(s)</span>
                   <span>Cash on Delivery</span>
                 </div>
+                <div className="flex justify-between text-p4 font-body text-pneutral-600">
+                  <span>Subtotal</span>
+                  <span>₹{summary.subtotal.toFixed(2)}</span>
+                </div>
+                {summary.discountTotal > 0 && (
+                  <div className="flex justify-between text-p4 font-body text-green-700">
+                    <span>Discount</span>
+                    <span>− ₹{summary.discountTotal.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-p4 font-body text-pneutral-600">
+                  <span>GST</span>
+                  <span>₹{summary.taxTotal.toFixed(2)}</span>
+                </div>
                 <div className="flex justify-between items-center mt-2">
                   <p className="text-p3 font-body text-pneutral-600">Total</p>
-                  <p className="text-h5 font-heading font-semibold text-pneutral-900">₹{displayTotal.toFixed(2)}</p>
+                  <p className="text-h5 font-heading font-semibold text-pneutral-900">₹{summary.total.toFixed(2)}</p>
                 </div>
               </div>
 

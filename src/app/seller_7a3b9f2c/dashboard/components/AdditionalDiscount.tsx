@@ -85,22 +85,23 @@ const TimePickerModal = ({
         onConfirm={confirmClose}
         onCancel={cancelClose}
       />
-      <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-80">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Select Time</h3>
+      <div className="relative bg-white rounded-xl shadow-xl border border-neutral-200 p-4 w-72">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-bold text-neutral-900">Select Time</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            aria-label="Close"
+            className="text-neutral-400 hover:text-neutral-600 rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        <div className="flex items-center justify-center gap-3 mb-6">
+        <div className="flex items-center justify-center gap-3 mb-4">
           <select
             value={hours}
             onChange={(e) => setHours(e.target.value)}
-            className="text-4xl font-light text-gray-900 bg-transparent border-0 focus:outline-none cursor-pointer"
+            className="text-3xl font-light text-neutral-900 bg-transparent border-0 rounded-md focus-visible:ring-2 focus-visible:ring-primary-100 focus:outline-none cursor-pointer"
           >
             {Array.from({ length: 12 }, (_, i) => {
               const h = (i + 1).toString().padStart(2, "0");
@@ -111,11 +112,11 @@ const TimePickerModal = ({
               );
             })}
           </select>
-          <span className="text-4xl font-light text-gray-900">:</span>
+          <span className="text-3xl font-light text-neutral-900">:</span>
           <select
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}
-            className="text-4xl font-light text-gray-900 bg-transparent border-0 focus:outline-none cursor-pointer"
+            className="text-3xl font-light text-neutral-900 bg-transparent border-0 rounded-md focus-visible:ring-2 focus-visible:ring-primary-100 focus:outline-none cursor-pointer"
           >
             {Array.from({ length: 60 }, (_, i) => {
               const m = i.toString().padStart(2, "0");
@@ -129,20 +130,20 @@ const TimePickerModal = ({
           <div className="flex flex-col gap-1 ml-2">
             <button
               onClick={() => setPeriod("AM")}
-              className={`px-3 py-1 rounded-lg text-sm font-semibold transition ${
+              className={`px-3 py-1 rounded-lg border-[1.5px] text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 ${
                 period === "AM"
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "border-primary-900 text-primary-900"
+                  : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"
               }`}
             >
               AM
             </button>
             <button
               onClick={() => setPeriod("PM")}
-              className={`px-3 py-1 rounded-lg text-sm font-semibold transition ${
+              className={`px-3 py-1 rounded-lg border-[1.5px] text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 ${
                 period === "PM"
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "border-primary-900 text-primary-900"
+                  : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"
               }`}
             >
               PM
@@ -153,13 +154,13 @@ const TimePickerModal = ({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition"
+            className="flex-1 h-9 border-[1.5px] border-neutral-300 rounded-lg text-[13px] text-neutral-700 font-semibold hover:bg-neutral-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
-            className="flex-1 px-4 py-2 bg-purple-600 rounded-lg text-white font-semibold hover:bg-purple-700 transition"
+            className="flex-1 h-9 border-[1.5px] border-primary-900 rounded-lg text-[13px] text-primary-900 font-semibold hover:bg-primary-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
           >
             Confirm
           </button>
@@ -627,35 +628,35 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
   };
 
   const inputClass = (errorKey: string) =>
-    `w-full h-12 px-4 py-2 bg-white rounded-xl border-2 transition-colors ${
-      errors[errorKey] ? "border-red-500" : "border-gray-300"
-    } focus:outline-none focus:border-purple-600 text-base font-normal text-gray-900 placeholder-gray-400`;
+    `w-full h-9 px-3 bg-white rounded-lg border transition-colors ${
+      errors[errorKey] ? "border-red-500" : "border-neutral-300"
+    } focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 text-[13px] text-neutral-900 placeholder-neutral-400`;
 
   return (
     <div className="w-full bg-white flex flex-col min-h-full">
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {/* Title */}
-        <div className="pb-4 border-b border-gray-200">
+        <div className="pb-3 border-b border-neutral-200">
           <div className="flex items-baseline gap-2 mb-1">
-            <h1 className="text-xl font-normal text-gray-900">
+            <h1 className="text-xl font-bold text-neutral-900">
               Additional Discount
             </h1>
-            <span className="text-sm font-normal text-gray-500">
+            <span className="text-xs text-neutral-500">
               (Quantity-based)
             </span>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-xs text-neutral-500">
             Create a time-based discount for bulk purchases
           </p>
 
-          <div className="flex items-center justify-between mt-4">
-            <span className="text-base font-normal text-gray-900">
+          <div className="flex items-center justify-between mt-3">
+            <span className="text-[13px] font-semibold text-neutral-700">
               Always Active
             </span>
             <button
               onClick={handleToggle}
-              className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                form.alwaysActive ? "bg-purple-600" : "bg-gray-300"
+              className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 ${
+                form.alwaysActive ? "bg-primary-900" : "bg-neutral-300"
               }`}
               aria-label="Toggle Always Active"
             >
@@ -669,13 +670,13 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
         </div>
 
         {slabs.length > 0 && (
-          <div className="space-y-3">
-            <div className="text-label-l4 font-semibold">
+          <div className="space-y-2">
+            <div className="text-[13px] font-bold text-neutral-800">
               Use Existing Discounts
             </div>
 
-            <div className="border rounded-xl border-neutral-300 overflow-hidden">
-              <table className="w-full text-sm border-collapse">
+            <div className="border rounded-xl border-neutral-200 shadow-sm overflow-hidden">
+              <table className="w-full text-xs border-collapse">
                 {/* HEADER */}
                 <thead>
                   {table.getHeaderGroups().map((headerGroup) => (
@@ -683,7 +684,7 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
                       {headerGroup.headers.map((header) => (
                         <th
                           key={header.id}
-                          className="px-4 py-3 text-left text-lable-l2 font-semibold text-pneutral-50 bg-secondary-600 border border-neutral-300"
+                          className="px-3 py-2 text-left text-xs font-semibold text-neutral-700 bg-neutral-50 border-b border-neutral-200"
                         >
                           {flexRender(
                             header.column.columnDef.header,
@@ -701,13 +702,13 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
                     <tr
                       key={row.id}
                       className={
-                        index % 2 === 0 ? "bg-white" : "bg-neutral-100"
+                        "bg-white hover:bg-neutral-50/60"
                       }
                     >
                       {row.getVisibleCells().map((cell) => (
                         <td
                           key={cell.id}
-                          className="px-4 py-3 border border-neutral-300 text-center"
+                          className="px-3 py-2 border-b border-neutral-100 text-center text-neutral-800"
                         >
                           {flexRender(
                             cell.column.columnDef.cell,
@@ -721,21 +722,21 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
               </table>
             </div>
 
-            <div className="text-label-l4 font-semibold text-center m-8">
+            <div className="text-xs font-semibold text-neutral-500 text-center my-3">
               OR
             </div>
           </div>
         )}
 
         {/* Purchase Conditions */}
-        <div className="space-y-4">
-          <h2 className="text-label-l4 font-semibold text-neutral-900">
+        <div className="space-y-2">
+          <h2 className="text-[13px] font-bold text-neutral-800">
             Add New Purchase Conditions
           </h2>
 
           <div className="space-y-1.5">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <Building2 size={16} className="text-gray-500" />
+            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-700">
+              <Building2 size={16} className="text-neutral-500" />
               Minimum Purchase Quantity
               <span className="text-red-500">*</span>
             </label>
@@ -761,14 +762,14 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
         </div>
 
         {/* Discount Details */}
-        <div className="space-y-4">
-          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">
+        <div className="space-y-2">
+          <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
             Discount Details
           </h2>
 
           <div className="space-y-1.5">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <Building2 size={16} className="text-gray-500" />
+            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-700">
+              <Building2 size={16} className="text-neutral-500" />
               Discount percentage %<span className="text-red-500">*</span>
             </label>
             <input
@@ -795,13 +796,13 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
 
         {/* Validity Period */}
         {!form.alwaysActive && (
-          <div className="space-y-4">
-            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">
+          <div className="space-y-2">
+            <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
               Validity Period
             </h2>
 
             <div className="space-y-1.5">
-              <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+              <label className="flex items-center gap-1 text-xs font-semibold text-neutral-700">
                 Start Date <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-3">
@@ -833,8 +834,8 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
                           error: !!errors.startDate,
                           sx: {
                             "& .MuiOutlinedInput-root": {
-                              height: "48px",
-                              borderRadius: "12px",
+                              height: "36px",
+                              borderRadius: "8px",
                             },
                             "& .clearButton": {
                               opacity: "1 !important",
@@ -852,8 +853,8 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
                 </div>
                 <div className="flex-1 relative">
                   <Clock
-                    size={18}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none z-10"
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none z-10"
                   />
                   <input
                     type="text"
@@ -861,9 +862,9 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
                     value={formatTimeDisplay(form.startTime)}
                     onClick={() => setShowTimePicker("startTime")}
                     placeholder="Select time"
-                    className={`w-full h-12 pl-10 pr-3 bg-white rounded-xl border-2 transition-colors ${
-                      errors.startTime ? "border-red-500" : "border-gray-300"
-                    } focus:outline-none focus:border-purple-600 text-sm text-gray-900 cursor-pointer`}
+                    className={`w-full h-9 pl-9 pr-3 bg-white rounded-lg border transition-colors ${
+                      errors.startTime ? "border-red-500" : "border-neutral-300"
+                    } focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 text-[13px] text-neutral-900 cursor-pointer`}
                   />
                   {errors.startTime && (
                     <p className="text-red-500 text-xs mt-1">
@@ -875,7 +876,7 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <label className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+              <label className="flex items-center gap-1 text-xs font-semibold text-neutral-700">
                 End Date <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-3">
@@ -907,8 +908,8 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
                           error: !!errors.endDate,
                           sx: {
                             "& .MuiOutlinedInput-root": {
-                              height: "48px",
-                              borderRadius: "12px",
+                              height: "36px",
+                              borderRadius: "8px",
                             },
                             "& .clearButton": {
                               opacity: "1 !important",
@@ -926,8 +927,8 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
                 </div>
                 <div className="flex-1 relative">
                   <Clock
-                    size={18}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none z-10"
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none z-10"
                   />
                   <input
                     type="text"
@@ -935,9 +936,9 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
                     value={formatTimeDisplay(form.endTime)}
                     onClick={() => setShowTimePicker("endTime")}
                     placeholder="Select time"
-                    className={`w-full h-12 pl-10 pr-3 bg-white rounded-xl border-2 transition-colors ${
-                      errors.endTime ? "border-red-500" : "border-gray-300"
-                    } focus:outline-none focus:border-purple-600 text-sm text-gray-900 cursor-pointer`}
+                    className={`w-full h-9 pl-9 pr-3 bg-white rounded-lg border transition-colors ${
+                      errors.endTime ? "border-red-500" : "border-neutral-300"
+                    } focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 text-[13px] text-neutral-900 cursor-pointer`}
                   />
                   {errors.endTime && (
                     <p className="text-red-500 text-xs mt-1">
@@ -948,7 +949,7 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
               </div>
             </div>
 
-            <p className="text-sm text-gray-600">
+            <p className="text-xs text-neutral-500">
               This discount will apply for orders above (MPQ to MXPQ) units from
               (Start Date &amp; Time to End Date &amp; Time)
             </p>
@@ -957,16 +958,16 @@ const AdditionalDiscount: React.FC<AdditionalDiscountProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-between items-center shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+      <div className="bg-neutral-50/60 border-t border-neutral-200 px-4 py-2 flex justify-between items-center shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
         <button
           onClick={handleCancel}
-          className="w-27 h-10 rounded-lg border-2 border-[#FF3B3B] text-[#FF3B3B] font-semibold text-label-l2 cursor-pointer"
+          className="h-9 px-5 rounded-lg border-[1.5px] border-neutral-300 text-neutral-700 hover:bg-neutral-50 font-semibold text-[13px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
         >
           Close
         </button>
         <button
           onClick={handleSubmit}
-          className="w-33.25 h-10 bg-[#4B0082] rounded-lg text-white font-semibold text-label-l2 cursor-pointer"
+          className="h-9 px-6 rounded-lg border-[1.5px] border-primary-900 text-primary-900 hover:bg-primary-50 font-semibold text-[13px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
         >
           Submit
         </button>

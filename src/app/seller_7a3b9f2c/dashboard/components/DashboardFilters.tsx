@@ -1,7 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Plus, ChevronDown } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Plus } from "lucide-react";
 import { DashboardView } from "@/src/types/seller/dashboard";
 import { getCurrentSellerId } from "@/src/services/product/sellerContext";
 
@@ -40,6 +41,7 @@ interface UploadResult {
   failureCount: number;
   totalRows: number;
   validationErrors: ValidationError[];
+  warnings?: string[];
   message?: string;
 }
 
@@ -105,37 +107,37 @@ const PROGRESS_STEPS = [10, 25, 40, 55, 70, 85, 100];
 const TEMPLATES: Record<ProductType, { name: string; xlsx: string; csv: string; xls: string }> = {
   drugs: {
     name: "drug_products_template",
-    xlsx: "/templates/drugs/XLSX-Drugs Template.xlsx",
+    xlsx: "/templates/drugs/TiaMeds_Drugs_Import_Template_v1.xlsx",
     csv: "/templates/drugs/CSV-Drugs Template.csv",
     xls: "/templates/drugs/XLS-Drugs Template.xls",
   },
   medical_devices_non_consumable: {
     name: "medical_devices_non_consumable_template",
-    xlsx: "/templates/medical-devices/nonconsumable/XLSX-Non Consumable Template.xlsx",
+    xlsx: "/templates/medical-devices/nonconsumable/TiaMeds_NonConsumable_Medical_Devices_Import_Template_v1.xlsx",
     csv: "/templates/medical-devices/nonconsumable/CSV-Non Consumable Template.csv",
     xls: "/templates/medical-devices/nonconsumable/XLS-Non Consumable Template.xls",
   },
   medical_devices_consumable: {
     name: "medical_devices_consumable_template",
-    xlsx: "/templates/medical-devices/consumable/XLSX-Consumable Template.xlsx",
+    xlsx: "/templates/medical-devices/consumable/TiaMeds_Consumable_Medical_Devices_Import_Template_v1.xlsx",
     csv: "/templates/medical-devices/consumable/CSV-Consumable Template.csv",
     xls: "/templates/medical-devices/consumable/XLS-Consumable Template.xls",
   },
   cosmetics: {
     name: "cosmetics_template",
-    xlsx: "/templates/cosmetics/XLSX-Cosmetics Template.xlsx",
+    xlsx: "/templates/cosmetics/TiaMeds_Cosmetic_PersonalUse_Import_Template_v1.xlsx",
     csv: "/templates/cosmetics/CSV-Cosmetics Template.csv",
     xls: "/templates/cosmetics/XLS-Cosmetics Template.xls",
   },
   supplements: {
     name: "supplements_template",
-    xlsx: "/templates/supplements/XLSX-Supplements-Neutraceuticals_Product_Upload_Template 3.xlsx",
+    xlsx: "/templates/supplements/TiaMeds_Supplements_Import_Template_v1.xlsx",
     csv: "/templates/supplements/CSV-Supplements-Neutraceuticals_Product_Upload_Template_v0.1 1 3.csv",
     xls: "/templates/supplements/XLS-Supplements-Neutraceuticals_Product_Upload_Template 3.xls",
   },
   food_infant: {
     name: "food_infant_template",
-    xlsx: "/templates/food&Infant/XLSX-Food&InfantHeader.xlsx", 
+    xlsx: "/templates/food&Infant/TiaMeds_Food_Infant_Import_Template_v1.xlsx",
     csv:  "/templates/food&Infant/CSV-Food&InfantHeader.csv",
     xls:  "/templates/food&Infant/XLS-Food&InfantHeader.xls",
   },
@@ -225,7 +227,7 @@ function FileRow({ uf, index, onRemove, submitting }: {
       : `${fileSizeKB} KB •`;
 
   return (
-    <div style={{ background: isError ? "#FEF2F2" : "#F3F4F6", borderRadius: 8, padding: 8, ...flex("col", 6), border: isError ? "1px solid #FECACA" : "none" }}>
+    <div style={{ background: isError ? "#FEF2F2" : "#FFFFFF", borderRadius: 8, padding: 8, ...flex("col", 6), border: `1px solid ${isError ? "#FECACA" : "#E5E7EB"}`, boxShadow: isError ? "none" : "0 1px 2px rgba(16,24,40,0.04)" }}>
       <div style={{ ...flex("row", 0, "flex-start", "space-between") }}>
         <div style={{ ...flex("row", 12, "center"), flex: 1, minWidth: 0 }}>
           <FileIcon ext={ext} />
@@ -234,7 +236,7 @@ function FileRow({ uf, index, onRemove, submitting }: {
               {uf.file.name}
             </div>
             <div style={{ ...flex("row", 4, "center"), fontSize: 10, ...fontBase }}>
-              <span style={{ color: "#6B7280" }}>{sizeLabel}</span>
+              <span style={{ color: "#6B7280", whiteSpace: "nowrap" }}>{sizeLabel}</span>
               {isUploading && (
                 <span style={{ ...flex("row", 3, "center"), color: "#374151" }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", border: "1.5px solid #D1FAE5", borderTopColor: "#16A34A", display: "inline-block", flexShrink: 0, animation: "dfSpin 0.65s linear infinite" }} />
@@ -258,7 +260,7 @@ function FileRow({ uf, index, onRemove, submitting }: {
                       <path d="M3 3l4 4M7 3L3 7" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
                     </svg>
                   </span>
-                  <span style={{ color: "#DC2626", fontWeight: 600, fontSize: 10 }}>{uf.error ?? "Upload failed"}</span>
+                  <span title={uf.error ?? "Upload failed"} style={{ color: "#DC2626", fontWeight: 600, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 320 }}>{uf.error ?? "Upload failed"}</span>
                 </span>
               )}
             </div>
@@ -297,7 +299,7 @@ function MedicalDeviceSubTypePicker({
         <button
           onClick={() => onChange("consumable")}
           style={{
-            flex: 1, padding: "10px 12px", borderRadius: 10,
+            flex: 1, padding: "7px 10px", borderRadius: 10,
             border: `1.5px solid ${selected === "consumable" ? C.primary : "#E5E7EB"}`,
             background: selected === "consumable" ? C.primaryLight : "#FAFAFA",
             color: selected === "consumable" ? C.primary : "#374151",
@@ -322,7 +324,7 @@ function MedicalDeviceSubTypePicker({
         <button
           onClick={() => onChange("non_consumable")}
           style={{
-            flex: 1, padding: "10px 12px", borderRadius: 10,
+            flex: 1, padding: "7px 10px", borderRadius: 10,
             border: `1.5px solid ${selected === "non_consumable" ? C.primary : "#E5E7EB"}`,
             background: selected === "non_consumable" ? C.primaryLight : "#FAFAFA",
             color: selected === "non_consumable" ? C.primary : "#374151",
@@ -356,70 +358,205 @@ function ValidationErrorPanel({
   totalRows: number; onDownload: () => void; onDismiss: () => void;
 }) {
   const allFailed = successCount === 0 && failureCount > 0;
+  const th: React.CSSProperties = { padding: "7px 12px", textAlign: "left", fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6B7280", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" };
+  const td: React.CSSProperties = { padding: "8px 12px", fontSize: 12, lineHeight: 1.45, borderBottom: "1px solid #F3F4F6", verticalAlign: "top", wordBreak: "break-word" };
+  const chip = (text: string, bg: string, fg: string) => (
+    <span style={{ background: bg, color: fg, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, whiteSpace: "nowrap", ...fontBase }}>{text}</span>
+  );
   return (
-    <div style={{ ...flex("col", 8), background: "#FFF8F8", border: "1px solid #FECACA", borderRadius: 12, padding: 14, overflow: "hidden" }}>
-      <div style={{ ...flex("row", 0, "center", "space-between") }}>
-        <div style={{ ...flex("row", 8, "center") }}>
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8" />
-            <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#991B1B", ...fontBase }}>
-            {allFailed
-              ? `All ${totalRows} row(s) failed validation`
-              : `${failureCount} of ${totalRows} row(s) failed — ${successCount} added successfully`}
+    <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 2px rgba(16,24,40,0.04)" }}>
+      {/* Header */}
+      <div style={{ ...flex("row", 10, "center", "space-between"), padding: "10px 12px 10px 14px", borderBottom: "1px solid #F3F4F6" }}>
+        <div style={{ ...flex("row", 10, "center"), minWidth: 0 }}>
+          <span style={{ width: 28, height: 28, borderRadius: "50%", background: allFailed ? "#FEE2E2" : "#FEF3C7", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+              <path d="M12 8v5M12 16.5h.01" stroke={allFailed ? "#DC2626" : "#D97706"} strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
           </span>
+          <div style={{ ...flex("col", 1), minWidth: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", ...fontBase }}>
+              {allFailed ? "No rows were imported" : `${successCount} imported, ${failureCount} need attention`}
+            </span>
+            <span style={{ fontSize: 11, color: "#6B7280", ...fontBase }}>
+              {allFailed ? `All ${totalRows} row(s) failed validation` : `${totalRows} row(s) processed`}
+            </span>
+          </div>
         </div>
-        <button onClick={onDismiss} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}>
-          <XIcon size={13} color="#991B1B" />
-        </button>
+        <div style={{ ...flex("row", 6, "center"), flexShrink: 0 }}>
+          {!allFailed && chip(`${successCount} added`, "#DCFCE7", "#166534")}
+          {chip(`${failureCount} failed`, "#FEE2E2", "#991B1B")}
+          <button onClick={onDismiss} aria-label="Dismiss" className="df-close-btn" style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: "none", cursor: "pointer", ...flex("row", 0, "center", "center") }}>
+            <XIcon size={14} color="#6B7280" />
+          </button>
+        </div>
       </div>
 
-      {!allFailed && (
-        <div style={{ ...flex("row", 6, "center") }}>
-          <span style={{ background: "#DCFCE7", color: "#166534", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 99, ...fontBase }}>
-            ✓ {successCount} added
-          </span>
-          <span style={{ background: "#FEE2E2", color: "#991B1B", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 99, ...fontBase }}>
-            ✗ {failureCount} failed
-          </span>
-        </div>
-      )}
-
-      <div style={{ background: "#fff", border: "1px solid #FECACA", borderRadius: 8, overflow: "hidden", maxHeight: 200, overflowY: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, ...fontBase }}>
-          <thead style={{ background: "#FEF2F2", position: "sticky", top: 0, zIndex: 1 }}>
+      {/* Table */}
+      <div style={{ maxHeight: 190, overflowY: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, ...fontBase }}>
+          <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
             <tr>
-              <th style={{ padding: "7px 10px", textAlign: "left", fontWeight: 700, color: "#991B1B", width: 48, borderBottom: "1px solid #FECACA" }}>Row</th>
-              <th style={{ padding: "7px 10px", textAlign: "left", fontWeight: 700, color: "#991B1B", width: "35%", borderBottom: "1px solid #FECACA" }}>Product</th>
-              <th style={{ padding: "7px 10px", textAlign: "left", fontWeight: 700, color: "#991B1B", borderBottom: "1px solid #FECACA" }}>Reason</th>
+              <th style={{ ...th, width: 52 }}>Row</th>
+              <th style={{ ...th, width: "32%" }}>Product</th>
+              <th style={th}>Reason</th>
             </tr>
           </thead>
           <tbody>
             {errors.map((err, idx) => (
-              <tr key={idx} style={{ background: idx % 2 === 0 ? "#fff" : "#FFF8F8" }}>
-                <td style={{ padding: "7px 10px", color: "#6B7280", fontWeight: 600, borderBottom: idx < errors.length - 1 ? "1px solid #FEE2E2" : "none" }}>
-                  {err.rowNumber}
-                </td>
-                <td style={{ padding: "7px 10px", color: "#374151", fontWeight: 500, borderBottom: idx < errors.length - 1 ? "1px solid #FEE2E2" : "none", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {err.productName || <em style={{ color: "#9CA3AF" }}>Unnamed</em>}
-                </td>
-                <td style={{ padding: "7px 10px", color: "#DC2626", borderBottom: idx < errors.length - 1 ? "1px solid #FEE2E2" : "none" }}>
-                  {err.errorMessage}
-                </td>
+              <tr key={idx}>
+                <td style={{ ...td, color: "#6B7280", fontWeight: 600 }}>{err.rowNumber}</td>
+                <td style={{ ...td, color: "#111827", fontWeight: 500 }}>{err.productName || <em style={{ color: "#9CA3AF" }}>Unnamed</em>}</td>
+                <td style={{ ...td, color: "#B91C1C" }}>{err.errorMessage}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <button
-        onClick={onDownload}
-        style={{ alignSelf: "flex-end", ...flex("row", 6, "center", "center"), padding: "6px 12px", background: "#fff", border: "1px solid #DC2626", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#DC2626", ...fontBase }}
-      >
-        <DownloadIcon color="#DC2626" />
-        Download Error Report (.csv)
-      </button>
+      {/* Footer */}
+      <div style={{ ...flex("row", 0, "center", "flex-end"), padding: "8px 12px", borderTop: "1px solid #F3F4F6", background: "#FAFAFA" }}>
+        <button
+          onClick={onDownload}
+          style={{ ...flex("row", 6, "center", "center"), height: 30, padding: "0 12px", background: "#fff", border: "1px solid #D1D5DB", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#374151", ...fontBase }}
+        >
+          <DownloadIcon color="#374151" />
+          Download error report
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── PreflightReviewDialog ────────────────────────────────────────────────────
+// Shown after the file has been checked (nothing saved yet). The seller sees how many rows are
+// correct / wrong, which rows are wrong and why, then decides: import only the correct rows,
+// or cancel and import nothing.
+export function PreflightReviewDialog({
+  fileName, result, onDownload, onApprove, onCancel,
+}: {
+  fileName: string; result: UploadResult; onDownload: () => void; onApprove: () => void; onCancel: () => void;
+}) {
+  const good = result.successCount;
+  const bad = result.failureCount;
+  const canImport = good > 0;
+  if (typeof document === "undefined") return null;
+
+  const tile = (label: string, value: number, dot: string, fg: string) => (
+    <div style={{ flex: 1, background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 10, padding: "9px 12px", ...flex("col", 3) }}>
+      <div style={{ ...flex("row", 6, "center") }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: dot }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", ...fontBase }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: fg, lineHeight: 1.1, ...fontBase }}>{value}</div>
+    </div>
+  );
+  const th: React.CSSProperties = { padding: "7px 12px", textAlign: "left", fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6B7280", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" };
+  const td: React.CSSProperties = { padding: "8px 12px", fontSize: 12, borderBottom: "1px solid #F3F4F6", verticalAlign: "top", wordBreak: "break-word" };
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Review file before import"
+      style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(17,24,39,0.55)", backdropFilter: "blur(4px)", ...flex("row", 0, "center", "center"), padding: 16 }}
+    >
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 580, maxHeight: "86vh", ...flex("col", 0), boxShadow: "0 24px 60px rgba(16,24,40,0.28)", overflow: "hidden" }}>
+        {/* Header */}
+        <div style={{ ...flex("row", 12, "flex-start", "space-between"), padding: "14px 18px", borderBottom: "1px solid #F3F4F6" }}>
+          <div style={{ ...flex("col", 2), minWidth: 0 }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "#111827", ...fontBase }}>Review your file</span>
+            <span style={{ fontSize: 11, color: "#6B7280", wordBreak: "break-all", ...fontBase }}>{fileName} · nothing has been saved yet</span>
+          </div>
+          <button onClick={onCancel} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, flexShrink: 0 }}>
+            <XIcon size={16} color="#6B7280" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ ...flex("col", 12), padding: "14px 18px", overflowY: "auto", flex: "1 1 auto", minHeight: 0 }}>
+          <div style={{ ...flex("row", 8) }}>
+            {tile("Total rows", result.totalRows, "#9CA3AF", "#111827")}
+            {tile("Ready to import", good, "#16A34A", "#166534")}
+            {tile("Need fixing", bad, "#DC2626", "#991B1B")}
+          </div>
+
+          {result.warnings && result.warnings.length > 0 && (
+            <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 10, padding: "7px 10px", fontSize: 12, color: "#92400E", maxHeight: 72, overflowY: "auto", lineHeight: 1.5, ...fontBase }}>
+              {result.warnings.map((w, i) => <div key={i}>{w}</div>)}
+            </div>
+          )}
+
+          <div style={{ ...flex("row", 12, "center", "space-between") }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", ...fontBase }}>Rows that need fixing</span>
+            <button
+              onClick={onDownload}
+              style={{ ...flex("row", 6, "center", "center"), padding: "5px 10px", background: "#fff", border: "1px solid #D1D5DB", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#374151", ...fontBase }}
+            >
+              <DownloadIcon color="#374151" />
+              Download error report
+            </button>
+          </div>
+
+          <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "auto", minHeight: 60, maxHeight: 220 }}>
+            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, ...fontBase }}>
+              <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
+                <tr>
+                  <th style={{ ...th, width: 64 }}>Row</th>
+                  <th style={{ ...th, width: "30%" }}>Product</th>
+                  <th style={th}>What is wrong</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.validationErrors.map((err, idx) => (
+                  <tr key={idx}>
+                    <td style={{ ...td, color: "#6B7280", fontWeight: 600 }}>{err.rowNumber}</td>
+                    <td style={{ ...td, color: "#111827", fontWeight: 500 }}>
+                      {err.productName || <em style={{ color: "#9CA3AF" }}>Unnamed</em>}
+                    </td>
+                    <td style={{ ...td, color: "#B91C1C", lineHeight: 1.5 }}>{err.errorMessage}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ fontSize: 12, color: "#4B5563", lineHeight: 1.5, ...fontBase }}>
+            {canImport
+              ? <>Import only the <b>{good} correct row{good === 1 ? "" : "s"}</b>? The <b>{bad} wrong row{bad === 1 ? "" : "s"}</b> will be skipped. Choose <b>Cancel</b> to import nothing, fix the file and upload it again.</>
+              : <>No row in this file can be imported. Fix the rows above and upload the file again. Nothing was imported.</>}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ ...flex("row", 10, "center", "flex-end"), padding: "10px 18px", borderTop: "1px solid #F3F4F6", background: "#FAFAFA" }}>
+          <button
+            onClick={onCancel}
+            style={{ height: 34, padding: "0 14px", borderRadius: 8, border: "1px solid #D1D5DB", background: "#fff", color: "#374151", fontWeight: 600, fontSize: 12, cursor: "pointer", ...fontBase }}
+          >
+            {canImport ? "Cancel, import nothing" : "Close"}
+          </button>
+          {canImport && (
+            <button
+              onClick={onApprove}
+              style={{ height: 34, padding: "0 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%)", color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer", boxShadow: "0 4px 14px rgba(76,29,149,0.3)", ...fontBase }}
+            >
+              Import {good} correct row{good === 1 ? "" : "s"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── StepLabel ────────────────────────────────────────────────────────────────
+function StepLabel({ n, title, hint }: { n: number; title: string; hint?: string }) {
+  return (
+    <div style={{ ...flex("row", 10, "center") }}>
+      <span style={{ width: 20, height: 20, borderRadius: "50%", background: C.primaryLight, color: C.primary, fontSize: 11, fontWeight: 700, ...flex("row", 0, "center", "center"), flexShrink: 0, ...fontBase }}>{n}</span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: "#111827", ...fontBase }}>{title}</span>
+      {hint && <span style={{ fontSize: 12, color: "#6B7280", marginLeft: "auto", ...fontBase }}>{hint}</span>}
     </div>
   );
 }
@@ -437,6 +574,19 @@ function ExcelUploadView({ onBack, onSuccess }: {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [fileFormatError, setFileFormatError] = useState<string | null>(null);
+  const [review, setReview] = useState<{ fileName: string; result: UploadResult } | null>(null);
+  const reviewResolver = useRef<((approved: boolean) => void) | null>(null);
+  const requestApproval = (fileName: string, result: UploadResult) =>
+    new Promise<boolean>((resolve) => {
+      reviewResolver.current = resolve;
+      setReview({ fileName, result });
+    });
+  const decideReview = (approved: boolean) => {
+    reviewResolver.current?.(approved);
+    reviewResolver.current = null;
+    setReview(null);
+  };
+  useEffect(() => () => { reviewResolver.current?.(false); reviewResolver.current = null; }, []);
   const [availableCategories, setAvailableCategories] = useState<Array<{ id: number; name: string }>>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -673,7 +823,8 @@ function ExcelUploadView({ onBack, onSuccess }: {
       );
     }
 
-    return { success: successCount > 0, successCount, failureCount, totalRows, validationErrors };
+    const warnings: string[] = Array.isArray(data?.warnings) ? data.warnings : [];
+    return { success: successCount > 0, successCount, failureCount, totalRows, validationErrors, warnings };
   };
 
   const handleSubmit = async () => {
@@ -711,6 +862,33 @@ function ExcelUploadView({ onBack, onSuccess }: {
         fd.append("categoryId", String(categoryId));
         fd.append("sellerId", sellerId);
 
+        // Step 1: preflight - validate the whole file (headers + every row) without saving anything.
+        // A bad header problem comes back as an error message; row problems are listed and nothing is imported.
+        const preflight = await parseUploadResponse(
+          await fetch(`${IMPORT_API_URL}/preflight`, {
+            method: "POST",
+            body: fd,
+            headers: { Authorization: `Bearer ${accessToken}` },
+          })
+        );
+        if (preflight.validationErrors.length > 0) {
+          // Some rows are wrong: let the seller review and decide. Nothing has been saved yet.
+          const userSaidYes = await requestApproval(uf.file.name, preflight);
+          const approved = userSaidYes && preflight.successCount > 0;
+          if (!approved) {
+            updateFile(key, {
+              status: "error",
+              error: `${preflight.failureCount} of ${preflight.totalRows} row(s) have problems - nothing was imported.`,
+              progress: 100,
+            });
+            setUploadResult(preflight);
+            lastResult = null;
+            continue;
+          }
+          // approved: continue below and import; the backend skips the wrong rows again.
+        }
+
+        // Step 2: import (clean file, or seller approved importing only the correct rows).
         const res = await fetch(IMPORT_API_URL, {
           method: "POST",
           body: fd,
@@ -783,7 +961,7 @@ const templateLabel =
   return (
     <div style={{ ...flex("col", 14) }}>
       {/* Back */}
-      <button onClick={onBack} style={{ ...flex("row", 6, "center"), background: "none", border: "none", cursor: "pointer", color: C.primary, fontSize: 14, fontWeight: 600, padding: 0, ...fontBase, alignSelf: "flex-start" }}>
+      <button onClick={onBack} style={{ ...flex("row", 6, "center"), background: "none", border: "none", cursor: "pointer", color: C.primary, fontSize: 13, fontWeight: 600, padding: 0, ...fontBase, alignSelf: "flex-start" }}>
         <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
           <path d="M19 12H5M12 5l-7 7 7 7" stroke={C.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -791,21 +969,24 @@ const templateLabel =
       </button>
 
       {/* Heading */}
-      <div style={{ ...flex("col", 3) }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#111827", ...fontBase }}>Upload Excel / CSV</div>
-        <div style={{ fontSize: 12, color: "#6B7280", ...fontBase }}>Download our template, fill in product data, and upload</div>
+      <div style={{ ...flex("col", 4), paddingBottom: 10, borderBottom: "1px solid #F3F4F6" }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: "#111827", letterSpacing: "-0.01em", ...fontBase }}>Bulk upload products</div>
+        <div style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.4, ...fontBase }}>Choose a category, download its template, fill in your product data and upload it. Every row is checked before anything is saved.</div>
       </div>
 
+      {/* Two columns: setup on the left, upload and results on the right */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, alignItems: "start" }}>
+      <div style={{ ...flex("col", 16), minWidth: 0 }}>
       {/* Category grid */}
       <div style={{ ...flex("col", 8) }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", ...fontBase }}>Select product category</div>
+        <StepLabel n={1} title="Select product category" />
         {loadingCategories ? (
           <div style={{ ...flex("row", 8, "center") }}>
             <span style={{ width: 14, height: 14, border: "2px solid #E5E7EB", borderTopColor: C.primary, borderRadius: "50%", animation: "dfSpin 0.7s linear infinite", display: "inline-block" }} />
             <span style={{ fontSize: 12, color: "#6B7280", ...fontBase }}>Loading categories...</span>
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 6 }}>
             {renderCategories().map((cat) => {
               const selected = isCategorySelected(cat.id);
               return (
@@ -814,9 +995,9 @@ const templateLabel =
                   onClick={() => cat.selectable && handleCategorySelect(cat.id)}
                   disabled={!cat.selectable}
                   style={{
-                    padding: "8px 10px", borderRadius: 8,
+                    padding: "7px 10px", borderRadius: 8, minHeight: 36,
                     border: `1.5px solid ${selected ? C.primary : "#E5E7EB"}`,
-                    background: selected ? C.primaryLight : cat.selectable ? "#FAFAFA" : "#F9FAFB",
+                    background: selected ? C.primaryLight : cat.selectable ? "#FFFFFF" : "#F9FAFB",
                     color: selected ? C.primary : cat.selectable ? "#374151" : "#9CA3AF",
                     fontWeight: selected ? 700 : 500,
                     fontSize: 11,
@@ -853,31 +1034,35 @@ const templateLabel =
 
       {/* Template download */}
       {template && (
-        <div style={{ ...flex("row", 0, "center", "space-between"), padding: "10px 12px", background: "#FAF5FF", border: "1px solid #E9D5FF", borderRadius: 10, gap: 10, flexWrap: "wrap" }}>
-          <div style={{ ...flex("col", 2), minWidth: 0 }}>
-            <div style={{ fontWeight: 600, color: "#5B21B6", fontSize: 12, ...fontBase }}>{templateLabel}</div>
-            <div style={{ color: "#6B7280", fontSize: 11, ...fontBase }}>Download and fill before uploading</div>
-          </div>
-          <div style={{ ...flex("row", 6, "center"), flexShrink: 0 }}>
-            {[
-              { href: template.csv, label: ".CSV" },
-              { href: template.xlsx, label: ".XLSX" },
-              { href: template.xls, label: ".XLS" },
-            ].map(({ href, label }) => (
-              <a
-                key={label}
-                href={href}
-                download
-                className="df-dl-btn"
-                style={{ background: "#9F75FC", color: "white", borderRadius: 6, padding: "0 10px", height: 30, ...flex("row", 4, "center", "center"), fontSize: 11, fontWeight: 700, textDecoration: "none", border: "none", ...fontBase, transition: "all 0.2s", cursor: "pointer" }}
-              >
-                <DownloadIcon color="white" />
-                {label}
-              </a>
-            ))}
+        <div style={{ ...flex("col", 8) }}>
+          <StepLabel n={2} title="Download the template" />
+          <div style={{ ...flex("row", 12, "center", "space-between"), padding: "8px 12px", background: "#FAFAFF", border: "1px solid #E5E7EB", borderRadius: 10, flexWrap: "wrap" }}>
+            <div style={{ ...flex("col", 2), minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: "#111827", fontSize: 12, ...fontBase }}>{templateLabel}</div>
+              <div style={{ color: "#6B7280", fontSize: 11, ...fontBase }}>Fill it in without changing the column headers</div>
+            </div>
+            <div style={{ ...flex("row", 8, "center"), flexShrink: 0 }}>
+              {[
+                { href: template.csv, label: "CSV" },
+                { href: template.xlsx, label: "XLSX" },
+                { href: template.xls, label: "XLS" },
+              ].map(({ href, label }) => (
+                <a
+                  key={label}
+                  href={href}
+                  download
+                  className="df-dl-btn"
+                  style={{ background: "#FFFFFF", color: C.primary, borderRadius: 8, padding: "0 10px", height: 28, ...flex("row", 5, "center", "center"), fontSize: 11, fontWeight: 600, textDecoration: "none", border: "1px solid #C4B5FD", ...fontBase, cursor: "pointer" }}
+                >
+                  <DownloadIcon color={C.primary} />
+                  {label}
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       )}
+
 
       {/* File format error */}
       {fileFormatError && (
@@ -894,29 +1079,48 @@ const templateLabel =
       )}
 
       {/* Drop zone */}
-      <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12, padding: 8, ...flex("col", 8) }}>
+      <div style={{ ...flex("col", 8) }}>
+        <StepLabel n={3} title="Upload your file" hint="Max 10 MB" />
         <div
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
-          style={{ background: dragging ? "#F5F3FF" : "#F9FAFB", border: `2px dashed ${dragging ? C.primary : "#A78BFA"}`, borderRadius: 8, padding: files.length ? "14px 16px" : "20px 16px", cursor: "pointer", ...flex("col", 10, "center", "center"), transition: "all 0.2s" }}
+          style={{ background: dragging ? "#F5F3FF" : "#FAFAFF", border: `1.5px dashed ${dragging ? C.primary : "#C4B5FD"}`, borderRadius: 12, padding: files.length ? "10px" : "16px 12px", cursor: "pointer", ...flex("col", 10, "center", "center"), transition: "all 0.2s" }}
         >
           <input ref={inputRef} type="file" accept=".xlsx,.csv,.xls" multiple style={{ display: "none" }} onChange={handleFileInput} />
-          <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
-            <path d="M32.5075 15.6583L9.43565 16.5154C8.67212 16.5154 8.22691 16.8012 8.0166 17.5353L3.2273 33.9198C3.02929 34.6161 2.08003 34.9419 1.41968 34.9419C0.759773 34.9419 0.219727 34.4019 0.219727 33.742V29.1503V10.3386V9.43986V6.68562C0.219727 5.76227 0.968328 5.01367 1.89168 5.01367H13.771C14.2144 5.01367 14.6394 5.18974 14.9529 5.50323L18.3995 8.94987C18.713 9.26336 19.1385 9.43942 19.5815 9.43942H30.8356C31.7589 9.43942 32.5075 10.188 32.5075 11.1114V11.6826V15.6583Z" fill="#E0AD31" />
-            <path d="M1.41968 34.9419C2.07959 34.9419 2.42162 34.4383 2.61964 33.7419L7.44757 16.8986C7.65788 16.1645 8.3292 15.6587 9.09317 15.6587H38.6768C39.3832 15.6587 39.8908 16.3375 39.6914 17.0154L34.9074 33.2721C34.6914 34.0409 34.2176 34.9485 33.2377 34.9419H1.41968Z" fill="#FFC843" />
-          </svg>
+          <span style={{ width: 34, height: 34, borderRadius: "50%", background: C.primaryLight, ...flex("row", 0, "center", "center") }}>
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+              <path d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.primary, marginBottom: 2, ...fontBase }}>
-              {dragging ? "Drop files here!" : "Drag & drop your Excel / CSV"}
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 1, ...fontBase }}>
+              {dragging ? "Drop your files here" : <>Drag &amp; drop, or <span style={{ color: C.primary }}>browse</span></>}
             </div>
-            <div style={{ fontSize: 10, color: "#9CA3AF", ...fontBase }}>or click to browse · .xlsx · .csv · .xls · Max 10MB</div>
+            <div style={{ fontSize: 11, color: "#6B7280", ...fontBase }}>Supports .xlsx, .xls and .csv</div>
           </div>
         </div>
+      </div>
+
+      </div>
+      <div style={{ ...flex("col", 14), minWidth: 0 }}>
+      {files.length === 0 && !uploadResult && !submitError && (
+      <div style={{ ...flex("col", 6), padding: "10px 12px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.04em", ...fontBase }}>Before you upload</span>
+        {["Keep the column headers exactly as in the template", "Use real dates, not text, for manufacturing and expiry", "Batch numbers must be unique for your account"].map((t) => (
+          <div key={t} style={{ ...flex("row", 8, "flex-start") }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginTop: 3, flexShrink: 0 }}>
+              <path d="M2 6l3 3 5-5" stroke="#16A34A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span style={{ fontSize: 11, color: "#4B5563", lineHeight: 1.45, ...fontBase }}>{t}</span>
+          </div>
+        ))}
+      </div>
+      )}
 
         {files.length > 0 && (
-          <div style={{ ...flex("col", 6) }}>
+          <div style={{ ...flex("col", 8) }}>
             <div style={{ ...flex("row", 0, "center", "space-between") }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: "#374151", ...fontBase }}>Files ({files.length})</span>
               {files.every((f) => f.status === "done" || f.status === "error") && (
@@ -930,7 +1134,17 @@ const templateLabel =
             ))}
           </div>
         )}
-      </div>
+
+      {/* Review popup: correct vs wrong rows, then import only correct rows or cancel */}
+      {review && (
+        <PreflightReviewDialog
+          fileName={review.fileName}
+          result={review.result}
+          onDownload={() => downloadErrorReport(review.result.validationErrors)}
+          onApprove={() => decideReview(true)}
+          onCancel={() => decideReview(false)}
+        />
+      )}
 
       {/* Validation error panel */}
       {uploadResult && uploadResult.validationErrors.length > 0 && (
@@ -946,7 +1160,7 @@ const templateLabel =
 
       {/* Generic submit error */}
       {submitError && (
-        <div style={{ ...flex("row", 10, "center"), padding: "10px 12px", background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}>
+        <div style={{ ...flex("row", 10, "center"), padding: "7px 10px", background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}>
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
             <circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="1.8" />
             <path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round" />
@@ -962,7 +1176,7 @@ const templateLabel =
       <button
         onClick={handleSubmit}
         disabled={!hasReadyFiles || submitting}
-        style={{ width: "100%", height: 46, borderRadius: 10, border: "none", background: hasReadyFiles && !submitting ? "linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%)" : "#F3F4F6", cursor: hasReadyFiles && !submitting ? "pointer" : "not-allowed", ...flex("row", 10, "center", "center"), ...fontBase, boxShadow: hasReadyFiles && !submitting ? "0 4px 14px rgba(76,29,149,0.3)" : "none", transition: "all 0.2s" }}
+        style={{ width: "100%", height: 40, borderRadius: 10, border: "none", background: hasReadyFiles && !submitting ? "linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%)" : "#F3F4F6", cursor: hasReadyFiles && !submitting ? "pointer" : "not-allowed", ...flex("row", 10, "center", "center"), ...fontBase, boxShadow: hasReadyFiles && !submitting ? "0 4px 14px rgba(76,29,149,0.3)" : "none", transition: "all 0.2s" }}
       >
         <span style={{ color: hasReadyFiles && !submitting ? "white" : "#9CA3AF", fontWeight: 700, fontSize: 14, ...fontBase, ...flex("row", 8, "center") }}>
           {submitting ? (
@@ -989,6 +1203,8 @@ const templateLabel =
         <span style={{ fontSize: 10, color: "#9CA3AF", ...fontBase }}>
           Ensure your file follows the template format · Max 10MB per file
         </span>
+      </div>
+      </div>
       </div>
     </div>
   );
@@ -1100,7 +1316,8 @@ export function OnboardingModal({ onClose, onManualEntry, onSuccessAction }: { o
         .df-card:hover { transform: translateY(-1px) !important; box-shadow: 0 6px 18px rgba(0,0,0,0.09) !important; }
         .df-modal-root, .df-modal-root * { font-family: 'Open Sans', sans-serif !important; -webkit-font-smoothing: antialiased; }
         .df-dl-btn { transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease !important; }
-        .df-dl-btn:hover { background: #C4A4FD !important; transform: translateY(-1px) !important; }
+        .df-close-btn:hover { background: #F3F4F6 !important; }
+        .df-dl-btn:hover { background: #F5F3FF !important; border-color: #8B5CF6 !important; }
         .df-modal-scroll::-webkit-scrollbar { width: 4px; }
         .df-modal-scroll::-webkit-scrollbar-track { background: transparent; }
         .df-modal-scroll::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 99px; }
@@ -1108,20 +1325,8 @@ export function OnboardingModal({ onClose, onManualEntry, onSuccessAction }: { o
 
       {/* Backdrop */}
       <div
-        onClick={displayView === "methods" ? onClose : undefined}
-        style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", zIndex: 998, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)", cursor: displayView === "methods" ? "pointer" : "default" }}
+        style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", zIndex: 998, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)", cursor: "default" }}
       />
-
-      {/* Close button */}
-      {displayView === "methods" && (
-        <button onClick={onClose} style={{ position: "fixed", top: 12, right: 12, zIndex: 1002, background: "none", border: "none", padding: 0, cursor: "pointer", ...flex("row", 0, "center", "center") }}>
-          <div style={{ width: 36, height: 36, background: "white", borderRadius: 8, ...flex("row", 0, "center", "center") }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path fillRule="evenodd" clipRule="evenodd" d="M12 3.75C9.81196 3.75 7.71354 4.61919 6.16637 6.16637C4.61919 7.71354 3.75 9.81196 3.75 12C3.75 13.0834 3.96339 14.1562 4.37799 15.1571C4.79259 16.1581 5.40029 17.0675 6.16637 17.8336C6.93245 18.5997 7.84193 19.2074 8.84286 19.622C9.8438 20.0366 10.9166 20.25 12 20.25C13.0834 20.25 14.1562 20.0366 15.1571 19.622C16.1581 19.2074 17.0675 18.5997 17.8336 17.8336C18.5997 17.0675 19.2074 16.1581 19.622 15.1571C20.0366 14.1562 20.25 13.0834 20.25 12C20.25 9.81196 19.3808 7.71354 17.8336 6.16637C16.2865 4.61919 14.188 3.75 12 3.75ZM5.10571 5.10571C6.93419 3.27723 9.41414 2.25 12 2.25C14.5859 2.25 17.0658 3.27723 18.8943 5.10571C20.7228 6.93419 21.75 9.41414 21.75 12C21.75 13.2804 21.4978 14.5482 21.0078 15.7312C20.5178 16.9141 19.7997 17.9889 18.8943 18.8943C17.9889 19.7997 16.9141 20.5178 15.7312 21.0078C14.5482 21.4978 13.2804 21.75 12 21.75C10.7196 21.75 9.45176 21.4978 8.26884 21.0078C7.08591 20.5178 6.01108 19.7997 5.10571 18.8943C4.20034 17.9889 3.48216 16.9141 2.99217 15.7312C2.50219 14.5482 2.25 13.2804 2.25 12C2.25 9.41414 3.27723 6.93419 5.10571 5.10571ZM9.21967 9.21967C9.51256 8.92678 9.98744 8.92678 10.2803 9.21967L12 10.9393L13.7197 9.21967C14.0126 8.92678 14.4874 8.92678 14.7803 9.21967C15.0732 9.51256 15.0732 9.98744 14.7803 10.2803L13.0607 12L14.7803 13.7197C15.0732 14.0126 15.0732 14.4874 14.7803 14.7803C14.4874 15.0732 14.0126 15.0732 13.7197 14.7803L12 13.0607L10.2803 14.7803C9.98744 15.0732 9.51256 15.0732 9.21967 14.7803C8.92678 14.4874 8.92678 14.0126 9.21967 13.7197L10.9393 12L9.21967 10.2803C8.92678 9.98744 8.92678 9.51256 9.21967 9.21967Z" fill="#111827" />
-            </svg>
-          </div>
-        </button>
-      )}
 
       {/* Modal */}
       <div
@@ -1131,7 +1336,8 @@ export function OnboardingModal({ onClose, onManualEntry, onSuccessAction }: { o
           position: "fixed", top: "50%", left: "50%",
           transform: "translate(-50%, -50%)",
           zIndex: 1000,
-          width: "90vw", maxWidth: 460,
+          width: "92vw", maxWidth: displayView === "excel" ? 880 : 400,
+          transition: "max-width 0.25s ease",
           height: "auto",
           maxHeight: "92vh",
           background: "white",
@@ -1143,20 +1349,30 @@ export function OnboardingModal({ onClose, onManualEntry, onSuccessAction }: { o
           overflow: "hidden",
         }}
       >
+        {!isSuccess && (
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="df-close-btn"
+            style={{ position: "absolute", top: 12, right: 12, zIndex: 2, width: 28, height: 28, borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", ...flex("row", 0, "center", "center") }}
+          >
+            <XIcon size={16} color="#6B7280" />
+          </button>
+        )}
         <div
           className="df-modal-scroll"
-          style={{ flex: 1, overflowY: "auto", padding: isSuccess ? "0" : "22px" }}
+          style={{ flex: 1, overflowY: "auto", padding: isSuccess ? "0" : displayView === "excel" ? "20px" : "18px" }}
         >
           <div style={{ opacity: contentVisible ? 1 : 0, transform: contentVisible ? "translateX(0)" : `translateX(${slideX})`, transition: contentVisible ? "opacity 0.2s, transform 0.2s" : "opacity 0.17s, transform 0.17s" }}>
 
             {/* Methods view */}
             {displayView === "methods" && (
               <>
-                <div style={{ marginBottom: 16, ...flex("col", 4) }}>
-                  <div style={{ fontSize: 19, fontWeight: 700, color: "#111827", ...fontBase }}>How would you like to add products?</div>
-                  <div style={{ fontSize: 13, color: "#6B7280", ...fontBase }}>Choose the method that fits your workflow.</div>
+                <div style={{ marginBottom: 12, paddingRight: 28, ...flex("col", 2) }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#111827", letterSpacing: "-0.01em", ...fontBase }}>Add products</div>
+                  <div style={{ fontSize: 12, color: "#6B7280", ...fontBase }}>Choose the method that fits your workflow.</div>
                 </div>
-                <div style={{ ...flex("col", 8) }}>
+                <div style={{ ...flex("col", 6) }}>
                   {METHODS.map((m) => (
                     <button
                       key={m.id}
@@ -1169,24 +1385,24 @@ export function OnboardingModal({ onClose, onManualEntry, onSuccessAction }: { o
                         if (m.id === "excel") changeView("excel", "left");
                         if (m.id === "api") changeView("api", "left");
                       }}
-                      style={{ ...flex("row", 12, "center"), padding: "14px 16px", borderRadius: 14, border: `1px solid ${hovered === m.id ? "#D1D5DB" : "#E5E7EB"}`, background: hovered === m.id ? "#FAFAFA" : "white", cursor: m.ready ? "pointer" : "default", textAlign: "left", width: "100%", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", opacity: m.ready ? 1 : 0.55 }}
+                      style={{ ...flex("row", 10, "center"), padding: "9px 12px", borderRadius: 10, border: `1px solid ${hovered === m.id ? "#D1D5DB" : "#E5E7EB"}`, background: hovered === m.id ? "#FAFAFA" : "white", cursor: m.ready ? "pointer" : "default", textAlign: "left", width: "100%", boxShadow: "0 1px 2px rgba(16,24,40,0.05)", opacity: m.ready ? 1 : 0.55 }}
                     >
-                      <div style={{ width: 40, height: 40, borderRadius: 8, background: m.bg, border: "1px solid #E5E7EB", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: m.bg, border: "1px solid #E5E7EB", ...flex("row", 0, "center", "center"), flexShrink: 0 }}>
                         {m.icon}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 15, color: "#111827", marginBottom: 2, ...fontBase }}>{m.label}</div>
-                        <div style={{ fontSize: 12, color: "#6B7280", ...fontBase }}>{m.desc}</div>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: "#111827", marginBottom: 1, ...fontBase }}>{m.label}</div>
+                        <div style={{ fontSize: 11, color: "#6B7280", ...fontBase }}>{m.desc}</div>
                       </div>
                       {m.ready ? (
-                        <div style={{ ...flex("row", 5, "center"), fontSize: 13, fontWeight: 600, color: m.accent, whiteSpace: "nowrap", flexShrink: 0, ...fontBase }}>
-                          Get Started
-                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                        <div style={{ ...flex("row", 5, "center"), fontSize: 12, fontWeight: 600, color: m.accent, whiteSpace: "nowrap", flexShrink: 0, ...fontBase }}>
+                          Start
+                          <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
                             <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         </div>
                       ) : (
-                        <div style={{ fontSize: 11, color: "#9CA3AF", ...fontBase, flexShrink: 0 }}>Soon</div>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF", background: "#F3F4F6", borderRadius: 99, padding: "2px 8px", ...fontBase, flexShrink: 0 }}>Soon</div>
                       )}
                     </button>
                   ))}
@@ -1222,72 +1438,6 @@ export function OnboardingModal({ onClose, onManualEntry, onSuccessAction }: { o
   );
 }
 
-// ─── FilterDropdown ───────────────────────────────────────────────────────────
-function FilterDropdown({ label, options }: { label: string; options: string[] }) {
-  const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(label);
-  const dropRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  return (
-    <div ref={dropRef} style={{ position: "relative", boxShadow: "-1px 1px 4px rgba(0, 0, 0, 0.25)", borderRadius: 8, minWidth: 108, maxHeight: 52, minHeight: 48 }}>
-      <button
-        onClick={() => setOpen(!open)}
-        style={{
-          height: 48,
-          paddingLeft: 16,
-          paddingRight: 16,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          background: "#ffffff",
-          color: "#1E1E1D",
-          fontSize: 16,
-          fontFamily: "'Work Sans', sans-serif",
-          fontWeight: 500,
-          lineHeight: "24px",
-          borderRadius: 8,
-          border: "none",
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-          width: "100%",
-          outline: "none",
-          overflow: "hidden",
-        }}
-      >
-        <span>{selected}</span>
-        <ChevronDown size={20} color="#1E1E1D" />
-      </button>
-      {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-white border border-neutral-200 overflow-hidden min-w-full py-1" style={{ borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.12)" }}>
-          {options.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => { setSelected(opt); setOpen(false); }}
-              className={`w-full text-left px-4 py-2 text-sm transition-colors ${
-                selected === opt
-                  ? "bg-primary-100 text-primary-900 font-medium"
-                  : "text-neutral-800 hover:bg-primary-100"
-              }`}
-              style={{ fontFamily: "'Work Sans', sans-serif" }}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── DashboardFilters ─────────────────────────────────────────────────────────
 const DashboardFilters = ({ setCurrentView, onRefreshRequested }: DashboardFiltersProps) => {
   const router = useRouter();
@@ -1295,17 +1445,7 @@ const DashboardFilters = ({ setCurrentView, onRefreshRequested }: DashboardFilte
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <FilterDropdown
-            label="All Stocks"
-            options={["All Stocks", "Low Stock", "Out of Stock"]}
-          />
-          <FilterDropdown
-            label="All Categories"
-            options={["All Categories", "Drugs", "Vitamins", "Diabetes"]}
-          />
-        </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 24 }}>
         <div style={{ boxShadow: "-1px 1px 4px rgba(0, 0, 0, 0.25)", borderRadius: 8, minWidth: 108, maxHeight: 52, minHeight: 48 }}>
           <button
             onClick={() => setShowModal(true)}

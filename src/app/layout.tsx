@@ -9,6 +9,8 @@ import { CartProvider } from "@/src/context/CartContext";
 import BuyerLoginModalProvider from "@/src/app/buyer_e8d45a1b/context/BuyerLoginModalContext";
 import BuyerLoginModal from "@/src/app/buyer_e8d45a1b/components/BuyerLoginModal";
 import BuyerSignupModal from "@/src/app/buyer_e8d45a1b/components/BuyerSignupModal";
+import { BuyerCartDrawerProvider } from "@/src/app/buyer_e8d45a1b/context/BuyerCartDrawerContext";
+import GlobalCartDrawer from "@/src/app/components/GlobalCartDrawer";
 
 const notoSans = Noto_Sans({
   subsets: ["latin"],
@@ -60,7 +62,11 @@ export default function RootLayout({
       >
         <CartProvider>
           <BuyerLoginModalProvider>
-            {children}
+            <BuyerCartDrawerProvider>
+              {children}
+              {/* One side cart for the whole site (landing, search, product, dashboard). */}
+              <GlobalCartDrawer />
+            </BuyerCartDrawerProvider>
             <BuyerLoginModal />
             <BuyerSignupModal />
           </BuyerLoginModalProvider>

@@ -35,17 +35,17 @@ const LogoutConfirmationModal = ({
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4">
       <div
-        className="relative w-full max-w-110 rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full max-w-[26rem] rounded-xl bg-white p-4 shadow-xl animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <div className="flex justify-end">
           <button
             onClick={onClose}
-            className="text-gray-400 transition-colors hover:text-gray-600"
+            className="rounded text-gray-400 transition-colors hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
           >
             <svg
-              className="h-6 w-6"
+              className="h-5 w-5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -61,10 +61,10 @@ const LogoutConfirmationModal = ({
         </div>
 
         {/* Icon */}
-        <div className="mb-6 flex justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-100">
+        <div className="mb-2 flex justify-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
             <svg
-              className="h-10 w-10 text-red-600"
+              className="h-6 w-6 text-red-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -81,15 +81,15 @@ const LogoutConfirmationModal = ({
 
         {/* Content */}
         <div className="text-center">
-          <h2 className="mb-2 text-2xl font-semibold text-gray-900">
+          <h2 className="mb-1 text-base font-bold text-gray-900">
             Confirm Logout
           </h2>
 
-          <p className="mb-1 text-gray-600">
+          <p className="mb-0.5 text-[13px] text-gray-600">
             You are about to leave the dashboard.
           </p>
 
-          <p className="mb-8 text-sm text-gray-500">
+          <p className="mb-4 text-xs text-gray-500">
             Do you want to logout of your session?
           </p>
         </div>
@@ -99,7 +99,7 @@ const LogoutConfirmationModal = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 font-medium text-gray-700 transition hover:bg-gray-50"
+            className="flex-1 h-9 rounded-lg border-[1.5px] border-neutral-300 text-[13px] font-semibold text-neutral-700 transition hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
           >
             Cancel
           </button>
@@ -107,7 +107,7 @@ const LogoutConfirmationModal = ({
           <button
             type="button"
             onClick={onConfirm}
-            className="flex-1 border-2 rounded-xl bg-red-600 px-4 py-3 font-medium text-white"
+            className="flex-1 h-9 rounded-lg border-[1.5px] border-red-500 text-[13px] font-semibold text-red-600 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-100"
           >
             Yes, Logout
           </button>

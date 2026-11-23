@@ -1,5 +1,6 @@
 "use client";
 
+import UnitPicker from "@/src/app/commonComponents/UnitPicker";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Input from "@/src/app/commonComponents/Input";
@@ -35,6 +36,14 @@ import {
   getSpecificationUnitsBySubCategory
 } from "@/src/services/product/NonConsumbaleService";
 import { AdditionalDiscountData } from "@/src/types/product/ProductData";
+import ReturnPolicyFields from "./ReturnPolicyFields";
+import {
+  ReturnPolicyForm,
+  returnPeriodError,
+  returnPolicyDefaults,
+  returnPolicyFromProduct,
+  returnPolicyPayload,
+} from "@/src/utils/returnPolicy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -270,6 +279,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [returnPolicy, setReturnPolicy] = useState<ReturnPolicyForm>(returnPolicyDefaults);
   const [apiError, setApiError] = useState<string | null>(null);
 
   const [images, setImages] = useState<File[]>([]);
@@ -415,6 +425,8 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
           setDisplayLabels((prev) => ({ ...prev, packTypeLabel: found?.label || packIdVal }));
         } catch { /* ignore */ }
       }
+
+      setReturnPolicy(returnPolicyFromProduct(data));
 
       setForm({
         productName: data.productName || "",
@@ -912,6 +924,9 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
     if (!pDesc) e.productDescription = "Product description is required";
     else if (pDesc.length > 1000) e.productDescription = "Product description must not exceed 1000 characters";
 
+    const periodError = returnPeriodError(returnPolicy);
+    if (periodError) e.returnPeriodDays = periodError;
+
    
 
     if (images.length === 0 && existingImages.length === 0) e.images = "At least one product image is required";
@@ -974,6 +989,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         status: (mode === "edit" && !publishFromDraft ? (productStatus || "PUBLISHED") : "PUBLISHED") as string,
 
         productAttributeNonConsumableMedicals: [{
@@ -1122,6 +1138,7 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
 
         gstPercentage: numOrUndef(form.gstPercentage),
         hsnCode: numOrUndef(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         status: "DRAFT" as const,
 
         productAttributeNonConsumableMedicals: [{
@@ -1464,38 +1481,20 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                         className="flex-1 h-full px-4 text-base bg-white focus:outline-none border-none outline-none text-pneutral-800 placeholder:text-pneutral-500"
                       />
                       <div className="h-full border-l border-neutral-300 flex-shrink-0"></div>
-                      <button
-                        type="button"
-                        onClick={() => form.deviceSubCategoryId && setShowUnitDropdown(p => !p)}
+                      <UnitPicker
+                        ariaLabel="Select unit"
+                        options={specificationUnitOptions}
+                        value={form.deviceSpecificationUnitId}
+                        loading={loadingSpecificationUnits}
                         disabled={!form.deviceSubCategoryId}
-                        className="w-[149px] h-full px-3 bg-pneutral-50 flex items-center justify-between gap-1 hover:bg-neutral-100 transition-colors flex-shrink-0 disabled:cursor-not-allowed"
-                      >
-                        <span className="truncate text-pneutral-800" style={{ fontWeight: 400, fontSize: "16px", lineHeight: "24px" }}>
-                          {loadingSpecificationUnits ? "..." : (specificationUnitOptions.find(o => o.value === form.deviceSpecificationUnitId)?.label || (form.deviceSubCategoryId ? "Select Unit" : "Select sub-cat first"))}
-                        </span>
-                        <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 flex-shrink-0 ${showUnitDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
+                        placeholder={form.deviceSubCategoryId ? "Select Unit" : "Select sub-cat first"}
+                        onSelect={(opt) => {
+                          handleSelectChange("deviceSpecificationUnitId", { value: opt.value, label: opt.label });
+                          if (errors.deviceSpecificationUnitId) setErrors(p => { const n = { ...p }; delete n.deviceSpecificationUnitId; return n; });
+                          setShowUnitDropdown(false);
+                        }}
+                      />
                     </div>
-                    {showUnitDropdown && form.deviceSubCategoryId && (
-                      <div className="absolute right-0 top-[calc(100%+4px)] w-[149px] max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50 flex flex-col py-1">
-                        {specificationUnitOptions.map(opt => (
-                          <button key={opt.value} type="button"
-                            onClick={() => {
-                              handleSelectChange("deviceSpecificationUnitId", { value: opt.value, label: opt.label });
-                              if (errors.deviceSpecificationUnitId) setErrors(p => { const n = { ...p }; delete n.deviceSpecificationUnitId; return n; });
-                              setShowUnitDropdown(false);
-                            }}
-                            className={`w-full text-left px-4 py-2.5 text-sm text-pneutral-800 hover:bg-pneutral-50 transition-colors cursor-pointer ${form.deviceSpecificationUnitId === opt.value ? "bg-neutral-50 font-semibold" : "font-medium"}`}>
-                            {opt.label}
-                          </button>
-                        ))}
-                        {specificationUnitOptions.length === 0 && (
-                          <div className="px-4 py-2 text-sm text-neutral-500">No units available</div>
-                        )}
-                      </div>
-                    )}
                   </div>
                   {errors.dimensionSize && <p className={errorMsg}>{errors.dimensionSize}</p>}
                   {errors.deviceSpecificationUnitId && <p className={errorMsg}>{errors.deviceSpecificationUnitId}</p>}
@@ -1707,6 +1706,18 @@ const NonConsumableForm = ({ productId, mode = "create", onSubmitSuccess }: NonC
                 />
               </div>
             )}
+
+            {/* Return policy — editable in both create and edit modes */}
+            <div ref={setFieldRef("returnPeriodDays") as React.RefCallback<HTMLDivElement>}>
+              <ReturnPolicyFields
+                value={returnPolicy}
+                onChange={(value) => {
+                  setReturnPolicy(value);
+                  setErrors((p) => { const n = { ...p }; delete n.returnPeriodDays; return n; });
+                }}
+                error={errors.returnPeriodDays}
+              />
+            </div>
 
             {/* Storage Condition — editable only when stock is 0 */}
             {isEdit && Number(form.stockQuantity) > 0 ? (

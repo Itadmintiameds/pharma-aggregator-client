@@ -39,6 +39,13 @@ export function useBuyerOrders() {
   }, []);
 
   useEffect(() => {
+    // The cart drawer announces a newly placed order so a visible list updates without a page reload.
+    const onOrdersChanged = () => refresh();
+    window.addEventListener("buyer-orders-changed", onOrdersChanged);
+    return () => window.removeEventListener("buyer-orders-changed", onOrdersChanged);
+  }, [refresh]);
+
+  useEffect(() => {
     // Deferred to a microtask for the same reason as useBuyerOnboardingStatus:
     // refresh() sets state synchronously on its first line, which the
     // set-state-in-effect lint rule flags when called directly.

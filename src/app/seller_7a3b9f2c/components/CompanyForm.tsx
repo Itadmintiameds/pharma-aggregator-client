@@ -92,7 +92,7 @@ function DropdownSearchInput({
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
         placeholder={placeholder}
-        className="w-full h-9 px-3 rounded-lg border border-neutral-300 text-p4 font-body font-regular text-pneutral-900 focus:outline-none focus:border-secondary-500 focus:ring-1 focus:ring-secondary-200"
+        className="w-full h-9 px-3 rounded-lg border border-neutral-300 text-[13px] font-body font-regular text-pneutral-900 focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100"
       />
     </div>
   );
@@ -413,20 +413,20 @@ export default function CompanyForm({
   };
 
   return (
-    <div className="flex flex-col gap-5 bg-white">
+    <div className="flex flex-col gap-3 bg-white">
       {/* Header Section */}
       <div className="text-black">
-        <div className="text-h3 font-heading font-medium text-pneutral-900 leading-[40px]">
+        <div className="text-xl font-heading font-bold text-pneutral-900 leading-7">
           Company Details
         </div>
-        <div className="text-label-l4 font-heading font-regular text-pneutral-800 leading-[24px] mt-1">
+        <div className="text-[13px] font-heading font-regular text-pneutral-800 leading-[18px] mt-1">
           Please ensure the Company Name matches your GST and Drug License exactly.
         </div>
       </div>
 
       {/* Company Details Section */}
       <div>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-2">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 pt-2">
           {/* Row 1: Company Name | Company Type */}
           <FormInput
             label="Seller Name / Company Name:"
@@ -448,12 +448,12 @@ export default function CompanyForm({
             }}
             maxLength={60}
             placeholder="Enter Your Name/Company Name"
-            leftIcon={<HiOutlineUserGroup className="w-5 h-5" />}
+            leftIcon={<HiOutlineUserGroup className="w-4 h-4" />}
             error={errors.sellerName}
           />
 
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               Company Type:
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -470,36 +470,36 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'company'}
-                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.companyTypeId ? "border-red-500" : "border-neutral-500"}`}
+                className={`w-full h-10 pl-9 pr-3 border rounded-lg bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${errors.companyTypeId ? "border-red-500" : "border-neutral-300"}`}
                 onClick={() => setOpenDropdown(openDropdown === 'company' ? null : 'company')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'company')}
                 onBlur={(e) => handleDropdownBlur(e, 'company', companyDropdownRef)}
               >
-                <span className={!getSelectedCompanyLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                <span className={!getSelectedCompanyLabel() ? "text-[13px] font-body font-regular text-pneutral-500" : "text-[13px] font-body font-regular text-pneutral-900"}>
                   {loadingStates.companyTypes
                     ? "Loading..."
                     : getSelectedCompanyLabel() || "Select Company Type"}
                 </span>
-                <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'company' ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-pneutral-900 transition-transform ${openDropdown === 'company' ? 'rotate-180' : ''}`} />
               </div>
 
               {openDropdown === 'company' && !loadingStates.companyTypes && (
-                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
                   <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search company type..." />
                   <div className="max-h-60 overflow-y-auto">
                     {filteredCompanyTypes.length === 0 && (
-                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                      <div className="px-3 py-1.5 text-[13px] font-body font-regular text-pneutral-500">No results found</div>
                     )}
                     {filteredCompanyTypes.map((type) => (
                       <div
                         key={type.companyTypeId}
-                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        className="px-3 py-1.5 hover:bg-primary-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
                         onClick={() => {
                           onCompanyTypeChange({ value: type.companyTypeId.toString(), label: type.companyTypeName });
                           setOpenDropdown(null);
                         }}
                       >
-                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                        <span className="text-[13px] font-body font-regular text-pneutral-900">
                           {type.companyTypeName}
                         </span>
                       </div>
@@ -509,7 +509,7 @@ export default function CompanyForm({
               )}
             </div>
             {errors.companyTypeId && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+              <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                 <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.companyTypeId}</span>
               </p>
@@ -518,7 +518,7 @@ export default function CompanyForm({
 
           {/* Row 2: Company Registration Certificate Upload | Seller Type */}
 <div className="flex flex-col gap-1">
-  <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+  <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
     Company Type Certificate
     <span className="text-warning-500 font-semibold ml-1">*</span>
   </label>
@@ -553,21 +553,21 @@ export default function CompanyForm({
         document.getElementById("company-reg-upload")?.click();
       }
     }}
-    className={`flex items-center h-13 border rounded-xl overflow-hidden bg-white cursor-pointer focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
-      errors.companyRegistrationCertificateFile ? "border-red-500" : "border-neutral-500"
+    className={`flex items-center h-10 border rounded-lg overflow-hidden bg-white cursor-pointer focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${
+      errors.companyRegistrationCertificateFile ? "border-red-500" : "border-neutral-300"
     }`}
     onClick={() => document.getElementById("company-reg-upload")?.click()}
   >
     {/* Upload Icon Box - with border on all sides */}
     <div
-      className="w-13 h-full bg-secondary-800 flex items-center justify-center shrink-0"
+      className="w-10 h-full bg-primary-50 border-r border-neutral-300 flex items-center justify-center shrink-0"
     >
       <Image
         src="/icons/upload.png"
         alt="Upload"
         width={18}
         height={18}
-        className="brightness-0 invert"
+        className="brightness-0"
       />
     </div>
 
@@ -577,7 +577,7 @@ export default function CompanyForm({
     >
       <div className="flex-1 flex items-center min-w-0">
         {uploading ? (
-          <span className="text-p4 font-body font-regular text-pneutral-500">
+          <span className="text-[13px] font-body font-regular text-pneutral-500">
             Uploading...
           </span>
         ) : formData.companyRegistrationCertificateFile?.name ? (
@@ -585,7 +585,7 @@ export default function CompanyForm({
             className="flex items-center gap-2 bg-sneutral-800 rounded-md px-3 py-1 max-w-fit"
             onClick={(e) => e.stopPropagation()}
           >
-            <span className="text-p4 font-body font-regular text-white truncate max-w-[120px]">
+            <span className="text-[13px] font-body font-regular text-white truncate max-w-[120px]">
               {formData.companyRegistrationCertificateFile.name}
             </span>
 
@@ -619,7 +619,7 @@ export default function CompanyForm({
             </button>
           </div>
         ) : (
-          <span className="text-p4 font-body font-regular text-pneutral-500">
+          <span className="text-[13px] font-body font-regular text-pneutral-500">
             Upload the Certificate
           </span>
         )}
@@ -628,7 +628,7 @@ export default function CompanyForm({
   </div>
   )}
   {errors.companyRegistrationCertificateFile && (
-    <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+    <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
       <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
       <span>{errors.companyRegistrationCertificateFile}</span>
     </p>
@@ -636,7 +636,7 @@ export default function CompanyForm({
 </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               Seller Type:
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -653,36 +653,36 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'seller'}
-                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.sellerTypeId ? "border-red-500" : "border-neutral-500"}`}
+                className={`w-full h-10 pl-9 pr-3 border rounded-lg bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${errors.sellerTypeId ? "border-red-500" : "border-neutral-300"}`}
                 onClick={() => setOpenDropdown(openDropdown === 'seller' ? null : 'seller')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'seller')}
                 onBlur={(e) => handleDropdownBlur(e, 'seller', sellerDropdownRef)}
               >
-                <span className={!getSelectedSellerLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                <span className={!getSelectedSellerLabel() ? "text-[13px] font-body font-regular text-pneutral-500" : "text-[13px] font-body font-regular text-pneutral-900"}>
                   {loadingStates.sellerTypes
                     ? "Loading..."
                     : getSelectedSellerLabel() || "Select Seller Type"}
                 </span>
-                <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'seller' ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-pneutral-900 transition-transform ${openDropdown === 'seller' ? 'rotate-180' : ''}`} />
               </div>
 
               {openDropdown === 'seller' && !loadingStates.sellerTypes && (
-                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
                   <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search seller type..." />
                   <div className="max-h-60 overflow-y-auto">
                     {filteredSellerTypes.length === 0 && (
-                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                      <div className="px-3 py-1.5 text-[13px] font-body font-regular text-pneutral-500">No results found</div>
                     )}
                     {filteredSellerTypes.map((type) => (
                       <div
                         key={type.sellerTypeId}
-                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        className="px-3 py-1.5 hover:bg-primary-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
                         onClick={() => {
                           onSellerTypeChange({ value: type.sellerTypeId.toString(), label: type.sellerTypeName });
                           setOpenDropdown(null);
                         }}
                       >
-                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                        <span className="text-[13px] font-body font-regular text-pneutral-900">
                           {type.sellerTypeName}
                         </span>
                       </div>
@@ -692,7 +692,7 @@ export default function CompanyForm({
               )}
             </div>
             {errors.sellerTypeId && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+              <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                 <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.sellerTypeId}</span>
               </p>
@@ -775,7 +775,7 @@ export default function CompanyForm({
 
           {/* Row 3: Product Types | State */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               Product Type(s):
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -792,7 +792,7 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={isProductDropdownOpen}
-                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.productTypeIds ? "border-red-500" : "border-neutral-500"}`}
+                className={`w-full h-10 pl-9 pr-3 border rounded-lg bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${errors.productTypeIds ? "border-red-500" : "border-neutral-300"}`}
                 onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -810,23 +810,23 @@ export default function CompanyForm({
                   setTimeout(() => setIsProductDropdownOpen(false), 150);
                 }}
               >
-                <span className={formData.productTypes.length === 0 ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                <span className={formData.productTypes.length === 0 ? "text-[13px] font-body font-regular text-pneutral-500" : "text-[13px] font-body font-regular text-pneutral-900"}>
                   {loadingStates.productTypes
                     ? "Loading product types..."
                     : formData.productTypes.length > 0
                       ? `${formData.productTypes.length} product type(s) selected`
                       : "Select Product Types"}
                 </span>
-                <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${isProductDropdownOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-pneutral-900 transition-transform ${isProductDropdownOpen ? 'rotate-180' : ''}`} />
               </div>
 
               {isProductDropdownOpen && !loadingStates.productTypes && (
-                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
                   <DropdownSearchInput value={productSearch} onChange={setProductSearch} placeholder="Search product types..." />
                   <div className="max-h-60 overflow-y-auto">
                     {productSearch === "" && productTypes.length > 0 && (
                       <div
-                        className="flex items-center px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200"
+                        className="flex items-center px-3 py-1.5 hover:bg-primary-50 cursor-pointer border-b border-neutral-200"
                         onClick={onSelectAll}
                       >
                         <input
@@ -835,20 +835,20 @@ export default function CompanyForm({
                           onChange={() => { }}
                           className="h-4 w-4 text-[#4B0082] rounded border-neutral-300 focus:ring-purple-200"
                         />
-                        <label className="ml-3 text-p4 font-body font-regular text-[#4B0082] cursor-pointer">
+                        <label className="ml-3 text-[13px] font-body font-regular text-[#4B0082] cursor-pointer">
                           Select All
                         </label>
                       </div>
                     )}
 
                     {filteredProductTypes.length === 0 && (
-                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                      <div className="px-3 py-1.5 text-[13px] font-body font-regular text-pneutral-500">No results found</div>
                     )}
 
                     {filteredProductTypes.map((product) => (
                       <div
                         key={product.productTypeId}
-                        className="flex items-center px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        className="flex items-center px-3 py-1.5 hover:bg-primary-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
                         onClick={() => onProductToggle(product)}
                       >
                         <input
@@ -857,7 +857,7 @@ export default function CompanyForm({
                           onChange={() => { }}
                           className="h-4 w-4 text-[#4B0082] rounded border-neutral-300 focus:ring-purple-200"
                         />
-                        <label className="ml-3 text-p4 font-body font-regular text-pneutral-900 cursor-pointer">
+                        <label className="ml-3 text-[13px] font-body font-regular text-pneutral-900 cursor-pointer">
                           {product.productTypeName}
                           {product.regulatoryCategory && (
                             <span className="ml-2 text-xs text-[#4B0082]">
@@ -872,7 +872,7 @@ export default function CompanyForm({
               )}
             </div>
             {errors.productTypeIds && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+              <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                 <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.productTypeIds}</span>
               </p>
@@ -880,7 +880,7 @@ export default function CompanyForm({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               State:
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -891,36 +891,36 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'state'}
-                className={`w-full h-13 pl-10 pr-4 border rounded-xl bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${errors.stateId ? "border-red-500" : "border-neutral-500"}`}
+                className={`w-full h-10 pl-9 pr-3 border rounded-lg bg-white cursor-pointer flex justify-between items-center focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${errors.stateId ? "border-red-500" : "border-neutral-300"}`}
                 onClick={() => setOpenDropdown(openDropdown === 'state' ? null : 'state')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'state')}
                 onBlur={(e) => handleDropdownBlur(e, 'state', stateDropdownRef)}
               >
-                <span className={!getSelectedStateLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                <span className={!getSelectedStateLabel() ? "text-[13px] font-body font-regular text-pneutral-500" : "text-[13px] font-body font-regular text-pneutral-900"}>
                   {loadingStates.states
                     ? "Loading..."
                     : getSelectedStateLabel() || "Select State"}
                 </span>
-                <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'state' ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-pneutral-900 transition-transform ${openDropdown === 'state' ? 'rotate-180' : ''}`} />
               </div>
 
               {openDropdown === 'state' && !loadingStates.states && (
-                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
                   <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search state..." />
                   <div className="max-h-60 overflow-y-auto">
                     {filteredStates.length === 0 && (
-                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                      <div className="px-3 py-1.5 text-[13px] font-body font-regular text-pneutral-500">No results found</div>
                     )}
                     {filteredStates.map((state) => (
                       <div
                         key={state.stateId}
-                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        className="px-3 py-1.5 hover:bg-primary-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
                         onClick={() => {
                           onStateChange({ value: state.stateId.toString(), label: state.stateName });
                           setOpenDropdown(null);
                         }}
                       >
-                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                        <span className="text-[13px] font-body font-regular text-pneutral-900">
                           {state.stateName}
                         </span>
                       </div>
@@ -930,7 +930,7 @@ export default function CompanyForm({
               )}
             </div>
             {errors.stateId && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+              <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                 <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.stateId}</span>
               </p>
@@ -939,7 +939,7 @@ export default function CompanyForm({
 
           {/* Row 4: District | Taluka */}
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               District:
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -950,40 +950,40 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'district'}
-                className={`w-full h-13 pl-10 pr-4 border rounded-xl flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
-                  errors.districtId ? "border-red-500" : "border-neutral-500"
+                className={`w-full h-10 pl-9 pr-3 border rounded-lg flex justify-between items-center focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${
+                  errors.districtId ? "border-red-500" : "border-neutral-300"
                 } ${formData.stateId ? "cursor-pointer bg-white" : "cursor-not-allowed bg-neutral-100"}`}
                 onClick={() => formData.stateId && setOpenDropdown(openDropdown === 'district' ? null : 'district')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'district', !!formData.stateId)}
                 onBlur={(e) => handleDropdownBlur(e, 'district', districtDropdownRef)}
               >
-                <span className={!getSelectedDistrictLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                <span className={!getSelectedDistrictLabel() ? "text-[13px] font-body font-regular text-pneutral-500" : "text-[13px] font-body font-regular text-pneutral-900"}>
                   {loadingStates.districts
                     ? "Loading..."
                     : getSelectedDistrictLabel() || "Select District"}
                 </span>
                 {formData.stateId && (
-                  <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'district' ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-pneutral-900 transition-transform ${openDropdown === 'district' ? 'rotate-180' : ''}`} />
                 )}
               </div>
 
               {openDropdown === 'district' && !loadingStates.districts && formData.stateId && (
-                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
                   <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search district..." />
                   <div className="max-h-60 overflow-y-auto">
                     {filteredDistricts.length === 0 && (
-                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                      <div className="px-3 py-1.5 text-[13px] font-body font-regular text-pneutral-500">No results found</div>
                     )}
                     {filteredDistricts.map((district) => (
                       <div
                         key={district.districtId}
-                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        className="px-3 py-1.5 hover:bg-primary-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
                         onClick={() => {
                           onDistrictChange({ value: district.districtId.toString(), label: district.districtName });
                           setOpenDropdown(null);
                         }}
                       >
-                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                        <span className="text-[13px] font-body font-regular text-pneutral-900">
                           {district.districtName}
                         </span>
                       </div>
@@ -993,7 +993,7 @@ export default function CompanyForm({
               )}
             </div>
             {errors.districtId && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+              <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                 <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.districtId}</span>
               </p>
@@ -1001,7 +1001,7 @@ export default function CompanyForm({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               Taluka:
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -1012,40 +1012,40 @@ export default function CompanyForm({
                 role="button"
                 aria-haspopup="listbox"
                 aria-expanded={openDropdown === 'taluka'}
-                className={`w-full h-13 pl-10 pr-4 border rounded-xl flex justify-between items-center focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
-                  errors.talukaId ? "border-red-500" : "border-neutral-500"
+                className={`w-full h-10 pl-9 pr-3 border rounded-lg flex justify-between items-center focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${
+                  errors.talukaId ? "border-red-500" : "border-neutral-300"
                 } ${formData.districtId ? "cursor-pointer bg-white" : "cursor-not-allowed bg-neutral-100"}`}
                 onClick={() => formData.districtId && setOpenDropdown(openDropdown === 'taluka' ? null : 'taluka')}
                 onKeyDown={(e) => handleDropdownKeyDown(e, 'taluka', !!formData.districtId)}
                 onBlur={(e) => handleDropdownBlur(e, 'taluka', talukaDropdownRef)}
               >
-                <span className={!getSelectedTalukaLabel() ? "text-p4 font-body font-regular text-pneutral-500" : "text-p4 font-body font-regular text-pneutral-900"}>
+                <span className={!getSelectedTalukaLabel() ? "text-[13px] font-body font-regular text-pneutral-500" : "text-[13px] font-body font-regular text-pneutral-900"}>
                   {loadingStates.talukas
                     ? "Loading..."
                     : getSelectedTalukaLabel() || "Select Taluka"}
                 </span>
                 {formData.districtId && (
-                  <ChevronDown className={`w-5 h-5 text-pneutral-900 transition-transform ${openDropdown === 'taluka' ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-pneutral-900 transition-transform ${openDropdown === 'taluka' ? 'rotate-180' : ''}`} />
                 )}
               </div>
 
               {openDropdown === 'taluka' && !loadingStates.talukas && formData.districtId && (
-                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="absolute top-full mt-1 w-full bg-white border border-neutral-300 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
                   <DropdownSearchInput value={dropdownSearch} onChange={setDropdownSearch} placeholder="Search taluka..." />
                   <div className="max-h-60 overflow-y-auto">
                     {filteredTalukas.length === 0 && (
-                      <div className="px-4 py-2 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                      <div className="px-3 py-1.5 text-[13px] font-body font-regular text-pneutral-500">No results found</div>
                     )}
                     {filteredTalukas.map((taluka) => (
                       <div
                         key={taluka.talukaId}
-                        className="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
+                        className="px-3 py-1.5 hover:bg-primary-50 cursor-pointer border-b border-neutral-200 last:border-b-0"
                         onClick={() => {
                           onTalukaChange({ value: taluka.talukaId.toString(), label: taluka.talukaName });
                           setOpenDropdown(null);
                         }}
                       >
-                        <span className="text-p4 font-body font-regular text-pneutral-900">
+                        <span className="text-[13px] font-body font-regular text-pneutral-900">
                           {taluka.talukaName}
                         </span>
                       </div>
@@ -1055,7 +1055,7 @@ export default function CompanyForm({
               )}
             </div>
             {errors.talukaId && (
-              <p className="mt-1 text-p2 font-body font-regular text-red-500 flex items-start">
+              <p className="mt-1 text-xs font-body font-regular text-red-500 flex items-start">
                 <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.talukaId}</span>
               </p>
@@ -1083,7 +1083,7 @@ export default function CompanyForm({
             }}
             maxLength={100}
             placeholder="Enter City/Town/Village"
-            leftIcon={<MapPin className="w-5 h-5" />}
+            leftIcon={<MapPin className="w-4 h-4" />}
             error={errors.city}
           />
 
@@ -1107,7 +1107,7 @@ export default function CompanyForm({
             }}
             maxLength={50}
             placeholder="Enter Building/House No."
-            leftIcon={<MapPin className="w-5 h-5" />}
+            leftIcon={<MapPin className="w-4 h-4" />}
             error={errors.buildingNo}
           />
 
@@ -1132,7 +1132,7 @@ export default function CompanyForm({
             }}
             maxLength={100}
             placeholder="Enter Street/Area/Road"
-            leftIcon={<MapPin className="w-5 h-5" />}
+            leftIcon={<MapPin className="w-4 h-4" />}
             error={errors.street}
           />
 
@@ -1146,7 +1146,7 @@ export default function CompanyForm({
             onChange={(e) => onNumericInput(e, "pincode", 6)}
             placeholder="Enter 6-Digit Pincode"
             maxLength={6}
-            leftIcon={<MapPin className="w-5 h-5" />}
+            leftIcon={<MapPin className="w-4 h-4" />}
             error={errors.pincode}
           />
 
@@ -1186,12 +1186,12 @@ export default function CompanyForm({
             value={formData.website}
             onChange={onChange}
             placeholder="https://example.com"
-            leftIcon={<Globe className="w-5 h-5" />}
+            leftIcon={<Globe className="w-4 h-4" />}
             error={errors.website}
           />
 
           <div className="flex flex-col gap-1">
-            <label className="text-label-l4 font-heading font-medium text-pneutral-900 leading-[24px]">
+            <label className="text-[13px] font-heading font-semibold text-pneutral-900 leading-[18px]">
               Company Phone:
               <span className="text-warning-500 font-semibold ml-1">*</span>
             </label>
@@ -1202,11 +1202,11 @@ export default function CompanyForm({
                   <button
                     type="button"
                     onClick={() => setIsCompanyPhoneDropdownOpen(!isCompanyPhoneDropdownOpen)}
-                    className={`h-13 px-2 pl-10 pr-2 rounded-l-xl border border-r-0 bg-white flex items-center gap-1 focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 ${
-                      (errors.phone || companyPhoneError) ? "border-red-500" : "border-neutral-500"
+                    className={`h-10 px-2 pl-10 pr-2 rounded-l-xl border border-r-0 bg-white flex items-center gap-1 focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 ${
+                      (errors.phone || companyPhoneError) ? "border-red-500" : "border-neutral-300"
                     }`}
                   >
-                    <span className="text-p4 font-body font-regular text-pneutral-900">{selectedCompanyCountryCode}</span>
+                    <span className="text-[13px] font-body font-regular text-pneutral-900">{selectedCompanyCountryCode}</span>
                     <ChevronDown className="w-4 h-4 text-pneutral-900" />
                   </button>
 
@@ -1216,10 +1216,10 @@ export default function CompanyForm({
                         className="fixed inset-0 z-40"
                         onClick={() => setIsCompanyPhoneDropdownOpen(false)}
                       />
-                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
+                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-neutral-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                         <DropdownSearchInput value={phoneCountrySearch} onChange={setPhoneCountrySearch} placeholder="Search country..." />
                         {filteredCompanyCountryCodes.length === 0 && (
-                          <div className="px-3 py-2.5 text-p4 font-body font-regular text-pneutral-500">No results found</div>
+                          <div className="px-3 py-2.5 text-[13px] font-body font-regular text-pneutral-500">No results found</div>
                         )}
                         {filteredCompanyCountryCodes.map((country) => (
                           <button
@@ -1239,8 +1239,8 @@ export default function CompanyForm({
                             className="w-full px-3 py-2.5 text-left hover:bg-neutral-50 flex items-center gap-2 transition-colors"
                           >
                             <span className="text-lg">{country.flag}</span>
-                            <span className="text-p4 font-body font-semibold text-pneutral-900">{country.code}</span>
-                            <span className="text-p2 font-body font-regular text-pneutral-500">{country.country}</span>
+                            <span className="text-[13px] font-body font-semibold text-pneutral-900">{country.code}</span>
+                            <span className="text-xs font-body font-regular text-pneutral-500">{country.country}</span>
                           </button>
                         ))}
                       </div>
@@ -1267,7 +1267,7 @@ export default function CompanyForm({
               </div>
             </div>
             {(errors.phone || companyPhoneError) && (
-              <p className="text-p2 font-body font-regular text-red-500 flex items-start mt-1">
+              <p className="text-xs font-body font-regular text-red-500 flex items-start mt-1">
                 <AlertCircle className="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-warning-500" />
                 <span>{errors.phone || companyPhoneError}</span>
               </p>
@@ -1284,7 +1284,7 @@ export default function CompanyForm({
             value={formData.email}
             onChange={onChange}
             placeholder="Enter Company Email ID"
-            leftIcon={<Mail className="w-5 h-5" />}
+            leftIcon={<Mail className="w-4 h-4" />}
             error={errors.email}
           />
 
@@ -1292,11 +1292,11 @@ export default function CompanyForm({
       </div>
 
       {/* Buttons */}
-      <div className="flex justify-between mt-10">
+      <div className="flex justify-between mt-4">
         <div className="flex gap-4">
           <button
             onClick={() => (onExitToIntro ? onExitToIntro() : router.push("/"))}
-            className="h-12 px-6 border-2 border-pneutral-900 text-pneutral-900 rounded-xl flex items-center gap-2"
+            className="h-9 px-4 border-[1.5px] border-neutral-300 text-neutral-700 text-[13px] font-semibold rounded-lg hover:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex items-center gap-2"
           >
             <Image
               src="/icons/backbuttonicon.png"
@@ -1311,7 +1311,7 @@ export default function CompanyForm({
         <div className="flex gap-4">
           <button
             onClick={nextStep}
-            className="flex h-12 px-6 py-2 justify-center items-center gap-2 rounded-xl border-2 border-primary-800 text-primary-800 font-semibold"
+            className="h-9 px-4 border-[1.5px] border-primary-900 text-primary-900 text-[13px] font-semibold rounded-lg hover:bg-primary-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100 flex justify-center items-center gap-2"
           >
             Continue
             <Image

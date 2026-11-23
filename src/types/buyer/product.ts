@@ -10,10 +10,24 @@ export interface BuyerProductPricing {
   mrp?: number;
   discountPercentage?: number;
   finalPrice?: number;
-  // Quantity offers that were live when the product was fetched (expired / future / hidden ones are
-  // already dropped server-side), and the server's clock at that moment for countdowns.
-  additionalDiscounts?: BuyerQuantityOffer[];
+  gstPercentage?: number;
+  additionalDiscounts?: BuyerProductOffer[];
+  // Server clock at fetch time (ISO-8601); offers are re-checked against it, not the browser clock.
   serverTime?: string;
+}
+
+// A time-limited quantity slab on a batch (backend AdditionalDiscountDto). `active` is computed by the server.
+// The backend serializes minimumPurchaseQuantity / additionalDiscountPercentage; minQty / discountPercentage
+// are the older names, kept so either shape is understood (read them through offerMinQty / offerPercent).
+export interface BuyerProductOffer {
+  minimumPurchaseQuantity?: number;
+  additionalDiscountPercentage?: number;
+  minQty?: number;
+  discountPercentage?: number;
+  displayOffer?: boolean;
+  active?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
 }
 
 export interface BuyerProductPackaging {
@@ -35,6 +49,8 @@ export interface BuyerProduct {
   categoryId?: number;
   gstPercentage?: number;
   hsnCode?: number;
+  returnable?: boolean;
+  returnPeriodDays?: number | null;
   pricingDetails?: BuyerProductPricing[];
   packagingDetails?: BuyerProductPackaging[];
   productImages?: BuyerProductImage[];

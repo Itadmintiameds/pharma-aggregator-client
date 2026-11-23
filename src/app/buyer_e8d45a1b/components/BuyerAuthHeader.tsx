@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import PrimaryNav from "@/src/app/components/landingPage/PrimaryNav";
 
 // Minimal header for the buyer signup/login pages — just the logo and top
 // nav, without LandingHeader's search bar / Become a Buyer / Become a Seller
@@ -21,21 +22,7 @@ export default function BuyerAuthHeader() {
             />
           </Link>
 
-          <nav className="h-10 flex items-center gap-6">
-            {[
-              { label: "Home", href: "/" },
-              { label: "About", href: "/about" },
-              { label: "Contact", href: "/contact" },
-            ].map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="text-p3 font-body font-semibold text-neutral-700 hover:text-primary-800 transition-colors"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <PrimaryNav />
         </div>
       </div>
     </header>

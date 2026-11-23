@@ -4,10 +4,14 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 import LandingHeader from "./LandingHeader";
-import HeroSection from "./HeroSection";
 import Footer from "./Footer";
 import ProductGrid from "./ProductGrid";
 import FeatureBrands from "./FeatureBrands";
+import PromoBanner from "./PromoBanner";
+import CategoryTiles from "./CategoryTiles";
+import QuickNavRail from "./QuickNavRail";
+import ProductRail from "./ProductRail";
+import TrustStrip from "./TrustStrip";
 import LoginModal from "../../modals/LoginModals/LoginModals";
 import toast from "react-hot-toast";
 
@@ -59,15 +63,21 @@ const Home = () => {
       {/* Header — kept outside the zoomed wrapper below so it stays at normal size */}
       <LandingHeader />
 
-      {/* `zoom` gives a mild zoom-in (like Ctrl + in the browser) to everything below the
-          header, without breaking layout/media queries the way `transform: scale()` would.
-          Supported in Chrome/Edge/Safari; adjust the value here to change the zoom amount. */}
-      <div style={{ zoom: 1.18 }}>
-        {/* Main Content */}
-        <main className="pt-38">
-          <HeroSection />
-          <FeatureBrands />
-          <ProductGrid />
+      <div>
+        {/* Marketplace layout: quick-nav rail on the left (desktop), sections on the right. */}
+        <main className="bg-gray-100 pt-38">
+          <div className="mx-auto flex max-w-[1400px] gap-5 px-4 py-5 sm:px-6">
+            <QuickNavRail />
+            <div className="min-w-0 flex-1">
+              <PromoBanner />
+              <CategoryTiles />
+              <FeatureBrands />
+              <ProductRail title="Newest Arrivals" subtitle="Recently listed by verified sellers" params={{ sort: "newest" }} />
+              <TrustStrip />
+              <ProductRail title="Best Prices" subtitle="Lowest price first, in stock only" params={{ sort: "price_asc", inStockOnly: true }} />
+              <ProductGrid />
+            </div>
+          </div>
         </main>
 
         {/* Footer */}

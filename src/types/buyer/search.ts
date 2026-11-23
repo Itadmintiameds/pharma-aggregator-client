@@ -1,7 +1,16 @@
 // Shapes returned by the search service (via the gateway at /api/v1/search/**).
 // Mirrors search-service's ProductResultDto / SearchResultDto / FacetDto / AutocompleteSuggestionDto.
 
-export type SearchSort = "relevance" | "price_asc" | "price_desc" | "newest";
+// bestselling / fastest_delivery / fastest_approval rank by order-service statistics (units sold, and how many hours
+// a seller takes to approve / deliver an order); a product with no such data yet sorts after the ones that have it.
+export type SearchSort =
+  | "relevance"
+  | "price_asc"
+  | "price_desc"
+  | "newest"
+  | "bestselling"
+  | "fastest_delivery"
+  | "fastest_approval";
 
 export interface SearchParams {
   /** Free text. Leave empty to browse (all buyable products, filtered/sorted as requested). */

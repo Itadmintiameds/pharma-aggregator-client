@@ -42,17 +42,17 @@ interface FormInputProps
 }
 
 const SIZE_FIELD_CLASSES: Record<FormInputSize, string> = {
-  xs: "h-8 text-p2",
-  sm: "h-9 text-p2",
-  md: "h-11 text-p3",
-  lg: "h-13 text-p4",
+  xs: "h-8 text-xs",
+  sm: "h-9 text-[13px]",
+  md: "h-10 text-[13px]",
+  lg: "h-10 text-[13px]",
 };
 
 const SIZE_LABEL_CLASSES: Record<FormInputSize, string> = {
-  xs: "text-label-l2 leading-[18px]",
-  sm: "text-label-l3 leading-[20px]",
-  md: "text-label-l4 leading-[24px]",
-  lg: "text-label-l4 leading-[24px]",
+  xs: "text-xs leading-[16px]",
+  sm: "text-xs leading-[18px]",
+  md: "text-[13px] leading-[18px]",
+  lg: "text-[13px] leading-[18px]",
 };
 
 // Matches the Figma spec's "exclamation-circle/outline" and check-circle
@@ -73,7 +73,7 @@ const SIZE_PADDING: Record<
   xs: { left: "pl-2", leftIcon: "pl-7", right: "pr-2", rightSlot: "pr-7" },
   sm: { left: "pl-3", leftIcon: "pl-8", right: "pr-3", rightSlot: "pr-8" },
   md: { left: "pl-3", leftIcon: "pl-9", right: "pr-3", rightSlot: "pr-9" },
-  lg: { left: "pl-5", leftIcon: "pl-10", right: "pr-4", rightSlot: "pr-10" },
+  lg: { left: "pl-3", leftIcon: "pl-9", right: "pr-3", rightSlot: "pr-9" },
 };
 
 // Shared text/email/tel/number input for the seller registration wizard -
@@ -110,7 +110,7 @@ export default function FormInput({
         ? "border-pneutral-300"
         : disabled
           ? "border-neutral-300"
-          : "border-neutral-500";
+          : "border-neutral-300";
 
   const stateBg = disabled
     ? "bg-neutral-100"
@@ -130,7 +130,7 @@ export default function FormInput({
       {label && (
         <label
           htmlFor={id}
-          className={`font-heading font-medium text-pneutral-900 ${SIZE_LABEL_CLASSES[size]}`}
+          className={`font-heading font-semibold text-pneutral-900 ${SIZE_LABEL_CLASSES[size]}`}
         >
           {label}
           {required && (
@@ -154,7 +154,7 @@ export default function FormInput({
             leftIcon ? pad.leftIcon : pad.left
           } ${
             rightSlot || showSpinner ? pad.rightSlot : pad.right
-          } rounded-xl border ${stateBorder} ${stateBg} ${stateText} focus:outline-none focus:border-secondary-500 focus:ring-2 focus:ring-secondary-200 font-body font-regular placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 disabled:cursor-not-allowed ${
+          } rounded-lg border ${stateBorder} ${stateBg} ${stateText} focus:outline-none focus:border-primary-800 focus:ring-2 focus:ring-primary-100 font-body font-regular placeholder:font-body placeholder:font-regular placeholder:text-pneutral-500 disabled:cursor-not-allowed ${
             uppercase ? "uppercase" : ""
           } ${inputClassName}`}
           {...inputProps}
@@ -177,21 +177,21 @@ export default function FormInput({
       </div>
 
       {!hideMessage && (error ? (
-        <p className="text-p2 font-body font-regular text-red-500 flex items-center gap-1 mt-1">
+        <p className="text-xs font-body font-regular text-red-500 flex items-center gap-1 mt-1">
           <AlertCircle
             className={`${SIZE_HELPER_ICON_CLASSES[size]} shrink-0 text-warning-500`}
           />
           <span>{error}</span>
         </p>
       ) : success ? (
-        <p className="text-p2 font-body font-regular text-success-900 flex items-center gap-1 mt-1">
+        <p className="text-xs font-body font-regular text-success-900 flex items-center gap-1 mt-1">
           <CheckCircle2
             className={`${SIZE_HELPER_ICON_CLASSES[size]} shrink-0 text-success-900`}
           />
           <span>{success}</span>
         </p>
       ) : hint ? (
-        <p className="text-p2 font-body font-regular text-pneutral-500 mt-1">
+        <p className="text-xs font-body font-regular text-pneutral-500 mt-1">
           {hint}
         </p>
       ) : null)}

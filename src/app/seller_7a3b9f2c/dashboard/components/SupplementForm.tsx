@@ -27,6 +27,14 @@ import ProductImageUpload from "../commonComponent/ProductImageUpload";
 import MonthPicker from "@/src/app/commonComponents/MonthPicker";
 import AppliedOffersView from "./AppliedOffersView";
 import AdditionalDiscountType from "./AdditionalDiscountType";
+import ReturnPolicyFields from "./ReturnPolicyFields";
+import {
+  ReturnPolicyForm,
+  returnPeriodError,
+  returnPolicyDefaults,
+  returnPolicyFromProduct,
+  returnPolicyPayload,
+} from "@/src/utils/returnPolicy";
 import { getSupplementDosageForms, getSupplementAgeGroups, getSupplementFlavours, getSupplementStorageConditions, getSupplementCertifications, getCountries, getSupplementPackTypes, createSupplementProduct, uploadSupplementProductImages, uploadNutritionalInformationImage, uploadSupplementBrochure, uploadSupplementCertifications, getServingSizeUnits, getNetQuantityUnits } from "@/src/services/product/SupplementService";
 import { getPackTypeUnits } from "@/src/services/product/PackTypeService";
 import { getProductById, updateProduct } from "@/src/services/product/ProductService";
@@ -367,6 +375,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [returnPolicy, setReturnPolicy] = useState<ReturnPolicyForm>(returnPolicyDefaults);
   const [images, setImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [existingBrochureUrl, setExistingBrochureUrl] = useState<string | null>(null);
@@ -1419,6 +1428,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
       const data = await getProductById(id);
       if (!data) throw new Error("Product not found");
       setProductStatus(String(data.status || "").toUpperCase());
+      setReturnPolicy(returnPolicyFromProduct(data));
 
       // Get the latest pricing and packaging entries
       const pricing = data.pricingDetails?.length > 0
@@ -1618,6 +1628,8 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
     if (images.length === 0 && existingImages.length === 0)
       e.images = "At least one product image is required";
     if (images.length > 5) e.images = "Maximum 5 images allowed";
+    const periodError = returnPeriodError(returnPolicy);
+    if (periodError) e.returnPeriodDays = periodError;
     if (selectedCertifications.length === 0) {
       e.certifications = "At least one certification is required";
     } else {
@@ -1662,6 +1674,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         status: "PUBLISHED" as const,
 
         productAttributeSupplementsOrNutraceuticals: [
@@ -1798,6 +1811,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
         gstPercentage: Number(form.gstPercentage),
         hsnCode: Number(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         status: (publishFromDraft ? "PUBLISHED" : (productStatus || "PUBLISHED")) as "PUBLISHED" | "DRAFT",
 
         productAttributeSupplementsOrNutraceuticals: [
@@ -1958,6 +1972,7 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
 
         gstPercentage: numOrUndef(form.gstPercentage),
         hsnCode: numOrUndef(form.hsnCode),
+        ...returnPolicyPayload(returnPolicy),
         status: "DRAFT" as const,
 
         productAttributeSupplementsOrNutraceuticals: [
@@ -2530,6 +2545,18 @@ const SupplementForm = ({ categoryId, productId, mode }: SupplementFormProps) =>
                 value={form.hsnCode}
                 error={errors.hsnCode}
                 required
+              />
+            </div>
+
+            {/* Return Policy */}
+            <div data-field="returnPeriodDays">
+              <ReturnPolicyFields
+                value={returnPolicy}
+                onChange={(value) => {
+                  setReturnPolicy(value);
+                  setErrors((p) => { const n = { ...p }; delete n.returnPeriodDays; return n; });
+                }}
+                error={errors.returnPeriodDays}
               />
             </div>
 

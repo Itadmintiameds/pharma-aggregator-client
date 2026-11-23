@@ -67,7 +67,7 @@ export default function SuccessModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       {/* Modal */}
       <div
-        className="relative w-full max-w-120 min-h-[480px] overflow-hidden rounded-2xl bg-base-white px-6 py-10 shadow-lg"
+        className="relative w-full max-w-[28rem] overflow-hidden rounded-xl bg-base-white px-5 py-5 shadow-xl"
         style={{
           animation:
             "modalFadeSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards",
@@ -76,13 +76,13 @@ export default function SuccessModal({
         {/* Close */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 z-20 text-sneutral-700"
+          className="absolute right-3 top-3 z-20 rounded text-sneutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
         >
           <X className="h-5 w-5" strokeWidth={2.2} />
         </button>
 
         {/* ================= ICON AREA ================= */}
-        <div className="relative mb-8 mt-6 flex justify-center">
+        <div className="relative mb-4 mt-4 flex justify-center">
           <div className="relative flex items-center justify-center">
 
             {/* ================= DECORATIVE BURST ================= */}
@@ -161,20 +161,20 @@ export default function SuccessModal({
 
 
          {/* Heading */}
-         <div className="mt-15 text-center">
+         <div className="mt-2 text-center">
           <div className="flex items-center justify-center gap-2">
-             <h2 className="text-h4 font-bold text-primary-1000">
+             <h2 className="text-xl font-bold text-primary-1000">
                Congratulations!
              </h2>
           </div>
 
-         <p className="mt-1 text-p3 text-pneutral-800">
+         <p className="mt-1 text-[13px] text-pneutral-800">
             Your registration details have been received successfully.
           </p>
        </div>
 
         {/* ================= EMAIL ================= */}
-        <div className="flex items-center gap-3 border border-success-100 rounded-md bg-success-50 px-3 py-2.5 mt-2">
+        <div className="flex items-center gap-3 border border-success-100 rounded-lg bg-success-50 px-3 py-2 mt-3 text-xs">
           <div className="flex h-9 w-9 items-center justify-center rounded-full border border-success-200">
             <Mail className="h-4 w-4 text-success-800" />
           </div>
@@ -189,9 +189,9 @@ export default function SuccessModal({
         </div>
 
         {/* ================= CTA ================= */}
-        <div className="mt-7 flex justify-center">
+        <div className="mt-4 flex justify-center">
           {!flipTick ? (
-            <div className="flex items-center gap-2 rounded-full bg-primary-900 px-4 py-2 text-white">
+            <div className="flex items-center gap-2 rounded-lg border-[1.5px] border-primary-900 px-4 h-9 text-primary-900">
               <ArrowRight
                 className="h-4 w-4"
                 style={{
@@ -203,7 +203,7 @@ export default function SuccessModal({
           ) : (
             <button
               onClick={goDashboard}
-              className="flex items-center gap-2 rounded-full bg-primary-900 px-5 py-2 text-white"
+              className="flex items-center gap-2 rounded-lg border-[1.5px] border-primary-900 px-4 h-9 text-[13px] font-semibold text-primary-900 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100"
               style={{
                 animation:
                   "slideFromLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards",

@@ -4,12 +4,14 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ChevronDown, LogOut, User } from "lucide-react";
+import { ChevronDown, LogOut, ShoppingCart, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 import { RawTempBuyer } from "@/src/services/buyer/buyerRegistrationService";
 import { BuyerOnboardingStatus, getBuyerProfileCompletion } from "@/src/hooks/useBuyerOnboardingStatus";
 import ProfileProgressRing from "@/src/app/commonComponents/ProfileProgressRing";
+import { useCart } from "@/src/context/CartContext";
+import { useBuyerCartDrawer } from "../../context/BuyerCartDrawerContext";
 
 interface BuyerHeaderProps {
   // Passed down from the dashboard page's own useBuyerOnboardingStatus()
@@ -26,6 +28,8 @@ export default function BuyerHeader({ tempBuyer, status }: BuyerHeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const { totalItems } = useCart();
+  const { openCart } = useBuyerCartDrawer();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -87,6 +91,20 @@ export default function BuyerHeader({ tempBuyer, status }: BuyerHeaderProps) {
         </Link>
 
         <div style={{ justifyContent: "flex-start", alignItems: "center", gap: 16, display: "flex" }}>
+          <button
+            type="button"
+            onClick={openCart}
+            aria-label={`Open cart${totalItems > 0 ? `, ${totalItems} product${totalItems === 1 ? "" : "s"}` : ""}`}
+            title="Cart"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full text-neutral-700 hover:bg-neutral-100"
+          >
+            <ShoppingCart size={20} />
+            {totalItems > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-900 px-1 text-[11px] font-semibold text-white">
+                {totalItems}
+              </span>
+            )}
+          </button>
           <div style={{ position: "relative" }} ref={userMenuRef}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}

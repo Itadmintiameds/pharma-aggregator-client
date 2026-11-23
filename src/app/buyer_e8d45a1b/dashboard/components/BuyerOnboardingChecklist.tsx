@@ -49,31 +49,31 @@ export default function BuyerOnboardingChecklist({ tempBuyer, status, completion
   ];
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-6 flex flex-col gap-6 h-fit">
-      <h2 className="text-h5 font-heading font-medium text-pneutral-900">Your activation checklist</h2>
+    <div className="flex h-fit flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4">
+      <h2 className="text-sm font-heading font-bold text-pneutral-900">Your activation checklist</h2>
 
       <ol className="flex flex-col">
         {items.map((item, index) => (
-          <li key={item.label} className="flex gap-4">
+          <li key={item.label} className="flex gap-3">
             <div className="flex flex-col items-center">
               <div
-                className={`w-6 h-6 flex items-center justify-center rounded-full shrink-0 border-2 ${
+                className={`w-5 h-5 flex items-center justify-center rounded-full shrink-0 border-2 ${
                   item.done ? "bg-success-500 border-success-700" : "bg-white border-neutral-200"
                 }`}
               >
-                {item.done && <Check size={14} className="text-white" strokeWidth={3.5} />}
+                {item.done && <Check size={12} className="text-white" strokeWidth={3.5} />}
               </div>
               {index !== items.length - 1 && (
                 <div
-                  className={`w-0 flex-1 min-h-[28px] my-1 border-l-2 border-dashed ${
+                  className={`w-0 flex-1 min-h-[16px] my-0.5 border-l-2 border-dashed ${
                     item.done ? "border-secondary-500" : "border-neutral-200"
                   }`}
                 />
               )}
             </div>
-            <div className="pb-6">
-              <p className={`text-p3 font-body font-semibold ${item.done ? "text-pneutral-900" : "text-pneutral-500"}`}>{item.label}</p>
-              {item.timestamp && <p className="text-p4 font-body font-regular text-pneutral-500 mt-0.5">{item.timestamp}</p>}
+            <div className="pb-3">
+              <p className={`text-[13px] font-body font-semibold ${item.done ? "text-pneutral-900" : "text-pneutral-500"}`}>{item.label}</p>
+              {item.timestamp && <p className="text-[11px] text-pneutral-500">{item.timestamp}</p>}
             </div>
           </li>
         ))}
@@ -81,10 +81,10 @@ export default function BuyerOnboardingChecklist({ tempBuyer, status, completion
 
       <a
         href="mailto:support@tiameds.ai"
-        className="flex items-center justify-between gap-2 rounded-xl bg-primary-100 px-4 py-3.5 text-p3 font-body font-semibold text-secondary-700"
+        className="flex items-center justify-between gap-2 rounded-lg bg-primary-100 px-3 py-2 text-xs font-semibold text-secondary-700 hover:bg-primary-50"
       >
         <span className="flex items-center gap-2">
-          <Headset size={18} className="shrink-0" />
+          <Headset size={15} className="shrink-0" />
           Need help? Contact our support team
         </span>
         <span aria-hidden className="shrink-0">→</span>
