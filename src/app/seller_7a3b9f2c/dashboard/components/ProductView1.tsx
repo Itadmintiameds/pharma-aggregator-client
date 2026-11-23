@@ -78,6 +78,7 @@ import {
 } from "lucide-react";
 import ProductImageGallery from "./ProductImageGallery";
 import { DEFAULT_RETURN_PERIOD_DAYS } from "@/src/utils/returnPolicy";
+import { offerStatus } from "@/src/utils/offers";
 import {
   editKeyForProduct,
   resolveProductCategoryId,
@@ -171,13 +172,6 @@ interface AdditionalDiscount {
   endsAt?: string | null;
   startDate?: string;
   endDate?: string;
-  effectiveStartTime?: string;
-  effectiveEndTime?: string;
-  displayOffer?: boolean;
-  // Computed by the backend from the window (IST).
-  active?: boolean;
-  startsAt?: string | null;
-  endsAt?: string | null;
 }
 
 interface CertificateDocument {

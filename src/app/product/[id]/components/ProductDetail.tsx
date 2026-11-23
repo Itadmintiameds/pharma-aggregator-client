@@ -1,6 +1,8 @@
 "use client";
 import { bestApplicableOffer, offerMinQty, offerPercent } from "@/src/utils/pricing";
 import { formatOfferInstant } from "@/src/utils/offerWindow";
+import { clockOffsetMs } from "@/src/utils/offers";
+import { useServerNow } from "@/src/hooks/useServerNow";
 import { resolveProductAvailability } from "@/src/utils/cartAvailability";
 import { returnPolicyLabel } from "@/src/utils/returnPolicy";
 

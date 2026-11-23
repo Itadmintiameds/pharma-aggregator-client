@@ -11,6 +11,7 @@ import {
   type OfferRules,
   type SpecialDiscountRow,
 } from "./StockUpdateModal";
+import { toTimeInput } from "@/src/utils/offerWindow";
 import { replaceBatchOffers } from "@/src/services/product/StockService";
 
 // The fields of a saved offer this drawer needs. Matches what product-service returns
@@ -36,20 +37,16 @@ interface BatchOffersDrawerProps {
   onSaved: () => void;
 }
 
-// A saved offer as an editable row. An offer that has dates but no times (e.g. from a bulk import) means
-// "from the start of the first day through the end of the last day", so those times are pre-filled.
+// A saved offer as an editable row. Dates without times mean the whole day, so empty times stay empty.
 const toRow = (o: SavedBatchOffer): SpecialDiscountRow => {
-  const hasWindow = !!(o.effectiveStartDate || o.effectiveEndDate);
   return {
     minimumPurchaseQuantity: o.minimumPurchaseQuantity != null ? String(o.minimumPurchaseQuantity) : "",
     percentage: o.additionalDiscountPercentage != null ? String(o.additionalDiscountPercentage) : "",
     displayOffer: o.displayOffer !== false,
-    alwaysActive: !hasWindow,
     startDate: o.effectiveStartDate ?? "",
-    startTime: o.effectiveStartTime ? o.effectiveStartTime.slice(0, 5) : o.effectiveStartDate ? "00:00" : "",
+    startTime: toTimeInput(o.effectiveStartTime),
     endDate: o.effectiveEndDate ?? "",
-    endTime: o.effectiveEndTime ? o.effectiveEndTime.slice(0, 5) : o.effectiveEndDate ? "23:59" : "",
-    fromServer: true,
+    endTime: toTimeInput(o.effectiveEndTime),
   };
 };
 

@@ -12,6 +12,8 @@ export interface BuyerProductPricing {
   finalPrice?: number;
   gstPercentage?: number;
   additionalDiscounts?: BuyerProductOffer[];
+  // Server clock at fetch time (ISO-8601); offers are re-checked against it, not the browser clock.
+  serverTime?: string;
 }
 
 // A time-limited quantity slab on a batch (backend AdditionalDiscountDto). `active` is computed by the server.

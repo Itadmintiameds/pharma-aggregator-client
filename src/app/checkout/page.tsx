@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import OfferCountdown from "@/src/app/components/OfferCountdown";
 import { BuyerQuantityOffer, bestOfferForQuantity, clockOffsetMs } from "@/src/utils/offers";
 import { useServerNow } from "@/src/hooks/useServerNow";
-import { resolveProductAvailability } from "@/src/utils/cartAvailability";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MapPin, Package, X } from "lucide-react";
@@ -194,7 +193,7 @@ function CheckoutPageInner() {
               const pricing = resolveProductAvailability(product).pricing;
               return [
                 product.productId,
-                { offers: pricing?.additionalDiscounts ?? [], offset: clockOffsetMs(pricing?.serverTime) },
+                { offers: (pricing?.additionalDiscounts ?? []) as BuyerQuantityOffer[], offset: clockOffsetMs(pricing?.serverTime) },
               ] as const;
             })
           )

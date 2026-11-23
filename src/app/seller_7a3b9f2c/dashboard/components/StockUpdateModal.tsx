@@ -42,20 +42,10 @@ interface SelectOption {
 
 // One row of the repeatable "special discount" list on a new batch — each row becomes its
 // own AdditionalDiscount record server-side (see StockService.SpecialDiscountPayload).
-interface SpecialDiscountRow extends OfferWindowInput {
+export interface SpecialDiscountRow extends OfferWindowInput {
   minimumPurchaseQuantity: string;
   percentage: string;
   displayOffer: boolean;
-  // Validity window. Dates are yyyy-MM-dd and times HH:mm, both in India Standard Time (IST),
-  // which is the zone the server evaluates offers in. alwaysActive = no time limit.
-  alwaysActive: boolean;
-  startDate: string;
-  startTime: string;
-  endDate: string;
-  endTime: string;
-  // True for a row loaded from the server. An already-ended offer is allowed to stay on the list
-  // (the seller can still remove it); only a NEW or edited window must end in the future.
-  fromServer?: boolean;
 }
 
 export const emptySpecialDiscountRow = (): SpecialDiscountRow => ({
@@ -64,29 +54,6 @@ export const emptySpecialDiscountRow = (): SpecialDiscountRow => ({
   displayOffer: true,
   ...emptyOfferWindow(),
 });
-
-const IST_OFFSET = "+05:30";
-const istMillis = (date: string, time: string) =>
-  new Date(`${date}T${time}:00${IST_OFFSET}`).getTime();
-
-// Why the row's validity window cannot be saved, or null when it is fine.
-export function offerWindowError(
-  row: SpecialDiscountRow,
-  now: number = Date.now()
-): string | null {
-  if (row.alwaysActive) return null;
-  if (!row.startDate || !row.startTime || !row.endDate || !row.endTime) {
-    return "Enter the start and end date and time, or tick \u201cAlways active\u201d.";
-  }
-  const start = istMillis(row.startDate, row.startTime);
-  const end = istMillis(row.endDate, row.endTime);
-  if (Number.isNaN(start) || Number.isNaN(end)) {
-    return "Enter a valid date and time.";
-  }
-  if (end <= start) return "The end must be after the start.";
-  if (!row.fromServer && end <= now) return "The end is already in the past.";
-  return null;
-}
 
 // What an offer must be measured against: the batch it sits on. The server enforces the same two rules.
 export interface OfferRules {
@@ -130,20 +97,10 @@ export const offerRowsToPayload = (rows: SpecialDiscountRow[]): SpecialDiscountP
     minimumPurchaseQuantity: Number(row.minimumPurchaseQuantity),
     additionalDiscountPercentage: Number(row.percentage),
     displayOffer: row.displayOffer,
-    ...(row.alwaysActive
-      ? {}
-      : {
-          effectiveStartDate: row.startDate,
-          effectiveStartTime: row.startTime,
-          effectiveEndDate: row.endDate,
-          effectiveEndTime: row.endTime,
-        }),
+    ...offerWindowPayload(row),
   }));
 
-export const describeOfferWindow = (row: SpecialDiscountRow): string =>
-  row.alwaysActive
-    ? "always active"
-    : `${row.startDate} ${row.startTime} to ${row.endDate} ${row.endTime} IST`;
+export const describeOfferWindow = (row: SpecialDiscountRow): string => offerWindowSummary(row);
 
 interface StockUpdateModalProps {
   open: boolean;
@@ -528,38 +485,18 @@ export default function StockUpdateModal({
       rows.map((row, i) => (i === index ? { ...row, ...patch } : row))
     );
 
-  // Buyers can order at most min(max order quantity, the batch's stock), so a larger offer quantity is unreachable.
-  const offerQtyLimit = (() => {
-    const stock = Number(newBatch.quantity);
-    const max = Number(newBatch.maximumOrderQuantity);
-    const limits = [stock, max].filter((n) => Number.isFinite(n) && n > 0);
-    return limits.length > 0 ? Math.min(...limits) : null;
-  })();
-  const offerQtyError = (row: SpecialDiscountRow): string | null => {
-    const qty = Number(row.minimumPurchaseQuantity);
-    if (offerQtyLimit != null && qty > offerQtyLimit)
-      return `Above what buyers can order (${offerQtyLimit}, the lower of stock and max order quantity). Raise them or lower this quantity.`;
-    return null;
+  // Rules for a NEW batch come from the form being filled in (the server re-checks against the stored batch).
+  const newBatchOfferRules: OfferRules = {
+    baseDiscountPercentage: newBatch.discountPercentage.trim() ? Number(newBatch.discountPercentage) : undefined,
+    minimumOrderQuantity: newBatch.minimumOrderQuantity.trim() ? Number(newBatch.minimumOrderQuantity) : undefined,
   };
 
-  const isDraftSpecialDiscountsValid = draftSpecialDiscounts.every(
-    (row) =>
-      row.percentage.trim() !== "" &&
-      Number(row.percentage) >= 0 &&
-      Number(row.percentage) <= 100 &&
-      Number(row.minimumPurchaseQuantity) > 0 &&
-      offerWindowError(row) == null &&
-      offerQtyError(row) == null
+  const isDraftSpecialDiscountsValid = draftSpecialDiscounts.every((row) =>
+    isOfferRowValid(row, newBatchOfferRules)
   );
 
-  const isSpecialDiscountsValid = specialDiscounts.every(
-    (row) =>
-      row.percentage.trim() !== "" &&
-      Number(row.percentage) >= 0 &&
-      Number(row.percentage) <= 100 &&
-      Number(row.minimumPurchaseQuantity) > 0 &&
-      offerWindowError(row) == null &&
-      offerQtyError(row) == null
+  const isSpecialDiscountsValid = specialDiscounts.every((row) =>
+    isOfferRowValid(row, newBatchOfferRules)
   );
 
   const isStep2Valid =
@@ -2087,7 +2024,6 @@ export default function StockUpdateModal({
           onAddRow={addDraftSpecialDiscountRow}
           onRemoveRow={removeDraftSpecialDiscountRow}
           onUpdateRow={updateDraftSpecialDiscountRow}
-          rowError={offerQtyError}
           onCancel={cancelSpecialOffers}
           onSave={saveSpecialOffers}
           rules={newBatchOfferRules}
@@ -2155,7 +2091,6 @@ export function SpecialOffersDrawer({
   onAddRow,
   onRemoveRow,
   onUpdateRow,
-  rowError,
   onCancel,
   onSave,
   rules,
@@ -2166,7 +2101,6 @@ export function SpecialOffersDrawer({
   onAddRow: () => void;
   onRemoveRow: (index: number) => void;
   onUpdateRow: (index: number, patch: Partial<SpecialDiscountRow>) => void;
-  rowError: (row: SpecialDiscountRow) => string | null;
   onCancel: () => void;
   onSave: () => void;
 }) {
@@ -2327,11 +2261,6 @@ export function SpecialOffersDrawer({
                     placeholder="e.g. 5"
                     style={inputStyle}
                   />
-                  {rowError(row) && (
-                    <p style={{ margin: "4px 0 0", fontSize: 12, color: "#B91C1C" }}>
-                      {rowError(row)}
-                    </p>
-                  )}
                 </Field>
                 <Field label="Special Discount %">
                   <input
@@ -2348,6 +2277,19 @@ export function SpecialOffersDrawer({
                   />
                 </Field>
               </div>
+              {offerRuleError(row, rules) && (
+                <p role="alert" style={{ margin: "10px 0 0", fontSize: 12.5, color: "#DC2626" }}>
+                  {offerRuleError(row, rules)}
+                </p>
+              )}
+              {rules &&
+                (rules.baseDiscountPercentage != null || rules.minimumOrderQuantity != null) &&
+                index === 0 && (
+                  <p style={{ margin: "10px 0 0", fontSize: 12, color: TEXT_GRAY }}>
+                    {rules.baseDiscountPercentage != null && <>Regular discount: {rules.baseDiscountPercentage}%. </>}
+                    {rules.minimumOrderQuantity != null && <>Minimum order: {rules.minimumOrderQuantity} units.</>}
+                  </p>
+                )}
               <div style={{ marginTop: 12 }}>
                 <OfferWindowFields
                   value={row}
