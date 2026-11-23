@@ -188,9 +188,22 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
   const { openSignupModal, openLoginModal } = useBuyerLoginModal();
   const [isBuyerLoggedIn, setIsBuyerLoggedIn] = useState(() => buyerAuthService.isAuthenticated());
 
+  // Server clock minus browser clock, measured ONCE when the product arrives. It must not be recomputed
+  // on every render: `serverTime - Date.now()` changes with every call, so adding it back to Date.now()
+  // always yields the same instant and the countdown would never move.
+  const [serverClockOffset, setServerClockOffset] = useState(0);
+
   useEffect(() => {
-    getProductById(productId).then((result) => setProduct(result ?? null));
+    getProductById(productId).then((result) => {
+      setServerClockOffset(clockOffsetMs(result ? resolveProductAvailability(result).pricing?.serverTime : undefined));
+      setProduct(result ?? null);
+    });
   }, [productId]);
+
+  // Offers are time-limited: keep a server-time clock ticking while the product has any, so a countdown
+  // runs and an offer disappears the second it ends (the browser's own clock is not trusted).
+  const hasOffers = (product ? resolveProductAvailability(product).pricing?.additionalDiscounts?.length ?? 0 : 0) > 0;
+  const serverNowMs = useServerNow(serverClockOffset, hasOffers);
 
   useEffect(() => {
     const syncBuyerAuth = () => setIsBuyerLoggedIn(buyerAuthService.isAuthenticated());

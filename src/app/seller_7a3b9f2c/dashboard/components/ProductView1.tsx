@@ -150,13 +150,25 @@ interface PricingDetails {
   deletedAt?: string | null;
 }
 
+// "Active" / "Ended" / "Scheduled" for an offer with a time window (see utils/offers).
+const offerStatusText = (d: { startsAt?: string | null; endsAt?: string | null; active?: boolean }): string => {
+  const status = offerStatus(d, Date.now());
+  return status === "active" ? "Active" : status === "scheduled" ? "Scheduled" : status === "ended" ? "Ended" : "";
+};
+
 interface AdditionalDiscount {
   additionalDiscountId?: string;
   minimumPurchaseQuantity?: number;
   maximumPurchaseQuantity?: number;
   additionalDiscountPercentage?: number;
+  displayOffer?: boolean | null;
   effectiveStartDate?: string;
+  effectiveStartTime?: string | null;
   effectiveEndDate?: string;
+  effectiveEndTime?: string | null;
+  active?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
   startDate?: string;
   endDate?: string;
   effectiveStartTime?: string;

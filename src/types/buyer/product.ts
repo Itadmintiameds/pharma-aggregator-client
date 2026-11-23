@@ -1,3 +1,5 @@
+import type { BuyerQuantityOffer } from "@/src/utils/offers";
+
 export interface BuyerProductPricing {
   pricingId?: string;
   packagingId?: string;

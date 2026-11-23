@@ -610,7 +610,7 @@ const ConsumableView = ({
                       </span>
                     ))}
                   </p>
-                  <span className="font-body text-[12px] leading-[18px] text-pneutral-500 mt-1">Valid: Ongoing</span>
+                  <OfferValidity offers={additionalDiscounts} />
                 </div>
               </div>
             )}

@@ -2,6 +2,10 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import OfferCountdown from "@/src/app/components/OfferCountdown";
+import { BuyerQuantityOffer, bestOfferForQuantity, clockOffsetMs } from "@/src/utils/offers";
+import { useServerNow } from "@/src/hooks/useServerNow";
+import { resolveProductAvailability } from "@/src/utils/cartAvailability";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MapPin, Package, X } from "lucide-react";
@@ -167,6 +171,13 @@ function CheckoutPageInner() {
   // filled in when missing) since order-quantity limits can change after an
   // item is already in cart, and don't depend on the buyer having visited
   // /cart first (which runs the same sync) to get there.
+  const [offerInfo, setOfferInfo] = useState<Map<string, { offers: BuyerQuantityOffer[]; offset: number }>>(new Map());
+  const anyOffers = Array.from(offerInfo.values()).some((info) => info.offers.length > 0);
+  const serverNowMs = useServerNow(
+    Array.from(offerInfo.values())[0]?.offset ?? 0,
+    anyOffers
+  );
+
   useEffect(() => {
     if (items.length === 0) {
       setResolvingPricing(false);
@@ -176,6 +187,18 @@ function CheckoutPageInner() {
       try {
         const products = await getProductsByIds(items.map((item) => item.productId));
         const byId = new Map(products.map((product) => [product.productId, product]));
+        // Keep each product's live quantity offers (and the server clock) to show what the order qualifies for.
+        setOfferInfo(
+          new Map(
+            products.map((product) => {
+              const pricing = resolveProductAvailability(product).pricing;
+              return [
+                product.productId,
+                { offers: pricing?.additionalDiscounts ?? [], offset: clockOffsetMs(pricing?.serverTime) },
+              ] as const;
+            })
+          )
+        );
         items.forEach((item) => {
           const product = byId.get(item.productId);
           if (!product) return;
@@ -598,6 +621,13 @@ function CheckoutPageInner() {
                   })
                 )}
               </div>
+
+              {!isQuoteMode &&
+                items.some((item) => bestOfferForQuantity(offerInfo.get(item.productId)?.offers, item.quantity, serverNowMs)) && (
+                  <p className="text-p4 font-body text-pneutral-600 mt-3">
+                    Special-offer discounts are applied when the order is placed, if the offer is still running at that moment.
+                  </p>
+                )}
 
               {isQuoteMode && (
                 <p className="text-p4 font-body text-primary-800 bg-primary-05 rounded-lg px-3 py-2 mt-3">

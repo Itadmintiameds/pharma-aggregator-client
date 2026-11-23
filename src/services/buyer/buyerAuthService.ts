@@ -29,6 +29,7 @@ type VerifyOtpApiResponse = ApiResponse<BuyerLoginResponse>;
 class BuyerAuthService {
   private readonly authBaseUrl = "/buyer/authentication";
   private readonly signupBaseUrl = "/buyer/auth/signup";
+  private readonly passwordBaseUrl = "/buyer/auth";
 
   private extractErrorMessage(error: unknown, fallback: string): string {
     if (axios.isAxiosError(error)) {
@@ -175,10 +176,60 @@ class BuyerAuthService {
   // exist yet at this point — the buyer logs in again normally afterward.
   async resetPassword(data: BuyerResetPasswordRequest): Promise<void> {
     try {
-      const response = await buyerApi.post<ApiResponse<null>>(`${this.authBaseUrl}/reset-password`, data);
+      // /auth/reset-password lives on buyer-service's AuthController (gateway: /buyer/auth/**);
+      // there is no /authentication/reset-password, which is what this used to call (always 404).
+      const response = await buyerApi.post<ApiResponse<null>>(`${this.passwordBaseUrl}/reset-password`, data);
       if (response.data.status !== "SUCCESS") {
         throw new Error(response.data.message || "Failed to reset password");
       }
+    } catch (error) {
+      throw new Error(this.extractErrorMessage(error, "Failed to reset password. Please try again."));
+    }
+  }
+
+  // ========== FORGOT PASSWORD (email OTP → reset token → new password) ==========
+
+  // Step 1. The backend answers the same whether or not the email has an account.
+  async forgotPasswordSendOtp(email: string): Promise<void> {
+    try {
+      await buyerApi.post(`${this.passwordBaseUrl}/forgot-password`, { email: email.trim() });
+    } catch (error) {
+      throw new Error(this.extractErrorMessage(error, "Failed to send OTP. Please try again."));
+    }
+  }
+
+  // Step 2. Returns the short-lived reset token that step 3 needs.
+  async verifyForgotPasswordOtp(email: string, otp: string): Promise<string> {
+    try {
+      const response = await buyerApi.post<ApiResponse<{ resetToken: string }>>(
+        `${this.passwordBaseUrl}/verify-otp`,
+        { email: email.trim(), otp }
+      );
+      const resetToken = response.data?.data?.resetToken;
+      if (!resetToken) {
+        throw new Error("Could not verify the OTP. Please try again.");
+      }
+      return resetToken;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 410) {
+          throw new Error("OTP has expired. Please request a new OTP.");
+        }
+        if (error.response?.status === 429) {
+          throw new Error("Too many failed attempts. Please request a new OTP.");
+        }
+      }
+      throw new Error(this.extractErrorMessage(error, "OTP verification failed. Please try again."));
+    }
+  }
+
+  // Step 3. The token is single-use; the buyer logs in normally afterward.
+  async resetForgottenPassword(resetToken: string, newPassword: string): Promise<void> {
+    try {
+      await buyerApi.post(`${this.passwordBaseUrl}/reset-password-with-token`, {
+        token: resetToken,
+        newPassword,
+      });
     } catch (error) {
       throw new Error(this.extractErrorMessage(error, "Failed to reset password. Please try again."));
     }

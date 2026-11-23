@@ -17,6 +17,8 @@ export default function BuyerLoginModal() {
   const [step, setStep] = useState<LoginStep>("LOGIN");
   const [tempCredentials, setTempCredentials] = useState({ username: "", password: "" });
   const [resetEmail, setResetEmail] = useState("");
+  // Single-use token from forgot-password OTP verification; empty for the first-login reset flow.
+  const [resetToken, setResetToken] = useState("");
 
   // Reset back to the login screen once the popup is closed, so reopening it
   // later doesn't resume mid-OTP/reset from a previous session.
@@ -25,6 +27,7 @@ export default function BuyerLoginModal() {
       setStep("LOGIN");
       setTempCredentials({ username: "", password: "" });
       setResetEmail("");
+      setResetToken("");
     }
   }, [isOpen]);
 
@@ -68,6 +71,7 @@ export default function BuyerLoginModal() {
                 onBack={() => setStep("LOGIN")}
                 onNeedsPasswordReset={(email) => {
                   setResetEmail(email);
+                  setResetToken("");
                   setStep("RESET_PASSWORD");
                 }}
               />
@@ -86,13 +90,30 @@ export default function BuyerLoginModal() {
             {step === "FORGOT_PASSWORD_OTP" && (
               <ForgotPasswordOtpStep
                 email={resetEmail}
-                onVerified={() => setStep("RESET_PASSWORD")}
+                onVerified={(token) => {
+                  setResetToken(token);
+                  setStep("RESET_PASSWORD");
+                }}
                 onBack={() => setStep("FORGOT_PASSWORD")}
               />
             )}
 
             {step === "RESET_PASSWORD" && (
-              <ResetPasswordStep email={resetEmail} onDone={() => setStep("LOGIN")} />
+              <ResetPasswordStep
+                email={resetEmail}
+                resetToken={resetToken || undefined}
+                currentPassword={resetToken ? undefined : tempCredentials.password}
+                onDone={() => {
+                  // drop the temporary password from memory as soon as it has been used
+                  setResetToken("");
+                  setTempCredentials({ username: "", password: "" });
+                  setStep("LOGIN");
+                }}
+                onBack={() => {
+                  setResetToken("");
+                  setStep("LOGIN");
+                }}
+              />
             )}
           </div>
         </div>

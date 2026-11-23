@@ -46,14 +46,104 @@ interface SpecialDiscountRow extends OfferWindowInput {
   minimumPurchaseQuantity: string;
   percentage: string;
   displayOffer: boolean;
+  // Validity window. Dates are yyyy-MM-dd and times HH:mm, both in India Standard Time (IST),
+  // which is the zone the server evaluates offers in. alwaysActive = no time limit.
+  alwaysActive: boolean;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  // True for a row loaded from the server. An already-ended offer is allowed to stay on the list
+  // (the seller can still remove it); only a NEW or edited window must end in the future.
+  fromServer?: boolean;
 }
 
-const emptySpecialDiscountRow = (): SpecialDiscountRow => ({
+export const emptySpecialDiscountRow = (): SpecialDiscountRow => ({
   minimumPurchaseQuantity: "",
   percentage: "",
   displayOffer: true,
   ...emptyOfferWindow(),
 });
+
+const IST_OFFSET = "+05:30";
+const istMillis = (date: string, time: string) =>
+  new Date(`${date}T${time}:00${IST_OFFSET}`).getTime();
+
+// Why the row's validity window cannot be saved, or null when it is fine.
+export function offerWindowError(
+  row: SpecialDiscountRow,
+  now: number = Date.now()
+): string | null {
+  if (row.alwaysActive) return null;
+  if (!row.startDate || !row.startTime || !row.endDate || !row.endTime) {
+    return "Enter the start and end date and time, or tick \u201cAlways active\u201d.";
+  }
+  const start = istMillis(row.startDate, row.startTime);
+  const end = istMillis(row.endDate, row.endTime);
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    return "Enter a valid date and time.";
+  }
+  if (end <= start) return "The end must be after the start.";
+  if (!row.fromServer && end <= now) return "The end is already in the past.";
+  return null;
+}
+
+// What an offer must be measured against: the batch it sits on. The server enforces the same two rules.
+export interface OfferRules {
+  baseDiscountPercentage?: number;
+  minimumOrderQuantity?: number;
+}
+
+// Why the offer could never take effect on this batch, or null. The discount that applies is the better of
+// the batch's regular discount and the offer, so an offer that is not higher would be advertised to buyers
+// but never applied; and an offer threshold at or below the minimum order quantity is reached by every order.
+export function offerRuleError(row: SpecialDiscountRow, rules?: OfferRules): string | null {
+  if (!rules) return null;
+  if (
+    row.percentage.trim() !== "" &&
+    rules.baseDiscountPercentage != null &&
+    Number(row.percentage) <= rules.baseDiscountPercentage
+  ) {
+    return `The offer must be higher than the regular discount (${rules.baseDiscountPercentage}%), otherwise it never applies.`;
+  }
+  if (
+    row.minimumPurchaseQuantity.trim() !== "" &&
+    rules.minimumOrderQuantity != null &&
+    Number(row.minimumPurchaseQuantity) <= rules.minimumOrderQuantity
+  ) {
+    return `The minimum quantity must be above the minimum order quantity (${rules.minimumOrderQuantity}).`;
+  }
+  return null;
+}
+
+export const isOfferRowValid = (row: SpecialDiscountRow, rules?: OfferRules): boolean =>
+  row.percentage.trim() !== "" &&
+  Number(row.percentage) > 0 &&
+  Number(row.percentage) <= 100 &&
+  Number(row.minimumPurchaseQuantity) > 0 &&
+  offerRuleError(row, rules) === null &&
+  offerWindowError(row) === null;
+
+// The /stock payload for a list of rows (validity fields only when the offer is time-limited).
+export const offerRowsToPayload = (rows: SpecialDiscountRow[]): SpecialDiscountPayload[] =>
+  rows.map((row) => ({
+    minimumPurchaseQuantity: Number(row.minimumPurchaseQuantity),
+    additionalDiscountPercentage: Number(row.percentage),
+    displayOffer: row.displayOffer,
+    ...(row.alwaysActive
+      ? {}
+      : {
+          effectiveStartDate: row.startDate,
+          effectiveStartTime: row.startTime,
+          effectiveEndDate: row.endDate,
+          effectiveEndTime: row.endTime,
+        }),
+  }));
+
+export const describeOfferWindow = (row: SpecialDiscountRow): string =>
+  row.alwaysActive
+    ? "always active"
+    : `${row.startDate} ${row.startTime} to ${row.endDate} ${row.endTime} IST`;
 
 interface StockUpdateModalProps {
   open: boolean;
@@ -2000,6 +2090,7 @@ export default function StockUpdateModal({
           rowError={offerQtyError}
           onCancel={cancelSpecialOffers}
           onSave={saveSpecialOffers}
+          rules={newBatchOfferRules}
         />
       )}
     </div>
@@ -2058,7 +2149,7 @@ function Field({
   );
 }
 
-function SpecialOffersDrawer({
+export function SpecialOffersDrawer({
   rows,
   isValid,
   onAddRow,
@@ -2067,7 +2158,9 @@ function SpecialOffersDrawer({
   rowError,
   onCancel,
   onSave,
+  rules,
 }: {
+  rules?: OfferRules;
   rows: SpecialDiscountRow[];
   isValid: boolean;
   onAddRow: () => void;

@@ -4,25 +4,46 @@ import { useState } from "react";
 import Image from "next/image";
 import { TbMailFilled } from "react-icons/tb";
 import { toast } from "react-toastify";
+import { buyerAuthService } from "@/src/services/buyer/buyerAuthService";
 
 interface ForgotPasswordProps {
   onSubmitted: (email: string) => void;
   onBack: () => void;
 }
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function ForgotPassword({ onSubmitted, onBack }: ForgotPasswordProps) {
   const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  // Buyer accounts have no forgot-password API yet (unlike seller), so this
-  // just walks the user through the same screens as a front-end-only demo.
-  const handleSubmit = () => {
-    if (!email) return;
-    toast.success("OTP sent to your email!");
-    onSubmitted(email);
+  const trimmedEmail = email.trim();
+  const isEmailValid = EMAIL_PATTERN.test(trimmedEmail);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+
+    if (!isEmailValid) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await buyerAuthService.forgotPasswordSendOtp(trimmedEmail);
+      // The server answers identically for unknown emails, so the wording must not promise delivery.
+      toast.success("If this email is registered, a verification code has been sent.");
+      onSubmitted(trimmedEmail);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send OTP. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div>
+    <form onSubmit={handleSubmit} noValidate>
       <div className="mb-6 flex justify-center">
         <Image src="/assets/images/tiameds.logo.png" alt="TiaMeds" width={233} height={108} priority />
       </div>
@@ -30,7 +51,7 @@ export default function ForgotPassword({ onSubmitted, onBack }: ForgotPasswordPr
       <h2 className="text-h5 font-medium text-center text-pneutral-900 mb-2 font-heading">Forgot Password</h2>
 
       <p className="text-sm text-pneutral-600 text-center mb-6">
-        Enter your email. An OTP will be send to your email address.
+        Enter your registered email. We will send a verification code to it.
       </p>
 
       <div className="mb-6">
@@ -39,27 +60,29 @@ export default function ForgotPassword({ onSubmitted, onBack }: ForgotPasswordPr
             <TbMailFilled className="w-5 h-5" />
           </div>
           <input
-            type="text"
+            type="email"
+            inputMode="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
-            autoComplete="off"
+            autoComplete="email"
+            disabled={submitting}
             className="w-full h-12 pl-12 pr-4 leading-none rounded-lg border border-pneutral-300 bg-pneutral-50 focus:outline-none focus:ring-0 focus:ring-pneutral-300"
           />
         </div>
       </div>
 
       <button
-        onClick={handleSubmit}
-        disabled={!email}
-        className="w-full h-12 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] mb-4 bg-primary-800 text-pneutral-50 disabled:cursor-not-allowed"
+        type="submit"
+        disabled={!isEmailValid || submitting}
+        className="w-full h-12 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] mb-4 bg-primary-800 text-pneutral-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Verify
+        {submitting ? "Sending..." : "Send OTP"}
       </button>
 
-      <button onClick={onBack} className="text-sm text-center w-full text-primary-700 hover:underline">
+      <button type="button" onClick={onBack} className="text-sm text-center w-full text-primary-700 hover:underline">
         ← Back to Login
       </button>
-    </div>
+    </form>
   );
 }

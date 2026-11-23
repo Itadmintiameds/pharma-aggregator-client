@@ -141,11 +141,7 @@ export interface VerifyForgotPasswordOtpResponse {
   message: string;
   count: null | number;
   data: {
-    status: string;
-    message: string;
-    data: {
-      resetToken: string;
-    };
+    resetToken: string;
   };
 }
 
