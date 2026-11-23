@@ -8,6 +8,7 @@ import Footer from "./Footer";
 import ProductGrid from "./ProductGrid";
 import FeatureBrands from "./FeatureBrands";
 import PromoBanner from "./PromoBanner";
+import AdCarousel from "./AdCarousel";
 import CategoryTiles from "./CategoryTiles";
 import QuickNavRail from "./QuickNavRail";
 import ProductRail from "./ProductRail";
@@ -70,6 +71,7 @@ const Home = () => {
             <QuickNavRail />
             <div className="min-w-0 flex-1">
               <PromoBanner />
+              <AdCarousel />
               <CategoryTiles />
               <FeatureBrands />
               <ProductRail title="Newest Arrivals" subtitle="Recently listed by verified sellers" params={{ sort: "newest" }} />
